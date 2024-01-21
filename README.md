@@ -404,7 +404,30 @@ the sums in Numpy.
 | Size of keyed 1000x1000 array (MB) |  39.4  |   98.1   |          |        |  119   |         |
 
 The numbers above are using Pandas 1.5.3. There was approximately 6% improvement when run with
-Pandas 2.1.4. Using engine='pyarrow' makes the conversion times worse. 
+Pandas 2.1.4. Using engine='pyarrow' makes the conversion times worse. This analysis is based on
+using asizeof to calculate the true memory footprint, and to be fair, returning rows must return
+a python dict rather than
+
+## Conclusion and Summary
 
 The general conclusion is that it generally beneficial to use Pydf instead of lod or pandas df and
 then when number crunching is needed, prepare the data with Pydf and convert directly to Numpy.
+
+We find that in practice, we had many cases where Pandas data frames were being used only for 
+reading data to the array, and then converting to lod data type and processing by rows, and then
+building another lod structure, only to convert to df at the end, with no data crunching where
+Pandas excels. We found also that when we performed column-based calculations, that they were 
+wasteful because they would routinely process all data in the column rather than terminating 
+early. 
+
+Pandas is a very large package and it takes time to load, and may be too big for embedded or 
+other memory-constrained applications, whereas Pydf is a very lightweight Package.
+
+Pandas is best suited for interactive operation where time constraints are of no consequence.
+
+At this time, Pydf is new, and we are still working on the set of methods needed most often 
+while recognizing that Numpy will be the best option for true number crunching. Please let
+us know of your ideas and improvements.
+
+
+
