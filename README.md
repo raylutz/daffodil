@@ -362,13 +362,13 @@ formulas are re-evaluated until there are no further changes. A RuntimeError wil
 #### Special Notation
 Use within formulas as a convenient shorthand:
 
-- $d -- references the current pydf instance
-- $c -- the current cell column index
-- $r -- the current cell row index
+- \$d -- references the current pydf instance
+- \$c -- the current cell column index
+- \$r -- the current cell row index
 
-By using the current cell references $r and $c, formulas can be "relative", similar to spreadsheet formulas.
-In contrast with typical spreadsheet formulas which are treated as relative, unless they are made absolute by using $,
-here, the references are absolute unless you create a relative reference by relating to the current cell row $r and/or column $c.
+By using the current cell references \$r and \$c, formulas can be "relative", similar to spreadsheet formulas.
+In contrast with typical spreadsheet formulas which are treated as relative, unless they are made absolute by using \$,
+here, the references are absolute unless you create a relative reference by relating to the current cell row \$r and/or column \$c.
         
 #### Example usage:
 In this example, we have an 4 x 3 array and we will sum the rows and columns to the right and bottom col and row, respectively.
