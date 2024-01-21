@@ -183,84 +183,98 @@ TODO: The number of rows and cols to be printed in this form default to 10 but s
             use_copy:   bool                    = False,    # If True, make a deep copy of the lol data.
             disp_cols:  Optional[T_ls]          = None,     # Optional list of strings to use for display, if initialized.
 
-    # create empty pydf with nothing specified.
+#### create empty pydf with nothing specified.
+    
     my_pydf = Pydf()
 
-    # create empty pydf with specified cols and keyfield, and with dtypes defined.
+#### create empty pydf with specified cols and keyfield, and with dtypes defined.
+    
     my_pydf = Pydf(cols=list_of_colnames, keyfield=fieldname, detype=dtype_dict) 
     
-    # create empty pydf with only keyfield specified.
+#### create empty pydf with only keyfield specified.
+    
     my_pydf = Pydf(keyfield=fieldname)
 
-    # create an empty pydf object with same cols and keyfield.
+#### create an empty pydf object with same cols and keyfield.
+    
     new_pydf = self.clone_empty()
 
-    # Set data table with new_lol (list of list) data item
+#### Set data table with new_lol (list of list) data item
+    
     my_pydf.set_lol(self, new_lol)
 
-    # create new pydf and fill with data from lod (list of dict) also optionally set keyfield and dtype
-    # the cols will be defined from the keys used in the lod. The lod should have the same keys in every record.
+#### create new pydf with additional parameters
+Fill with data from lod (list of dict) also optionally set keyfield and dtype.
+The cols will be defined from the keys used in the lod. The lod should have the same keys in every record.
+
     my_pydf = Pydf.from_lod(lod, keyfield=fieldname, dtype=dtype_dict)
     
-    # convert Pandas df to Pydf
+#### convert Pandas df to Pydf
+    
     my_pydf = Pydf.from_pandas_df(df)
 
-    # convert to Pandas df
+#### convert to Pandas df
+    
     my_pandas_df = my_pydf.to_pandas_df()
     
-    # # produce lod (list of dictionaries) type. Generally not needed.
-    lod = my_pydf.to_lod()
+#### produce lod (list of dictionaries) type. 
+Generally not needed as any actions that can be performed on lod can be done with pydf.
 
+    lod = my_pydf.to_lod()
     
 ### columns and row indexing
 
-    # return column names defined
+#### return column names defined
     my_pydf.columns()
     
-    # return list of row keyfield values, if keyfield is defined.
+#### return list of row keyfield values, if keyfield is defined.
     my_pydf.keys()    
     
 ### appending and row/column manipulation    
     
-    # append a single row provided as a dictionary.
+#### append a single row provided as a dictionary.
     my_pydf.append(row)
     
-    # append multiple rows as a list of dictionaries.
+#### append multiple rows as a list of dictionaries.
     my_pydf.append(lod)
     
-    # concatenate another pydf as additional rows.
+#### concatenate another pydf as additional rows.
     my_pydf.append(pydf)    
 
 
 ### selecting and removing records by keys
 
-    # select one record using keyfield.
+#### select one record using keyfield.
     record_da = my_pydf.select_record_da(keyvalue)                              
 
-    # select multiple records using the keyfield and return pydf.
+#### select multiple records using the keyfield and return pydf.
     new_pydf = my_pydf.select_records_pydf(keyvalue_list)
 
-    # remove a record using keyfield
+#### remove a record using keyfield
     my_pydf.remove_key(keyval)
     
-    # remove multiple records using multiple keys in a list.
+#### remove multiple records using multiple keys in a list.
     my_pydf.remove_keylist(keylist)
 
 
 ### selecting records without using keyfield
 
-    # select records based on a conditional expression.
+#### select records based on a conditional expression.
+
     pydf = pydf.select_where("conditional expression with 'row' like row['fieldname'] > 5")
-        or 
+or
+
     pydf = pydf.select_where(f"row['fieldname'] > {row_limit}")     # use f-strings to import local values.
     
-    # Select one record from pydf using the idx and return as a dict.
+#### Select one record from pydf using the idx and return as a dict.
+    
     record_da = my_pydf.iloc(row_idx)
     
-    # select records by matching fields in a dict, and return a lod. inverse means return records that do not match.
+#### select records by matching fields in a dict, and return a lod. inverse means return records that do not match.
+    
     my_lod = my_pydf.select_by_dict_to_lod(selector_da={field:fieldval,...}, expectmax: int=-1, inverse: bool=False)
     
-    # select records by matching fields in a dict, and return a new_pydf. inverse means return records that do not match.
+#### select records by matching fields in a dict, and return a new_pydf. inverse means return records that do not match.
     new_pydf = my_pydf.select_by_dict(selector_da, expectmax: int=-1, inverse=False)
     
 ### column operations    
@@ -324,16 +338,16 @@ Will generally return the simplest type possible, such as cell contents, a list 
       my_pydf[:, 3:5]   -- select columns 3 and 4, including all rows, return as pydf.
     
 ### Indexing: setting values in a pydf:
-    my_pydf[irow] = list              -- assign the entire row at index irow to the list provided
-    my_pydf[irow] = value             -- assign the entire row at index row to the value provided.
-    my_pydf[irow, icol] = value       -- set cell irow, icol to value, where irow, icol are integers.
-    my_pydf[irow, start:end] = value  -- set a value in cells in row irow, from columns start to end.
-    my_pydf[irow, start:end] = list   -- set values from a list in cells in row irow, from columns start to end.
-    my_pydf[:, icol] = list           -- assign the entire column at index icol to the list provided.
-    my_pydf[start:end, icol] = list   -- assign a partial column at index icol to list provided.
-    my_pydf[irow, colname] = value    -- set a value in cell irow, col, where colname is a string.
-    my_pydf[:, colname] = list        -- assign the entire column colname to the list provided.
-    my_pydf[start:end, colname] = list    -- assign a partial column colname to list provided from rows start to end.
+     my_pydf[irow] = list              -- assign the entire row at index irow to the list provided
+     my_pydf[irow] = value             -- assign the entire row at index row to the value provided.
+     my_pydf[irow, icol] = value       -- set cell irow, icol to value, where irow, icol are integers.
+     my_pydf[irow, start:end] = value  -- set a value in cells in row irow, from columns start to end.
+     my_pydf[irow, start:end] = list   -- set values from a list in cells in row irow, from columns start to end.
+     my_pydf[:, icol] = list           -- assign the entire column at index icol to the list provided.
+     my_pydf[start:end, icol] = list   -- assign a partial column at index icol to list provided.
+     my_pydf[irow, colname] = value    -- set a value in cell irow, col, where colname is a string.
+     my_pydf[:, colname] = list        -- assign the entire column colname to the list provided.
+     my_pydf[start:end, colname] = list    -- assign a partial column colname to list provided from rows start to end.
 
 
 ### Spreadsheet-like formulas
@@ -353,10 +367,11 @@ Use within formulas as a convenient shorthand:
 - $r -- the current cell row index
 
 By using the current cell references $r and $c, formulas can be "relative", similar to spreadsheet formulas.
-Typical spreadsheet formulas are treated as relative, unless they are made absolute by using $.
-Here, the references are absolute unless you create a relative reference by relating to the current cell row $r and/or column $c.
+In contrast with typical spreadsheet formulas which are treated as relative, unless they are made absolute by using $,
+here, the references are absolute unless you create a relative reference by relating to the current cell row $r and/or column $c.
         
 #### Example usage:
+In this example, we have an 4 x 3 array and we will sum the rows and columns to the right and bottom col and row, respectively.
 
             example_pydf = Pydf(cols=['A', 'B', 'C'], 
                                 lol=[ [1,  2,   0],
@@ -368,7 +383,7 @@ Here, the references are absolute unless you create a relative reference by rela
                     lol=[['',                    '',                    "sum($d[$r,:$c])"],
                          ['',                    '',                    "sum($d[$r,:$c])"],
                          ['',                    '',                    "sum($d[$r,:$c])"],
-                         ["sum($d[:-1,$c])",     "sum($d[:-1,$c])",     "sum($d[:-1, $c])"]]
+                         ["sum($d[:$r,$c])",     "sum($d[:$r,$c])",     "sum($d[:$r, $c])"]]
                          )
                          
             example_pydf.apply_formulas(formulas_pydf)
@@ -434,7 +449,8 @@ This analysis is based on using asizeof to calculate the true memory footprint, 
 operations returning rows must return a python dict rather than a native data object, such as a
 pandas series. The conversion to dict can include some significant delay.
 
-Note: The above table was generated using Pydf.from_lod_to_cols() and my_pydf.md_pydf_table()
+Note: The above table was generated using Pydf.from_lod_to_cols() and my_pydf.md_pydf_table() and
+demonstrates how pydf can be helpful in creating markdown reports.
 
 
 ## Conclusion and Summary
