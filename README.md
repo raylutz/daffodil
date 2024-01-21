@@ -44,8 +44,10 @@ However it takes about 4x more memory than pandas dataframe and 10x more memory 
 Thus, Pydf is a compromise. It is not as wasteful as commonly used list-of-dict for such tables, and 
 is a good choice when rapid appends, inserts, and other mutation is required.
 
-It is recommended to use Pydf when processing data row-by-row and with data that does not represent numerical 
-data. For number crunching, use Numpy.
+When Pandas has mixed data types, it can be much larger than a Pydf equivalent.
+
+It is recommended to use Pydf when processing data row-by-row and with data that does not fit the uniform-grid
+of uniform data, such as for general records with many different types. For number crunching, use Numpy.
         
 ## Supports incremental appends
 
@@ -63,17 +65,14 @@ offer array manipulation primitives offered by Pydf.
 ## Can work with Pandas, Numpy, Sqlite
     
 Sometimes, Pandas or Numpy will be a good choice for array processing. In such cases, Pydf can be used to
-build the data structure and then port it to Pandas or Numpy. We must warn the user, however, that reading
-the data into those structures has substantial overhead of about 360x creating a copy of a Pydf structure.
+build the data structure and then port it to Pandas or Numpy. We must warn the user, however, that converting
+the data into Pandas has substantial overhead of about 360x creating a copy of a Pydf structure.
 
 A Pydf object is faster to create from a csv data file, either from local disk or cloud storage.
 It can be used in those cases when data is to be manipulated in record-based systems where column-based math
 operations are not used very often. Simple searches, grouping, and other operations are very fast but usually
 can't match the performance of Pandas or Numpy once a dataframe is constructed.
-
-Some operations require that data in separate large tables must be joined or merged. For these operations,
-sqlite is a good choice, and many of the same methods can be used on sqlite tables.
-    
+  
 ## Column names
 
 Similar to Pandas and other dataframe concepts, Pydf has a separate set of column names that can be optionally
@@ -83,18 +82,18 @@ any characters, spaces and punctuation can be used. However, we recommend that y
 if you can and use underscore ("_") to separate characters into groups.
     
 When reading CSV files, the header is normally taken from the first (non-comment) line. However, you may be 
-working with CSV files with out a header. If user_format is specified on reading csv files, the csv data will
-be pre-processed and lines starting with # removed.
+working with CSV files without a header. If user_format is specified on reading csv files, the csv data will
+be pre-processed and "comment" lines starting with # removed.
 
 Set noheader=True to avoid creating a header line from csv input, so column names need not exist.
 Otherwise, column names are taken from first (non-comment) line and must be unique (or they are amended to be so.)
 If there are columns without a header, then these are named "UnnamedN" where N is the column number staring at 0. If there
-are duplicates, then the duplicate name is named "(duplicatename)_N", where (duplicatename) is the original name
+are duplicates, then the duplicate name is named "duplicatename_N", where 'duplicatename' is the original name
 and N is the column number.
 
 Even if column names are established, the column can still be indexed by number. Therefore, it is best if the column
-names used are not pure numbers. If "add_spreadsheet_col_names" is true, then traditional column names as found in 
-popular spreadsheet programs, `'A', 'B', ... 'Z', 'AA', 'AB'...`  are used.
+names used are not pure numbers, to avoid confusion. Traditional column names can be added with .add_AZ_cols() function, 
+similar to spreadsheet programs, `'A', 'B', ... 'Z', 'AA', 'AB'...`.
     
 ## Row keyfield   
     
@@ -136,14 +135,23 @@ produce convenient form with reduced rows and cols similar to Pandas.
 
 TODO: The number of rows and cols to be printed in this form default to 10 but should be changeable in the class.
 
-Extensive tabular reporting tools to create markdown reports are also available.
+#### create a Markdown table from a pydf instance that can be incorporated in reports.
+    my_pydf.md_pydf_table() 
+
+        parameters:
+            max_rows:       int     = 0,         # limit the maximum number of row by keeping leading and trailing rows.
+            max_cols:       int     = 0,         # limit the maximum number of cols by keeping leading and trailing cols.
+            just:           str     = '',        # provide the justification for each column, using <, ^, > meaning left, center, right justified.
+            shorten_text:   bool    = True,      # if the text in any field is more than the max_text_len, then shorten by keeping the ends and redacting the center text.
+            max_text_len:   int     = 80,        # see above.
+            smart_fmt:      bool    = False,     # if columns are numeric, then limit the number of figures right of the decimal to "smart" numbers.
+            include_summary: bool   = True,      # include a pandas-like summary after the table.
+
 
 ### size and shape
 
     len(pydf)
         Provide the number of rows currently used by the data array.
-    
-    len(instance_of_pydf) # count rows in array.
 
     bool(my_pydf)   # True only if my_pydf exists and is not empty.
     
@@ -152,9 +160,20 @@ Extensive tabular reporting tools to create markdown reports are also available.
 ### data typing and conversion
         
     dtype is a dict that specifies the datatype for each column.
-    if 'unflatten' is specified and dtype specifies json, then column will be unflattened using safe_eval()
+    if 'unflatten' is specified and dtype specifies json, then column will be unflattened when the data is read.
+    Unflattening will convert JSON in the csv file to produce any arbitrary data item that can be JSON'd.
 
 ### creation and conversion
+
+    Pydf() -- Create a new pydf instance.
+        parameters:
+            lol:        Optional[T_lola]        = None,     # Optional List[List[Any]] to initialize the data array. 
+            cols:       Optional[T_ls]          = None,     # Optional column names to use.
+            dtype:      Optional[T_dtype_dict]  = None,     # Optional dtype_dict describing the desired type of each column.
+            keyfield:   str                     = '',       # A field of the columns to be used as a key.
+            name:       str                     = '',       # An optional name of the Pydf array.
+            use_copy:   bool                    = False,    # If True, make a deep copy of the lol data.
+            disp_cols:  Optional[T_ls]          = None,     # Optional list of strings to use for display, if initialized.
 
     # create empty pydf with nothing specified.
     my_pydf = Pydf()
@@ -167,6 +186,9 @@ Extensive tabular reporting tools to create markdown reports are also available.
 
     # create an empty pydf object with same cols and keyfield.
     new_pydf = self.clone_empty()
+
+    # Set data table with new_lol (list of list) data item
+    my_pydf.set_lol(self, new_lol)
 
     # create new pydf and fill with data from lod (list of dict) also optionally set keyfield and dtype
     # the cols will be defined from the keys used in the lod. The lod should have the same keys in every record.
@@ -187,7 +209,7 @@ Extensive tabular reporting tools to create markdown reports are also available.
     # return column names defined
     my_pydf.columns()
     
-    # return list of row keyfield values
+    # return list of row keyfield values, if keyfield is defined.
     my_pydf.keys()    
     
 ### appending and row/column manipulation    
@@ -207,7 +229,7 @@ Extensive tabular reporting tools to create markdown reports are also available.
     # select one record using keyfield.
     record_da = my_pydf.select_record_da(keyvalue)                              
 
-    # select multiple records and return pydf.
+    # select multiple records using the keyfield and return pydf.
     new_pydf = my_pydf.select_records_pydf(keyvalue_list)
 
     # remove a record using keyfield
@@ -292,8 +314,6 @@ Will generally return the simplest type possible, such as cell contents, list, o
       my_pydf[2:4]      -- select rows 2 and 3, including all columns, return as pydf.
       my_pydf[2:4, :]   -- same as above
       my_pydf[:, 3:5]   -- select columns 3 and 4, including all rows, return as pydf.
-        
-    
     
 ### Indexing: setting values in a pydf:
     my_pydf[irow] = list              -- assign the entire row at index irow to the list provided
@@ -342,9 +362,13 @@ formulas are re-evaluated until there are no further changes. A RuntimeError wil
     
 ## Comparison with Pandas, Numpy SQLite
 
-Conversion to pandas directly from arbitrary python with the possibility of mixed types is apparently the issue.
-Note the time to convert from_lod (List of Dict) to Pandas is 59.3 seconds for 10 loops, about 5.9 seconds per conversion.
-Meanwhile, you can convert from lod to Numpy in only 0.63 seconds for 10 loops, and then from Numpy directly to Pandas
+Conversion to pandas directly from arbitrary python with the possibility of mixed types is surprisingly slow.
+
+We timed the various conversions using Pandas 1.5.3 and 2.4.1. Version 2.4.1 is about 6% faster. This analysis
+was done on an array of a million random integer values.
+
+Note the time to convert from_lod (List of Dict) to Pandas is about 5.9 seconds per conversion.
+Meanwhile, you can convert from lod to Numpy in only 0.063 seconds, and then from Numpy directly to Pandas
 instantly, because under the hood, Pandas uses numpy arrays. The advantage of using Pydf for arrays with mixed types
 gets even more pronounced when strings are mixed with numerical data. Notice that when we add a string column for
 indexing the rows in Pandas, the size explodes by more than 10x. 
@@ -354,10 +378,10 @@ decreases the memory space used by 1/3 over simple lod (list of dict) data struc
 economical in terms of space if the data is not mixed. Numpy is the most efficient on space because it does not
 allow mixed data types. Manipulating data in the array, such as incrementing values, inserting cols and rows, 
 generally is faster for Pydf over Pandas, while column-based operations such as summing all columns is far
-faster in Pandas than in Pydf, particularly transposing data. However, it generally is not worth moving to
+faster in Pandas than in Pydf. However, it generally is not worth moving to
 Pandas from Pydf unless at least 30 column operations are performed. 
 
-For example, when summing columns, df can save 1.75 seconds per operation, but 60/1.75 = 34. Thus, the 
+For example, when summing columns, Pandas can save 0.175 seconds per operation, but 6/0.175 = 34. Thus, the 
 conversion to dataframe is not worth it for that type of operation unless at least 34 similar operations
 are performed. It may be feasible to leverage the low coversion time from Pydf to Numpy, and then perform
 the sums in Numpy.
@@ -380,7 +404,7 @@ the sums in Numpy.
 | Size of keyed 1000x1000 array (MB) |  39.4  |   98.1   |          |        |  119   |         |
 
 The numbers above are using Pandas 1.5.3. There was approximately 6% improvement when run with
-Pandas 2.1.4. Using engine='pyarrow' makes the conversion worse. 
+Pandas 2.1.4. Using engine='pyarrow' makes the conversion times worse. 
 
 The general conclusion is that it generally beneficial to use Pydf instead of lod or pandas df and
 then when number crunching is needed, prepare the data with Pydf and convert directly to Numpy.
