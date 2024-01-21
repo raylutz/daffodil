@@ -406,7 +406,9 @@ the sums in Numpy.
 The numbers above are using Pandas 1.5.3. There was approximately 6% improvement when run with
 Pandas 2.1.4. Using engine='pyarrow' makes the conversion times worse. This analysis is based on
 using asizeof to calculate the true memory footprint, and to be fair, returning rows must return
-a python dict rather than
+a python dict rather than a native data object.
+
+(Note: The above table was generated using Pydf.from_lod_to_cols() and my_pydf.md_pydf_table())
 
 ## Conclusion and Summary
 
