@@ -202,7 +202,7 @@ For example, this markdown output will be converted to a table in this readme fi
         
     dtype is a dict that specifies the datatype for each column.
     if 'unflatten' is specified and dtype specifies json, then column will be unflattened when the data is read.
-    Unflattening will convert JSON in the csv file to produce any arbitrary data item that can be JSON'd.
+    Unflattening will convert JSON in the csv file to produce any arbitrary data item, such as lists or dicts.
 
 ### creation and conversion
 
