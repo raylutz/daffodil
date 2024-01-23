@@ -176,9 +176,6 @@ For example, this markdown output will be converted to a table in this readme fi
 
 \[1000 rows x 1000 cols; keyfield=; 0 keys ] (Pydf)
 
-
-TODO: The number of rows and cols to be printed in this form default to 10 but should be changeable in the class.
-
 #### create a Markdown table from a pydf instance that can be incorporated in reports.
     my_pydf.md_pydf_table() 
 
