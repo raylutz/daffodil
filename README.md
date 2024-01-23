@@ -132,6 +132,23 @@ One common usage pattern allows iteration over the rows and appending to another
             new_pydf.append(new_row)
             
         new_pdf.to_csv(file_path, flatten=True)     # create a flat csv file with any python objects flattened using JSON.    
+
+This common pattern can be abbreviated as:
+
+        my_pydf = Pydf.from_csv(file_path, unflatten=True)  
+        new_pydf.apply(transform_row)
+        new_pdf.to_csv(file_path, flatten=True)     # create a flat csv file with any python objects flattened using JSON.    
+
+And further extension of this pattern to apply the transformation to a set of csv files described by a chunk_manifest:
+
+        chunk_manifest_pydf = Pydf.from_csv(file_path, unflatten=True)  
+        result_manifest_pydf = chunk_manifest_pydf.manifest_apply(transform_row)
+
+Similarly, a set of csv_files can be reduced to a single record. For example, 
+for determining valuecounts of columns in a set of files:
+
+        chunk_manifest_pydf = Pydf.from_csv(file_path, unflatten=True)
+        result_record = chunk_manifest_pydf.manifest_reduce(count_values)
     
 ## Methods and functionality
        
