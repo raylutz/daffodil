@@ -158,6 +158,25 @@ produce convenient form with reduced rows and cols similar to Pandas.
 
     print(instance_of_pydf)
 
+For example, this markdown output will be converted to a table in this readme file. This is some random test data.
+
+| Col0 | Col1 | Col2 | Col3 | Col4 | ... | Col995 | Col996 | Col997 | Col998 | Col999 |
+| ---: | ---: | ---: | ---: | ---: | --: | -----: | -----: | -----: | -----: | -----: |
+|   51 |   92 |   14 |   71 |   60 | ... |      9 |     66 |     17 |     99 |     85 |
+|   33 |    7 |   39 |   82 |   41 | ... |     85 |     50 |     87 |     40 |     16 |
+|   75 |   45 |   31 |   78 |   79 | ... |     23 |     98 |     25 |     36 |     84 |
+|   53 |   20 |   73 |   37 |   45 | ... |     16 |     33 |     15 |     59 |     65 |
+|   65 |   89 |   12 |   55 |   30 | ... |     48 |     57 |     38 |     79 |     96 |
+|  ... |  ... |  ... |  ... |  ... | ... |    ... |    ... |    ... |    ... |    ... |
+|   47 |   57 |   85 |   63 |   23 | ... |     27 |     71 |     55 |     97 |     56 |
+|   71 |   48 |   29 |   19 |   43 | ... |     70 |     76 |     80 |     64 |      8 |
+|   37 |    4 |   96 |   39 |   82 | ... |     21 |     17 |     31 |     32 |     20 |
+|   23 |   39 |   77 |    9 |   21 | ... |      0 |     63 |     22 |     81 |     97 |
+|   86 |    9 |   27 |    2 |   40 | ... |     86 |     34 |     61 |     77 |     52 |
+
+\[1000 rows x 1000 cols; keyfield=; 0 keys ] (Pydf)
+
+
 TODO: The number of rows and cols to be printed in this form default to 10 but should be changeable in the class.
 
 #### create a Markdown table from a pydf instance that can be incorporated in reports.
