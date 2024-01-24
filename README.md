@@ -197,8 +197,8 @@ For example, this markdown output will be converted to a table in this readme fi
     
 ### data typing and conversion
         
-    dtype is a dict that specifies the datatype for each column.
-    if 'unflatten' is specified and dtype specifies json, then column will be unflattened when the data is read.
+    dtypes is a dict that specifies the datatype for each column.
+    if 'unflatten' is specified and dtypes specifies json, then column will be unflattened when the data is read.
     Unflattening will convert JSON in the csv file to produce any arbitrary data item, such as lists or dicts.
 
 ### creation and conversion
@@ -207,7 +207,7 @@ For example, this markdown output will be converted to a table in this readme fi
         parameters:
             lol:        Optional[T_lola]        = None,     # Optional List[List[Any]] to initialize the data array. 
             cols:       Optional[T_ls]          = None,     # Optional column names to use.
-            dtype:      Optional[T_dtype_dict]  = None,     # Optional dtype_dict describing the desired type of each column.
+            dtypes:     Optional[T_dtype_dict]  = None,     # Optional dtype_dict describing the desired type of each column.
             keyfield:   str                     = '',       # A field of the columns to be used as a key.
             name:       str                     = '',       # An optional name of the Pydf array.
             use_copy:   bool                    = False,    # If True, make a deep copy of the lol data.
@@ -219,7 +219,7 @@ For example, this markdown output will be converted to a table in this readme fi
 
 #### create empty pydf with specified cols and keyfield, and with dtypes defined.
     
-    my_pydf = Pydf(cols=list_of_colnames, keyfield=fieldname, detype=dtype_dict) 
+    my_pydf = Pydf(cols=list_of_colnames, keyfield=fieldname, dtypes=dtype_dict) 
     
 #### create empty pydf with only keyfield specified.
     
@@ -234,10 +234,10 @@ For example, this markdown output will be converted to a table in this readme fi
     my_pydf.set_lol(self, new_lol)
 
 #### create new pydf with additional parameters
-Fill with data from lod (list of dict) also optionally set keyfield and dtype.
+Fill with data from lod (list of dict) also optionally set keyfield and dtypes.
 The cols will be defined from the keys used in the lod. The lod should have the same keys in every record.
 
-    my_pydf = Pydf.from_lod(lod, keyfield=fieldname, dtype=dtype_dict)
+    my_pydf = Pydf.from_lod(lod, keyfield=fieldname, dtypes=dtype_dict)
     
 #### convert Pandas df to Pydf
     
@@ -324,7 +324,7 @@ or
 #### drop columns by list of colnames
     my_pydf.drop_cols(cols)
     
-#### return dict of sums of columns specified or those specified in dtype as int or float if numeric_only is True.
+#### return dict of sums of columns specified or those specified in dtypes as int or float if numeric_only is True.
     da = my_pydf.sum(colnames_ls, numeric_only=False)                       
 
 #### create cross-column lookup
