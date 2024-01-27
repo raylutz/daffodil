@@ -70,13 +70,13 @@ offer array manipulation primitives offered by Pydf.
 
 Similar to Pandas and other dataframe concepts, Pydf has a separate set of column names that can be optionally
 used to name the columns. This is organized internally as a Python dictionary for fast column lookups by name.
-There are no restrictions on column names. If you may use our interface with SQLite, you must avoid using the 
+There are no restrictions on column names. However, to use the interface with SQLite, you must avoid using the 
 double underscore "__" in the names, which is used to allow arbitrary names in SQLite. Also, please be aware 
-that SQLite is case insensitive while Pydf is generally sensitive to case. 
+that SQLite is case insensitive while Pydf is generally sensitive to case. Therefore, don't expect names to differ
+just because the case is different, although it usually will.
 
-Other than that, any characters, spaces and punctuation can be used. However, avoid 
-spaces and punctuation if possible and use underscore ("_") to separate characters into groups rather than space
-when you have control.
+It is good practice to avoid spaces and punctuation and use underscore ("_") to separate characters 
+into groups rather than space. 
     
 When reading CSV files, the header is normally taken from the first (non-comment) line. If "user_format" is 
 specified on reading csv files, the csv data will be pre-processed and "comment" lines starting with # removed.
