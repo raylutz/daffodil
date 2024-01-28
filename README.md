@@ -1,10 +1,12 @@
-# Pydf -- Python Dataframes
+![daffodil_logo](https://github.com/raylutz/Pydf/assets/14955977/5e141583-0216-429d-9ba8-be938aa13017)
 
-The Pydf package provides a lightweight, simple and fast 2-d dataframes, similar to Pandas, but built on 
-flexible list-of-list core array datatype rather than NumPy arrays.
+# Python Daffodil -- Pydf
+
+The Python Daffodil (Pydf) package provides a lightweight, simple and fast 2-d dataframes, similar to Pandas, but built on 
+the flexible and fast list-of-list array as the core datatype rather than NumPy arrays.
 
 Pydf is particularly well suited to applications for data munging, incremental appending, data pipelines,
-row-based apply and reducd fucnctions,  including support for chunked large data sets where column and array 
+row-based apply and reduce fucnctions,  including support for chunked large data sets where column and array 
 based number crunching does not dominate.
 
 It excels when the data array needs to be heavily manipulated, particularly by rows or individual data items.
