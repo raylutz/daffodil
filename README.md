@@ -4,7 +4,8 @@
 
 The Python Daffodil (Pydf) package provides a lightweight, simple and fast 2-d dataframes built on 
 the flexible and fast list-of-list array as the core datatype. Pydf is similar to Pandas and Numpy and
-can be converted easily to those types.
+can be converted easily to those types, but is faster and more convenient for mixed data types, and
+can be much faster than Pandas due to the low overhead of conversions.
 
 Pydf is particularly well suited to applications for data munging, incremental appending, data pipelines,
 row-based apply and reduce functions,  including support for chunked large data sets that can be described
