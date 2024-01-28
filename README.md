@@ -2,24 +2,29 @@
 
 # Python Daffodil -- Pydf
 
-The Python Daffodil (Pydf) package provides a lightweight, simple and fast 2-d dataframes, similar to Pandas, but built on 
-the flexible and fast list-of-list array as the core datatype rather than NumPy arrays.
+The Python Daffodil (Pydf) package provides a lightweight, simple and fast 2-d dataframes built on 
+the flexible and fast list-of-list array as the core datatype. Pydf is similar to Pandas and Numpy and
+can be converted easily to those types.
 
 Pydf is particularly well suited to applications for data munging, incremental appending, data pipelines,
-row-based apply and reduce fucnctions,  including support for chunked large data sets where column and array 
-based number crunching does not dominate.
+row-based apply and reduce functions,  including support for chunked large data sets that can be described
+by a Pydf table which operates as a manifest to chunks.
 
 It excels when the data array needs to be heavily manipulated, particularly by rows or individual data items.
 Spreadsheet-like operations are also provided, which are useful for processing the entire array with the same formula template,
 and can avoid glue code for many transformations. Python equations in the formula pane operate on the data
 pane and calculations from spreadsheet programs can be easily ported in, to avoid random glue code.
+
+![pydf_table](https://github.com/raylutz/Pydf/assets/14955977/011b0bf9-5461-4b0a-af45-5f2bf523417c)
+
     
 ## Fast for general data operations
 
 We were surprised to find that Pandas is very slow in converting data to a Pandas DataFrame.
 Pandas uses a numpy array for each column which must be allocated in memory as one contiguous block,
 and apparently there is overhead to coerce the data types. The delay may also be to provide a great deal of
-user and security protections.
+user and security protections. Converting a list-of_dict array to Pandas DataFrame takes about 350x longer than
+converting the same data to Pydf instance.
 
 Pydf datatype is based on list-of-list array, and uses a dictionary for column names and for row keys, 
 making it extremely fast for column and row indexing, while avoiding the requirement for 
