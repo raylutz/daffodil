@@ -1,19 +1,20 @@
 ![daffodil_logo](https://github.com/raylutz/Pydf/assets/14955977/5e141583-0216-429d-9ba8-be938aa13017)
 
-# Python Daffodil -- Pydf
+# PyDaffodil -- Pydf
 
-The Python Daffodil (Pydf) package provides a lightweight, simple and fast 2-d dataframes built on 
-the flexible and fast list-of-list array as the core datatype. Pydf is similar to other data frame
+The PyDaffodil (Pydf) package provides a lightweight, simple and flexible 2-d dataframes built on 
+python data types, including a list-of-list array as the core datatype. Daffodil is similar to other data frame
 packages, such as Pandas, Numpy, Polars, Swift, Vaex, Dask, PyArrow, SQLite, etc. Daffodil provides basic dataframe
-functionality which is not available in core python, but should. Daffodil uses standard python data types,
-and can mix data types in the array, can store any type within a cell, even another table. 
+functionality which is not available in core python, but should be. Daffodil uses standard python data types,
+and can mix data types in rows and columns, and can store any type within a cell, even another Pydf instance. 
 
 It works well in traditional pythonic processing paradigms, such as in loops, allowing fast row appends, 
 insertions and other opertions that column-oriented packages like Pandas handle poorly or don't offer at all.
 
-Pydf is particularly well suited to applications for data munging, incremental appending, data pipelines,
-row-based apply and reduce functions,  including support for chunked large data sets that can be described
-by a Pydf table which operates as a manifest to chunks.
+Daffodil is particularly well suited to applications for data munging, incremental appending, data pipelines,
+row-based apply and reduce functions, including support for chunked large data sets that can be described
+by a Daffodil table which operates as a manifest to chunks, and useful for delegations for parallel processing,
+where each delegation can handle a number of chunks.
 
 Daffodil is not necessarily slower than trying to use Pandas within your larger python program, because
 moving data in and out of those other packages can have an very high overhead. Pydf is a very simple
@@ -21,7 +22,9 @@ moving data in and out of those other packages can have an very high overhead. P
 objective. But it is also very compatible with other dataframe packages and can provide great way to 
 build and clean the data before providing the data to other packages for number crunching.
 
-It excels when the data array needs to be heavily manipulated, particularly by rows or individual data items.
+It excels when the data array needs to be heavily manipulated, particularly by rows or individual data items,
+particularly when rows are to be inserted, removed, or appended.
+
 Spreadsheet-like operations are also provided, which are useful for processing the entire array with the same formula template,
 and can avoid glue code for many transformations. Python equations in the formula pane operate on the data
 pane and calculations from spreadsheet programs can be easily ported in, to avoid random glue code.
@@ -33,22 +36,22 @@ pane and calculations from spreadsheet programs can be easily ported in, to avoi
 
 We were surprised to find that Pandas is very slow in importing python data to a Pandas DataFrame.
 Pandas uses a numpy array for each column which must be allocated in memory as one contiguous block,
-and apparently there is overhead to coerce the data types. The delay may also be to provide a great deal of
-user and security protections. Converting a list-of_dict array to Pandas DataFrame takes about 350x longer than
-converting the same data to Pydf instance.
+resulting in substantial overhead. Converting a list-of_dict array to Pandas DataFrame takes about 350x longer than
+converting the same data to a Daffodil (Pydf) instance.
 
-Pydf is based on list-of-list array (lol), and uses a dictionary for column names (hd -- header dict) and for 
+The Daffodil Pydf class is based on list-of-list array (lol), and uses a dictionary for column names (hd -- header dict) and for 
 row keys (kd -- key dict), making it extremely fast for column and row indexing, while avoiding the requirement for 
 contiguous data allocation. Python uses dynamic arrays to store references to each data item in the lol
-structure.
+structure. The hd and kd can be referenced directly, to speed checks for inclusion in the list of columns or rows,
+and to obtain the row or column index.
 
-Pydf is not as performant as Pandas or NumPy for numerical operations such as sums, max, min, stdev, etc. 
+Daffodil is not as performant as Pandas or NumPy for numerical operations such as sums, max, min, stdev, etc. 
 when the data is uniform within columns or the entire array. Pydf does not offer array operations like
 C = A + B, where A and B are both large arrays with the same shape producing array C, which is the sum 
 of each cell in the same grid location. This type of functionality is already available in NumPy, and 
 so if that functionality is needed, then NumPy can fill that role.
 
-Pandas can be more performant if manipulated by columns at least ~30x, otherwise Pydf will probably be faster
+Pandas can be more performant than Daffodil if manipulated by columns at least ~30x, otherwise Pydf will probably be faster
 due to the overhead of reading a table from a data array into Pandas.
 
 Appending rows in Pandas is slow because Pandas DataFrames are designed to be column-oriented, meaning that 
