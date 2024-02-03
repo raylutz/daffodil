@@ -184,9 +184,9 @@ can also be included in markdown reports. The following is some random test data
 
 #### create a Markdown table from a pydf instance that can be incorporated in reports.
 
-The method 'md_pydf_table()' can be used for more flexible reporting.
+The method 'to_md()' can be used for more flexible reporting.
 
-    my_pydf.md_pydf_table() 
+    my_pydf.to_md() 
 
         parameters:
             max_rows:       int     = 0,         # limit the maximum number of row by keeping leading and trailing rows.
@@ -303,10 +303,10 @@ Generally not needed as any actions that can be performed on lod can be done wit
 
 #### select records based on a conditional expression.
 
-    pydf = pydf.select_where("conditional expression with 'row' like row['fieldname'] > 5")
+    pydf = pydf.select_where(lambda row: row['fieldname'] > 5)
 or
 
-    pydf = pydf.select_where(f"row['fieldname'] > {row_limit}")     # use f-strings to import local values.
+    pydf = pydf.select_where(lambda row: row['fieldname'] > row_limit")
     
 #### Select one record from pydf using the idx and return as a dict.
     
@@ -491,7 +491,7 @@ This analysis is based on using asizeof to calculate the true memory footprint, 
 operations returning rows must return a python dict rather than a native data object, such as a
 pandas series. The conversion to dict can include some significant delay.
 
-Note: The above table was generated using Pydf.from_lod_to_cols() and my_pydf.md_pydf_table() and
+Note: The above table was generated using Pydf.from_lod_to_cols() and my_pydf.to_md() and
 demonstrates how pydf can be helpful in creating markdown reports.
 
 

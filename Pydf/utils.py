@@ -1,0 +1,608 @@
+# utils.py for Pydf
+
+import csv
+
+def apply_dtypes_to_hdlol(hdlol: T_hdlola, dtypes: T_dtype_dict) -> T_hdlola:
+
+    hd, lol = hdlol
+    
+    if not lol or not lol[0] or not hd:
+        return (hd, lol)
+
+    for idx, la in enumerate(lol):
+        da = dict(zip(hd.keys(), la))
+        type_set_da = set_dict_dtypes(da, dtypes)
+        lol[idx] = [type_set_da[col] for col in hd.keys()]
+        
+    return (hd, lol)
+    
+
+def set_cols_da(da: T_da, cols: T_ls, default: Any='') -> T_da:
+    """ Set keys in dictinary da to be exactly cols
+        Use default if key not already in da.
+    """
+    
+    new_da = {k:da.get(k, default) for k in cols}
+    return new_da
+    
+
+def select_col_of_lol_by_col_idx(lol: T_lola, col_idx:int) -> T_la:
+    """
+    select a row and col from hllola
+        
+    """
+    result_la = []
+    try:
+        result_la = [la[col_idx] for la in lol]
+    except IndexError:
+        pass
+    
+    return result_la
+    
+
+def unflatten_hdlol_by_cols(hdlol: T_hdlola, cols: T_ls) -> T_hdlola:
+    """ 
+        given a lod and list of cols, 
+        convert cols named to either list or dict if col exists and it appears to be 
+            stringified using f"{}" functionality.
+            
+    """
+
+    if not hdlol or not hdlol[0] or not hdlol[1]:
+        return hdlol
+        
+    cols_da, lol = hdlol  
+        
+    for col in cols:
+        if col in cols_da:
+            col_idx = cols_da[col]
+            for la in lol:
+                val = la[col_idx]
+                if val and isinstance(val, str) and (val[0], val[-1]) in [('[', ']'), ('{', '}'), ('(', ')')]:
+                    la[col_idx] = safe_eval(val)
+                else:
+                    la[col_idx] = val
+                    
+    return (cols_da, lol)            
+
+
+def json_encode(data_item: Any, indent: Optional[int]=None) -> str:
+    # use ensure_ascii=False
+    # encoding="utf-8" is not supported.
+    # if indent is left as None, there is no indenting.
+    if data_item is None:
+        return ''
+    return json.dumps(data_item, cls=NpEncoder, default=str, indent=indent, ensure_ascii=False)    
+
+
+def make_strbool(val: Union[bool, str, int, None]) -> str:
+    # make a strbool value like 'is_bmd' and allow both bool or str types.
+    
+    return '1' if test_strbool(val) else '0'
+    
+    
+def xlsx_to_csv(xlsx: bytes, sheetname: Optional[str]=None, add_trailing_blank_cols: bool=True) -> bytes:
+    """ convert xlsx file in a buffer to csv file in a buffer. 
+        Additional blank columns are added so all rows have the same number of values.
+        xlsx2csv returns minimal records, stopping when the last value is filled.
+    """
+    
+    import xlsx2csv     # type: ignore
+
+    buff = io.BytesIO(xlsx)
+    buff_out = io.StringIO()
+    logs.sts("Converting using xlxs2csv...", 3)
+    xlsx2csv.Xlsx2csv(buff, outputencoding="utf-8").convert(buff_out, sheetname=sheetname)
+    logs.sts(f"Conversion to buff_out completed: {len(buff_out.getvalue())} bytes.", 3)
+
+    buff_out.seek(0)
+    if add_trailing_blank_cols:
+        logs.sts("Adding trailing columns...", 3)
+        buff_out = io.StringIO(add_trailing_columns_csv(buff_out.getvalue()))
+        logs.sts(f"Trailing Columns added: {len(buff_out.getvalue())} bytes.", 3)
+    return buff_out.getvalue().encode('utf-8')
+
+
+def add_trailing_columns_csv(str_csv:str, num_rows:int = 3) -> str:
+    """ Takes a csv file in string form and returns the modified csv with equal number of columns for all rows
+        Note: This seems like a lot of extra work just to prepare for the csv to be parsed, when we are fully
+                parsing here just to add the columns.
+        @@TODO -- The function add_trailing_columns_csv() should be DEPRECATED. It will be better to convert csv to lol, and then
+                fix lengths before converting lol to df.
+                
+    """
+    
+    buff = io.StringIO(str_csv)
+    buff.seek(0)
+    reader = csv.reader(buff)
+
+    # Get max number of columns
+    max_col = max([len(next(reader)) for _ in range(num_rows)])
+    buff.seek(0)
+    buff_out = io.StringIO()
+    writer = csv.writer(buff_out, quoting=csv.QUOTE_MINIMAL, dialect='unix')
+    for row in reader:
+        trail_col = max_col - len(row)
+        list_trail_col = [''] * trail_col
+        row = row + list_trail_col
+        writer.writerow(row)
+    buff_out.seek(0)
+    buff.close()
+    return buff_out.getvalue()
+
+
+def is_d1_in_d2(d1: T_da, d2: T_da) -> bool:
+    # true if all the fields in d1 are in d2.
+    # d2 may have additional fields.
+    
+    for field, val in d1.items():
+        if field not in d2 or d2[field] != val:
+            break
+    else:
+        return True
+    return False
+    
+    
+def assign_col_in_lol_at_icol(icol: int=-1, col_la: Optional[T_la]=None, lol: Optional[T_lola]=None, default:Any='') -> T_lola:
+    """ assign col in lol.
+        if icol == -1 or > len(lol[0]) then insert at left end.
+        use default value if col_la not long enough.
+        
+    """
+    if not lol:
+        return []
+    # if not col_la:
+        # return lol
+        
+    if icol < 0 or icol >= len(lol[0]):
+        # add col to right side.
+        return insert_col_in_lol_at_icol(icol, col_la, lol, default)
+    
+    # overwrite existing col.
+    for irow, row_la in enumerate(lol):
+        val = safe_get_idx(col_la, irow, default)
+        row_la[icol] = val
+        
+    return lol
+        
+        
+def insert_col_in_lol_at_icol(icol: int=-1, col_la: Optional[T_la]=None, lol: Optional[T_lola]=None, default: Any='') -> T_lola:
+    """ insert col in lol.
+        if icol == -1 or > len(lol[0]) then insert at right end.
+        use default value if col_la not long enough.
+        
+    """
+    if not lol:
+        return []
+    if not col_la:
+        return lol
+        
+    if icol < 0 or icol > len(lol[0]):
+        icol = len(lol[0])    
+    
+    for irow, row_la in enumerate(lol):
+        val = safe_get_idx(col_la, irow, default)
+        row_la.insert(icol, val)
+        
+    return lol
+    
+    
+def insert_row_in_lol_at_irow(irow: int=-1, row_la: Optional[T_la]=None, lol: Optional[T_lola]=None, default: Any='') -> T_lola:
+    """ insert row in lol.
+        if irow == -1 or irow > len(lol) then append to the bottom.
+        use default value if row_la not long enough.
+        
+    """
+    if not lol and row_la:
+        return [row_la]
+        
+    if not row_la and lol:
+        return lol
+        
+    if not row_la and not lol:
+        return []
+        
+    num_cols = len(lol[0])
+    
+    if len(row_la) < num_cols:
+        row_la += ([default] * (num_cols - len(row_la)))
+        
+    if irow < 0 or irow > len(lol):
+        lol.append(row_la)
+    else:
+        lol.insert(irow, row_la)    
+    
+    return lol
+    
+    
+def calc_chunk_sizes(num_items: int, max_chunk_size: int) -> List[int]:
+    """ given num_items, divide these into equal
+        chunks where each is no larger than chunk_size
+        return list of chunk sizes.
+    """
+    if not num_items or not max_chunk_size:
+        return []
+        
+    eff_max_size = max_chunk_size
+        
+    num_chunks = num_items // eff_max_size
+        
+    residue = num_items % max_chunk_size
+    if residue:
+        num_chunks += 1
+    chunk_size = num_items // num_chunks
+    residue = num_items % num_chunks
+
+    first_list = [chunk_size + 1] * residue
+    second_list = [chunk_size] * (num_chunks - residue)
+
+    chunk_sizes_list = first_list + second_list
+
+    return chunk_sizes_list
+    
+    
+def convert_sizes_to_idx_ranges(sizes_list: List[int]) -> List[Tuple[int, int]]:
+    """ 
+        given sizes list, convert to list of tuples of ranges,
+        (start,end) where end is one past the last item included.
+    """
+    
+    ranges_list: List[Tuple[int, int]] = []
+
+    os = 0
+    for size in sizes_list:
+        range = (os, os+size)
+        os += size
+        ranges_list.append(range)
+
+    return ranges_list
+    
+
+def sort_lol_by_col(lol:T_lola, colidx: int=0, reverse: bool=False, length_priority:bool=True) -> T_lola:
+
+    if length_priority:
+        return sorted(lol, key=lambda x: (len(x[colidx]), x[colidx]), reverse=reverse)
+    else:
+        return sorted(lol, key=operator.itemgetter(colidx), reverse=reverse)
+    
+    
+def safe_regex_select(regex:Union[str, bytes], s:str, default:str='', flags=0) -> str:
+
+    regex_str = regex.decode('utf-8') if isinstance(regex, bytes) else regex
+    regex_str = regex_str.strip('"')
+    
+    match = re.search(regex_str, s, flags=flags)
+    if match:
+        try:
+            valstr = match.group(1)   # type: ignore
+        except IndexError:
+            import pdb; pdb.set_trace() #perm
+            logs.error_beep()
+        return valstr.strip()
+    else:
+        return default
+        
+    
+def set_dict_dtypes(d: T_da, dtype_dict: T_dtype_dict) -> T_da:
+    """ set the types in da according to dtype_dict or leave alone if not found in dtype_dict 
+        Note, if type is int and val is '', that is considered okay.
+    
+    """
+
+    d2: T_da = {}
+    for k, v in d.items():
+        d2[k] = v                   # assume it is okay as is.
+        if k not in dtype_dict:
+            # logs.sts(f"WARN: {k} not in dtype_dict. Not changing type. Currently: {type(v)}", 3)
+            continue
+        if dtype_dict[k] == int:
+            if v == '':
+                continue                # null string means None or NAN
+            try:
+                d2[k] = int(float(v))
+            except ValueError:
+                d2[k] = ''
+                
+        elif dtype_dict[k] == str:
+            d2[k] = f"{v}"
+        elif dtype_dict[k] == float:
+            if v == '':
+                continue                # null string means None or NAN
+            try:
+                d2[k] = float(v)
+            except ValueError:
+                d2[k] = ''
+        elif dtype_dict[k] == bool:
+            d2[k] = str2bool(v)
+        elif dtype_dict[k] == list:
+            continue
+        elif dtype_dict[k] == dict:
+            continue
+        else:
+            import pdb; pdb.set_trace() #perm
+            logs.error_beep()
+
+            pass
+                 
+    return d2
+        
+def list_stats(alist:T_la, profile:str) -> T_da:
+    """ 
+        given a list as a column of a table and analyze that given column and provide stats relevant for that column
+        depending on the profile, which can be 
+            'index'         -- should be unique, so analyze for repeats and type, skips
+            'attrib'        -- generally an enumeration of either numbers or strings
+            'file_paths'    -- list of file paths, usually only 1 or 2.
+            'scalar'        -- numerical value that should be analyzed using normal stats (max, min, mean, std).
+            'localidx'      -- probably starts at 0 or 1 and should be contiguous.
+    """
+    
+    if profile == 'index':
+        info_d = list_stats_index(alist)
+                
+    elif profile == 'attrib':
+        info_d = list_stats_attrib(alist)
+        
+    elif profile == 'file_paths':
+        info_d = list_stats_filepaths(alist)
+        
+    elif profile == 'scalar':
+        info_d = list_stats_scalar(alist)
+        
+    elif profile == 'localidx':
+        info_d = list_stats_localidx(alist)
+    else:
+        raise NotImplementedError(f"profile '{profile}' not supported.")
+        
+    info_d['profile'] = profile
+        
+    return info_d    
+    
+    
+def list_stats_index(alist:T_la) -> T_da: # info_dict
+    """ 
+        evaluate a list as an index column and provide stats info_d considering values only within this single list.
+        returns info_d with fields as follows:
+            'uniques': list of all unique values
+            'within_reps_idxs': indexes in this list of repeated values other than the first one.
+            'num_all': count of all values
+            'num_uniques': count of all unique values, including those that may also have repeated values later.
+            'num_witnin_reps': count of the repeats that should be removed to get all unique values.
+            'num_missing': if any values are None, '', of nan.
+            'all_ints': bool
+            'all_numeric': bool
+            'max': int or float
+    
+    """    
+    info_d: T_da = split_dups_list(alist)  # {'uniques_d':uniques_d, 'within_repd': within_reps_loti, 'prior_reps_loti':prior_reps_loti}
+    
+    info_d['num_all']           = len(alist)
+    info_d['uniques']           = [v for v in list(dict.fromkeys(alist)) if not(v is None or v == '' or v != v)]
+    info_d['num_uniques']       = len(info_d['uniques'])
+    info_d['num_within_reps']   = len(info_d['within_reps_loti'])
+    info_d['num_missing']       = sum(1 for v in alist if v is None or v == '' or v != v)   # v != v checks for nan
+    info_d['non_missing']       = non_missing    = [v for v in alist if not(v is None or v == '' or v != v)]
+    
+    info_d['all_ints'] = is_list_allints(non_missing)
+        
+    if info_d['all_ints']:
+        local_ilist = [int(float(clean_numeric_str(str(i)))) for i in non_missing if is_numeric(i)]
+        info_d['all_numeric'] = True
+        info_d['max'] = safe_max(local_ilist)
+        info_d['min'] = safe_min(local_ilist)
+
+    else:
+        info_d['all_numeric'] = is_list_allnumeric(non_missing)
+        local_flist = [float(clean_numeric_str(str(i))) for i in non_missing if is_numeric(i)]
+        info_d['max'] = safe_max(local_flist)
+        info_d['min'] = safe_min(local_flist)
+        
+    return info_d
+    
+
+def list_stats_attrib(alist:T_la) -> T_da:         
+    """ 
+        evaluate a list as an attribute and provide stats info_d considering values only within this single list.
+        returns info_d with fields as follows:
+            'num_all': count of all values
+            'uniques': list of all unique values
+            'num_uniques': count of all unique values, including those that may also have repeated values later.
+            'num_missing': if any values are None, '', of nan.
+            'val_counts': dict of each value and the count of that value.
+    
+    """    
+
+    info_d: T_da = {}
+    info_d['num_all']       = len(alist)
+    info_d['uniques']       = uniques       = [v for v in list(dict.fromkeys(alist)) if not(v is None or v == '' or v != v)]
+    info_d['num_uniques']   = len(uniques)
+    info_d['num_missing']   = sum(1 for v in alist if v is None or v == '' or v != v)   # v != v checks for nan
+    info_d['non_missing']   = non_missing   = [v for v in alist if not(v is None or v == '' or v != v)]
+    info_d['all_ints']      = is_list_allints(non_missing)
+        
+    if info_d['all_ints']:
+        info_d['all_numeric'] = True
+    else:
+        info_d['all_numeric'] = is_list_allnumeric(non_missing)
+        
+    info_d['all_bools'], info_d['num_true'] = is_list_allbools(non_missing)
+    
+    info_d['val_counts'] = {}
+    for unique in uniques:
+        info_d['val_counts'][unique] = non_missing.count(unique)
+
+    return info_d
+    
+
+def list_stats_filepaths(alist:T_la) -> T_da: 
+
+    info_d: T_da = {}
+    info_d['num_all']           = len(alist)
+    info_d['num_missing']       = sum(1 for v in alist if v is None or v == '' or v != v)   # v != v checks for nan
+    info_d['non_missing']       = [v for v in alist if not(v is None or v == '' or v != v)]
+    
+    return info_d
+    
+
+def list_stats_scalar(alist:T_la) -> T_da:
+
+    info_d: T_da = {}
+    info_d['num_all']           = len(alist)
+    info_d['uniques'] = uniques = [v for v in list(dict.fromkeys(alist)) if not(v is None or v == '' or v != v)]
+    info_d['num_uniques']       = len(uniques)
+    info_d['num_missing']       = sum(1 for v in alist if v is None or v == '' or v != v)   # v != v checks for nan
+    nonmissing                  = \
+    info_d['non_missing']       = [v for v in alist if not(v is None or v == '' or v != v)]
+
+    info_d['all_ints']          = is_list_allints(nonmissing)
+        
+    if not info_d['all_ints']:    
+        info_d['all_numeric'] = is_list_allnumeric(nonmissing)
+    
+    if info_d['all_ints']:
+        info_d['all_numeric'] = True
+        local_ilist     = [int(float(i)) for i in nonmissing]
+        info_d['max']   = safe_max(local_ilist)
+        info_d['min']   = safe_min(local_ilist)
+        info_d['mean']  = safe_mean(local_ilist)
+        info_d['stdev'] = safe_stdev(local_ilist)
+
+    elif info_d['all_numeric']:
+        local_flist     = [float(i) for i in nonmissing]
+        info_d['max']   = safe_max(local_flist)
+        info_d['min']   = safe_min(local_flist)
+        info_d['mean']  = safe_mean(local_flist)
+        info_d['stdev'] = safe_stdev(local_flist)
+  
+    return info_d
+    
+
+def list_stats_localidx(alist: T_la) -> T_da:
+
+    info_d = {}
+
+    # this test for integers does not allow any sort of float
+    for val in alist:
+        if not bool(re.search(r'^\d+$', f"{val}")):
+            info_d['all_ints'] = False
+            return info_d
+            
+    info_d['all_ints'] = True
+    local_alist = [int(float(i)) for i in alist]
+    info_d['max'] = safe_max(local_alist)
+    info_d['min'] = safe_min(local_alist)
+    
+    info_d['sequential'] = bool(info_d['max'] - info_d['min'] == len(alist) - 1)
+    
+    return info_d
+    
+
+def is_list_allints(alist: T_la) -> bool:
+    """ check a list of values to see if all qualify as integers 
+        even though they may be formatted as strings.
+        allows leading +/- and trailing .0 with any number of 0's.
+    """
+    
+    for val in alist:
+        if not bool(re.search(r'^\s*[+\-]?\d+(\.0*)?\s*$', f"{val}")):
+            return False
+    
+    return True
+    
+def is_list_allnumeric(alist: T_la) -> bool:
+    """ check a list of values to see if all qualify as integers 
+        even though they may be formatted as strings.
+        allows leading +/- and trailing .0 with any number of 0's.
+    """
+    
+    try:
+        [float(i) for i in alist]
+        return True
+    except Exception:
+        return False
+
+
+def is_list_allbools(alist: T_la) -> Tuple[bool, int]: # allbools, num_true
+    """ check a list of values to see if all qualify as bools 
+        even though they may be formatted as strings.
+    """
+    
+    num_true = 0
+    try:
+        for val in alist:
+            if str2bool(val):
+                num_true += 1
+        return True, num_true
+    except Exception:
+    
+        return False, 0
+    
+def profile_ls_to_loti(input_ls: T_ls, repeat_startswith='Unnamed', ignore_cols: Optional[T_ls]=None) -> T_loti:
+    """ 
+        Given a list strings, which are typically the header of a column,
+        return a list of tuples of integers loti, that describes the
+        column offset of a given starting string, and the length of
+        any repeats of that string, or strings marked with the repeat_marker.
+        
+        for example:
+        input_ls = ['Alice', 'Bob', 'Unnamed2', 'Charlie', 'David', 'Unnamed5', 'Unnamed6']
+        
+        will return:
+        output_loti = [(0, 1), (1, 2), (3, 1), (4, 3)]
+        
+    """    
+    repeat_count = 0
+    result_loti: T_loti = []
+    unique_idx  = 0
+    
+    if ignore_cols is None:
+        ignore_cols = []
+    
+    unique_idx = -1
+    for idx, colstr in enumerate(input_ls):
+    
+        if colstr in ignore_cols:
+            continue
+    
+        if unique_idx == -1:
+            repeat_count = 1
+            unique_idx = idx
+                
+        elif colstr.startswith(repeat_startswith):
+            repeat_count += 1
+            
+        else:
+            result_loti.append( (unique_idx, repeat_count) )
+            unique_idx = idx
+            repeat_count = 1
+    
+    if repeat_count:
+        result_loti.append( (unique_idx, repeat_count) )
+        
+    return result_loti            
+            
+
+def reduce_lol_cols(lol: T_lola, max_cols:int=10, divider_str: str='...') -> T_lola:
+    """ if input lol is over max_cols, display only max_cols//2 first_cols, a divider col, then same number of last_cols 
+    
+        does not alter lol
+    
+    """
+    
+    if not max_cols or not lol:
+        return lol
+        
+    col_num = len(lol[0])
+
+    if col_num <= max_cols:
+        return lol
+        
+    first_col_num = math.ceil(max_cols/2)
+    last_col_num  = max_cols - first_col_num
+    
+    result_lol = [row_la[:first_col_num] + [divider_str] + row_la[-last_col_num:]
+                                for row_la in lol]   
+    return result_lol
+        
+
+
