@@ -42,7 +42,9 @@ See README file at this location: https://github.com/raylutz/Pydf/blob/main/READ
             For apply_formulas(), added relative row and column references $r and $c plus $d to reference the pydf object.
             Changed the result of a row access, such as $d[$r, :$c] to return a list so it could be compatible with sum.
                 use pydf.select_irow() to select a row with dict as the result.
-                
+    
+    v0.2.0  (2024-02-03) Copied related code to Pydf repo and resolved all imports. All tests running.
+    
 """            
     
     

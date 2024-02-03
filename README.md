@@ -2,7 +2,9 @@
 
 # Python Daffodil -- Pydf
 
-The Python Daffodil (DAtaFrames For Optimized Data Interpretation and Linkage -- Pydf) package provides a 
+(STATUS -- Note: This is an alpha release. The API is in flux.)
+
+The Python Daffodil (DAtaFrames For Optimized Data Interpretation and Logical processing) -- Pydf package provides
 lightweight, simple and flexible 2-d dataframes built on 
 python data types, including a list-of-list array as the core datatype. Daffodil is similar to other data frame
 packages, such as Pandas, Numpy, Polars, Swift, Vaex, Dask, PyArrow, SQLite, etc. but is simpler as may be faster.
