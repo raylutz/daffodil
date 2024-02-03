@@ -1,12 +1,14 @@
 ![daffodil_logo](https://github.com/raylutz/Pydf/assets/14955977/5e141583-0216-429d-9ba8-be938aa13017)
 
-# PyDaffodil -- Pydf
+# Python Daffodil -- Pydf
 
-The PyDaffodil (Pydf) package provides a lightweight, simple and flexible 2-d dataframes built on 
+The Python Daffodil (DAtaFrames For Optimized Data Interpretation and Linkage -- Pydf) package provides a 
+lightweight, simple and flexible 2-d dataframes built on 
 python data types, including a list-of-list array as the core datatype. Daffodil is similar to other data frame
-packages, such as Pandas, Numpy, Polars, Swift, Vaex, Dask, PyArrow, SQLite, etc. Daffodil provides basic dataframe
-functionality which is not available in core python, but should be. Daffodil uses standard python data types,
-and can mix data types in rows and columns, and can store any type within a cell, even another Pydf instance. 
+packages, such as Pandas, Numpy, Polars, Swift, Vaex, Dask, PyArrow, SQLite, etc. but is simpler as may be faster.
+Daffodil provides basic dataframe functionality which is not available in core python, but should be. 
+Daffodil uses standard python data types, and can mix data types in rows and columns, and can store any type 
+within a cell, even another Pydf instance. 
 
 It works well in traditional pythonic processing paradigms, such as in loops, allowing fast row appends, 
 insertions and other opertions that column-oriented packages like Pandas handle poorly or don't offer at all.
@@ -16,8 +18,8 @@ row-based apply and reduce functions, including support for chunked large data s
 by a Daffodil table which operates as a manifest to chunks, and useful for delegations for parallel processing,
 where each delegation can handle a number of chunks.
 
-Daffodil is not necessarily slower than trying to use Pandas within your larger python program, because
-moving data in and out of those other packages can have an very high overhead. Pydf is a very simple
+Daffodil is not necessarily slower than trying to use Pandas (or other packages) within your python program, because
+moving data in and out of Pandas and those other packages can have an very high overhead. Pydf is a very simple
 'bare metal' class that is well suited for those situations where pure number crunching is not the main 
 objective. But it is also very compatible with other dataframe packages and can provide great way to 
 build and clean the data before providing the data to other packages for number crunching.
@@ -36,8 +38,8 @@ pane and calculations from spreadsheet programs can be easily ported in, to avoi
 
 We were surprised to find that Pandas is very slow in importing python data to a Pandas DataFrame.
 Pandas uses a numpy array for each column which must be allocated in memory as one contiguous block,
-resulting in substantial overhead. Converting a list-of_dict array to Pandas DataFrame takes about 350x longer than
-converting the same data to a Daffodil (Pydf) instance.
+resulting in substantial overhead. Converting a list-of_dict (lod) array to Pandas DataFrame using the 
+simple `pd.DataFrame(lod)` method takes about 350x longer than converting the same data to a Daffodil instance.
 
 The Daffodil Pydf class is based on list-of-list array (lol), and uses a dictionary for column names (hd -- header dict) and for 
 row keys (kd -- key dict), making it extremely fast for column and row indexing, while avoiding the requirement for 
@@ -72,12 +74,15 @@ If conversions to or from Pandas is not required, then that package is not neede
 
 ## Memory Footprint
 
-A Pydf object is about 1/3 the size of a Python lod (list-of-dicts) structure because the column names are not repeated,
+A Pydf object is about 1/3 the size of a Python lod (list-of-dict) structure because the column names are not repeated,
 and dicts are allocated sparsely and consume more space than list-of-list (lol).
 However it takes about 4x more memory than a minimal Pandas dataframe and 10x more memory than single NumPy array.
-Yet, sometimes Pandas will be much larger when strings are included in the data.
+Yet, sometimes Pandas will be much larger when strings are included in the data. The inclusion of one string column
+to be used for indexed selections in Pandas consumes 10x more memory than the same data without that column. 
+Daffodil does not expand appreciably and will be 1/3 the size of Pandas in that case, and offers searches that are
+10x faster.
 
-Thus, Pydf is a compromise. It is not as wasteful as commonly used lod for such tables, and 
+Thus, Daffodil is a compromise. It is not as wasteful as commonly used lod for such tables, and 
 is a good choice when rapid appends, inserts, row-based operations, and other mutation is required. It also
 provides row and column operations using \[row, col] indexes, where each can be slices or column names.
 This type of indexing is syntactically similar to what is offered by Pandas and Polars, but Pydf has almost
