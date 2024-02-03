@@ -1,7 +1,10 @@
 # test_pydf
 
+import sys
 import unittest
-from models.Pydf import Pydf
+sys.path.append('..')
+
+from Pydf.Pydf import Pydf
 
 class TestPydf(unittest.TestCase):
 

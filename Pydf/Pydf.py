@@ -48,10 +48,19 @@ See README file at this location: https://github.com/raylutz/Pydf/blob/main/READ
     
 #VERSION  = 'v0.1.X'
 #VERSDATE = '2024-01-21'  
-    
 
-from my_types import T_ls, T_lola, T_di, T_hllola, T_loda, T_da, T_li, T_dtype_dict, \
+import sys
+import io
+import csv
+import copy
+import re
+    
+sys.path.append('..')
+
+from Pydf.my_types import T_ls, T_lola, T_di, T_hllola, T_loda, T_da, T_li, T_dtype_dict, \
                      T_dola, T_dodi, T_la, T_lota, T_doda, T_buff, T_df, T_ds
+import Pydf.pydf_utils as utils
+import Pydf.pydf_md    as md
 
 from typing import List, Dict, Any, Tuple, Optional, Union, cast, Type, Callable
 def fake_function(a: Optional[List[Dict[str, Tuple[int,Union[Any, str]]]]] = None) -> Optional[int]:
@@ -59,13 +68,6 @@ def fake_function(a: Optional[List[Dict[str, Tuple[int,Union[Any, str]]]]] = Non
 
 T_Pydf = Type['Pydf']
 
-import io
-import csv
-import copy
-import re
-
-# Dummy usage of re to fool pyflakes
-_dummy_re_usage = re
 
 
 class Pydf:
@@ -83,12 +85,8 @@ class Pydf:
             disp_cols:  Optional[T_ls]          = None,     # Optional list of strings to use for display, if initialized.
             sanitize_cols: bool                 = False,    # check for blank or missing cols and make complete and unique.
         ):
-        # if hd is None:
-            # hd = {}
         if lol is None:
             lol = []
-        # if kd is None:
-            # kd = {}            
         if dtypes is None:
             dtypes = {}
         if cols is None:
@@ -126,7 +124,7 @@ class Pydf:
         
             # setting dtypes may be better done manually if required.
             if self.lol and self.lol[0]:
-                from utilities import utils
+                #from utilities import utils
 
                 self.lol = utils.apply_dtypes_to_hdlol((self.hd, self.lol), effective_dtypes)[1]
             
@@ -274,7 +272,7 @@ class Pydf:
         if not self:
             return
         
-        from utilities import utils
+        # from utilities import utils
 
         for irow, da in enumerate(self):
             record_da = utils.set_cols_da(da, defined_cols)
@@ -352,7 +350,7 @@ class Pydf:
     def _build_kd(col_idx: int, lol: T_lola) -> T_di:
         """ build key dictionary from col_idx col of lol """
         
-        from utilities import utils
+        # from utilities import utils
 
         key_col = utils.select_col_of_lol_by_col_idx(lol, col_idx)
         kd = {key: index for index, key in enumerate(key_col)}
@@ -365,7 +363,7 @@ class Pydf:
     
     def apply_dtypes(self):
     
-        from utilities import utils
+        # from utilities import utils
         
         self.lol = utils.apply_dtypes_to_hdlol((self.hd, self.lol), self.dtypes)[1]
         
@@ -381,7 +379,7 @@ class Pydf:
         if not self:
             return    
             
-        from utilities import utils
+        # from utilities import utils
 
         self.hd, self.lol = utils.unflatten_hdlol_by_cols((self.hd, self.lol), cols)    
 
@@ -419,7 +417,7 @@ class Pydf:
         if not self:
             return
         
-        from utilities import utils
+        # from utilities import utils
 
         for irow, da in enumerate(self):
             record_da = copy.deepcopy(da)
@@ -464,7 +462,7 @@ class Pydf:
     def cols_to_strbool(self, cols: T_ls):
         # given a lod, convert given list of columns to strbool.
 
-        from utilities import utils
+        # from utilities import utils
 
         for irow, da in enumerate(self):
             record_da = {k:utils.make_strbool(da[k]) for k in cols if k in da}
@@ -912,7 +910,7 @@ class Pydf:
         
         cols = list(records_lod[0].keys())
         
-        from utilities import utils
+        # from utilities import utils
         
         lol = [list(utils.set_cols_da(record_da, cols).values()) for record_da in records_lod]
         
@@ -962,9 +960,9 @@ class Pydf:
         """ read excel file from a buffer and convert to pydf.
         """
         
-        from utilities import xlsx_utils
+        # from utilities import xlsx_utils
 
-        csv_buff = xlsx_utils.xlsx_to_csv(excel_buff)
+        csv_buff = utils.xlsx_to_csv(excel_buff)
 
         my_pydf  = Pydf.from_csv_buff(
                         csv_buff, 
@@ -1526,7 +1524,7 @@ class Pydf:
             test exists in test_pydf.py
         """
 
-        from utilities import utils
+        # from utilities import utils
 
         result_lod = [d2 for d2 in self if inverse ^ utils.is_d1_in_d2(d1=selector_da, d2=d2)]
     
@@ -1544,7 +1542,7 @@ class Pydf:
             test exists in test_pydf.py
         """
 
-        from utilities import utils
+        # from utilities import utils
 
         result_lol = [list(d2.values()) for d2 in self if inverse ^ utils.is_d1_in_d2(d1=selector_da, d2=d2)]
     
@@ -1568,7 +1566,7 @@ class Pydf:
             test exists in test_pydf.py
         """
 
-        from utilities import utils
+        # from utilities import utils
 
         for d2 in self:
             if inverse ^ utils.is_d1_in_d2(d1=selector_da, d2=d2):
@@ -1815,7 +1813,7 @@ class Pydf:
             Also, if col_la not provided, use default to fill all cells in the column.
             if icol == -1, append column on the right side.
         """
-        from utilities import utils
+        # from utilities import utils
 
         self.lol = utils.assign_col_in_lol_at_icol(icol, col_la, lol=self.lol, default=default)
         
@@ -1828,7 +1826,7 @@ class Pydf:
             unit tests
         """
         
-        from utilities import utils
+        # from utilities import utils
 
         self.lol = utils.insert_col_in_lol_at_icol(icol, col_la, lol=self.lol, default=default)
         
@@ -1853,7 +1851,7 @@ class Pydf:
             
         """
         
-        from utilities import utils
+        # from utilities import utils
 
         self.lol = utils.insert_row_in_lol_at_irow(irow=irow, row_la=row_la, lol=self.lol, default=default)
         
@@ -1975,7 +1973,7 @@ class Pydf:
         """ given a pydf, split it evenly by rows into a list of pydfs.
             size of some pydfs may be less than the max but not over.
         """
-        from utilities import utils
+        # from utilities import utils
         
         chunk_sizes_list = utils.calc_chunk_sizes(num_items=len(self), max_chunk_size=max_chunk_size)
         chunk_ranges = utils.convert_sizes_to_idx_ranges(chunk_sizes_list)
@@ -1991,7 +1989,7 @@ class Pydf:
         """
         colidx = self.hd[colname]
         
-        from utilities import utils
+        # from utilities import utils
         
         self.lol = utils.sort_lol_by_col(self.lol, colidx, reverse=reverse, length_priority=length_priority)
         
@@ -2511,7 +2509,7 @@ class Pydf:
             regex should include parens that enclose the desired portion of col1.
         """
         
-        from utilities import utils
+        # from utilities import utils
     
         def set_row_col2_from_col1_using_regex_select(row_da: T_da, col1: str, col2: str, regex: str) -> T_da:
             row_da[col2] = utils.safe_regex_select(regex, row_da[col1])
@@ -2648,7 +2646,7 @@ class Pydf:
             unit tests exist
         """
 
-        from utilities import utils
+        # from utilities import utils
 
         if colnames_ls is None:
             cleaned_colnames_ls = list(self.hd.keys())
@@ -2846,7 +2844,7 @@ class Pydf:
 
         info_dod = {}
 
-        from utilities import utils
+        # from utilities import utils
 
         for col_def_ta in col_def_lot:
             col_name, col_dtype, col_format, col_profile = col_def_ta
@@ -2882,7 +2880,7 @@ class Pydf:
         
         if include_header:
             # add a new first column which will be the old column names row.
-            from utilities import utils
+            # from utilities import utils
             
             new_lol = utils.insert_col_in_lol_at_icol(icol=0, col_la=self.columns(), lol=new_lol)
         
@@ -2927,7 +2925,7 @@ class Pydf:
         
         header_exists = bool(self.hd)
         
-        from utilities import md
+        import Pydf.pydf_md as md
         mdstr = md.md_lol_table(pydf_lol, 
             header              = None, 
             includes_header     = header_exists, 
@@ -2944,7 +2942,7 @@ class Pydf:
 
     def pydf_to_lol_summary(self, max_rows: int=10, max_cols: int=10, disp_cols:Optional[T_ls]=None) -> T_lola:
     
-        from utilities import utils
+        # from utilities import utils
 
         # first build a basic summary
         if disp_cols:

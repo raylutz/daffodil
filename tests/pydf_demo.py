@@ -1,6 +1,14 @@
 # pydf_demo.py
 
-from utilities.md_demo import md_code_seg
+# copyright (c) 2024 Ray Lutz
+
+
+
+import sys
+
+sys.path.append('..')
+
+from Pydf.md_demo import pr, md_code_seg
 
 
 def main():
@@ -20,7 +28,7 @@ be viewed directly or converted to HTML for use on a static website.
 """
 
     md_report += md_code_seg('Create a new empty table')
-    from models.Pydf import Pydf
+    from Pydf.Pydf import Pydf
     
     my_pydf = Pydf()
     
@@ -198,7 +206,7 @@ be viewed directly or converted to HTML for use on a static website.
     md_report += md_code_seg("Add index column 'idx' to the dataframe at the left, starting at 0.") + "\n" 
     my_pydf.insert_idx_col(colname='idx') #, icol=0, startat=0)
 
-    md_report += f"\nModified pydf:\n```\n{my_pydf}\n```\n"
+    md_report += f"\nModified pydf:\n{my_pydf}\n\n"
 
     # md_report += md.md_code_seg("convert from pandas DataFrame") + "\n" 
     # recovered_pydf = Pydf.from_pandas_df(my_df, keyfield='Category')
@@ -210,7 +218,7 @@ be viewed directly or converted to HTML for use on a static website.
 
     print(md_report)
 
-    with open('test_data\pydf_demo.md', 'w') as file:
+    with open('..\docs\pydf_demo.md', 'w') as file:
         file.write(md_report)
 
 
