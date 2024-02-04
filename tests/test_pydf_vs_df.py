@@ -494,8 +494,8 @@ def main():
     md_report = pr("# Evaluate conversion and calculation time tradeoffs between Pandas, Pydf, Numpy, etc.\n\n")
 
     md_report += md_code_seg("Create sample_lod")
-    f""" Here we generate a table using a python list-of-dict structure,
-        with {num_columns} columns and {num_rows} rows, consisting of
+    """ Here we generate a table using a python list-of-dict structure,
+        with 1000 columns and 1000 rows, consisting of
         integers from 0 to 100. Set the seed to an arbitrary value for
         reproducibility. Also, create other forms similarly or by converting
         the sample_lod.
