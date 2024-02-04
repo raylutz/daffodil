@@ -1,3 +1,7 @@
+# test_pydf_vs_df
+
+# copyright (c) 2024 Ray Lutz
+
 import pandas as pd
 from typing import List, Dict, Optional, Any, Tuple
 import timeit, os

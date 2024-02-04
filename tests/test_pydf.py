@@ -1,4 +1,5 @@
 # test_pydf
+# copyright (c) 2024 Ray Lutz
 
 import sys
 import unittest

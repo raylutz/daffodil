@@ -1,8 +1,6 @@
-# markdown generation
+# pydf_md.py -- markdown generation
 
 # copyright (c) 2024 Ray Lutz
-
-# audit engine produces reports in markdown and then optionally converts to html.
 
 import re
 import copy
@@ -422,12 +420,6 @@ def escape_raw_text(text: str='') -> str:
     # output_str = re.sub(r'([\\`*_{}\[\]()\#+\-\.!/|])', r'\\\1', text)
 
     return output_str
-
-
-
-
-
-
     
     
 def md_process_template(template_str: str, mapping: T_da):
@@ -445,9 +437,6 @@ def md_process_template(template_str: str, mapping: T_da):
         print(f"The template appears to be {'valid' if t.is_valid() else 'invalid'}.")    # type: ignore
     
     return t.safe_substitute(mapping=mapping)
-    
-    
-
 
 
 def md_2_html_snippet(md: str, strip_newlines: bool=True):

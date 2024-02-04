@@ -1,4 +1,5 @@
 # md_demo.py
+# copyright (c) 2024 Ray Lutz
 
 """ md_demo.py provides tools to create static markdown demonsrations of code.  """
 
