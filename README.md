@@ -7,27 +7,18 @@
 The Python Daffodil (DAtaFrames For Optimized Data Interpretation and Logical processing) -- Pydf package provides
 lightweight, simple and flexible 2-d dataframes built on 
 python data types, including a list-of-list array as the core datatype. Daffodil is similar to other data frame
-packages, such as Pandas, Numpy, Polars, Swift, Vaex, Dask, PyArrow, SQLite, etc. but is simpler as may be faster.
+packages, such as Pandas, Numpy, Polars, Swift, Vaex, Dask, PyArrow, SQLite, etc. but is simpler and may be faster because it does not have conversion overhead.
 Daffodil provides basic dataframe functionality which is not available in core python, but should be. 
-Daffodil uses standard python data types, and can mix data types in rows and columns, and can store any type 
-within a cell, even another Pydf instance. 
+Daffodil uses standard python data types, and can mix data types in rows and columns, and can store any type within a cell, even another Pydf instance. 
 
 It works well in traditional pythonic processing paradigms, such as in loops, allowing fast row appends, 
 insertions and other opertions that column-oriented packages like Pandas handle poorly or don't offer at all.
 
-Daffodil is particularly well suited to applications for data munging, incremental appending, data pipelines,
-row-based apply and reduce functions, including support for chunked large data sets that can be described
-by a Daffodil table which operates as a manifest to chunks, and useful for delegations for parallel processing,
-where each delegation can handle a number of chunks.
+Daffodil is particularly well suited to applications for data munging, incremental appending, data pipelines, row-based apply and reduce functions, including support for chunked large data sets that can be described by a Daffodil table which operates as a manifest to chunks, and useful for delegations for parallel processing, where each delegation can handle a number of chunks.
 
-Daffodil is not necessarily slower than trying to use Pandas (or other packages) within your python program, because
-moving data in and out of Pandas and those other packages can have an very high overhead. Pydf is a very simple
-'bare metal' class that is well suited for those situations where pure number crunching is not the main 
-objective. But it is also very compatible with other dataframe packages and can provide great way to 
-build and clean the data before providing the data to other packages for number crunching.
+Daffodil is not necessarily slower than trying to use Pandas (or other packages) within your python program, because moving data in and out of Pandas and those other packages can have an very high overhead. Pydf is a very simple 'bare metal' class that is well suited for those situations where pure number crunching is not the main objective. But it is also very compatible with other dataframe packages and can provide great way to build and clean the data before providing the data to other packages for number crunching.
 
-It excels when the data array needs to be heavily manipulated, particularly by rows or individual data items,
-particularly when rows are to be inserted, removed, or appended.
+It excels when the data array needs to be heavily manipulated, particularly by rows or individual data items, particularly when rows are to be inserted, removed, or appended.
 
 Spreadsheet-like operations are also provided, which are useful for processing the entire array with the same formula template,
 and can avoid glue code for many transformations. Python equations in the formula pane operate on the data
