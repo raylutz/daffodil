@@ -634,7 +634,7 @@ class Pydf:
 
         # part of all sliced rows, according to a list    
         elif isinstance(col_slice, list):    
-            col_indices_li = self._col_indices_from_collist(self, col_slice)
+            col_indices_li = self._col_indices_from_collist(col_slice)
             row_col_sliced_lol = [[row[i] for i in col_indices_li] for row in row_sliced_lol]
             sliced_cols = [all_cols[i] for i in col_indices_li]
 
