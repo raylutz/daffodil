@@ -1272,7 +1272,7 @@ class Pydf:
                 if self.hd:
                     # columns are defined, and keyfield might also be defined
                     # create a dict.
-                    da = dict(zip[self.hd.keys(), data_item])
+                    da = dict(zip(self.hd.keys(), data_item))
                     self.record_append(da)
                 else:    
                     # no columns defined, therefore just append to lol.
