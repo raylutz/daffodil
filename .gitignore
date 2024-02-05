@@ -43,3 +43,12 @@ params/system_status_lod.json.metadata.json
 params/system_status_report.html.metadata.json
 params/system_status_report.md.metadata.json
 params/NJ_Monmouth_20221108/DRAFT_BMDIF_NJ_Monmouth_20221108.csv.metadata.json
+tests/Comparison of Polars and Pandas.url
+tests/On_Time_Reporting_Carrier_On_Time_Performance_(1987_present)_2022_1.csv
+Pipfile
+Pipfile.lock
+Pydf.egg-info/dependency_links.txt
+Pydf.egg-info/PKG-INFO
+Pydf.egg-info/requires.txt
+Pydf.egg-info/SOURCES.txt
+Pydf.egg-info/top_level.txt

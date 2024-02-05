@@ -7,6 +7,9 @@ import csv
 import re
 import math
 
+import xlsx2csv     # type: ignore
+
+
 from typing import List, Dict, Any, Tuple, Optional, Union, cast, Type, Callable
 
 def fake_function(a: Optional[List[Dict[str, Tuple[int,Union[Any, str]]]]] = None) -> Optional[int]:
@@ -103,8 +106,6 @@ def xlsx_to_csv(xlsx: bytes, sheetname: Optional[str]=None, add_trailing_blank_c
         xlsx2csv returns minimal records, stopping when the last value is filled.
     """
     
-    import xlsx2csv     # type: ignore
-
     buff = io.BytesIO(xlsx)
     buff_out = io.StringIO()
     logs.sts("Converting using xlxs2csv...", 3)
@@ -794,4 +795,17 @@ def str2bool(value: Optional[Any]) -> bool:
         return False
     raise ValueError(f"Boolean value expected, value:{value}")
 
+
+def safe_del_key(da: Dict[Any, Any], k:Any): 
+    """ delete a key from da if possible. modifies da directly and handles error.
+        also returns da convenience value.
+    """
+    
+    try:
+        del da[k]
+    except KeyError:
+        pass
+    return da    
+    
+    
 

@@ -1249,16 +1249,31 @@ class Pydf:
     #===========================
     # append
         
-    def append(self, data_item: Union[T_Pydf, T_loda, T_da]):
+    def append(self, data_item: Union[T_Pydf, T_loda, T_da, T_la]):
         
-        """ general append method can handle appending one record as T_da, many records as T_loda or T_pydf
+        """ general append method can handle appending one record as T_da or T_la, many records as T_loda or T_pydf
             test exists in test_pydf.py for all three cases
         """
+        if not data_item:
+            return self
         
         if isinstance(data_item, dict):
             self.record_append(data_item)
         elif isinstance(data_item, list):
-            self.extend(data_item)
+            if isinstance(data_item[0], dict):
+                # lod type
+                self.extend(data_item)
+            else:
+                # simple list.
+                if self.hd:
+                    # columns are defined, and keyfield might also be defined
+                    # create a dict.
+                    da = dict(zip[self.hd.cols, data_item])
+                    self.record_append(da)
+                else:    
+                    # no columns defined, therefore just append to lol.
+                    self.lol.append(data_item)
+                
         elif isinstance(data_item, Pydf):  # type: ignore
             self.concat(data_item)
         else:    
@@ -1394,6 +1409,9 @@ class Pydf:
 
 
     def _basic_append_la(self, rec_la: T_la, keyval: str):
+        """ basic append to the end of the array without any checks
+            including appending to kd and la to lol
+        """
         self.kd[keyval] = len(self.lol)
         self.lol.append(rec_la)
                 
@@ -1564,9 +1582,9 @@ class Pydf:
         """ Selects the first row in pydf which matches the fields specified in selector_da
             and returns that row. Else returns {}.
             Use inverse to find the first row that does not match.
-            
-            test exists in test_pydf.py
         """
+            
+        # test exists in test_pydf.py
 
         # from utilities import utils
 
@@ -1608,15 +1626,15 @@ class Pydf:
         return [idx for idx, row in enumerate(self) if where(row)]
 
 
-    def col(self, colname: str, unique: bool=False) -> list:
+    def col(self, colname: str, unique: bool=False, omit_nulls: bool=False) -> list:
         """ alias for col_to_la()
             can also use column ranges and then transpose()
             test exists in test_pydf.py
         """
-        return self.col_to_la(colname, unique)
+        return self.col_to_la(colname, unique, omit_nulls=omit_nulls)
 
 
-    def col_to_la(self, colname: str, unique: bool=False) -> list:
+    def col_to_la(self, colname: str, unique: bool=False, omit_nulls: bool=False) -> list:
         """ pull out out a column from pydf by colname as a list of any
             does not modify pydf. Using unique requires that the 
             values in the column are hashable.
@@ -1626,7 +1644,7 @@ class Pydf:
         if not colname or colname not in self.hd:
             return []
         icol = self.hd[colname]
-        result_la = self.icol_to_la(icol, unique=unique)
+        result_la = self.icol_to_la(icol, unique=unique, omit_nulls=omit_nulls)
         
         return result_la
 
@@ -1635,7 +1653,7 @@ class Pydf:
         return self.icol_to_la(icol)
 
 
-    def icol_to_la(self, icol: int, unique: bool=False) -> list:
+    def icol_to_la(self, icol: int, unique: bool=False, omit_nulls: bool=False) -> list:
         """ pull out out a column from pydf by icol idx as a list of any 
             can also use column ranges and then transpose()
             does not modify pydf
@@ -1644,8 +1662,11 @@ class Pydf:
         
         if icol < 0 or not self or icol >= len(self.lol[0]):
             return []
-
-        result_la = [la[icol] for la in self.lol]
+        
+        if omit_nulls:
+            result_la = [la[icol] for la in self.lol if la[icol]]
+        else:
+            result_la = [la[icol] for la in self.lol]
 
         if unique:
             result_la = list(dict.fromkeys(result_la))
@@ -2418,22 +2439,64 @@ class Pydf:
         return result_pydf        
 
     
-    def groupby(self, colname) -> Dict[str, 'Pydf']:
-        """ given a pydf, break into a number of pydf's based on colname specified. 
-            For each discrete value in colname, create a pydf table with all rows,
+    def groupby(self, 
+            colname: str='', 
+            colnames: Optional[T_ls]=None,
+            omit_nulls: bool=False,         # do not group to values in column that are null ('')
+            ) -> Union[Dict[str, 'Pydf'], Dict[Tuple[str, ...], 'Pydf']]:
+        """ given a pydf, break into a number of pydf's based on one colname or list of colnames specified. 
+            For each discrete value in colname(s), create a pydf table with all cols,
             including colname, and return in a dopydf (dict of pydf) structure.
+            If list of colnames is provided, dopydf keys are tuples of the values.
         """
+        
+        if isinstance(colname, list) and not colnames:
+            return self.groupby_cols(colnames=colname)
+        elif colnames and not colname:
+            if len(colnames) > 1:
+                return self.groupby_cols(colnames=colnames)
+            else:
+                colname = colnames[0]
+                # can continue below.
         
         result_dopydf: Dict[str, 'Pydf'] = {}
         
         for da in self:
             fieldval = da[colname]
+            if omit_nulls and fieldval=='':
+                continue
+            
             if fieldval not in result_dopydf:
                 result_dopydf[fieldval] = self.clone_empty()
                 
             this_pydf = result_dopydf[fieldval]
             this_pydf.record_append(record_da=da)
             result_dopydf[fieldval] = this_pydf
+    
+        return result_dopydf
+    
+
+    def groupby_cols(self, colnames: T_ls) -> Dict[Tuple[str, ...], 'Pydf']:
+        """ given a pydf, break into a number of pydf's based on colnames specified. 
+            For each discrete value in colname, create a pydf table with all cols,
+            including colnames, and return in a dopydf (dict of pydf) structure,
+            where the keys are a tuple of the column values.
+            
+            Examine the records to determine what the values are for the colnames specified.
+        """
+        
+        result_dopydf: Dict[Tuple[str, ...], 'Pydf'] = {}
+        
+        for da in self:
+            fieldval_tuple = tuple(da[colname] for colname in colnames)
+            if fieldval_tuple not in result_dopydf:
+                result_dopydf[fieldval_tuple] = this_pydf = self.clone_empty()
+            
+            else:
+                this_pydf = result_dopydf[fieldval_tuple]
+                
+            this_pydf.record_append(record_da=da)
+            result_dopydf[fieldval_tuple] = this_pydf
     
         return result_dopydf
     
@@ -2680,7 +2743,12 @@ class Pydf:
         return sums_d
         
     
-    def valuecounts_for_colname(self, colname: str, sort: bool=False, reverse: bool=True) -> T_di:
+    def valuecounts_for_colname(self, 
+            colname: str, 
+            sort: bool=False, 
+            reverse: bool=True,
+            omit_nulls: bool=False,
+            ) -> T_di:
         """ given a column of enumerated values, count all unique values in the column 
             and return a dict of valuecounts_di, where the key is each of the unique values
             and the value is the count of that value in the column.
@@ -2702,6 +2770,9 @@ class Pydf:
                 valuecounts_di[val] = 1
             else:
                 valuecounts_di[val] += 1
+
+        if omit_nulls:
+            pydf_utils.safe_del_key(valuecounts_di, '') 
                 
         if sort:
             valuecounts_di = dict(sorted(valuecounts_di.items(), key=lambda x: x[1], reverse=reverse))
@@ -2986,7 +3057,8 @@ class Pydf:
             colname: str,                       # column name to include in the value_counts table
             sort: bool=False,                   # sort values in the category
             reverse: bool=True,                 # reverse the sort
-            include_total: bool=False,            # 
+            include_total: bool=False,          #
+            omit_nulls: bool=False,             # set to true if '' should be omitted.            
             ) -> 'Pydf':
         """ create a values count pydf of the results of value counts analysis of one column, colname.
             The result is a pydf table with two columns.
@@ -2997,6 +3069,9 @@ class Pydf:
         """
             
         value_counts_di   = self.valuecounts_for_colname(colname=colname, sort=sort, reverse=reverse)
+        
+        if omit_nulls:
+            pydf_utils.safe_del_key(value_counts_di, '') 
 
         value_counts_pydf = Pydf.from_lod_to_cols([value_counts_di], cols=[colname, 'counts'])
 
@@ -3011,4 +3086,4 @@ Pydf.md_pydf_table = Pydf.to_md
 # DO NOT DELETE THESE LINES.
 # these are required to define these.
 T_pydf = Pydf
-T_dopydf = Dict[str, Optional[T_pydf]]
+T_dopydf = Dict[Union[str, Tuple[str, ...]], Optional[T_pydf]]
