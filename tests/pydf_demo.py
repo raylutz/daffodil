@@ -8,7 +8,7 @@ import sys
 
 sys.path.append('..')
 
-from Pydf.md_demo import pr, md_code_seg
+from Pydf.md_demo import md_code_seg # pr, 
 
 
 def main():

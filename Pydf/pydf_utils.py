@@ -2,24 +2,35 @@
 
 # copyright (c) 2024 Ray Lutz
 
-
+import io
 import csv
 import re
 import math
+import operator
+import json
+import datetime
+import statistics
+import ast
+import platform
 
 import xlsx2csv     # type: ignore
 
 
-from typing import List, Dict, Any, Tuple, Optional, Union, cast, Type, Callable
+from typing import List, Dict, Any, Tuple, Optional, Union, cast #, Type, Callable
 
 def fake_function(a: Optional[List[Dict[str, Tuple[int,Union[Any, str]]]]] = None) -> Optional[int]:
     return None or cast(int, 0)
 
 
-from Pydf.my_types import T_lola, T_lols, T_loda, T_loloda, T_lodoloda, T_dtype_dict, T_dtype, T_da, T_num, \
-                    T_doda, T_df, T_lods, T_ds, T_lodf, T_doloda, T_dodf, T_dola, \
-                    T_di, T_li, T_ls, T_image, T_dateobj, T_lsi, T_si, T_idi, T_idoda, T_dodi, T_hdlola, \
-                    T_la, T_lodola, T_lododa, T_df_or_lod, T_lota, T_hllola, T_loti, T_dols, T_dn
+from Pydf.pydf_types import T_lola, T_loda, T_dtype_dict, T_da, T_ds, T_hdlola, T_la, T_loti, T_ls, T_doda
+                    # T_lols, T_loloda, T_lodoloda, T_dtype, T_num, T_df, T_lods, T_lodf, 
+                    # T_doloda, T_dodf, T_dola, 
+                    # T_di, T_li, T_ls, T_image, T_dateobj, T_lsi, T_si, T_idi, T_idoda, T_dodi, 
+                    # T_lodola, T_lododa, T_df_or_lod, T_lota, T_hllola, T_dols, T_dn 
+                    
+
+def is_linux() -> bool: 
+    return platform.system() == 'Linux'
 
 def apply_dtypes_to_hdlol(hdlol: T_hdlola, dtypes: T_dtype_dict) -> T_hdlola:
 
@@ -85,6 +96,21 @@ def unflatten_hdlol_by_cols(hdlol: T_hdlola, cols: T_ls) -> T_hdlola:
     return (cols_da, lol)            
 
 
+class NpEncoder(json.JSONEncoder):
+    #This is needed to allow np.int64 to be converted.
+    def default(self, obj):
+        import numpy as np
+        
+        if isinstance(obj, np.integer):
+            return int(obj)
+        elif isinstance(obj, np.floating):
+            return float(obj)
+        elif isinstance(obj, np.ndarray):
+            return obj.tolist()
+        else:
+            return super(NpEncoder, self).default(obj)
+
+
 def json_encode(data_item: Any, indent: Optional[int]=None) -> str:
     # use ensure_ascii=False
     # encoding="utf-8" is not supported.
@@ -100,6 +126,26 @@ def make_strbool(val: Union[bool, str, int, None]) -> str:
     return '1' if test_strbool(val) else '0'
     
     
+def test_strbool(val: Union[bool, str, int, None, object]) -> bool:
+    # test a strbool value like 'is_bmd' and allow both bool or str types.
+    
+    if isinstance(val, bool):
+        return val
+    elif isinstance(val, str):
+        return bool(val.lower() in ('1', 'true', 'yes'))
+    elif isinstance(val, int):
+        return bool(val == 1)
+    elif val is None:
+        return False
+    elif not bool(val == val):  # nan
+        return False
+    else:    
+        import pdb; pdb.set_trace() #perm
+        error_beep()
+        
+    return False    # token return for mypy.
+    
+        
 def xlsx_to_csv(xlsx: bytes, sheetname: Optional[str]=None, add_trailing_blank_cols: bool=True) -> bytes:
     """ convert xlsx file in a buffer to csv file in a buffer. 
         Additional blank columns are added so all rows have the same number of values.
@@ -108,15 +154,15 @@ def xlsx_to_csv(xlsx: bytes, sheetname: Optional[str]=None, add_trailing_blank_c
     
     buff = io.BytesIO(xlsx)
     buff_out = io.StringIO()
-    logs.sts("Converting using xlxs2csv...", 3)
+    sts("Converting using xlxs2csv...", 3)
     xlsx2csv.Xlsx2csv(buff, outputencoding="utf-8").convert(buff_out, sheetname=sheetname)
-    logs.sts(f"Conversion to buff_out completed: {len(buff_out.getvalue())} bytes.", 3)
+    sts(f"Conversion to buff_out completed: {len(buff_out.getvalue())} bytes.", 3)
 
     buff_out.seek(0)
     if add_trailing_blank_cols:
-        logs.sts("Adding trailing columns...", 3)
+        sts("Adding trailing columns...", 3)
         buff_out = io.StringIO(add_trailing_columns_csv(buff_out.getvalue()))
-        logs.sts(f"Trailing Columns added: {len(buff_out.getvalue())} bytes.", 3)
+        sts(f"Trailing Columns added: {len(buff_out.getvalue())} bytes.", 3)
     return buff_out.getvalue().encode('utf-8')
 
 
@@ -294,7 +340,7 @@ def safe_regex_select(regex:Union[str, bytes], s:str, default:str='', flags=0) -
             valstr = match.group(1)   # type: ignore
         except IndexError:
             import pdb; pdb.set_trace() #perm
-            logs.error_beep()
+            error_beep()
         return valstr.strip()
     else:
         return default
@@ -337,7 +383,7 @@ def set_dict_dtypes(d: T_da, dtype_dict: T_dtype_dict) -> T_da:
             continue
         else:
             import pdb; pdb.set_trace() #perm
-            logs.error_beep()
+            error_beep()
 
             pass
                  
@@ -674,7 +720,7 @@ def parse_s3path(s3path: str) -> T_ds:
             not s3dict['bucket'] or
             not s3dict['key']):
     
-        logs.exception_report(f"{logs.prog_loc()} s3_path format invalid: {s3path}")
+        sts(f"{prog_loc()} s3_path format invalid: {s3path}", 3)
         raise RuntimeError
     return s3dict
     
@@ -688,7 +734,7 @@ def transpose_lol(lol: T_lola) -> T_lola:
     transposed_lol = [list(i) for i in zip(*lol)]
     
     if lol and transposed_lol and max([len(lst) for lst in lol]) != len(transposed_lol):
-        raise RuntimeError (f"{logs.prog_loc()} transpose_lol encountered ragged lol with record lengths: {[len(lst) for lst in lol]}")
+        raise RuntimeError (f"{prog_loc()} transpose_lol encountered ragged lol with record lengths: {[len(lst) for lst in lol]}")
 
     return transposed_lol
 
@@ -808,4 +854,206 @@ def safe_del_key(da: Dict[Any, Any], k:Any):
     return da    
     
     
+def dod_to_lod(dod: T_doda, keyfield: str='rowkey') -> T_loda:
+    """ given a dod, downconvert to lod by 
+        adding the dod key as keyfield to each dict, if required,
+        and creating lod.
+    """
 
+    if not isinstance(dod, dict):
+        raise RuntimeError("dod_to_lod requires a dict parameter")
+        
+    if not keyfield:
+        return list(dod.values())
+    
+    lod = []
+    for key, d in dod.items():
+        if keyfield and keyfield not in d:
+            d[keyfield] = key
+        lod.append(d)
+        
+    return lod
+
+
+def lod_to_dod(lod: T_loda, 
+        keyfield:           str='rowkey', 
+        remove_keyfield:    bool=True,
+        ) -> T_doda:
+    """ given a lod with common fields, convert to dod,
+        where the outer dict key is the field rowkey in the original lod.
+        rowkey defaults to 'rowkey'
+        
+        if remove_rowkey is True (default) remove rowkey item 
+        from the inner dictionary. Otherwise, leave each dict alone.
+    """
+    dod = {}
+    for da in lod:
+        dod_key = da[keyfield]
+        if remove_keyfield:
+            del da[keyfield]
+        dod[dod_key] = da
+    return dod        
+    
+
+def safe_eval(value: str) -> Optional[Any]:
+    """ un-stringify an object without risk of using eval for malicious actions. """
+    
+    try:
+        parsed_value = ast.literal_eval(value)
+        return parsed_value
+    except (SyntaxError, ValueError):
+        return None
+        
+        
+def safe_min(listlike: List[Any]) -> Any:
+    # note! Using try/except in to guard for the length of list is not specific enough. 
+    #   We still need failure under other conditions.
+
+    if len(listlike) < 1:
+        return 0
+    return min(listlike)
+    
+
+def safe_stdev(listlike):
+    # note! Using try/except in to guard for the length of list is not specific enough. 
+    #   We still need failure under other conditions.
+    #   statistics library provides only statisticsError which is not specific enough.
+
+    if len(listlike) < 2:
+        return 0
+    return statistics.stdev(listlike)
+    
+    
+def safe_mean(listlike):
+    # note! Using try/except in to guard for the length of list is not specific enough. 
+    #   We still need failure under other conditions.
+    #   statistics library provides only statisticsError which is not specific enough.
+
+    if len(listlike) < 1:
+        return 0
+    return statistics.mean(listlike)    
+
+     
+def beep(freq: int=1080, ms: int=500):
+
+    if not is_linux():
+        try:
+            import winsound
+        except ImportError:
+            import os
+            os.system('beep -f %s -l %s' % (freq, ms))
+        else:
+            winsound.Beep(freq, ms)
+            
+    
+def error_beep():
+    beep()
+    
+
+def notice_beep(freq: int=1080):
+    beep(freq=freq, ms=250)
+    beep(freq=freq, ms=250)
+
+
+def sts(string: str, verboselevel: int=0, end: str='\n', enable: bool=True) -> str:
+    """ Append string to logfile report.
+        Also return the string so an interal version can be maintained
+        for other reporting.
+        The standard logger function could be used but we are interested
+        in maintaining a log linked with each phase of the process.
+        returns the string.
+    """
+    
+    verbose_level = 3
+
+    if string is None or not enable: return ''
+
+    log_str = f"{get_datetime_str()}: {string}"
+
+    if verboselevel >= verbose_level:
+        print(log_str, end=end, flush=True)
+    return string+end
+
+
+def get_datetime_str() -> str:
+
+    return f"{datetime.datetime.now()}"
+    #return datetime.datetime.strftime(datetime.datetime.now(), '%Y-%m-%d %H:%M:%S')
+    
+
+def split_dups_list(
+        alist: Union[T_la, dict], 
+        prior_unique_d: Optional[Union[dict, list]]=None,
+        list_idx: int=0,         # used if there are multiple lists
+        ) -> T_da:  # {'uniques_d':uniques_d, 'within_reps_loti': within_reps_loti, 'prior_reps_loti':prior_reps_loti}
+
+    """ given list of hashable items, 
+        return uniques_d, within_dups, prior_dups
+        
+        Note: if a val is found in prior_unique_d, then it will be removed from
+                consideration for a within_reps entry.
+        
+        order not changed. dups may have more than one duplicate.
+        
+        Note: this function needs to use indices.
+    """
+    if prior_unique_d is None:
+        prior_unique_d = {}
+        
+    # allow prior_unique_d to be a list if that is available.
+    if isinstance(prior_unique_d, list):
+        prior_unique_d = dict.fromkeys(prior_unique_d)
+
+    if isinstance(alist, dict):
+        alist = list(alist.keys())
+    
+    uniques_d: T_da = {}
+    within_reps_loti = []
+    prior_reps_loti = []
+        
+    for idx, a in enumerate(alist):
+        if a in prior_unique_d:
+            prior_reps_loti.append( (list_idx, idx) )
+        elif a in uniques_d:
+            within_reps_loti.append( (list_idx, idx) )
+        else:
+             uniques_d[a] = None
+    
+    return {'uniques_d':uniques_d, 'within_reps_loti': within_reps_loti, 'prior_reps_loti':prior_reps_loti}
+
+
+def clean_numeric_str(valstr: str) -> str:
+    """ Remove commas, dollars, percents from str. 
+    """
+    return valstr.replace(',', '').replace('$', '').replace('%', '')
+    
+    
+def is_numeric(val: Any) -> bool:
+    """ Test if a string could be treated as numeric after ,$% removed
+    """
+       
+    if isinstance(val, int) or isinstance(val, float):
+        return True
+    if isinstance(val, str):
+        # Remove any commas and dollar signs
+        cleaned_str = clean_numeric_str(val)
+
+        # Check if the cleaned string is a valid numeric format
+        return re.match(r'^[+-]?\d+(\.\d+)?$', cleaned_str) is not None
+    return False
+    
+    
+# use this function to print the file and line number in any string to be printed.
+
+def prog_loc() -> str:
+    import inspect
+    frame = inspect.currentframe()
+    if frame is None:
+        return ''
+    try:
+        frameinfo = inspect.getframeinfo(frame.f_back)          # type: ignore
+        filename = re.split(r'[\\/]', frameinfo.filename)[-1]
+        linenumber = frameinfo.lineno
+    finally:
+        del frame
+    return f"[{filename}:{linenumber}]"

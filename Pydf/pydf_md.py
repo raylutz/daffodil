@@ -5,15 +5,15 @@
 import re
 import copy
 import markdown
-import functools
+#import functools
 
 #import pprint
 from string import Template
 
-from Pydf.my_types import T_ls, T_lola, T_da, T_doda, T_df, T_lf, T_loda, T_loloda, T_lodolodi, T_ts, T_li, T_ds, T_dola
+from Pydf.pydf_types import T_ls, T_lola, T_da, T_li #, T_doda, T_df, T_lf, T_loda, T_loloda, T_lodolodi, T_ts, T_ds, T_dola 
 
-from typing import List, Dict, Any, Tuple, Optional, Union, cast
-def fake_function(a: Optional[List[Dict[str, Tuple[int,Any]]]] = None) -> Optional[int]:
+from typing import List, Dict, Any, Tuple, Optional, Union #, cast
+def fake_function(a: Optional[List[Dict[str, Union[int, Tuple[int, Any]]]]] = None) -> Optional[int]:
     return None
 
 import Pydf.pydf_utils as utils

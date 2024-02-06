@@ -37,7 +37,6 @@ class TestPydf(unittest.TestCase):
 
     def test_from_lod(self):
         records_lod = [{'col1': 1, 'col2': 2}, {'col1': 11, 'col2': 12}, {'col1': 21, 'col2': 22}]
-        cols = ['col1', 'col2']
         keyfield = 'col1'
         dtypes = {'col1': int, 'col2': int}
         pydf = Pydf.from_lod(records_lod, keyfield=keyfield, dtypes=dtypes)
@@ -69,7 +68,6 @@ class TestPydf(unittest.TestCase):
 
     def test_to_hllola(self):
         cols    = ['col1', 'col2']
-        hd      = {'col1': 0, 'col2': 1}
         lol     = [[1, 'a'], [2, 'b'], [3, 'c']]
         pydf    = Pydf(cols=cols, lol=lol)
 
@@ -144,7 +142,6 @@ class TestPydf(unittest.TestCase):
     def test_extend_with_keyfield(self):
         cols = ['col1', 'col2']
         lol = [[1, 'a'], [2, 'b']]
-        kd = {1: 0, 2: 1}
         dtypes = {'col1': int, 'col2': str}
         pydf = Pydf(cols=cols, lol=lol, dtypes=dtypes, keyfield='col1')
 
@@ -165,7 +162,6 @@ class TestPydf(unittest.TestCase):
         cols = ['col1', 'col2']
         hd = {'col1': 0, 'col2': 1}
         lol = [[1, 'a'], [2, 'b']]
-        kd = {1: 0, 2: 1}
         dtypes = {'col1': int, 'col2': str}
         pydf = Pydf(cols=cols, lol=lol, dtypes=dtypes, keyfield='col1')
 
@@ -266,7 +262,6 @@ class TestPydf(unittest.TestCase):
         cols = ['col1', 'col2']
         hd = {'col1': 0, 'col2': 1}
         lol = [[1, 'a'], [2, 'b'], [3, 'c']]
-        kd = {1: 0, 2: 1, 3: 2}
         pydf = Pydf(cols=cols, lol=lol, keyfield='col1', dtypes={'col1': int, 'col2': str})
 
         keyval = 2
@@ -284,7 +279,6 @@ class TestPydf(unittest.TestCase):
         cols = ['col1', 'col2']
         hd = {'col1': 0, 'col2': 1}
         lol = [[1, 'a'], [2, 'b'], [3, 'c']]
-        kd = {1: 0, 2: 1, 3: 2}
         pydf = Pydf(cols=cols, lol=lol, keyfield='col1', dtypes={'col1': int, 'col2': str})
 
         keyval = 4
@@ -300,9 +294,7 @@ class TestPydf(unittest.TestCase):
 
     def test_remove_key_nonexistent_key_raise_error(self):
         cols = ['col1', 'col2']
-        hd = {'col1': 0, 'col2': 1}
         lol = [[1, 'a'], [2, 'b'], [3, 'c']]
-        kd = {1: 0, 2: 1, 3: 2}
         pydf = Pydf(cols=cols, lol=lol, keyfield='col1', dtypes={'col1': int, 'col2': str})
 
         keyval = 4
@@ -315,7 +307,6 @@ class TestPydf(unittest.TestCase):
         cols = ['col1', 'col2']
         hd = {'col1': 0, 'col2': 1}
         lol = [[1, 'a'], [2, 'b'], [3, 'c'], [4, 'd']]
-        kd = {1: 0, 2: 1, 3: 2, 4: 3}
         pydf = Pydf(cols=cols, lol=lol, keyfield='col1', dtypes={'col1': int, 'col2': str})
 
         keylist = [2, 4]
@@ -333,7 +324,6 @@ class TestPydf(unittest.TestCase):
         cols = ['col1', 'col2']
         hd = {'col1': 0, 'col2': 1}
         lol = [[1, 'a'], [2, 'b'], [3, 'c'], [4, 'd']]
-        kd = {1: 0, 2: 1, 3: 2, 4: 3}
         pydf = Pydf(cols=cols, lol=lol, keyfield='col1', dtypes={'col1': int, 'col2': str})
 
         keylist = [4, 5, 6]
@@ -349,9 +339,7 @@ class TestPydf(unittest.TestCase):
 
     def test_remove_keylist_nonexistent_keys_raise_error(self):
         cols = ['col1', 'col2']
-        hd = {'col1': 0, 'col2': 1}
         lol = [[1, 'a'], [2, 'b'], [3, 'c'], [4, 'd']]
-        kd = {1: 0, 2: 1, 3: 2, 4: 3}
         pydf = Pydf(cols=cols, lol=lol, keyfield='col1', dtypes={'col1': int, 'col2': str})
 
         keylist = [4, 5, 6]
@@ -362,9 +350,7 @@ class TestPydf(unittest.TestCase):
     # select_record_da
     def test_select_record_da_existing_key(self):
         cols = ['col1', 'col2']
-        hd = {'col1': 0, 'col2': 1}
         lol = [[1, 'a'], [2, 'b'], [3, 'c']]
-        kd = {1: 0, 2: 1, 3: 2}
         pydf = Pydf(cols=cols, lol=lol, keyfield='col1', dtypes={'col1': int, 'col2': str})
 
         key = 2
@@ -374,9 +360,7 @@ class TestPydf(unittest.TestCase):
 
     def test_select_record_da_nonexistent_key(self):
         cols = ['col1', 'col2']
-        hd = {'col1': 0, 'col2': 1}
         lol = [[1, 'a'], [2, 'b'], [3, 'c']]
-        kd = {1: 0, 2: 1, 3: 2}
         pydf = Pydf(cols=cols, lol=lol, keyfield='col1', dtypes={'col1': int, 'col2': str})
 
         key = 4
@@ -386,7 +370,6 @@ class TestPydf(unittest.TestCase):
 
     def test_select_record_da_no_keyfield(self):
         cols = ['col1', 'col2']
-        hd = {'col1': 0, 'col2': 1}
         lol = [[1, 'a'], [2, 'b'], [3, 'c']]
         pydf = Pydf(cols=cols, lol=lol, keyfield='', dtypes={'col1': int, 'col2': str})
 
@@ -398,7 +381,6 @@ class TestPydf(unittest.TestCase):
     # iloc / irow
     def test_iloc_existing_row_idx(self):
         cols = ['col1', 'col2']
-        hd = {'col1': 0, 'col2': 1}
         lol = [[1, 'a'], [2, 'b'], [3, 'c']]
         pydf = Pydf(cols=cols, lol=lol, keyfield='col1', dtypes={'col1': int, 'col2': str})
 
@@ -409,7 +391,6 @@ class TestPydf(unittest.TestCase):
 
     def test_iloc_nonexistent_row_idx(self):
         cols = ['col1', 'col2']
-        hd = {'col1': 0, 'col2': 1}
         lol = [[1, 'a'], [2, 'b'], [3, 'c']]
         pydf = Pydf(cols=cols, lol=lol, keyfield='col1', dtypes={'col1': int, 'col2': str})
 
@@ -420,7 +401,6 @@ class TestPydf(unittest.TestCase):
 
     def test_iloc_negative_row_idx(self):
         cols = ['col1', 'col2']
-        hd = {'col1': 0, 'col2': 1}
         lol = [[1, 'a'], [2, 'b'], [3, 'c']]
         pydf = Pydf(cols=cols, lol=lol, keyfield='col1', dtypes={'col1': int, 'col2': str})
 
@@ -431,7 +411,6 @@ class TestPydf(unittest.TestCase):
 
     def test_irow_existing_row_idx(self):
         cols = ['col1', 'col2']
-        hd = {'col1': 0, 'col2': 1}
         lol = [[1, 'a'], [2, 'b'], [3, 'c']]
         pydf = Pydf(cols=cols, lol=lol, keyfield='col1', dtypes={'col1': int, 'col2': str})
 
@@ -442,7 +421,6 @@ class TestPydf(unittest.TestCase):
 
     def test_irow_nonexistent_row_idx(self):
         cols = ['col1', 'col2']
-        hd = {'col1': 0, 'col2': 1}
         lol = [[1, 'a'], [2, 'b'], [3, 'c']]
         pydf = Pydf(cols=cols, lol=lol, keyfield='col1', dtypes={'col1': int, 'col2': str})
 
@@ -453,7 +431,6 @@ class TestPydf(unittest.TestCase):
 
     def test_irow_negative_row_idx(self):
         cols = ['col1', 'col2']
-        hd = {'col1': 0, 'col2': 1}
         lol = [[1, 'a'], [2, 'b'], [3, 'c']]
         pydf = Pydf(cols=cols, lol=lol, keyfield='col1', dtypes={'col1': int, 'col2': str})
 
@@ -465,7 +442,6 @@ class TestPydf(unittest.TestCase):
     # select_by_dict_to_lod
     def test_select_by_dict_to_lod_existing_selector_da(self):
         cols = ['col1', 'col2']
-        hd = {'col1': 0, 'col2': 1}
         lol = [[1, 'a'], [2, 'b'], [3, 'c'], [4, 'b']]
         pydf = Pydf(cols=cols, lol=lol, keyfield='col1', dtypes={'col1': int, 'col2': str})
 
@@ -477,7 +453,6 @@ class TestPydf(unittest.TestCase):
 
     def test_select_by_dict_to_lod_nonexistent_selector_da(self):
         cols = ['col1', 'col2']
-        hd = {'col1': 0, 'col2': 1}
         lol = [[1, 'a'], [2, 'b'], [3, 'c'], [4, 'b']]
         pydf = Pydf(cols=cols, lol=lol, keyfield='col1', dtypes={'col1': int, 'col2': str})
 
@@ -488,7 +463,6 @@ class TestPydf(unittest.TestCase):
 
     def test_select_by_dict_to_lod_with_expectmax(self):
         cols = ['col1', 'col2']
-        hd = {'col1': 0, 'col2': 1}
         lol = [[1, 'a'], [2, 'b'], [3, 'c'], [4, 'b']]
         pydf = Pydf(cols=cols, lol=lol, keyfield='col1', dtypes={'col1': int, 'col2': str})
 
@@ -500,7 +474,6 @@ class TestPydf(unittest.TestCase):
     # select_by_dict
     def test_select_by_dict_existing_selector_da(self):
         cols = ['col1', 'col2']
-        hd = {'col1': 0, 'col2': 1}
         lol = [[1, 'a'], [2, 'b'], [3, 'c'], [4, 'b']]
         pydf = Pydf(cols=cols, lol=lol, keyfield='col1', dtypes={'col1': int, 'col2': str})
 
@@ -522,7 +495,6 @@ class TestPydf(unittest.TestCase):
 
     def test_select_by_dict_nonexistent_selector_da(self):
         cols = ['col1', 'col2']
-        hd = {'col1': 0, 'col2': 1}
         lol = [[1, 'a'], [2, 'b'], [3, 'c'], [4, 'b']]
         pydf = Pydf(cols=cols, lol=lol, keyfield='col1', dtypes={'col1': int, 'col2': str})
 
@@ -544,7 +516,6 @@ class TestPydf(unittest.TestCase):
 
     def test_select_by_dict_with_expectmax(self):
         cols = ['col1', 'col2']
-        hd = {'col1': 0, 'col2': 1}
         lol = [[1, 'a'], [2, 'b'], [3, 'c'], [4, 'b']]
         pydf = Pydf(cols=cols, lol=lol, keyfield='col1', dtypes={'col1': int, 'col2': str})
 
@@ -554,9 +525,8 @@ class TestPydf(unittest.TestCase):
             pydf.select_by_dict(selector_da, expectmax=expectmax)
 
     # col / col_to_la
-    def test_col_to_la_existing_colname(self):
+    def test_col_existing_colname(self):
         cols = ['col1', 'col2']
-        hd = {'col1': 0, 'col2': 1}
         lol = [[1, 'a'], [2, 'b'], [3, 'c']]
         pydf = Pydf(cols=cols, lol=lol, keyfield='col1', dtypes={'col1': int, 'col2': str})
 
@@ -566,21 +536,20 @@ class TestPydf(unittest.TestCase):
         expected_la = ['a', 'b', 'c']
         self.assertEqual(result_la, expected_la)
 
-    def test_col_to_la_nonexistent_colname(self):
+    def test_col_nonexistent_colname(self):
         cols = ['col1', 'col2']
-        hd = {'col1': 0, 'col2': 1}
         lol = [[1, 'a'], [2, 'b'], [3, 'c']]
         pydf = Pydf(cols=cols, lol=lol, keyfield='col1', dtypes={'col1': int, 'col2': str})
 
         colname = 'col3'
         with self.assertRaises(RuntimeError):
             result_la = pydf.col(colname)
+            result_la = result_la # fool linter
 
         #self.assertEqual(result_la, [])
 
-    def test_col_to_la_empty_colname(self):
+    def test_col_empty_colname(self):
         cols = ['col1', 'col2']
-        hd = {'col1': 0, 'col2': 1}
         lol = [[1, 'a'], [2, 'b'], [3, 'c']]
         pydf = Pydf(cols=cols, lol=lol, keyfield='col1', dtypes={'col1': int, 'col2': str})
 
@@ -589,44 +558,9 @@ class TestPydf(unittest.TestCase):
 
         self.assertEqual(result_la, [])
 
-    def test_col_to_la_existing_colname(self):
-        cols = ['col1', 'col2']
-        hd = {'col1': 0, 'col2': 1}
-        lol = [[1, 'a'], [2, 'b'], [3, 'c']]
-        pydf = Pydf(cols=cols, lol=lol, keyfield='col1', dtypes={'col1': int, 'col2': str})
-
-        colname = 'col2'
-        result_la = pydf.col_to_la(colname)
-
-        expected_la = ['a', 'b', 'c']
-        self.assertEqual(result_la, expected_la)
-
-    def test_col_to_la_nonexistent_colname(self):
-        cols = ['col1', 'col2']
-        hd = {'col1': 0, 'col2': 1}
-        lol = [[1, 'a'], [2, 'b'], [3, 'c']]
-        pydf = Pydf(cols=cols, lol=lol, keyfield='col1', dtypes={'col1': int, 'col2': str})
-
-        colname = 'col3'
-        result_la = pydf.col_to_la(colname)
-
-        self.assertEqual(result_la, [])
-
-    def test_col_to_la_empty_colname(self):
-        cols = ['col1', 'col2']
-        hd = {'col1': 0, 'col2': 1}
-        lol = [[1, 'a'], [2, 'b'], [3, 'c']]
-        pydf = Pydf(cols=cols, lol=lol, keyfield='col1', dtypes={'col1': int, 'col2': str})
-
-        colname = ''
-        result_la = pydf.col_to_la(colname)
-
-        self.assertEqual(result_la, [])
-
     # drop_cols
     def test_drop_cols_existing_cols(self):
         cols = ['col1', 'col2', 'col3']
-        hd = {'col1': 0, 'col2': 1, 'col3': 2}
         lol = [[1, 'a', 'x'], [2, 'b', 'y'], [3, 'c', 'z']]
         pydf = Pydf(cols=cols, lol=lol, keyfield='col1', dtypes={'col1': int, 'col2': str, 'col3': str})
 
@@ -641,7 +575,6 @@ class TestPydf(unittest.TestCase):
 
     def test_drop_cols_nonexistent_cols(self):
         cols = ['col1', 'col2', 'col3']
-        hd = {'col1': 0, 'col2': 1, 'col3': 2}
         lol = [[1, 'a', 'x'], [2, 'b', 'y'], [3, 'c', 'z']]
         pydf = Pydf(cols=cols, lol=lol, keyfield='col1', dtypes={'col1': int, 'col2': str, 'col3': str})
 
@@ -656,7 +589,6 @@ class TestPydf(unittest.TestCase):
 
     def test_drop_cols_empty_cols(self):
         cols = ['col1', 'col2', 'col3']
-        hd = {'col1': 0, 'col2': 1, 'col3': 2}
         lol = [[1, 'a', 'x'], [2, 'b', 'y'], [3, 'c', 'z']]
         pydf = Pydf(cols=cols, lol=lol, keyfield='col1', dtypes={'col1': int, 'col2': str, 'col3': str})
 
@@ -672,7 +604,6 @@ class TestPydf(unittest.TestCase):
     # assign_col
     def test_assign_col_existing_colname(self):
         cols = ['col1', 'col2', 'col3']
-        hd = {'col1': 0, 'col2': 1, 'col3': 2}
         lol = [[1, 'a', 'x'], [2, 'b', 'y'], [3, 'c', 'z']]
         pydf = Pydf(cols=cols, lol=lol, keyfield='col1', dtypes={'col1': int, 'col2': str, 'col3': str})
 
@@ -688,7 +619,6 @@ class TestPydf(unittest.TestCase):
 
     def test_assign_col_nonexistent_colname(self):
         cols = ['col1', 'col2', 'col3']
-        hd = {'col1': 0, 'col2': 1, 'col3': 2}
         lol = [[1, 'a', 'x'], [2, 'b', 'y'], [3, 'c', 'z']]
         pydf = Pydf(cols=cols, lol=lol, keyfield='col1', dtypes={'col1': int, 'col2': str, 'col3': str})
 
@@ -704,7 +634,6 @@ class TestPydf(unittest.TestCase):
 
     def test_assign_col_empty_colname(self):
         cols = ['col1', 'col2', 'col3']
-        hd = {'col1': 0, 'col2': 1, 'col3': 2}
         lol = [[1, 'a', 'x'], [2, 'b', 'y'], [3, 'c', 'z']]
         pydf = Pydf(cols=cols, lol=lol, keyfield='col1', dtypes={'col1': int, 'col2': str, 'col3': str})
 
@@ -721,7 +650,6 @@ class TestPydf(unittest.TestCase):
     # cols_to_dol
     def test_cols_to_dol_valid_cols(self):
         cols = ['col1', 'col2', 'col3']
-        hd = {'col1': 0, 'col2': 1, 'col3': 2}
         lol = [['a', 'b', 'c'], ['b', 'd', 'e'], ['a', 'f', 'g'], ['b', 'd', 'm']]
         pydf = Pydf(cols=cols, lol=lol, keyfield='col1', dtypes={'col1': str, 'col2': str, 'col3': str})
 
@@ -734,7 +662,6 @@ class TestPydf(unittest.TestCase):
 
     def test_cols_to_dol_invalid_colname(self):
         cols = ['col1', 'col2', 'col3']
-        hd = {'col1': 0, 'col2': 1, 'col3': 2}
         lol = [['a', 'b', 'c'], ['b', 'd', 'e'], ['a', 'f', 'g'], ['b', 'd', 'm']]
         pydf = Pydf(cols=cols, lol=lol, keyfield='col1', dtypes={'col1': str, 'col2': str, 'col3': str})
 
@@ -757,7 +684,6 @@ class TestPydf(unittest.TestCase):
 
     def test_cols_to_dol_single_column(self):
         cols = ['col1']
-        hd = {'col1': 0}
         lol = [['a'], ['b'], ['a'], ['b']]
         pydf = Pydf(cols=cols, lol=lol, keyfield='col1', dtypes={'col1': str})
 
@@ -770,7 +696,6 @@ class TestPydf(unittest.TestCase):
     # bool
     def test_bool_empty_pydf(self):
         cols = []
-        hd = {}
         lol = []
         pydf = Pydf(cols=cols, lol=lol, keyfield='col1', dtypes={})
 
@@ -780,7 +705,6 @@ class TestPydf(unittest.TestCase):
 
     def test_bool_nonempty_pydf(self):
         cols = ['col1', 'col2']
-        hd = {'col1': 0, 'col2': 1}
         lol = [[1, 'a'], [2, 'b'], [3, 'c']]
         pydf = Pydf(cols=cols, lol=lol, keyfield='col1', dtypes={'col1': int, 'col2': str})
 
@@ -790,7 +714,6 @@ class TestPydf(unittest.TestCase):
 
     def test_bool_pydf_with_empty_lol(self):
         cols = ['col1', 'col2']
-        hd = {'col1': 0, 'col2': 1}
         lol = []
         pydf = Pydf(cols=cols, lol=lol, keyfield='col1', dtypes={'col1': int, 'col2': str})
 
@@ -801,7 +724,6 @@ class TestPydf(unittest.TestCase):
     # len
     def test_len_empty_pydf(self):
         cols = []
-        hd = {}
         lol = []
         pydf = Pydf(cols=cols, lol=lol, keyfield='col1', dtypes={})
 
@@ -811,7 +733,6 @@ class TestPydf(unittest.TestCase):
 
     def test_len_nonempty_pydf(self):
         cols = ['col1', 'col2']
-        hd = {'col1': 0, 'col2': 1}
         lol = [[1, 'a'], [2, 'b'], [3, 'c']]
         pydf = Pydf(cols=cols, lol=lol, keyfield='col1', dtypes={'col1': int, 'col2': str})
 
@@ -821,7 +742,6 @@ class TestPydf(unittest.TestCase):
 
     def test_len_pydf_with_empty_lol(self):
         cols = ['col1', 'col2']
-        hd = {'col1': 0, 'col2': 1}
         lol = []
         pydf = Pydf(cols=cols, lol=lol, keyfield='col1', dtypes={'col1': int, 'col2': str})
 
@@ -832,7 +752,6 @@ class TestPydf(unittest.TestCase):
     # columns
     def test_columns_empty_pydf(self):
         cols = []
-        hd = {}
         lol = []
         pydf = Pydf(cols=cols, lol=lol, keyfield='col1', dtypes={})
 
@@ -842,7 +761,6 @@ class TestPydf(unittest.TestCase):
 
     def test_columns_nonempty_pydf(self):
         cols = ['col1', 'col2', 'col3']
-        hd = {'col1': 0, 'col2': 1, 'col3': 2}
         lol = [[1, 'a', 'x'], [2, 'b', 'y'], [3, 'c', 'z']]
         pydf = Pydf(cols=cols, lol=lol, keyfield='col1', dtypes={'col1': int, 'col2': str, 'col3': str})
 
@@ -853,7 +771,6 @@ class TestPydf(unittest.TestCase):
     # keys
     def test_keys_no_keyfield(self):
         cols = ['col1', 'col2']
-        hd = {'col1': 0, 'col2': 1}
         lol = [[1, 'a'], [2, 'b'], [3, 'c']]
         pydf = Pydf(cols=cols, lol=lol, keyfield='', dtypes={'col1': int, 'col2': str})
 
@@ -863,7 +780,6 @@ class TestPydf(unittest.TestCase):
 
     def test_keys_with_keyfield(self):
         cols = ['col1', 'col2']
-        hd = {'col1': 0, 'col2': 1}
         lol = [[1, 'a'], [2, 'b'], [3, 'c']]
         pydf = Pydf(cols=cols, lol=lol, keyfield='col1', dtypes={'col1': int, 'col2': str})
 
@@ -873,7 +789,6 @@ class TestPydf(unittest.TestCase):
 
     def test_keys_empty_pydf(self):
         cols = []
-        hd = {}
         lol = []
         pydf = Pydf(cols=cols, lol=lol, keyfield='col1', dtypes={})
 
@@ -897,7 +812,6 @@ class TestPydf(unittest.TestCase):
 
     def test_clone_empty_from_nonempty_instance(self):
         cols = ['col1', 'col2']
-        hd = {'col1': 0, 'col2': 1}
         lol = [[1, 'a'], [2, 'b'], [3, 'c']]
         old_instance = Pydf(cols=cols, lol=lol, keyfield='col1', dtypes={'col1': int, 'col2': str})
         result = Pydf.clone_empty(old_instance)
@@ -925,7 +839,6 @@ class TestPydf(unittest.TestCase):
     # to_lod
     def test_to_lod_empty_pydf(self):
         cols = []
-        hd = {}
         lol = []
         pydf = Pydf(cols=cols, lol=lol, keyfield='col1', dtypes={})
 
@@ -935,7 +848,6 @@ class TestPydf(unittest.TestCase):
 
     def test_to_lod_nonempty_pydf(self):
         cols = ['col1', 'col2']
-        hd = {'col1': 0, 'col2': 1}
         lol = [[1, 'a'], [2, 'b'], [3, 'c']]
         pydf = Pydf(cols=cols, lol=lol, keyfield='col1', dtypes={'col1': int, 'col2': str})
 
@@ -947,7 +859,6 @@ class TestPydf(unittest.TestCase):
     # select_records
     def test_select_records_empty_pydf(self):
         cols = []
-        hd = {}
         lol = []
         pydf = Pydf(cols=cols, lol=lol, keyfield='col1', dtypes={})
 
@@ -963,7 +874,6 @@ class TestPydf(unittest.TestCase):
 
     def test_select_records_nonempty_pydf(self):
         cols    = ['col1', 'col2']
-        hd      = {'col1': 0, 'col2': 1}
         lol = [ [1, 'a'], 
                 [2, 'b'], 
                 [3, 'c']]
@@ -981,7 +891,6 @@ class TestPydf(unittest.TestCase):
 
     def test_select_records_empty_keys(self):
         cols = ['col1', 'col2']
-        hd = {'col1': 0, 'col2': 1}
         lol = [[1, 'a'], [2, 'b'], [3, 'c']]
         dtypes={'col1': int, 'col2': str}
         pydf = Pydf(cols=cols, lol=lol, keyfield='col1', dtypes=dtypes)
@@ -999,7 +908,6 @@ class TestPydf(unittest.TestCase):
     # assign_record
     def test_assign_record_empty_pydf(self):
         cols = []
-        hd = {}
         lol = []
         pydf = Pydf(cols=cols, lol=lol, keyfield='col1', dtypes={})
 
@@ -1011,7 +919,6 @@ class TestPydf(unittest.TestCase):
 
     def test_assign_record_nonempty_pydf_add_new_record(self):
         cols = ['col1', 'col2']
-        hd = {'col1': 0, 'col2': 1}
         lol = [[1, 'a'], [2, 'b'], [3, 'c']]
         pydf = Pydf(cols=cols, lol=lol, keyfield='col1', dtypes={'col1': int, 'col2': str})
 
@@ -1023,7 +930,6 @@ class TestPydf(unittest.TestCase):
 
     def test_assign_record_nonempty_pydf_update_existing_record(self):
         cols = ['col1', 'col2']
-        hd = {'col1': 0, 'col2': 1}
         lol = [[1, 'a'], [2, 'b'], [3, 'c']]
         pydf = Pydf(cols=cols, lol=lol, keyfield='col1', dtypes={'col1': int, 'col2': str})
 
@@ -1035,7 +941,6 @@ class TestPydf(unittest.TestCase):
 
     def test_assign_record_missing_keyfield(self):
         cols = ['col1', 'col2']
-        hd = {'col1': 0, 'col2': 1}
         lol = [[1, 'a'], [2, 'b'], [3, 'c']]
         pydf = Pydf(cols=cols, lol=lol, keyfield='col1', dtypes={'col1': int, 'col2': str})
 
@@ -1045,7 +950,6 @@ class TestPydf(unittest.TestCase):
 
     def test_assign_record_fields_not_equal_to_columns(self):
         cols = ['col1', 'col2']
-        hd = {'col1': 0, 'col2': 1}
         lol = [[1, 'a'], [2, 'b'], [3, 'c']]
         pydf = Pydf(cols=cols, lol=lol, keyfield='col1', dtypes={'col1': int, 'col2': str})
 
@@ -1056,7 +960,6 @@ class TestPydf(unittest.TestCase):
     # assign_record_irow
     def test_assign_record_irow_empty_pydf(self):
         cols = []
-        hd = {}
         lol = []
         pydf = Pydf(cols=cols, lol=lol, keyfield='col1', dtypes={})
 
@@ -1068,7 +971,6 @@ class TestPydf(unittest.TestCase):
 
     def test_assign_record_irow_nonempty_pydf_add_new_record(self):
         cols = ['col1', 'col2']
-        hd = {'col1': 0, 'col2': 1}
         lol = [[1, 'a'], [2, 'b'], [3, 'c']]
         pydf = Pydf(cols=cols, lol=lol, keyfield='col1', dtypes={'col1': int, 'col2': str})
 
@@ -1080,7 +982,6 @@ class TestPydf(unittest.TestCase):
 
     def test_assign_record_irow_nonempty_pydf_update_existing_record(self):
         cols = ['col1', 'col2']
-        hd = {'col1': 0, 'col2': 1}
         lol = [[1, 'a'], [2, 'b'], [3, 'c']]
         pydf = Pydf(cols=cols, lol=lol, keyfield='col1', dtypes={'col1': int, 'col2': str})
 
@@ -1092,7 +993,6 @@ class TestPydf(unittest.TestCase):
 
     def test_assign_record_irow_invalid_irow(self):
         cols = ['col1', 'col2']
-        hd = {'col1': 0, 'col2': 1}
         lol = [[1, 'a'], 
                [2, 'b'], 
                [3, 'c']]
@@ -1111,7 +1011,6 @@ class TestPydf(unittest.TestCase):
 
     def test_assign_record_irow_missing_record_da(self):
         cols = ['col1', 'col2']
-        hd = {'col1': 0, 'col2': 1}
         lol = [[1, 'a'], [2, 'b'], [3, 'c']]
         pydf = Pydf(cols=cols, lol=lol, keyfield='col1', dtypes={'col1': int, 'col2': str})
 
@@ -1123,7 +1022,6 @@ class TestPydf(unittest.TestCase):
    # update_record_irow
     def test_update_record_irow_empty_pydf(self):
         cols = []
-        hd = {}
         lol = []
         pydf = Pydf(cols=cols, lol=lol, keyfield='col1', dtypes={})
 
@@ -1134,7 +1032,6 @@ class TestPydf(unittest.TestCase):
 
     def test_update_record_irow_nonempty_pydf_update_existing_record(self):
         cols = ['col1', 'col2']
-        hd = {'col1': 0, 'col2': 1}
         lol = [[1, 'a'], [2, 'b'], [3, 'c']]
         pydf = Pydf(cols=cols, lol=lol, keyfield='col1', dtypes={'col1': int, 'col2': str})
 
@@ -1146,7 +1043,6 @@ class TestPydf(unittest.TestCase):
 
     def test_update_record_irow_invalid_irow(self):
         cols = ['col1', 'col2']
-        hd = {'col1': 0, 'col2': 1}
         lol = [[1, 'a'], [2, 'b'], [3, 'c']]
         pydf = Pydf(cols=cols, lol=lol, keyfield='col1', dtypes={'col1': int, 'col2': str})
 
@@ -1157,7 +1053,6 @@ class TestPydf(unittest.TestCase):
 
     def test_update_record_irow_missing_record_da(self):
         cols = ['col1', 'col2']
-        hd = {'col1': 0, 'col2': 1}
         lol = [[1, 'a'], [2, 'b'], [3, 'c']]
         pydf = Pydf(cols=cols, lol=lol, keyfield='col1', dtypes={'col1': int, 'col2': str})
 
@@ -1180,7 +1075,6 @@ class TestPydf(unittest.TestCase):
     # icol_to_la
     def test_icol_to_la_valid_icol(self):
         cols = ['col1', 'col2', 'col3']
-        hd = {'col1': 0, 'col2': 1, 'col3': 2}
         lol = [[1, 'a', True], [2, 'b', False], [3, 'c', True]]
         pydf = Pydf(cols=cols, lol=lol, keyfield='col1', dtypes={'col1': int, 'col2': str, 'col3': bool})
 
@@ -1191,7 +1085,6 @@ class TestPydf(unittest.TestCase):
 
     def test_icol_to_la_invalid_icol(self):
         cols = ['col1', 'col2', 'col3']
-        hd = {'col1': 0, 'col2': 1, 'col3': 2}
         lol = [[1, 'a', True], [2, 'b', False], [3, 'c', True]]
         pydf = Pydf(cols=cols, lol=lol, keyfield='col1', dtypes={'col1': int, 'col2': str, 'col3': bool})
 
@@ -1208,7 +1101,6 @@ class TestPydf(unittest.TestCase):
 
     def test_icol_to_la_empty_column(self):
         cols = ['col1', 'col2', 'col3']
-        hd = {'col1': 0, 'col2': 1, 'col3': 2}
         lol = []
         pydf = Pydf(cols=cols, lol=lol, keyfield='col1', dtypes={'col1': int, 'col2': str, 'col3': bool})
 
@@ -1219,7 +1111,6 @@ class TestPydf(unittest.TestCase):
     # assign_icol
     def test_assign_icol_valid_icol_col_la(self):
         cols = ['col1', 'col2', 'col3']
-        hd = {'col1': 0, 'col2': 1, 'col3': 2}
         lol = [[1, 'a', True], [2, 'b', False], [3, 'c', True]]
         pydf = Pydf(cols=cols, lol=lol, keyfield='col1', dtypes={'col1': int, 'col2': str, 'col3': bool})
 
@@ -1231,7 +1122,6 @@ class TestPydf(unittest.TestCase):
 
     def test_assign_icol_valid_icol_default(self):
         cols = ['col1', 'col2', 'col3']
-        hd = {'col1': 0, 'col2': 1, 'col3': 2}
         lol = [[1, 'a', True], 
                [2, 'b', False], 
                [3, 'c', True]]
@@ -1246,7 +1136,6 @@ class TestPydf(unittest.TestCase):
 
     def test_assign_icol_valid_append_icol_col_la(self):
         cols = ['col1', 'col2', 'col3']
-        hd = {'col1': 0, 'col2': 1, 'col3': 2}
         lol = [ [1, 'a', True], 
                 [2, 'b', False], 
                 [3, 'c', True]]
@@ -1282,7 +1171,6 @@ class TestPydf(unittest.TestCase):
     # insert_icol
     def test_insert_icol_valid_icol_col_la(self):
         cols = ['col1', 'col2', 'col3']
-        hd = {'col1': 0, 'col2': 1, 'col3': 2}
         lol = [[1, 'a', True], [2, 'b', False], [3, 'c', True]]
         pydf = Pydf(cols=cols, lol=lol, keyfield='col1', dtypes={'col1': int, 'col2': str, 'col3': bool})
 
@@ -1294,7 +1182,6 @@ class TestPydf(unittest.TestCase):
 
     def test_insert_icol_valid_append_col_la(self):
         cols = ['col1', 'col2', 'col3']
-        hd = {'col1': 0, 'col2': 1, 'col3': 2}
         lol = [[1, 'a', True], [2, 'b', False], [3, 'c', True]]
         pydf = Pydf(cols=cols, lol=lol, keyfield='col1', dtypes={'col1': int, 'col2': str, 'col3': bool})
 
@@ -1306,7 +1193,6 @@ class TestPydf(unittest.TestCase):
 
     def test_insert_icol_invalid_icol_col_la(self):
         cols = ['col1', 'col2', 'col3']
-        hd = {'col1': 0, 'col2': 1, 'col3': 2}
         lol = [ [1, 'a', True], 
                 [2, 'b', False], 
                 [3, 'c', True]]
@@ -1332,7 +1218,6 @@ class TestPydf(unittest.TestCase):
     # insert_col
     def test_insert_col_valid_colname_col_la(self):
         cols = ['col1', 'col2', 'col3']
-        hd = {'col1': 0, 'col2': 1, 'col3': 2}
         lol = [[1, 'a', True], [2, 'b', False], [3, 'c', True]]
         pydf = Pydf(cols=cols,  lol=lol, keyfield='col1', dtypes={'col1': int, 'col2': str, 'col3': bool})
 
@@ -1347,7 +1232,6 @@ class TestPydf(unittest.TestCase):
 
     def test_insert_col_valid_colname_append_col_la(self):
         cols = ['col1', 'col2', 'col3']
-        hd =  {'col1': 0, 'col2': 1, 'col3': 2}
         lol = [ [1, 'a', True], 
                 [2, 'b', False], 
                 [3, 'c', True]]
@@ -1366,7 +1250,6 @@ class TestPydf(unittest.TestCase):
 
     def test_insert_col_valid_colname_invalid_icol_col_la(self):
         cols = ['col1', 'col2', 'col3']
-        hd = {'col1': 0, 'col2': 1, 'col3': 2}
         lol = [ [1, 'a', True], 
                 [2, 'b', False], 
                 [3, 'c', True]]
@@ -1408,7 +1291,6 @@ class TestPydf(unittest.TestCase):
     # insert_idx_col
     def test_insert_idx_col_valid_icol_startat(self):
         cols = ['col1', 'col2', 'col3']
-        hd = {'col1': 0, 'col2': 1, 'col3': 2}
         lol = [[1, 'a', True], [2, 'b', False], [3, 'c', True]]
         pydf = Pydf(cols=cols, lol=lol, keyfield='col1', dtypes={'col1': int, 'col2': str, 'col3': bool})
 
@@ -1422,7 +1304,6 @@ class TestPydf(unittest.TestCase):
 
     def test_insert_idx_col_valid_icol_default_startat(self):
         cols = ['col1', 'col2', 'col3']
-        hd = {'col1': 0, 'col2': 1, 'col3': 2}
         lol = [[1, 'a', True], [2, 'b', False], [3, 'c', True]]
         pydf = Pydf(cols=cols, lol=lol, keyfield='col1', dtypes={'col1': int, 'col2': str, 'col3': bool})
 
@@ -1460,7 +1341,6 @@ class TestPydf(unittest.TestCase):
     # unified sum
     def test_sum_all_columns(self):
         cols = ['col1', 'col2', 'col3']
-        hd = {'col1': 0, 'col2': 1, 'col3': 2}
         lol = [[1, 2, 3], [4, 5, 6], [7, 8, 9]]
         pydf = Pydf(cols=cols, lol=lol, keyfield='col1', dtypes={'col1': int, 'col2': int, 'col3': int})
 
@@ -1470,7 +1350,6 @@ class TestPydf(unittest.TestCase):
 
     def test_sum_selected_columns(self):
         cols = ['col1', 'col2', 'col3']
-        hd = {'col1': 0, 'col2': 1, 'col3': 2}
         lol = [[1, 2, 3], [4, 5, 6], [7, 8, 9]]
         pydf = Pydf(cols=cols, lol=lol, keyfield='col1', dtypes={'col1': int, 'col2': int, 'col3': int})
 
@@ -1480,7 +1359,6 @@ class TestPydf(unittest.TestCase):
 
     def test_sum_numeric_only(self):
         cols = ['col1', 'col2', 'col3']
-        hd = {'col1': 0, 'col2': 1, 'col3': 2}
         lol = [['a', 2, 3], ['b', 5, 6], ['c', 8, 9]]
         pydf = Pydf(cols=cols, lol=lol, keyfield='col1', dtypes={'col1': str, 'col2': int, 'col3': int})
 
@@ -1498,7 +1376,6 @@ class TestPydf(unittest.TestCase):
     # pydf_sum
     def test_pydf_sum_all_columns(self):
         cols = ['col1', 'col2', 'col3']
-        hd = {'col1': 0, 'col2': 1, 'col3': 2}
         lol = [[1, 2, 3], [4, 5, 6], [7, 8, 9]]
         pydf = Pydf(cols=cols, lol=lol, keyfield='col1', dtypes={'col1': int, 'col2': int, 'col3': int})
 
@@ -1508,7 +1385,6 @@ class TestPydf(unittest.TestCase):
 
     def test_pydf_sum_selected_columns(self):
         cols = ['col1', 'col2', 'col3']
-        hd = {'col1': 0, 'col2': 1, 'col3': 2}
         lol = [[1, 2, 3], [4, 5, 6], [7, 8, 9]]
         pydf = Pydf(cols=cols, lol=lol, keyfield='col1', dtypes={'col1': int, 'col2': int, 'col3': int})
 
@@ -1518,7 +1394,6 @@ class TestPydf(unittest.TestCase):
 
     def test_pydf_sum_include_types_int(self):
         cols = ['col1', 'col2', 'col3']
-        hd = {'col1': 0, 'col2': 1, 'col3': 2}
         dtypes_dict = {'col1': str, 'col2': int, 'col3': int}
         lol = [['a', 2, 3], ['b', 5, 6], ['c', 8, 9]]
         pydf = Pydf(cols=cols, lol=lol, keyfield='col1', dtypes=dtypes_dict)
@@ -1530,7 +1405,6 @@ class TestPydf(unittest.TestCase):
 
     def test_pydf_sum_include_types_int_and_float(self):
         cols = ['col1', 'col2', 'col3']
-        hd = {'col1': 0, 'col2': 1, 'col3': 2}
         dtypes_dict = {'col1': str, 'col2': int, 'col3': float}
         lol = [['a', 2, 3.2], ['b', 5, 6.1], ['c', 8, 9.4]]
         pydf = Pydf(cols=cols, lol=lol, keyfield='col1', dtypes=dtypes_dict)
@@ -1544,7 +1418,6 @@ class TestPydf(unittest.TestCase):
 
     def test_pydf_sum_exclude_type_str(self):
         cols = ['col1', 'col2', 'col3']
-        hd = {'col1': 0, 'col2': 1, 'col3': 2}
         dtypes_dict = {'col1': str, 'col2': int, 'col3': int}
         lol = [['a', 2, 3], ['b', 5, 6], ['c', 8, 9]]
         pydf = Pydf(cols=cols, lol=lol, keyfield='col1', dtypes=dtypes_dict)
@@ -1564,7 +1437,6 @@ class TestPydf(unittest.TestCase):
     # valuecounts_for_colname
     def test_valuecounts_for_colname(self):
         cols = ['col1', 'col2', 'col3']
-        hd = {'col1': 0, 'col2': 1, 'col3': 2}
         lol = [['a', 'x', 'y'], ['b', 'x', 'z'], ['a', 'y', 'y'], ['c', 'z', 'z']]
         pydf = Pydf(cols=cols, lol=lol, keyfield='col1', dtypes={'col1': str, 'col2': str, 'col3': str})
 
@@ -1574,7 +1446,6 @@ class TestPydf(unittest.TestCase):
 
     def test_valuecounts_for_colname_sort(self):
         cols = ['col1', 'col2', 'col3']
-        hd = {'col1': 0, 'col2': 1, 'col3': 2}
         lol = [['a', 'x', 'y'], ['b', 'x', 'z'], ['a', 'y', 'y'], ['c', 'z', 'z']]
         pydf = Pydf(cols=cols, lol=lol, keyfield='col1', dtypes={'col1': str, 'col2': str, 'col3': str})
 
@@ -1584,7 +1455,6 @@ class TestPydf(unittest.TestCase):
 
     def test_valuecounts_for_colname_reverse_sort(self):
         cols = ['col1', 'col2', 'col3']
-        hd = {'col1': 0, 'col2': 1, 'col3': 2}
         lol = [['a', 'x', 'y'], ['b', 'x', 'z'], ['a', 'y', 'y'], ['c', 'z', 'z']]
         pydf = Pydf(cols=cols, lol=lol, keyfield='col1', dtypes={'col1': str, 'col2': str, 'col3': str})
 
@@ -1602,7 +1472,6 @@ class TestPydf(unittest.TestCase):
     # valuecounts_for_colnames_ls
     def test_valuecounts_for_colnames_ls(self):
         cols = ['col1', 'col2', 'col3']
-        hd = {'col1': 0, 'col2': 1, 'col3': 2}
         lol = [['a', 'x', 'y'], ['b', 'x', 'z'], ['a', 'y', 'y'], ['c', 'z', 'z']]
         pydf = Pydf(cols=cols, lol=lol, keyfield='col1', dtypes={'col1': str, 'col2': str, 'col3': str})
 
@@ -1612,7 +1481,6 @@ class TestPydf(unittest.TestCase):
 
     def test_valuecounts_for_colnames_ls_sort(self):
         cols = ['col1', 'col2', 'col3']
-        hd = {'col1': 0, 'col2': 1, 'col3': 2}
         lol = [['a', 'x', 'y'], ['b', 'x', 'z'], ['a', 'y', 'y'], ['c', 'z', 'z']]
         pydf = Pydf(cols=cols, lol=lol, keyfield='col1', dtypes={'col1': str, 'col2': str, 'col3': str})
 
@@ -1622,7 +1490,6 @@ class TestPydf(unittest.TestCase):
 
     def test_valuecounts_for_colnames_ls_reverse_sort(self):
         cols = ['col1', 'col2', 'col3']
-        hd = {'col1': 0, 'col2': 1, 'col3': 2}
         lol = [['a', 'x', 'y'], ['b', 'x', 'z'], ['a', 'y', 'y'], ['c', 'z', 'z']]
         pydf = Pydf(cols=cols, lol=lol, keyfield='col1', dtypes={'col1': str, 'col2': str, 'col3': str})
 
@@ -1639,7 +1506,6 @@ class TestPydf(unittest.TestCase):
 
     def test_valuecounts_for_colnames_ls_all_columns(self):
         cols = ['col1', 'col2', 'col3']
-        hd = {'col1': 0, 'col2': 1, 'col3': 2}
         lol = [['a', 'x', 'y'], ['b', 'x', 'z'], ['a', 'y', 'y'], ['c', 'z', 'z']]
         pydf = Pydf(cols=cols, lol=lol, keyfield='col1', dtypes={'col1': str, 'col2': str, 'col3': str})
 
@@ -1652,7 +1518,6 @@ class TestPydf(unittest.TestCase):
     # valuecounts_for_colname_selectedby_colname
     def test_valuecounts_for_colname_selectedby_colname(self):
         cols = ['col1', 'col2', 'col3']
-        hd = {'col1': 0, 'col2': 1, 'col3': 2}
         lol = [['a', 'x', 'y'], ['b', 'x', 'z'], ['a', 'y', 'y'], ['c', 'z', 'z']]
         pydf = Pydf(cols=cols, lol=lol, keyfield='col1', dtypes={'col1': str, 'col2': str, 'col3': str})
 
@@ -1662,7 +1527,6 @@ class TestPydf(unittest.TestCase):
 
     def test_valuecounts_for_colname_selectedby_colname_sort(self):
         cols = ['col1', 'col2', 'col3']
-        hd = {'col1': 0, 'col2': 1, 'col3': 2}
         lol = [['a', 'x', 'y'], ['b', 'x', 'z'], ['a', 'y', 'y'], ['c', 'z', 'z']]
         pydf = Pydf(cols=cols, lol=lol, keyfield='col1', dtypes={'col1': str, 'col2': str, 'col3': str})
 
@@ -1672,7 +1536,6 @@ class TestPydf(unittest.TestCase):
 
     def test_valuecounts_for_colname_selectedby_colname_reverse_sort(self):
         cols = ['col1', 'col2', 'col3']
-        hd = {'col1': 0, 'col2': 1, 'col3': 2}
         lol = [['a', 'x', 'y'], ['b', 'x', 'z'], ['a', 'y', 'y'], ['c', 'z', 'z']]
         pydf = Pydf(cols=cols, lol=lol, keyfield='col1', dtypes={'col1': str, 'col2': str, 'col3': str})
 
@@ -1682,7 +1545,6 @@ class TestPydf(unittest.TestCase):
 
     def test_valuecounts_for_colname_selectedby_colname_not_found(self):
         cols = ['col1', 'col2', 'col3']
-        hd = {'col1': 0, 'col2': 1, 'col3': 2}
         lol = [['a', 'x', 'y'], ['b', 'x', 'z'], ['a', 'y', 'y'], ['c', 'z', 'z']]
         pydf = Pydf(cols=cols, lol=lol, keyfield='col1', dtypes={'col1': str, 'col2': str, 'col3': str})
 
@@ -1700,7 +1562,6 @@ class TestPydf(unittest.TestCase):
     # valuecounts_for_colnames_ls_selectedby_colname
     def test_valuecounts_for_colnames_ls_selectedby_colname(self):
         cols = ['col1', 'col2', 'col3']
-        hd = {'col1': 0, 'col2': 1, 'col3': 2}
         lol = [ ['a', 'x', 'y'], 
                 ['b', 'x', 'z'], 
                 ['c', 'y', 'y'], 
@@ -1717,7 +1578,6 @@ class TestPydf(unittest.TestCase):
 
     def test_valuecounts_for_colnames_ls_selectedby_colname_sort(self):
         cols = ['col1', 'col2', 'col3']
-        hd = {'col1': 0, 'col2': 1, 'col3': 2}
         lol = [ ['a', 'x', 'y'], 
                 ['b', 'x', 'z'], 
                 ['c', 'y', 'y'], 
@@ -1735,7 +1595,6 @@ class TestPydf(unittest.TestCase):
 
     def test_valuecounts_for_colnames_ls_selectedby_colname_reverse_sort(self):
         cols = ['col1', 'col2', 'col3']
-        hd = {'col1': 0, 'col2': 1, 'col3': 2}
         lol = [ ['a', 'x', 'y'], 
                 ['b', 'x', 'z'], 
                 ['a', 'y', 'y'], 
@@ -1754,7 +1613,6 @@ class TestPydf(unittest.TestCase):
 
     def test_valuecounts_for_colnames_ls_selectedby_colname_not_found(self):
         cols = ['col1', 'col2', 'col3']
-        hd = {'col1': 0, 'col2': 1, 'col3': 2}
         lol = [ ['a', 'x', 'y'], 
                 ['b', 'x', 'z'], 
                 ['c', 'y', 'y'], 
@@ -1783,7 +1641,6 @@ class TestPydf(unittest.TestCase):
     # aluecounts_for_colname1_groupedby_colname2
     def test_valuecounts_for_colname1_groupedby_colname2(self):
         cols = ['col1', 'col2', 'col3']
-        hd = {'col1': 0, 'col2': 1, 'col3': 2}
         lol = [ ['a', 'x', 'y'], 
                 ['b', 'x', 'z'], 
                 ['c', 'y', 'y'], 
@@ -1799,7 +1656,6 @@ class TestPydf(unittest.TestCase):
 
     def test_valuecounts_for_colname1_groupedby_colname2_sort(self):
         cols = ['col1', 'col2', 'col3']
-        hd = {'col1': 0, 'col2': 1, 'col3': 2}
         lol = [ ['a', 'x', 'y'], 
                 ['b', 'x', 'z'], 
                 ['c', 'y', 'y'], 
@@ -1816,7 +1672,6 @@ class TestPydf(unittest.TestCase):
 
     def test_valuecounts_for_colname1_groupedby_colname2_reverse_sort(self):
         cols = ['col1', 'col2', 'col3']
-        hd = {'col1': 0, 'col2': 1, 'col3': 2}
         lol = [ ['a', 'x', 'y'], 
                 ['b', 'x', 'z'], 
                 ['c', 'y', 'y'], 
@@ -1834,7 +1689,6 @@ class TestPydf(unittest.TestCase):
 
     def test_valuecounts_for_colname1_groupedby_colname2_not_found(self):
         cols = ['col1', 'col2', 'col3']
-        hd = {'col1': 0, 'col2': 1, 'col3': 2}
         lol = [['a', 'x', 'y'], ['b', 'x', 'z'], ['a', 'y', 'y'], ['c', 'z', 'z']]
         pydf = Pydf(cols=cols, lol=lol, keyfield='col1', dtypes={'col1': str, 'col2': str, 'col3': str})
 
@@ -1858,7 +1712,6 @@ class TestPydf(unittest.TestCase):
     # groupby
     def test_groupby(self):
         cols = ['col1', 'col2', 'col3']
-        hd = {'col1': 0, 'col2': 1, 'col3': 2}
         lol = [ ['a', 'x', 'y'], 
                 ['b', 'x', 'z'], 
                 ['a', 'y', 'y'], 
@@ -1899,7 +1752,6 @@ class TestPydf(unittest.TestCase):
 
     def test_groupby_colname_not_found(self):
         cols = ['col1', 'col2', 'col3']
-        hd = {'col1': 0, 'col2': 1, 'col3': 2}
         lol = [['a', 'x', 'y'], ['b', 'x', 'z'], ['a', 'y', 'y'], ['c', 'z', 'z']]
         pydf = Pydf(cols=cols, lol=lol, keyfield='col1', dtypes={'col1': str, 'col2': str, 'col3': str})
 

@@ -207,7 +207,7 @@ def hllol_sum_cols2(hllol: Tuple[List[str], List[List[Any]]], cols: Optional[Lis
     # icol_list = [hd[col] for col in cols]
     
     # result_di = {cols[icol]: sum(column) for icol, column in enumerate(zip(*lol_array)) if icol in icol_list}
-    result_li = [sum(column) for column in zip(*lol_array)]
+    result_li = [sum(column) for column in zip(*lol)]
 
     # if cols is None:
         # cols_ls = header_ls
@@ -479,7 +479,7 @@ def sqlite_selectrow(table_name, key_col='rowkey', value='500'):
 
 
 def main():
-    from Pydf.Pydf import Pydf, T_pydf
+    from Pydf.Pydf import Pydf
 
     # Specify the number of columns you want
     num_columns = 1000      # You can change this number
@@ -504,7 +504,6 @@ def main():
         reproducibility. Also, create other forms similarly or by converting
         the sample_lod.
     """
-    sizeof_dict = {}
     np.random.seed(42)  # For reproducibility
     sample_lod = [dict(zip([f'Col{i}' 
                     for i in range(num_columns)], 
@@ -618,13 +617,13 @@ def main():
         For each convertion, the time wil be added to the (datatype)_times dicts.
     """
 
-    setup_code = f'''
+    setup_code = '''
 import pandas as pd
 import numpy as np
 from collections import namedtuple
 import sys
 sys.path.append('..')
-from Pydf.Pydf import Pydf, T_pydf
+from Pydf.Pydf import Pydf
 
 '''
     loops = 10
