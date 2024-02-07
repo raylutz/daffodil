@@ -56,9 +56,11 @@ def set_cols_da(da: T_da, cols: T_ls, default: Any='') -> T_da:
     return new_da
     
 
-def select_col_of_lol_by_col_idx(lol: T_lola, col_idx:int) -> T_la:
+def select_col_of_lol_by_col_idx(lol: T_lola, col_idx: int) -> T_la:
     """
-    select a row and col from hllola
+    select a row and col from lol
+    
+    Note: this creates a new object.
         
     """
     result_la = []

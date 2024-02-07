@@ -9,6 +9,7 @@ from Pydf.Pydf import Pydf
 
 class TestPydf(unittest.TestCase):
 
+    # initialization
     def test_init_default_values(self):
         pydf = Pydf()
         self.assertEqual(pydf.name, '')
@@ -35,8 +36,205 @@ class TestPydf(unittest.TestCase):
         self.assertEqual(pydf.dtypes, dtypes)
         self.assertEqual(pydf._iter_index, 0)
 
+    # shape
+    def test_shape_empty(self):
+        # Test shape method with an empty Pydf object
+        pydf = Pydf()
+        self.assertEqual(pydf.shape(), (0, 0))
+
+    def test_shape_non_empty(self):
+        # Test shape method with a non-empty Pydf object
+        data = [[1, 'A'], [2, 'B'], [3, 'C']]
+        cols = ['Col1', 'Col2']
+        pydf = Pydf(lol=data, cols=cols)
+        self.assertEqual(pydf.shape(), (3, 2))
+
+    def test_shape_no_colnames(self):
+        # Test shape method with a Pydf object initialized without colnames
+        data = [[1, 'A'], [2, 'B'], [3, 'C']]
+        pydf = Pydf(lol=data)
+        self.assertEqual(pydf.shape(), (3, 2))
+
+    def test_shape_empty_data(self):
+        # Test shape method with a Pydf object initialized with empty data
+        cols = ['Col1', 'Col2']
+        pydf = Pydf(cols=cols)
+        self.assertEqual(pydf.shape(), (0, 0))
+
+    def test_shape_empty_data_specified(self):
+        # Test shape method with a Pydf object initialized with empty data
+        cols = ['Col1', 'Col2']
+        pydf = Pydf(lol=[], cols=cols)
+        self.assertEqual(pydf.shape(), (0, 0))
+
+    def test_shape_empty_data_specified_empty_col(self):
+        # Test shape method with a Pydf object initialized with empty data
+        cols = ['Col1', 'Col2']
+        pydf = Pydf(lol=[[]], cols=cols)
+        self.assertEqual(pydf.shape(), (1, 0))
+
+    def test_shape_no_colnames_no_cols(self):
+        # Test shape method with a Pydf object initialized without colnames
+        data = [[], [], []]
+        pydf = Pydf(lol=data)
+        self.assertEqual(pydf.shape(), (3, 0))
+
+    def test_shape_colnames_no_cols_empty_rows(self):
+        # Test shape method with a Pydf object initialized without colnames
+        data = [[], [], []]
+        cols = ['Col1', 'Col2']
+        pydf = Pydf(lol=data)
+        self.assertEqual(pydf.shape(), (3, 0))
+
+    # __eq__
+    
+    def test_eq_different_type(self):
+        # Test __eq__ method with a different type
+        pydf = Pydf()
+        other = "not a Pydf object"
+        self.assertFalse(pydf == other)
+
+    def test_eq_different_data(self):
+        # Test __eq__ method with a Pydf object with different data
+        pydf1 = Pydf(lol=[[1, 'A'], [2, 'B'], [3, 'C']], cols=['Col1', 'Col2'], keyfield='Col1')
+        pydf2 = Pydf(lol=[[1, 'X'], [2, 'Y'], [3, 'Z']], cols=['Col1', 'Col2'], keyfield='Col1')
+        self.assertFalse(pydf1 == pydf2)
+
+    def test_eq_different_columns(self):
+        # Test __eq__ method with a Pydf object with different columns
+        pydf1 = Pydf(lol=[[1, 'A'], [2, 'B'], [3, 'C']], cols=['Col1', 'Col2'], keyfield='Col1')
+        pydf2 = Pydf(lol=[[1, 'A'], [2, 'B'], [3, 'C']], cols=['Col1', 'Col3'], keyfield='Col1')
+        self.assertFalse(pydf1 == pydf2)
+
+    def test_eq_different_keyfield(self):
+        # Test __eq__ method with a Pydf object with different keyfield
+        pydf1 = Pydf(lol=[[1, 'A'], [2, 'B'], [3, 'C']], cols=['Col1', 'Col2'], keyfield='Col1')
+        pydf2 = Pydf(lol=[[1, 'A'], [2, 'B'], [3, 'C']], cols=['Col1', 'Col2'], keyfield='Col2')
+        self.assertFalse(pydf1 == pydf2)
+
+    def test_eq_equal(self):
+        # Test __eq__ method with equal Pydf objects
+        pydf1 = Pydf(lol=[[1, 'A'], [2, 'B'], [3, 'C']], cols=['Col1', 'Col2'], keyfield='Col1')
+        pydf2 = Pydf(lol=[[1, 'A'], [2, 'B'], [3, 'C']], cols=['Col1', 'Col2'], keyfield='Col1')
+        self.assertTrue(pydf1 == pydf2)
+
+    # calc_cols
+    def test_calc_cols_include_cols(self):
+        # Test calc_cols method with include_cols parameter
+        data = [
+            [1, 'A', True],
+            [2, 'B', False],
+            [3, 'C', True]
+        ]
+        columns = ['Col1', 'Col2', 'Col3']
+        types = {'Col1': int, 'Col2': str, 'Col3': bool}
+        pydf = Pydf(lol=data, cols=columns, dtypes=types)
+        included_cols = pydf.calc_cols(include_cols=['Col1', 'Col3'])
+        self.assertEqual(included_cols, ['Col1', 'Col3'])
+
+    def test_calc_cols_exclude_cols(self):
+        # Test calc_cols method with exclude_cols parameter
+        data = [
+            [1, 'A', True],
+            [2, 'B', False],
+            [3, 'C', True]
+        ]
+        columns = ['Col1', 'Col2', 'Col3']
+        types = {'Col1': int, 'Col2': str, 'Col3': bool}
+        pydf = Pydf(lol=data, cols=columns, dtypes=types)
+        excluded_cols = pydf.calc_cols(exclude_cols=['Col2'])
+        self.assertEqual(excluded_cols, ['Col1', 'Col3'])
+
+    def test_calc_cols_include_types(self):
+        # Test calc_cols method with include_types parameter
+        data = [
+            [1, 'A', True],
+            [2, 'B', False],
+            [3, 'C', True]
+        ]
+        columns = ['Col1', 'Col2', 'Col3']
+        types = {'Col1': int, 'Col2': str, 'Col3': bool}
+        pydf = Pydf(lol=data, cols=columns, dtypes=types)
+        included_types = pydf.calc_cols(include_types=[int])
+        self.assertEqual(included_types, ['Col1'])
+
+    def test_calc_cols_exclude_types(self):
+        # Test calc_cols method with exclude_types parameter
+        data = [
+            [1, 'A', True],
+            [2, 'B', False],
+            [3, 'C', True]
+        ]
+        columns = ['Col1', 'Col2', 'Col3']
+        types = {'Col1': int, 'Col2': str, 'Col3': bool}
+        pydf = Pydf(lol=data, cols=columns, dtypes=types)
+        excluded_types = pydf.calc_cols(exclude_types=[str])
+        self.assertEqual(excluded_types, ['Col1', 'Col3'])
+
+    def test_calc_cols_complex(self):
+        # Test calc_cols method with multiple parameters
+        data = [
+            [1, 'A', True],
+            [2, 'B', False],
+            [3, 'C', True]
+        ]
+        columns = ['Col1', 'Col2', 'Col3']
+        types = {'Col1': int, 'Col2': str, 'Col3': bool}
+        pydf = Pydf(lol=data, cols=columns, dtypes=types)
+        selected_cols = pydf.calc_cols(include_cols=['Col1', 'Col2'],
+                                       exclude_cols=['Col2'],
+                                       include_types=[int, bool])
+        self.assertEqual(selected_cols, ['Col1'])
+
+    # rename_cols
+    def test_rename_cols(self):
+        # Test rename_cols method to rename columns
+        data = [
+            [1, 'A', True],
+            [2, 'B', False],
+            [3, 'C', True]
+        ]
+        columns = ['Col1', 'Col2', 'Col3']
+        types = {'Col1': int, 'Col2': str, 'Col3': bool}
+        pydf = Pydf(lol=data, cols=columns, dtypes=types)
+        
+        # Rename columns using the provided dictionary
+        from_to_dict = {'Col1': 'NewCol1', 'Col3': 'NewCol3'}
+        pydf.rename_cols(from_to_dict)
+        
+        # Check if columns are renamed correctly
+        expected_columns = ['NewCol1', 'Col2', 'NewCol3']
+        self.assertEqual(pydf.columns(), expected_columns)
+
+        # Check if dtypes are updated correctly
+        expected_types = {'NewCol1': int, 'Col2': str, 'NewCol3': bool}
+        self.assertEqual(pydf.dtypes, expected_types)
+
+    def test_rename_cols_with_keyfield(self):
+        # Test rename_cols method when a keyfield is specified
+        data = [
+            [1, 'A', True],
+            [2, 'B', False],
+            [3, 'C', True]
+        ]
+        columns = ['Col1', 'Col2', 'Col3']
+        types = {'Col1': int, 'Col2': str, 'Col3': bool}
+        pydf = Pydf(lol=data, cols=columns, dtypes=types, keyfield='Col1')
+        
+        # Rename columns using the provided dictionary
+        from_to_dict = {'Col1': 'NewCol1', 'Col3': 'NewCol3'}
+        pydf.rename_cols(from_to_dict)
+        
+        # Check if keyfield is updated correctly
+        self.assertEqual(pydf.keyfield, 'NewCol1')
+
+
+    # from/to cases
     def test_from_lod(self):
-        records_lod = [{'col1': 1, 'col2': 2}, {'col1': 11, 'col2': 12}, {'col1': 21, 'col2': 22}]
+        records_lod = [ {'col1': 1, 'col2': 2}, 
+                        {'col1': 11, 'col2': 12}, 
+                        {'col1': 21, 'col2': 22}]
+                        
         keyfield = 'col1'
         dtypes = {'col1': int, 'col2': int}
         pydf = Pydf.from_lod(records_lod, keyfield=keyfield, dtypes=dtypes)
@@ -76,6 +274,7 @@ class TestPydf(unittest.TestCase):
 
         self.assertEqual(actual_hllola, expected_hllola)
 
+    # append
     def test_append_without_keyfield(self):
         pydf = Pydf()
         record_da = {'col1': 1, 'col2': 'b'}

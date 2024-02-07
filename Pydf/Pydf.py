@@ -49,6 +49,9 @@ See README file at this location: https://github.com/raylutz/Pydf/blob/main/READ
             Added 'omit_nulls' option to col(), col_to_la(), icol_to_la(), valuecounts_for_colname()
             Added ability to groupby multiple cols
             in select_records_pydf(self, keys_ls: T_ls, inverse:bool=False), added inverse boolean.
+            Started to add selcols for zero-copy support.
+            Added _num_cols() 
+            Added unit tests.
     
 """            
     
@@ -103,6 +106,8 @@ class Pydf:
         self.name           = name
         self.keyfield       = keyfield
         self.hd             = {}
+        self.selcols        = []                # currently selected columns
+        
         if use_copy:
             self.lol        = copy.deepcopy(lol)
         else:
@@ -131,8 +136,7 @@ class Pydf:
             effective_dtypes = {col: dtypes.get(col, str) for col in self.hd}
         
             # setting dtypes may be better done manually if required.
-            if self.lol and self.lol[0]:
-                #from utilities import utils
+            if self._num_cols():
 
                 self.lol = utils.apply_dtypes_to_hdlol((self.hd, self.lol), effective_dtypes)[1]
             
@@ -160,7 +164,7 @@ class Pydf:
         """ test pydf for existance and not empty 
             test exists in test_pydf.py            
         """
-        return bool(self.lol and self.lol[0])
+        return bool(self._num_cols())
 
 
     def __len__(self):
@@ -176,14 +180,18 @@ class Pydf:
         
     def shape(self):
         """ return the number of rows and cols in the pydf data array
-        
             number of columns is based on the first record
         """
+        # test exists in test_pydf.py
+        
         if not len(self): return (0, 0)
         
-        return (len(self.lol), len(self.lol[0]))        
+        return (len(self.lol), self._num_cols()) 
+        
         
     def __eq__(self, other):
+        # test exists in test_pydf.py            
+
         if not isinstance(other, Pydf):
             return False
 
@@ -196,14 +204,21 @@ class Pydf:
         
     def __repr__(self) -> str:
         return "\n"+self.md_pydf_table_snippet()
+    
+
+    def _num_cols(self) -> int:
+    
+        if not self.lol:
+            return 0
+        return len(self.lol[0])
         
 
     #===========================
     # column names
     def columns(self):
         """ Return the column names 
-            test exists in test_pydf.py            
         """
+        # test exists in test_pydf.py            
         return list(self.hd.keys())
         
     def _cols_to_hd(self, cols: T_ls):
@@ -211,7 +226,7 @@ class Pydf:
         self.hd = {col:idx for idx, col in enumerate(cols)}
 
 
-    def _sanitize_cols(self, cols:T_ls):
+    def _sanitize_cols(self, cols: T_ls):
         # make sure there are no blanks and columns are unique.
         if cols:
             try:
@@ -302,7 +317,8 @@ class Pydf:
             result = letters[remainder] + result
             index -= 1
     
-        return result    
+        return result
+        
     
     @staticmethod
     def _generate_spreadsheet_column_names_list(num_columns: int) -> T_ls:
@@ -316,6 +332,7 @@ class Pydf:
         """ rename columns using the from_to_dict provided. 
             respects dtypes and rebuilds hd
         """
+        # unit tests exist
         
         self.hd     = {from_to_dict.get(col, col):idx for idx, col in enumerate(self.hd.keys())}
         self.dtypes = {from_to_dict.get(col, col):typ for col, typ in self.dtypes.items()}
@@ -666,15 +683,22 @@ class Pydf:
         elif isinstance(col_slice, list):    
             col_indices_li = self._col_indices_from_collist(col_slice)
             row_col_sliced_lol = [[row[i] for i in col_indices_li] for row in row_sliced_lol]
-            sliced_cols = [all_cols[i] for i in col_indices_li]
+            # also respect the column names, if they are defined.
+            if self.hd:
+                sliced_cols = [all_cols[i] for i in col_indices_li]
+            else:
+                sliced_cols = None            
 
         elif isinstance(col_slice, slice):
                            
             # use normal slice approach
             start_col, stop_col, step_col = self._parse_slice(col_slice, row_or_col='col')
             row_col_sliced_lol = [[row[icol] for icol in range(start_col, stop_col, step_col)] for row in row_sliced_lol]
-            # also respect the column names
-            sliced_cols = [self.columns()[icol] for icol in range(start_col, stop_col, step_col)]
+            # also respect the column names, if they are defined.
+            if self.hd:
+                sliced_cols = [self.columns()[icol] for icol in range(start_col, stop_col, step_col)]
+            else:
+                sliced_cols = None            
 
         sliced_pydf = Pydf(lol=row_col_sliced_lol, cols=sliced_cols, dtypes=self.dtypes, keyfield=self.keyfield)
         return sliced_pydf._adjust_return_val()
@@ -682,17 +706,26 @@ class Pydf:
 
     def _adjust_return_val(self):
         # not sure if this is the correct way to go!
+        # particularly with zero copy, this may not be correct.
+        #
+        # alternative is to use .tolist() and .todict()
+        # if the method returns a pydf.
+        #
+        # @@TODO: Must be fixed for zero_copy
+        
+        num_cols = self._num_cols()
+        num_rows = len(self.lol)
     
-        if len(self.lol) == 1 and len(self.lol[0]) == 1:
+        if num_rows == 1 and num_cols == 1:
             # single value, just return it.
             return self.lol[0][0]
             
-        elif len(self.lol) == 1 and len(self.lol[0]) > 1:
+        elif num_rows == 1 and num_cols > 1:
             # single row, return as list.
             return self.lol[0]
                 
-        if len(self.lol) > 1 and len(self.lol[0]) == 1:
-            # single column result
+        elif num_rows > 1 and num_cols == 1:
+            # single column result as a list.
             return self.icol(0)
             
         return self
@@ -734,7 +767,7 @@ class Pydf:
         if isinstance(s, slice):
             start = s.start if s.start is not None else 0
             
-            stop = s.stop if s.stop is not None else (len(self.lol[0]) if row_or_col == 'col' else len(self.lol))
+            stop = s.stop if s.stop is not None else (self._num_cols() if row_or_col == 'col' else len(self.lol))
             
             step = s.step if s.step is not None else 1
             return start, stop, step
@@ -1338,15 +1371,16 @@ class Pydf:
     # append
         
     def append(self, data_item: Union[T_Pydf, T_loda, T_da, T_la]):
-        
         """ general append method can handle appending one record as T_da or T_la, many records as T_loda or T_pydf
-            test exists in test_pydf.py for all three cases
         """
+        # test exists in test_pydf.py for all three cases
+        
         if not data_item:
             return self
         
         if isinstance(data_item, dict):
             self.record_append(data_item)
+            
         elif isinstance(data_item, list):
             if isinstance(data_item[0], dict):
                 # lod type
@@ -1455,8 +1489,8 @@ class Pydf:
             
             If the keys in the record_da have a different order, they will
             be reordered and then appended correctly.
-            test exists in test_pydf.py
         """
+            # test exists in test_pydf.py
         
         if not record_da:
             return
@@ -1510,8 +1544,9 @@ class Pydf:
     def remove_key(self, keyval:str, silent_error=True) -> None:
         """ remove record from pydf using keyfield
             This directly modifies pydf
-            test exists in test_pydf.py
         """
+        # test exists in test_pydf.py
+
         if not self.keyfield:
             return
         
@@ -1552,7 +1587,8 @@ class Pydf:
         
         
     def get_existing_keys(self, keylist: T_ls) -> T_ls:
-        """ check the keylist against the keys defined in a pydf instance. """
+        """ check the keylist against the keys defined in a pydf instance. 
+        """
     
         return [key for key in keylist if key in self.kd]
 
@@ -1763,7 +1799,7 @@ class Pydf:
             test exists in test_pydf.py
         """
         
-        if icol < 0 or not self or icol >= len(self.lol[0]):
+        if icol < 0 or not self or icol >= self._num_cols():
             return []
         
         if omit_nulls:
@@ -1805,6 +1841,7 @@ class Pydf:
         """ given a list of colnames, alter the pydf to select only the cols specified.
             
         """
+        zero_copy = False
         
         if not cols:
             cols = []
@@ -1816,17 +1853,27 @@ class Pydf:
             exclude_cols=exclude_cols
             )
     
-        selected_idxs = [self.hd[col] for col in desired_cols if col in self.hd]
+        selected_col_idxs = [self.hd[col] for col in desired_cols if col in self.hd]
         
-        for irow, la in enumerate(self.lol):
-            la = [la[idx] for idx in range(len(la)) if idx in selected_idxs]
-            self.lol[irow] = la
+        if not zero_copy:
+            # select from the array and create a new object.
+            # this is time consuming.
+            for irow, la in enumerate(self.lol):
+                la = [la[col_idx] for idx in range(len(la)) if col_idx in selected_col_idxs]
+                self.lol[irow] = la
+           
+            # fix up the column names  
+            old_cols = list(self.hd.keys())
+            new_cols = [old_cols[idx] for idx in range(len(old_cols)) if idx in selected_idxs]
+            self._cols_to_hd(new_cols)
             
-        old_cols = list(self.hd.keys())
-        new_cols = [old_cols[idx] for idx in range(len(old_cols)) if idx in selected_idxs]
-        self._cols_to_hd(new_cols)
+            self.dtypes = {col: typ for col, typ in self.dtypes.items() if col in new_cols}
+
+        else:
+            # zero_copy
+            self.selcols = selected_col_idxs
+            
         
-        self.dtypes = {col: typ for col, typ in self.dtypes.items() if col in new_cols}
         
 
     def from_selected_cols(self, cols: Optional[T_ls]=None, exclude_cols: Optional[T_ls]=None) -> 'Pydf':
@@ -2188,7 +2235,7 @@ class Pydf:
                 raise RuntimeError("apply_formulas is resulting in excessive evaluation loops.")
             
             for irow in range(len(self.lol)):
-                for icol in range(len(self.lol[0])):
+                for icol in range(self._num_cols()):
                     cell_formula = parsed_formulas_pydf.lol[irow][icol]
                     if not cell_formula:
                         # no formula provided -- do nothing
@@ -2214,7 +2261,7 @@ class Pydf:
         parsed_formulas = copy.deepcopy(self)
     
         for irow in range(len(self.lol)):
-            for icol in range(len(self.lol[0])):
+            for icol in range(self._num_cols()):
                 proposed_formula = self.lol[irow][icol]
                 if not proposed_formula:
                     # no formula provided.
@@ -2320,7 +2367,7 @@ class Pydf:
             # this is not working yet, don't know how to handle cols, for example.
             raise NotImplementedError
         
-            num_cols = len(self.lol[0])
+            num_cols = self._num_cols()
             for icol in range(num_cols):
                 col_la = self.icol(icol)
                 transformed_col = func(col_la, cols, **kwargs)
@@ -2410,7 +2457,7 @@ class Pydf:
                 
         elif by == 'col':
             reduction_la = []
-            num_cols = len(self.lol[0])
+            num_cols = self._num_cols()
             for icol in range(num_cols):
                 col_la = self.icol(icol)
                 reduction_la = func(col_la, reduction_la, **kwargs)
@@ -3130,8 +3177,8 @@ class Pydf:
         if not max_rows and not max_cols:
             return result_lol
 
-        num_cols    = len(colnames_ls)
         num_rows    = len(self.lol) if self.lol else 0
+        num_cols    = self._num_cols()
 
         if max_rows and num_rows <= max_rows:
             # Get all the rows, but potentially limit columns
