@@ -554,7 +554,19 @@ class TestPydf(unittest.TestCase):
         pydf = Pydf(cols=cols, lol=lol, keyfield='col1', dtypes={'col1': int, 'col2': str})
 
         colname = ''
-        result_la = pydf.col(colname)
+        with self.assertRaises(RuntimeError):
+            result_la = pydf.col(colname)
+            result_la = result_la # fool linter
+
+        #self.assertEqual(result_la, [])
+
+    def test_col_nonexistent_colname_silent(self):
+        cols = ['col1', 'col2']
+        lol = [[1, 'a'], [2, 'b'], [3, 'c']]
+        pydf = Pydf(cols=cols, lol=lol, keyfield='col1', dtypes={'col1': int, 'col2': str})
+
+        colname = 'col3'
+        result_la = pydf.col(colname, silent_error=True)
 
         self.assertEqual(result_la, [])
 

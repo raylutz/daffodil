@@ -1724,23 +1724,28 @@ class Pydf:
         return [idx for idx, row in enumerate(self) if where(row)]
 
 
-    def col(self, colname: str, unique: bool=False, omit_nulls: bool=False) -> list:
+    def col(self, colname: str, unique: bool=False, omit_nulls: bool=False, silent_error:bool=False) -> list:
         """ alias for col_to_la()
             can also use column ranges and then transpose()
             test exists in test_pydf.py
         """
-        return self.col_to_la(colname, unique, omit_nulls=omit_nulls)
+        return self.col_to_la(colname, unique, omit_nulls=omit_nulls, silent_error=silent_error)
 
 
-    def col_to_la(self, colname: str, unique: bool=False, omit_nulls: bool=False) -> list:
+    def col_to_la(self, colname: str, unique: bool=False, omit_nulls: bool=False, silent_error:bool=False) -> list:
         """ pull out out a column from pydf by colname as a list of any
             does not modify pydf. Using unique requires that the 
             values in the column are hashable.
             test exists in test_pydf.py
         """
         
-        if not colname or colname not in self.hd:
-            return []
+        if not colname:
+            raise RuntimeError("colname is required.")
+        if colname not in self.hd:
+            if silent_error:
+                return []
+            raise RuntimeError(f"colname {colname} not defined in this pydf. Use silent_error to return [] in this case.")
+
         icol = self.hd[colname]
         result_la = self.icol_to_la(icol, unique=unique, omit_nulls=omit_nulls)
         
