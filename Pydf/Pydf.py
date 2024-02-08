@@ -103,10 +103,10 @@ class Pydf:
         if cols is None:
             cols = []
             
-        self.name           = name
-        self.keyfield       = keyfield
-        self.hd             = {}
-        self.selcols        = []                # currently selected columns
+        self.name           = name              # str
+        self.keyfield       = keyfield          # str
+        self.hd             = {}                # hd_di
+        self.selcols_li     = []                # currently selected columns
         
         if use_copy:
             self.lol        = copy.deepcopy(lol)
@@ -116,8 +116,8 @@ class Pydf:
         self.kd             = {}
         self.dtypes         = dtypes
         
-        self.md_max_rows    = 10
-        self.md_max_cols    = 10
+        self.md_max_rows    = 0
+        self.md_max_cols    = 0
 
         # Initialize iterator variables        
         self._iter_index = 0
@@ -221,11 +221,12 @@ class Pydf:
         # test exists in test_pydf.py            
         return list(self.hd.keys())
         
+        
     def _cols_to_hd(self, cols: T_ls):
         """ rebuild internal hd from cols provided """
         self.hd = {col:idx for idx, col in enumerate(cols)}
-
-
+        
+        
     def _sanitize_cols(self, cols: T_ls):
         # make sure there are no blanks and columns are unique.
         if cols:
@@ -244,6 +245,10 @@ class Pydf:
                     col_hd[f"{col}_{idx}"] = idx
             self.hd = col_hd
             
+
+    def is_in_colnames(self, colname: str) -> bool:    
+        return bool(colname in self.hd)
+                
 
     def calc_cols(self, 
             include_cols: Optional[T_la]=None,
@@ -1653,22 +1658,27 @@ class Pydf:
         return self.select_irows(selected_irows) 
         
         
-    def irow(self, irow: int) -> T_da:
+    def irow(self, irow: int, include_cols: Optional[T_ls]=None) -> T_da:
         """ alias for iloc 
             test exists in test_pydf.py
         """
-        return self.iloc(irow)
+        return self.iloc(irow, include_cols)
         
 
-    def iloc(self, irow: int) -> T_da:
+    def iloc(self, irow: int, include_cols: Optional[T_ls]=None) -> T_da:
         """ Select one record from pydf using the idx and return as a single T_da dict
             test exists in test_pydf.py
         """
         
         if irow < 0 or irow >= len(self.lol) or not self.lol or not self.lol[irow]:
             return {}
-        if self.hd:    
-            return dict(zip(self.hd, self.lol[irow]))
+            
+        if self.hd: 
+            if not include_cols:    
+                return dict(zip(self.hd, self.lol[irow]))
+            else:
+                return {col:self.lol[irow][self.hd[col]] for col in include_cols if col in self.hd}
+                
         colnames = Pydf._generate_spreadsheet_column_names_list(num_columns=len(self.lol[irow]))
         return dict(zip(colnames, self.lol[irow]))
         
@@ -1813,35 +1823,38 @@ class Pydf:
         return result_la
             
     
-    def drop_cols(self, cols: T_ls):
+    def drop_cols(self, exclude_cols: Optional[T_ls]=None):
         """ given a list of colnames, cols, remove them from pydf array
             alters the pydf
             test exists in test_pydf.py
         """
         
-        if not cols:
-            return
+        if exclude_cols:
+            keep_idxs_li: T_li = [self.hd[col] for col in self.hd if col not in exclude_cols]
+        
+        elif self.selcols_li:
+            keep_idxs_li = self.selcols_li
 
-        to_drop_idxs = [self.hd[col] for col in cols if col in self.hd]
+        else:
+            return
         
         for irow, la in enumerate(self.lol):
-            la = [la[idx] for idx in range(len(la)) if idx not in to_drop_idxs]
+            la = [la[idx] for idx in keep_idxs_li]
             self.lol[irow] = la
             
         old_cols = list(self.hd.keys())
-        new_cols = [old_cols[idx] for idx in range(len(old_cols)) if idx not in to_drop_idxs]
-        
-        new_dtypes = {col: typ for col, typ in self.dtypes.items() if col not in to_drop_idxs}
-
+        new_cols = [old_cols[idx] for idx in keep_idxs_li]
         self._cols_to_hd(new_cols)
+        
+        new_dtypes = {col: typ for idx, (col, typ) in enumerate(self.dtypes.items()) if idx not in keep_idxs_li}
         self.dtypes = new_dtypes
         
 
-    def select_cols(self, cols: Optional[T_ls]=None, exclude_cols: Optional[T_ls]=None):
+    def select_cols(self, cols: Optional[T_ls]=None, exclude_cols: Optional[T_ls]=None, zero_copy: bool=False):
         """ given a list of colnames, alter the pydf to select only the cols specified.
             
         """
-        zero_copy = False
+        
         
         if not cols:
             cols = []
@@ -1853,25 +1866,25 @@ class Pydf:
             exclude_cols=exclude_cols
             )
     
-        selected_col_idxs = [self.hd[col] for col in desired_cols if col in self.hd]
+        selected_cols_li = [self.hd[col] for col in desired_cols if col in self.hd]
         
         if not zero_copy:
             # select from the array and create a new object.
             # this is time consuming.
             for irow, la in enumerate(self.lol):
-                la = [la[col_idx] for idx in range(len(la)) if col_idx in selected_col_idxs]
+                la = [la[col_idx] for col_idx in range(len(la)) if col_idx in selected_cols_li]
                 self.lol[irow] = la
            
             # fix up the column names  
             old_cols = list(self.hd.keys())
-            new_cols = [old_cols[idx] for idx in range(len(old_cols)) if idx in selected_idxs]
+            new_cols = [old_cols[idx] for idx in range(len(old_cols)) if idx in selected_cols_li]
             self._cols_to_hd(new_cols)
             
             self.dtypes = {col: typ for col, typ in self.dtypes.items() if col in new_cols}
 
         else:
             # zero_copy
-            self.selcols = selected_col_idxs
+            self.selected_cols_li = selected_cols_li
             
         
         

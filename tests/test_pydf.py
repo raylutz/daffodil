@@ -82,7 +82,7 @@ class TestPydf(unittest.TestCase):
     def test_shape_colnames_no_cols_empty_rows(self):
         # Test shape method with a Pydf object initialized without colnames
         data = [[], [], []]
-        cols = ['Col1', 'Col2']
+        # cols = ['Col1', 'Col2']
         pydf = Pydf(lol=data)
         self.assertEqual(pydf.shape(), (3, 0))
 
