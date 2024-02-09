@@ -116,8 +116,8 @@ class Pydf:
         self.kd             = {}
         self.dtypes         = dtypes
         
-        self.md_max_rows    = 0
-        self.md_max_cols    = 0
+        self.md_max_rows    = 10    # default number of rows when used with __repr__ and __str__
+        self.md_max_cols    = 10    # default number of cols when used with __repr__ and __str__
 
         # Initialize iterator variables        
         self._iter_index = 0
