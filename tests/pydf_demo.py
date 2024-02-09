@@ -5,6 +5,7 @@
 
 
 import sys
+import os
 
 sys.path.append('..')
 
@@ -217,8 +218,16 @@ be viewed directly or converted to HTML for use on a static website.
     #===================================
 
     print(md_report)
+    
+    sep = os.sep
+    
+    if sep == '/':
+        md_path = '../docs/pydf_demo.md'
+    else:
+        md_path = r'..\docs\pydf_demo.md'
+    
 
-    with open('..\docs\pydf_demo.md', 'w') as file:
+    with open(md_path, 'w') as file:
         file.write(md_report)
 
 

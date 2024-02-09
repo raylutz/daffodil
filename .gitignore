@@ -52,3 +52,7 @@ Pydf.egg-info/PKG-INFO
 Pydf.egg-info/requires.txt
 Pydf.egg-info/SOURCES.txt
 Pydf.egg-info/top_level.txt
+tests/tempdata1.db
+tests/tempdata1.db
+tests/tempdata1.db
+tests/tempdata2.db

@@ -10,6 +10,7 @@ from pympler import asizeof
 from collections import namedtuple
 import sqlite3
 import sys
+import os
 
 sys.path.append('..')
 
@@ -790,8 +791,16 @@ from Pydf.Pydf import Pydf
 
     print ("\n\n" + md_report)
 
-    with open('..\\docs\\test_df_vs_pydf.md', 'w') as file:
+    sep = os.sep
+    
+    if sep == '/':
+        md_path = '../docs/test_df_vs_pydf.md'
+    else:
+        md_path = '..\\docs\\test_df_vs_pydf.md'
+    
+    with open(md_path, 'w') as file:
         file.write(md_report)
+
 
     """
     estimated memory usage for 1000 records and 1000 columns

@@ -3,13 +3,12 @@
 ## Create sample_lod
 
 Here we generate a table using a python list-of-dict structure,
-        with {num_columns} columns and {num_rows} rows, consisting of
+        with 1000 columns and 1000 rows, consisting of
         integers from 0 to 100. Set the seed to an arbitrary value for
         reproducibility. Also, create other forms similarly or by converting
         the sample_lod.
 
 ```python
-    sizeof_dict = {}
     np.random.seed(42)  # For reproducibility
     sample_lod = [dict(zip([f'Col{i}' 
                     for i in range(num_columns)], 
@@ -81,7 +80,7 @@ pydf:
 \[1000 rows x 1000 cols; keyfield=; 0 keys ] (Pydf)
 
 
-sizeof_di['pydf']=40,190,736 bytes
+sizeof_di['pydf']=40,190,856 bytes
 
 ## Create kpydf from sample_klod
 
@@ -113,7 +112,7 @@ kpydf:
 \[1000 rows x 1001 cols; keyfield=rowkey; 1000 keys ] (Pydf)
 
 
-sizeof_di['kpydf']=40,323,496 bytes
+sizeof_di['kpydf']=40,323,616 bytes
 
 ## Create Pandas df
 
@@ -294,8 +293,8 @@ use Pydf.from_lod_to_cols to create a table with first colunm key names, and sec
 | -----------------------------: | :---------- |
 |                            lod | 124,968,872 |
 |                           klod | 125,024,928 |
-|                           pydf | 40,190,736  |
-|                          kpydf | 40,323,496  |
+|                           pydf | 40,190,856  |
+|                          kpydf | 40,323,616  |
 |                             df | 9,767,776   |
 |                         csv_df | 17,983,776  |
 |                            kdf | 102,910,896 |
@@ -309,13 +308,13 @@ This secion uses the timeit() function to time conversions.
         For each convertion, the time wil be added to the (datatype)_times dicts.
 
 ```python
-    setup_code = f'''
+    setup_code = '''
 import pandas as pd
 import numpy as np
 from collections import namedtuple
 import sys
 sys.path.append('..')
-from Pydf.Pydf import Pydf, T_pydf
+from Pydf.Pydf import Pydf
 
 '''
     loops = 10
@@ -467,17 +466,17 @@ from Pydf.Pydf import Pydf, T_pydf
 
 |             Attribute              |  Pydf  |  Pandas  |  Numpy   | Sqlite |  lod   | (loops) |
 | ---------------------------------: | :----: | :------: | :------: | :----: | :----: | :------ |
-|                           from_lod |  1.4   |   45.5   |   0.61   |  6.8   |        | 10      |
-|                       to_pandas_df |  47.4  |          | 0.00029  |        |  45.5  | 10      |
-|              to_pandas_df_thru_csv |  5.0   |          |          |        |        | 10      |
-|                     from_pandas_df |  3.9   |          | 0.000043 |        |        | 10      |
-|                           to_numpy |  0.45  | 0.000043 |          |        |  0.61  | 10      |
-|                         from_numpy | 0.077  | 0.00029  |          |        |        | 10      |
-|                     increment cell | 0.011  |  0.039   |          |        |        | 1,000   |
-|                        insert_irow | 0.0017 |   0.80   |          |        |        | 100     |
-|                        insert_icol |  0.11  |   0.18   |          |        |        | 100     |
-|                           sum cols |  1.5   |  0.042   |  0.022   |  2.6   |  1.3   | 10      |
-|                          transpose |  19.5  |  0.0021  |          |        |        | 10      |
-|                       keyed lookup | 0.0077 |  0.054   |          |  0.34  | 0.0067 | 100     |
+|                           from_lod |  1.4   |   53.4   |   0.66   |  8.3   |        | 10      |
+|                       to_pandas_df |  55.3  |          | 0.00029  |        |  53.4  | 10      |
+|              to_pandas_df_thru_csv |  5.2   |          |          |        |        | 10      |
+|                     from_pandas_df |  4.1   |          | 0.000047 |        |        | 10      |
+|                           to_numpy |  0.45  | 0.000047 |          |        |  0.66  | 10      |
+|                         from_numpy | 0.087  | 0.00029  |          |        |        | 10      |
+|                     increment cell | 0.0090 |  0.041   |          |        |        | 1,000   |
+|                        insert_irow | 0.0015 |   0.92   |          |        |        | 100     |
+|                        insert_icol |  0.12  |   0.19   |          |        |        | 100     |
+|                           sum cols |  1.6   |  0.050   |  0.023   |  2.7   |  1.2   | 10      |
+|                          transpose |  21.8  |  0.0015  |          |        |        | 10      |
+|                       keyed lookup | 0.0085 |  0.071   |          |  0.34  | 0.0072 | 100     |
 |       Size of 1000x1000 array (MB) |  38.3  |   9.3    |   3.9    |  4.9   |  119   |         |
 | Size of keyed 1000x1000 array (MB) |  38.5  |   98.1   |          |        |  119   |         |
