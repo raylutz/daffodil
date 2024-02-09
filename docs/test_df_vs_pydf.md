@@ -466,17 +466,17 @@ from Pydf.Pydf import Pydf
 
 |             Attribute              |  Pydf  |  Pandas  |  Numpy   | Sqlite |  lod   | (loops) |
 | ---------------------------------: | :----: | :------: | :------: | :----: | :----: | :------ |
-|                           from_lod |  1.4   |   53.4   |   0.66   |  8.3   |        | 10      |
-|                       to_pandas_df |  55.3  |          | 0.00029  |        |  53.4  | 10      |
-|              to_pandas_df_thru_csv |  5.2   |          |          |        |        | 10      |
-|                     from_pandas_df |  4.1   |          | 0.000047 |        |        | 10      |
-|                           to_numpy |  0.45  | 0.000047 |          |        |  0.66  | 10      |
-|                         from_numpy | 0.087  | 0.00029  |          |        |        | 10      |
-|                     increment cell | 0.0090 |  0.041   |          |        |        | 1,000   |
-|                        insert_irow | 0.0015 |   0.92   |          |        |        | 100     |
-|                        insert_icol |  0.12  |   0.19   |          |        |        | 100     |
-|                           sum cols |  1.6   |  0.050   |  0.023   |  2.7   |  1.2   | 10      |
-|                          transpose |  21.8  |  0.0015  |          |        |        | 10      |
-|                       keyed lookup | 0.0085 |  0.071   |          |  0.34  | 0.0072 | 100     |
+|                           from_lod |  1.4   |   51.4   |   0.64   |  7.0   |        | 10      |
+|                       to_pandas_df |  50.8  |          | 0.00033  |        |  51.4  | 10      |
+|              to_pandas_df_thru_csv |  5.4   |          |          |        |        | 10      |
+|                     from_pandas_df |  4.1   |          | 0.000049 |        |        | 10      |
+|                           to_numpy |  0.50  | 0.000049 |          |        |  0.64  | 10      |
+|                         from_numpy | 0.088  | 0.00033  |          |        |        | 10      |
+|                     increment cell | 0.0099 |  0.056   |          |        |        | 1,000   |
+|                        insert_irow | 0.0019 |   0.89   |          |        |        | 100     |
+|                        insert_icol |  0.15  |   0.23   |          |        |        | 100     |
+|                           sum cols |  1.7   |  0.053   |  0.030   |  2.8   |  1.6   | 10      |
+|                          transpose |  21.0  |  0.0021  |          |        |        | 10      |
+|                       keyed lookup | 0.0077 |  0.071   |          |  0.35  | 0.0081 | 100     |
 |       Size of 1000x1000 array (MB) |  38.3  |   9.3    |   3.9    |  4.9   |  119   |         |
 | Size of keyed 1000x1000 array (MB) |  38.5  |   98.1   |          |        |  119   |         |
