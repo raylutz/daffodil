@@ -318,127 +318,154 @@ from Pydf.Pydf import Pydf
 
 '''
     loops = 10
-    pydf_times = {}
-    pandas_times = {}
-    numpy_times = {}
-    sqlite_times = {}
-    lod_times = {}
-    loops_di = {}
+    report_cols = [ 'Attribute',            'pydf', 'pandas', 'numpy', 'sqlite', 'lod', 'loops']
+    report_attrs = [ 
+                    'from_lod', 
+                    'to_pandas_df', 
+                    'to_pandas_df_thru_csv', 
+                    'from_pandas_df', 
+                    'to_numpy',
+                    'from_numpy',
+                    'increment cell',
+                    'insert_irow',
+                    'insert_icol',
+                    'sum cols',
+                    'sum_using_numpy',
+                    'transpose',
+                    'keyed lookup',
+                    'Size of 1000x1000 array (MB)',
+                    'Size of keyed 1000x1000 array (MB)',
+                  ]
+    report_pydf = Pydf(cols=report_cols, keyfield='Attribute')
+    for attr in report_attrs:
+        report_pydf.append({'Attribute': attr})
+    
+    # loops_di = {}
 
-    loops_di['from_lod']            = loops
-    pydf_times['from_lod']          = timeit.timeit('Pydf.from_lod(sample_lod)',  setup=setup_code, globals=globals(), number=loops)
-    print(f"Pydf.from_lod()             {loops} loops: {pydf_times['from_lod']:.4f} secs")
+    # pydf_times = {}
+    # pandas_times = {}
+    # numpy_times = {}
+    # sqlite_times = {}
+    # lod_times = {}
+    # loops_di = {}
 
-    pandas_times['from_lod']        = timeit.timeit('pd.DataFrame(sample_lod)',   setup=setup_code, globals=globals(), number=loops)
-    lod_times['to_pandas_df']       = pandas_times['from_lod']
-    print(f"lod_to_df() plain           {loops} loops: {pandas_times['from_lod']:.4f} secs")
+    report_pydf['from_lod', 'loops']    = loops
+    report_pydf['from_lod', 'pydf']     = secs = timeit.timeit('Pydf.from_lod(sample_lod)',  setup=setup_code, globals=globals(), number=loops)
+    print(f"Pydf.from_lod()             {loops} loops: {secs:.4f} secs")
 
-    numpy_times['from_lod']         = timeit.timeit('lod_to_hdnpa(sample_lod)', setup=setup_code, globals=globals(), number=loops)
-    lod_times['to_numpy']           = numpy_times['from_lod']
-    print(f"lod_to_hdnpa()              {loops} loops: {numpy_times['from_lod']:.4f} secs")
+    report_pydf['from_lod', 'pandas']   = secs = timeit.timeit('pd.DataFrame(sample_lod)',   setup=setup_code, globals=globals(), number=loops)
+    report_pydf['to_pandas_df', 'lod']  = secs
+    print(f"lod_to_df() plain           {loops} loops: {secs:.4f} secs")
 
-    sqlite_times['from_lod']        = timeit.timeit('lod_to_sqlite_table(sample_klod, table_name=datatable2)', setup=setup_code, globals=globals(), number=loops)
-    print(f"lod_to_sqlite_table()       {loops} loops: {sqlite_times['from_lod']:.4f} secs")
+    report_pydf['from_lod', 'numpy']    = secs = timeit.timeit('lod_to_hdnpa(sample_lod)', setup=setup_code, globals=globals(), number=loops)
+    report_pydf['to_numpy', 'lod']      = secs
+    print(f"lod_to_numpy()              {loops} loops: {secs:.4f} secs")
 
-    loops_di['to_pandas_df']        = loops
-    pydf_times['to_pandas_df']      = timeit.timeit('pydf.to_pandas_df()',        setup=setup_code, globals=globals(), number=loops)
-    print(f"pydf.to_pandas_df()         {loops} loops: {pydf_times['to_pandas_df']:.4f} secs")
+    report_pydf['from_lod', 'sqlite']   = secs = timeit.timeit('lod_to_sqlite_table(sample_klod, table_name=datatable2)', setup=setup_code, globals=globals(), number=loops)
+    print(f"lod_to_sqlite_table()       {loops} loops: {secs:.4f} secs")
 
-    loops_di['to_pandas_df_thru_csv']        = loops
-    pydf_times['to_pandas_df_thru_csv']      = timeit.timeit('pydf.to_pandas_df(use_csv=True)', setup=setup_code, globals=globals(), number=loops)
-    print(f"pydf.to_pandas_df(use_csv=True)  {loops} loops: {pydf_times['to_pandas_df_thru_csv']:.4f} secs")
+    #-------------------------------
 
-    loops_di['from_pandas_df']      = loops
-    pydf_times['from_pandas_df']    = timeit.timeit('Pydf.from_pandas_df(df)',    setup=setup_code, globals=globals(), number=loops)
-    print(f"Pydf.from_pandas_df()       {loops} loops: {pydf_times['from_pandas_df']:.4f} secs")
+    report_pydf['to_pandas_df', 'loops']    = loops
+    report_pydf['to_pandas_df', 'pydf']     = secs = timeit.timeit('pydf.to_pandas_df()', setup=setup_code, globals=globals(), number=loops)
+    print(f"pydf.to_pandas_df()         {loops} loops: {secs:.4f} secs")
 
-    loops_di['to_numpy']            = loops
-    pydf_times['to_numpy']          = timeit.timeit('pydf.to_numpy()',            setup=setup_code, globals=globals(), number=loops)
-    print(f"pydf.to_numpy()             {loops} loops: {pydf_times['to_numpy']:.4f} secs")
+    report_pydf['to_pandas_df_thru_csv', 'loops']   = loops
+    report_pydf['to_pandas_df_thru_csv', 'pydf']    = secs = timeit.timeit('pydf.to_pandas_df(use_csv=True)', setup=setup_code, globals=globals(), number=loops)
+    print(f"pydf.to_pandas_df(use_csv=True)  {loops} loops: {secs:.4f} secs")
 
-    loops_di['from_numpy']          = loops
-    pydf_times['from_numpy']        = timeit.timeit('Pydf.from_numpy(hdnpa[1])',  setup=setup_code, globals=globals(), number=loops)
-    print(f"Pydf.from_numpy()           {loops} loops: {pydf_times['from_numpy']:.4f} secs")
+    report_pydf['from_pandas_df', 'loops']          = loops
+    report_pydf['from_pandas_df', 'pydf']           = secs = timeit.timeit('Pydf.from_pandas_df(df)', setup=setup_code, globals=globals(), number=loops)
+    print(f"Pydf.from_pandas_df()       {loops} loops: {secs:.4f} secs")
 
-    numpy_times['to_pandas_df']     = timeit.timeit('pd.DataFrame(hdnpa[1])',  setup=setup_code, globals=globals(), number=loops)
-    pandas_times['from_numpy']      = numpy_times['to_pandas_df']
-    print(f"numpy to pandas df          {loops} loops: {numpy_times['to_pandas_df']:.4f} secs")
+    report_pydf['to_numpy', 'loops']        = loops
+    report_pydf['to_numpy', 'pydf']         = secs = timeit.timeit('pydf.to_numpy()',            setup=setup_code, globals=globals(), number=loops)
+    print(f"pydf.to_numpy()             {loops} loops: {secs:.4f} secs")
 
-    numpy_times['from_pandas_df']   = timeit.timeit('df.values',  setup=setup_code, globals=globals(), number=loops)
-    pandas_times['to_numpy']        = numpy_times['from_pandas_df']
-    print(f"numpy from pandas df          {loops} loops: {numpy_times['from_pandas_df']:.4f} secs")
+    report_pydf['from_numpy', 'loops']      = loops 
+    report_pydf['from_numpy', 'pydf']       = secs = timeit.timeit('Pydf.from_numpy(hdnpa[1])',  setup=setup_code, globals=globals(), number=loops)
+    print(f"Pydf.from_numpy()           {loops} loops: {secs:.4f} secs")
+
+    report_pydf['to_pandas_df', 'numpy']    = secs = timeit.timeit('pd.DataFrame(hdnpa[1])',  setup=setup_code, globals=globals(), number=loops)
+    report_pydf['from_numpy', 'pandas']     = secs
+    print(f"numpy to pandas df          {loops} loops: {secs:.4f} secs")
+
+    report_pydf['from_pandas_df', 'numpy']  = secs = timeit.timeit('df.values',  setup=setup_code, globals=globals(), number=loops)
+    report_pydf['to_numpy', 'pandas']       = secs
+    print(f"numpy from pandas df          {loops} loops: {secs:.4f} secs")
 
 
 
     print("\nMutations:")
 
-    loops_di['increment cell']      = loops * 100
-    pydf_times['increment cell']    = timeit.timeit('pydf[500, 500] += 1', setup=setup_code, globals=globals(), number=loops_di['increment cell'])
-    print(f"pydf[500, 500] += 1         {loops_di['increment cell']} loops: {pydf_times['increment cell']:.4f} secs")
+    report_pydf['increment cell', 'loops']  = increment_loops = loops * 100
+    report_pydf['increment cell', 'pydf']   = secs = timeit.timeit('pydf[500, 500] += 1', setup=setup_code, globals=globals(), number=increment_loops)
+    print(f"pydf[500, 500] += 1         {increment_loops} loops: {secs:.4f} secs")
 
-    pandas_times['increment cell']  = timeit.timeit('df.at[500, "Col500"] += 1', setup=setup_code, globals=globals(), number=loops_di['increment cell'])
-    print(f"df.at[500, 'Col500'] += 1   {loops_di['increment cell']} loops: {pandas_times['increment cell']:.4f} secs")
+    report_pydf['increment cell', 'pandas']    = secs = timeit.timeit('df.at[500, "Col500"] += 1', setup=setup_code, globals=globals(), number=increment_loops)
+    print(f"df.at[500, 'Col500'] += 1   {increment_loops} loops: {secs:.4f} secs")
 
-    loops_di['insert_irow']         = loops * 10
-    pydf_times['insert_irow']       = timeit.timeit('pydf.insert_irow(irow=400, row_la=pydf[600, :].copy())', setup=setup_code, globals=globals(), number=loops_di['insert_irow'])
-    print(f"pydf.insert_irow            {loops_di['insert_irow']} loops: {pydf_times['insert_irow']:.4f} secs")
+    report_pydf['insert_irow', 'loops']     = insert_loops = loops * 10
+    report_pydf['insert_irow', 'pydf']      = secs = timeit.timeit('pydf.insert_irow(irow=400, row_la=pydf[600, :].copy())', setup=setup_code, globals=globals(), number=insert_loops)
+    print(f"pydf.insert_irow            {insert_loops} loops: {secs:.4f} secs")
 
-    pandas_times['insert_irow']     = timeit.timeit('pd.concat([df.iloc[: 400], pd.DataFrame([df.loc[600].copy()]), df.iloc[400:]], ignore_index=True)', setup=setup_code, globals=globals(), number=loops_di['insert_irow'])
-    print(f"df insert row               {loops_di['insert_irow']} loops: {pandas_times['insert_irow']:.4f} secs")
+    report_pydf['insert_irow', 'pandas']    = secs = timeit.timeit('pd.concat([df.iloc[: 400], pd.DataFrame([df.loc[600].copy()]), df.iloc[400:]], ignore_index=True)', setup=setup_code, globals=globals(), number=insert_loops)
+    print(f"df insert row               {insert_loops} loops: {secs:.4f} secs")
 
-    loops_di['insert_icol']         = loops * 10
-    pydf_times['insert_icol']       = timeit.timeit('pydf.insert_icol(icol=400, col_la=pydf[:, 600].copy())', setup=setup_code, globals=globals(), number=loops_di['insert_icol'])
-    print(f"pydf.insert_icol            {loops_di['insert_icol']} loops: {pydf_times['insert_icol']:.4f} secs")
+    report_pydf['insert_icol', 'loops']     = insert_loops = loops * 10
+    report_pydf['insert_icol', 'pydf']      = secs = timeit.timeit('pydf.insert_icol(icol=400, col_la=pydf[:, 600].copy())', setup=setup_code, globals=globals(), number=insert_loops)
+    print(f"pydf.insert_icol            {insert_loops} loops: {secs:.4f} secs")
 
-    pandas_times['insert_icol']     = timeit.timeit("pd.concat([df.iloc[:, :400], pd.DataFrame({'Col600_Copy': df['Col600'].copy()}), df.iloc[:, 400:]], axis=1)", setup=setup_code, globals=globals(), number=loops_di['insert_icol'])
-    print(f"df insert col               {loops_di['insert_icol']} loops: {pandas_times['insert_icol']:.4f} secs")
+    report_pydf['insert_icol', 'pandas']    = secs = timeit.timeit("pd.concat([df.iloc[:, :400], pd.DataFrame({'Col600_Copy': df['Col600'].copy()}), df.iloc[:, 400:]], axis=1)", setup=setup_code, globals=globals(), number=insert_loops)
+    print(f"df insert col               {insert_loops} loops: {secs:.4f} secs")
 
     print("\nTime for sums:")
 
-    loops_di['sum cols']            = loops
-    pandas_times['sum cols']        = timeit.timeit('cols=list[df.columns]; df[cols].sum().to_dict()', setup=setup_code, globals=globals(), number=loops)
-    print(f"df_sum_cols()               {loops} loops: {pandas_times['sum cols']:.4f} secs")
+    report_pydf['sum cols', 'loops']        = loops
+    report_pydf['sum cols', 'pandas']       = secs = timeit.timeit('cols=list[df.columns]; df[cols].sum().to_dict()', setup=setup_code, globals=globals(), number=loops)
+    print(f"df_sum_cols()               {loops} loops: {secs:.4f} secs")
 
-    pydf_times['sum cols']          = timeit.timeit('pydf.sum()', setup=setup_code, globals=globals(), number=loops)
-    print(f"pydf.sum()                  {loops} loops: {pydf_times['sum cols']:.4f} secs")
+    report_pydf['sum cols', 'pydf']         = secs = timeit.timeit('pydf.sum()', setup=setup_code, globals=globals(), number=loops)
+    print(f"pydf.sum()                  {loops} loops: {secs:.4f} secs")
 
-    numpy_times['sum cols']         = timeit.timeit('hdnpa_dotsum_cols(hdnpa)', setup=setup_code, globals=globals(), number=loops)
-    print(f"hdnpa_dotsum_cols()         {loops} loops: {numpy_times['sum cols']:.4f} secs")
+    report_pydf['sum_using_numpy', 'pydf']  = secs = timeit.timeit('pydf.sum_using_numpy()',    setup=setup_code, globals=globals(), number=loops)
+    print(f"pydf.sum_using_numpy()      {loops} loops: {secs:.4f} secs")
 
-    sqlite_times['sum cols']        = timeit.timeit('sum_columns_in_sqlite_table(table_name=datatable1)', setup=setup_code, globals=globals(), number=loops)
-    print(f"sqlite_sum_cols()           {loops} loops: {sqlite_times['sum cols']:.4f} secs")
+    report_pydf['sum cols', 'numpy']        = secs = timeit.timeit('hdnpa_dotsum_cols(hdnpa)',  setup=setup_code, globals=globals(), number=loops)
+    print(f"hdnpa_dotsum_cols()         {loops} loops: {secs:.4f} secs")
 
-    lod_times['sum cols']           = timeit.timeit('lod_sum_cols(sample_lod)', setup=setup_code, globals=globals(), number=loops)
-    print(f"lod_sum_cols()              {loops} loops: {lod_times['sum cols']:.4f} secs")
+    report_pydf['sum cols', 'sqlite']       = secs = timeit.timeit('sum_columns_in_sqlite_table(table_name=datatable1)', setup=setup_code, globals=globals(), number=loops)
+    print(f"sqlite_sum_cols()           {loops} loops: {secs:.4f} secs")
 
-    loops_di['transpose']           = loops
-    pandas_times['transpose']       = timeit.timeit('df.transpose()',           setup=setup_code, globals=globals(), number=loops)
-    print(f"df.transpose()              {loops} loops: {pandas_times['transpose']:.4f} secs")
+    report_pydf['sum cols', 'lod']          = secs = timeit.timeit('lod_sum_cols(sample_lod)',  setup=setup_code, globals=globals(), number=loops)
+    print(f"lod_sum_cols()              {loops} loops: {secs:.4f} secs")
 
-    pydf_times['transpose']         = timeit.timeit('pydf.transpose()',         setup=setup_code, globals=globals(), number=loops)
-    print(f"pydf.transpose()            {loops} loops: {pydf_times['transpose']:.4f} secs")
+    report_pydf['transpose', 'loops']       = loops
+    report_pydf['transpose', 'pandas']      = secs = timeit.timeit('df.transpose()',            setup=setup_code, globals=globals(), number=loops)
+    print(f"df.transpose()              {loops} loops: {secs:.4f} secs")
+
+    report_pydf['transpose', 'pydf']        = secs = timeit.timeit('pydf.transpose()',          setup=setup_code, globals=globals(), number=loops)
+    print(f"pydf.transpose()            {loops} loops: {secs:.4f} secs")
+
+    report_pydf['transpose', 'numpy']       = secs = timeit.timeit('np.transpose(hdnpa[1])',    setup=setup_code, globals=globals(), number=loops)
+    print(f"pydf.transpose()            {loops} loops: {secs:.4f} secs")
 
 
 
     print("\nTime for lookups:")
 
-    loops_di['keyed lookup']        = loops*10
-    pydf_times['keyed lookup']      = timeit.timeit("kpydf.select_record_da('500')", setup=setup_code, globals=globals(), number=loops_di['keyed lookup'])
-    print(f"kpydf row lookup            {loops_di['keyed lookup']} loops: {pydf_times['keyed lookup']:.4f} secs")
+    report_pydf['keyed lookup', 'loops']    = keyed_lookup_loops = loops*10
+    report_pydf['keyed lookup', 'pydf']     = secs = timeit.timeit("kpydf.select_record_da('500')", setup=setup_code, globals=globals(), number=keyed_lookup_loops)
+    print(f"kpydf row lookup            {keyed_lookup_loops} loops: {secs:.4f} secs")
 
-    pandas_times['keyed lookup']    = timeit.timeit("kdf.loc['500'].to_dict()", setup=setup_code, globals=globals(), number=loops_di['keyed lookup'])
-    print(f"kdf row lookup (indexed)    {loops_di['keyed lookup']} loops: {pandas_times['keyed lookup']:.4f} secs")
+    report_pydf['keyed lookup', 'pandas']   = secs = timeit.timeit("kdf.loc['500'].to_dict()",      setup=setup_code, globals=globals(), number=keyed_lookup_loops)
+    print(f"kdf row lookup (indexed)    {keyed_lookup_loops} loops: {secs:.4f} secs")
 
-    lod_times['keyed lookup']       = timeit.timeit('klod_row_lookup(sample_klod)', setup=setup_code, globals=globals(), number=loops_di['keyed lookup'])
-    print(f"klod_row_lookup()           {loops_di['keyed lookup']} loops: {lod_times['keyed lookup']:.4f} secs")
+    report_pydf['keyed lookup', 'lod']      = secs = timeit.timeit('klod_row_lookup(sample_klod)',  setup=setup_code, globals=globals(), number=keyed_lookup_loops)
+    print(f"klod_row_lookup()           {keyed_lookup_loops} loops: {secs:.4f} secs")
 
-    sqlite_times['keyed lookup']    = timeit.timeit('sqlite_selectrow(table_name=datatable1)', setup=setup_code, globals=globals(), number=loops_di['keyed lookup'])
-    print(f"sqlite_row_lookup()         {loops_di['keyed lookup']} loops: {sqlite_times['keyed lookup']:.4f} secs")
-
-    lod_times   = [pydf_times, pandas_times, numpy_times, sqlite_times, lod_times, loops_di]
-    times_cols  = ['Attribute', 'Pydf', 'Pandas', 'Numpy', 'Sqlite', 'lod', '(loops)']
-
-    report_pydf = Pydf.from_lod_to_cols(lod = lod_times, cols=times_cols)
+    report_pydf['keyed lookup', 'sqlite']   = secs = timeit.timeit('sqlite_selectrow(table_name=datatable1)', setup=setup_code, globals=globals(), number=keyed_lookup_loops)
+    print(f"sqlite_row_lookup()         {keyed_lookup_loops} loops: {secs:.4f} secs")
 
     MB = 1024 * 1024
 
@@ -464,19 +491,20 @@ from Pydf.Pydf import Pydf
 ```
 
 
-|             Attribute              |  Pydf  |  Pandas  |  Numpy   | Sqlite |  lod   | (loops) |
-| ---------------------------------: | :----: | :------: | :------: | :----: | :----: | :------ |
-|                           from_lod |  1.4   |   51.4   |   0.64   |  7.0   |        | 10      |
-|                       to_pandas_df |  50.8  |          | 0.00033  |        |  51.4  | 10      |
-|              to_pandas_df_thru_csv |  5.4   |          |          |        |        | 10      |
-|                     from_pandas_df |  4.1   |          | 0.000049 |        |        | 10      |
-|                           to_numpy |  0.50  | 0.000049 |          |        |  0.64  | 10      |
-|                         from_numpy | 0.088  | 0.00033  |          |        |        | 10      |
-|                     increment cell | 0.0099 |  0.056   |          |        |        | 1,000   |
-|                        insert_irow | 0.0019 |   0.89   |          |        |        | 100     |
-|                        insert_icol |  0.15  |   0.23   |          |        |        | 100     |
-|                           sum cols |  1.7   |  0.053   |  0.030   |  2.8   |  1.6   | 10      |
-|                          transpose |  21.0  |  0.0021  |          |        |        | 10      |
-|                       keyed lookup | 0.0077 |  0.071   |          |  0.35  | 0.0081 | 100     |
-|       Size of 1000x1000 array (MB) |  38.3  |   9.3    |   3.9    |  4.9   |  119   |         |
-| Size of keyed 1000x1000 array (MB) |  38.5  |   98.1   |          |        |  119   |         |
+|             Attribute              |  pydf  |  pandas  |  numpy   | sqlite |  lod   | loops |
+| ---------------------------------: | :----: | :------: | :------: | :----: | :----: | :---- |
+|                           from_lod |  1.3   |   46.5   |   0.63   |  6.4   |        | 10    |
+|                       to_pandas_df |  46.7  |          | 0.00030  |        |  46.5  | 10    |
+|              to_pandas_df_thru_csv |  5.1   |          |          |        |        | 10    |
+|                     from_pandas_df |  3.9   |          | 0.000046 |        |        | 10    |
+|                           to_numpy |  0.49  | 0.000046 |          |        |  0.63  | 10    |
+|                         from_numpy | 0.083  | 0.00030  |          |        |        | 10    |
+|                     increment cell | 0.0097 |  0.049   |          |        |        | 1,000 |
+|                        insert_irow | 0.0022 |   0.84   |          |        |        | 100   |
+|                        insert_icol |  0.13  |   0.18   |          |        |        | 100   |
+|                           sum cols |  1.5   |  0.063   |  0.028   |  2.6   |  1.2   | 10    |
+|                    sum_using_numpy |  0.57  |          |          |        |        |       |
+|                          transpose |  19.3  |  0.0016  | 0.000025 |        |        | 10    |
+|                       keyed lookup | 0.0082 |  0.071   |          |  0.31  | 0.0072 | 100   |
+|       Size of 1000x1000 array (MB) |        |          |          |        |  119   |       |
+| Size of keyed 1000x1000 array (MB) |        |          |          |        |  119   |       |

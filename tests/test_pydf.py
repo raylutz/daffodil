@@ -3,6 +3,7 @@
 
 import sys
 import unittest
+import numpy as np
 sys.path.append('..')
 
 from Pydf.Pydf import Pydf
@@ -1583,6 +1584,33 @@ class TestPydf(unittest.TestCase):
         result_sum = pydf.sum()
         expected_sum = {}
         self.assertEqual(result_sum, expected_sum)
+
+    # unified sum_np
+    def test_sum_np_all_columns(self):
+        cols = ['col1', 'col2', 'col3']
+        lol = [[1, 2, 3], [4, 5, 6], [7, 8, 9]]
+        pydf = Pydf(cols=cols, lol=lol, keyfield='col1', dtypes={'col1': int, 'col2': int, 'col3': int})
+
+        result_sum = pydf.sum_np()
+        expected_sum = {'col1': 12, 'col2': 15, 'col3': 18}
+        self.assertEqual(result_sum, expected_sum)
+
+    def test_sum_np_selected_columns(self):
+        cols = ['col1', 'col2', 'col3']
+        lol = [[1, 2, 3], [4, 5, 6], [7, 8, 9]]
+        pydf = Pydf(cols=cols, lol=lol, keyfield='col1', dtypes={'col1': int, 'col2': int, 'col3': int})
+
+        result_sum = pydf.sum_np(colnames_ls=['col1', 'col3'])
+        expected_sum = {'col1': 12, 'col3': 18}
+        self.assertEqual(result_sum, expected_sum)
+
+    def test_sum_np_empty_pydf(self):
+        pydf = Pydf()
+
+        result_sum = pydf.sum_np()
+        expected_sum = {}
+        self.assertEqual(result_sum, expected_sum)
+
 
     # pydf_sum
     def test_pydf_sum_all_columns(self):

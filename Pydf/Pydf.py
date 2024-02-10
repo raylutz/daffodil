@@ -52,6 +52,12 @@ See README file at this location: https://github.com/raylutz/Pydf/blob/main/READ
             Started to add selcols for zero-copy support.
             Added _num_cols() 
             Added unit tests.
+            Add groupby_cols_reduce() and sum_np()
+            Fixed bug in item setter for str row. 
+            
+            
+    TODO
+            Refactor get_item and set_item
     
 """            
     
@@ -64,6 +70,7 @@ import io
 import csv
 import copy
 import re
+import numpy as np
     
 sys.path.append('..')
 
@@ -659,6 +666,7 @@ class Pydf:
         # sliced or listed rows, first reduce the array by rows.
         elif isinstance(row_slice, list):
             row_indices = self._row_indices_from_rowlist(row_slice)            
+                
             if row_indices:
                 row_sliced_lol = [self.lol[i] for i in row_indices]
             # else:
@@ -847,15 +855,20 @@ class Pydf:
 
         elif isinstance(slice_spec, tuple):
             row_spec, col_spec = slice_spec
-            if isinstance(row_spec, int):
+            if isinstance(row_spec, int) or isinstance(row_spec, str):
+                if isinstance(row_spec, str) and self.keyfield:
+                    irow = self.kd[row_spec]
+                else:
+                    irow = row_spec
+                    
                 if isinstance(col_spec, int):
                     # my_pydf[irow, icol] = value       -- set cell irow, icol to value, where irow, icol are integers.
-                    self.lol[row_spec][col_spec] = value
+                    self.lol[irow][col_spec] = value
                     
                 elif isinstance(col_spec, str):
                     # my_pydf[irow, colname] = value    -- set a value in cell irow, col, where colname is a string.
                     icol = self.hd[col_spec]
-                    self.lol[row_spec][icol] = value
+                    self.lol[irow][icol] = value
                     
                 elif isinstance(col_spec, list) and col_spec:
                     col_indices = self._col_indices_from_collist(col_spec)
@@ -870,9 +883,9 @@ class Pydf:
                     col_start, col_stop, col_step = self._parse_slice(col_spec)
                     for idx, icol in enumerate(range(col_start, col_stop, col_step)):   # type: ignore
                         if isinstance(value, list):
-                            self.lol[row_spec][icol] = value[idx]
+                            self.lol[irow][icol] = value[idx]
                         else:
-                            self.lol[row_spec][icol] = value
+                            self.lol[irow][icol] = value
                             
             elif isinstance(row_spec, slice):
                 row_start, row_stop, row_step = self._parse_slice(row_spec)
@@ -897,6 +910,29 @@ class Pydf:
                         else:
                             self.lol[irow][icol] = value
                             
+            elif isinstance(row_spec, str) and self.keyfield:
+                irow = self.kd[row_spec]
+                
+                if isinstance(col_spec, list) and col_spec:
+                    col_indices = self._col_indices_from_collist(col_spec)
+
+                    for source_row, irow in enumerate(row_indices):
+                        for source_col, icol in enumerate(col_indices):
+                            self.lol[irow][icol] = value.lol[source_row][source_col]
+                            
+                elif isinstance(col_spec, int) or isinstance(col_spec, str):
+                    if isinstance(col_spec, str):
+                        icol = self.hd[col_spec]
+                    else:
+                        icol = col_spec
+                
+                    for idx, irow in enumerate(range(row_start, row_stop, row_step)):       # type: ignore
+                        if isinstance(value, list):
+                            self.lol[irow][icol] = value[idx]
+                        else:
+                            self.lol[irow][icol] = value
+                            
+                
             elif isinstance(row_spec, list):
                 row_indices = self._row_indices_from_rowlist(row_spec)
                 
@@ -2459,7 +2495,7 @@ class Pydf:
             either a dict (by='rows' or 'table') or list (by='cols')
         """
         if by == 'table':
-            reduction_da = func(self, **kwargs)
+            reduction_da = func(self, cols, **kwargs)
             return reduction_da    
 
         if by == 'row':
@@ -2659,6 +2695,71 @@ class Pydf:
             result_dopydf[fieldval_tuple] = this_pydf
     
         return result_dopydf
+
+
+    def groupby_cols_reduce(self, 
+            groupby_colnames: T_ls, 
+            func: Callable[[T_da, T_da], Union[T_da, T_la]], 
+            by: str='row',                                  # determines how the func is applied.
+            reduce_cols: Optional[T_la]=None,               # columns included in the reduce operation.
+            **kwargs: Any,
+            ) -> 'Pydf':
+        """ given a pydf, break into a number of pydf's based on values in groupby_colnames. 
+            For each group, apply func. to data in reduce_cols.
+            returns pydf with one row per group, and keyfield not set.
+            
+            Application note:
+            This can be commonly used when some colnames are important for grouping, while others
+            contain values or numeric data that can be reduced.
+            
+            For example, consider the array with the following columns:
+            
+            gender, religion, zipcode, cancer, covid19, gun, auto
+            
+            The data can be first grouped by the attribute columns gender, religion, zipcode, and then
+            then prevalence of difference modes of death can be summed. The result is a pydf with one
+            row per unique combination of gender, religion, zipcode. Say we consider just M/F, C/J/I, 
+            and two zipcodes 90001, and 90002, this would result in the following rows, where the 
+            values in paranthesis are the reduced values for each of the numeric columns, such as the sum.
+            
+            gender, religion, zipcode, cancer, covid19, gun, auto
+            M, C, 9001, (cancer), (covid19), (gun), (auto)
+            M, C, 9002, (cancer), (covid19), (gun), (auto)
+            M, J, 9001, (cancer), (covid19), (gun), (auto)
+            M, J, 9002, (cancer), (covid19), (gun), (auto)
+            M, I, 9001, (cancer), (covid19), (gun), (auto)
+            M, I, 9002, (cancer), (covid19), (gun), (auto)
+            F, C, 9001, (cancer), (covid19), (gun), (auto)
+            F, C, 9002, (cancer), (covid19), (gun), (auto)
+            F, J, 9001, (cancer), (covid19), (gun), (auto)
+            F, J, 9002, (cancer), (covid19), (gun), (auto)
+            F, I, 9001, (cancer), (covid19), (gun), (auto)
+            F, I, 9002, (cancer), (covid19), (gun), (auto)
+            
+            
+        """
+        
+        # divide up the table into groups where each group has a unique set of values in groupby_colnames
+        grouped_tdopydf = self.groupby_cols(groupby_colnames)
+        
+        result_pydf = Pydf(cols=groupby_colnames + reduce_cols)
+        
+        for coltup, this_pydf in grouped_tdopydf.items():
+        
+            if not this_pydf:
+                # nothing found with this combination of groupby cols.
+                continue
+                
+            # apply the reduction function
+            reduction_da = this_pydf.reduce(func, by=by, cols=reduce_cols, **kwargs)
+            
+            # add the groupby cols
+            for idx, groupcolname in enumerate(groupby_colnames):
+                reduction_da[groupcolname] = coltup[idx]
+            
+            result_pydf.append(this_pydf)
+
+        return result_pydf
     
 
     def groupby_reduce(self, 
@@ -2868,10 +2969,11 @@ class Pydf:
     # this function does not use normal reduction approach.
     def sum(self, colnames_ls: Optional[T_ls]=None, numeric_only: bool=False) -> dict: # sums_di
         """ total the columns in the table specified, and return a dict of {colname: total,...} 
+        
+        
             unit tests exist
         """
 
-        # from utilities import utils
 
         if colnames_ls is None:
             cleaned_colnames_ls = list(self.hd.keys())
@@ -2902,6 +3004,41 @@ class Pydf:
         
         return sums_d
         
+
+    def sum_np(self, colnames_ls: Optional[T_ls]=None, ) -> dict: # sums_di
+        """ total the columns in the table specified, and return a dict of {colname: total,...}
+            This uses NumPy and requires that library, but this is about 3x faster.
+            If you have mixed types in your Pydf array, then use colnames to subset the
+            columns sent to NumPy to those that contain only numerics and blanks.
+            For many numeric operations, convert a set of columns to NumPy
+            and work directly with NumPy and then convert back. See to_numpy and from_numpy()
+        """
+        # unit tests exist
+        #   need tests for blanks and subsetting columns.
+        
+        if not self:
+            return {}
+
+        if colnames_ls is None:
+            to_sum_pydf = self
+            colnames_ls = self.columns()
+        else:
+            to_sum_pydf = self.from_selected_cols(cols=colnames_ls)
+            """ given a list of colnames, create a new pydf of those cols.
+                creates as new pydf
+            """
+        
+        # convert those columns to an numpy array.
+        nparray = to_sum_pydf.to_numpy()
+        
+        # sum the columns in the array.
+        sum_columns = np.sum(nparray, axis=0)
+        
+        #convert to a dictionary.
+        sums_d = dict(zip(colnames_ls, sum_columns.tolist()))
+        
+        return sums_d
+
     
     def valuecounts_for_colname(self, 
             colname: str, 
