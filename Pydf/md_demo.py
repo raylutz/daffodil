@@ -5,6 +5,17 @@
 
 
 import os, inspect, re
+import functools
+
+
+@functools.lru_cache(maxsize=1)
+def read_file_cached(path) -> str:
+
+    # Read the content of the file
+    with open(path, 'r') as file:
+        file_content = file.read()
+        
+    return file_content
 
 
 def md_code_seg(
@@ -90,9 +101,7 @@ def md_code_seg(
     # Get the path of the top-level script (the caller of this function)
     top_level_file_path = _get_top_level_file()
 
-    # Read the content of the file
-    with open(top_level_file_path, 'r') as file:
-        file_content = file.read()
+    file_content = read_file_cached(top_level_file_path)
         
     # Define the regex pattern, must allow not using md. before function name.
     pattern1 = fr'.*md_code_seg\(\s*(?:label\s*=\s*)?[\'"]{label}[\'"][^)]*\)[^\n]*\n(.*?)\n[^\n]*md_code_seg'

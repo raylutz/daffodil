@@ -442,3 +442,135 @@ Modified pydf:
 \[6 rows x 6 cols; keyfield=Category; 6 keys ] (Pydf)
 
 
+## Create a handy file list including all relevant information
+
+This example demonstrates how easy it is to create a Pydf structure instead of a 
+        more conventional list-of-lists structure. As a result, it is 1/3 the size, and
+        offers more processing capabilities. Here, we create a handy file list including
+        all relevant information by incrementally appending to the pydf structure.
+
+    Please note that if you try to append dictionaries to a Pandas df, you will currently get this warning:
+
+        FutureWarning: The frame.append method is deprecated and will be removed from pandas in a future version. Use pandas.concat instead.
+    
+To use this with Pandas, it is necessary to first build the array using another structure, such as a list of dictionaries,
+    (lod), and then convert to df in one blow.
+
+```python
+    import os
+    import datetime
+    from pympler import asizeof
+    
+    def get_file_list_pydf(dirpath: str, timespec='seconds'):
+        
+        # create an empty pydf.
+        file_list_pydf = Pydf()
+        
+        for filename in os.listdir(dirpath):
+            path = os.path.join(dirpath, filename)
+            stat = os.stat(path)
+            file_info_dict = {
+                'filename': filename,
+                'size': stat.st_size,
+                'modified_timestamp': datetime.datetime.fromtimestamp(stat.st_mtime
+                                        ).isoformat(sep='T', timespec=timespec),
+                'access_timestamp': datetime.datetime.fromtimestamp(stat.st_atime
+                                        ).isoformat(sep='T', timespec=timespec),
+                'is_dir': os.path.isdir(path),
+                }
+                
+            # append the dict to the pydf appends only the values to the correct columns.    
+            file_list_pydf.append(file_info_dict)
+            
+        return file_list_pydf
+
+    # Let's use it on the Windows System32 directory
+    dirpath = 'C:\\Windows\\System32'
+    windows_system32_file_list_pydf = get_file_list_pydf(dirpath)
+
+    md_report += f"\nFiles in {dirpath}:\n" + \
+                 windows_system32_file_list_pydf.to_md(
+                        just='<><<<', 
+                        max_text_len=30,
+                        max_rows=20,
+                        include_summary=True,
+                        ) + "\n\n"
+    
+    md_report += f"\nFiles in {dirpath} (in raw text format):\n```\n" + \
+                 windows_system32_file_list_pydf.to_md(
+                        just='<><<<', 
+                        max_text_len=30,
+                        max_rows=20,
+                        include_summary=True,
+                        ) + "\n```\n\n"
+        
+                        
+                        
+    md_report += f"- pydf size in memory: {asizeof.asizeof(windows_system32_file_list_pydf):,} bytes\n"                    
+    md_report += f"- pandas df size in memory: {asizeof.asizeof(windows_system32_file_list_pydf.to_pandas_df()):,} bytes\n"
+```
+
+
+
+
+Files in C:\Windows\System32:
+|            filename            |  size  | modified_timestamp  |  access_timestamp   | is_dir |
+| :----------------------------- | -----: | :------------------ | :------------------ | :----- |
+| 0409                           |      0 | 2019-12-07T01:50:07 | 2023-09-21T08:30:31 | True   |
+| 07409496-a423-..uteNetwork.dll |  12304 | 2019-12-07T03:19:14 | 2024-01-25T01:49:27 | False  |
+| 1028                           |      0 | 2023-01-24T08:42:53 | 2023-09-21T08:30:31 | True   |
+| 1029                           |      0 | 2023-01-24T08:42:53 | 2023-09-21T08:30:31 | True   |
+| 1031                           |      0 | 2023-01-24T08:42:53 | 2023-09-21T08:30:31 | True   |
+| 1033                           |      0 | 2023-01-24T08:42:53 | 2023-09-21T08:30:31 | True   |
+| 1036                           |      0 | 2023-01-24T08:42:53 | 2023-09-21T08:30:31 | True   |
+| 1040                           |      0 | 2023-01-24T08:42:53 | 2023-09-21T08:30:31 | True   |
+| 1041                           |      0 | 2023-01-24T08:42:53 | 2023-09-21T08:30:31 | True   |
+| 1042                           |      0 | 2023-01-24T08:42:53 | 2023-09-21T08:30:31 | True   |
+| ...                            |    ... | ...                 | ...                 | ...    |
+| X_80.contrast-white.png        |    579 | 2019-12-07T01:08:39 | 2024-01-12T10:40:51 | False  |
+| X_80.png                       |    627 | 2019-12-07T01:08:39 | 2024-01-12T10:40:51 | False  |
+| ze_loader.dll                  | 384376 | 2022-03-08T22:13:06 | 2024-02-12T09:52:56 | False  |
+| ze_tracing_layer.dll           | 476536 | 2022-03-08T22:13:06 | 2024-02-11T00:25:44 | False  |
+| ze_validation_layer.dll        | 150904 | 2022-03-08T22:13:08 | 2023-10-04T21:39:48 | False  |
+| zh-CN                          |   4096 | 2023-12-13T18:26:21 | 2023-12-13T18:26:21 | True   |
+| zh-TW                          |   4096 | 2023-12-13T18:26:21 | 2024-02-11T03:38:19 | True   |
+| zipcontainer.dll               |  79872 | 2019-12-07T01:08:33 | 2024-02-12T09:53:06 | False  |
+| zipfldr.dll                    | 285696 | 2023-12-13T18:13:32 | 2024-02-12T10:09:52 | False  |
+| ztrace_maps.dll                |  30720 | 2019-12-07T01:08:28 | 2024-02-12T07:44:45 | False  |
+
+\[5116 rows x 5 cols; keyfield=; 0 keys ] (Pydf)
+
+
+
+Files in C:\Windows\System32 (in raw text format):
+```
+|            filename            |  size  | modified_timestamp  |  access_timestamp   | is_dir |
+| :----------------------------- | -----: | :------------------ | :------------------ | :----- |
+| 0409                           |      0 | 2019-12-07T01:50:07 | 2023-09-21T08:30:31 | True   |
+| 07409496-a423-..uteNetwork.dll |  12304 | 2019-12-07T03:19:14 | 2024-01-25T01:49:27 | False  |
+| 1028                           |      0 | 2023-01-24T08:42:53 | 2023-09-21T08:30:31 | True   |
+| 1029                           |      0 | 2023-01-24T08:42:53 | 2023-09-21T08:30:31 | True   |
+| 1031                           |      0 | 2023-01-24T08:42:53 | 2023-09-21T08:30:31 | True   |
+| 1033                           |      0 | 2023-01-24T08:42:53 | 2023-09-21T08:30:31 | True   |
+| 1036                           |      0 | 2023-01-24T08:42:53 | 2023-09-21T08:30:31 | True   |
+| 1040                           |      0 | 2023-01-24T08:42:53 | 2023-09-21T08:30:31 | True   |
+| 1041                           |      0 | 2023-01-24T08:42:53 | 2023-09-21T08:30:31 | True   |
+| 1042                           |      0 | 2023-01-24T08:42:53 | 2023-09-21T08:30:31 | True   |
+| ...                            |    ... | ...                 | ...                 | ...    |
+| X_80.contrast-white.png        |    579 | 2019-12-07T01:08:39 | 2024-01-12T10:40:51 | False  |
+| X_80.png                       |    627 | 2019-12-07T01:08:39 | 2024-01-12T10:40:51 | False  |
+| ze_loader.dll                  | 384376 | 2022-03-08T22:13:06 | 2024-02-12T09:52:56 | False  |
+| ze_tracing_layer.dll           | 476536 | 2022-03-08T22:13:06 | 2024-02-11T00:25:44 | False  |
+| ze_validation_layer.dll        | 150904 | 2022-03-08T22:13:08 | 2023-10-04T21:39:48 | False  |
+| zh-CN                          |   4096 | 2023-12-13T18:26:21 | 2023-12-13T18:26:21 | True   |
+| zh-TW                          |   4096 | 2023-12-13T18:26:21 | 2024-02-11T03:38:19 | True   |
+| zipcontainer.dll               |  79872 | 2019-12-07T01:08:33 | 2024-02-12T09:53:06 | False  |
+| zipfldr.dll                    | 285696 | 2023-12-13T18:13:32 | 2024-02-12T10:09:52 | False  |
+| ztrace_maps.dll                |  30720 | 2019-12-07T01:08:28 | 2024-02-12T07:44:45 | False  |
+
+\[5116 rows x 5 cols; keyfield=; 0 keys ] (Pydf)
+
+```
+
+- pydf size in memory: 1,824,408 bytes
+- pandas df size in memory: 2,408,328 bytes

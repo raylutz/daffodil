@@ -628,7 +628,7 @@ from Pydf.Pydf import Pydf
 
 '''
     loops = 10
-    report_cols = [ 'Attribute',            'pydf', 'pandas', 'numpy', 'sqlite', 'lod', 'loops'], #, 'note']
+    report_cols = [ 'Attribute',            'pydf', 'pandas', 'numpy', 'sqlite', 'lod', 'loops'] #, 'note']
     report_attrs = [ 
                     'from_lod', 
                     'to_pandas_df', 
@@ -811,11 +811,30 @@ from Pydf.Pydf import Pydf
     
     md_report += """Notes:
 
-1. to_pandas_df_thru_csv -- This exports the array to csv in a buffer, then reads the buffer into Pandas.    
-2. Transposing a numpy array: it does not create a separate copy of the array in memory. Instead, it returns a 
+1. to_pandas_df -- this is a critical operation where Pandas has a severe problem, as it takes about 38x
+    longer to load an array vs. Pydf. Since Pandas is very slow appending rows, it is a common patter to
+    first build a table to list of dictionaries (lod) or Pydf array, and then port to a pandas df. But
+    the overhead can be a killer in critical dataflow operations.
+1. to_pandas_df_thru_csv -- This exports the array to csv in a buffer, then reads the buffer into Pandas,
+    and can improve the porting to pandas df by about 10x.
+2. sum_cols uses best python summing of all columns with one pass through the data, while sum_np first
+    imports the columns to NumPy, performs the sum of all columns there, and then reads it back to Pydf. In this case,
+    it takes about 1/3 the time to use NumPy for summing. This demonstrates that using NumPy for 
+    strictly numeric operations on columns is optimal.
+3. Transposing a numpy array: it does not create a separate copy of the array in memory. Instead, it returns a 
     view of the original array with the dimensions rearranged. It is a constant-time operation, as it simply 
     involves changing the shape and strides of the array metadata without moving any of the actual data in 
-    memory. It is an efficient operation and does not consume additional memory.
+    memory. It is an efficient operation and does not consume additional memory. There may be a way to 
+    accelerate transposition within python and of non-numeric objects by using a similar strategy
+    with the references to objects that Python uses.
+4. In general, we note that Pydf is faster than Pandas for array manipulation (inserting rows (300x faster) 
+    and cols (1.4x faster)),  
+    performing actions on individual cells (5x faster), appending rows (which Pandas essentially outlaws), 
+    and performing keyed lookups (8.4x faster). Pydf arrays are smaller 
+    whenever any strings are included in the array by about 3x over Pandas. While Pandas and Numpy
+    are faster for columnar calculations, but Numpy is always faster on all numeric data. Therefore
+    it is a good strategy to use Pydf for all operations except for pure data manipulation, and then
+    port the appropriate columns to NumPy. 
 """    
 
     md_code_seg()

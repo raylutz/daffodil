@@ -3,7 +3,8 @@
 
 # Pydf -- Python Dataframes
 
-The Pydf class provides a lightweight, simple and fast alternative to provide 2-d data arrays with mixed types.
+The Pydf class provides a lightweight, simple and fast alternative to provide 
+2-d data arrays with mixed types.
 
 """
 

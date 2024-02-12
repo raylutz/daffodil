@@ -214,6 +214,73 @@ be viewed directly or converted to HTML for use on a static website.
 
     # md_report += f"\nConvert Back:\n```{recovered_pydf}```\n"
 
+    md_report += md_code_seg("Create a handy file list including all relevant information") + "\n"
+    """This example demonstrates how easy it is to create a Pydf structure instead of a 
+        more conventional list-of-lists structure. As a result, it is 1/3 the size, and
+        offers more processing capabilities. Here, we create a handy file list including
+        all relevant information by incrementally appending to the pydf structure.
+
+    Please note that if you try to append dictionaries to a Pandas df, you will currently get this warning:
+
+        FutureWarning: The frame.append method is deprecated and will be removed from pandas in a future version. Use pandas.concat instead.
+    
+To use this with Pandas, it is necessary to first build the array using another structure, such as a list of dictionaries,
+    (lod), and then convert to df in one blow.
+
+    """
+
+    import os
+    import datetime
+    from pympler import asizeof
+    
+    def get_file_list_pydf(dirpath: str, timespec='seconds'):
+        
+        # create an empty pydf.
+        file_list_pydf = Pydf()
+        
+        for filename in os.listdir(dirpath):
+            path = os.path.join(dirpath, filename)
+            stat = os.stat(path)
+            file_info_dict = {
+                'filename': filename,
+                'size': stat.st_size,
+                'modified_timestamp': datetime.datetime.fromtimestamp(stat.st_mtime
+                                        ).isoformat(sep='T', timespec=timespec),
+                'access_timestamp': datetime.datetime.fromtimestamp(stat.st_atime
+                                        ).isoformat(sep='T', timespec=timespec),
+                'is_dir': os.path.isdir(path),
+                }
+                
+            # append the dict to the pydf appends only the values to the correct columns.    
+            file_list_pydf.append(file_info_dict)
+            
+        return file_list_pydf
+
+    # Let's use it on the Windows System32 directory
+    dirpath = 'C:\\Windows\\System32'
+    windows_system32_file_list_pydf = get_file_list_pydf(dirpath)
+
+    md_report += f"\nFiles in {dirpath}:\n" + \
+                 windows_system32_file_list_pydf.to_md(
+                        just='<><<<', 
+                        max_text_len=30,
+                        max_rows=20,
+                        include_summary=True,
+                        ) + "\n\n"
+    
+    md_report += f"\nFiles in {dirpath} (in raw text format):\n```\n" + \
+                 windows_system32_file_list_pydf.to_md(
+                        just='<><<<', 
+                        max_text_len=30,
+                        max_rows=20,
+                        include_summary=True,
+                        ) + "\n```\n\n"
+        
+                        
+                        
+    md_report += f"- pydf size in memory: {asizeof.asizeof(windows_system32_file_list_pydf):,} bytes\n"                    
+    md_report += f"- pandas df size in memory: {asizeof.asizeof(windows_system32_file_list_pydf.to_pandas_df()):,} bytes\n"
+
     md_code_seg()    # end marker
     #===================================
 
