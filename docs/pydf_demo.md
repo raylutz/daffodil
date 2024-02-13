@@ -442,7 +442,7 @@ Modified pydf:
 \[6 rows x 6 cols; keyfield=Category; 6 keys ] (Pydf)
 
 
-## Create a handy file list including all relevant information
+## Create a table of file information
 
 This example demonstrates how easy it is to create a Pydf structure instead of a 
         more conventional list-of-lists structure. As a result, it is 1/3 the size, and
@@ -457,50 +457,67 @@ To use this with Pandas, it is necessary to first build the array using another 
     (lod), and then convert to df in one blow.
 
 ```python
-    import os
+    #import os
     import datetime
     from pympler import asizeof
     
-    def get_file_list_pydf(dirpath: str, timespec='seconds'):
+    
+    def get_one_file_infodict(dirpath: str, filename: str, timespec='seconds') -> dict:
+        path = os.path.join(dirpath, filename)
+        stat = os.stat(path)
+        file_info_dict = {
+            #'filename': filename,
+            'filepath': path,
+            'size': stat.st_size,
+            'modified_timestamp': datetime.datetime.fromtimestamp(stat.st_mtime
+                                    ).isoformat(sep='T', timespec=timespec),
+            'is_dir': os.path.isdir(path),
+            }
+        return file_info_dict
+    
+    
+    def get_file_list_pydf(dirpath: str, recursive:bool=False, timespec='seconds'):
         
         # create an empty pydf.
         file_list_pydf = Pydf()
         
-        for filename in os.listdir(dirpath):
-            path = os.path.join(dirpath, filename)
-            stat = os.stat(path)
-            file_info_dict = {
-                'filename': filename,
-                'size': stat.st_size,
-                'modified_timestamp': datetime.datetime.fromtimestamp(stat.st_mtime
-                                        ).isoformat(sep='T', timespec=timespec),
-                'access_timestamp': datetime.datetime.fromtimestamp(stat.st_atime
-                                        ).isoformat(sep='T', timespec=timespec),
-                'is_dir': os.path.isdir(path),
-                }
-                
-            # append the dict to the pydf appends only the values to the correct columns.    
-            file_list_pydf.append(file_info_dict)
+        # we may encounter permission errors.
+        try:
+            filelist = os.listdir(dirpath)
+        except Exception:
+            return file_list_pydf
+        
+        for filename in filelist:
+            file_info_dict = get_one_file_infodict(dirpath, filename, timespec=timespec)
+            if file_info_dict['is_dir'] and recursive:
+                subdir_path = file_info_dict['filepath']
+                subdir_pydf = get_file_list_pydf(subdir_path, timespec=timespec)
+                file_list_pydf.append(subdir_pydf)
+            else:    
+                file_list_pydf.append(file_info_dict)
             
         return file_list_pydf
 
     # Let's use it on the Windows System32 directory
     dirpath = 'C:\\Windows\\System32'
-    windows_system32_file_list_pydf = get_file_list_pydf(dirpath)
+    windows_system32_file_list_pydf = get_file_list_pydf(dirpath, recursive=True)
+    
+    # shorten down the 'filepath' column to remove the redundant prefix.
+    windows_system32_file_list_pydf.apply_to_col(col='filepath', func=lambda x: x.removeprefix(dirpath))
 
-    md_report += f"\nFiles in {dirpath}:\n" + \
+    md_report += f"\nContents of {dirpath}:\n" + \
                  windows_system32_file_list_pydf.to_md(
-                        just='<><<<', 
-                        max_text_len=30,
-                        max_rows=20,
+                        just='<><<', 
+                        max_text_len=80,
+                        max_rows=30,
                         include_summary=True,
                         ) + "\n\n"
     
-    md_report += f"\nFiles in {dirpath} (in raw text format):\n```\n" + \
+    md_report += f"\nContents of {dirpath} (in raw text format):\n```\n" + \
                  windows_system32_file_list_pydf.to_md(
-                        just='<><<<', 
-                        max_text_len=30,
-                        max_rows=20,
+                        just='<><<', 
+                        max_text_len=80,
+                        max_rows=30,
                         include_summary=True,
                         ) + "\n```\n\n"
         
@@ -513,64 +530,325 @@ To use this with Pandas, it is necessary to first build the array using another 
 
 
 
-Files in C:\Windows\System32:
-|            filename            |  size  | modified_timestamp  |  access_timestamp   | is_dir |
-| :----------------------------- | -----: | :------------------ | :------------------ | :----- |
-| 0409                           |      0 | 2019-12-07T01:50:07 | 2023-09-21T08:30:31 | True   |
-| 07409496-a423-..uteNetwork.dll |  12304 | 2019-12-07T03:19:14 | 2024-01-25T01:49:27 | False  |
-| 1028                           |      0 | 2023-01-24T08:42:53 | 2023-09-21T08:30:31 | True   |
-| 1029                           |      0 | 2023-01-24T08:42:53 | 2023-09-21T08:30:31 | True   |
-| 1031                           |      0 | 2023-01-24T08:42:53 | 2023-09-21T08:30:31 | True   |
-| 1033                           |      0 | 2023-01-24T08:42:53 | 2023-09-21T08:30:31 | True   |
-| 1036                           |      0 | 2023-01-24T08:42:53 | 2023-09-21T08:30:31 | True   |
-| 1040                           |      0 | 2023-01-24T08:42:53 | 2023-09-21T08:30:31 | True   |
-| 1041                           |      0 | 2023-01-24T08:42:53 | 2023-09-21T08:30:31 | True   |
-| 1042                           |      0 | 2023-01-24T08:42:53 | 2023-09-21T08:30:31 | True   |
-| ...                            |    ... | ...                 | ...                 | ...    |
-| X_80.contrast-white.png        |    579 | 2019-12-07T01:08:39 | 2024-01-12T10:40:51 | False  |
-| X_80.png                       |    627 | 2019-12-07T01:08:39 | 2024-01-12T10:40:51 | False  |
-| ze_loader.dll                  | 384376 | 2022-03-08T22:13:06 | 2024-02-12T09:52:56 | False  |
-| ze_tracing_layer.dll           | 476536 | 2022-03-08T22:13:06 | 2024-02-11T00:25:44 | False  |
-| ze_validation_layer.dll        | 150904 | 2022-03-08T22:13:08 | 2023-10-04T21:39:48 | False  |
-| zh-CN                          |   4096 | 2023-12-13T18:26:21 | 2023-12-13T18:26:21 | True   |
-| zh-TW                          |   4096 | 2023-12-13T18:26:21 | 2024-02-11T03:38:19 | True   |
-| zipcontainer.dll               |  79872 | 2019-12-07T01:08:33 | 2024-02-12T09:53:06 | False  |
-| zipfldr.dll                    | 285696 | 2023-12-13T18:13:32 | 2024-02-12T10:09:52 | False  |
-| ztrace_maps.dll                |  30720 | 2019-12-07T01:08:28 | 2024-02-12T07:44:45 | False  |
+Contents of C:\Windows\System32:
+|                            filepath                             |  size  | modified_timestamp  | is_dir |
+| :-------------------------------------------------------------- | -----: | :------------------ | :----- |
+| \07409496-a423-4a3e-b620-2cfb01a9318d_HyperV-ComputeNetwork.dll |  12304 | 2019-12-07T03:19:14 | False  |
+| \1028\VsGraphicsResources.dll                                   |  77216 | 2022-10-06T17:05:12 | False  |
+| \1028\vsjitdebuggerui.dll                                       |  18848 | 2022-06-01T02:06:34 | False  |
+| \1029\VsGraphicsResources.dll                                   |  77216 | 2022-10-06T17:05:12 | False  |
+| \1029\vsjitdebuggerui.dll                                       |  23456 | 2022-06-01T02:06:34 | False  |
+| \1031\VsGraphicsResources.dll                                   |  77216 | 2022-10-06T17:05:12 | False  |
+| \1031\vsjitdebuggerui.dll                                       |  24976 | 2022-06-01T02:06:34 | False  |
+| \1033\VsGraphicsResources.dll                                   |  77216 | 2022-10-06T17:05:12 | False  |
+| \1033\vsjitdebuggerui.dll                                       |  23456 | 2022-06-01T02:05:54 | False  |
+| \1036\VsGraphicsResources.dll                                   |  77216 | 2022-10-06T17:05:12 | False  |
+| \1036\vsjitdebuggerui.dll                                       |  24480 | 2022-06-01T02:05:56 | False  |
+| \1040\VsGraphicsResources.dll                                   |  77216 | 2022-10-06T17:05:12 | False  |
+| \1040\vsjitdebuggerui.dll                                       |  23968 | 2022-06-01T02:05:36 | False  |
+| \1041\VsGraphicsResources.dll                                   |  77216 | 2022-10-06T17:05:12 | False  |
+| \1041\vsjitdebuggerui.dll                                       |  20368 | 2022-06-01T02:06:34 | False  |
+| ...                                                             |    ... | ...                 | ...    |
+| \zh-TW\comctl32.dll.mui                                         |   5120 | 2019-12-07T01:09:02 | False  |
+| \zh-TW\comdlg32.dll.mui                                         |  45056 | 2023-12-13T18:14:08 | False  |
+| \zh-TW\fms.dll.mui                                              |   9216 | 2023-12-13T18:14:04 | False  |
+| \zh-TW\mlang.dll.mui                                            |  12288 | 2019-12-07T01:09:04 | False  |
+| \zh-TW\msimsg.dll.mui                                           |  37376 | 2023-12-13T18:13:59 | False  |
+| \zh-TW\msprivs.dll.mui                                          |   3584 | 2019-12-07T01:09:04 | False  |
+| \zh-TW\quickassist.exe.mui                                      |   3072 | 2023-12-13T18:17:15 | False  |
+| \zh-TW\SyncRes.dll.mui                                          |  13824 | 2019-12-06T08:58:00 | False  |
+| \zh-TW\Windows.Management.SecureAssessment.Diagnostics.dll.mui  |   3584 | 2019-12-07T01:10:17 | False  |
+| \zh-TW\Windows.Media.Speech.UXRes.dll.mui                       |   6656 | 2023-12-13T18:14:04 | False  |
+| \zh-TW\windows.ui.xaml.dll.mui                                  |  11776 | 2023-12-13T18:14:00 | False  |
+| \zh-TW\WWAHost.exe.mui                                          |  11264 | 2023-12-13T18:14:04 | False  |
+| \zipcontainer.dll                                               |  79872 | 2019-12-07T01:08:33 | False  |
+| \zipfldr.dll                                                    | 285696 | 2023-12-13T18:13:32 | False  |
+| \ztrace_maps.dll                                                |  30720 | 2019-12-07T01:08:28 | False  |
 
-\[5116 rows x 5 cols; keyfield=; 0 keys ] (Pydf)
+\[8725 rows x 4 cols; keyfield=; 0 keys ] (Pydf)
 
 
 
-Files in C:\Windows\System32 (in raw text format):
+Contents of C:\Windows\System32 (in raw text format):
 ```
-|            filename            |  size  | modified_timestamp  |  access_timestamp   | is_dir |
-| :----------------------------- | -----: | :------------------ | :------------------ | :----- |
-| 0409                           |      0 | 2019-12-07T01:50:07 | 2023-09-21T08:30:31 | True   |
-| 07409496-a423-..uteNetwork.dll |  12304 | 2019-12-07T03:19:14 | 2024-01-25T01:49:27 | False  |
-| 1028                           |      0 | 2023-01-24T08:42:53 | 2023-09-21T08:30:31 | True   |
-| 1029                           |      0 | 2023-01-24T08:42:53 | 2023-09-21T08:30:31 | True   |
-| 1031                           |      0 | 2023-01-24T08:42:53 | 2023-09-21T08:30:31 | True   |
-| 1033                           |      0 | 2023-01-24T08:42:53 | 2023-09-21T08:30:31 | True   |
-| 1036                           |      0 | 2023-01-24T08:42:53 | 2023-09-21T08:30:31 | True   |
-| 1040                           |      0 | 2023-01-24T08:42:53 | 2023-09-21T08:30:31 | True   |
-| 1041                           |      0 | 2023-01-24T08:42:53 | 2023-09-21T08:30:31 | True   |
-| 1042                           |      0 | 2023-01-24T08:42:53 | 2023-09-21T08:30:31 | True   |
-| ...                            |    ... | ...                 | ...                 | ...    |
-| X_80.contrast-white.png        |    579 | 2019-12-07T01:08:39 | 2024-01-12T10:40:51 | False  |
-| X_80.png                       |    627 | 2019-12-07T01:08:39 | 2024-01-12T10:40:51 | False  |
-| ze_loader.dll                  | 384376 | 2022-03-08T22:13:06 | 2024-02-12T09:52:56 | False  |
-| ze_tracing_layer.dll           | 476536 | 2022-03-08T22:13:06 | 2024-02-11T00:25:44 | False  |
-| ze_validation_layer.dll        | 150904 | 2022-03-08T22:13:08 | 2023-10-04T21:39:48 | False  |
-| zh-CN                          |   4096 | 2023-12-13T18:26:21 | 2023-12-13T18:26:21 | True   |
-| zh-TW                          |   4096 | 2023-12-13T18:26:21 | 2024-02-11T03:38:19 | True   |
-| zipcontainer.dll               |  79872 | 2019-12-07T01:08:33 | 2024-02-12T09:53:06 | False  |
-| zipfldr.dll                    | 285696 | 2023-12-13T18:13:32 | 2024-02-12T10:09:52 | False  |
-| ztrace_maps.dll                |  30720 | 2019-12-07T01:08:28 | 2024-02-12T07:44:45 | False  |
+|                            filepath                             |  size  | modified_timestamp  | is_dir |
+| :-------------------------------------------------------------- | -----: | :------------------ | :----- |
+| \07409496-a423-4a3e-b620-2cfb01a9318d_HyperV-ComputeNetwork.dll |  12304 | 2019-12-07T03:19:14 | False  |
+| \1028\VsGraphicsResources.dll                                   |  77216 | 2022-10-06T17:05:12 | False  |
+| \1028\vsjitdebuggerui.dll                                       |  18848 | 2022-06-01T02:06:34 | False  |
+| \1029\VsGraphicsResources.dll                                   |  77216 | 2022-10-06T17:05:12 | False  |
+| \1029\vsjitdebuggerui.dll                                       |  23456 | 2022-06-01T02:06:34 | False  |
+| \1031\VsGraphicsResources.dll                                   |  77216 | 2022-10-06T17:05:12 | False  |
+| \1031\vsjitdebuggerui.dll                                       |  24976 | 2022-06-01T02:06:34 | False  |
+| \1033\VsGraphicsResources.dll                                   |  77216 | 2022-10-06T17:05:12 | False  |
+| \1033\vsjitdebuggerui.dll                                       |  23456 | 2022-06-01T02:05:54 | False  |
+| \1036\VsGraphicsResources.dll                                   |  77216 | 2022-10-06T17:05:12 | False  |
+| \1036\vsjitdebuggerui.dll                                       |  24480 | 2022-06-01T02:05:56 | False  |
+| \1040\VsGraphicsResources.dll                                   |  77216 | 2022-10-06T17:05:12 | False  |
+| \1040\vsjitdebuggerui.dll                                       |  23968 | 2022-06-01T02:05:36 | False  |
+| \1041\VsGraphicsResources.dll                                   |  77216 | 2022-10-06T17:05:12 | False  |
+| \1041\vsjitdebuggerui.dll                                       |  20368 | 2022-06-01T02:06:34 | False  |
+| ...                                                             |    ... | ...                 | ...    |
+| \zh-TW\comctl32.dll.mui                                         |   5120 | 2019-12-07T01:09:02 | False  |
+| \zh-TW\comdlg32.dll.mui                                         |  45056 | 2023-12-13T18:14:08 | False  |
+| \zh-TW\fms.dll.mui                                              |   9216 | 2023-12-13T18:14:04 | False  |
+| \zh-TW\mlang.dll.mui                                            |  12288 | 2019-12-07T01:09:04 | False  |
+| \zh-TW\msimsg.dll.mui                                           |  37376 | 2023-12-13T18:13:59 | False  |
+| \zh-TW\msprivs.dll.mui                                          |   3584 | 2019-12-07T01:09:04 | False  |
+| \zh-TW\quickassist.exe.mui                                      |   3072 | 2023-12-13T18:17:15 | False  |
+| \zh-TW\SyncRes.dll.mui                                          |  13824 | 2019-12-06T08:58:00 | False  |
+| \zh-TW\Windows.Management.SecureAssessment.Diagnostics.dll.mui  |   3584 | 2019-12-07T01:10:17 | False  |
+| \zh-TW\Windows.Media.Speech.UXRes.dll.mui                       |   6656 | 2023-12-13T18:14:04 | False  |
+| \zh-TW\windows.ui.xaml.dll.mui                                  |  11776 | 2023-12-13T18:14:00 | False  |
+| \zh-TW\WWAHost.exe.mui                                          |  11264 | 2023-12-13T18:14:04 | False  |
+| \zipcontainer.dll                                               |  79872 | 2019-12-07T01:08:33 | False  |
+| \zipfldr.dll                                                    | 285696 | 2023-12-13T18:13:32 | False  |
+| \ztrace_maps.dll                                                |  30720 | 2019-12-07T01:08:28 | False  |
 
-\[5116 rows x 5 cols; keyfield=; 0 keys ] (Pydf)
+\[8725 rows x 4 cols; keyfield=; 0 keys ] (Pydf)
 
 ```
 
-- pydf size in memory: 1,824,408 bytes
-- pandas df size in memory: 2,408,328 bytes
+- pydf size in memory: 2,384,312 bytes
+- pandas df size in memory: 2,849,688 bytes
+## Limit this list to just the files
+
+Now what we will do is first limit the listing only to files.
+        Notice also that we are using custom justification, limiting text length to 50 chars (while keeping the ends)
+        including 30 rows, consisting of the first 15 and the last 15, and including the summary at the end.
+
+```python
+    files_only_pydf = windows_system32_file_list_pydf.select_by_dict({'is_dir': False})
+
+    md_report += f"\nFiles only in {dirpath}:\n" + \
+                 files_only_pydf.to_md(
+                        just='<><<', 
+                        max_text_len=80,
+                        max_rows=30,
+                        include_summary=True,
+                        ) + "\n\n"
+```
+
+
+
+
+Files only in C:\Windows\System32:
+|                            filepath                             |  size  | modified_timestamp  | is_dir |
+| :-------------------------------------------------------------- | -----: | :------------------ | :----- |
+| \07409496-a423-4a3e-b620-2cfb01a9318d_HyperV-ComputeNetwork.dll |  12304 | 2019-12-07T03:19:14 | False  |
+| \1028\VsGraphicsResources.dll                                   |  77216 | 2022-10-06T17:05:12 | False  |
+| \1028\vsjitdebuggerui.dll                                       |  18848 | 2022-06-01T02:06:34 | False  |
+| \1029\VsGraphicsResources.dll                                   |  77216 | 2022-10-06T17:05:12 | False  |
+| \1029\vsjitdebuggerui.dll                                       |  23456 | 2022-06-01T02:06:34 | False  |
+| \1031\VsGraphicsResources.dll                                   |  77216 | 2022-10-06T17:05:12 | False  |
+| \1031\vsjitdebuggerui.dll                                       |  24976 | 2022-06-01T02:06:34 | False  |
+| \1033\VsGraphicsResources.dll                                   |  77216 | 2022-10-06T17:05:12 | False  |
+| \1033\vsjitdebuggerui.dll                                       |  23456 | 2022-06-01T02:05:54 | False  |
+| \1036\VsGraphicsResources.dll                                   |  77216 | 2022-10-06T17:05:12 | False  |
+| \1036\vsjitdebuggerui.dll                                       |  24480 | 2022-06-01T02:05:56 | False  |
+| \1040\VsGraphicsResources.dll                                   |  77216 | 2022-10-06T17:05:12 | False  |
+| \1040\vsjitdebuggerui.dll                                       |  23968 | 2022-06-01T02:05:36 | False  |
+| \1041\VsGraphicsResources.dll                                   |  77216 | 2022-10-06T17:05:12 | False  |
+| \1041\vsjitdebuggerui.dll                                       |  20368 | 2022-06-01T02:06:34 | False  |
+| ...                                                             |    ... | ...                 | ...    |
+| \zh-TW\comctl32.dll.mui                                         |   5120 | 2019-12-07T01:09:02 | False  |
+| \zh-TW\comdlg32.dll.mui                                         |  45056 | 2023-12-13T18:14:08 | False  |
+| \zh-TW\fms.dll.mui                                              |   9216 | 2023-12-13T18:14:04 | False  |
+| \zh-TW\mlang.dll.mui                                            |  12288 | 2019-12-07T01:09:04 | False  |
+| \zh-TW\msimsg.dll.mui                                           |  37376 | 2023-12-13T18:13:59 | False  |
+| \zh-TW\msprivs.dll.mui                                          |   3584 | 2019-12-07T01:09:04 | False  |
+| \zh-TW\quickassist.exe.mui                                      |   3072 | 2023-12-13T18:17:15 | False  |
+| \zh-TW\SyncRes.dll.mui                                          |  13824 | 2019-12-06T08:58:00 | False  |
+| \zh-TW\Windows.Management.SecureAssessment.Diagnostics.dll.mui  |   3584 | 2019-12-07T01:10:17 | False  |
+| \zh-TW\Windows.Media.Speech.UXRes.dll.mui                       |   6656 | 2023-12-13T18:14:04 | False  |
+| \zh-TW\windows.ui.xaml.dll.mui                                  |  11776 | 2023-12-13T18:14:00 | False  |
+| \zh-TW\WWAHost.exe.mui                                          |  11264 | 2023-12-13T18:14:04 | False  |
+| \zipcontainer.dll                                               |  79872 | 2019-12-07T01:08:33 | False  |
+| \zipfldr.dll                                                    | 285696 | 2023-12-13T18:13:32 | False  |
+| \ztrace_maps.dll                                                |  30720 | 2019-12-07T01:08:28 | False  |
+
+\[8603 rows x 4 cols; keyfield=; 0 keys ] (Pydf)
+
+
+## Demonstration of groupby_cols_reduce
+
+Given a pydf, break into a number of pydf's based on values in groupby_colnames. 
+        For each group, apply func. to data in reduce_cols.
+        returns pydf with one row per group, and keyfield not set.
+        
+This can be commonly used when some colnames are important for grouping, while others
+        contain values or numeric data that can be reduced.
+        
+For example, consider the data table with the following columns:
+        
+            gender, religion, zipcode, cancer, covid19, gun, auto
+            
+The data can be first grouped by the attribute columns gender, religion, zipcode, and then
+        then prevalence of difference modes of death can be summed. The result is a pydf with one
+        row per unique combination of gender, religion, zipcode. Say we consider just M/F, C/J/I, 
+        and two zipcodes 90001, and 90002, this would result in the following rows, where the 
+        values in paranthesis are the reduced values for each of the numeric columns, such as the sum.
+        
+In general, the number of rows is reduced to no more than the product of number of unique values in each column
+        grouped. In this case, there are 2 genders, 3 religions, and 2 zipcodes, resulting in
+        2 * 3 * 2 = 12 rows.
+
+```python
+    groupby_colnames = ['gender', 'religion', 'zipcode']
+    reduce_colnames  = ['cancer', 'covid19', 'gun', 'auto']
+        
+    cols = ['gender', 'religion', 'zipcode', 'cancer', 'covid19', 'gun', 'auto']
+    lol = [
+        ['M', 'C', 90001,  1,  2,  3,  4],
+        ['M', 'C', 90001,  5,  6,  7,  8],
+        ['M', 'C', 90002,  9, 10, 11, 12],
+        ['M', 'C', 90002, 13, 14, 15, 16],
+        ['M', 'J', 90001,  1,  2,  3,  4],
+        ['M', 'J', 90001, 13, 14, 15, 16],
+        ['M', 'J', 90002,  5,  6,  7,  8],
+        ['M', 'J', 90002,  9, 10, 11, 12],
+        ['M', 'I', 90001, 13, 14, 15, 16],
+        ['M', 'I', 90001,  1,  2,  3,  4],
+        ['M', 'I', 90002,  4,  3,  2,  1],
+        ['M', 'I', 90002,  9, 10, 11, 12],
+        ['F', 'C', 90001,  4,  3,  2,  1],
+        ['F', 'C', 90001,  5,  6,  7,  8],
+        ['F', 'C', 90002,  4,  3,  2,  1],
+        ['F', 'C', 90002, 13, 14, 15, 16],
+        ['F', 'J', 90001,  4,  3,  2,  1],
+        ['F', 'J', 90001,  1,  2,  3,  4],
+        ['F', 'J', 90002,  8,  7,  6,  5],
+        ['F', 'J', 90002,  1,  2,  3,  4],
+        ['F', 'I', 90001,  8,  7,  6,  5],
+        ['F', 'I', 90001,  5,  6,  7,  8],
+        ['F', 'I', 90002,  8,  7,  6,  5],
+        ['F', 'I', 90002, 13, 14, 15, 16],
+        ]
+        
+    data_table_pydf = Pydf(cols=cols, lol=lol)
+        
+    md_report += f"\nOriginal data_table_pydf:\n{data_table_pydf.to_md(include_summary=True)}\n\n"
+```
+
+
+
+
+Original data_table_pydf:
+| gender | religion | zipcode | cancer | covid19 | gun | auto |
+| -----: | -------: | ------: | -----: | ------: | --: | ---: |
+|      M |        C |   90001 |      1 |       2 |   3 |    4 |
+|      M |        C |   90001 |      5 |       6 |   7 |    8 |
+|      M |        C |   90002 |      9 |      10 |  11 |   12 |
+|      M |        C |   90002 |     13 |      14 |  15 |   16 |
+|      M |        J |   90001 |      1 |       2 |   3 |    4 |
+|      M |        J |   90001 |     13 |      14 |  15 |   16 |
+|      M |        J |   90002 |      5 |       6 |   7 |    8 |
+|      M |        J |   90002 |      9 |      10 |  11 |   12 |
+|      M |        I |   90001 |     13 |      14 |  15 |   16 |
+|      M |        I |   90001 |      1 |       2 |   3 |    4 |
+|      M |        I |   90002 |      4 |       3 |   2 |    1 |
+|      M |        I |   90002 |      9 |      10 |  11 |   12 |
+|      F |        C |   90001 |      4 |       3 |   2 |    1 |
+|      F |        C |   90001 |      5 |       6 |   7 |    8 |
+|      F |        C |   90002 |      4 |       3 |   2 |    1 |
+|      F |        C |   90002 |     13 |      14 |  15 |   16 |
+|      F |        J |   90001 |      4 |       3 |   2 |    1 |
+|      F |        J |   90001 |      1 |       2 |   3 |    4 |
+|      F |        J |   90002 |      8 |       7 |   6 |    5 |
+|      F |        J |   90002 |      1 |       2 |   3 |    4 |
+|      F |        I |   90001 |      8 |       7 |   6 |    5 |
+|      F |        I |   90001 |      5 |       6 |   7 |    8 |
+|      F |        I |   90002 |      8 |       7 |   6 |    5 |
+|      F |        I |   90002 |     13 |      14 |  15 |   16 |
+
+\[24 rows x 7 cols; keyfield=; 0 keys ] (Pydf)
+
+
+## Now reduce the data using groupby_cols_reduce
+
+
+
+```python
+    grouped_and_summed_pydf = data_table_pydf.groupby_cols_reduce(
+        groupby_colnames    = groupby_colnames,     # columns used for groups
+        reduce_cols         = reduce_colnames,      # columns included in the reduce operation.
+        func                = Pydf.sum_np,
+        by                  = 'table',              # determines how the func is applied. sum_np is by table not row.
+        )
+
+    expected_lol = [
+        ['M', 'C', 90001,  6,  8, 10, 12],
+        ['M', 'C', 90002, 22, 24, 26, 28],
+        ['M', 'J', 90001, 14, 16, 18, 20],
+        ['M', 'J', 90002, 14, 16, 18, 20],
+        ['M', 'I', 90001, 14, 16, 18, 20],
+        ['M', 'I', 90002, 13, 13, 13, 13],
+        ['F', 'C', 90001,  9,  9,  9,  9],
+        ['F', 'C', 90002, 17, 17, 17, 17],
+        ['F', 'J', 90001,  5,  5,  5,  5],
+        ['F', 'J', 90002,  9,  9,  9,  9],
+        ['F', 'I', 90001, 13, 13, 13, 13],
+        ['F', 'I', 90002, 21, 21, 21, 21],
+        ]
+
+    md_report += f"\nResulting Reduction:\n{grouped_and_summed_pydf.to_md(include_summary=True)}\n\n"
+    
+    md_report += f"\nCheck the result against manually generated:\n{bool(grouped_and_summed_pydf.lol==expected_lol)=}\n"
+```
+
+
+
+
+Resulting Reduction:
+| gender | religion | zipcode | cancer | covid19 | gun | auto |
+| -----: | -------: | ------: | -----: | ------: | --: | ---: |
+|      M |        C |   90001 |      6 |       8 |  10 |   12 |
+|      M |        C |   90002 |     22 |      24 |  26 |   28 |
+|      M |        J |   90001 |     14 |      16 |  18 |   20 |
+|      M |        J |   90002 |     14 |      16 |  18 |   20 |
+|      M |        I |   90001 |     14 |      16 |  18 |   20 |
+|      M |        I |   90002 |     13 |      13 |  13 |   13 |
+|      F |        C |   90001 |      9 |       9 |   9 |    9 |
+|      F |        C |   90002 |     17 |      17 |  17 |   17 |
+|      F |        J |   90001 |      5 |       5 |   5 |    5 |
+|      F |        J |   90002 |      9 |       9 |   9 |    9 |
+|      F |        I |   90001 |     13 |      13 |  13 |   13 |
+|      F |        I |   90002 |     21 |      21 |  21 |   21 |
+
+\[12 rows x 7 cols; keyfield=; 0 keys ] (Pydf)
+
+
+
+Check the result against manually generated:
+bool(grouped_and_summed_pydf.lol==expected_lol)=True
+## Further group to just zipcodes
+
+Now further reduce the grouped and summed table to provide the sum for just zipcodes, for all
+    genders and religions. By producing the initial table with all combinations reduced, further grouping
+    can be done without processing the entire table again.
+    In this example, we also demonstrate using NumPy to sum the columns. This can accelerate any numeric operations,
+    by at least three times.
+
+```python
+    zipcodes_pydf = grouped_and_summed_pydf.groupby_cols_reduce(
+        groupby_colnames    = ['zipcode'], 
+        func                = Pydf.sum_np,
+        by                  = 'table',                          # determines how the func is applied.
+        reduce_cols         = reduce_colnames,                  # columns included in the reduce operation.
+        )
+
+    md_report += f"\nResults for zipcode Reduction:\n{zipcodes_pydf.to_md(include_summary=True)}\n\n"
+```
+
+
+
+
+Results for zipcode Reduction:
+| zipcode | cancer | covid19 | gun | auto |
+| ------: | -----: | ------: | --: | ---: |
+|   90001 |     61 |      67 |  73 |   79 |
+|   90002 |     96 |     100 | 104 |  108 |
+
+\[2 rows x 5 cols; keyfield=; 0 keys ] (Pydf)
+
+

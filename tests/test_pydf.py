@@ -3,7 +3,7 @@
 
 import sys
 import unittest
-import numpy as np
+#import numpy as np
 sys.path.append('..')
 
 from Pydf.Pydf import Pydf
@@ -2408,6 +2408,68 @@ class TestPydf(unittest.TestCase):
         # Assert the expected results
         self.assertEqual(my_pydf[:, 'col2'], ['123', '456', '789'])
         
+
+    def test_groupby_cols_reduce(self):
+
+        groupby_colnames = ['gender', 'religion', 'zipcode']
+        reduce_colnames  = ['cancer', 'covid19', 'gun', 'auto']
+            
+        cols = ['gender', 'religion', 'zipcode', 'cancer', 'covid19', 'gun', 'auto']
+        lol = [
+            ['M', 'C', 90001,  1,  2,  3,  4],
+            ['M', 'C', 90001,  5,  6,  7,  8],
+            ['M', 'C', 90002,  9, 10, 11, 12],
+            ['M', 'C', 90002, 13, 14, 15, 16],
+            ['M', 'J', 90001,  1,  2,  3,  4],
+            ['M', 'J', 90001, 13, 14, 15, 16],
+            ['M', 'J', 90002,  5,  6,  7,  8],
+            ['M', 'J', 90002,  9, 10, 11, 12],
+            ['M', 'I', 90001, 13, 14, 15, 16],
+            ['M', 'I', 90001,  1,  2,  3,  4],
+            ['M', 'I', 90002,  4,  3,  2,  1],
+            ['M', 'I', 90002,  9, 10, 11, 12],
+            ['F', 'C', 90001,  4,  3,  2,  1],
+            ['F', 'C', 90001,  5,  6,  7,  8],
+            ['F', 'C', 90002,  4,  3,  2,  1],
+            ['F', 'C', 90002, 13, 14, 15, 16],
+            ['F', 'J', 90001,  4,  3,  2,  1],
+            ['F', 'J', 90001,  1,  2,  3,  4],
+            ['F', 'J', 90002,  8,  7,  6,  5],
+            ['F', 'J', 90002,  1,  2,  3,  4],
+            ['F', 'I', 90001,  8,  7,  6,  5],
+            ['F', 'I', 90001,  5,  6,  7,  8],
+            ['F', 'I', 90002,  8,  7,  6,  5],
+            ['F', 'I', 90002, 13, 14, 15, 16],
+            ]
+            
+        data_table_pydf = Pydf(cols=cols, lol=lol)
+            
+            
+        grouped_and_summed_pydf = data_table_pydf.groupby_cols_reduce(
+            groupby_colnames=groupby_colnames, 
+            func = Pydf.sum_np,
+            by='table',                                     # determines how the func is applied.
+            reduce_cols = reduce_colnames,                  # columns included in the reduce operation.
+            )
+
+        expected_lol = [
+            ['M', 'C', 90001,  6,  8, 10, 12],
+            ['M', 'C', 90002, 22, 24, 26, 28],
+            ['M', 'J', 90001, 14, 16, 18, 20],
+            ['M', 'J', 90002, 14, 16, 18, 20],
+            ['M', 'I', 90001, 14, 16, 18, 20],
+            ['M', 'I', 90002, 13, 13, 13, 13],
+            ['F', 'C', 90001,  9,  9,  9,  9],
+            ['F', 'C', 90002, 17, 17, 17, 17],
+            ['F', 'J', 90001,  5,  5,  5,  5],
+            ['F', 'J', 90002,  9,  9,  9,  9],
+            ['F', 'I', 90001, 13, 13, 13, 13],
+            ['F', 'I', 90002, 21, 21, 21, 21],
+            ]
+
+        self.assertEqual(grouped_and_summed_pydf.lol, expected_lol)
+        
+
         
 
 if __name__ == '__main__':

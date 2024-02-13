@@ -54,8 +54,11 @@ See README file at this location: https://github.com/raylutz/Pydf/blob/main/READ
             Added _num_cols() 
             Added unit tests.
             Add groupby_cols_reduce() and sum_np()
-            Fixed bug in item setter for str row. 
-            
+            Fixed bug in item setter for str row.
+            Added demo of making list of file in a folder.
+            groupby_cols_reduce() added, unit tests added. Demo added.
+            Fix demo to run on windows, mac or linux.
+            Add produced test files to gitignore.
             
     TODO
             Refactor get_item and set_item
@@ -2700,20 +2703,25 @@ class Pydf:
 
     def groupby_cols_reduce(self, 
             groupby_colnames: T_ls, 
-            func: Callable[[T_da, T_da], Union[T_da, T_la]], 
+            func: Callable[[T_da, Union['Pydf', T_da]], Union[T_da, T_la, 'Pydf']], 
             by: str='row',                                  # determines how the func is applied.
             reduce_cols: Optional[T_la]=None,               # columns included in the reduce operation.
+            diagnose: bool = False,
             **kwargs: Any,
             ) -> 'Pydf':
-        """ given a pydf, break into a number of pydf's based on values in groupby_colnames. 
+            
+        """ 
+            Given a pydf, break into a number of pydf's based on values in groupby_colnames. 
             For each group, apply func. to data in reduce_cols.
             returns pydf with one row per group, and keyfield not set.
+        """
+        # unit test exists.
+        """
             
-            Application note:
             This can be commonly used when some colnames are important for grouping, while others
             contain values or numeric data that can be reduced.
             
-            For example, consider the array with the following columns:
+            For example, consider the data table with the following columns:
             
             gender, religion, zipcode, cancer, covid19, gun, auto
             
@@ -2723,28 +2731,83 @@ class Pydf:
             and two zipcodes 90001, and 90002, this would result in the following rows, where the 
             values in paranthesis are the reduced values for each of the numeric columns, such as the sum.
             
-            gender, religion, zipcode, cancer, covid19, gun, auto
-            M, C, 9001, (cancer), (covid19), (gun), (auto)
-            M, C, 9002, (cancer), (covid19), (gun), (auto)
-            M, J, 9001, (cancer), (covid19), (gun), (auto)
-            M, J, 9002, (cancer), (covid19), (gun), (auto)
-            M, I, 9001, (cancer), (covid19), (gun), (auto)
-            M, I, 9002, (cancer), (covid19), (gun), (auto)
-            F, C, 9001, (cancer), (covid19), (gun), (auto)
-            F, C, 9002, (cancer), (covid19), (gun), (auto)
-            F, J, 9001, (cancer), (covid19), (gun), (auto)
-            F, J, 9002, (cancer), (covid19), (gun), (auto)
-            F, I, 9001, (cancer), (covid19), (gun), (auto)
-            F, I, 9002, (cancer), (covid19), (gun), (auto)
+            In general, the number of rows is reduced to the product of number of unique values in each column
+            grouped. In this case, there are 2 genders, 3 religions, and 2 zipcodes, resulting in
+            2 * 3 * 2 = 12 rows.
+            
+            groupby_colnames = ['gender', 'religion', 'zipcode']
+            reduce_colnames  = ['cancer', 'covid19', 'gun', 'auto']
+            
+            grouped_and_summed = data_table.groupby_cols_reduce(
+                groupby_colnames=['gender', 'religion', 'zipcode'], 
+                func = sum_np(),
+                by='table',                                     # determines how the func is applied.
+                reduce_cols = reduce_colnames,                  # columns included in the reduce operation.
+                )
+
+            
+            cols = ['gender', 'religion', 'zipcode', 'cancer', 'covid19', 'gun', 'auto']
+            lol = [
+            ['M', 'C', 90001,  1,  2,  3,  4],
+            ['M', 'C', 90001,  5,  6,  7,  8],
+            ['M', 'C', 90002,  9, 10, 11, 12],
+            ['M', 'C', 90002, 13, 14, 15, 16],
+            ['M', 'J', 90001,  1,  2,  3,  4],
+            ['M', 'J', 90001, 13, 14, 15, 16],
+            ['M', 'J', 90002,  5,  6,  7,  8],
+            ['M', 'J', 90002,  9, 10, 11, 12],
+            ['M', 'I', 90001, 13, 14, 15, 16],
+            ['M', 'I', 90001,  1,  2,  3,  4],
+            ['M', 'I', 90002,  4,  3,  2,  1],
+            ['M', 'I', 90002,  9, 10, 11, 12],
+            ['F', 'C', 90001,  4,  3,  2,  1],
+            ['F', 'C', 90001,  5,  6,  7,  8],
+            ['F', 'C', 90002,  4,  3,  2,  1],
+            ['F', 'C', 90002, 13, 14, 15, 16],
+            ['F', 'J', 90001,  4,  3,  2,  1],
+            ['F', 'J', 90001,  1,  2,  3,  4],
+            ['F', 'J', 90002,  8,  7,  6,  5],
+            ['F', 'J', 90002,  1,  2,  3,  4],
+            ['F', 'I', 90001,  8,  7,  6,  5],
+            ['F', 'I', 90001,  5,  6,  7,  8],
+            ['F', 'I', 90002,  8,  7,  6,  5],
+            ['F', 'I', 90002, 13, 14, 15, 16],
+            ]
+
+            result_lol = [
+            ['M', 'C', 90001,  6,  8, 10, 12],
+            ['M', 'C', 90002, 21, 24, 26, 18],
+            ['M', 'J', 90001, 14, 16, 18, 20],
+            ['M', 'J', 90002, 14, 16, 18, 20],
+            ['M', 'I', 90001, 14, 16, 18, 20],
+            ['M', 'I', 90002, 13, 13, 13, 13],
+            ['F', 'C', 90001,  9,  9,  9,  9],
+            ['F', 'C', 90002, 17, 17, 17, 17],
+            ['F', 'J', 90001,  5,  5,  5,  5],
+            ['F', 'J', 90002,  9,  9,  9,  9],
+            ['F', 'I', 90001, 13, 13, 13, 13],
+            ['F', 'I', 90002, 21, 21, 21, 21],
+            ]
+            
+            This reduction can then be further grouped and summed to create reports or to allow for 
+            comparison based on any combination of the subgroups.
             
             
         """
         
         # divide up the table into groups where each group has a unique set of values in groupby_colnames
+        # import pdb; pdb.set_trace() #temp
+        
+        if diagnose:
+            utils.sts(f"Starting groupby_cols() of {len(self):,} records.", 3)
+            
         grouped_tdopydf = self.groupby_cols(groupby_colnames)
         
-        result_pydf = Pydf(cols=groupby_colnames + reduce_cols)
+        if diagnose:
+            utils.sts(f"Total of {len(grouped_tdopydf):,} groups. Reduction starting.", 3)
         
+        result_pydf = Pydf(cols=groupby_colnames + reduce_cols)
+                
         for coltup, this_pydf in grouped_tdopydf.items():
         
             if not this_pydf:
@@ -2754,11 +2817,14 @@ class Pydf:
             # apply the reduction function
             reduction_da = this_pydf.reduce(func, by=by, cols=reduce_cols, **kwargs)
             
-            # add the groupby cols
+            # add back in the groupby cols
             for idx, groupcolname in enumerate(groupby_colnames):
                 reduction_da[groupcolname] = coltup[idx]
             
-            result_pydf.append(this_pydf)
+            result_pydf.append(reduction_da)
+
+        if diagnose:
+            utils.sts(f"Reduction completed: {len(result_pydf):,} records.", 3)
 
         return result_pydf
     
@@ -2767,7 +2833,7 @@ class Pydf:
             colname:str, 
             func: Callable[[T_da, T_da], Union[T_da, T_la]], 
             by: str='row',                                  # determines how the func is applied.
-            cols: Optional[T_la]=None,                      # columns included in the reduce operation.
+            reduce_cols: Optional[T_la]=None,                      # columns included in the reduce operation.
             **kwargs: Any,
             ) -> 'Pydf':
         """ given a pydf, break into a number of pydf's based on colname specified. 
@@ -2776,14 +2842,14 @@ class Pydf:
             
         """
         
-        grouped_dopydf = self.groupby(self, colname)
+        grouped_dopydf = self.groupby(colname)
         result_pydf = Pydf(keyfield = colname)
         
         for colval, this_pydf in grouped_dopydf.items():
         
             # maybe remove colname from cols here
         
-            reduction_da = this_pydf.reduce(func, by=by, cols=cols, **kwargs)
+            reduction_da = this_pydf.reduce(func, by=by, cols=reduce_cols, **kwargs)
             
             # add colname:colval to the dict
             reduction_da = {colname: colval, **reduction_da}
@@ -2822,10 +2888,10 @@ class Pydf:
             colname:str, 
             func: Callable[[T_da, T_da, Optional[T_la]], Union[T_da, T_la]], 
             by: str='row',                                  # determines how the func is applied.
-            cols: Optional[T_la]=None,                      # columns included in the reduce operation.
+            reduce_cols: Optional[T_la]=None,               # columns included in the reduce operation.
             ) -> 'Pydf':
     
-        result_pydf = self.groupby_reduce(colname=colname, func=Pydf.sum_da, by=by, cols=cols)
+        result_pydf = self.groupby_reduce(colname=colname, func=Pydf.sum_da, by=by, reduce_cols=reduce_cols)
         
         return result_pydf
 
@@ -2876,10 +2942,12 @@ class Pydf:
     
 
     @staticmethod
-    def sum_da(row_da: T_da, accum_da: T_da, cols: Optional[T_la]=None) -> T_da:     # result_da
+    def sum_da(row_da: T_da, accum_da: T_da, cols: Optional[T_la]=None, diagnose:bool=False) -> T_da:     # result_da
         """ sum values in row and accum dicts per colunms provided. 
             will safely skip data that can't be summed.
         """
+        diagnose = diagnose
+        
         cols_list = {}
         
         if cols is None:

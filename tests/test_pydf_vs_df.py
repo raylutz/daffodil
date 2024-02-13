@@ -652,8 +652,6 @@ from Pydf.Pydf import Pydf
         report_pydf.append({'Attribute': attr})
     
 
-    notes = ''
-
     report_pydf['from_lod', 'loops']    = loops
     report_pydf['from_lod', 'pydf']     = secs = timeit.timeit('Pydf.from_lod(sample_lod)',  setup=setup_code, globals=globals(), number=loops)
     print(f"Pydf.from_lod()             {loops} loops: {secs:.4f} secs")
