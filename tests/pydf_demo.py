@@ -415,8 +415,15 @@ In general, the number of rows is reduced to no more than the product of number 
     """ Now further reduce the grouped and summed table to provide the sum for just zipcodes, for all
     genders and religions. By producing the initial table with all combinations reduced, further grouping
     can be done without processing the entire table again.
-    In this example, we also demonstrate using NumPy to sum the columns. This can accelerate any numeric operations,
-    by at least three times.
+    In this example, we also demonstrate using NumPy to sum the columns.
+    
+    We find in this case that sum_np is not as efficient as just summing the rows directly.
+    This is because it is a lot of work just to prepare the data for NumPy to read it.
+    Summing by rows is about 22x faster (takes about 4% of the time) than using sum_np
+    when tested on 40,288 records grouped into 820 groups. Grouping took 4 seconds,
+    and summing took 8 seconds using row-based summation vs. using NumPy, which took 180 seconds.
+    In other cases, using sum_np can be 3 times faster, and is particularly attractive if there 
+    is a lot of column-based calculations involved.
     """
     
     zipcodes_pydf = grouped_and_summed_pydf.groupby_cols_reduce(
