@@ -199,14 +199,8 @@ def add_trailing_columns_csv(str_csv:str, num_rows:int = 3) -> str:
 def is_d1_in_d2(d1: T_da, d2: T_da) -> bool:
     # true if all the fields in d1 are in d2.
     # d2 may have additional fields.
-    
-    for field, val in d1.items():
-        if field not in d2 or d2[field] != val:
-            break
-    else:
-        return True
-    return False
-    
+    return d1.items() <= d2.items()
+
     
 def assign_col_in_lol_at_icol(icol: int=-1, col_la: Optional[T_la]=None, lol: Optional[T_lola]=None, default:Any='') -> T_lola:
     """ assign col in lol.
