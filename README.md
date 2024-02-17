@@ -162,21 +162,24 @@ Only one keyfield is supported, but it can be reset using the 'set_keyfield' met
 Pydf is a row-oriented package, rather than being column oriented, as are other popular packages, like Pandas, Polars, etc, 
 Thus, it is easy to manipulate rows (appending, inserting, deleting, selecting, etc) while it is relatively much more difficult to manipulate
 columns (appending, inserting, deleting, etc.)  Rows are very easy to handle because the list-of-list underlying structure
-handles re-using any lists selected in any selection operation. A new pydf which might be a subset of the original 
-does not consume much additional space because the contents of those rows is not copied. Instead, the pattern used by Python
-is to copy only the references to the rows. If only a few rows are used from the original pydf, the the remaining rows will 
+re-uses any lists selected in any selection operation. A new pydf which might be a subset of the original 
+does not consume much additional space because the contents of those rows is not copied. Instead, Python
+copies only the references to the rows. If only a few rows are used from the original pydf, the the remaining rows will 
 be garbage collected by the normal Python mechanisms and the rows that are still active are the same rows that existed in the
 original array without copying.
 
 This use-without-copying pattern means that Pydf can perform quite well when compared with other packages when doing this type 
 of manipulation, both in terms of space and also time.
 
-In contrast, column operations are relatively slow, but it turns out that actually these operations are not normally that 
+In contrast, operations that add, drop, or insert columns are relatively slow, but it turns out that actually these operations are not normally that 
 necessary. Reducing the number of columns only is important in a few cases:
 
 1. When converting from/to other forms to/from a pydf array. Extraneous columns may exist or may be of the wrong type.
 2. When performing .apply() or .reduce() operations to avoid processing extraneous columns.
 4. When creating a report and only including some columns in the report
+
+In these cases, the columns can be expressed explicitly. Other column operations are not as performant but in those cases when
+many operations are required, the array can be ported to NumPy.
 
 
 ## Common Usage Pattern
