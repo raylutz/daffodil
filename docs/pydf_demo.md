@@ -459,6 +459,7 @@ To use this with Pandas, it is necessary to first build the array using another 
 ```python
     #import os
     import datetime
+    import platform
     from pympler import asizeof
     
     
@@ -498,33 +499,43 @@ To use this with Pandas, it is necessary to first build the array using another 
             
         return file_list_pydf
 
-    # Let's use it on the Windows System32 directory
-    dirpath = 'C:\\Windows\\System32'
-    windows_system32_file_list_pydf = get_file_list_pydf(dirpath, recursive=True)
-    
-    # shorten down the 'filepath' column to remove the redundant prefix.
-    windows_system32_file_list_pydf.apply_to_col(col='filepath', func=lambda x: x.removeprefix(dirpath))
+    system = platform.system()
 
-    md_report += f"\nContents of {dirpath}:\n" + \
-                 windows_system32_file_list_pydf.to_md(
-                        just='<><<', 
-                        max_text_len=80,
-                        max_rows=30,
-                        include_summary=True,
-                        ) + "\n\n"
-    
-    md_report += f"\nContents of {dirpath} (in raw text format):\n```\n" + \
-                 windows_system32_file_list_pydf.to_md(
-                        just='<><<', 
-                        max_text_len=80,
-                        max_rows=30,
-                        include_summary=True,
-                        ) + "\n```\n\n"
+    if system == 'Darwin':
+        dirpath = '/System'
+    elif system == 'Windows':
+        dirpath = 'C:\\Windows\\System32'
+    elif system == 'Linux':
+        dirpath = '/usr/bin'
+    else:
+        dirpath = ''
+
+    if dirpath:
+        os_system_file_list_pydf = get_file_list_pydf(dirpath, recursive=True)
         
-                        
-                        
-    md_report += f"- pydf size in memory: {asizeof.asizeof(windows_system32_file_list_pydf):,} bytes\n"                    
-    md_report += f"- pandas df size in memory: {asizeof.asizeof(windows_system32_file_list_pydf.to_pandas_df()):,} bytes\n"
+        # shorten down the 'filepath' column to remove the redundant prefix.
+        os_system_file_list_pydf.apply_to_col(col='filepath', func=lambda x: x.removeprefix(dirpath))
+
+        md_report += f"\nContents of {dirpath}:\n" + \
+                     os_system_file_list_pydf.to_md(
+                            just='<><<', 
+                            max_text_len=80,
+                            max_rows=30,
+                            include_summary=True,
+                            ) + "\n\n"
+        
+        md_report += f"\nContents of {dirpath} (in raw text format):\n```\n" + \
+                     os_system_file_list_pydf.to_md(
+                            just='<><<', 
+                            max_text_len=80,
+                            max_rows=30,
+                            include_summary=True,
+                            ) + "\n```\n\n"
+            
+                            
+                            
+        md_report += f"- pydf size in memory: {asizeof.asizeof(os_system_file_list_pydf):,} bytes\n"                    
+        md_report += f"- pandas df size in memory: {asizeof.asizeof(os_system_file_list_pydf.to_pandas_df()):,} bytes\n"
 ```
 
 
@@ -565,7 +576,7 @@ Contents of C:\Windows\System32:
 | \zipfldr.dll                                                    | 285696 | 2023-12-13T18:13:32 | False  |
 | \ztrace_maps.dll                                                |  30720 | 2019-12-07T01:08:28 | False  |
 
-\[8725 rows x 4 cols; keyfield=; 0 keys ] (Pydf)
+\[8729 rows x 4 cols; keyfield=; 0 keys ] (Pydf)
 
 
 
@@ -605,12 +616,12 @@ Contents of C:\Windows\System32 (in raw text format):
 | \zipfldr.dll                                                    | 285696 | 2023-12-13T18:13:32 | False  |
 | \ztrace_maps.dll                                                |  30720 | 2019-12-07T01:08:28 | False  |
 
-\[8725 rows x 4 cols; keyfield=; 0 keys ] (Pydf)
+\[8729 rows x 4 cols; keyfield=; 0 keys ] (Pydf)
 
 ```
 
-- pydf size in memory: 2,384,312 bytes
-- pandas df size in memory: 2,849,688 bytes
+- pydf size in memory: 2,385,408 bytes
+- pandas df size in memory: 2,851,056 bytes
 ## Limit this list to just the files
 
 Now what we will do is first limit the listing only to files.
@@ -618,7 +629,7 @@ Now what we will do is first limit the listing only to files.
         including 30 rows, consisting of the first 15 and the last 15, and including the summary at the end.
 
 ```python
-    files_only_pydf = windows_system32_file_list_pydf.select_by_dict({'is_dir': False})
+    files_only_pydf = os_system_file_list_pydf.select_by_dict({'is_dir': False})
 
     md_report += f"\nFiles only in {dirpath}:\n" + \
                  files_only_pydf.to_md(
@@ -667,7 +678,7 @@ Files only in C:\Windows\System32:
 | \zipfldr.dll                                                    | 285696 | 2023-12-13T18:13:32 | False  |
 | \ztrace_maps.dll                                                |  30720 | 2019-12-07T01:08:28 | False  |
 
-\[8603 rows x 4 cols; keyfield=; 0 keys ] (Pydf)
+\[8607 rows x 4 cols; keyfield=; 0 keys ] (Pydf)
 
 
 ## Demonstration of groupby_cols_reduce
@@ -826,8 +837,15 @@ bool(grouped_and_summed_pydf.lol==expected_lol)=True
 Now further reduce the grouped and summed table to provide the sum for just zipcodes, for all
     genders and religions. By producing the initial table with all combinations reduced, further grouping
     can be done without processing the entire table again.
-    In this example, we also demonstrate using NumPy to sum the columns. This can accelerate any numeric operations,
-    by at least three times.
+    In this example, we also demonstrate using NumPy to sum the columns.
+    
+    We find in this case that sum_np is not as efficient as just summing the rows directly.
+    This is because it is a lot of work just to prepare the data for NumPy to read it.
+    Summing by rows is about 22x faster (takes about 4% of the time) than using sum_np
+    when tested on 40,288 records grouped into 820 groups. Grouping took 4 seconds,
+    and summing took 8 seconds using row-based summation vs. using NumPy, which took 180 seconds.
+    In other cases, using sum_np can be 3 times faster, and is particularly attractive if there 
+    is a lot of column-based calculations involved.
 
 ```python
     zipcodes_pydf = grouped_and_summed_pydf.groupby_cols_reduce(
