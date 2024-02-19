@@ -620,7 +620,7 @@ Contents of C:\Windows\System32 (in raw text format):
 
 ```
 
-- pydf size in memory: 2,385,408 bytes
+- pydf size in memory: 2,385,288 bytes
 - pandas df size in memory: 2,851,056 bytes
 ## Limit this list to just the files
 
