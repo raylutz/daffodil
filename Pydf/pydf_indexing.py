@@ -49,7 +49,7 @@ import Pydf.pydf_indexing as indexing       # self import so internal references
 
 from typing import List, Dict, Any, Tuple, Optional, Union, cast, Type, Callable #
 def fake_function(a: Optional[List[Dict[str, Tuple[int,Union[Any, str, Type, Callable ]]]]] = None) -> Optional[int]:
-    return None or cast(int, 0)
+    return None or cast(int, 0)   # pragma: no cover
 
 
 def _get_item(pydf,

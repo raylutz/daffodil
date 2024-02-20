@@ -63,7 +63,177 @@ See README file at this location: https://github.com/raylutz/Pydf/blob/main/READ
             removed selcols_ls from class. 
     TODO
             Refactor get_item and set_item
-    
+            sanitize columns. This should be designed differently.
+                1. read with no headers.
+                2. manually sanitize.
+                3. add cols manually.
+            tests: need to add 
+                initialization from dtypes and no cols.
+                .len()
+                __str__ and __repr__
+                sanitize_cols
+                .isin <-- keep this?
+                calc_cols
+                    no hd defined.
+                    include_cols > 10
+                    exclude_cols > 10
+                    exclude_types
+                normalize() <-- keep this?
+                set_cols()
+                set_keyfield()
+                row_idx_of()
+                apply_dtypes()
+                unflatten_cols()
+                unflatten_dirname() <-- remove?
+                unflatten_by_dtypes()
+                flatten_cols()
+                flatten_by_dtypes()
+                flatten_dirname() <-- remove?
+                cols_to_strbool() <-- remove?
+                set_lol()
+                from_lod() with empty records_lod
+                from_dod()
+                from_excel_buff()
+                from_csv_buff()
+                from_pandas_df()
+                from_numpy()
+                to_csv_buff()
+                to_dod()
+                to_pandas_df()
+                append()  
+                    empty data item
+                    simple list with columns defined.
+                    no columns defined, just append to lol.
+                concat()
+                    not other instance
+                    empty current pydf
+                    self.hd != other_instance.hd
+                extend()
+                    no input records
+                    some records empty
+                record_append()
+                    empty record
+                    overwrite of existing
+                remove_key -- keyfield not set.
+                get_existing_keys
+                select_record_da -- row_idx >= len(self.lol)
+                _basic_get_record_da -- no hd, include_cols
+                select_records_pydf
+                    no keyfield
+                    inverse
+                        len(keys_ls) > 10 and len(self.kd) > 30
+                        smaller cases
+                iloc
+                    no hd
+                select_first_row_by_dict    
+                select_where_idxs <-- remove?
+                icol_to_la
+                    unique
+                    omit_nulls
+                select_cols
+                from_selected_cols <-- remove! but check for usage!
+                assign_record_da
+                    no keyfield defined.
+                update_by_keylist <-- remove?
+                insert_icol()
+                    keyfield <-- remove!  use set_keyfield instead
+                insert_irow()
+                insert_col()
+                    colname already exists.
+                set_col_irows() <-- remove.
+                set_icol()  <-- remove.
+                set_icol_irows() <-- remove.
+                find_replace
+                sort_by_colname(
+                apply_formulas()
+                    no self
+                    formula shape differs
+                    error in formula
+                apply
+                    keylist without keyfield
+                update_row()
+                apply_in_place()
+                    keylist without keyfield
+                reduce 
+                    by == 'col'
+                manifest_apply()
+                manifest_reduce()
+                manifest_process()
+                groupby()
+                groupby_reduce()
+                pydf_valuecount()
+                groupsum_pydf()
+                set_col2_from_col1_using_regex_select
+                    not col2
+                apply_to_col
+                sum_da 
+                    one col
+                    cols_list > 10
+                count_values_da()
+                sum_dodis -- needed?
+                valuecounts_for_colname
+                    omit_nulls
+                valuecounts_for_colnames_ls_selectedby_colname
+                    not colnames_ls
+                gen_stats_pydf()
+                to_md()
+                dict_to_md() <-- needed?
+                value_counts_pydf()
+                
+            pydf_utils
+                is_linux()
+                apply_dtypes_to_hdlol()
+                    empty case
+                select_col_of_lol_by_col_idx()
+                    col_idx out of range.
+                unflatten_hdlol_by_cols 
+                json_encode
+                make_strbool <-- remove?
+                test_strbool >-- remove?
+                xlsx_to_csv
+                add_trailing_columns_csv()
+                insert_col_in_lol_at_icol()
+                    col_la empty
+                insert_row_in_lol_at_irow() unused?
+                calc_chunk_sizes
+                    not num_items or not max_chunk_size
+                sort_lol_by_col
+                set_dict_dtypes 
+                    various cases
+                list_stats
+                    REMOVE?
+                list_stats_index
+                list_stats_attrib
+                list_stats_filepaths
+                list_stats_scalar
+                list_stats_localidx
+                is_list_allints
+                profile_ls_to_loti
+                reduce_lol_cols
+                s3path_to_url
+                parse_s3path
+                transpose_lol
+                safe_get_idx
+                shorten_str_keeping_ends
+                safe_max
+                smart_fmt
+                str2bool
+                safe_del_key
+                dod_to_lod
+                lod_to_dod
+                safe_eval
+                safe_min
+                safe_stdev
+                safe_mean
+                sts
+                split_dups_list
+                clean_numeric_str
+                is_numeric
+            pydf_indexing
+                many cases
+            pydf_md
+                not tested at all.
+                
 """            
     
     
@@ -88,7 +258,7 @@ import Pydf.pydf_indexing as indexing
 
 from typing import List, Dict, Any, Tuple, Optional, Union, cast, Type, Callable #
 def fake_function(a: Optional[List[Dict[str, Tuple[int,Union[Any, str]]]]] = None) -> Optional[int]:
-    return None or cast(int, 0)
+    return None or cast(int, 0)       # pragma: no cover
 
 T_Pydf = Type['Pydf']
 
@@ -342,7 +512,7 @@ class Pydf:
 
         if exclude_types and self.dtypes:
             if not isinstance(exclude_types, list):
-                include_types = [include_types]
+                exclude_types = [exclude_types]
             selected_cols = [col for col in selected_cols if self.dtypes.get(col) not in exclude_types]
 
         return selected_cols
@@ -742,7 +912,7 @@ class Pydf:
         
 
     #===========================
-    # convert from
+    # convert from / to other data or files.
     
     @staticmethod
     def from_lod(
@@ -867,7 +1037,7 @@ class Pydf:
         
         return my_pydf
     
-
+    #==== CSV
     @staticmethod
     def from_csv_buff(
             csv_buff: Union[bytes, str],            # The CSV data as bytes or string.
@@ -909,6 +1079,32 @@ class Pydf:
    
         return my_pydf
     
+
+    def to_csv_buff(
+            self, 
+            line_terminator: Optional[str]=None,
+            include_header: bool=True,
+            ) -> T_buff:
+    
+        if not self:
+            return ''
+        
+        if line_terminator is None:
+            line_terminator = '\r\n'
+    
+        f = io.StringIO(newline = '')           # Use newline='' to ensure consistent line endings
+        
+        csv_writer = csv.writer(f, lineterminator=line_terminator)
+        if include_header:
+            csv_writer.writerow(self.columns())     # Write the header row
+        csv_writer.writerows(self.lol)          # Write the data rows
+
+        buff = f.getvalue()
+        f.close()
+
+        return buff   
+
+
 
     @staticmethod
     def from_lod_to_cols(lod: T_loda, cols:Optional[List]=None, keyfield: str='', dtypes: Optional[T_dtype_dict]=None) -> 'Pydf':
@@ -963,6 +1159,7 @@ class Pydf:
         return cols_pydf
 
     
+    #==== Pandas
     @staticmethod
     def from_pandas_df(df: T_df, keyfield:str='', name:str='', use_csv:bool=False, dtypes: Optional[T_dtype_dict]=None) -> 'Pydf':
         """
@@ -996,6 +1193,7 @@ class Pydf:
             )
             
 
+    #==== Numpy
     @staticmethod
     def from_numpy(npa: Any, keyfield:str='', cols:Optional[T_la]=None, name:str='') -> 'Pydf':
         """
@@ -1010,7 +1208,7 @@ class Pydf:
     
 
     @staticmethod
-    def from_hllola(hllol: T_hllola, keyfield: str='', dtypes: Optional[T_dtype_dict]=None):
+    def from_hllola(hllol: T_hllola, keyfield: str='', dtypes: Optional[T_dtype_dict]=None) -> 'Pydf':
         """ Create Pydf instance from hllola type.
             This is used for all DB. loading.
             test exists in test_pydf.py
@@ -1021,36 +1219,27 @@ class Pydf:
         hl, lol = hllol
         
         return Pydf(lol=lol, cols=hl, keyfield=keyfield, dtypes=dtypes)
+        
+        
+    #==== Googlesheets
+    @staticmethod
+    def from_googlesheet(sheetlink: str) -> 'Pydf':
+        """ import data to pydf structure from googlesheet. """
+        pass
+        
+        return Pydf()
+        
+        
+    def to_googlesheet(self, sheetlink: str) -> self:
+        """ export data from pydf structure to googlesheet. """
+        pass
+    
+        return self
 
 
     #===========================
     # convert to other format
     
-    def to_csv_buff(
-            self, 
-            line_terminator: Optional[str]=None,
-            include_header: bool=True,
-            ) -> T_buff:
-    
-        if not self:
-            return ''
-        
-        if line_terminator is None:
-            line_terminator = '\r\n'
-    
-        f = io.StringIO(newline = '')           # Use newline='' to ensure consistent line endings
-        
-        csv_writer = csv.writer(f, lineterminator=line_terminator)
-        if include_header:
-            csv_writer.writerow(self.columns())     # Write the header row
-        csv_writer.writerows(self.lol)          # Write the data rows
-
-        buff = f.getvalue()
-        f.close()
-
-        return buff   
-
-
     def to_dict(self) -> dict:
         """
         Convert Pydf instance to a dictionary representation.
@@ -1198,7 +1387,7 @@ class Pydf:
         elif isinstance(data_item, Pydf):  # type: ignore
             self.concat(data_item)
         else:    
-            raise RuntimeError
+            raise RuntimeError    # pragma: no cover
             
         return self
         
@@ -1217,7 +1406,7 @@ class Pydf:
             
         diagnose = False
 
-        if diagnose:
+        if diagnose:      # pragma: no cover
             print(f"self=\n{self}\npydf=\n{other_instance}")
             
         if not self.lol and not self.hd:
@@ -1239,7 +1428,7 @@ class Pydf:
             self.lol.append(rec_la)
         self._rebuild_kd()   # only if the keyfield is set.
 
-        if diagnose:
+        if diagnose:  # pragma: no cover
             print(f"result=\n{self}")
             
         return self
@@ -1267,9 +1456,10 @@ class Pydf:
             return self
             
         for record_da in records_lod:
-            if not record_da:
-                # do not append any records that are empty.
-                continue
+            # this test done inside record_append()
+            # if not record_da:
+                # # do not append any records that are empty.
+                # continue
             
             # the following will either append or insert
             # depending on the keyvalue.
@@ -2571,12 +2761,12 @@ class Pydf:
         # divide up the table into groups where each group has a unique set of values in groupby_colnames
         # import pdb; pdb.set_trace() #temp
         
-        if diagnose:
+        if diagnose:  # pragma: no cover
             utils.sts(f"Starting groupby_cols() of {len(self):,} records.", 3)
             
         grouped_tdopydf = self.groupby_cols(groupby_colnames)
         
-        if diagnose:
+        if diagnose:  # pragma: no cover
             utils.sts(f"Total of {len(grouped_tdopydf):,} groups. Reduction starting.", 3)
         
         result_pydf = Pydf(cols=groupby_colnames + reduce_cols)
@@ -2596,7 +2786,7 @@ class Pydf:
             
             result_pydf.append(reduction_da)
 
-        if diagnose:
+        if diagnose:  # pragma: no cover
             utils.sts(f"Reduction completed: {len(result_pydf):,} records.", 3)
 
         return result_pydf

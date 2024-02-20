@@ -19,7 +19,7 @@ import xlsx2csv     # type: ignore
 from typing import List, Dict, Any, Tuple, Optional, Union, cast #, Type, Callable
 
 def fake_function(a: Optional[List[Dict[str, Tuple[int,Union[Any, str]]]]] = None) -> Optional[int]:
-    return None or cast(int, 0)
+    return None or cast(int, 0)       # pragma: no cover
 
 
 from Pydf.pydf_types import T_lola, T_loda, T_dtype_dict, T_da, T_ds, T_hdlola, T_la, T_loti, T_ls, T_doda

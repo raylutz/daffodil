@@ -14,7 +14,7 @@ from Pydf.pydf_types import T_ls, T_lola, T_da, T_li #, T_doda, T_df, T_lf, T_lo
 
 from typing import List, Dict, Any, Tuple, Optional, Union #, cast
 def fake_function(a: Optional[List[Dict[str, Union[int, Tuple[int, Any]]]]] = None) -> Optional[int]:
-    return None
+    return None   # pragma: no cover
 
 import Pydf.pydf_utils as utils
 
