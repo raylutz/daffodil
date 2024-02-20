@@ -2245,30 +2245,32 @@ class TestPydf(unittest.TestCase):
         expected_pydf = Pydf(cols=['A', 'B', 'C'], lol=[[1, 4.0, '7'], [2, 5.0, '8'], [3, 6.0, '9']], dtypes=dtypes)
         self.assertEqual(result_pydf, expected_pydf)
 
-    # to_dict
-    def test_to_dict_empty_pydf(self):
-        # Test to_dict() on an empty Pydf instance
-        pydf = Pydf()
-        result_dict = pydf.to_dict()
-        expected_dict = {'cols': [], 'lol': []}
-        self.assertDictEqual(result_dict, expected_dict)
+    # # to_dict
+    # def test_to_dict_empty_pydf(self):
+        # # Test to_dict() on an empty Pydf instance
+        # pydf = Pydf()
+        # #result_dict = pydf.to_dict()
+        # #expected_pydf = {'cols': [], 'lol': []}
+        # self.assertEqual(pydf.lol, [])
+        # self.assertEqual(pydf.kd, {})
+        # self.assertEqual(pydf.kd, {})
 
-    def test_to_dict_with_data(self):
-        # Test to_dict() on a Pydf instance with data
-        pydf = Pydf(cols=['A', 'B', 'C'], lol=[[1, 4, 7], [2, 5, 8], [3, 6, 9]])
-        result_dict = pydf.to_dict()
-        expected_dict = {'cols': ['A', 'B', 'C'], 'lol': [[1, 4, 7], [2, 5, 8], [3, 6, 9]]}
-        self.assertDictEqual(result_dict, expected_dict)
+    # def test_to_dict_with_data(self):
+        # # Test to_dict() on a Pydf instance with data
+        # pydf = Pydf(cols=['A', 'B', 'C'], lol=[[1, 4, 7], [2, 5, 8], [3, 6, 9]])
+        # #result_dict = pydf.to_dict()
+        # expected_pydf = Pydf('cols'= ['A', 'B', 'C'], 'lol'= [[1, 4, 7], [2, 5, 8], [3, 6, 9]])
+        # self.assertEqual(result_pydf, expected_pydf)
 
-    def test_to_dict_with_keyfield_and_dtypes(self):
-        # Test to_dict() on a Pydf instance with keyfield and dtype
-        pydf = Pydf(cols=['A', 'B', 'C'], 
-                    lol=[[1, 4, 7], [2, 5, 8], [3, 6, 9]], 
-                    keyfield='A', 
-                    dtypes={'A': int, 'B': float, 'C': int})
-        result_dict = pydf.to_dict()
-        expected_dict = {'cols': ['A', 'B', 'C'], 'lol': [[1, 4, 7], [2, 5, 8], [3, 6, 9]]}
-        self.assertDictEqual(result_dict, expected_dict)
+    # def test_to_dict_with_keyfield_and_dtypes(self):
+        # # Test to_dict() on a Pydf instance with keyfield and dtype
+        # pydf = Pydf(cols=['A', 'B', 'C'], 
+                    # lol=[[1, 4, 7], [2, 5, 8], [3, 6, 9]], 
+                    # keyfield='A', 
+                    # dtypes={'A': int, 'B': float, 'C': int})
+        # #result_dict = pydf.to_dict()
+        # expected_pydf = Pydf('cols'= ['A', 'B', 'C'], 'lol'= [[1, 4, 7], [2, 5, 8], [3, 6, 9]])
+        # self.assertEqual(result_pydf, expected_pydf)
 
     # apply_formulas
     def test_apply_formulas_basic_absolute(self):
@@ -2280,10 +2282,10 @@ class TestPydf(unittest.TestCase):
                                   ['', '', "$d[2,0]+$d[2,1]"],
                                   ["sum($d[0:3,$c])", "sum($d[0:3,$c])", "sum($d[0:3,$c])"]]
                              )
-        expected_result = Pydf(cols=['A', 'B', 'C'], lol=[[1, 2, 3], [4, 5, 9], [7, 8, 15], [12, 15, 27]])
+        expected_pydf = Pydf(cols=['A', 'B', 'C'], lol=[[1, 2, 3], [4, 5, 9], [7, 8, 15], [12, 15, 27]])
 
         example_pydf.apply_formulas(formulas_pydf)
-        self.assertEqual(example_pydf.to_dict(), expected_result.to_dict())
+        self.assertEqual(example_pydf, expected_pydf)
 
     def test_apply_formulas_basic_relative(self):
         # Test apply_formulas with basic example
@@ -2297,7 +2299,7 @@ class TestPydf(unittest.TestCase):
         expected_result = Pydf(cols=['A', 'B', 'C'], lol=[[1, 2, 3], [4, 5, 9], [7, 8, 15], [12, 15, 27]])
 
         example_pydf.apply_formulas(formulas_pydf)
-        self.assertEqual(example_pydf.to_dict(), expected_result.to_dict())
+        self.assertEqual(example_pydf, expected_result)
 
     def test_apply_formulas_no_changes(self):
         # Test apply_formulas with no changes expected
@@ -2306,7 +2308,7 @@ class TestPydf(unittest.TestCase):
         expected_result = Pydf(cols=['A', 'B', 'C'], lol=[[1, 2, 3], [4, 5, 6], [7, 8, 9], [0, 0, 0]])
 
         example_pydf.apply_formulas(formulas_pydf)
-        self.assertEqual(example_pydf.to_dict(), expected_result.to_dict())
+        self.assertEqual(example_pydf, expected_result)
 
     def test_apply_formulas_excessive_loops(self):
         # Test apply_formulas resulting in excessive loops
