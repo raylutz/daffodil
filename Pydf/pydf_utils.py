@@ -48,7 +48,7 @@ def apply_dtypes_to_hdlol(hdlol: T_hdlola, dtypes: T_dtype_dict) -> T_hdlola:
     
 
 def set_cols_da(da: T_da, cols: T_ls, default: Any='') -> T_da:
-    """ Set keys in dictinary da to be exactly cols
+    """ Set keys in dictionary da to be exactly cols
         Use default if key not already in da.
     """
     

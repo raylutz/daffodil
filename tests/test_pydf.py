@@ -37,6 +37,22 @@ class TestPydf(unittest.TestCase):
         self.assertEqual(pydf.dtypes, dtypes)
         self.assertEqual(pydf._iter_index, 0)
 
+    def test_init_no_cols_but_dtypes(self):
+        #cols = ['col1', 'col2']
+        hd = {'col1': 0, 'col2': 1}
+        lol = [[1, 2], [3, 4]]
+        kd = {1: 0, 3: 1}
+        dtypes = {'col1': int, 'col2': str}
+        expected_lol = [[1, '2'], [3, '4']]
+        pydf = Pydf(lol=lol, dtypes=dtypes, name='TestPydf', keyfield='col1')
+        self.assertEqual(pydf.name, 'TestPydf')
+        self.assertEqual(pydf.keyfield, 'col1')
+        self.assertEqual(pydf.hd, hd)
+        self.assertEqual(pydf.lol, expected_lol)
+        self.assertEqual(pydf.kd, kd)
+        self.assertEqual(pydf.dtypes, dtypes)
+        self.assertEqual(pydf._iter_index, 0)
+
     # shape
     def test_shape_empty(self):
         # Test shape method with an empty Pydf object
@@ -228,6 +244,120 @@ class TestPydf(unittest.TestCase):
         
         # Check if keyfield is updated correctly
         self.assertEqual(pydf.keyfield, 'NewCol1')
+        
+
+    # set_cols
+    def test_set_cols_no_existing_cols(self):
+        # Test setting column names when there are no existing columns
+        pydf = Pydf()
+        new_cols = ['A', 'B', 'C']
+        pydf.set_cols(new_cols)
+        self.assertEqual(pydf.hd, {'A': 0, 'B': 1, 'C': 2})
+    
+    def test_set_cols_generate_spreadsheet_names(self):
+        # Test generating spreadsheet-like column names
+        pydf = Pydf(cols=['col1', 'col2'])
+        pydf.set_cols()
+        self.assertEqual(pydf.hd, {'A': 0, 'B': 1})
+    
+    def test_set_cols_with_existing_cols(self):
+        # Test setting column names with existing columns
+        pydf = Pydf(cols=['col1', 'col2'])
+        new_cols = ['A', 'B']
+        pydf.set_cols(new_cols)
+        self.assertEqual(pydf.hd, {'A': 0, 'B': 1})
+    
+    def test_set_cols_repair_keyfield(self):
+        # Test repairing keyfield if column names are already defined
+        pydf = Pydf(cols=['col1', 'col2'], keyfield='col1')
+        new_cols = ['A', 'B']
+        pydf.set_cols(new_cols)
+        self.assertEqual(pydf.keyfield, 'A')
+    
+    def test_set_cols_update_dtypes(self):
+        # Test updating dtypes dictionary with new column names
+        pydf = Pydf(cols=['col1', 'col2'], dtypes={'col1': int, 'col2': str})
+        new_cols = ['A', 'B']
+        pydf.set_cols(new_cols)
+        self.assertEqual(pydf.dtypes, {'A': int, 'B': str})
+    
+    def test_set_cols_error_length_mismatch(self):
+        # Test error handling when lengths of new column names don't match existing ones
+        pydf = Pydf(cols=['col1', 'col2'])
+        new_cols = ['A']  # Length mismatch
+        with self.assertRaises(AttributeError):
+            pydf.set_cols(new_cols)
+
+
+    # keys
+    def test_keys_no_keyfield(self):
+        cols = ['col1', 'col2']
+        lol = [[1, 'a'], [2, 'b'], [3, 'c']]
+        pydf = Pydf(cols=cols, lol=lol, keyfield='', dtypes={'col1': int, 'col2': str})
+
+        result = pydf.keys()
+
+        self.assertEqual(result, [])
+
+    def test_keys_with_keyfield(self):
+        cols = ['col1', 'col2']
+        lol = [[1, 'a'], [2, 'b'], [3, 'c']]
+        pydf = Pydf(cols=cols, lol=lol, keyfield='col1', dtypes={'col1': int, 'col2': str})
+
+        result = pydf.keys()
+
+        self.assertEqual(result, [1, 2, 3])
+
+    def test_keys_empty_pydf(self):
+        cols = []
+        lol = []
+        pydf = Pydf(cols=cols, lol=lol, keyfield='col1', dtypes={})
+
+        result = pydf.keys()
+
+        self.assertEqual(result, [])  
+
+    # set_keyfield
+    def test_set_keyfield_existing_column(self):
+        # Test setting keyfield to an existing column
+        pydf = Pydf(lol=[[1, 'a'], [2, 'b']], cols=['ID', 'Value'])
+        pydf.set_keyfield('ID')
+        self.assertEqual(pydf.keyfield, 'ID')
+    
+    def test_set_keyfield_empty_string(self):
+        # Test setting keyfield to an empty string
+        pydf = Pydf(lol=[[1, 'a'], [2, 'b']], cols=['ID', 'Value'], keyfield='ID')
+        pydf.set_keyfield('')
+        self.assertEqual(pydf.keyfield, '')
+    
+    def test_set_keyfield_nonexistent_column(self):
+        # Test trying to set keyfield to a nonexistent column
+        pydf = Pydf(lol=[[1, 'a'], [2, 'b']], cols=['ID', 'Value'])
+        with self.assertRaises(KeyError):
+            pydf.set_keyfield('nonexistent_column')
+
+    # row_idx_of
+    def test_row_idx_of_existing_key(self):
+        # Test getting row index of an existing key
+        pydf = Pydf(lol=[['1', 'a'], ['2', 'b']], cols=['ID', 'Value'], keyfield='ID')
+        self.assertEqual(pydf.row_idx_of('1'), 0)
+    
+    def test_row_idx_of_nonexistent_key(self):
+        # Test getting row index of a nonexistent key
+        pydf = Pydf(lol=[['1', 'a'], ['2', 'b']], cols=['ID', 'Value'], keyfield='ID')
+        self.assertEqual(pydf.row_idx_of('3'), -1)
+    
+    def test_row_idx_of_no_keyfield(self):
+        # Test getting row index when no keyfield is defined
+        pydf = Pydf(lol=[['1', 'a'], ['2', 'b']], cols=['ID', 'Value'])
+        self.assertEqual(pydf.row_idx_of('1'), -1)
+    
+    def test_row_idx_of_no_kd(self):
+        # Test getting row index when kd is not available
+        pydf = Pydf(lol=[['1', 'a'], ['2', 'b']], cols=['ID', 'Value'], keyfield='ID')
+        pydf.kd = None
+        self.assertEqual(pydf.row_idx_of('1'), -1)
+
 
 
     # from/to cases
@@ -980,34 +1110,6 @@ class TestPydf(unittest.TestCase):
 
         self.assertEqual(result, ['col1', 'col2', 'col3'])
         
-    # keys
-    def test_keys_no_keyfield(self):
-        cols = ['col1', 'col2']
-        lol = [[1, 'a'], [2, 'b'], [3, 'c']]
-        pydf = Pydf(cols=cols, lol=lol, keyfield='', dtypes={'col1': int, 'col2': str})
-
-        result = pydf.keys()
-
-        self.assertEqual(result, [])
-
-    def test_keys_with_keyfield(self):
-        cols = ['col1', 'col2']
-        lol = [[1, 'a'], [2, 'b'], [3, 'c']]
-        pydf = Pydf(cols=cols, lol=lol, keyfield='col1', dtypes={'col1': int, 'col2': str})
-
-        result = pydf.keys()
-
-        self.assertEqual(result, [1, 2, 3])
-
-    def test_keys_empty_pydf(self):
-        cols = []
-        lol = []
-        pydf = Pydf(cols=cols, lol=lol, keyfield='col1', dtypes={})
-
-        result = pydf.keys()
-
-        self.assertEqual(result, [])  
-
     # clone_empty
     
     def test_clone_empty_from_empty_instance(self):

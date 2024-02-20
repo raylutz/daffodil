@@ -61,17 +61,22 @@ See README file at this location: https://github.com/raylutz/Pydf/blob/main/READ
             Add produced test files to gitignore.
             changed _num_cols() to num_cols()
             removed selcols_ls from class. 
+            tests added
+                initialization from dtypes and no cols.
+                set_cols()
+                set_keyfield()
+
     TODO
             Refactor get_item and set_item
+            
             sanitize columns. This should be designed differently.
                 1. read with no headers.
                 2. manually sanitize.
                 3. add cols manually.
             tests: need to add 
-                initialization from dtypes and no cols.
                 .len()
                 __str__ and __repr__
-                sanitize_cols
+                sanitize_cols (wait)
                 .isin <-- keep this?
                 calc_cols
                     no hd defined.
@@ -79,8 +84,7 @@ See README file at this location: https://github.com/raylutz/Pydf/blob/main/READ
                     exclude_cols > 10
                     exclude_types
                 normalize() <-- keep this?
-                set_cols()
-                set_keyfield()
+                
                 row_idx_of()
                 apply_dtypes()
                 unflatten_cols()
@@ -389,6 +393,11 @@ class Pydf:
     
 
     def num_cols(self) -> int:
+        """ return 0 if self.lol is empty.
+            return the length of the first row otherwise.
+            
+            this only works well if the array has rows that are all the same length.            
+        """
     
         if not self.lol:
             return 0
@@ -572,6 +581,8 @@ class Pydf:
 
     def set_cols(self, new_cols: Optional[T_ls]=None):
         """ set the column names of the pydf using an ordered list.
+        
+            if new_cols is None, then we generate spreadsheet colnames like A, B, C... AA, AB, ...
         """
         num_cols = self.num_cols() or len(self.hd)
         
@@ -582,9 +593,10 @@ class Pydf:
             raise AttributeError("Length of new_cols not the same as existing cols")
         
         if self.keyfield and self.hd:
+            # if column names are already defined (hd) then we need to repair the keyfield.
             self.keyfield = new_cols[self.hd[self.keyfield]]
         
-        # set new cols
+        # set new cols to the hd
         self._cols_to_hd(new_cols)
         
         # convert dtypes dict to use the new names.
@@ -607,12 +619,19 @@ class Pydf:
         
         return list(self.kd.keys())
 
-    def set_keyfield(self, keyfield:str=''):
-        """ set the indexing keyfield to a new column, which must exist
+    def set_keyfield(self, keyfield: str=''):
+        """ set the indexing keyfield to a new column
+            if keyfield == '', then reset the keyfield and reset the kd.
+            if keyfield not in columns, then KeyError
         """
         if keyfield:
+            if keyfield not in self.hd:
+                raise KeyError
             self.keyfield = keyfield
             self._rebuild_kd()
+        else:
+            self.keyfield = ''
+            self.kd = {}
             
         return self
     
@@ -914,6 +933,7 @@ class Pydf:
     #===========================
     # convert from / to other data or files.
     
+    # ==== Python lod (list of dictionaries)
     @staticmethod
     def from_lod(
             records_lod:    T_loda,                         # List[List[Any]] to initialize the lol data array.
@@ -943,6 +963,20 @@ class Pydf:
         return Pydf(cols=cols, lol=lol, keyfield=keyfield, dtypes=dtypes)
         
         
+    def to_lod(self) -> T_loda:
+        """ Create lod from pydf
+            test exists in test_pydf.py
+        """
+        
+        if not self:
+            return []
+
+        cols = self.columns()
+        result_lod = [dict(zip(cols, la)) for la in self.lol]
+        return result_lod
+        
+    
+    # ==== Python dod (dict of dict)    
     @staticmethod
     def from_dod(
             dod:            T_doda,         # Dict(str, Dict(str, Any))
@@ -950,7 +984,10 @@ class Pydf:
                                             # this will set the preferred name. Defaults to 'rowkey'
             dtypes:         Optional[T_dtype_dict]=None     # optionally set the data types for each column.
             ) -> 'Pydf':
-        """ a dict of dict structure is very similar to a Pydf table, but there is a slight difference.
+        """ a dict of dict (dod) structure is very similar to a Pydf table, but there is a slight difference.
+            A dod structure will have a first key which indexes to a specific dict.
+            The key in that dict is likely not also found in the "value" dict of the first level, but it might be.
+            
             a Pydf table always has the keys of the outer dict as items in each table.
             Thus dod1 = {'row_0': {'rowkey': 'row_0', 'data1': 1, 'data2': 2, ... },
                          'row_1': {'rowkey': 'row_1', 'data1': 11, ... },
@@ -969,7 +1006,6 @@ class Pydf:
             
             If dod2 is passed, it will be convered to dod1 and then converted to pydf instance.
             
-            
             A Pydf table is able 1/3 the size of an equivalent dod. because the column keys are not repeated.
             
             use to_dod() to recover the original form by setting 'remove_rowkeys'=True if the row keys are
@@ -979,6 +1015,34 @@ class Pydf:
         return Pydf.from_lod(utils.dod_to_lod(dod, keyfield=keyfield), dtypes=dtypes)
     
     
+    def to_dod(
+            self,
+            dod:                T_doda,         # Dict(str, Dict(str, Any))
+            remove_keyfield:    bool=True,      # by default, the keyfield column is removed.
+            ) -> T_doda:
+        """ a dict of dict structure is very similar to a Pydf table, but there is a slight difference.
+            a Pydf table always has the keys of the outer dict as items in each table.
+            Thus dod1 = {'row_0': {'rowkey': 'row_0', 'data1': 1, 'data2': 2, ... },
+                         'row_1': {'rowkey': 'row_1', 'data1': 11, ... },
+                         ...
+                         }
+            If a dod is passed that does not have this column, then it will be created.
+            The 'keyfield' parameter should be set to the name of this column.
+            
+            A typical dod does not have the row key as part of the data in each row, such as:
+            
+             dod2 = {'row_0': {'data1': 1, 'data2': 2, ... },
+                     'row_1': {'data1': 11, ... },
+                     ...
+                    }
+            
+            If remove_keyfield=True (default) dod2 will be produced, else dod1.
+                        
+        """
+        return utils.lod_to_dod(self.to_lod(), keyfield=self.keyfield, remove_keyfield=remove_keyfield)
+    
+
+    # ==== cols_dol
     @staticmethod
     def from_cols_dol(cols_dol: T_dola, keyfield: str='', dtypes: Optional[T_dtype_dict]=None) -> 'Pydf':
         """ Create Pydf instance from cols_dol type, adopting dict keys as column names
@@ -1008,8 +1072,86 @@ class Pydf:
             lol.append(row)    
         
         return Pydf(cols=cols, lol=lol, keyfield=keyfield, dtypes=dtypes)
+        
+        
+    def to_cols_dol(self) -> dict:
+        """ convert pydf to dictionary of lists of values, where key is the 
+            column name, and the list are the values in that column.
+        """
+        pass
+        
+
+    def to_attrib_dict(self) -> dict:
+        """
+        Convert Pydf instance to a dictionary representation.
+        The dictionary has two keys: 'cols' and 'lol'.
+        
+        DEPRECATED
+
+        Example:
+        {
+            'cols': ['A', 'B', 'C'],
+            'lol': [[1, 4, 7], [2, 5, 8], [3, 6, 9]]
+        }
+        """
+        return {'cols': self.columns(), 'lol': self.lol}
+
+    
+
+    @staticmethod
+    def from_lod_to_cols(lod: T_loda, cols:Optional[List]=None, keyfield: str='', dtypes: Optional[T_dtype_dict]=None) -> 'Pydf':
+        r""" Create Pydf instance from a list of dictionaries to be placed in columns
+            where each column shares the same keys in the first column of the array.
+            This transposes the data from rows to columns and adds the new 'cols' header,
+            while adopting the keys as the keyfield. dtypes is applied to the columns
+            transposition and then to the rows.
+            
+            If no 'cols' parameter is provided, then it will be the name 'key' 
+            followed by normal spreadsheet column names, like 'A', 'B', ... 
+            
+            Creates a pydf where the first column are the keys from the dicts,
+            and each subsequent column are each of the values of the dicts.
+            
+            my_pydf = Pydf.from_coldicts_lod( 
+                cols = ['Feature', 'Try 1', 'Try 2', 'Try 3'],
+                lod =       [{'A': 1, 'B': 2, 'C': 3},          # data for Try 1
+                             {'A': 4, 'B': 5, 'C': 6},          # data for Try 2
+                             {'A': 7, 'B': 8, 'C': 9} ]         # data for Try 3
+            
+            produces:
+                my_pydf.columns() == ['Feature', 'Try 1', 'Try 2', 'Try 3']
+                my_pydf.lol ==        [['A',       1,       4,       7], 
+                                             ['B',       2,       5,       8], 
+                                             ['C',       3,       6,       9]] 
+            
+            This format is useful for producing reports of several tries 
+            with different values for the same attributes placed in columns,
+            particularly when there are many features that need to be compared.
+            Columns are defined directly from cols parameter.
+            
+        """
+        if dtypes is None:
+            dtypes = {}
+            
+        if cols is None:
+            cols = []
+        
+        if not lod:
+            return Pydf(keyfield=keyfield, dtypes=dtypes, cols=cols)
+        
+        # the following will adopt the dictionary keys as cols.
+        # note that dtypes applies to the columns in this orientation.
+        rows_pydf = Pydf.from_lod(lod, dtypes=dtypes)
+        
+        # this transposes the entire dataframe, including the column names, which become the first column
+        # in the new orientation, then adds the new column names, if provided. Otherwise they will be
+        # defined as ['key', 'A', 'B', ...]
+        cols_pydf = rows_pydf.transpose(new_keyfield = keyfield, new_cols = cols, include_header = True)
+        
+        return cols_pydf
 
 
+    #==== Excel
     @staticmethod
     def from_excel_buff(
             excel_buff: bytes, 
@@ -1104,60 +1246,6 @@ class Pydf:
 
         return buff   
 
-
-
-    @staticmethod
-    def from_lod_to_cols(lod: T_loda, cols:Optional[List]=None, keyfield: str='', dtypes: Optional[T_dtype_dict]=None) -> 'Pydf':
-        r""" Create Pydf instance from a list of dictionaries to be placed in columns
-            where each column shares the same keys in the first column of the array.
-            This transposes the data from rows to columns and adds the new 'cols' header,
-            while adopting the keys as the keyfield. dtypes is applied to the columns
-            transposition and then to the rows.
-            
-            If no 'cols' parameter is provided, then it will be the name 'key' 
-            followed by normal spreadsheet column names, like 'A', 'B', ... 
-            
-            Creates a pydf where the first column are the keys from the dicts,
-            and each subsequent column are each of the values of the dicts.
-            
-            my_pydf = Pydf.from_coldicts_lod( 
-                cols = ['Feature', 'Try 1', 'Try 2', 'Try 3'],
-                lod =       [{'A': 1, 'B': 2, 'C': 3},          # data for Try 1
-                             {'A': 4, 'B': 5, 'C': 6},          # data for Try 2
-                             {'A': 7, 'B': 8, 'C': 9} ]         # data for Try 3
-            
-            produces:
-                my_pydf.columns() == ['Feature', 'Try 1', 'Try 2', 'Try 3']
-                my_pydf.lol ==        [['A',       1,       4,       7], 
-                                             ['B',       2,       5,       8], 
-                                             ['C',       3,       6,       9]] 
-            
-            This format is useful for producing reports of several tries 
-            with different values for the same attributes placed in columns,
-            particularly when there are many features that need to be compared.
-            Columns are defined directly from cols parameter.
-            
-        """
-        if dtypes is None:
-            dtypes = {}
-            
-        if cols is None:
-            cols = []
-        
-        if not lod:
-            return Pydf(keyfield=keyfield, dtypes=dtypes, cols=cols)
-        
-        # the following will adopt the dictionary keys as cols.
-        # note that dtypes applies to the columns in this orientation.
-        rows_pydf = Pydf.from_lod(lod, dtypes=dtypes)
-        
-        # this transposes the entire dataframe, including the column names, which become the first column
-        # in the new orientation, then adds the new column names, if provided. Otherwise they will be
-        # defined as ['key', 'A', 'B', ...]
-        cols_pydf = rows_pydf.transpose(new_keyfield = keyfield, new_cols = cols, include_header = True)
-        
-        return cols_pydf
-
     
     #==== Pandas
     @staticmethod
@@ -1193,6 +1281,34 @@ class Pydf:
             )
             
 
+    def to_pandas_df(self, use_csv: bool=False) -> Any:
+    
+        import pandas as pd     # type: ignore
+    
+        if not use_csv:
+            columns = self.columns()
+            # return pd.DataFrame(self.lol, columns=columns, dtypes=self.dtypes)
+            # above results in NotImplementedError: compound dtypes are not implemented in the DataFrame constructor
+
+            return pd.DataFrame(self.lol, columns=columns)
+            
+        # it seems this may work faster if we first convert the data to a csv_buff internally,
+        # and then convert that to a df.
+    
+        csv_buff = self.to_csv_buff()
+        sio = io.StringIO(csv_buff)            
+        df  = pd.read_csv(sio, 
+            na_filter=False, 
+            index_col=False, 
+            #dtype=self.dtypes,
+            #sep=sep,
+            usecols=None,
+            #comment='#', 
+            #skip_blank_lines=True
+            )
+        return df
+        
+            
     #==== Numpy
     @staticmethod
     def from_numpy(npa: Any, keyfield:str='', cols:Optional[T_la]=None, name:str='') -> 'Pydf':
@@ -1222,107 +1338,107 @@ class Pydf:
         
         
     #==== Googlesheets
-    @staticmethod
-    def from_googlesheet(sheetlink: str) -> 'Pydf':
-        """ import data to pydf structure from googlesheet. """
-        pass
-        
-        return Pydf()
-        
-        
-    def to_googlesheet(self, sheetlink: str) -> self:
-        """ export data from pydf structure to googlesheet. """
-        pass
     
+    @staticmethod
+    def from_googlesheet(spreadsheet_id: str, sheetname: str = 'Sheet1') -> 'Pydf':
+        from googleapiclient.discovery import build
+        from google.oauth2 import service_account
+
+        """
+        Read data from a Google Sheet specified by its ID.
+        
+        Args:
+            spreadsheet_id (str): The ID of the Google Sheet.
+            
+        Returns:
+            Pydf instance
+            
+        """
+        
+        # Set up credentials for the Google Sheets API
+        SCOPES = ['https://www.googleapis.com/auth/spreadsheets']
+        SERVICE_ACCOUNT_FILE = 'path/to/your/service_account.json'
+        
+        creds = service_account.Credentials.from_service_account_file(SERVICE_ACCOUNT_FILE, scopes=SCOPES)
+        service = build('sheets', 'v4', credentials=creds)
+        
+        # Specify the range from which to read data (all values)
+        range_name = sheetname 
+        
+        # Call the Sheets API to get values from the specified range
+        result = service.spreadsheets().values().get(
+            spreadsheetId=spreadsheet_id,
+            range=range_name
+        ).execute()
+        
+        lol = result.get('values', [])
+        
+        # if not lol:
+            # print('No data found in the Google Sheet.')
+            # return None
+        # else:
+            # return values
+
+        #num_rows = len(lol)
+        num_cols = 0 if not lol else len(lol[0])
+        
+        cols = Pydf._generate_spreadsheet_column_names_list(num_cols)
+
+        gs_pydf = Pydf(cols=cols, lol=lol)
+        
+        return gs_pydf
+        
+        
+    def to_googlesheet(self, spreadsheet_id: str, sheetname: str = 'Sheet1') -> 'Pydf':
+        """ export data from pydf structure to googlesheet. """
+    
+        from googleapiclient.discovery import build
+        from google.oauth2 import service_account
+
+        # Set up credentials for the Google Sheets API
+        SCOPES = ['https://www.googleapis.com/auth/spreadsheets']       # this might be okay.
+        SERVICE_ACCOUNT_FILE = 'path/to/your/service_account.json'      # probably wrong.
+
+        creds = service_account.Credentials.from_service_account_file(SERVICE_ACCOUNT_FILE, scopes=SCOPES)
+        service = build('sheets', 'v4', credentials=creds)
+
+        # Define your list of lists array (Pydf)
+        # self.lol
+
+        # Define the range where you want to write the data (e.g., Sheet1!A1:C4)
+        # get the column name of the last column in the array.
+        num_cols = self.num_cols()
+        last_col_idx = num_cols - 1
+        last_spreadsheet_colname = Pydf._calculate_single_column_name(last_col_idx)
+        
+        range_name = f"{sheetname}!A1:{last_spreadsheet_colname}{len(self.lol)}"
+        
+        # Build the request body
+        body = {
+            'values': self.lol
+        }
+
+        # Call the Sheets API to update the data in the specified range
+        request = service.spreadsheets().values().update(
+            spreadsheetId=spreadsheet_id,
+            range=range_name,
+            valueInputOption='RAW',     # Question: does this provide formulas or just numbers.
+            body=body
+        )
+
+        response = request.execute()
+        # parse response and detect if there was an error.
+        
+        response = response     # fool linter
+
+        print('Data successfully written to Google Sheets.')
+        
         return self
 
 
     #===========================
     # convert to other format
     
-    def to_dict(self) -> dict:
-        """
-        Convert Pydf instance to a dictionary representation.
-        The dictionary has two keys: 'cols' and 'lol'.
-
-        Example:
-        {
-            'cols': ['A', 'B', 'C'],
-            'lol': [[1, 4, 7], [2, 5, 8], [3, 6, 9]]
-        }
-        """
-        return {'cols': self.columns(), 'lol': self.lol}
-
-    
-    def to_lod(self) -> T_loda:
-        """ Create lod from pydf
-            test exists in test_pydf.py
-        """
-        
-        if not self:
-            return []
-
-        cols = self.columns()
-        result_lod = [dict(zip(cols, la)) for la in self.lol]
-        return result_lod
-        
-    
-    def to_dod(
-            self,
-            dod:                T_doda,         # Dict(str, Dict(str, Any))
-            remove_keyfield:    bool=True,      # by default, the keyfield column is removed.
-            ) -> T_doda:
-        """ a dict of dict structure is very similar to a Pydf table, but there is a slight difference.
-            a Pydf table always has the keys of the outer dict as items in each table.
-            Thus dod1 = {'row_0': {'rowkey': 'row_0', 'data1': 1, 'data2': 2, ... },
-                         'row_1': {'rowkey': 'row_1', 'data1': 11, ... },
-                         ...
-                         }
-            If a dod is passed that does not have this column, then it will be created.
-            The 'keyfield' parameter should be set to the name of this column.
-            
-            A typical dod does not have the row key as part of the data in each row, such as:
-            
-             dod2 = {'row_0': {'data1': 1, 'data2': 2, ... },
-                     'row_1': {'data1': 11, ... },
-                     ...
-                    }
-            
-            If remove_keyfield=True (default) dod2 will be produced, else dod1.
-                        
-        """
-        return utils.lod_to_dod(self.to_lod(), keyfield=self.keyfield, remove_keyfield=remove_keyfield)
-    
-    
-    def to_pandas_df(self, use_csv: bool=False) -> Any:
-    
-        import pandas as pd     # type: ignore
-    
-        if not use_csv:
-            columns = self.columns()
-            # return pd.DataFrame(self.lol, columns=columns, dtypes=self.dtypes)
-            # above results in NotImplementedError: compound dtypes are not implemented in the DataFrame constructor
-
-            return pd.DataFrame(self.lol, columns=columns)
-            
-        # it seems this may work faster if we first convert the data to a csv_buff internally,
-        # and then convert that to a df.
-    
-        csv_buff = self.to_csv_buff()
-        sio = io.StringIO(csv_buff)            
-        df  = pd.read_csv(sio, 
-            na_filter=False, 
-            index_col=False, 
-            #dtype=self.dtypes,
-            #sep=sep,
-            usecols=None,
-            #comment='#', 
-            #skip_blank_lines=True
-            )
-        return df
-        
-            
-
     def to_numpy(self) -> Any:
         """ 
         Convert the core array of a Pydf object to numpy.
