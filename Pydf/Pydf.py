@@ -1227,6 +1227,9 @@ class Pydf:
             line_terminator: Optional[str]=None,
             include_header: bool=True,
             ) -> T_buff:
+        """ this function writes the pydf array to a csv buffer, including the header if include_header==True.
+            The buffer can be saved to a local file or uploaded to a storage service like s3.
+        """
     
         if not self:
             return ''
@@ -1245,6 +1248,12 @@ class Pydf:
         f.close()
 
         return buff   
+
+
+    @staticmethod
+    def buff_to_file(buff: T_buff, file_path: str, local_mirror: bool=False):
+    
+        return DB.write_buff_to_fp(buff, file_path, local_mirror=local_mirror)
 
     
     #==== Pandas

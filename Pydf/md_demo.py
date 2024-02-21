@@ -145,7 +145,7 @@ def md_code_seg(
     code_segment = re.sub(r'^(\s*\n)*', '', code_segment, re.DOTALL)         # preserve indentation
     code_segment = re.sub(r'[\s\n]*$', '', code_segment, re.DOTALL)
     
-    formatted_code = f"## {label}\n\n{first_comment}\n\n```python\n{code_segment}\n```\n\n{last_comment}\n"
+    formatted_code = f"\n## {label}\n\n{first_comment}\n\n```python\n{code_segment}\n```\n\n{last_comment}\n"
     if not silent:
         print(formatted_code)
     return formatted_code
