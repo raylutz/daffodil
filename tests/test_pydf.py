@@ -289,6 +289,21 @@ class TestPydf(unittest.TestCase):
         with self.assertRaises(AttributeError):
             pydf.set_cols(new_cols)
 
+    def test_set_cols_sanitize(self):
+        # sanitizing function
+        pydf = Pydf(cols=['col1', 'col2', 'col3'])
+        new_cols = ['A', 'A', '']
+        pydf.set_cols(new_cols)
+        self.assertEqual(pydf.columns(), ['A', 'A_1', 'col2'])
+    
+    def test_set_cols_sanitize_dif_prefix(self):
+        # sanitizing function, different prefix
+        pydf = Pydf(cols=['col1', 'col2', 'col3'])
+        new_cols = ['A', 'A', '']
+        pydf.set_cols(new_cols, unnamed_prefix='Unnamed')
+        self.assertEqual(pydf.columns(), ['A', 'A_1', 'Unnamed2'])
+    
+
 
     # keys
     def test_keys_no_keyfield(self):

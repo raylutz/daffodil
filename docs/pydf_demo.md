@@ -10,6 +10,7 @@ This page is the result of using simple "notebook" functionality (md_demo.py)
 which will create a markdown "notebook" report by printing a code block and then run and capture the result. The report can
 be viewed directly or converted to HTML for use on a static website.
 
+
 ## Create a new empty table
 
 
@@ -32,6 +33,7 @@ The empty my_pydf:
 \[0 rows x 0 cols; keyfield=; 0 keys ] (Pydf)
 
 bool(my_pydf)=False
+
 ## Append some rows to the pydf object
 
 
@@ -61,15 +63,14 @@ The appended my_pydf:
 
 \[3 rows x 3 cols; keyfield=; 0 keys ] (Pydf)
 
+
 ## Read and write individual cells by row,col indices
 
-
+replace value at row 2, col 1 (i.e. 9) with value from row 1, col 0 (i.e. 5)
+        multiplied by the value in cell [2,2] (i.e. 10) resulting in 50 at [2,1].
+        Note that row and column indices start at 0, and are in row, col order (not x,y).
 
 ```python
-    # replace value at row 2, col 1 (i.e. 9) with value from row 1, col 0 (i.e. 5)
-    # multiplied by the value in cell [2,2] (i.e. 10) resulting in 50 at [2,1].
-    # Note that row and column indices start at 0, and are in row, col order (not x,y).
-    
     my_pydf[2,1] = my_pydf[1,0] * my_pydf[2,2]
 
     md_report += f"The modified my_pydf:\n{my_pydf}\n"
@@ -85,6 +86,7 @@ The modified my_pydf:
 | 8 | 50 | 10 |
 
 \[3 rows x 3 cols; keyfield=; 0 keys ] (Pydf)
+
 
 ## Read columns and rows
 
@@ -106,6 +108,7 @@ The modified my_pydf:
 - col_2=[3, 7, 10]
 - row_1=[5, 6, 7]
 - col_B=[2, 6, 50]
+
 ## Read rows and columns using methods
 
 
@@ -126,6 +129,7 @@ The modified my_pydf:
 - col_2=[3, 7, 10]
 - row_1={'A': 5, 'B': 6, 'C': 7}
 - col_B=[2, 6, 50]
+
 ## Insert a new column "Category" on left, and make it the keyfield
 
 Rows in a Pydf instance can be indexed using an existing column, by specifying that column as the keyfield.
@@ -157,6 +161,7 @@ my_pydf:
 
 \[3 rows x 4 cols; keyfield=Category; 3 keys ] (Pydf)
 
+
 ## Select a record by the key:
 
 Selecting one record by the key will return a dictionary.
@@ -172,6 +177,7 @@ Selecting one record by the key will return a dictionary.
 Result:
 
 - da={'Category': 'car', 'A': 5, 'B': 6, 'C': 7}
+
 ## Append more records from a lod
 
 When records are appended from a lod (list of dict), they are appended as rows,
@@ -204,6 +210,7 @@ The appended my_pydf:
 
 \[6 rows x 4 cols; keyfield=Category; 6 keys ] (Pydf)
 
+
 ## Update records
 
 updating records mutates the existing pydf instance, and works
@@ -235,6 +242,7 @@ The updated my_pydf:
 
 \[6 rows x 4 cols; keyfield=Category; 6 keys ] (Pydf)
 
+
 ## Add a column "is_vehicle"
 
 
@@ -258,6 +266,7 @@ The updated my_pydf:
 |    condo |          0 | 17 | 18 | 19 |
 
 \[6 rows x 5 cols; keyfield=Category; 6 keys ] (Pydf)
+
 
 ## pydf bool
 
@@ -288,6 +297,7 @@ For pydf, bool() simply determines if the pydf exists and is not empty.
 - bool(Pydf(lol=[['']]))=True
 - bool(Pydf(lol=[[False]]))=True
 
+
 ## pydf attributes
 
 
@@ -307,6 +317,7 @@ For pydf, bool() simply determines if the pydf exists and is not empty.
 - my_pydf.shape()=(6, 5)
 - my_pydf.columns()=['Category', 'is_vehicle', 'A', 'B', 'C']
 - my_pydf.keys()=['house', 'car', 'boat', 'mall', 'van', 'condo']
+
 ## get_existing_keys
 
 check a list of keys to see if they are defined in the pydf instance
@@ -319,6 +330,7 @@ check a list of keys to see if they are defined in the pydf instance
 
 
 - existing_keys_ls=['house', 'boat']
+
 ## select_records_pydf
 
 select multiple records using a list of keys and create a new pydf instance. 
@@ -338,6 +350,7 @@ wheels_pydf:
 |      car |          1 | 25 | 26 | 27 |
 
 \[2 rows x 5 cols; keyfield=Category; 2 keys ] (Pydf)
+
 
 ## select_by_dict
 
@@ -373,6 +386,7 @@ buildings_pydf:
 
 \[3 rows x 5 cols; keyfield=Category; 3 keys ] (Pydf)
 
+
 ## use `select_where` to select rows where column 'C' is over 20
 
 
@@ -392,6 +406,7 @@ high_c_pydf:
 |      car |          1 | 25 | 26 | 27 |
 
 \[2 rows x 5 cols; keyfield=Category; 2 keys ] (Pydf)
+
 
 ## convert to pandas DataFrame
 
@@ -416,6 +431,7 @@ Converted DataFrame:
 4      van           1  14  15  16
 5    condo           0  17  18  19
 ```
+
 ## Add index column 'idx' to the dataframe at the left, starting at 0.
 
 
@@ -442,6 +458,7 @@ Modified pydf:
 \[6 rows x 6 cols; keyfield=Category; 6 keys ] (Pydf)
 
 
+
 ## Create a table of file information
 
 This example demonstrates how easy it is to create a Pydf structure instead of a 
@@ -449,7 +466,7 @@ This example demonstrates how easy it is to create a Pydf structure instead of a
         offers more processing capabilities. Here, we create a handy file list including
         all relevant information by incrementally appending to the pydf structure.
 
-    Please note that if you try to append dictionaries to a Pandas df, you will currently get this warning:
+Please note that if you try to append dictionaries to a Pandas df, you will currently get this warning:
 
         FutureWarning: The frame.append method is deprecated and will be removed from pandas in a future version. Use pandas.concat instead.
     
@@ -622,6 +639,7 @@ Contents of C:\Windows\System32 (in raw text format):
 
 - pydf size in memory: 2,385,288 bytes
 - pandas df size in memory: 2,851,056 bytes
+
 ## Limit this list to just the files
 
 Now what we will do is first limit the listing only to files.
@@ -679,6 +697,7 @@ Files only in C:\Windows\System32:
 | \ztrace_maps.dll                                                |  30720 | 2019-12-07T01:08:28 | False  |
 
 \[8607 rows x 4 cols; keyfield=; 0 keys ] (Pydf)
+
 
 
 ## Demonstration of groupby_cols_reduce
@@ -775,6 +794,7 @@ Original data_table_pydf:
 \[24 rows x 7 cols; keyfield=; 0 keys ] (Pydf)
 
 
+
 ## Now reduce the data using groupby_cols_reduce
 
 
@@ -832,6 +852,7 @@ Resulting Reduction:
 
 Check the result against manually generated:
 bool(grouped_and_summed_pydf.lol==expected_lol)=True
+
 ## Further group to just zipcodes
 
 Now further reduce the grouped and summed table to provide the sum for just zipcodes, for all
@@ -839,7 +860,7 @@ Now further reduce the grouped and summed table to provide the sum for just zipc
     can be done without processing the entire table again.
     In this example, we also demonstrate using NumPy to sum the columns.
     
-    We find in this case that sum_np is not as efficient as just summing the rows directly.
+We find in this case that sum_np is not as efficient as just summing the rows directly.
     This is because it is a lot of work just to prepare the data for NumPy to read it.
     Summing by rows is about 22x faster (takes about 4% of the time) than using sum_np
     when tested on 40,288 records grouped into 820 groups. Grouping took 4 seconds,

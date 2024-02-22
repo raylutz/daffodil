@@ -64,25 +64,25 @@ See README file at this location: https://github.com/raylutz/Pydf/blob/main/READ
             Pulled in from_csv_file()
             Added buff_to_file()
             improved is_d1_in_d2() by using idiom in Python 3.
+            moved sanitize_cols to set_cols() method.
+                1. read with no headers.
+                2. pull off first row using indexing (could add pop_row())
+                3. set set_cols with sanitize_cols=True.
             
             tests added
                 initialization from dtypes and no cols.
                 set_cols()
                 set_keyfield()
                 pydf_utils.is_d1_in_d2()
+                improved set_cols() to test sanitize_cols flag.
                 
 
     TODO
             Refactor get_item and set_item
             
-            sanitize columns. This should be designed differently.
-                1. read with no headers.
-                2. manually sanitize.
-                3. add cols manually.
             tests: need to add 
                 .len()
                 __str__ and __repr__
-                sanitize_cols (wait)
                 .isin <-- keep this?
                 calc_cols
                     no hd defined.
@@ -287,7 +287,7 @@ class Pydf:
             name:       str                     = '',       # An optional name of the Pydf array.
             use_copy:   bool                    = False,    # If True, make a deep copy of the lol data.
             disp_cols:  Optional[T_ls]          = None,     # Optional list of strings to use for display, if initialized.
-            sanitize_cols: bool                 = False,    # check for blank or missing cols and make complete and unique.
+            #sanitize_cols: bool                 = False,    # check for blank or missing cols and make complete and unique.
         ):
         if lol is None:
             lol = []
@@ -317,12 +317,15 @@ class Pydf:
         if not cols:
             if dtypes:
                 self.hd = {col: idx for idx, col in enumerate(dtypes.keys())}
-        elif sanitize_cols:        
-                # make sure there are no blanks and columns are unique.
-                # this does column renaming, and builds hd
-                self._sanitize_colnames(colnames=cols)
+        # elif sanitize_cols:        
+                # # make sure there are no blanks and columns are unique.
+                # # this does column renaming, and builds hd
+                # # Note: This is time consuming and should only be done when required!
+                # cols = self.__class__.sanitize_colnames(colnames=cols)
         else:
             self._cols_to_hd(cols)
+            if len(cols) != len(self.hd):
+                raise AttributeError ("AttributeError: cols not unique")
             
         if self.hd and dtypes:
             effective_dtypes = {col: dtypes.get(col, str) for col in self.hd}
@@ -424,25 +427,6 @@ class Pydf:
         self.hd = {col:idx for idx, col in enumerate(cols)}
         
         
-    def _sanitize_cols(self, cols: T_ls):
-        # make sure there are no blanks and columns are unique.
-        # this may be better as a visible static method.
-        if cols:
-            try:
-                cols = [col if col else f"Unnamed{idx}" for idx, col in enumerate(cols)] 
-            except Exception as err:
-                print(f"{err}")
-                import pdb; pdb.set_trace() #temp
-                pass
-            col_hd = {}
-            for idx, col in enumerate(cols):
-                if col not in col_hd:
-                    col_hd[col] = idx
-                else:
-                    # if not unique, add _NNN after the name.
-                    col_hd[f"{col}_{idx}"] = idx
-            self.hd = col_hd
-            
     @staticmethod
     def isin(listlike1: Union[T_da, T_la], listlike2: Union[T_da, T_la]) -> T_lb:
         """ creates a boolean mask (list of bools) for each item in list1 which is in list2
@@ -585,22 +569,57 @@ class Pydf:
             
         return self
 
-    def set_cols(self, new_cols: Optional[T_ls]=None):
+    @staticmethod
+    def _sanitize_cols(cols: T_ls, unnamed_prefix='col') -> str:
+        """ make sure there are no blanks and columns are unique.
+            if missing, substitute with {unnamed_prefix}{col_idx}
+            if duplicated, substitute with prior_name_{col_idx}
+        """
+        
+        if cols:
+            # first make sure all columns have names.
+            try:
+                cols = [col if col else f"{unnamed_prefix}{idx}" for idx, col in enumerate(cols)] 
+            except Exception as err:
+                print(f"{err}")
+                import pdb; pdb.set_trace() #temp
+                pass
+                
+            # next make sure they are all unique    
+            col_hd = {}
+            for idx, col in enumerate(cols):
+                if col not in col_hd:
+                    col_hd[col] = idx
+                else:
+                    # if not unique, add _NNN after the name.
+                    col_hd[f"{col}_{idx}"] = idx
+            return list(col_hd.keys())
+            
+            
+    def set_cols(self, new_cols: Optional[T_ls]=None, sanitize_cols: bool=True, unnamed_prefix: str='col'):
         """ set the column names of the pydf using an ordered list.
         
             if new_cols is None, then we generate spreadsheet colnames like A, B, C... AA, AB, ...
+            
+            if sanitize_cols is True (default) then check new_cols for any missing or duplicate names.
+                if missing, substitute with {unnamed_prefix}{col_idx}
+                if duplicated, substitute with prior_name_{col_idx}
         """
         num_cols = self.num_cols() or len(self.hd)
         
         if new_cols is None:
             new_cols = self.__class__._generate_spreadsheet_column_names_list(num_cols)
+            
+        elif sanitize_cols:
+            new_cols = self.__class__._sanitize_cols(new_cols, unnamed_prefix=unnamed_prefix)
         
         if num_cols and len(new_cols) < num_cols:
             raise AttributeError("Length of new_cols not the same as existing cols")
         
         if self.keyfield and self.hd:
             # if column names are already defined (hd) then we need to repair the keyfield.
-            self.keyfield = new_cols[self.hd[self.keyfield]]
+            keyfield_idx = self.hd[self.keyfield]
+            self.keyfield = new_cols[keyfield_idx]
         
         # set new cols to the hd
         self._cols_to_hd(new_cols)
