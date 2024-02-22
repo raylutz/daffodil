@@ -61,10 +61,16 @@ See README file at this location: https://github.com/raylutz/Pydf/blob/main/READ
             Add produced test files to gitignore.
             changed _num_cols() to num_cols()
             removed selcols_ls from class. 
+            Pulled in from_csv_file()
+            Added buff_to_file()
+            improved is_d1_in_d2() by using idiom in Python 3.
+            
             tests added
                 initialization from dtypes and no cols.
                 set_cols()
                 set_keyfield()
+                pydf_utils.is_d1_in_d2()
+                
 
     TODO
             Refactor get_item and set_item
@@ -587,7 +593,7 @@ class Pydf:
         num_cols = self.num_cols() or len(self.hd)
         
         if new_cols is None:
-            new_cols = Pydf._generate_spreadsheet_column_names_list(num_cols)
+            new_cols = self.__class__._generate_spreadsheet_column_names_list(num_cols)
         
         if num_cols and len(new_cols) < num_cols:
             raise AttributeError("Length of new_cols not the same as existing cols")
@@ -643,7 +649,7 @@ class Pydf:
         
         if self.keyfield and self.keyfield in self.hd:
             col_idx = self.hd[self.keyfield]
-            self.kd = Pydf._build_kd(col_idx, self.lol)
+            self.kd = self.__class__._build_kd(col_idx, self.lol)
             
         return self
 
@@ -1222,6 +1228,24 @@ class Pydf:
         return my_pydf
     
 
+
+    def to_csv_file(
+            self,
+            file_path: str='',
+            line_terminator: Optional[str]=None,
+            include_header: bool=True,
+            ) -> str:
+
+        buff = self.to_csv_buff(
+                line_terminator=line_terminator,
+                include_header=include_header,
+                )
+
+        self.__class__.buff_to_file(buff, file_path=file_path)
+        
+        return file_path
+
+
     def to_csv_buff(
             self, 
             line_terminator: Optional[str]=None,
@@ -1251,9 +1275,9 @@ class Pydf:
 
 
     @staticmethod
-    def buff_to_file(buff: T_buff, file_path: str, local_mirror: bool=False):
+    def buff_to_file(buff: T_buff, file_path: str):
     
-        return DB.write_buff_to_fp(buff, file_path, local_mirror=local_mirror)
+        return utils.write_buff_to_fp(buff, file_path)
 
     
     #==== Pandas
@@ -1813,7 +1837,7 @@ class Pydf:
         if self.hd: 
             return self._basic_get_record_da(irow, include_cols)
                 
-        colnames = Pydf._generate_spreadsheet_column_names_list(num_cols=len(self.lol[irow]))
+        colnames = self.__class__._generate_spreadsheet_column_names_list(num_cols=len(self.lol[irow]))
         return dict(zip(colnames, self.lol[irow]))
         
 

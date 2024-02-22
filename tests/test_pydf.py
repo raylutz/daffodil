@@ -7,6 +7,7 @@ import unittest
 sys.path.append('..')
 
 from Pydf.Pydf import Pydf
+from Pydf import pydf_utils as utils
 
 class TestPydf(unittest.TestCase):
 
@@ -2573,6 +2574,47 @@ class TestPydf(unittest.TestCase):
 
         self.assertEqual(grouped_and_summed_pydf.lol, expected_lol)
         
+
+    def test_is_d1_in_d2(self):
+        # Test case where d1 is a subset of d2
+        d1 = {'a': 1, 'b': 2}
+        d2 = {'a': 1, 'b': 2, 'c': 3}
+        assert utils.is_d1_in_d2(d1, d2) == True
+
+        # Test case where d1 is equal to d2
+        d1 = {'a': 1, 'b': 2}
+        d2 = {'a': 1, 'b': 2}
+        assert utils.is_d1_in_d2(d1, d2) == True
+
+        # Test case where d1 is not a subset of d2
+        d1 = {'a': 1, 'b': 2}
+        d2 = {'a': 1, 'c': 3}
+        assert utils.is_d1_in_d2(d1, d2) == False
+
+        # Test case where d1 is an empty dictionary
+        d1 = {}
+        d2 = {'a': 1, 'b': 2}
+        assert utils.is_d1_in_d2(d1, d2) == True
+
+        # Test case where d2 is an empty dictionary
+        d1 = {'a': 1, 'b': 2}
+        d2 = {}
+        assert utils.is_d1_in_d2(d1, d2) == False
+
+        # Test case where both d1 and d2 are empty dictionaries
+        d1 = {}
+        d2 = {}
+        assert utils.is_d1_in_d2(d1, d2) == True
+
+        # Test case with mixed types of keys and values
+        d1 = {'a': 1, 2: 'b', 'c': True}
+        d2 = {'a': 1, 'b': 2, 'c': True}
+        assert utils.is_d1_in_d2(d1, d2) == False
+
+        # Test case where d1 has additional fields not present in d2
+        d1 = {'a': 1, 'b': 2, 'd': 4}
+        d2 = {'a': 1, 'b': 2}
+        assert utils.is_d1_in_d2(d1, d2) == False
 
         
 
