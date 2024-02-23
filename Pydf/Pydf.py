@@ -75,13 +75,20 @@ See README file at this location: https://github.com/raylutz/Pydf/blob/main/READ
                 set_keyfield()
                 pydf_utils.is_d1_in_d2()
                 improved set_cols() to test sanitize_cols flag.
-                
+                .len(), num_cols(), shape(), len()
+                row_idx_of()
+                remove_key -- keyfield not set.
+                get_existing_keys
+                select_record_da -- row_idx >= len(self.lol)
+                _basic_get_record_da -- no hd, include_cols
+                select_first_row_by_dict    
+                select_where_idxs
+                select_cols
 
     TODO
             Refactor get_item and set_item
             
             tests: need to add 
-                .len()
                 __str__ and __repr__
                 .isin <-- keep this?
                 calc_cols
@@ -91,7 +98,6 @@ See README file at this location: https://github.com/raylutz/Pydf/blob/main/READ
                     exclude_types
                 normalize() <-- keep this?
                 
-                row_idx_of()
                 apply_dtypes()
                 unflatten_cols()
                 unflatten_dirname() <-- remove?
@@ -124,10 +130,6 @@ See README file at this location: https://github.com/raylutz/Pydf/blob/main/READ
                 record_append()
                     empty record
                     overwrite of existing
-                remove_key -- keyfield not set.
-                get_existing_keys
-                select_record_da -- row_idx >= len(self.lol)
-                _basic_get_record_da -- no hd, include_cols
                 select_records_pydf
                     no keyfield
                     inverse
@@ -135,12 +137,9 @@ See README file at this location: https://github.com/raylutz/Pydf/blob/main/READ
                         smaller cases
                 iloc
                     no hd
-                select_first_row_by_dict    
-                select_where_idxs <-- remove?
                 icol_to_la
                     unique
                     omit_nulls
-                select_cols
                 from_selected_cols <-- remove! but check for usage!
                 assign_record_da
                     no keyfield defined.
@@ -364,12 +363,14 @@ class Pydf:
 
     def __len__(self):
         """ Return the number of rows in the Pydf instance.
-            test exists in test_pydf.py            
         """
+        # unit tested
         return len(self.lol)
         
         
     def len(self):
+        # unit tested
+
         return len(self.lol)
         
         
@@ -407,6 +408,7 @@ class Pydf:
             
             this only works well if the array has rows that are all the same length.            
         """
+        # unit tested
     
         if not self.lol:
             return 0
@@ -578,12 +580,7 @@ class Pydf:
         
         if cols:
             # first make sure all columns have names.
-            try:
-                cols = [col if col else f"{unnamed_prefix}{idx}" for idx, col in enumerate(cols)] 
-            except Exception as err:
-                print(f"{err}")
-                import pdb; pdb.set_trace() #temp
-                pass
+            cols = [col if col else f"{unnamed_prefix}{idx}" for idx, col in enumerate(cols)] 
                 
             # next make sure they are all unique    
             col_hd = {}
@@ -643,6 +640,7 @@ class Pydf:
             return []
         
         return list(self.kd.keys())
+        
 
     def set_keyfield(self, keyfield: str=''):
         """ set the indexing keyfield to a new column
@@ -677,8 +675,6 @@ class Pydf:
     def _build_kd(col_idx: int, lol: T_lola) -> T_di:
         """ build key dictionary from col_idx col of lol """
         
-        # from utilities import utils
-
         key_col = utils.select_col_of_lol_by_col_idx(lol, col_idx)
         kd = {key: index for index, key in enumerate(key_col)}
         return kd
@@ -687,10 +683,20 @@ class Pydf:
     def row_idx_of(self, rowkey: str) -> int:
         """ return row_idx of key provided or -1 if not able to do it.
         """
+        # unit tested
+        
         if not self.keyfield or not self.kd:
             return -1
         return self.kd.get(rowkey, -1)
         
+
+    def get_existing_keys(self, keylist: T_ls) -> T_ls:
+        """ check the keylist against the keys defined in a pydf instance. 
+        """
+        # unit tested
+    
+        return [key for key in keylist if key in self.kd]
+
 
     
     #===========================
@@ -1752,13 +1758,6 @@ class Pydf:
         return self
         
         
-    def get_existing_keys(self, keylist: T_ls) -> T_ls:
-        """ check the keylist against the keys defined in a pydf instance. 
-        """
-    
-        return [key for key in keylist if key in self.kd]
-
-
     #=========================
     #   selecting
     
@@ -1773,8 +1772,6 @@ class Pydf:
         row_idx = self.kd.get(key, -1)
         if row_idx < 0:
             return {}
-        if row_idx >= len(self.lol):
-            return {}
         
         record_da = self._basic_get_record_da(row_idx)
         
@@ -1785,12 +1782,11 @@ class Pydf:
         """ return a record at irow as dict 
             include only "include_cols" if it is defined
             note, this requires that hd is defined.
-            TODO options:
-                create a column header if needed here.
-                always create a column header when pydf is created if one is not defined.
+            if no column header exists, this will generate a new one using spreadsheet convention.
         """
         if not self.hd:
-            raise RuntimeError("hd must be defined here")
+            cols = _generate_spreadsheet_column_names_list(num_cols=self.num_cols())
+            self.set_cols(cols)
         
         if include_cols:
             return {col:self.lol[irow][self.hd[col]] for col in include_cols if col in self.hd}
@@ -1925,6 +1921,8 @@ class Pydf:
             result_pydf = original_pydf.select_where(lambda row: bool(int(row['colname']) > 5))
         
         """
+        # unit test exists.
+
         result_lol = [list(row.values()) for row in self if where(row)]
 
         pydf = Pydf(cols=self.columns(), lol=result_lol, keyfield=self.keyfield, dtypes=self.dtypes)
@@ -1942,6 +1940,8 @@ class Pydf:
             result_pydf = original_pydf.select_where("int(row['colname']) > 5")
         
         """
+        # unit test exists.
+        
         return [idx for idx, row in enumerate(self) if where(row)]
 
 
@@ -2030,8 +2030,9 @@ class Pydf:
             exclude_cols: Optional[T_ls]=None, 
             ) -> 'Pydf':
         """ given a list of colnames, alter the pydf to select only the cols specified.
-            this produces a new pydf. Instead of selecting cols in this manner, simply
-            provide cols parameter in any .apply, .reduce, .from_xxx or .to_xxx methods.
+            this produces a new pydf. Instead of selecting cols in this manner, it is better
+            provide cols parameter in any .apply, .reduce, .from_xxx or .to_xxx methods,
+            because this operation is not efficient.
         """
         
         if not cols:
@@ -2048,16 +2049,20 @@ class Pydf:
         
         # select from the array and create a new object.
         # this is time consuming.
+        new_lol = []
         for irow, la in enumerate(self.lol):
             la = [la[col_idx] for col_idx in range(len(la)) if col_idx in selected_cols_li]
-            self.lol[irow] = la
+            new_lol.append(la)
        
-        # fix up the column names  
-        old_cols = list(self.hd.keys())
+        old_cols = self.columns()
         new_cols = [old_cols[idx] for idx in range(len(old_cols)) if idx in selected_cols_li]
-        self._cols_to_hd(new_cols)
+        dtypes = {col: typ for col, typ in self.dtypes.items() if col in new_cols}
         
-        self.dtypes = {col: typ for col, typ in self.dtypes.items() if col in new_cols}
+        new_keyfield = self.keyfield if self.keyfield and self.keyfield in new_cols else ''
+
+        new_pydf = Pydf(lol=new_lol, cols=new_cols, dtypes=dtypes, keyfield=new_keyfield)
+    
+        return(new_pydf)
         
 
     def from_selected_cols(self, cols: Optional[T_ls]=None, exclude_cols: Optional[T_ls]=None) -> 'Pydf':

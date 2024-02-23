@@ -136,6 +136,38 @@ class TestPydf(unittest.TestCase):
         pydf2 = Pydf(lol=[[1, 'A'], [2, 'B'], [3, 'C']], cols=['Col1', 'Col2'], keyfield='Col1')
         self.assertTrue(pydf1 == pydf2)
 
+    # len(pydf), .len(), .shape(), .num_cols()
+    def test_len(self):
+        # Test case with an empty dictionary
+        my_pydf = Pydf()
+        assert len(my_pydf) == 0
+        assert my_pydf.len() == 0
+        assert my_pydf.num_cols() == 0
+        assert my_pydf.shape() == (0, 0)
+
+        # Test case with a dictionary containing one key-value pair
+        my_pydf.append({'a': 1, 'b': 2, 'c': 3})
+        assert len(my_pydf) == 1
+        assert my_pydf.len() == 1
+        assert my_pydf.num_cols() == 3
+        assert my_pydf.shape() == (1, 3)
+
+        # Test case with a dictionary containing multiple key-value pairs
+        my_pydf.append({'a': 4, 'b': 5, 'c': 6})
+        my_pydf.append({'a': 7, 'b': 8, 'c': 9})
+        assert len(my_pydf) == 3
+        assert my_pydf.len() == 3
+        assert my_pydf.num_cols() == 3
+        assert my_pydf.shape() == (3, 3)
+
+        # Test case with a dictionary containing keys of mixed types
+        my_pydf.append({'a': 1, 2: 'b', 'c': True})
+        assert len(my_pydf) == 4
+        assert my_pydf.len() == 4
+        assert my_pydf.num_cols() == 3
+        assert my_pydf.shape() == (4, 3)
+
+
     # calc_cols
     def test_calc_cols_include_cols(self):
         # Test calc_cols method with include_cols parameter
@@ -375,6 +407,142 @@ class TestPydf(unittest.TestCase):
         self.assertEqual(pydf.row_idx_of('1'), -1)
 
 
+    # get_existing_keys
+    def test_get_existing_keys_with_existing_keys(self):
+        # Test case where all keys in keylist exist in kd
+        pydf = Pydf(lol=[[1, 'a'], [2, 'b'], [3, 'c']], cols=['ID', 'Name'], keyfield='Name')
+        existing_keys = pydf.get_existing_keys(['a', 'b', 'd'])
+        self.assertEqual(existing_keys, ['a', 'b'])
+
+    def test_get_existing_keys_with_no_existing_keys(self):
+        # Test case where no keys in keylist exist in kd
+        pydf = Pydf(lol=[[1, 'a'], [2, 'b'], [3, 'c']], cols=['ID', 'Name'], keyfield='Name')
+        existing_keys = pydf.get_existing_keys(['d', 'e', 'f'])
+        self.assertEqual(existing_keys, [])
+
+    def test_get_existing_keys_with_empty_keylist(self):
+        # Test case where keylist is empty
+        pydf = Pydf(lol=[[1, 'a'], [2, 'b'], [3, 'c']], cols=['ID', 'Name'], keyfield='Name')
+        existing_keys = pydf.get_existing_keys([])
+        self.assertEqual(existing_keys, [])
+
+    def test_get_existing_keys_with_empty_pydf(self):
+        # Test case where Pydf is empty
+        pydf = Pydf()
+        existing_keys = pydf.get_existing_keys(['a', 'b', 'c'])
+        self.assertEqual(existing_keys, [])
+
+
+
+    # calc cols
+    def test_calc_cols_with_include_cols(self):
+        # Test case where include_cols is provided
+        pydf = Pydf(lol=[[1, 'a'], [2, 'b'], [3, 'c']], cols=['ID', 'Name'], dtypes={'ID': int, 'Name': str})
+        self.assertEqual(pydf.calc_cols(include_cols=['ID']), ['ID'])
+
+    def test_calc_cols_with_exclude_cols(self):
+        # Test case where exclude_cols is provided
+        pydf = Pydf(lol=[[1, 'a'], [2, 'b'], [3, 'c']], cols=['ID', 'Name'], dtypes={'ID': int, 'Name': str})
+        self.assertEqual(pydf.calc_cols(exclude_cols=['ID']), ['Name'])
+
+    def test_calc_cols_with_include_types(self):
+        # Test case where include_types is provided
+        pydf = Pydf(lol=[[1, 'a'], [2, 'b'], [3, 'c']], cols=['ID', 'Name'], dtypes={'ID': int, 'Name': str})
+        self.assertEqual(pydf.calc_cols(include_types=[str]), ['Name'])
+
+    def test_calc_cols_with_exclude_types(self):
+        # Test case where exclude_types is provided
+        pydf = Pydf(lol=[[1, 'a'], [2, 'b'], [3, 'c']], cols=['ID', 'Name'], dtypes={'ID': int, 'Name': str})
+        self.assertEqual(pydf.calc_cols(exclude_types=[str]), ['ID'])
+
+    def test_calc_cols_with_empty_pydf(self):
+        # Test case where Pydf is empty
+        pydf = Pydf()
+        self.assertEqual(pydf.calc_cols(), [])
+        
+    def test_calc_cols_with_include_cols_large(self):
+        # Test case where include_cols is provided with more than 10 columns
+        pydf = Pydf(lol=[[1, 'a', True, 1, 'a', True, 1, 'a', True, 1, 'a', True], 
+                         [2, 'b', False, 2, 'b', False, 2, 'b', False, 2, 'b', False], 
+                         [3, 'c', True, 3, 'c', True, 3, 'c', True, 3, 'c', True]], 
+                         cols=['ID', 'Name', 'Flag', 'ID2', 'Name2', 'Flag2', 'ID3', 'Name3', 'Flag3', 'ID4', 'Name4', 'Flag4'], 
+                         dtypes={'ID': int, 'Name': str, 'Flag': bool, 
+                                 'ID2': int, 'Name2': str, 'Flag2': bool, 
+                                 'ID3': int, 'Name3': str, 'Flag3': bool, 
+                                 'ID4': int, 'Name4': str, 'Flag4': bool})
+        self.assertEqual(pydf.calc_cols(include_cols=['ID', 'Name', 'Flag']), ['ID', 'Name', 'Flag'])
+
+    def test_calc_cols_with_include_cols_large_include_large(self):
+        # Test case where include_cols is provided with more than 10 columns
+        pydf = Pydf(lol=[[1, 'a', True, 1, 'a', True, 1, 'a', True, 1, 'a', True], 
+                         [2, 'b', False, 2, 'b', False, 2, 'b', False, 2, 'b', False], 
+                         [3, 'c', True, 3, 'c', True, 3, 'c', True, 3, 'c', True]], 
+                         cols=['ID', 'Name', 'Flag', 'ID2', 'Name2', 'Flag2', 'ID3', 'Name3', 'Flag3', 'ID4', 'Name4', 'Flag4'], 
+                         dtypes={'ID': int, 'Name': str, 'Flag': bool, 
+                                 'ID2': int, 'Name2': str, 'Flag2': bool, 
+                                 'ID3': int, 'Name3': str, 'Flag3': bool, 
+                                 'ID4': int, 'Name4': str, 'Flag4': bool})
+        self.assertEqual(pydf.calc_cols(include_cols=['ID', 'Name', 'Flag', 'ID2', 'Name2', 'Flag2', 'ID3', 'Name3', 'Flag3', 'ID4', 'Name4']), ['ID', 'Name', 'Flag', 'ID2', 'Name2', 'Flag2', 'ID3', 'Name3', 'Flag3', 'ID4', 'Name4'])
+
+    def test_calc_cols_with_exclude_cols_large_enclude_large(self):
+        # Test case where exclude_cols is provided with more than 10 columns
+        pydf = Pydf(lol=[[1, 'a', True, 1, 'a', True, 1, 'a', True, 1, 'a', True], 
+                         [2, 'b', False, 2, 'b', False, 2, 'b', False, 2, 'b', False], 
+                         [3, 'c', True, 3, 'c', True, 3, 'c', True, 3, 'c', True]], 
+                         cols=['ID', 'Name', 'Flag', 'ID2', 'Name2', 'Flag2', 'ID3', 'Name3', 'Flag3', 'ID4', 'Name4', 'Flag4'], 
+                         dtypes={'ID': int, 'Name': str, 'Flag': bool, 
+                                 'ID2': int, 'Name2': str, 'Flag2': bool, 
+                                 'ID3': int, 'Name3': str, 'Flag3': bool, 
+                                 'ID4': int, 'Name4': str, 'Flag4': bool})
+        self.assertEqual(pydf.calc_cols(exclude_cols=['ID', 'Name', 'Flag', 'ID2', 'Name2', 'Flag2', 'ID3', 'Name3', 'Flag3', 'ID4', 'Name4']), ['Flag4'])
+
+    def test_calc_cols_with_exclude_cols_large(self):
+        # Test case where exclude_cols is provided with more than 10 columns
+        pydf = Pydf(lol=[[1, 'a', True, 1, 'a', True, 1, 'a', True, 1, 'a', True], 
+                         [2, 'b', False, 2, 'b', False, 2, 'b', False, 2, 'b', False], 
+                         [3, 'c', True, 3, 'c', True, 3, 'c', True, 3, 'c', True]], 
+                         cols=['ID', 'Name', 'Flag', 'ID2', 'Name2', 'Flag2', 'ID3', 'Name3', 'Flag3', 'ID4', 'Name4', 'Flag4'], 
+                         dtypes={'ID': int, 'Name': str, 'Flag': bool, 
+                                 'ID2': int, 'Name2': str, 'Flag2': bool, 
+                                 'ID3': int, 'Name3': str, 'Flag3': bool, 
+                                 'ID4': int, 'Name4': str, 'Flag4': bool})
+        self.assertEqual(pydf.calc_cols(exclude_cols=['ID', 'Name', 'Flag']), ['ID2', 'Name2', 'Flag2', 'ID3', 'Name3', 'Flag3', 'ID4', 'Name4', 'Flag4'])
+
+    def test_calc_cols_with_include_types_large(self):
+        # Test case where include_types is provided with more than 10 columns
+        pydf = Pydf(lol=[[1, 'a', True, 1, 'a', True, 1, 'a', True, 1, 'a', True], 
+                         [2, 'b', False, 2, 'b', False, 2, 'b', False, 2, 'b', False], 
+                         [3, 'c', True, 3, 'c', True, 3, 'c', True, 3, 'c', True]], 
+                         cols=['ID', 'Name', 'Flag', 'ID2', 'Name2', 'Flag2', 'ID3', 'Name3', 'Flag3', 'ID4', 'Name4', 'Flag4'], 
+                         dtypes={'ID': int, 'Name': str, 'Flag': bool, 
+                                 'ID2': int, 'Name2': str, 'Flag2': bool, 
+                                 'ID3': int, 'Name3': str, 'Flag3': bool, 
+                                 'ID4': int, 'Name4': str, 'Flag4': bool})
+        self.assertEqual(pydf.calc_cols(include_types=[int, bool]), ['ID', 'Flag', 'ID2', 'Flag2', 'ID3', 'Flag3', 'ID4', 'Flag4'])
+
+    def test_calc_cols_with_exclude_types_large(self):
+        # Test case where exclude_types is provided with more than 10 columns
+        pydf = Pydf(lol=[[1, 'a', True, 1, 'a', True, 1, 'a', True, 1, 'a', True], 
+                         [2, 'b', False, 2, 'b', False, 2, 'b', False, 2, 'b', False], 
+                         [3, 'c', True, 3, 'c', True, 3, 'c', True, 3, 'c', True]], 
+                         cols=['ID', 'Name', 'Flag', 'ID2', 'Name2', 'Flag2', 'ID3', 'Name3', 'Flag3', 'ID4', 'Name4', 'Flag4'], 
+                         dtypes={'ID': int, 'Name': str, 'Flag': bool, 
+                                 'ID2': int, 'Name2': str, 'Flag2': bool, 
+                                 'ID3': int, 'Name3': str, 'Flag3': bool, 
+                                 'ID4': int, 'Name4': str, 'Flag4': bool})
+        self.assertEqual(pydf.calc_cols(exclude_types=[int, bool]), ['Name', 'Name2', 'Name3', 'Name4'])
+       
+    def test_calc_cols_with_exclude_types_large_exclude_nonlist(self):
+        # Test case where exclude_types is provided with more than 10 columns
+        pydf = Pydf(lol=[[1, 'a', True, 1, 'a', True, 1, 'a', True, 1, 'a', True], 
+                         [2, 'b', False, 2, 'b', False, 2, 'b', False, 2, 'b', False], 
+                         [3, 'c', True, 3, 'c', True, 3, 'c', True, 3, 'c', True]], 
+                         cols=['ID', 'Name', 'Flag', 'ID2', 'Name2', 'Flag2', 'ID3', 'Name3', 'Flag3', 'ID4', 'Name4', 'Flag4'], 
+                         dtypes={'ID': int, 'Name': str, 'Flag': bool, 
+                                 'ID2': int, 'Name2': str, 'Flag2': bool, 
+                                 'ID3': int, 'Name3': str, 'Flag3': bool, 
+                                 'ID4': int, 'Name4': str, 'Flag4': bool})
+        self.assertEqual(pydf.calc_cols(exclude_types=int), ['Name', 'Flag', 'Name2', 'Flag2', 'Name3', 'Flag3', 'Name4', 'Flag4'])
 
     # from/to cases
     def test_from_lod(self):
@@ -422,6 +590,13 @@ class TestPydf(unittest.TestCase):
         self.assertEqual(actual_hllola, expected_hllola)
 
     # append
+    def test_append_without_record(self):
+        pydf = Pydf()
+
+        pydf.append({})
+
+        self.assertEqual(pydf, Pydf())
+
     def test_append_without_keyfield(self):
         pydf = Pydf()
         record_da = {'col1': 1, 'col2': 'b'}
@@ -447,10 +622,17 @@ class TestPydf(unittest.TestCase):
 
         pydf.append(record_da)
 
+        self.assertEqual(pydf.lol, [[1, 'a'], [2, 'b'], [3, 'c']])
+
+        # append record with same keyfield will modify in place
+        record_da = {'col1': 3, 'col2': 'd'}
+
+        pydf.append(record_da)
+
         self.assertEqual(pydf.name, '')
         self.assertEqual(pydf.keyfield, 'col1')
         self.assertEqual(pydf.columns(), cols)
-        self.assertEqual(pydf.lol, [[1, 'a'], [2, 'b'], [3, 'c']])
+        self.assertEqual(pydf.lol, [[1, 'a'], [2, 'b'], [3, 'd']])
         self.assertEqual(pydf.kd, {1: 0, 2: 1, 3: 2})
         self.assertEqual(pydf.dtypes, dtypes)
         self.assertEqual(pydf._iter_index, 0)
@@ -618,6 +800,23 @@ class TestPydf(unittest.TestCase):
         self.assertEqual(pydf.hd, hd)
         self.assertEqual(pydf.lol, [[1, 'a'], [3, 'c']])
         self.assertEqual(pydf.kd, {1: 0, 3: 1})
+        self.assertEqual(pydf.dtypes, {'col1': int, 'col2': str})
+        self.assertEqual(pydf._iter_index, 0)
+
+    def test_remove_key_keyfield_notdefined(self):
+        cols = ['col1', 'col2']
+        hd = {'col1': 0, 'col2': 1}
+        lol = [[1, 'a'], [2, 'b'], [3, 'c']]
+        pydf = Pydf(cols=cols, lol=lol, keyfield='', dtypes={'col1': int, 'col2': str})
+
+        keyval = 4
+        pydf.remove_key(keyval, silent_error=True)
+
+        self.assertEqual(pydf.name, '')
+        self.assertEqual(pydf.keyfield, '')
+        self.assertEqual(pydf.hd, hd)
+        self.assertEqual(pydf.lol, [[1, 'a'], [2, 'b'], [3, 'c']])
+        self.assertEqual(pydf.kd, {})
         self.assertEqual(pydf.dtypes, {'col1': int, 'col2': str})
         self.assertEqual(pydf._iter_index, 0)
 
@@ -869,6 +1068,32 @@ class TestPydf(unittest.TestCase):
         expectmax = 1
         with self.assertRaises(LookupError):  # You should replace this with the actual exception that should be raised
             pydf.select_by_dict(selector_da, expectmax=expectmax)
+
+    # select_first_row_by_dict
+    def test_select_first_row_by_dict_matching(self):
+        # Test case where the first row matching the selector dictionary is found
+        pydf = Pydf(lol=[[1, 'John'], [2, 'Jane'], [3, 'Doe']], cols=['ID', 'Name'])
+        selected_row = pydf.select_first_row_by_dict({'ID': 2})
+        self.assertEqual(selected_row, {'ID':2, 'Name':'Jane'})
+
+    def test_select_first_row_by_dict_no_match(self):
+        # Test case where no row matches the selector dictionary
+        pydf = Pydf(lol=[[1, 'John'], [2, 'Jane'], [3, 'Doe']], cols=['ID', 'Name'])
+        selected_row = pydf.select_first_row_by_dict({'ID': 4})
+        self.assertEqual(selected_row, {})
+
+    def test_select_first_row_by_dict_inverse_matching(self):
+        # Test case where the first row not matching the selector dictionary is found
+        pydf = Pydf(lol=[[1, 'John'], [2, 'Jane'], [3, 'Doe']], cols=['ID', 'Name'])
+        selected_row = pydf.select_first_row_by_dict({'ID': 2}, inverse=True)
+        self.assertEqual(selected_row, {'ID':1, 'Name':'John'})
+
+    def test_select_first_row_by_dict_empty_pydf(self):
+        # Test case where Pydf is empty
+        pydf = Pydf(lol=[], cols=['ID', 'Name'])
+        selected_row = pydf.select_first_row_by_dict({'ID': 2})
+        self.assertEqual(selected_row, {})
+
 
     # col / col_to_la
     def test_col_existing_colname(self):
@@ -1438,6 +1663,39 @@ class TestPydf(unittest.TestCase):
 
         self.assertEqual(result_la, [])
 
+    def test_icol_to_la_unique(self):
+        cols = ['col1', 'col2', 'col3']
+        lol = [[1, 'a', True], [2, 'b', False], [3, 'a', True]]
+        pydf = Pydf(cols=cols, lol=lol, keyfield='col1', dtypes={'col1': int, 'col2': str, 'col3': bool})
+
+        result_la = pydf.icol_to_la(1, unique=True)
+
+        expected_la = ['a', 'b']
+        self.assertEqual(result_la, expected_la)
+        
+
+    def test_icol_to_la_omit_nulls_true_with_null(self):
+        cols = ['col1', 'col2', 'col3']
+        lol = [[1, 'a', True], [2, 'b', False], [3, '', True]]
+        pydf = Pydf(cols=cols, lol=lol, keyfield='col1', dtypes={'col1': int, 'col2': str, 'col3': bool})
+
+        result_la = pydf.icol_to_la(1, omit_nulls=True)
+
+        expected_la = ['a', 'b']
+        self.assertEqual(result_la, expected_la)
+        
+
+    def test_icol_to_la_omit_nulls_false_with_null(self):
+        cols = ['col1', 'col2', 'col3']
+        lol = [[1, 'a', True], [2, 'b', False], [3, '', True]]
+        pydf = Pydf(cols=cols, lol=lol, keyfield='col1', dtypes={'col1': int, 'col2': str, 'col3': bool})
+
+        result_la = pydf.icol_to_la(1, omit_nulls=False)
+
+        expected_la = ['a', 'b', '']
+        self.assertEqual(result_la, expected_la)
+        
+
     # assign_icol
     def test_assign_icol_valid_icol_col_la(self):
         cols = ['col1', 'col2', 'col3']
@@ -1666,6 +1924,38 @@ class TestPydf(unittest.TestCase):
 
         self.assertEqual(pydf.lol, lol)
         self.assertEqual(pydf.hd, hd)
+
+    # select_cols
+    def test_select_cols_with_cols(self):
+        # Test case where columns are selected based on the cols parameter
+        pydf = Pydf(lol=[[1, 'a', True], [2, 'b', False], [3, 'c', True]], cols=['ID', 'Name', 'Flag'], dtypes={'ID': int, 'Name': str, 'Flag': bool})
+        new_pydf = pydf.select_cols(cols=['ID', 'Flag'])
+        self.assertEqual(new_pydf.columns(), ['ID', 'Flag'])
+        self.assertEqual(new_pydf.lol,  [[1, True], [2, False], [3, True]])
+        
+        # verify that the original is unchanged
+        self.assertEqual(pydf.columns(), ['ID', 'Name', 'Flag'])
+        self.assertEqual(pydf.lol,  [[1, 'a', True], [2, 'b', False], [3, 'c', True]])
+        
+
+    def test_select_cols_with_exclude_cols(self):
+        # Test case where columns are selected based on the exclude_cols parameter
+        pydf = Pydf(lol=[[1, 'a', True], [2, 'b', False], [3, 'c', True]], cols=['ID', 'Name', 'Flag'], dtypes={'ID': int, 'Name': str, 'Flag': bool})
+        new_pydf = pydf.select_cols(exclude_cols=['Name'])
+        self.assertEqual(new_pydf.columns(), ['ID', 'Flag'])
+        self.assertEqual(new_pydf.lol,  [[1, True], [2, False], [3, True]])
+
+    def test_select_cols_with_empty_params(self):
+        # Test case where no cols or exclude_cols are provided
+        pydf = Pydf(lol=[[1, 'a', True], [2, 'b', False], [3, 'c', True]], cols=['ID', 'Name', 'Flag'], dtypes={'ID': int, 'Name': str, 'Flag': bool})
+        new_pydf = pydf.select_cols()
+        self.assertEqual(new_pydf, pydf)
+
+    def test_select_cols_with_empty_pydf(self):
+        # Test case where Pydf is empty
+        pydf = Pydf()
+        new_pydf = pydf.select_cols(cols=['ID', 'Name'])
+        self.assertEqual(new_pydf.columns(), [])
 
 
     # unified sum
@@ -2291,15 +2581,6 @@ class TestPydf(unittest.TestCase):
         expected_data = Pydf(cols=['col1', 'col2'], lol=[[3, 6]])
         self.assertEqual(result_pydf, expected_data)
 
-    # def test_select_where_invalid_condition_syntax_error(self):
-        # # Test an invalid condition with syntax error
-        # pydf = Pydf(cols=['col1', 'col2'], lol=[[1, 4], [2, 5], [3, 6]])
-
-        # with self.assertRaises(SyntaxError) as context:
-            # pydf.select_where("row['col1'] >")
-
-        # self.assertIn("invalid syntax", str(context.exception))
-
     def test_select_where_invalid_condition_runtime_error(self):
         # Test an invalid condition causing a runtime error
         pydf = Pydf(cols=['col1', 'col2'], lol=[[1, 4], [2, 5], [3, 6]])
@@ -2332,6 +2613,49 @@ class TestPydf(unittest.TestCase):
         result_pydf = pydf.select_where(lambda row: bool(list(row.values())[0] > 1 and list(row.values())[1] < 6))
         expected_data = Pydf(cols=['col1', 'col2'], lol=[[2, 5]])
         self.assertEqual(result_pydf, expected_data)
+
+    # select_where_idxs
+    def test_select_where_idxs_basic_condition(self):
+        # Test a basic condition where col1 values are greater than 2
+        pydf = Pydf(cols=['col1', 'col2'], lol=[[1, 4], [2, 5], [3, 6]])
+
+        result_idxs_list = pydf.select_where_idxs(lambda row: row['col1'] > 2)
+        expected_data = [2]
+        self.assertEqual(result_idxs_list, expected_data)
+
+    def test_select_where_idxs_invalid_condition_runtime_error(self):
+        # Test an invalid condition causing a runtime error
+        pydf = Pydf(cols=['col1', 'col2'], lol=[[1, 4], [2, 5], [3, 6]])
+
+        with self.assertRaises(ZeroDivisionError) as context:
+            pydf.select_where_idxs(lambda row: 1 / 0)
+
+        self.assertIn("division by zero", str(context.exception))
+
+    def test_select_where_idxs_empty_result(self):
+        # Test a condition that results in an empty Pydf
+        pydf = Pydf(cols=['col1', 'col2'], lol=[[1, 4], [2, 5], [3, 6]])
+
+        result_list = pydf.select_where_idxs(lambda row: row['col1'] > 10)
+        expected_data = []
+        self.assertEqual(result_list, expected_data)
+
+    def test_select_where_idxs_complex_condition(self):
+        # Test a complex condition involving multiple columns
+        pydf = Pydf(cols=['col1', 'col2'], lol=[[1, 4], [2, 5], [3, 6]])
+
+        result_list = pydf.select_where_idxs(lambda row: row['col1'] > 1 and row['col2'] < 6)
+        expected_data = [1]
+        self.assertEqual(result_list, expected_data)
+
+    def test_select_where_idxs_complex_condition_indexes(self):
+        # Test a complex condition involving multiple columns
+        pydf = Pydf(cols=['col1', 'col2'], lol=[[1, 4], [2, 5], [3, 6]])
+
+        result_list = pydf.select_where_idxs(lambda row: bool(list(row.values())[0] > 1 and list(row.values())[1] < 6))
+        expected_data = [1]
+        self.assertEqual(result_list, expected_data)
+
 
     # test test_from_cols_dol
     def test_from_cols_dol_empty_input(self):
