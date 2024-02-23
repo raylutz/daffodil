@@ -519,47 +519,55 @@ from Pydf.Pydf import Pydf
     
 Notes:
 
-1. to_pandas_df -- this is a critical operation where Pandas has a severe problem, as it takes about 34x
-    longer to load an array vs. Pydf. Since Pandas is very slow appending rows, it is a common patter to
+1. `to_pandas_df()` -- this is a critical operation where Pandas has a severe problem, as it takes about 34x
+    longer to load an array vs. Pydf. Since Pandas is very slow appending rows, it is a common pattern to
     first build a table to list of dictionaries (lod) or Pydf array, and then port to a pandas df. But
-    the overhead can be a killer in critical dataflow operations.
-1. to_pandas_df_thru_csv -- This exports the array to csv in a buffer, then reads the buffer into Pandas,
+    the overhead is so severe that it will take at least 30 column operations across all columns to make
+    up the difference.
+1. `to_pandas_df_thru_csv()` -- This exports the array to csv in a buffer, then reads the buffer into Pandas,
     and can improve the porting to pandas df by about 10x.
-2. sum_cols uses best python summing of all columns with one pass through the data, while sum_np first
-    imports the columns to NumPy, performs the sum of all columns there, and then reads it back to Pydf. In this case,
+2. `sum_cols()` uses best python summing of all columns with one pass through the data, while `sum_np` first
+    exports the columns to NumPy, performs the sum of all columns there, and then reads it back to Pydf. In this case,
     it takes about 1/3 the time to use NumPy for summing. This demonstrates that using NumPy for 
-    strictly numeric operations on columns is optimal.
-3. Transposing a numpy array: it does not create a separate copy of the array in memory. Instead, it returns a 
+    strictly numeric operations on columns may be a good idea if the number of columns and rows being summed is
+    sufficient. Otherwise, using Daffodil to sum the columns may still be substantialy faster.
+3. Transpose: Numpy does not create a separate copy of the array in memory. Instead, it returns a 
     view of the original array with the dimensions rearranged. It is a constant-time operation, as it simply 
     involves changing the shape and strides of the array metadata without moving any of the actual data in 
     memory. It is an efficient operation and does not consume additional memory. There may be a way to 
     accelerate transposition within python and of non-numeric objects by using a similar strategy
-    with the references to objects that Python uses.
-4. In general, we note that Pydf is faster than Pandas for array manipulation (inserting rows (300x faster) 
+    with the references to objects that Python uses. Transpose with Daffodil is slow right now but there may be
+    a way to more quickly provide the transpose operation if coded at a lower level.
+4. In general, we note that Daffodil is faster than Pandas for array manipulation (inserting rows (300x faster) 
     and cols (1.4x faster)), performing actions on individual cells (5x faster), appending rows (which Pandas essentially outlaws), 
     and performing keyed lookups (8.4x faster). Pydf arrays are smaller 
     whenever any strings are included in the array by about 3x over Pandas. While Pandas and Numpy
-    are faster for columnar calculations, but Numpy is always faster on all numeric data. Therefore
-    it is a good strategy to use Pydf for all operations except for pure data manipulation, and then
+    are faster for columnar calculations, Numpy is always faster on all numeric data. Therefore
+    it is a good strategy to use Daffodil for all operations except for pure data manipulation, and then
     port the appropriate columns to NumPy.
+5. Thus, the stragegy of Daffodil vs Pandas is that Daffodil leaves data in Python native form, which requires no 
+    conversion for all cases except when rapid processing is required, and then the user should export only those
+    columns to Numpy. In contrast, Pandas converts all columns to Numpy, and then has to repair the columns that
+    have strings or other types. Daffodil is not a direct replacement for Pandas, as it covers a different use case,
+    and can be used effectively in data pipelines and to fix up the data prior to porting to Pandas.
 
 
-|             Attribute              |  pydf  |  pandas  |  numpy   | sqlite |  lod   | loops |
-| ---------------------------------: | :----: | :------: | :------: | :----: | :----: | :---- |
-|                           from_lod |  1.4   |   48.2   |   0.62   |  7.0   |        | 10    |
-|                       to_pandas_df |  47.3  |          | 0.00029  |        |  48.2  | 10    |
-|              to_pandas_df_thru_csv |  5.1   |          |          |        |        | 10    |
-|                     from_pandas_df |  4.0   |          | 0.000046 |        |        | 10    |
-|                           to_numpy |  0.47  | 0.000046 |          |        |  0.62  | 10    |
-|                         from_numpy | 0.078  | 0.00029  |          |        |        | 10    |
-|                     increment cell | 0.010  |  0.044   |          |        |        | 1,000 |
-|                        insert_irow | 0.0018 |   0.89   |          |        |        | 100   |
-|                        insert_icol |  0.15  |   0.21   |          |        |        | 100   |
-|                           sum cols |  1.6   |  0.049   |  0.028   |  2.8   |  1.2   | 10    |
-|                             sum_np |  0.58  |          |          |        |        | 10    |
-|                          transpose |  20.2  |  0.0015  | 0.000025 |        |        | 10    |
-|                       keyed lookup | 0.0081 |  0.065   |          |  0.35  | 0.0083 | 100   |
-|       Size of 1000x1000 array (MB) |  38.3  |   9.3    |          |  4.9   |  119   |       |
-| Size of keyed 1000x1000 array (MB) |  38.5  |   98.1   |    --    |  4.9   |  119   |       |
+|             Attribute              |  pydf  |  pandas  |  numpy   | sqlite |  lod  | loops |
+| ---------------------------------: | :----: | :------: | :------: | :----: | :---: | :---- |
+|                           from_lod |  1.5   |   67.6   |   0.64   |  7.5   |       | 10    |
+|                       to_pandas_df |  47.4  |          | 0.00029  |        | 67.6  | 10    |
+|              to_pandas_df_thru_csv |  5.2   |          |          |        |       | 10    |
+|                     from_pandas_df |  3.9   |          | 0.000044 |        |       | 10    |
+|                           to_numpy |  0.44  | 0.000044 |          |        | 0.64  | 10    |
+|                         from_numpy | 0.075  | 0.00029  |          |        |       | 10    |
+|                     increment cell | 0.0098 |  0.045   |          |        |       | 1,000 |
+|                        insert_irow | 0.0021 |   0.86   |          |        |       | 100   |
+|                        insert_icol |  0.12  |   0.20   |          |        |       | 100   |
+|                           sum cols |  1.5   |  0.049   |  0.027   |  2.6   |  1.2  | 10    |
+|                             sum_np |  0.56  |          |          |        |       | 10    |
+|                          transpose |  19.8  |  0.0015  | 0.000026 |        |       | 10    |
+|                       keyed lookup | 0.0088 |  0.084   |          |  0.33  | 0.010 | 100   |
+|       Size of 1000x1000 array (MB) |  38.3  |   9.3    |          |  4.9   |  119  |       |
+| Size of keyed 1000x1000 array (MB) |  38.5  |   98.1   |    --    |  4.9   |  119  |       |
 
 
