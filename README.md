@@ -2,8 +2,7 @@
 
 # Python Daffodil -- Pydf
 
-(STATUS -- Note: This is an alpha release. The API is in flux. The name of the packet will be changing from Pydf
-to 'daffodil' and the class will be Daf. This change is not refected in the text below.)
+(STATUS -- Note: This is an alpha release. The API is in flux. The name of the packege will be changing from Pydf to 'daffodil' and the class will be Daf. This change is not refected in the text below.)
 
 The Python Daffodil (DAtaFrames For Optimized Data Interpretation and Logical processing) -- Pydf package provides
 lightweight, simple and flexible 2-d dataframes built on 
