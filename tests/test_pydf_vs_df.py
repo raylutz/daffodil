@@ -500,7 +500,7 @@ def main():
 
     md_report += md_code_seg("Create sample_lod")
     """ Here we generate a table using a python list-of-dict structure,
-        with 1000 columns and 1000 rows, consisting of
+        with 1000 columns and 1000 rows, consisting of 1 million
         integers from 0 to 100. Set the seed to an arbitrary value for
         reproducibility. Also, create other forms similarly or by converting
         the sample_lod.
@@ -553,8 +553,10 @@ def main():
     ## hllol = lod_to_hllol(sample_lod)
 
     md_report += md_code_seg("Create Pandas df")
-    # Create a Pandas DataFrame
-    # here we used an unadorned basic pre-canned method.
+    """ Create a Pandas DataFrame
+    
+Here we use an unadorned basic pre-canned Pandas function to construct the dataframe.
+"""
     df = pd.DataFrame(sample_lod, dtype=int)
     sizeof_di['df'] = asizeof.asizeof(df)
 
@@ -562,7 +564,12 @@ def main():
                     f"{sizeof_di['df']=:,} bytes\n\n")
 
     md_report += md_code_seg("Create Pandas csv_df from Pydf thru csv")
-    # Create a Pandas DataFrame by convering Pydf through a csv buffer.
+    """ Create a Pandas DataFrame by convering Pydf through a csv buffer.
+
+We found tha twe could save a lot of time by coverting the data to a csv buffer and then 
+    importing that buffer into Pandas. This does not make a lot of sense, but it is true.
+    """
+
     csv_df = pydf.to_pandas_df(use_csv=True)
     sizeof_di['csv_df'] = asizeof.asizeof(csv_df)
 
@@ -572,8 +579,8 @@ def main():
     md_report += md_code_seg("Create keyed Pandas df")
     """ Create a keyed Pandas df based on the sample_klod generated.
         Please note this takes far more memory than a Pandas df without this
-        str column, almost 3x the size of Pydf instance. To test fast lookups,
-        we also use set_index to get ready for fast lookups.
+        str column, almost 3x the size of Pydf instance with the same data. To test fast lookups,
+        we also use set_index to get ready for fast lookups so we can compare with Daffodil lookups.
     """
     
     kdf = pd.DataFrame(sample_klod)
@@ -585,21 +592,30 @@ def main():
     md_report += pr(f"- {sizeof_di['kdf']=:,} bytes\n\n")
 
     md_report += md_code_seg("create hdnpa from lod")
+    """ A hdnpa is a Numpy array with a header dictionary. The overall size is about the same as just the NumPy array.
+    """
     hdnpa = lod_to_hdnpa(sample_lod)
     sizeof_di['hdnpa'] = asizeof.asizeof(hdnpa)
     md_report += pr(f"{sizeof_di['hdnpa']=:,} bytes\n\n")
 
     md_report += md_code_seg("Create lont from lod")
+    """ We also tried a structure based on a list of named tuples. This is very slow and does not provide any savings.
+    """
     lont = lod_to_lont(sample_lod)
     sizeof_di['lont'] = asizeof.asizeof(lont)
     md_report += pr(f"{sizeof_di['lont']=:,} bytes\n\n")
 
     md_report += md_code_seg("Create hdlot from lod")
+    """ Another option is a list of tuples with a header dictionary. This is also slow and no space savings..
+    """
     hdlot = lod_to_hdlot(sample_lod)
     sizeof_di['hdlot'] = asizeof.asizeof(hdlot)
     md_report += pr(f"{sizeof_di['hdlot']=:,} bytes\n\n")
 
     # create sqlite_table
+    """ Convering to a sqlite table is surprisingly fast as it beats creating a Pandas dataframe with this data.
+    The space taken in memory is hard to calculate and the method we used to calculate it would produce 0.
+    """
     md_report += md_code_seg("Create sqlite_table from klod")
     lod_to_sqlite_table(sample_klod, table_name='tempdata1')
 
@@ -805,34 +821,44 @@ from Pydf.Pydf import Pydf
                         'loops':    '',
                         })
 
-    md_report += report_pydf.to_md(smart_fmt = True, just = '>^^^^^')
+    md_report += "\n\n" + report_pydf.to_md(smart_fmt = True, just = '>^^^^^') + "\n\n"
     
-    md_report += """Notes:
+    """
+    
+Notes:
 
-1. to_pandas_df -- this is a critical operation where Pandas has a severe problem, as it takes about 38x
-    longer to load an array vs. Pydf. Since Pandas is very slow appending rows, it is a common patter to
+1. `to_pandas_df()` -- this is a critical operation where Pandas has a severe problem, as it takes about 34x
+    longer to load an array vs. Pydf. Since Pandas is very slow appending rows, it is a common pattern to
     first build a table to list of dictionaries (lod) or Pydf array, and then port to a pandas df. But
-    the overhead can be a killer in critical dataflow operations.
-1. to_pandas_df_thru_csv -- This exports the array to csv in a buffer, then reads the buffer into Pandas,
+    the overhead is so severe that it will take at least 30 column operations across all columns to make
+    up the difference.
+1. `to_pandas_df_thru_csv()` -- This exports the array to csv in a buffer, then reads the buffer into Pandas,
     and can improve the porting to pandas df by about 10x.
-2. sum_cols uses best python summing of all columns with one pass through the data, while sum_np first
-    imports the columns to NumPy, performs the sum of all columns there, and then reads it back to Pydf. In this case,
+2. `sum_cols()` uses best python summing of all columns with one pass through the data, while `sum_np` first
+    exports the columns to NumPy, performs the sum of all columns there, and then reads it back to Pydf. In this case,
     it takes about 1/3 the time to use NumPy for summing. This demonstrates that using NumPy for 
-    strictly numeric operations on columns is optimal.
-3. Transposing a numpy array: it does not create a separate copy of the array in memory. Instead, it returns a 
+    strictly numeric operations on columns may be a good idea if the number of columns and rows being summed is
+    sufficient. Otherwise, using Daffodil to sum the columns may still be substantialy faster.
+3. Transpose: Numpy does not create a separate copy of the array in memory. Instead, it returns a 
     view of the original array with the dimensions rearranged. It is a constant-time operation, as it simply 
     involves changing the shape and strides of the array metadata without moving any of the actual data in 
     memory. It is an efficient operation and does not consume additional memory. There may be a way to 
     accelerate transposition within python and of non-numeric objects by using a similar strategy
-    with the references to objects that Python uses.
-4. In general, we note that Pydf is faster than Pandas for array manipulation (inserting rows (300x faster) 
-    and cols (1.4x faster)),  
-    performing actions on individual cells (5x faster), appending rows (which Pandas essentially outlaws), 
+    with the references to objects that Python uses. Transpose with Daffodil is slow right now but there may be
+    a way to more quickly provide the transpose operation if coded at a lower level.
+4. In general, we note that Daffodil is faster than Pandas for array manipulation (inserting rows (300x faster) 
+    and cols (1.4x faster)), performing actions on individual cells (5x faster), appending rows (which Pandas essentially outlaws), 
     and performing keyed lookups (8.4x faster). Pydf arrays are smaller 
     whenever any strings are included in the array by about 3x over Pandas. While Pandas and Numpy
-    are faster for columnar calculations, but Numpy is always faster on all numeric data. Therefore
-    it is a good strategy to use Pydf for all operations except for pure data manipulation, and then
-    port the appropriate columns to NumPy. 
+    are faster for columnar calculations, Numpy is always faster on all numeric data. Therefore
+    it is a good strategy to use Daffodil for all operations except for pure data manipulation, and then
+    port the appropriate columns to NumPy.
+5. Thus, the stragegy of Daffodil vs Pandas is that Daffodil leaves data in Python native form, which requires no 
+    conversion for all cases except when rapid processing is required, and then the user should export only those
+    columns to Numpy. In contrast, Pandas converts all columns to Numpy, and then has to repair the columns that
+    have strings or other types. Daffodil is not a direct replacement for Pandas, as it covers a different use case,
+    and can be used effectively in data pipelines and to fix up the data prior to porting to Pandas.
+
 """    
 
     md_code_seg()

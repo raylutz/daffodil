@@ -3,6 +3,7 @@
 # copyright (c) 2024 Ray Lutz
 
 import io
+import os
 import csv
 import re
 import math
@@ -14,19 +15,20 @@ import ast
 import platform
 
 import xlsx2csv     # type: ignore
+#import numpy as np
 
 
-from typing import List, Dict, Any, Tuple, Optional, Union, cast #, Type, Callable
+from typing import List, Dict, Any, Tuple, Optional, Union, cast, Type #, Callable
 
 def fake_function(a: Optional[List[Dict[str, Tuple[int,Union[Any, str]]]]] = None) -> Optional[int]:
-    return None or cast(int, 0)
+    return None or cast(int, 0)       # pragma: no cover
 
 
-from Pydf.pydf_types import T_lola, T_loda, T_dtype_dict, T_da, T_ds, T_hdlola, T_la, T_loti, T_ls, T_doda
-                    # T_lols, T_loloda, T_lodoloda, T_dtype, T_num, T_df, T_lods, T_lodf, 
+from Pydf.pydf_types import T_lola, T_loda, T_dtype_dict, T_da, T_ds, T_hdlola, T_la, T_loti, T_ls, T_doda, T_buff, T_li
+                    # T_lols, T_loloda, T_lodoloda, T_dtype, T_num, T_lods, T_lodf, 
                     # T_doloda, T_dodf, T_dola, 
-                    # T_di, T_li, T_ls, T_image, T_dateobj, T_lsi, T_si, T_idi, T_idoda, T_dodi, 
-                    # T_lodola, T_lododa, T_df_or_lod, T_lota, T_hllola, T_dols, T_dn 
+                    # T_di, T_ls, T_image, T_dateobj, T_lsi, T_si, T_idi, T_idoda, T_dodi, 
+                    # T_lodola, T_lododa, T_df_or_lod, T_lota, T_hllola, T_dols, T_dn, T_df 
                     
 
 def is_linux() -> bool: 
@@ -48,7 +50,7 @@ def apply_dtypes_to_hdlol(hdlol: T_hdlola, dtypes: T_dtype_dict) -> T_hdlola:
     
 
 def set_cols_da(da: T_da, cols: T_ls, default: Any='') -> T_da:
-    """ Set keys in dictinary da to be exactly cols
+    """ Set keys in dictionary da to be exactly cols
         Use default if key not already in da.
     """
     
@@ -852,7 +854,8 @@ def safe_del_key(da: Dict[Any, Any], k:Any):
     
 def dod_to_lod(dod: T_doda, keyfield: str='rowkey') -> T_loda:
     """ given a dod, downconvert to lod by 
-        adding the dod key as keyfield to each dict, if required,
+        adding the dod key as keyfield to each dict, if required.
+            will add in the first position
         and creating lod.
     """
 
@@ -865,7 +868,8 @@ def dod_to_lod(dod: T_doda, keyfield: str='rowkey') -> T_loda:
     lod = []
     for key, d in dod.items():
         if keyfield and keyfield not in d:
-            d[keyfield] = key
+            # insert in the first position.
+            d = {keyfield: key, **d}
         lod.append(d)
         
     return lod
@@ -1053,3 +1057,169 @@ def prog_loc() -> str:
     finally:
         del frame
     return f"[{filename}:{linenumber}]"
+    
+    
+def buff_csv_to_lol(
+        buff: Union[bytes, str], 
+        user_format: bool=False, 
+        sep=',', 
+        include_cols: Optional[T_ls]=None, 
+        dtypes: Optional[T_dtype_dict]=None,
+        raw: bool=False,
+        ) -> T_lola:
+    """
+    Convert CSV data in a buffer (bytes or string) to a lol data type.
+
+    Args:
+        buff (Union[bytes, str]): The CSV data as bytes or string.
+        user_format (bool): Whether to preprocess the CSV data (remove comments and blank lines).
+        sep (str): The separator used in the CSV data.
+
+    Returns:
+        lola: all lines in the file as lol. May be ragged.
+    """
+
+    if sep is None:
+        sep = ','
+        
+    if isinstance(buff, bytes):
+        buff = buff.decode("utf-8")
+        
+    if not raw:
+        # @@TODO grab the first few lines and get the header section.
+        pass
+    
+        
+    if user_format:
+        buff = preprocess_csv_buff(buff)  # remove comments, blank lines
+        
+    sio = io.StringIO(buff)
+    csv_reader = csv.reader(sio, delimiter=sep, quoting=csv.QUOTE_MINIMAL)
+
+    data_lol = [row for row in csv_reader]
+
+    return data_lol
+    
+
+def preprocess_csv_buff(buff: Union[bytes, str]) -> str:
+    """ given a buffer which is csv file read without conversion,
+        perform preprocessing to remove comments and blank lines.
+        controls in pandas csv do not work very well, such as when
+        there is a comma in a comment line.
+    """
+    if isinstance(buff, bytes):
+        buff = buff.decode("utf-8")
+
+    lines = buff.splitlines()
+    lines = [line for line in lines if line and not bool(re.search(r'^"?#', line)) and not bool(re.search(r'^,+$', line))]
+    buff = '\n'.join(lines)
+    
+    return buff
+    
+
+def write_buff_to_fp(buff: T_buff, file_path: str, rtype='.csv', local_mirror: bool=False, if_unmodified: bool=False) -> str: # file_path
+
+    if buff:
+        #--- write buffer based on path
+        num_written = 0
+        s3path = None   # return value when local mirror is enabled. We always want s3path, not local path.
+    
+        if file_path.startswith('s3'):
+            # make sure the encoding matches what might be saved using the fp.write function
+            from . import s3utils
+            
+            if rtype not in ['binary', 'image']:
+                buff = cast(str, buff)
+                s3buff = buff.encode('utf-8')
+            else: 
+                s3buff = cast(bytes, buff)    
+                
+            if if_unmodified:
+                num_written = s3utils.write_buff_to_s3path(file_path, s3buff, format) #, backup_flag=backup_flag)
+            else:
+                num_written = s3utils.write_buff_to_s3path_if_modified(file_path, s3buff, format) #, backup_flag=backup_flag)
+            
+            if num_written:
+                sts(f"Saved {len(s3buff):,} bytes to {file_path}")
+                                
+        if not file_path.startswith('s3'):
+            file_path = path_sep_per_os(file_path)
+            # if backup_flag:
+                # backup_path = utils.create_backup_path(file_path)
+                # shutil.copyfile(file_path, backup_path)
+            if rtype in ['binary', 'image']:
+                buff = cast(bytes, buff)
+                try:
+                    with open(file_path, mode='wb') as file:
+                        file.write(buff)
+                except Exception:
+                    error_beep()
+                    import pdb; pdb.set_trace() #perm
+                    pass
+            else:
+                buff = cast(str, buff)
+                with open(file_path, mode='wt', newline='', encoding="utf-8") as file:
+                    file.write(buff)
+                                        
+            sts(f"Saved {len(buff):,} bytes to {file_path}")
+    else:
+        sts(f"## Data item not written to {s3path or file_path}")
+    return s3path or file_path
+
+
+def path_sep_per_os(path: str, sep: Optional[str]=None) -> str:
+    """ based on os.sep setting, correct path to those separators, 
+        assuming no / or \\ characters exist in the path otherwise.
+    """
+    if sep is None:
+        sep = os.sep
+    if sep == '/':
+        return re.sub(r'\\', r'/', path)
+    else:
+        return re.sub(r'/', r'\\', path)
+
+
+def is_list_of_type(test_item: Any, of_type: Type) -> bool:
+
+    # test if test_item is T_ls and it is not empty.
+
+    if test_item and isinstance(test_item, list) and isinstance(test_item[0], of_type):
+        return True
+
+def len_slice(slice_obj: slice):
+    # Calculate the length of the slice, including step
+    
+    if slice_obj == slice(None, None, None):
+        return 0
+        
+    start, stop, step = slice_obj.start or 0, slice_obj.stop or 0, slice_obj.step or 1
+    
+    try:
+        len_int = (stop - start + step - 1) // step
+    except Exception:
+        import pdb; pdb.set_trace() #perm
+        
+    return len_int
+
+def len_rowcol_spec(ispec: Union[slice, int, T_li, None]) -> int:
+    """ return the length of a slice, int, li. If None, then len = 0 """
+    
+    if isinstance(ispec, slice):
+        return len_slice(ispec)
+    elif isinstance(ispec, int):
+        return 1
+    elif isinstance(ispec, list):
+        return len(ispec)
+    else:
+        return 0
+        
+def slice_to_list(slice_obj) -> list:
+    return [i for i in range(slice_obj.start or 0, slice_obj.stop or float('inf'), slice_obj.step or 1)]
+
+def slice_to_range(slice_obj, length):
+    if slice_obj == slice(None, None, None):
+        return range(length)
+    else:
+        return range(slice_obj.start or 0, min(slice_obj.stop, length), slice_obj.step or 1)
+
+       

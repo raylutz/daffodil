@@ -53,9 +53,10 @@ be viewed directly or converted to HTML for use on a static website.
     # even if the data is provided in a different order.
 
     md_report += md_code_seg('Read and write individual cells by row,col indices') + "\n" 
-    # replace value at row 2, col 1 (i.e. 9) with value from row 1, col 0 (i.e. 5)
-    # multiplied by the value in cell [2,2] (i.e. 10) resulting in 50 at [2,1].
-    # Note that row and column indices start at 0, and are in row, col order (not x,y).
+    """ replace value at row 2, col 1 (i.e. 9) with value from row 1, col 0 (i.e. 5)
+        multiplied by the value in cell [2,2] (i.e. 10) resulting in 50 at [2,1].
+        Note that row and column indices start at 0, and are in row, col order (not x,y).
+    """
     
     my_pydf[2,1] = my_pydf[1,0] * my_pydf[2,2]
 
@@ -220,7 +221,7 @@ be viewed directly or converted to HTML for use on a static website.
         offers more processing capabilities. Here, we create a handy file list including
         all relevant information by incrementally appending to the pydf structure.
 
-    Please note that if you try to append dictionaries to a Pandas df, you will currently get this warning:
+Please note that if you try to append dictionaries to a Pandas df, you will currently get this warning:
 
         FutureWarning: The frame.append method is deprecated and will be removed from pandas in a future version. Use pandas.concat instead.
     
@@ -417,7 +418,7 @@ In general, the number of rows is reduced to no more than the product of number 
     can be done without processing the entire table again.
     In this example, we also demonstrate using NumPy to sum the columns.
     
-    We find in this case that sum_np is not as efficient as just summing the rows directly.
+We find in this case that sum_np is not as efficient as just summing the rows directly.
     This is because it is a lot of work just to prepare the data for NumPy to read it.
     Summing by rows is about 22x faster (takes about 4% of the time) than using sum_np
     when tested on 40,288 records grouped into 820 groups. Grouping took 4 seconds,

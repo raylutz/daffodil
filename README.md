@@ -2,25 +2,39 @@
 
 # Python Daffodil -- Pydf
 
-(STATUS -- Note: This is an alpha release. The API is in flux.)
+(STATUS -- Note: This is an alpha release. The API is in flux. The name of the packet will be changing from Pydf
+to 'daffodil' and the class will be Daf. This change is not refected in the text below.)
 
 The Python Daffodil (DAtaFrames For Optimized Data Interpretation and Logical processing) -- Pydf package provides
 lightweight, simple and flexible 2-d dataframes built on 
 python data types, including a list-of-list array as the core datatype. Daffodil is similar to other data frame
-packages, such as Pandas, Numpy, Polars, Swift, Vaex, Dask, PyArrow, SQLite, etc. but is simpler and may be faster because it does not have conversion overhead.
+packages, such as Pandas, Numpy, Polars, Swift, Vaex, Dask, PyArrow, SQLite, etc. but is simpler and may be faster 
+because it does not have conversion overhead.
 Daffodil provides basic dataframe functionality which is not available in core python, but should be. 
-Daffodil uses standard python data types, and can mix data types in rows and columns, and can store any type within a cell, even another Pydf instance. 
+Daffodil uses standard python data types, and can mix data types in rows and columns, and can store any type 
+within a cell, even another Pydf instance. 
 
 It works well in traditional pythonic processing paradigms, such as in loops, allowing fast row appends, 
 insertions and other opertions that column-oriented packages like Pandas handle poorly or don't offer at all.
 Daffodil offers zero-copy manipulations -- selecting columns and rows does not make a copy of the data but
-works the way Python normally does, with references to the data.
+works the way Python normally does, leveraging the inherent power of Python without replacing it.
 
-Daffodil is particularly well suited to applications for data munging, incremental appending, data pipelines, row-based apply and reduce functions, including support for chunked large data sets that can be described by a Daffodil table which operates as a manifest to chunks, and useful for delegations for parallel processing, where each delegation can handle a number of chunks.
+Daffodil is particularly well suited to applications for data munging, incremental appending, data pipelines, 
+row-based apply and reduce functions, including support for chunked large data sets that can be described 
+by a Daffodil table which operates as a manifest to chunks, and useful for delegations for parallel processing, 
+where each delegation can handle a number of chunks.
 
-Daffodil is not necessarily slower than trying to use Pandas (or other packages) within your python program, because moving data in and out of Pandas and those other packages can have an very high overhead. Pydf is a very simple 'bare metal' class that is well suited for those situations where pure number crunching is not the main objective. But it is also very compatible with other dataframe packages and can provide great way to build and clean the data before providing the data to other packages for number crunching.
+Daffodil is not necessarily slower than trying to use Pandas (or other packages) within your python program, 
+because moving data in and out of Pandas and those other packages can have an very high overhead. Pydf is a 
+very simple 'bare metal' class that is well suited for those situations where pure number crunching is not 
+the main objective. But it is also very compatible with other dataframe packages and can provide great way 
+to build and clean the data before providing the data to other packages for number crunching.
 
-It excels when the data array needs to be heavily manipulated, particularly by rows or individual data items, particularly when rows are to be inserted, removed, or appended.
+It excels when the data array needs to be heavily manipulated, particularly by rows or individual data items, 
+particularly when rows are to be inserted, removed, or appended. The fact is that data is commonly assembled
+record-by-record, while popular analysis and manipulation tools are oriented to work on columns of data once
+it is fully assembled. If only a very few data operations are performed on columns (such as a sums, stdev, etc.)
+then it is frequently more performant to leave it in row format rather than reforming it into columns.
 
 Spreadsheet-like operations are also provided, which are useful for processing the entire array with the same formula template,
 and can avoid glue code for many transformations. Python equations in the formula pane operate on the data
@@ -81,43 +95,55 @@ Thus, Daffodil is a compromise. It is not as wasteful as commonly used lod for s
 is a good choice when rapid appends, inserts, row-based operations, and other mutation is required. It also
 provides row and column operations using \[row, col] indexes, where each can be slices or column names.
 This type of indexing is syntactically similar to what is offered by Pandas and Polars, but Pydf has almost
-no constraints on the data in the array, includign mixed types in columns, other objects, and even entire
+no constraints on the data in the array, including mixed types in columns, other objects, and even entire
 Pydf arrays.
         
 ## Supports incremental appends
 
-Pydf can append one or more rows, cols or concatenate with another Pydf object extremely quickly, because it leverages Python's
+Pydf can append one or more rows or concatenate with another Pydf object extremely quickly, because it leverages Python's
 data referencing approach. Although the 'use_copy' option is provided where a new deep copy is made, this can be
 largely avoided in most data manipulation pipelines. When the data can be used without copying, then this will 
-minimize overhead.
+minimize overhead. Concatenating, dropping and inserting columns is fuctionality that is provided, but is not
+recommennded.
 
 A lod is an easy to use data structure that mimics a 2-D array and is commonly found in Python code, but it is
 expensive in space (3x larger than Pydf object) because the field names are repeated for each row. Also, it does not
 offer array manipulation primitives, convenient markdown reporting tools, and other features offered by Pydf.
+
+If a keyfield is specified, a Pydf array is quite similar to a dict-of-dict Python structure, but is 1/3 the size.
 
 ## Column names
 
 Similar to Pandas and other dataframe concepts, Daffodil has a separate set of column names that can be optionally
 used to name the columns. This is organized internally as a Python dictionary (hd -- header dict) for fast column lookups by name.
 Column names must be hashable, and other than that, there are no firm restrictions.  
-However, to use the interface with SQLite, avoid using the double underscore "__" in the names, which is used to 
-allow arbitrary names in SQLite. 
+(However, to use the interface with SQLite, avoid using the double underscore "__" in the names, which is used to 
+allow arbitrary names in SQLite.)
     
 When reading CSV files, the header is normally taken from the first (non-comment) line. If "user_format" is 
 specified on reading csv files, the csv data will be pre-processed and "comment" lines starting with # are removed.
 
+Pydf supports CSVJ, which is a mix of CSV with JSON metadata in comment fields in the first few lines of the file,
+to provide data type, formatting, and other information. Using CSVJ speeds importing CSV data into a Pydf instance
+because the data can be converted to the appropriate time as it is read, and therefore avoids a second pass to 
+conver data from str type, which is the default. This also may unflatten objects.
+
 In some cases, you may be working with CSV files without a header of column names. Setting noheader=True avoids 
 capturing the column names from the header line from csv input, and then column names will not be defined.
 
-When column names are taken from first (non-comment) line, they must exist (not be blank) and must be unique.
-If any column name is blank, then these are named "UnnamedN" where N is the column number staring at 0. If there
+If columns are not appropriate for immediate use, such as if they are sometimes repeated or are missing, then
+the array can be read with noheader=True, and then peeling off the first row and applying it using set_cols()
+If any column name is blank, then these are named "colN" (or any other prefix you may prefer) 
+where N is the column number staring at 0. If there
 are duplicates, then the duplicate name is named "duplicatename_N", where 'duplicatename' is the original name
 and N is the column number. If you don't want this behavior, then use noheader=True and handle definition of the 
 'cols' parameter yourself.
 
-Even if column names are established, Pydf still allows that columns (and rows) can be indexed by number. Therefore, it is best if the column
-names used are not pure numbers, to avoid confusion. Traditional column names can be added with .add_AZ_cols() method, 
-similar to spreadsheet programs, `'A', 'B', ... 'Z', 'AA', 'AB'...`. 
+Even if column names are established, Pydf still allows that columns (and rows) can be indexed by number. 
+Therefore, it is best if the column
+names used are not pure numbers to avoid confusion. Traditional column names can be added with .set_cols() method, with
+the cols parameter set to None. This results in column names similar to spreadsheet programs, 
+`'A', 'B', ... 'Z', 'AA', 'AB'...`. 
 
 The column names can be passed in the 'cols' parameter as a list, or if the dtypes dict is provided and cols are not,
 then the column names are defined from dtypes dict, and the datatypes are simultaneously defined. The dtypes_dict 
@@ -128,23 +154,50 @@ is optional. Any cell can be any data type.
     
 In many cases, one of the columns can be used as a unique key for locating records. If such a column exists, it 
 can be adopted as the primary index of the table by specifying that column name as the `keyfield`. When this is done,
-then a kd (key dictionary) is built and maintained from data in that column.
+then a kd (key dictionary) is built and maintained from data in that column. This is similar behavior to the Polars
+package and differs from Pandas, which has an index that sticks with each row. The row indexes do not stick in Pydf,
+and are always with respect to the frame.
     
 If keyfield is set, then that column must be a hashable type and must have unique values. Searches of row entries based on the keyfield
 will use dictionary lookups, which are highly optimized for speed by Python.
 
-Creating a key index does not remove that field from the data array, but creates an additional key dictionary, my_pydf.kd.
+Creating a key index does not remove that field from the data array, but creates an additional key dictionary, kd.
 
-When adopting a file that may have a keyfield, it will be best to follow the following steps:
+When adopting a file that may have a column that is tainted, it will be best to follow the following steps:
 1. Set keyfield='' to turn off the key indexing functionality.
 2. Read in the data, and it will not be limited by the keyfield definition.
 3. Use method .set_keyfield(keyfield) to set the keyfield and build the lookup dictionary.
 4. Check that they are all unique by comparing the number of keys vs. the number of records.
-5. remove, delete, or otherwise deal with records with duplicate keys so the keys are unique.
+5. if the lengths are different, remove, delete, or otherwise deal with records with duplicate keys so the keys are unique.
 6. And then use .set_keyfield(keyfield) again.
 
-Only one keyfield is supported, but it can be reset using the 'set_keyfield' method.
+Only one keyfield is supported.
     
+## Column vs. Row Operations
+Pydf is a row-oriented package, rather than being column oriented, as are other popular packages, like Pandas, Polars, etc, 
+Thus, it is easy to manipulate rows (appending, inserting, deleting, selecting, etc) while it is relatively much more difficult to manipulate
+columns (appending, inserting, deleting, etc.)  Rows are very easy to handle because the list-of-list underlying structure
+re-uses any lists selected in any selection operation. A new pydf which might be a subset of the original 
+does not consume much additional space because the contents of those rows is not copied. Instead, Python
+copies only the references to the rows. If only a few rows are used from the original pydf, the the remaining rows will 
+be garbage collected by the normal Python mechanisms and the rows that are still active are the same rows that existed in the
+original array without copying.
+
+This use-without-copying pattern means that Pydf can perform quite well when compared with other packages when doing this type 
+of manipulation, both in terms of space and also time.
+
+In contrast, operations that add, drop, or insert columns are relatively slow, but it turns out that actually these operations are not normally that 
+necessary. Reducing the number of columns only is important in a few cases:
+
+1. When converting from/to other forms. Extraneous columns may exist or may be of the wrong type.
+2. When performing .apply() or .reduce() operations to avoid processing extraneous columns.
+4. When creating a report and only including some columns in the report
+
+In these cases, the columns to be included can be expressed explicitly. 
+Other column operations such as statistics are not as performant but in those cases when
+many operations are required, the array can be ported to NumPy.
+
+
 ## Common Usage Pattern
        
 One common usage pattern allows iteration over the rows and appending to another instance. For example:
@@ -152,32 +205,37 @@ One common usage pattern allows iteration over the rows and appending to another
         # read csv file into 2-d array, handling column headers and unflattening
         my_pydf = Pydf.from_csv(file_path, unflatten=True)  
     
-        # create a new table to be built as we can the input.
+        # create a new table to be built as we scan the input.
         new_pydf = Pydf()
         
         # scan the input my_pydf row by row and construct the output. Pandas can't do this efficiently.
-        for row in my_pydf:  
-            new_row = transform_row(row)
-            new_pydf.append(new_row)                # appending in Pandas will cause at least a future warning that it will be removed.
+        for original_row in my_pydf:  
+            new_row = transform_row(original_row)
+            new_pydf.append(new_row)                
+            # appending is no problem in Pydf. Pandas will emit a future warning that appending is deprecated.
             
-        new_pydf.to_csv(file_path, flatten=True)    # create a flat csv file with any python objects flattened using JSON.    
+        # create a flat csv file with any python objects flattened using JSON.
+        new_pydf.to_csv(file_path, flatten=True)        
 
-This common pattern can be abbreviated as:
+This common pattern can be abbreviated using the apply() method:
 
-        my_pydf = Pydf.from_csv(file_path, unflatten=True)  
+        my_pydf = Pydf.from_csv(file_path, unflatten=True)
+        
         new_pydf = my_pydf.apply(transform_row)
-        new_pydf.to_csv(file_path, flatten=True)     # create a flat csv file with any python objects flattened using JSON.
+        
+        new_pydf.to_csv(file_path, flatten=True)
 
 Or
 
-        Pydf.from_csv(file_path, unflatten=True).apply(transform_row).to_csv(file_path, flatten=True)
+        Pydf.from_csv(file_path).apply(transform_row).to_csv(file_path)
 
-And further extension of this pattern to apply the transformation to a set of csv files described by a chunk_manifest:
+And further extension of this pattern can apply the transformation to a set of csv files described by a chunk_manifest.
+The chunk manifest essentially provides metadata and instructions for accessing the source data.
 
-        chunk_manifest_pydf = Pydf.from_csv(file_path, unflatten=True)  
+        chunk_manifest_pydf = Pydf.from_csv(file_path)  
         result_manifest_pydf = chunk_manifest_pydf.manifest_apply(transform_row)
 
-Similarly, a set of csv_files can be reduced to a single record. For example, 
+Similarly, a set of csv_files can be reduced to a single record using a reduction method. For example, 
 for determining valuecounts of columns in a set of files:
 
         chunk_manifest_pydf = Pydf.from_csv(file_path, unflatten=True)
@@ -187,12 +245,13 @@ for determining valuecounts of columns in a set of files:
        
 ### print and markdown reports
 
-Pydf can produce convenient form for interactive inspection similar to the abbreviated form similar to Pandas.
+Pydf can produce convenient form for interactive inspection similar to the abbreviated form similar to Pandas,
+but unlike Pandas, Markdown is the primary format for all reports.
 
     print(instance_of_pydf)
 
 For example, the print statement above will produce markdown text that can be directly viewed interactively and
-can also be included in markdown reports. The following is some random test data in a 1000 x 1000 array.
+can also be included in markdown reports. The following is random data in a 1000 x 1000 array.
 
 | Col0 | Col1 | Col2 | Col3 | Col4 | ... | Col995 | Col996 | Col997 | Col998 | Col999 |
 | ---: | ---: | ---: | ---: | ---: | --: | -----: | -----: | -----: | -----: | -----: |
@@ -237,11 +296,22 @@ The method 'to_md()' can be used for more flexible reporting.
     
 ### data typing and conversion
         
-    dtypes is a dict that specifies the datatype for each column, if this functionality is desired. 
+Since we are using Python data objects, each cell in the array can have a different data type. However, it is useful to 
+convert data when it is first read from a csv file to make sure it is handled correctly. CSV files, by default, provide
+character data and therefore, without conversion, will provide str data. 
+        
+dtypes is a dict that specifies the datatype for each column, and if provided, will convert the data as it is initially read
+from the source. Other sources of data will normally provide the data type when it is imported.
     
-    if 'unflatten' is specified and dtypes specifies a list or a dict, then columns will be unflattened when the data is read.
-    Unflattening will convert JSON in the csv file to produce any arbitrary data item, such as lists or dicts that can be
-    flattened and unflattened without data loss.
+When reading flat csv files, if 'unflatten' is specified and dtypes specifies a list or a dict, then the data in those columns 
+will be converted from JSON to produce the list or dict object.
+
+Data which is missing is provided as null strings, which will be ignored in apply or reduce operations, and when converted to 
+other forms, like NumPy, will be expressed as missing data using NAN or other indicators.
+
+Daffodil supports the CSVJ file format, which includes a set of initial comments that are valid JSON to describe metdata and 
+data types. A CSVJ file is generally also a valid CSV file with # comment lines.
+
 
 ### creation and conversion
 
@@ -269,11 +339,11 @@ The method 'to_md()' can be used for more flexible reporting.
 
 #### create an empty pydf object with same cols and keyfield.
     
-    new_pydf = self.clone_empty()
+    new_pydf = old_pydf.clone_empty()
 
 #### Set data table with new_lol (list of list) data item
     
-    my_pydf.set_lol(self, new_lol)
+    my_pydf.set_lol(new_lol)
 
 #### create new pydf with additional parameters
 Fill with data from lod (list of dict) also optionally set keyfield and dtypes.
@@ -289,12 +359,24 @@ The cols will be defined from the keys used in the lod. The lod should have the 
     
     my_pandas_df = my_pydf.to_pandas_df()
     
-#### produce lod (list of dictionaries) type. 
+#### produce lod (list of dictionaries) type.
+
 Generally not needed as any actions that can be performed on lod can be done with pydf.
 
     lod = my_pydf.to_lod()
     
 ### columns and row indexing
+The base array in a Pydf instance can be indexed with row and column index numbers, starting at 0.
+In addition, columns and rows can be named. Column names are generally established from the header
+line in the source csv file. Column and row names are optional. If column names exist, they must
+be unique, exist, and be hashable. For ease of use, and to separate them from numerical indices,
+they should be strings.
+
+Rows are also indexed numerically or optionally with a indexing column. This indexing column, 
+unlike the column names, is included in the array. Again, it is most convenient for it to be str type,
+and must be hashable. To estabish a column for indexing, the 'keyfield' is set to the column name.
+
+For fast lookups of rows and columns, dictionaries are used to look up the row and column indices.
 
 #### return column names defined
     my_pydf.columns()
@@ -305,6 +387,10 @@ Generally not needed as any actions that can be performed on lod can be done wit
 ### appending and row/column manipulation    
     
 #### append a single row provided as a dictionary.
+Please note that if a keyfield is set, and if the key already exists in the array, then
+it will be overwritten with new data rather than adding a new row. This behavior is consistent
+with all types of appending.
+
     my_pydf.append(row)
     
 #### append multiple rows as a list of dictionaries.
@@ -317,16 +403,39 @@ Generally not needed as any actions that can be performed on lod can be done wit
 ### selecting and removing records by keys
 
 #### select one record using keyfield.
-    record_da = my_pydf.select_record_da(keyvalue)                              
+    record_da = my_pydf.select_record_da(keyvalue)
+    
+or
+
+   record_list = mypyf[keyvalue]
+   
+Note that this syntax differs from Pandas, which normally references a column.
 
 #### select multiple records using the keyfield and return pydf.
+
     new_pydf = my_pydf.select_records_pydf(keyvalue_list)
+    
+or
+
+    new_pydf = my_pydf[keyvalue_list]
+    
 
 #### remove a record using keyfield
+
     my_pydf.remove_key(keyval)
     
+or
+
+    new_pydf = my_pydf[~my_pydf.columns().isin([keyval])]
+    
+    
 #### remove multiple records using multiple keys in a list.
+    
     my_pydf.remove_keylist(keylist)
+    
+or
+
+    new_pydf = my_pydf[~my_pydf.columns().isin(keylist)]
 
 
 ### selecting records without using keyfield
@@ -334,6 +443,7 @@ Generally not needed as any actions that can be performed on lod can be done wit
 #### select records based on a conditional expression.
 
     pydf = pydf.select_where(lambda row: row['fieldname'] > 5)
+
 or
 
     pydf = pydf.select_where(lambda row: row['fieldname'] > row_limit")
@@ -347,35 +457,63 @@ or
     my_lod = my_pydf.select_by_dict_to_lod(selector_da={field:fieldval,...}, expectmax: int=-1, inverse: bool=False)
     
 #### select records by matching fields in a dict, and return a new_pydf. inverse means return records that do not match.
+
     new_pydf = my_pydf.select_by_dict(selector_da, expectmax: int=-1, inverse=False)
     
 ### column operations    
     
 #### return a column by name as a list.
+
     col_list = my_pydf.col_to_la(colname, unique=False)
     
+or
+
+    col_list = my_pydf[:, colname]    
+    
 #### return a column from pydf by col idx as a list 
+
     col_list = my_pydf.icol_to_la(icol)
+    
+or 
+
+    col_list = my_pydf[:, icol]
 
 #### modify icol by index using list la, overwriting the contents. Append if icol > num cols.
+
     my_pydf.assign_icol_from_la(icol: int, la: list)
     
+or
+
+    my_pydf[:, icol] = la    
+
+    
 #### modify named column using list la, overwriting the contents
+
     my_pydf.assign_col(colname: str, la: list)
     
+or
+
+    my_pydf[:, colname] = la
+    
+    
 #### drop columns by list of colnames
-    my_pydf.drop_cols(cols)
+This operation is not efficient and should be avoided.
+
+    my_pydf.drop_cols(colnames_ls)
     
 #### return dict of sums of columns specified or those specified in dtypes as int or float if numeric_only is True.
-    da = my_pydf.sum(colnames_ls, numeric_only=False)                       
+
+    sum_da = my_pydf.sum(colnames_ls, numeric_only=False)                       
 
 #### create cross-column lookup
+
 Given a pydf with at least two columns, create a dict of list lookup where the key are values in col1 and list of values are 
 unique values in col2. Values in cols must be hashable.
 
     lookup_dol = my_pydf.cols_to_dol(colname1, colname2)                        
 
 #### count discrete values in a column or columns
+
 create dictionary of values and counts for values in colname.
 sort by count if sort, from highest to lowest unless 'reverse'
 
@@ -383,6 +521,7 @@ sort by count if sort, from highest to lowest unless 'reverse'
     valuecounts_dodi = my_pydf.valuecounts_for_colnames_ls(colnames_ls, sort, reverse)
 
 #### same as above but also selected by a second column
+
     valuecounts_di = my_pydf.valuecounts_for_colname_selectedby_colname
     valuecounts_dodi = my_pydf.valuecounts_for_colname_groupedby_colname
     
@@ -399,6 +538,9 @@ Will generally return the simplest type possible, such as cell contents, a list 
 - If only one row is selected, return a list.   (To return a dict, use pydf.
 - if only one col is selected, return a list.
 - if multiple columns are specified, they will be returned in the original orientation in a consistent pydf instance copied from the original, and with the data specified.
+
+Please note: operations on columns is relatively inefficient. Instead, use .apply() or .reduce() and handle any manipulations of all
+columns at the same time.
 
       my_pydf[2, 3]     -- select cell at row 2, col 3 and return value.
       my_pydf[2]        -- select row 2, including all columns, return a list.
@@ -423,6 +565,7 @@ Will generally return the simplest type possible, such as cell contents, a list 
 
 
 ### Spreadsheet-like formulas
+
 spreadsheet-like formulas can be used to calculate values in the array.
 formulas are evaluated using eval() and the data array can be modified using indexed getting and setting of values.
 formula cells which are empty '' do not function.
@@ -468,7 +611,7 @@ In this example, we have an 4 x 3 array and we will sum the rows and columns to 
     
 ## Comparison with Pandas, Numpy SQLite
 
-Conversion to Pandas directly from arbitrary python list-of-dicts, for example, is surprisingly slow.
+Conversion to Pandas directly from arbitrary Python list-of-dicts, for example, is surprisingly slow.
 
 We timed the various conversions using Pandas 1.5.3 and 2.4.1.
 (See the table below for the results of our tests)
