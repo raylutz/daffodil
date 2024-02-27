@@ -14,7 +14,7 @@ Daffodil uses standard python data types, and can mix data types in rows and col
 within a cell, even another Pydf instance. 
 
 It works well in traditional pythonic processing paradigms, such as in loops, allowing fast row appends, 
-insertions and other opertions that column-oriented packages like Pandas handle poorly or don't offer at all.
+insertions and other operations that column-oriented packages like Pandas handle poorly or don't offer at all.
 Daffodil offers zero-copy manipulations -- selecting columns and rows does not make a copy of the data but
 works the way Python normally does, leveraging the inherent power of Python without replacing it.
 
