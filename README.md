@@ -540,7 +540,9 @@ Will generally return the simplest type possible, such as cell contents, a list 
 - if multiple columns are specified, they will be returned in the original orientation in a consistent pydf instance copied from the original, and with the data specified.
 
 Please note: operations on columns is relatively inefficient. Instead, use .apply() or .reduce() and handle any manipulations of all
-columns at the same time.
+columns at the same time. Current design that each instance has the my_pydf.retmode attribute, which can be 'obj' or 'val'.
+If it is 'obj', then using indexing below will always return a pydf object. If .retmode is 'val', then it will return either
+a single value, list, or pydf object.
 
       my_pydf[2, 3]     -- select cell at row 2, col 3 and return value.
       my_pydf[2]        -- select row 2, including all columns, return a list.
@@ -550,7 +552,31 @@ columns at the same time.
       my_pydf[2:4]      -- select rows 2 and 3, including all columns, return as pydf.
       my_pydf[2:4, :]   -- same as above
       my_pydf[:, 3:5]   -- select columns 3 and 4, including all rows, return as pydf.
-    
+      my_pydf[[2,4,6]]  -- return rows with indices 2,4,6 as pydf array.
+      my_pydf[:, [1,3,5]] -- return columns with indices 1,3,5 as pydf array.
+      my_pydf[['row5','row6','row7']] -- return rows with keyfield values 'row5','row6','row7'
+      my_pydf[:, ['col1', 'col3', 'col5']] -- return columns with column names 'col1', 'col3', 'col5'
+      my_pydf[('row5','row49'), :]] -- return rows with keyfield values 'row5' through 'row49' inclusive (note need for column idx)
+      my_pydf[('row5',), :]] -- return rows with keyfield values 'row5' through the end (note need for column idx)
+      my_pydf[(,'row49'), :]] -- return rows with keyfield values from the first row through 'row49' inclusive (note need for column idx)
+      my_pydf[:, ('col5', 'col23')]] -- return columns with column names from 'col5', through 'col23' inclusive
+      my_pydf[:, (, 'col23')]] -- return columns with column names from the first column through 'col23' inclusive
+      my_pydf[:, ('col23',)]] -- return columns with column names from 'col23', through the end
+
+Please note that if you want to index row by keyfield name or column names that are integers, then you must use method calls.
+The integer values shown in these examples do not index the array directly, but choose the row or columns by name.
+To choose by row keys (krows) then keyfield must be set. To choose by column keys, cols must be set.
+
+      my_pydf.select_krows(krows = 123, inverse=False)  -- return pydf with one row with integer 123 in keyfield column.
+      my_pydf.select_krows(krows = [123, 456], inverse=False)  -- return pydf with two rows selected by with integers in the keyfield column.
+      my_pydf.select_krows(krows = [123, 456], inverse=True)   -- return pydf dropping two rows selected by with integers in the keyfield column.
+      my_pydf.select_krows(krows = (123, ), inverse=True)   -- drop all rows starting with row named 123 to the end.
+      my_pydf.select_krows(krows = (, 123), inverse=True)   -- drop all rows from the first through row named 123.
+     
+      my_pydf.select_kcols(kcols = 123, inverse=False)  -- return pydf with one column with integer 123 colname.
+      my_pydf.select_kcols(kcols = 123, inverse=True)   -- drop column with name 123 
+
+      
 ### Indexing: setting values in a pydf:
      my_pydf[irow] = list              -- assign the entire row at index irow to the list provided
      my_pydf[irow] = value             -- assign the entire row at index row to the value provided.
@@ -611,10 +637,13 @@ In this example, we have an 4 x 3 array and we will sum the rows and columns to 
     
 ## Comparison with Pandas, Numpy SQLite
 
-Conversion to Pandas directly from arbitrary Python list-of-dicts, for example, is surprisingly slow.
+One of the primary reasons for developing Daffodil is that 
+conversion to Pandas directly from arbitrary Python list-of-dicts, for example, is surprisingly slow.
 
 We timed the various conversions using Pandas 1.5.3 and 2.4.1.
-(See the table below for the results of our tests)
+(See the table below for the results of our tests). 
+
+Also see: https://github.com/raylutz/Pydf/blob/main/docs/test_df_vs_pydf.md
 
 Version 2.1.4 is only about 6% faster. This analysis was done on an array of a million random integer values.
 We are certainly open to being told our manner of using Pandas is incorrect, however, we are not doing anything
@@ -667,6 +696,13 @@ pandas series. The conversion to dict can include some significant delay.
 
 Note: The above table was generated using Pydf.from_lod_to_cols() and my_pydf.to_md() and
 demonstrates how pydf can be helpful in creating markdown reports.
+
+## Demo
+
+See this demo of Daffodil functionality.
+
+https://github.com/raylutz/Pydf/blob/main/docs/pydf_demo.md
+
 
 
 ## Conclusion and Summary
