@@ -15,19 +15,20 @@ import ast
 import platform
 
 import xlsx2csv     # type: ignore
+#import numpy as np
 
 
-from typing import List, Dict, Any, Tuple, Optional, Union, cast #, Type, Callable
+from typing import List, Dict, Any, Tuple, Optional, Union, cast, Type #, Callable
 
 def fake_function(a: Optional[List[Dict[str, Tuple[int,Union[Any, str]]]]] = None) -> Optional[int]:
     return None or cast(int, 0)       # pragma: no cover
 
 
-from Pydf.pydf_types import T_lola, T_loda, T_dtype_dict, T_da, T_ds, T_hdlola, T_la, T_loti, T_ls, T_doda, T_buff
-                    # T_lols, T_loloda, T_lodoloda, T_dtype, T_num, T_df, T_lods, T_lodf, 
+from Pydf.pydf_types import T_lola, T_loda, T_dtype_dict, T_da, T_ds, T_hdlola, T_la, T_loti, T_ls, T_doda, T_buff, T_li
+                    # T_lols, T_loloda, T_lodoloda, T_dtype, T_num, T_lods, T_lodf, 
                     # T_doloda, T_dodf, T_dola, 
-                    # T_di, T_li, T_ls, T_image, T_dateobj, T_lsi, T_si, T_idi, T_idoda, T_dodi, 
-                    # T_lodola, T_lododa, T_df_or_lod, T_lota, T_hllola, T_dols, T_dn 
+                    # T_di, T_ls, T_image, T_dateobj, T_lsi, T_si, T_idi, T_idoda, T_dodi, 
+                    # T_lodola, T_lododa, T_df_or_lod, T_lota, T_hllola, T_dols, T_dn, T_df 
                     
 
 def is_linux() -> bool: 
@@ -861,7 +862,8 @@ def safe_del_key(da: Dict[Any, Any], k:Any):
     
 def dod_to_lod(dod: T_doda, keyfield: str='rowkey') -> T_loda:
     """ given a dod, downconvert to lod by 
-        adding the dod key as keyfield to each dict, if required,
+        adding the dod key as keyfield to each dict, if required.
+            will add in the first position
         and creating lod.
     """
 
@@ -874,7 +876,8 @@ def dod_to_lod(dod: T_doda, keyfield: str='rowkey') -> T_loda:
     lod = []
     for key, d in dod.items():
         if keyfield and keyfield not in d:
-            d[keyfield] = key
+            # insert in the first position.
+            d = {keyfield: key, **d}
         lod.append(d)
         
     return lod
@@ -1182,4 +1185,49 @@ def path_sep_per_os(path: str, sep: Optional[str]=None) -> str:
         return re.sub(r'\\', r'/', path)
     else:
         return re.sub(r'/', r'\\', path)
+
+
+def is_list_of_type(test_item: Any, of_type: Type) -> bool:
+
+    # test if test_item is T_ls and it is not empty.
+
+    if test_item and isinstance(test_item, list) and isinstance(test_item[0], of_type):
+        return True
+
+def len_slice(slice_obj: slice):
+    # Calculate the length of the slice, including step
     
+    if slice_obj == slice(None, None, None):
+        return 0
+        
+    start, stop, step = slice_obj.start or 0, slice_obj.stop or 0, slice_obj.step or 1
+    
+    try:
+        len_int = (stop - start + step - 1) // step
+    except Exception:
+        import pdb; pdb.set_trace() #perm
+        
+    return len_int
+
+def len_rowcol_spec(ispec: Union[slice, int, T_li, None]) -> int:
+    """ return the length of a slice, int, li. If None, then len = 0 """
+    
+    if isinstance(ispec, slice):
+        return len_slice(ispec)
+    elif isinstance(ispec, int):
+        return 1
+    elif isinstance(ispec, list):
+        return len(ispec)
+    else:
+        return 0
+        
+def slice_to_list(slice_obj) -> list:
+    return [i for i in range(slice_obj.start or 0, slice_obj.stop or float('inf'), slice_obj.step or 1)]
+
+def slice_to_range(slice_obj, length):
+    if slice_obj == slice(None, None, None):
+        return range(length)
+    else:
+        return range(slice_obj.start or 0, min(slice_obj.stop, length), slice_obj.step or 1)
+
+       

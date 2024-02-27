@@ -1,9 +1,13 @@
 # test_pydf
 # copyright (c) 2024 Ray Lutz
 
+#import os
 import sys
 import unittest
-#import numpy as np
+import numpy as np
+import pandas as pd
+#from io import BytesIO
+from pathlib import Path
 sys.path.append('..')
 
 from Pydf.Pydf import Pydf
@@ -11,6 +15,8 @@ from Pydf import pydf_utils as utils
 
 class TestPydf(unittest.TestCase):
 
+    maxDiff = None
+    
     # initialization
     def test_init_default_values(self):
         pydf = Pydf()
@@ -562,6 +568,53 @@ class TestPydf(unittest.TestCase):
         self.assertEqual(pydf.dtypes, dtypes)
         self.assertEqual(pydf._iter_index, 0)
 
+    def test_from_lod_no_records_but_dtypes(self):
+        records_lod = []
+                        
+        keyfield = 'col1'
+        dtypes = {'col1': int, 'col2': int}
+        pydf = Pydf.from_lod(records_lod, keyfield=keyfield, dtypes=dtypes)
+
+        self.assertEqual(pydf.name, '')
+        self.assertEqual(pydf.keyfield, keyfield)
+        self.assertEqual(pydf.hd, {'col1': 0, 'col2': 1})
+        self.assertEqual(pydf.lol, [])
+        self.assertEqual(pydf.kd, {})
+        self.assertEqual(pydf.dtypes, dtypes)
+        self.assertEqual(pydf._iter_index, 0)
+
+    def test_from_lod_no_records_no_dtypes_but_keyfield(self):
+        records_lod = []
+                        
+        keyfield = 'col1'
+        dtypes = {}
+        pydf = Pydf.from_lod(records_lod, keyfield=keyfield, dtypes=dtypes)
+
+        self.assertEqual(pydf.name, '')
+        self.assertEqual(pydf.keyfield, keyfield)
+        self.assertEqual(pydf.hd, {})
+        self.assertEqual(pydf.lol, [])
+        self.assertEqual(pydf.kd, {})
+        self.assertEqual(pydf.dtypes, dtypes)
+        self.assertEqual(pydf._iter_index, 0)
+
+
+    def test_from_lod_no_records_no_dtypes_no_keyfield(self):
+        records_lod = []
+                        
+        keyfield = ''
+        dtypes = {}
+        pydf = Pydf.from_lod(records_lod, keyfield=keyfield, dtypes=dtypes)
+
+        self.assertEqual(pydf.name, '')
+        self.assertEqual(pydf.keyfield, '')
+        self.assertEqual(pydf.hd, {})
+        self.assertEqual(pydf.lol, [])
+        self.assertEqual(pydf.kd, {})
+        self.assertEqual(pydf.dtypes, dtypes)
+        self.assertEqual(pydf._iter_index, 0)
+
+
     def test_from_hllola(self):
         header_list = ['col1', 'col2']
         data_list = [[1, 'a'], [2, 'b'], [3, 'c']]
@@ -589,6 +642,391 @@ class TestPydf(unittest.TestCase):
 
         self.assertEqual(actual_hllola, expected_hllola)
 
+
+    # from_dod
+    def test_from_dod_with_keyfield(self):
+        # Test case where dod is provided with keyfield specified
+        dod = {
+            'row_0': {'rowkey': 'row_0', 'data1': 1, 'data2': 2},
+            'row_1': {'rowkey': 'row_1', 'data1': 11, 'data2': 22},
+        }
+        pydf = Pydf.from_dod(dod, keyfield='rowkey')
+        self.assertEqual(pydf.columns(), ['rowkey', 'data1', 'data2'])
+        self.assertEqual(pydf.lol, [['row_0', 1, 2], ['row_1', 11, 22]])
+        self.assertEqual(pydf.keyfield, 'rowkey')
+
+    def test_from_dod_without_keyfield(self):
+        # Test case where dod is provided without keyfield in rows
+        dod = {
+            'row_0': {'data1': 1, 'data2': 2},
+            'row_1': {'data1': 11, 'data2': 22},
+        }
+        pydf = Pydf.from_dod(dod, keyfield='rowkey')
+        self.assertEqual(pydf.columns(), ['rowkey', 'data1', 'data2'])
+        self.assertEqual(pydf.lol, [['row_0', 1, 2], ['row_1', 11, 22]])
+
+    def test_from_dod_with_dtypes(self):
+        # Test case where dod is provided with dtypes specified
+        dod = {
+            'row_0': {'rowkey': 'row_0', 'data1': 1, 'data2': 2},
+            'row_1': {'rowkey': 'row_1', 'data1': 11, 'data2': 22},
+        }
+        dtypes = {'data1': int, 'data2': float}
+        pydf = Pydf.from_dod(dod, keyfield='rowkey', dtypes=dtypes)
+        self.assertEqual(pydf.columns(), ['rowkey', 'data1', 'data2'])
+        self.assertEqual(pydf.lol, [['row_0', 1, 2.0], ['row_1', 11, 22.0]])
+
+    def test_from_dod_with_empty_dod(self):
+        # Test case where an empty dod is provided
+        dod = {}
+        pydf = Pydf.from_dod(dod)
+        self.assertEqual(pydf.columns(), [])
+        self.assertEqual(pydf.lol, [])
+
+    # to_dod
+    def test_to_dod_with_remove_keyfield_true(self):
+        # Test case where keyfield column is removed (default behavior)
+        pydf = Pydf(lol=[['1', 'a', True], 
+                         ['2', 'b', False]], cols=['ID', 'Name', 'Flag'], keyfield='ID')
+        expected_dod = {'1': {'Name': 'a', 'Flag': True}, '2': {'Name': 'b', 'Flag': False}}
+        dod = pydf.to_dod()
+        self.assertEqual(dod, expected_dod)
+
+    def test_to_dod_with_remove_keyfield_false(self):
+        # Test case where keyfield column is retained
+        pydf = Pydf(lol=[['1', 'a', True], ['2', 'b', False]], cols=['ID', 'Name', 'Flag'], keyfield='ID')
+        expected_dod = {'1': {'ID': '1', 'Name': 'a', 'Flag': True}, '2': {'ID': '2', 'Name': 'b', 'Flag': False}}
+        dod = pydf.to_dod(remove_keyfield=False)
+        self.assertEqual(dod, expected_dod)
+
+    def test_to_dod_with_empty_pydf(self):
+        # Test case where Pydf is empty
+        pydf = Pydf()
+        expected_dod = {}
+        dod = pydf.to_dod()
+        self.assertEqual(dod, expected_dod)
+
+    # to_cols_dol()
+    def test_to_cols_dol_with_data(self):
+        # Test case where Pydf contains data
+        pydf = Pydf(lol=[[1, 'a', True], [2, 'b', False]], cols=['ID', 'Name', 'Flag'])
+        expected_dol = {'ID': [1, 2], 'Name': ['a', 'b'], 'Flag': [True, False]}
+        dol = pydf.to_cols_dol()
+        self.assertEqual(dol, expected_dol)
+
+    def test_to_cols_dol_with_empty_pydf(self):
+        # Test case where Pydf is empty
+        pydf = Pydf()
+        expected_dol = {}
+        dol = pydf.to_cols_dol()
+        self.assertEqual(dol, expected_dol)
+
+
+    # from_excel_buff
+    def test_from_excel_buff(self):
+        # Load the test data from file
+        subdir = "test_data"
+        
+        current_dir = Path(__file__).resolve().parent
+        self.test_data_dir = current_dir / subdir
+
+        excel_file_path = self.test_data_dir / "excel_test_1.xlsx"
+        with excel_file_path.open("rb") as f:
+            excel_data = f.read()
+
+        # Test reading Excel data into Pydf
+        my_pydf = Pydf.from_excel_buff(excel_data)
+        
+        # Assert Pydf properties
+        self.assertEqual(my_pydf.len(), 3)
+        self.assertEqual(my_pydf.num_cols(), 3)
+        self.assertEqual(my_pydf.columns(), ['ID', 'Name', 'Age'])
+        self.assertEqual(my_pydf.lol, [['1', 'John', '30'], ['2', 'Alice', '25'], ['3', 'Bob', '35']])
+
+
+    def test_to_csv_file(self):
+        # Determine the path to the test data directory
+        current_dir = Path(__file__).resolve().parent
+        self.test_data_dir = current_dir / "test_data"
+
+        # Create a sample Pydf object
+        pydf = Pydf(
+            lol=[
+                ['ID', 'Name', 'Age'],
+                [1, 'John', 30],
+                [2, 'Alice', 25],
+                [3, 'Bob', 35]
+            ],
+            keyfield='ID'
+        )
+
+        # Define the output CSV file path
+        csv_file_path = self.test_data_dir / "test_output.csv"
+
+        # Write Pydf content to CSV file
+        output_file_path = pydf.to_csv_file(file_path=str(csv_file_path))
+
+        # Assert that the output file path matches the expected path
+        self.assertEqual(output_file_path, str(csv_file_path))
+
+        # Assert that the CSV file has been created
+        self.assertTrue(csv_file_path.exists())
+
+        # Optionally, you can also assert the content of the CSV file
+        # Here, you can read the content of the CSV file and compare it with the expected content
+
+        # Clean up: Delete the CSV file after the test
+        # os.remove(csv_file_path)
+        
+        
+    # from_pandas_df
+    def test_from_pandas_df_with_dataframe(self):
+        # Mock a Pandas DataFrame with various data types
+        df_mock = pd.DataFrame({
+            'ID': [1, 2, 3],
+            'Name': ['John', 'Alice', 'Bob'],
+            'Age': [30, 25, 35],
+            'IsAdult': [True, False, True],
+            'Grade': [3.5, 4.2, 2.8]
+        })
+
+        # Call the method under test
+        pydf = Pydf.from_pandas_df(df_mock)
+
+        # Assert that the Pydf object is created with the correct properties
+        self.assertEqual(pydf.len(), 3)
+        self.assertEqual(pydf.num_cols(), 5)  # Number of columns including all data types
+        self.assertEqual(pydf.columns(), ['ID', 'Name', 'Age', 'IsAdult', 'Grade'])
+        self.assertEqual(pydf.lol, [
+            [1, 'John', 30, True, 3.5],
+            [2, 'Alice', 25, False, 4.2],
+            [3, 'Bob', 35, True, 2.8]
+        ])
+        
+    def test_from_pandas_df_with_series(self):
+        # Mock a Pandas Series
+        series_mock = pd.DataFrame([
+            {'ID': 1, 'Name': 'John', 'Age': 30},
+            {'ID': 2, 'Name': 'Alice', 'Age': 25},
+            {'ID': 3, 'Name': 'Bob', 'Age': 35}
+        ]).iloc[0]
+
+        # Call the method under test
+        pydf = Pydf.from_pandas_df(series_mock)
+
+        # Assert that the Pydf object is created with the correct properties
+        self.assertEqual(pydf.len(), 1)
+        self.assertEqual(pydf.num_cols(), 3)
+        self.assertEqual(pydf.columns(), ['ID', 'Name', 'Age'])
+        self.assertEqual(pydf.lol, [[1, 'John', 30]])
+        
+
+    def test_from_pandas_df_with_dataframe_using_csv(self):
+        # Mock a Pandas DataFrame
+        df_mock = pd.DataFrame([
+            {'ID': 1, 'Name': 'John', 'Age': 30},
+            {'ID': 2, 'Name': 'Alice', 'Age': 25},
+            {'ID': 3, 'Name': 'Bob', 'Age': 35}
+        ])
+
+        # Call the method under test
+        pydf = Pydf.from_pandas_df(df_mock, use_csv=True)
+
+        # Assert that the Pydf object is created with the correct properties
+        self.assertEqual(pydf.len(), 3)
+        self.assertEqual(pydf.num_cols(), 3)
+        self.assertEqual(pydf.columns(), ['ID', 'Name', 'Age'])
+        self.assertEqual(pydf.lol, [[1, 'John', 30], [2, 'Alice', 25], [3, 'Bob', 35]])
+
+    def test_from_pandas_df_with_series_using_csv(self):
+        # Mock a Pandas Series
+        series_mock = pd.DataFrame([
+            {'ID': 1, 'Name': 'John',  'Age': 30},
+            {'ID': 2, 'Name': 'Alice', 'Age': 25},
+            {'ID': 3, 'Name': 'Bob',   'Age': 35}
+        ]).iloc[0]
+
+        # Call the method under test
+        pydf = Pydf.from_pandas_df(series_mock, use_csv=True)
+
+        # Assert that the Pydf object is created with the correct properties
+        self.assertEqual(pydf.len(), 1)
+        self.assertEqual(pydf.num_cols(), 3)
+        self.assertEqual(pydf.columns(), ['ID', 'Name', 'Age'])
+        self.assertEqual(pydf.lol, [[1, 'John', 30]])
+        
+        
+    # test_pydf_to_pandas
+    def test_pydf_to_pandas(self):
+        # Create a Pydf object with sample data
+        pydf = Pydf(
+            lol=[
+                [1, 'John', 30, True, 3.5],
+                [2, 'Alice', 25, False, 4.2],
+                [3, 'Bob', 35, True, 2.8]
+            ],
+            cols=['ID', 'Name', 'Age', 'IsAdult', 'Grade']
+        )
+
+        # Convert Pydf to Pandas DataFrame
+        df = pydf.to_pandas_df()
+
+        # Expected DataFrame
+        expected_df = pd.DataFrame({
+            'ID': [1, 2, 3],
+            'Name': ['John', 'Alice', 'Bob'],
+            'Age': [30, 25, 35],
+            'IsAdult': [True, False, True],
+            'Grade': [3.5, 4.2, 2.8]
+        })
+
+        # Assert that the generated DataFrame is equal to the expected DataFrame
+        pd.testing.assert_frame_equal(df, expected_df)
+
+    def test_pydf_to_pandas_using_csv(self):
+        # Create a Pydf object with sample data
+        pydf = Pydf(
+            lol=[
+                [1, 'John', 30, True, 3.5],
+                [2, 'Alice', 25, False, 4.2],
+                [3, 'Bob', 35, True, 2.8]
+            ],
+            cols=['ID', 'Name', 'Age', 'IsAdult', 'Grade']
+        )
+
+        # Convert Pydf to Pandas DataFrame
+        df = pydf.to_pandas_df(use_csv=True)
+
+        # Expected DataFrame
+        expected_df = pd.DataFrame({
+            'ID': [1, 2, 3],
+            'Name': ['John', 'Alice', 'Bob'],
+            'Age': [30, 25, 35],
+            'IsAdult': [True, False, True],
+            'Grade': [3.5, 4.2, 2.8]
+        })
+
+        # Assert that the generated DataFrame is equal to the expected DataFrame
+        pd.testing.assert_frame_equal(df, expected_df)
+
+    # from numpy
+    def test_from_numpy_all_integers(self):
+        # Create a numpy array of all integers
+        npa_int = np.array([[1, 2, 3],
+                             [4, 5, 6],
+                             [7, 8, 9]])
+
+        # Call the method under test
+        pydf_int = Pydf.from_numpy(npa_int)
+
+        # Assert that the Pydf object is created with the correct properties
+        self.assertEqual(pydf_int.len(), 3)
+        self.assertEqual(pydf_int.num_cols(), 3)
+        self.assertEqual(pydf_int.columns(), [])
+        self.assertEqual(pydf_int.lol, [[1, 2, 3], [4, 5, 6], [7, 8, 9]])
+
+    def test_from_numpy_all_floats(self):
+        # Create a numpy array of all floats
+        npa_float = np.array([[1.0, 2.5, 3.7],
+                               [4.2, 5.6, 6.9],
+                               [7.3, 8.1, 9.4]])
+
+        # Call the method under test
+        pydf_float = Pydf.from_numpy(npa_float)
+
+        # Assert that the Pydf object is created with the correct properties
+        self.assertEqual(pydf_float.len(), 3)
+        self.assertEqual(pydf_float.num_cols(), 3)
+        self.assertEqual(pydf_float.columns(), [])
+        self.assertEqual(pydf_float.lol, [[1.0, 2.5, 3.7], [4.2, 5.6, 6.9], [7.3, 8.1, 9.4]])
+
+    
+    def test_from_numpy_with_2d_array(self):
+        # Create a 2D numpy array
+        npa = np.array([[1, 'John', 30], [2, 'Alice', 25], [3, 'Bob', 35]])
+
+        # Call the from_numpy method
+        pydf = Pydf.from_numpy(npa)
+
+        # Check if the Pydf object is created with the correct properties
+        
+        # Numpy arrays are homogeneous, meaning all elements in a numpy array 
+        # must have the same data type. If you attempt to create a numpy array 
+        # with elements of different data types, numpy will automatically cast 
+        # them to a single data type that can accommodate all elements. This can 
+        # lead to loss of information if the original data types are different.
+
+        # For example, if you try to create a numpy array with both integers and 
+        # strings, numpy will cast all elements to a common data type, such as Unicode strings.
+        
+        self.assertEqual(pydf.len(), 3)
+        self.assertEqual(pydf.num_cols(), 3)
+        self.assertEqual(pydf.columns(), [])
+        self.assertEqual(pydf.lol, [['1', 'John', '30'], ['2', 'Alice', '25'], ['3', 'Bob', '35']])
+
+    def test_from_numpy_with_1d_array(self):
+        # Create a 1D numpy array
+        npa = np.array(['John', 'Alice', 'Bob'])
+
+        # Call the from_numpy method
+        pydf = Pydf.from_numpy(npa)
+        
+        # Check if the Pydf object is created with the correct properties
+        self.assertEqual(pydf.len(), 1)
+        self.assertEqual(pydf.num_cols(), 3)
+        self.assertEqual(pydf.columns(), [])
+        self.assertEqual(pydf.lol, [['John', 'Alice', 'Bob']])
+
+    def test_from_numpy_with_keyfield_and_cols(self):
+        # Create a 2D numpy array
+        npa = np.array([[1, 'John', 30], [2, 'Alice', 25], [3, 'Bob', 35]])
+
+        # Specify keyfield and columns
+        keyfield = 'ID'
+        cols = ['ID', 'Name', 'Age']
+
+        # Call the from_numpy method
+        pydf = Pydf.from_numpy(npa, keyfield=keyfield, cols=cols)
+
+        # Check if the Pydf object is created with the correct properties
+        self.assertEqual(pydf.keyfield, keyfield)
+        self.assertEqual(pydf.columns(), cols)
+
+    # to_numpy
+    def test_to_numpy_all_integers(self):
+        # Create a Pydf object with all integers
+        pydf_int = Pydf(cols=['A', 'B', 'C'],
+                        lol=[[1, 2, 3],
+                             [4, 5, 6],
+                             [7, 8, 9]])
+
+        # Call the method under test
+        npa_int = pydf_int.to_numpy()
+
+        # Assert that the numpy array is created with the correct values
+        expected_npa_int = np.array([[1, 2, 3],
+                                     [4, 5, 6],
+                                     [7, 8, 9]])
+        self.assertTrue(np.array_equal(npa_int, expected_npa_int))
+
+    def test_to_numpy_all_floats(self):
+        # Create a Pydf object with all floats
+        pydf_float = Pydf(cols=['X', 'Y', 'Z'],
+                          lol=[[1.0, 2.5, 3.7],
+                               [4.2, 5.6, 6.9],
+                               [7.3, 8.1, 9.4]])
+
+        # Call the method under test
+        npa_float = pydf_float.to_numpy()
+
+        # Assert that the numpy array is created with the correct values
+        expected_npa_float = np.array([[1.0, 2.5, 3.7],
+                                       [4.2, 5.6, 6.9],
+                                       [7.3, 8.1, 9.4]])
+        self.assertTrue(np.array_equal(npa_float, expected_npa_float))
+
+
+
     # append
     def test_append_without_record(self):
         pydf = Pydf()
@@ -606,6 +1044,34 @@ class TestPydf(unittest.TestCase):
         self.assertEqual(pydf.name, '')
         self.assertEqual(pydf.keyfield, '')
         self.assertEqual(pydf.hd, {'col1': 0, 'col2': 1})
+        self.assertEqual(pydf.lol, [[1, 'b']])
+        self.assertEqual(pydf.kd, {})
+        self.assertEqual(pydf.dtypes, {})
+        self.assertEqual(pydf._iter_index, 0)
+
+    def test_append_list_without_keyfield_but_cols(self):
+        pydf = Pydf(cols=['col1', 'col2'])
+        record_la = [1, 'b']
+
+        pydf.append(record_la)
+
+        self.assertEqual(pydf.name, '')
+        self.assertEqual(pydf.keyfield, '')
+        self.assertEqual(pydf.hd, {'col1': 0, 'col2': 1})
+        self.assertEqual(pydf.lol, [[1, 'b']])
+        self.assertEqual(pydf.kd, {})
+        self.assertEqual(pydf.dtypes, {})
+        self.assertEqual(pydf._iter_index, 0)
+
+    def test_append_list_without_keyfield_no_cols(self):
+        pydf = Pydf()
+        record_la = [1, 'b']
+
+        pydf.append(record_la)
+
+        self.assertEqual(pydf.name, '')
+        self.assertEqual(pydf.keyfield, '')
+        self.assertEqual(pydf.hd, {})
         self.assertEqual(pydf.lol, [[1, 'b']])
         self.assertEqual(pydf.kd, {})
         self.assertEqual(pydf.dtypes, {})
@@ -725,6 +1191,27 @@ class TestPydf(unittest.TestCase):
         self.assertEqual(pydf1.lol, [['1', 'a'], ['2', 'b'], ['x', 'y'], ['z', 'w']])
         self.assertEqual(pydf1.kd, {})
         self.assertEqual(pydf1.dtypes, {'col1': str, 'col2': str})
+        self.assertEqual(pydf1._iter_index, 0)
+
+    def test_concat_without_keyfield_self_empty(self):
+        pydf1 = Pydf()
+        pydf2 = Pydf()
+
+        cols = ['col1', 'col2']
+        hd = {'col1': 0, 'col2': 1}
+        lol1 = []
+        lol2 = [['x', 'y'], ['z', 'w']]
+        pydf1 = Pydf(           lol=lol1, keyfield='')
+        pydf2 = Pydf(cols=cols, lol=lol2, keyfield='')
+
+        pydf1.concat(pydf2)
+
+        self.assertEqual(pydf1.name, '')
+        self.assertEqual(pydf1.keyfield, '')
+        self.assertEqual(pydf1.hd, hd)
+        self.assertEqual(pydf1.lol, [['x', 'y'], ['z', 'w']])
+        self.assertEqual(pydf1.kd, {})
+        self.assertEqual(pydf1.dtypes, {})
         self.assertEqual(pydf1._iter_index, 0)
 
     def test_concat_using_append_without_keyfield(self):
@@ -1460,6 +1947,45 @@ class TestPydf(unittest.TestCase):
         self.assertEqual(result.kd, {})
         self.assertEqual(result.dtypes, dtypes)
 
+    def test_select_records_pydf_without_inverse(self):
+        # Initialize test data
+        cols = ['ID', 'Name', 'Age']
+        lol = [
+            [1, 'John', 30],
+            [2, 'Alice', 25],
+            [3, 'Bob', 35]
+        ]
+        pydf = Pydf(lol=lol, cols=cols, keyfield='Name')  # Initialize Pydf with test data
+
+        # Test without inverse
+        keys_ls = ['John', 'Alice']  # Define the keys list
+        expected_lol =[
+            [1, 'John', 30],
+            [2, 'Alice', 25],
+        ]
+
+        result_pydf = pydf.select_records_pydf(keys_ls)  # Call the method
+        self.assertEqual(result_pydf.lol, expected_lol)  # Check if the selected row indices are correct
+
+    def test_select_records_pydf_with_inverse(self):
+        # Initialize test data
+        cols = ['ID', 'Name', 'Age']
+        lol = [
+            [1, 'John', 30],
+            [2, 'Alice', 25],
+            [3, 'Bob', 35]
+        ]
+        pydf = Pydf(lol=lol, cols=cols, keyfield='Name')  # Initialize Pydf with test data
+
+        # Test with inverse
+        keys_ls = ['John', 'Alice']  # Define the keys list
+        expected_lol =[
+            [3, 'Bob', 35]
+        ]
+        result_pydf = pydf.select_records_pydf(keys_ls, inverse=True)  # Call the method with inverse=True
+        self.assertEqual(result_pydf.lol, expected_lol)  # Check if the selected row indices are correct
+
+
     # assign_record
     def test_assign_record_empty_pydf(self):
         cols = []
@@ -1817,6 +2343,23 @@ class TestPydf(unittest.TestCase):
         expected_hd = {'col1': 0, 'new_col': 1, 'col2': 2, 'col3': 3}
         self.assertEqual(pydf.lol, expected_lol)
         self.assertEqual(pydf.hd, expected_hd)
+        
+
+    def test_insert_col_existing_colname_col_la(self):
+        # insert a column that already exists and it will overwrite the contents of that column
+        cols = ['col1', 'col2', 'col3']
+        lol = [[1, 'a', True], [2, 'b', False], [3, 'c', True]]
+        pydf = Pydf(cols=cols,  lol=lol, keyfield='col1', dtypes={'col1': int, 'col2': str, 'col3': bool})
+
+        colname = 'col2'
+        col_la = [4, 'd', False]
+        pydf.insert_col(colname=colname, col_la=col_la, icol=1)
+
+        expected_lol = [[1, 4, True], [2, 'd', False], [3, False, True]]
+        expected_hd = {'col1': 0, 'col2': 1, 'col3': 2}
+        self.assertEqual(pydf.lol, expected_lol)
+        self.assertEqual(pydf.hd, expected_hd)
+        
 
     def test_insert_col_valid_colname_append_col_la(self):
         cols = ['col1', 'col2', 'col3']
@@ -1835,6 +2378,7 @@ class TestPydf(unittest.TestCase):
         expected_hd = {'col1': 0, 'col2': 1, 'col3': 2, 'new_col': 3}
         self.assertEqual(pydf.lol, expected_lol)
         self.assertEqual(pydf.hd, expected_hd)
+        
 
     def test_insert_col_valid_colname_invalid_icol_col_la(self):
         cols = ['col1', 'col2', 'col3']
@@ -1854,6 +2398,7 @@ class TestPydf(unittest.TestCase):
 
         self.assertEqual(pydf.lol, expected_lol)
         self.assertEqual(pydf.hd, expected_hd)
+        
 
     def test_insert_col_valid_colname_empty_pydf(self):
         pydf = Pydf()
@@ -1864,6 +2409,7 @@ class TestPydf(unittest.TestCase):
 
         self.assertEqual(pydf.lol, [])
         self.assertEqual(pydf.hd, {'new_col': 0})
+        
 
     def test_insert_col_empty_colname(self):
         cols = ['col1', 'col2', 'col3']
@@ -1875,6 +2421,7 @@ class TestPydf(unittest.TestCase):
 
         self.assertEqual(pydf.lol, lol)
         self.assertEqual(pydf.hd, hd)
+        
 
     # insert_idx_col
     def test_insert_idx_col_valid_icol_startat(self):
@@ -1889,6 +2436,7 @@ class TestPydf(unittest.TestCase):
         expected_hd = {'col1': 0, 'idx': 1, 'col2': 2, 'col3': 3}
         self.assertEqual(pydf.lol, expected_lol)
         self.assertEqual(pydf.hd, expected_hd)
+        
 
     def test_insert_idx_col_valid_icol_default_startat(self):
         cols = ['col1', 'col2', 'col3']
@@ -2409,43 +2957,178 @@ class TestPydf(unittest.TestCase):
     def test_getitem_single_row(self):
         self.pydf_instance = Pydf(lol=[[1, 2, 3], [4, 5, 6], [7, 8, 9]], cols=['A', 'B', 'C'])
         result = self.pydf_instance[1]
-        expected_result = [4, 5, 6]
-        self.assertEqual(result, expected_result)
+        expected_lol = [[4, 5, 6]]
+        self.assertEqual(result.lol, expected_lol)
+
+    def test_getitem_single_cell_01(self):
+        self.pydf_instance = Pydf(lol=[[1, 2, 3], [4, 5, 6], [7, 8, 9]], cols=['A', 'B', 'C'])
+        result = self.pydf_instance[0,1]
+        expected_lol = [[2]]
+        self.assertEqual(result.lol, expected_lol)
+
+    def test_getitem_single_cell_10(self):
+        self.pydf_instance = Pydf(lol=[[1, 2, 3], [4, 5, 6], [7, 8, 9]], cols=['A', 'B', 'C'])
+        result = self.pydf_instance[1,0]
+        expected_lol = [[4]]
+        self.assertEqual(result.lol, expected_lol)
+
+    def test_getitem_single_cell_11(self):
+        self.pydf_instance = Pydf(lol=[[1, 2, 3], [4, 5, 6], [7, 8, 9]], cols=['A', 'B', 'C'])
+        result = self.pydf_instance[1,1]
+        expected_lol = [[5]]
+        self.assertEqual(result.lol, expected_lol)
 
     def test_getitem_single_row_with_cols(self):
         self.pydf_instance = Pydf(lol=[[1, 2, 3], [4, 5, 6], [7, 8, 9]], cols=['A', 'B', 'C'])
         result = self.pydf_instance[1, :]
-        expected_result = [4, 5, 6]
-        self.assertEqual(result, expected_result)
+        expected_lol = [[4, 5, 6]]
+        self.assertEqual(result.lol, expected_lol)
 
     def test_getitem_single_col(self):
         self.pydf_instance = Pydf(lol=[[1, 2, 3], [4, 5, 6], [7, 8, 9]], cols=['A', 'B', 'C'])
         result = self.pydf_instance[:, 1]
-        expected_result = [2, 5, 8]
-        self.assertEqual(result, expected_result)
+        expected_lol = [[2], [5], [8]]
+        self.assertEqual(result.lol, expected_lol)
 
     def test_getitem_single_colname(self):
         self.pydf_instance = Pydf(lol=[[1, 2, 3], [4, 5, 6], [7, 8, 9]], cols=['A', 'B', 'C'])
         result = self.pydf_instance[:, 'B']
-        expected_result = [2, 5, 8]
-        self.assertEqual(result, expected_result)
+        expected_lol = [[2], [5], [8]]
+        self.assertEqual(result.lol, expected_lol)
 
     def test_getitem_single_col_with_rows(self):
         self.pydf_instance = Pydf(lol=[[1, 2, 3], [4, 5, 6], [7, 8, 9]], cols=['A', 'B', 'C'])
         result = self.pydf_instance[:, 1:2]
-        expected_result = [2, 5, 8]
-        self.assertEqual(result, expected_result)
+        expected_lol = [[2], [5], [8]]
+        self.assertEqual(result.lol, expected_lol)
 
     def test_getitem_single_col_with_reduced_rows(self):
         self.pydf_instance = Pydf(lol=[[1, 2, 3], [4, 5, 6], [7, 8, 9]], cols=['A', 'B', 'C'])
         result = self.pydf_instance[0:2, 1:2]
-        expected_result = [2, 5]
-        self.assertEqual(result, expected_result)
+        expected_lol = [[2], [5]]
+        self.assertEqual(result.lol, expected_lol)
 
     def test_getitem_rows_and_cols(self):
         self.pydf_instance = Pydf(lol=[[1, 2, 3], [4, 5, 6], [7, 8, 9]], cols=['A', 'B', 'C'])
         result = self.pydf_instance[1:3, 0:2]
         expected_result = Pydf(lol=[[4, 5], [7, 8]], cols=['A', 'B'])
+        self.assertEqual(result, expected_result)
+
+    def test_getitem_col_idx_list(self):
+        self.pydf_instance = Pydf(lol=[[1, 2, 3], [4, 5, 6], [7, 8, 9]], cols=['A', 'B', 'C'])
+        result = self.pydf_instance[:, [0,2]]
+        expected_result = Pydf(lol=[[1, 3], [4, 6], [7, 9]], cols=['A', 'C'])
+        
+        # print(f"{result=}\n")
+        # print(f"{expected_result=}\n")
+        self.assertEqual(result, expected_result)
+
+    def test_getitem_col_name_list(self):
+        self.pydf_instance = Pydf(lol=[[1, 2, 3], [4, 5, 6], [7, 8, 9]], cols=['A', 'B', 'C'])
+        result = self.pydf_instance[:, ['A','C']]
+        expected_result = Pydf(lol=[[1, 3], [4, 6], [7, 9]], cols=['A', 'C'])
+        self.assertEqual(result, expected_result)
+
+    def test_getitem_row_idx_list(self):
+        self.pydf_instance = Pydf(lol=[[1, 2, 3], [4, 5, 6], [7, 8, 9]], cols=['A', 'B', 'C'])
+        result = self.pydf_instance[[0,2]]
+        expected_result = Pydf(lol=[[1, 2, 3], [7, 8, 9]], cols=['A', 'B', 'C'])
+        self.assertEqual(result, expected_result)
+
+    def test_getitem_row_name_list(self):
+        self.pydf_instance = Pydf(lol=[['a', 1, 2, 3], ['b', 4, 5, 6], ['c', 7, 8, 9]], 
+                                    cols=['k', 'A', 'B', 'C'], keyfield='k')
+        result = self.pydf_instance[['a','c']]
+        expected_result = Pydf(lol=[['a', 1, 2, 3], ['c', 7, 8, 9]], cols=['k', 'A', 'B', 'C'], keyfield='k')
+        self.assertEqual(result, expected_result)
+
+    # getitem retmode==val
+    def test_getitem_single_row_val(self):
+        self.pydf_instance = Pydf(lol=[[1, 2, 3], [4, 5, 6], [7, 8, 9]], cols=['A', 'B', 'C'], retmode='val')
+        result = self.pydf_instance[1]
+        expected_val = [4, 5, 6]
+        self.assertEqual(result, expected_val)
+
+    def test_getitem_single_cell_01_val(self):
+        self.pydf_instance = Pydf(lol=[[1, 2, 3], [4, 5, 6], [7, 8, 9]], cols=['A', 'B', 'C'], retmode='val')
+        result = self.pydf_instance[0,1]
+        expected_val = 2
+        self.assertEqual(result, expected_val)
+
+    def test_getitem_single_cell_10_val(self):
+        self.pydf_instance = Pydf(lol=[[1, 2, 3], [4, 5, 6], [7, 8, 9]], cols=['A', 'B', 'C'], retmode='val')
+        result = self.pydf_instance[1,0]
+        expected_val = 4
+        self.assertEqual(result, expected_val)
+
+    def test_getitem_single_cell_11_val(self):
+        self.pydf_instance = Pydf(lol=[[1, 2, 3], [4, 5, 6], [7, 8, 9]], cols=['A', 'B', 'C'], retmode='val')
+        result = self.pydf_instance[1,1]
+        expected_val = 5
+        self.assertEqual(result, expected_val)
+
+    def test_getitem_single_row_with_cols_val(self):
+        self.pydf_instance = Pydf(lol=[[1, 2, 3], [4, 5, 6], [7, 8, 9]], cols=['A', 'B', 'C'], retmode='val')
+        result = self.pydf_instance[1, :]
+        expected_val = [4, 5, 6]
+        self.assertEqual(result, expected_val)
+
+    def test_getitem_single_col_val(self):
+        self.pydf_instance = Pydf(lol=[[1, 2, 3], [4, 5, 6], [7, 8, 9]], cols=['A', 'B', 'C'], retmode='val')
+        result = self.pydf_instance[:, 1]
+        expected_val = [2, 5, 8]
+        self.assertEqual(result, expected_val)
+
+    def test_getitem_single_colname_val(self):
+        self.pydf_instance = Pydf(lol=[[1, 2, 3], [4, 5, 6], [7, 8, 9]], cols=['A', 'B', 'C'], retmode='val')
+        result = self.pydf_instance[:, 'B']
+        expected_val = [2, 5, 8]
+        self.assertEqual(result, expected_val)
+
+    def test_getitem_single_col_with_rows_val(self):
+        self.pydf_instance = Pydf(lol=[[1, 2, 3], [4, 5, 6], [7, 8, 9]], cols=['A', 'B', 'C'], retmode='val')
+        result = self.pydf_instance[:, 1:2]
+        expected_val = [2, 5, 8]
+        self.assertEqual(result, expected_val)
+
+    def test_getitem_single_col_with_reduced_rows_val(self):
+        self.pydf_instance = Pydf(lol=[[1, 2, 3], [4, 5, 6], [7, 8, 9]], cols=['A', 'B', 'C'], retmode='val')
+        result = self.pydf_instance[0:2, 1:2]
+        expected_val = [2, 5]
+        self.assertEqual(result, expected_val)
+
+    def test_getitem_rows_and_cols_val(self):
+        self.pydf_instance = Pydf(lol=[[1, 2, 3], [4, 5, 6], [7, 8, 9]], cols=['A', 'B', 'C'], retmode='val')
+        result = self.pydf_instance[1:3, 0:2]
+        expected_result = Pydf(lol=[[4, 5], [7, 8]], cols=['A', 'B'])
+        self.assertEqual(result, expected_result)
+
+    def test_getitem_col_idx_list_val(self):
+        self.pydf_instance = Pydf(lol=[[1, 2, 3], [4, 5, 6], [7, 8, 9]], cols=['A', 'B', 'C'], retmode='val')
+        result = self.pydf_instance[:, [0,2]]
+        expected_result = Pydf(lol=[[1, 3], [4, 6], [7, 9]], cols=['A', 'C'])
+        
+        # print(f"{result=}\n")
+        # print(f"{expected_result=}\n")
+        self.assertEqual(result, expected_result)
+
+    def test_getitem_col_name_list_val(self):
+        self.pydf_instance = Pydf(lol=[[1, 2, 3], [4, 5, 6], [7, 8, 9]], cols=['A', 'B', 'C'], retmode='val')
+        result = self.pydf_instance[:, ['A','C']]
+        expected_result = Pydf(lol=[[1, 3], [4, 6], [7, 9]], cols=['A', 'C'])
+        self.assertEqual(result, expected_result)
+
+    def test_getitem_row_idx_list_val(self):
+        self.pydf_instance = Pydf(lol=[[1, 2, 3], [4, 5, 6], [7, 8, 9]], cols=['A', 'B', 'C'], retmode='val')
+        result = self.pydf_instance[[0,2]]
+        expected_result = Pydf(lol=[[1, 2, 3], [7, 8, 9]], cols=['A', 'B', 'C'])
+        self.assertEqual(result, expected_result)
+
+    def test_getitem_row_name_list_val(self):
+        self.pydf_instance = Pydf(lol=[['a', 1, 2, 3], ['b', 4, 5, 6], ['c', 7, 8, 9]], 
+                                    cols=['k', 'A', 'B', 'C'], keyfield='k', retmode='val')
+        result = self.pydf_instance[['a','c']]
+        expected_result = Pydf(lol=[['a', 1, 2, 3], ['c', 7, 8, 9]], cols=['k', 'A', 'B', 'C'], keyfield='k')
         self.assertEqual(result, expected_result)
 
     # test transpose
@@ -2515,6 +3198,7 @@ class TestPydf(unittest.TestCase):
             lol=[[1, 2, 3], [4, 5, 6], [7, 8, 9]],
             cols=['A', 'B', 'C']
         )
+        
         self.pydf_instance[1, 'A'] = [100, 200, 300]
         expected_result = Pydf(lol=[[1, 2, 3], [[100, 200, 300], 5, 6], [7, 8, 9]], cols=['A', 'B', 'C'])
         
@@ -2553,7 +3237,8 @@ class TestPydf(unittest.TestCase):
         self.pydf_instance = Pydf(
             lol=[[1, 2, 3], [4, 5, 6], [7, 8, 9]],
             cols=['A', 'B', 'C']
-        )
+            )
+        #import pdb; pdb.set_trace() #temp
         self.pydf_instance[:, 'B'] = [55, 66, 77]
         expected_result = Pydf(lol=[[1, 55, 3], [4, 66, 6], [7, 77, 9]], cols=['A', 'B', 'C'])
         if self.pydf_instance != expected_result:
@@ -2849,8 +3534,10 @@ class TestPydf(unittest.TestCase):
         # Call the method to apply the regex select
         my_pydf.set_col2_from_col1_using_regex_select('col1', 'col2', r'\((\d+)\)')
         
+        col2_expected = Pydf(lol=[['123'], ['456'], ['789']], cols=['col2'])
+        
         # Assert the expected results
-        self.assertEqual(my_pydf[:, 'col2'], ['123', '456', '789'])
+        self.assertEqual(my_pydf[:, 'col2'], col2_expected)
         
 
     def test_groupby_cols_reduce(self):
@@ -2955,6 +3642,51 @@ class TestPydf(unittest.TestCase):
         d2 = {'a': 1, 'b': 2}
         assert utils.is_d1_in_d2(d1, d2) == False
 
+
+    def test_set_lol_with_new_lol(self):
+        # Create a Pydf instance for testing
+        self.cols = ['ID', 'Name', 'Age']
+        self.lol = [[1, 'John', 30], [2, 'Alice', 25], [3, 'Bob', 35]]
+        self.pydf = Pydf(cols=self.cols, lol=self.lol)
+
+        # Define a new list-of-lists (lol)
+        new_lol = [[4, 'David', 40], [5, 'Eve', 28]]
+
+        # Call the set_lol method with the new lol
+        self.pydf.set_lol(new_lol)
+
+        # Check if lol is set correctly
+        self.assertEqual(self.pydf.lol, new_lol)
+
+    def test_set_lol_with_empty_lol(self):
+        # Create a Pydf instance for testing
+        self.cols = ['ID', 'Name', 'Age']
+        self.lol = [[1, 'John', 30], [2, 'Alice', 25], [3, 'Bob', 35]]
+        self.pydf = Pydf(cols=self.cols, lol=self.lol)
+
+        # Define an empty lol
+        new_lol = []
+
+        # Call the set_lol method with the empty lol
+        self.pydf.set_lol(new_lol)
+
+        # Check if lol is set correctly to empty list
+        self.assertEqual(self.pydf.lol, new_lol)
+
+    def test_set_lol_recalculates_kd(self):
+        # Create a Pydf instance for testing
+        self.cols = ['ID', 'Name', 'Age']
+        self.lol = [[1, 'John', 30], [2, 'Alice', 25], [3, 'Bob', 35]]
+        self.pydf = Pydf(cols=self.cols, lol=self.lol)
+
+        # Define a new list-of-lists (lol)
+        new_lol = [[4, 'David', 40], [5, 'Eve', 28]]
+
+        # Call the set_lol method with the new lol
+        self.pydf.set_lol(new_lol)
+
+        # Check if kd is recalculated
+        self.assertIsNotNone(self.pydf.kd)
         
 
 if __name__ == '__main__':

@@ -7,8 +7,73 @@ The Pydf class provides a lightweight, simple and fast alternative to provide
 2-d data arrays with mixed types.
 
 This file handles indexing with square brackets[] as functions that operate on
-a pydf instance 'self'.
+a pydf instance.
 
+Indexing is fairly simple in concept, but it has a number of forms and subtle nuances.
+
+General Form:   my_pydf[row, col]
+
+    1. col parameter is optional. If it is left out, then the row specified includes all columns.
+    2. Each of the parameters can be an integer, which is the index into the currently defined lol array.
+    3. Each of the parameters can be a slice, i.e. n:m, which denotes a range.
+        n is the starting (row or col) index
+            if n is omitted, it defaults to 0
+        m is 1 past the ending index included in the range.
+            if m is omitted, it indicates that all remaining (rows or cols) are included.
+        :  without any row or column numbers indicates the entire range.
+        
+    4. Each of the row, col parameters can be a string.
+        each string will select which (row or col) will be included by keyfield or col names.
+        my_pydf['row5'] -- returns the row with keyfield 'row5' 
+        
+    5. Each of the row, col parameters can be a list
+        A list of integers selects which (rows or cols) will be included.
+        A list of strings selects which (rows or cols) will be included by keyfield or col names.
+        
+    6. If a single cell is selected by row, col by integers or using string selectors, then it is returned as a
+        scalar value, such as value = my_pydf[4,5] select the cell at location index row 4 and col 5.
+        
+    8. If both parameters are slices or lists, then a pydf array is returned.
+        If the columns are not sliced, then the pydf returned is not a copy, but a reference to the selected rows in the array.
+        
+        my_pydf[4,5] returns value from that cell in the array, which could be a scalar (default)
+        # my_pydf[4,5, 'pydf'] returns a pydf array with one value at 0,0 and associated colname keyfield.
+        # my_pydf[4,5, 'list'] returns a list with a single value
+        # my_pydf[4,5, 'dict'] returns a dict with a single item with column name as the key and value.
+        
+        my_pydf[4]   returns a list (default) of row 4, as a reference without making a copy. List is handy for say sum()
+        # my_pydf[4, :, 'list'] Same as above.
+        # my_pydf[4, :, 'dict'] returns a dict of row index 4, with colnames as dict keys (cols must be defined)
+        # my_pydf[4, :, 'pydf'] returns a pydf array with one row at row index 0, with header and keyfield from my_pydf
+        
+        my_pydf[:, 8] returns column at index 8 as a list (default)
+        # my_pydf[:, 8, 'list'] returns column at index 8 as a list.
+        # my_pydf[:, 8, 'dict'] return column at index 8 as a dict with keys which are from the keyfield.
+        # my_pydf[:, 8, 'pydf'] return column at index 8 in a new pydf at col index 0.
+        
+        my_pydf[:, 'col8'] returns column at colname 'col8' as a list (default)
+        # my_pydf[:, 'col8', 'list'] returns column at colname 'col8' as a list.
+        # my_pydf[:, 'col8', 'dict'] returns colname 'col8' as a dict with keys which are from the keyfield.
+        # my_pydf[:, 'col8', 'pydf'] returns a pydf with one column with colname 'col8'. This will have no keyfield unless it is included.
+        # my_pydf[:, ['col0','col8'], 'pydf'] returns a pydf with two columns, the keyfield column 'col0' and with colname 'col8'. Keyfield is maintained.
+        
+    # 9. There is a case of possible ambiguity if the keyfield is an integer.
+        # It is not clear if it is meant to reference the index of the keyfield. If the row parameter is an 
+        # integer, or a list of integers, the default will be to use the integer as an index, and not a key.
+        
+        # my_pydf[4]              returns list at row index 4.
+        # my_pydf[(4, 'k')]       returns a list of row where keyfield is 4.
+        # my_pydf[[4,6,8]]        returns a pydf of rows at indexes 4,6,8. These references to the rows from the original
+        # my_pydf[([4,6,8], 'k')] returns a pydf of rows where keyfield isin [4,6,8]
+        
+        # my_pydf[:, 4]           returns list of column index 4.
+        # my_pydf[:, (4, 'k')]    returns a list of column which has colname 4.
+        # my_pydf[:, (4, 'i')]    returns a list of column at index 4.
+        # my_pydf[:, ([4,6,8], 'i')] returns a pydf of columns at indexes 4,6,8.
+        # my_pydf[:, ([4,6,8], 'k')] returns a pydf of columns where colnames isin [4,6,8]
+
+        # my_pydf['asdfj':]
+        # my_pydf[:'asdfj']
 """
 
 """
@@ -53,18 +118,105 @@ import Pydf.Pydf as Pydf
 from typing import List, Dict, Any, Tuple, Optional, Union, cast, Type, Callable #
 def fake_function(a: Optional[List[Dict[str, Tuple[int,Union[Any, str, Type, Callable ]]]]] = None) -> Optional[int]:
     return None or cast(int, 0)   # pragma: no cover
+    
+indexing_version = 'version3'
 
 
-def _get_item(pydf,
+def _get_item(self,
         slice_spec:   Union[slice, int, str, T_li, T_ls, T_lb, 
                             Tuple[  Union[slice, int, str, T_li, T_ls, T_lb], 
                                     Union[slice, int, str, T_li, T_ls, T_lb]]],
-        ) -> 'Pydf':    
-    
-    if False: #not old_method:
-        return indexing._get_item2(pydf, slice_spec)
+        ) -> 'Pydf':
+    """ allow selection and slicing using one or two specs:
         
-    return indexing._get_item1(pydf, slice_spec)
+            my_pydf[2, 3]         -- select cell at row 2, col 3 and return value.
+            my_pydf[2]            -- select row 2, including all columns, return as a list.
+            my_pydf[2, :]         -- same as above
+            my_pydf[[2], :]       -- same as above
+            my_pydf[[2,5,8]]      -- select rows 2, 5, and 8, including all columns
+            my_pydf[[2,5,8], :]   -- same as above.
+            my_pydf[:, 3]         -- select only column 3, including all rows. Return as a list.
+            my_pydf[:, 'C']       -- select only column named 'C', including all rows, return as a list.
+            my_pydf[:, ['C']]     -- same as above
+            my_pydf[:, [1,4,7]]   -- select columns 1,4, and 7, including all rows. Return as a pydf
+            my_pydf[:, ['C','F']] -- select columns 'C' and 'F' including all rows. Return as a pydf
+            my_pydf[[2,5,8], [1,4,7]]     -- select rows 2, 5, and 8, including columns 1,4, and 7.
+            my_pydf[[2,5,8], ['C','F']]   -- select rows 2, 5, and 8, including columns 'C' and 'F'
+            
+            my_pydf[2:4]          -- select rows 2 and 3, including all columns, return as pydf.
+            my_pydf[2:4, :]       -- same as above
+            my_pydf[:, 3:5]       -- select columns 3 and 4, including all rows, return as pydf.
+            
+            new row selection using keys:
+            my_pydf['row1']       -- select entire row with keyfield 'row1'.
+                                        Note this differs from Pandas operation.
+            my_pydf['row1','C']   -- select cell at row with keyfield 'row1' at colname 'C'
+                                        Similar to dict-of-dict selection dod['row1']['C']
+            my_pydf[my_pydf.rowidxof('row1'):my_pydf.rowidxof('row8')] -- select rows including 'row1' upto but not including 'row8' (7 rows)
+            my_pydf[['row1', 'row5, 'row8']]                -- select three rows by list of keyfield names.
+            my_pydf['row1':'row8', ['C','F']]               -- NOT SUPPORTED YET select rows including 'row1' upto but not including 'row8' (7 rows) in columns 'C' and 'F'
+            my_pydf[['row1', 'row5, 'row8'], ['C','F']]     -- select three rows by list of keyfield names and two columns, by name.
+            
+            my_pydf[:, my_pydf.columns().isin(['C', 'F'])]  -- select just columns 'C' and 'F' by name using boolean mask method.
+            my_pydf[:, ~my_pydf.columns().isin(['C', 'F'])]  -- omit columns 'C' and 'F' by name using boolean mask method.
+        
+            returns a consistent pydf instance copied from the original, and with the data specified.
+            always returns the simplest object possible.
+            if multiple rows or columns are specified, they will be returned in the original orientation.
+            if only one cell is selected, return a single value.
+            If only one row is selected, return a list. If a dict is required, use select_irow()
+            if only one col is selected, return a list.
+        """
+    
+    
+    
+    if indexing_version == 'version2':
+        return indexing._get_item2(self, slice_spec)
+    elif indexing_version == 'version3':    
+        return indexing._get_item3(self, slice_spec)
+        
+        
+    return indexing._get_item1(self, slice_spec)
+
+def _set_item3(self, slice_spec):
+    pass
+
+
+def _get_item3(self,
+        slice_spec:   Union[slice, int, str, T_li, T_ls, T_lb, 
+                            Tuple[  Union[slice, int, str, T_li, T_ls, T_lb], 
+                                    Union[slice, int, str, T_li, T_ls, T_lb]]],
+        ) -> 'Pydf':
+
+    if isinstance(slice_spec, tuple) and len(slice_spec) == 2:
+        # Handle parsing slices for  both rows and columns
+        row_spec, col_spec = slice_spec
+    else:
+        row_spec = slice_spec
+        col_spec = None
+        
+    if isinstance(row_spec, (int, slice)) or utils.is_list_of_type(row_spec, int):
+        sel_rows_pydf = self.select_irows(irows=slice_spec)
+    elif isinstance(row_spec, str) or utils.is_list_of_type(row_spec, str):
+        sel_rows_pydf = self.select_krows(krows=slice_spec)
+    else:
+        return self
+
+    if not col_spec:
+        return sel_rows_pydf
+
+    if isinstance(col_spec, (int, slice)) or utils.is_list_of_type(col_spec, int):
+        return sel_rows_pydf.select_icols(icols=slice_spec)
+    elif isinstance(col_spec, str) or utils.is_list_of_type(col_spec, str):
+        return sel_rows_pydf.select_kcols(kcols=slice_spec)
+    else:
+        return sel_rows_pydf
+        
+
+           
+
+
+
     
 
 def _get_item1(self,
@@ -313,8 +465,53 @@ def _set_item(self,
         slice_spec: Union[int, Tuple[Union[slice, int, List[str], List[bool]], Union[slice, int, str, List[str], List[bool]]]], 
         value: Any):
 
-    if False: #not old_method:
+    """
+        Handles the assignment of values, lists or dicts to Pydf elements.
+        
+        Can handle the following scenarios:
+            my_pydf[3] = list                   -- assign the entire row at index 3 to the list provided
+            my_pydf[[3]] = list                 -- same as above
+            my_pydf[3, :] = list                -- same as above.
+            my_pydf[[3], :] = list              -- same as above.
+            my_pydf[3, :] = dict                -- assign the entire row at index 3 to the dict provided, respecting dict keys.
+                                                    will only assign those values that have a new value in the provided dict.
+            my_pydf[3] = value                  -- assign the entire row at index 3 to the value provided.
+            my_pydf[[3]] = value                -- same as above.
+            my_pydf[3, :] = value               -- same as above.
+            my_pydf[[3], :] = value             -- same as above.
+            my_pydf[[3, 5, 8], :] = value       -- set rows 3, 5 and 8 to the value in all columns
+            my_pydf[3, 4] = value               -- set one cell 3, 4 to value
+            my_pydf[3, 5:20] = value            -- set a single value in row 3, columns 5 through 19
+            my_pydf[3, 5:20] = list             -- set row 3 in columns 5 through 19 to values from the the list provided.
+            my_pydf[3, [1,4,7]] = list          -- set row 3 in columns 1, 4, and 7 to values from the the list provided.
+            my_pydf[:, 4] = list                -- assign the entire column at index 4 to the list provided.
+            my_pydf[3:5, 5] = list              -- assign a partial column at index 5 at rows 3 and 4 to the list provided.
+
+            my_pydf[3, 'C'] = value             -- set a value in cell 3, col 'C'
+            my_pydf[3, ['C', 'D', 'G'] = list   -- set a row 3 in columns 'C', 'D' and 'G' to the values in list.
+            my_pydf[:, 'C'] = list              -- assign the entire column 'C' to the list provided
+            my_pydf[3:5, 'C'] = list            -- assign a partial column 'C' to list provided in rows 3 and 4
+            my_pydf[:, 4] = value               -- assign the entire column 4 to the value provided.
+            
+            my_pydf[[3,5,8], :] = pydf          -- set rows 3,5,8 to the data in pydf provided
+            my_pydf[[3,5,8], ['C', 'D', 'G']] = pydf   -- set rows 3,5,8 in columns 'C', 'D' and 'G' to the data in pydf provided
+            my_pydf['R1']                       -- choose entire row by name
+            my_pydf['R1', :]                    -- choose entire row by name
+            my_pydf[['R1', 'R2', 'R3']]         -- choose three rows
+            my_pydf[['R1', 'R2', 'R3'], :]      -- choose three rows
+
+        Args:
+        - slice_spec: The slice_spec (index or slice) indicating the location to assign the value.
+        - value: The value to assign.
+
+        Returns:
+        - None
+        """
+
+    if indexing_version == 'version2':
         return _set_item2(self, slice_spec, value)
+    if indexing_version == 'version3':
+        return _set_item3(self, slice_spec, value)
     return _set_item1(self, slice_spec, value)
 
 def _set_item1(self, 
@@ -452,7 +649,7 @@ def _set_item1(self,
 
     self._rebuild_kd()    
     
-#===========================
+#===== VERSION 2 ======
 
 def _parse_itemidx(self, slice_spec: Union[slice, int, str, T_li, T_ls, T_lb], row_or_col:str='row', 
                     parse_doda: Optional[T_doda]=None) -> T_doda: # parse_doda

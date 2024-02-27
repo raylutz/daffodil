@@ -68,6 +68,18 @@ See README file at this location: https://github.com/raylutz/Pydf/blob/main/READ
                 1. read with no headers.
                 2. pull off first row using indexing (could add pop_row())
                 3. set set_cols with sanitize_cols=True.
+            Removed:
+                unflatten_dirname() <-- remove?
+                flatten_dirname() <-- remove?
+                cols_to_strbool() <-- remove?
+                insert_icol()
+                    keyfield <-- remove!  use set_keyfield instead
+                insert_col() (removed keyfield)
+                from_selected_cols <-- remove! but check for usage! (use my_pydf[:, colnames_ls]
+           Refactor get_item and set_item
+                started this but complexity not that much better.
+                Redid it again after discussion with Jeremy which was helpful.
+            
             
             tests added
                 initialization from dtypes and no cols.
@@ -84,38 +96,44 @@ See README file at this location: https://github.com/raylutz/Pydf/blob/main/READ
                 select_first_row_by_dict    
                 select_where_idxs
                 select_cols
-
-    TODO
-            Refactor get_item and set_item
-            
-            tests: need to add 
-                __str__ and __repr__
-                .isin <-- keep this?
                 calc_cols
                     no hd defined.
                     include_cols > 10
                     exclude_cols > 10
                     exclude_types
-                normalize() <-- keep this?
+                insert_col()
+                    colname already exists.
+                from_lod() with empty records_lod
+                to_cols_dol()
+                set_lol()
+                from_pandas_df()
+                to_pandas_df()
+                from_dod()
+                to_dod()
+                from_excel_buff()
+                
+            Added:
+                to_cols_dol()
+            Moved code for __getitem__ and __setitem__ to 'indexing' and 
+                used method equating to introduce them in the class.
+            Moved to_pandas and from_pandas to file pydf_pandas.py
+            Changed constructors from_... from staticmethods to classmethods
+
+    TODO
+             
+            tests: need to add 
+                __str__ and __repr__
+                .isin <-- keep this?
+                normalize() <-- keep this? (not used)
                 
                 apply_dtypes()
                 unflatten_cols()
-                unflatten_dirname() <-- remove?
                 unflatten_by_dtypes()
                 flatten_cols()
                 flatten_by_dtypes()
-                flatten_dirname() <-- remove?
-                cols_to_strbool() <-- remove?
-                set_lol()
-                from_lod() with empty records_lod
-                from_dod()
-                from_excel_buff()
                 from_csv_buff()
-                from_pandas_df()
                 from_numpy()
                 to_csv_buff()
-                to_dod()
-                to_pandas_df()
                 append()  
                     empty data item
                     simple list with columns defined.
@@ -140,15 +158,10 @@ See README file at this location: https://github.com/raylutz/Pydf/blob/main/READ
                 icol_to_la
                     unique
                     omit_nulls
-                from_selected_cols <-- remove! but check for usage!
                 assign_record_da
                     no keyfield defined.
                 update_by_keylist <-- remove?
-                insert_icol()
-                    keyfield <-- remove!  use set_keyfield instead
                 insert_irow()
-                insert_col()
-                    colname already exists.
                 set_col_irows() <-- remove.
                 set_icol()  <-- remove.
                 set_icol_irows() <-- remove.
@@ -259,11 +272,12 @@ import numpy as np
 sys.path.append('..')
 
 from Pydf.pydf_types import T_ls, T_lola, T_di, T_hllola, T_loda, T_da, T_li, T_dtype_dict, \
-                            T_dola, T_dodi, T_la, T_lota, T_doda, T_buff, T_df, T_ds, T_lb
+                            T_dola, T_dodi, T_la, T_lota, T_doda, T_buff, T_ds, T_lb # , T_df
                      
 import Pydf.pydf_utils as utils
 import Pydf.pydf_md    as md
-import Pydf.pydf_indexing as indexing
+#import Pydf.pydf_indexing as indexing
+import Pydf.pydf_pandas   as pydf_pandas
 
 from typing import List, Dict, Any, Tuple, Optional, Union, cast, Type, Callable #
 def fake_function(a: Optional[List[Dict[str, Tuple[int,Union[Any, str]]]]] = None) -> Optional[int]:
@@ -274,8 +288,9 @@ T_Pydf = Type['Pydf']
 
 
 class Pydf:
-
-    """ my_pydf = Pydf() """
+    RETMODE_OBJ  = 'obj'
+    RETMODE_VAL  = 'val'
+    
 
     def __init__(self, 
             lol:        Optional[T_lola]        = None,     # Optional List[List[Any]] to initialize the data array. 
@@ -283,10 +298,11 @@ class Pydf:
             dtypes:     Optional[T_dtype_dict]  = None,     # Optional dtype_dict describing the desired type of each column.
                                                             #   also used to define column names if provided and cols not provided.
             keyfield:   str                     = '',       # A field of the columns to be used as a key.
+                                                            # can be set even if columns not set yet.
             name:       str                     = '',       # An optional name of the Pydf array.
             use_copy:   bool                    = False,    # If True, make a deep copy of the lol data.
             disp_cols:  Optional[T_ls]          = None,     # Optional list of strings to use for display, if initialized.
-            #sanitize_cols: bool                 = False,    # check for blank or missing cols and make complete and unique.
+            retmode:    str                     = 'obj'     # default return value
         ):
         if lol is None:
             lol = []
@@ -309,6 +325,8 @@ class Pydf:
         
         self.md_max_rows    = 10    # default number of rows when used with __repr__ and __str__
         self.md_max_cols    = 10    # default number of cols when used with __repr__ and __str__
+
+        self._retmode       = retmode      # return mode can be either RETMODE_OBJ or RETMODE_VAL
 
         # Initialize iterator variables        
         self._iter_index = 0
@@ -340,6 +358,17 @@ class Pydf:
             
     #===========================
     # basic attributes and methods
+    
+    @property
+    def retmode(self):
+        return self._retmode
+        
+    @retmode.setter
+    def retmode(self, new_retmode):
+        if new_retmode in [self.RETMODE_OBJ, self.RETMODE_VAL]:
+            self._retmode = new_retmode
+        else:
+            raise ValueError("Invalid retmode")
 
     def __iter__(self):
         self._iter_index = 0
@@ -521,6 +550,7 @@ class Pydf:
         
     def normalize(self, defined_cols: T_ls):
         # add or subtract columns and place in order per defined_cols.
+        # UNUSED
         if not self:
             return
         
@@ -728,22 +758,6 @@ class Pydf:
         return self
 
 
-    def unflatten_dirname(self, dirname: str):
-
-        if not self:
-            return self
-        
-        from models.BIF import BIF
-
-        cols = BIF.get_dirname_cols_with_format(dirname=dirname, fmt='json')
-        if not cols:
-            return self
-        
-        self.unflatten_cols(cols)
-            
-        return self
-        
-        
     def unflatten_by_dtypes(self):
 
         if not self or not self.dtypes:
@@ -792,146 +806,12 @@ class Pydf:
         return self
 
 
-    def flatten_dirname(self, dirname: str):
-
-        if not self:
-            return self
-            
-        # change True/False to '1'/'0' strings.
-        from models.BIF import BIF
-
-        strbool_cols = BIF.get_dirname_cols_with_format(dirname=dirname, fmt='strbool')
-        self.cols_to_strbool(strbool_cols)
-        
-        # make sure the df has all the columns and no extra columns.
-        self.normalize(defined_cols=BIF.get_dirname_columns(dirname))
-        
-        # convert objects marked with format 'json' to json strings.
-        json_cols = BIF.get_dirname_cols_with_format(dirname=dirname, fmt='json')
-        self.flatten_cols(cols=json_cols)
-            
-        return self
-        
-
-    def cols_to_strbool(self, cols: T_ls):
-        # given a lod, convert given list of columns to strbool.
-
-        # from utilities import utils
-
-        for irow, da in enumerate(self):
-            record_da = {k:utils.make_strbool(da[k]) for k in cols if k in da}
-            self.update_record_da_irow(irow, record_da)        
-            
-        return self
-
-
     def _safe_tofloat(val: Any) -> Union[float, str]:
         try:
             return float(val)
         except ValueError:
             return 0.0
     
-    #===========================
-    # indexing
-
-    def __getitem__(self, slice_spec:   Union[slice, int, str, T_li, T_ls, T_lb, 
-                                Tuple[  Union[slice, int, str, T_li, T_ls, T_lb], 
-                                        Union[slice, int, str, T_li, T_ls, T_lb]]]) -> 'Pydf':
-        
-        """ allow selection and slicing using one or two specs:
-        
-            my_pydf[2, 3]         -- select cell at row 2, col 3 and return value.
-            my_pydf[2]            -- select row 2, including all columns, return as a list.
-            my_pydf[2, :]         -- same as above
-            my_pydf[[2], :]       -- same as above
-            my_pydf[[2,5,8]]      -- select rows 2, 5, and 8, including all columns
-            my_pydf[[2,5,8], :]   -- same as above.
-            my_pydf[:, 3]         -- select only column 3, including all rows. Return as a list.
-            my_pydf[:, 'C']       -- select only column named 'C', including all rows, return as a list.
-            my_pydf[:, ['C']]     -- same as above
-            my_pydf[:, [1,4,7]]   -- select columns 1,4, and 7, including all rows. Return as a pydf
-            my_pydf[:, ['C','F']] -- select columns 'C' and 'F' including all rows. Return as a pydf
-            my_pydf[[2,5,8], [1,4,7]]     -- select rows 2, 5, and 8, including columns 1,4, and 7.
-            my_pydf[[2,5,8], ['C','F']]   -- select rows 2, 5, and 8, including columns 'C' and 'F'
-            
-            my_pydf[2:4]          -- select rows 2 and 3, including all columns, return as pydf.
-            my_pydf[2:4, :]       -- same as above
-            my_pydf[:, 3:5]       -- select columns 3 and 4, including all rows, return as pydf.
-            
-            new row selection using keys:
-            my_pydf['row1']       -- select entire row with keyfield 'row1'.
-                                        Note this differs from Pandas operation.
-            my_pydf['row1','C']   -- select cell at row with keyfield 'row1' at colname 'C'
-                                        Similar to dict-of-dict selection dod['row1']['C']
-            my_pydf[my_pydf.rowidxof('row1'):my_pydf.rowidxof('row8')] -- select rows including 'row1' upto but not including 'row8' (7 rows)
-            my_pydf[['row1', 'row5, 'row8']]                -- select three rows by list of keyfield names.
-            my_pydf['row1':'row8', ['C','F']]               -- NOT SUPPORTED YET select rows including 'row1' upto but not including 'row8' (7 rows) in columns 'C' and 'F'
-            my_pydf[['row1', 'row5, 'row8'], ['C','F']]     -- select three rows by list of keyfield names and two columns, by name.
-            
-            my_pydf[:, my_pydf.columns().isin(['C', 'F'])]  -- select just columns 'C' and 'F' by name using boolean mask method.
-            my_pydf[:, ~my_pydf.columns().isin(['C', 'F'])]  -- omit columns 'C' and 'F' by name using boolean mask method.
-        
-            returns a consistent pydf instance copied from the original, and with the data specified.
-            always returns the simplest object possible.
-            if multiple rows or columns are specified, they will be returned in the original orientation.
-            if only one cell is selected, return a single value.
-            If only one row is selected, return a list. If a dict is required, use select_irow()
-            if only one col is selected, return a list.
-        """
-        return_val = indexing._get_item(self, slice_spec)
-        
-        return return_val
-        
-        
-    def __setitem__(self, 
-            slice_spec: Union[int, Tuple[Union[slice, int, List[str], List[bool]], Union[slice, int, str, List[str], List[bool]]]], 
-            value: Any):
-        """
-        Handles the assignment of values, lists or dicts to Pydf elements.
-        
-        Can handle the following scenarios:
-            my_pydf[3] = list                   -- assign the entire row at index 3 to the list provided
-            my_pydf[[3]] = list                 -- same as above
-            my_pydf[3, :] = list                -- same as above.
-            my_pydf[[3], :] = list              -- same as above.
-            my_pydf[3, :] = dict                -- assign the entire row at index 3 to the dict provided, respecting dict keys.
-                                                    will only assign those values that have a new value in the provided dict.
-            my_pydf[3] = value                  -- assign the entire row at index 3 to the value provided.
-            my_pydf[[3]] = value                -- same as above.
-            my_pydf[3, :] = value               -- same as above.
-            my_pydf[[3], :] = value             -- same as above.
-            my_pydf[[3, 5, 8], :] = value       -- set rows 3, 5 and 8 to the value in all columns
-            my_pydf[3, 4] = value               -- set one cell 3, 4 to value
-            my_pydf[3, 5:20] = value            -- set a single value in row 3, columns 5 through 19
-            my_pydf[3, 5:20] = list             -- set row 3 in columns 5 through 19 to values from the the list provided.
-            my_pydf[3, [1,4,7]] = list          -- set row 3 in columns 1, 4, and 7 to values from the the list provided.
-            my_pydf[:, 4] = list                -- assign the entire column at index 4 to the list provided.
-            my_pydf[3:5, 5] = list              -- assign a partial column at index 5 at rows 3 and 4 to the list provided.
-
-            my_pydf[3, 'C'] = value             -- set a value in cell 3, col 'C'
-            my_pydf[3, ['C', 'D', 'G'] = list   -- set a row 3 in columns 'C', 'D' and 'G' to the values in list.
-            my_pydf[:, 'C'] = list              -- assign the entire column 'C' to the list provided
-            my_pydf[3:5, 'C'] = list            -- assign a partial column 'C' to list provided in rows 3 and 4
-            my_pydf[:, 4] = value               -- assign the entire column 4 to the value provided.
-            
-            my_pydf[[3,5,8], :] = pydf          -- set rows 3,5,8 to the data in pydf provided
-            my_pydf[[3,5,8], ['C', 'D', 'G']] = pydf   -- set rows 3,5,8 in columns 'C', 'D' and 'G' to the data in pydf provided
-            my_pydf['R1']                       -- choose entire row by name
-            my_pydf['R1', :]                    -- choose entire row by name
-            my_pydf[['R1', 'R2', 'R3']]         -- choose three rows
-            my_pydf[['R1', 'R2', 'R3'], :]      -- choose three rows
-
-        Args:
-        - slice_spec: The slice_spec (index or slice) indicating the location to assign the value.
-        - value: The value to assign.
-
-        Returns:
-        - None
-        """
-
-        return indexing._set_item(self, slice_spec, value)
-        
-
     #===========================
     # initializers
     
@@ -952,7 +832,8 @@ class Pydf:
         
         
     def set_lol(self, new_lol: T_lola) -> 'Pydf':
-        """ set the lol with the value passed, leaving other settings, but recalculating kd. 
+        """ set the lol with the value passed, leaving other settings, 
+            and recalculating kd if required (i.e. if keyfield is defined).
         """
         
         self.lol = new_lol
@@ -965,8 +846,9 @@ class Pydf:
     # convert from / to other data or files.
     
     # ==== Python lod (list of dictionaries)
-    @staticmethod
+    @classmethod
     def from_lod(
+            cls,
             records_lod:    T_loda,                         # List[List[Any]] to initialize the lol data array.
             keyfield:       str='',                         # set a new keyfield or set no keyfield.
             dtypes:         Optional[T_dtype_dict]=None     # set the data types for each column.
@@ -983,7 +865,7 @@ class Pydf:
             dtypes = {}
         
         if not records_lod:
-            return Pydf(keyfield=keyfield, dtypes=dtypes)
+            return cls(keyfield=keyfield, dtypes=dtypes)
         
         cols = list(records_lod[0].keys())
         
@@ -991,7 +873,7 @@ class Pydf:
         
         lol = [list(utils.set_cols_da(record_da, cols).values()) for record_da in records_lod]
         
-        return Pydf(cols=cols, lol=lol, keyfield=keyfield, dtypes=dtypes)
+        return cls(cols=cols, lol=lol, keyfield=keyfield, dtypes=dtypes)
         
         
     def to_lod(self) -> T_loda:
@@ -1008,13 +890,15 @@ class Pydf:
         
     
     # ==== Python dod (dict of dict)    
-    @staticmethod
+    @classmethod
     def from_dod(
+            cls,
             dod:            T_doda,         # Dict(str, Dict(str, Any))
             keyfield:       str='rowkey',   # The keyfield will be set to the keys of the outer dict.
                                             # this will set the preferred name. Defaults to 'rowkey'
             dtypes:         Optional[T_dtype_dict]=None     # optionally set the data types for each column.
             ) -> 'Pydf':
+            
         """ a dict of dict (dod) structure is very similar to a Pydf table, but there is a slight difference.
             A dod structure will have a first key which indexes to a specific dict.
             The key in that dict is likely not also found in the "value" dict of the first level, but it might be.
@@ -1043,12 +927,11 @@ class Pydf:
             not required in the dod.
             
         """
-        return Pydf.from_lod(utils.dod_to_lod(dod, keyfield=keyfield), dtypes=dtypes)
+        return cls.from_lod(utils.dod_to_lod(dod, keyfield=keyfield), keyfield=keyfield, dtypes=dtypes)
     
     
     def to_dod(
             self,
-            dod:                T_doda,         # Dict(str, Dict(str, Any))
             remove_keyfield:    bool=True,      # by default, the keyfield column is removed.
             ) -> T_doda:
         """ a dict of dict structure is very similar to a Pydf table, but there is a slight difference.
@@ -1074,8 +957,13 @@ class Pydf:
     
 
     # ==== cols_dol
-    @staticmethod
-    def from_cols_dol(cols_dol: T_dola, keyfield: str='', dtypes: Optional[T_dtype_dict]=None) -> 'Pydf':
+    @classmethod
+    def from_cols_dol(
+            cls, 
+            cols_dol: T_dola, 
+            keyfield: str='', 
+            dtypes: Optional[T_dtype_dict]=None,
+            ) -> 'Pydf':
         """ Create Pydf instance from cols_dol type, adopting dict keys as column names
             and creating columns from each value (list)
             
@@ -1091,7 +979,7 @@ class Pydf:
             dtypes = {}
         
         if not cols_dol:
-            return Pydf(keyfield=keyfield, dtypes=dtypes)
+            return cls(keyfield=keyfield, dtypes=dtypes)
         
         cols = list(cols_dol.keys())
         
@@ -1102,14 +990,20 @@ class Pydf:
                 row.append(cols_dol[col][irow])
             lol.append(row)    
         
-        return Pydf(cols=cols, lol=lol, keyfield=keyfield, dtypes=dtypes)
+        return cls(cols=cols, lol=lol, keyfield=keyfield, dtypes=dtypes)
         
         
     def to_cols_dol(self) -> dict:
         """ convert pydf to dictionary of lists of values, where key is the 
             column name, and the list are the values in that column.
         """
-        pass
+        result_dol = {colname: [] for colname in self.columns()}
+        
+        for row_da in self:
+            for key, val in row_da.items():
+                result_dol[key].append(val)
+                
+        return result_dol
         
 
     def to_attrib_dict(self) -> dict:
@@ -1129,8 +1023,15 @@ class Pydf:
 
     
 
-    @staticmethod
-    def from_lod_to_cols(lod: T_loda, cols:Optional[List]=None, keyfield: str='', dtypes: Optional[T_dtype_dict]=None) -> 'Pydf':
+    @classmethod
+    def from_lod_to_cols(
+            cls,
+            lod: T_loda, 
+            cols:Optional[List]=None, 
+            keyfield: str='', 
+            dtypes: Optional[T_dtype_dict]=None
+            ) -> 'Pydf':
+            
         r""" Create Pydf instance from a list of dictionaries to be placed in columns
             where each column shares the same keys in the first column of the array.
             This transposes the data from rows to columns and adds the new 'cols' header,
@@ -1168,11 +1069,11 @@ class Pydf:
             cols = []
         
         if not lod:
-            return Pydf(keyfield=keyfield, dtypes=dtypes, cols=cols)
+            return cls(keyfield=keyfield, dtypes=dtypes, cols=cols)
         
         # the following will adopt the dictionary keys as cols.
         # note that dtypes applies to the columns in this orientation.
-        rows_pydf = Pydf.from_lod(lod, dtypes=dtypes)
+        rows_pydf = cls.from_lod(lod, dtypes=dtypes)
         
         # this transposes the entire dataframe, including the column names, which become the first column
         # in the new orientation, then adds the new column names, if provided. Otherwise they will be
@@ -1183,8 +1084,9 @@ class Pydf:
 
 
     #==== Excel
-    @staticmethod
+    @classmethod
     def from_excel_buff(
+            cls,
             excel_buff: bytes, 
             keyfield: str='',                       # field to use as unique key, if not ''
             dtypes: Optional[T_dtype_dict]=None,    # dictionary of types to apply if set.
@@ -1199,7 +1101,7 @@ class Pydf:
 
         csv_buff = utils.xlsx_to_csv(excel_buff)
 
-        my_pydf  = Pydf.from_csv_buff(
+        my_pydf  = cls.from_csv_buff(
                         csv_buff, 
                         keyfield    = keyfield,         # field to use as unique key, if not ''
                         dtypes      = dtypes,           # dictionary of types to apply if set.
@@ -1211,8 +1113,9 @@ class Pydf:
         return my_pydf
     
     #==== CSV
-    @staticmethod
+    @classmethod
     def from_csv_buff(
+            cls,
             csv_buff: Union[bytes, str],            # The CSV data as bytes or string.
             keyfield: str='',                       # field to use as unique key, if not ''
             dtypes: Optional[T_dtype_dict]=None,    # dictionary of types to apply if set.
@@ -1237,15 +1140,13 @@ class Pydf:
             hllola: A tuple containing a header list and a list of lists representing the CSV data.
         """
         
-        from models.DB import DB
-    
-        data_lol = DB.buff_csv_to_lol(csv_buff, user_format=user_format, sep=sep, include_cols=include_cols, dtypes=dtypes)
+        data_lol = utils.buff_csv_to_lol(csv_buff, user_format=user_format, sep=sep, include_cols=include_cols, dtypes=dtypes)
         
         cols = []
         if not noheader:
             cols = data_lol.pop(0)        # return the first item and shorten the list.
         
-        my_pydf = Pydf(lol=data_lol, cols=cols, keyfield=keyfield, dtypes=dtypes)
+        my_pydf = cls(lol=data_lol, cols=cols, keyfield=keyfield, dtypes=dtypes)
         
         if unflatten:
             my_pydf.unflatten_by_dtypes()
@@ -1280,9 +1181,6 @@ class Pydf:
             The buffer can be saved to a local file or uploaded to a storage service like s3.
         """
     
-        if not self:
-            return ''
-        
         if line_terminator is None:
             line_terminator = '\r\n'
     
@@ -1306,83 +1204,65 @@ class Pydf:
 
     
     #==== Pandas
-    @staticmethod
-    def from_pandas_df(df: T_df, keyfield:str='', name:str='', use_csv:bool=False, dtypes: Optional[T_dtype_dict]=None) -> 'Pydf':
-        """
-        Convert a Pandas dataframe to pydf object
-        """
-        import pandas as pd     # type: ignore
-        
-        if not use_csv:
-    
-            if isinstance(df, pd.Series):
-                rowdict = df.to_dict()
-                cols = list(rowdict.keys())
-                lol = [list(rowdict.values())]
-            else:
-                cols = list(df.columns)
-                lol = df.values.tolist()
+    #@classmethod
+    from_pandas_df = pydf_pandas._from_pandas_df
+                
+    to_pandas_df = pydf_pandas._to_pandas_df
 
-            return Pydf(cols=cols, lol=lol, keyfield=keyfield, name=name, dtypes=df.dtypes.to_dict())
-            
-        # first convert the Pandas df to a csv buffer.
-        try:
-            csv_buff = df.to_csv(None, index=False, quoting=csv.QUOTE_MINIMAL, lineterminator= '\r\n')
-        except TypeError:
-            csv_buff = df.to_csv(None, index=False, quoting=csv.QUOTE_MINIMAL, line_terminator= '\r\n')
-            
-        return Pydf.from_csv_buff(
-            csv_buff=csv_buff,
-            keyfield=keyfield,
-            dtypes=dtypes,    
-            unflatten=False,  
-            )
-            
-
-    def to_pandas_df(self, use_csv: bool=False) -> Any:
-    
-        import pandas as pd     # type: ignore
-    
-        if not use_csv:
-            columns = self.columns()
-            # return pd.DataFrame(self.lol, columns=columns, dtypes=self.dtypes)
-            # above results in NotImplementedError: compound dtypes are not implemented in the DataFrame constructor
-
-            return pd.DataFrame(self.lol, columns=columns)
-            
-        # it seems this may work faster if we first convert the data to a csv_buff internally,
-        # and then convert that to a df.
-    
-        csv_buff = self.to_csv_buff()
-        sio = io.StringIO(csv_buff)            
-        df  = pd.read_csv(sio, 
-            na_filter=False, 
-            index_col=False, 
-            #dtype=self.dtypes,
-            #sep=sep,
-            usecols=None,
-            #comment='#', 
-            #skip_blank_lines=True
-            )
-        return df
         
             
     #==== Numpy
-    @staticmethod
-    def from_numpy(npa: Any, keyfield:str='', cols:Optional[T_la]=None, name:str='') -> 'Pydf':
+    @classmethod
+    def from_numpy(cls, npa: Any, keyfield:str='', cols:Optional[T_la]=None, name:str='') -> 'Pydf':
         """
         Convert a Numpy dataframe to pydf object
-        The resulting Python list will contain Python native types, not NumPy types. 
+        The resulting Python list will contain Python native types, not NumPy types.
+        
+        Numpy arrays are homogeneous, meaning all elements in a numpy array 
+        must have the same data type. If you attempt to create a numpy array 
+        with elements of different data types, numpy will automatically cast 
+        them to a single data type that can accommodate all elements. This can 
+        lead to loss of information if the original data types are different.
+        For example, if you try to create a numpy array with both integers and 
+        strings, numpy will cast all elements to a common data type, such as Unicode strings.
+
         """
         # import numpy as np
         
-        lol = npa.tolist()
+        if npa.ndim == 1:
+            lol = [npa.tolist()]
+        else:
+            lol = npa.tolist()
     
-        return Pydf(cols=cols, lol=lol, keyfield=keyfield, name=name)
+        return cls(cols=cols, lol=lol, keyfield=keyfield, name=name)
     
 
-    @staticmethod
-    def from_hllola(hllol: T_hllola, keyfield: str='', dtypes: Optional[T_dtype_dict]=None) -> 'Pydf':
+    def to_numpy(self) -> Any:
+        """ 
+        Convert the core array of a Pydf object to numpy.
+        Note: does not convert any column names if they exist.
+        Keyfield lookups are lost, if they are defined.
+        
+        When you create a NumPy array with a specific data type 
+        (e.g., int32, float64), NumPy will attempt to coerce or 
+        cast the elements to the specified data type. The rules 
+        for type casting follow a hierarchy where more general 
+        types are converted to more specific types.
+        
+        examples:
+           if dtype is np.int32 and there are some float values, they will be truncated.
+           if dtype is np.int32 and there are some string values, they will be converted to an integer if possible.
+           if dtype is float64 and there are some integer values, they will be csst to float64 type.
+           if casting is not possible, it will raise an error.
+        
+        """
+    
+        import numpy as np
+        return np.array(self.lol)
+        
+
+    @classmethod
+    def from_hllola(cls, hllol: T_hllola, keyfield: str='', dtypes: Optional[T_dtype_dict]=None) -> 'Pydf':
         """ Create Pydf instance from hllola type.
             This is used for all DB. loading.
             test exists in test_pydf.py
@@ -1392,13 +1272,13 @@ class Pydf:
         
         hl, lol = hllol
         
-        return Pydf(lol=lol, cols=hl, keyfield=keyfield, dtypes=dtypes)
+        return cls(lol=lol, cols=hl, keyfield=keyfield, dtypes=dtypes)
         
         
     #==== Googlesheets
     
-    @staticmethod
-    def from_googlesheet(spreadsheet_id: str, sheetname: str = 'Sheet1') -> 'Pydf':
+    @classmethod
+    def from_googlesheet(cls, spreadsheet_id: str, sheetname: str = 'Sheet1') -> 'Pydf':
         from googleapiclient.discovery import build
         from google.oauth2 import service_account
 
@@ -1442,7 +1322,7 @@ class Pydf:
         
         cols = Pydf._generate_spreadsheet_column_names_list(num_cols)
 
-        gs_pydf = Pydf(cols=cols, lol=lol)
+        gs_pydf = cls(cols=cols, lol=lol)
         
         return gs_pydf
         
@@ -1497,30 +1377,6 @@ class Pydf:
     #===========================
     # convert to other format
     
-    def to_numpy(self) -> Any:
-        """ 
-        Convert the core array of a Pydf object to numpy.
-        Note: does not convert any column names if they exist.
-        Keyfield lookups are lost, if they are defined.
-        
-        When you create a NumPy array with a specific data type 
-        (e.g., int32, float64), NumPy will attempt to coerce or 
-        cast the elements to the specified data type. The rules 
-        for type casting follow a hierarchy where more general 
-        types are converted to more specific types.
-        
-        examples:
-           if dtype is np.int32 and there are some float values, they will be truncated.
-           if dtype is np.int32 and there are some string values, they will be converted to an integer if possible.
-           if dtype is float64 and there are some integer values, they will be csst to float64 type.
-           if casting is not possible, it will raise an error.
-        
-        """
-    
-        import numpy as np
-        return np.array(self.lol)
-        
-
     def to_hllola(self) -> T_hllola:
         """ Create hllola from pydf 
             test exists in test_pydf.py
@@ -1758,8 +1614,480 @@ class Pydf:
         return self
         
         
-    #=========================
-    #   selecting
+    #===========================
+    # indexing -- these methods have substantial complexity and are provided
+    #               in the companion file indexing.py
+
+    def __getitem__(self,
+            slice_spec:   Union[slice, int, str, T_li, T_ls,  
+                                Tuple[  Union[slice, int, str, T_li, T_ls, Tuple[str, str]], 
+                                        Union[slice, int, str, T_li, T_ls, Tuple[str, str]]]],
+            ) -> Any:
+
+        if isinstance(slice_spec, tuple) and len(slice_spec) == 2:
+            # Handle parsing slices for  both rows and columns
+            row_spec, col_spec = slice_spec
+        else:
+            row_spec = slice_spec
+            col_spec = None
+            
+        if col_spec == slice(None, None, None):
+            col_spec = None
+            
+        if row_spec == slice(None, None, None):    
+            row_spec = None
+            
+        if isinstance(row_spec, (int, slice)) or utils.is_list_of_type(row_spec, int):
+            sel_rows_pydf = self.select_irows(irows=row_spec)
+            
+        elif isinstance(row_spec, str) or utils.is_list_of_type(row_spec, str):
+            sel_rows_pydf = self.select_krows(krows=row_spec)
+        else:
+            sel_rows_pydf = self
+
+        if col_spec is None:
+            ret_pydf = sel_rows_pydf
+        else:
+            if isinstance(col_spec, (int, slice)) or  utils.is_list_of_type(col_spec, int):
+                ret_pydf = sel_rows_pydf.select_icols(icols=col_spec)
+                
+            elif isinstance(col_spec, str) or utils.is_list_of_type(col_spec, str):
+                ret_pydf = sel_rows_pydf.select_kcols(kcols=col_spec)
+            else:
+                ret_pydf = sel_rows_pydf
+            
+        return ret_pydf._adjust_return_val(self.retmode)    
+    
+        
+    def __setitem__(self,
+            slice_spec:   Union[slice, int, str, T_li, T_ls, T_lb,
+                                Tuple[  Union[slice, int, str, T_li, T_ls, T_lb, Tuple[Any, Any]], 
+                                        Union[slice, int, str, T_li, T_ls, T_lb, Tuple[Any, Any]]]],
+            value: Any,
+            ) -> 'Pydf':
+
+        if isinstance(slice_spec, tuple) and len(slice_spec) == 2:
+            # Handle parsing slices for  both rows and columns
+            row_spec, col_spec = slice_spec
+        else:
+            row_spec = slice_spec
+            col_spec = None
+            
+        if row_spec == slice(None, None, None):
+            row_spec = None
+            irows = list(range(len(self)))
+            
+        if isinstance(row_spec, str) or utils.is_list_of_type(row_spec, str) or isinstance(row_spec, tuple):
+            irows = self.krows_to_irows(krows = row_spec)
+            
+        elif isinstance(row_spec, (int, slice)) or utils.is_list_of_type(row_spec, int):
+            irows = row_spec
+            
+        if col_spec and isinstance(col_spec, str) or utils.is_list_of_type(col_spec, str) or isinstance(col_spec, tuple):
+            icols = self.kcols_to_icols(kcols = col_spec)
+            
+        elif isinstance(col_spec, (int, slice)) or utils.is_list_of_type(col_spec, int):
+            icols = col_spec
+        else:
+            icols = None
+            
+        return self.set_irows_icols(irows=irows, icols=icols, value=value)
+
+
+    def _adjust_return_val(self, retmode: str = ''):
+        """
+            There is currently defined two ways to return data from __getitem__ which
+            is controlled by the _retmode property setting. 
+            
+            RETMODE_OBJ: return a full pydf object.
+            RETMODE_VAL: return just the value, when possible.
+            
+            It is helpful to just get a single column as a list, for example,
+            instead of returning the entire array.
+            
+            This implementation is after the fact, and results in additional
+            processing, but it is also feasible with this design to avoid 
+            creating the intervening pydf structure and improve efficiency.
+        """
+        if not retmode:
+            retmode = self.retmode
+        
+        if retmode == self.RETMODE_OBJ:
+            # do nothing in this case.
+            return self
+        
+        num_cols = self.num_cols()
+        num_rows = len(self.lol)
+
+        if num_rows == 1 and num_cols == 1:
+            # single value, just return it.
+            return self.lol[0][0]
+            
+        elif num_rows == 1 and num_cols > 1:
+            # single row, return as list.
+            return self.lol[0]
+                
+        elif num_rows > 1 and num_cols == 1:
+            # single column result as a list.
+            return self.icol(0)
+            
+        return self
+        
+
+
+    def set_irows_icols(self, irows: Union[slice, int, T_li, None], icols: Union[slice, int, T_li, None], value) -> 'Pydf':
+        """ set rows and cols in given pydf.
+            
+            irows, icols: can be either a slice, int, or list of integers. These
+                            refer to row/col indices that are inherent in the lol structure.
+            
+            mutates existing pydf
+        """
+        if icols is None:
+            icols = []
+        if irows is None:
+            irows = []
+        
+        num_irows = utils.len_rowcol_spec(irows)
+        num_icols = utils.len_rowcol_spec(icols)
+        
+        if num_irows == 1 and isinstance(irows, int):
+            irows = [irows]
+        if num_icols == 1 and isinstance(icols, int):
+            icols = [icols]
+            
+        if isinstance(irows, slice):
+            irows = utils.slice_to_range(irows, len(self))
+        if isinstance(icols, slice):
+            icols = utils.slice_to_range(icols, self.num_cols())
+            
+        # special case when cols not specified.    
+        if num_irows == 1 and num_icols == 0:
+        
+            irow = irows[0]
+            
+            if isinstance(value, list):
+                self.lol[irow] = value
+            elif isinstance(value, dict):
+                self.assign_record_da_irow(irow, record_da=value)
+            elif isinstance(value, self.__class__):
+                self.lol[irow] = value
+            else:
+                # set the same value in the row for all columns.
+                self.lol[irow] = [value] * len(self.lol[irow])
+                
+        if num_irows == 1 and num_icols == 1:
+        
+            irow = irows[0]
+            icol = icols[0]
+            
+            if isinstance(value, dict):
+                self.assign_record_da_irow(irow, record_da=value)
+            else:    
+                self.lol[irow][icol] = value
+                
+        elif num_irows > 1 and num_icols == 0:
+            
+            if isinstance(value, list):
+                for irow in irows:
+                    self.lol[irow] = value
+            elif isinstance(value, dict):
+                for irow in irows:
+                    self.assign_record_da_irow(irow, record_da=value)
+            elif isinstance(value, self.__class__):
+                for source_row, irow in enumerate(irows):
+                    self.lol[irow] = value[source_row]
+            else:
+                # set the same value in the row for all columns.
+                for irow in irows:
+                    self.lol[irow] = [value] * len(self.lol[irow])
+                
+        elif num_irows > 0 and num_icols == 1:
+        
+            icol = icols[0]
+        
+            if irows is None:
+                irows = range(len(self.lol))
+        
+            if isinstance(value, list):
+                for source_idx, irow in enumerate(irows):
+                    try:
+                        self.lol[irow][icol] = value[source_idx]
+                    except Exception:
+                        import pdb; pdb.set_trace() #temp
+                    
+            # elif isinstance(value, dict):
+                # # this is the same as cols=0 bc dict updates the corresponding cols.
+                # for irow in irows:
+                    # self.assign_record_da_irow(irow, record_da=value)
+                
+            elif isinstance(value, self.__class__):
+                for source_idx, irow in enumerate(irows):
+                    self.lol[irow][icol] = value[source_idx][0]
+                
+            else:
+                # set the same value in the row for all selected columns.
+                for irow in irows:
+                    self.lol[irow][icol] = value
+        else:
+            if irows is None:
+                irows = range(len(self.lol))
+        
+            if isinstance(value, list):
+                for irow in irows:
+                    for source_col, icol in enumerate(icols):
+                        try:
+                            self.lol[irow][icol] = value[source_col]
+                        except Exception:
+                            import pdb; pdb.set_trace() #temp
+                    
+            elif isinstance(value, dict):
+                # this is the same as cols=0 bc dict updates the corresponding cols.
+                for irow in irows:
+                    self.assign_record_da_irow(irow, record_da=value)
+                
+            elif isinstance(value, self.__class__):
+                for irow in irows:
+                    for source_col, icol in enumerate(icols):
+                        self.lol[irow][icol] = value[source_col]
+                
+            else:
+                # set the same value in the row for all selected columns.
+                for irow in irows:
+                    for icol in icols:
+                        self.lol[irow][icol] = value
+        return self
+    
+    
+    def krows_to_irows(self, 
+            krows: Union[slice, str, T_la, int, Tuple[Any, Any], None],
+            inverse: bool = False,
+            ) -> Union[slice, int, T_li]:
+        """
+        If the keyfield is set, then the rows can be selected by providing a
+        krows parameter that will index the rows by using values in the keyfield column.
+        The keyfield column is read as a list and then converted to a dictionary that
+        provides the indexes of the row for each value in that column. Lookups using
+        this method are very fast but there is overhead to reading the column and
+        creating the dictionary. Therefore, set keyfield to '' to disable row key lookups.        
+        """
+        if not self.keyfield or not self.kd: 
+            return []
+            
+        return self.__class__.gkeys_to_idxs(
+                    keydict = self.kd,
+                    gkeys = krows,
+                    inverse = inverse,
+                    )
+    
+    def kcols_to_icols(self, 
+            kcols: Union[str, T_ls, slice, int, T_li, Tuple[Any, Any], None] = None,
+            inverse: bool = False,
+            ) -> Union[slice, int, T_li, None]:
+        """
+        If cols are defined is set, then the cols can be selected by providing a
+        kcols parameter that will index the cols by using values in the header dict hd.
+        This forces an attempt to use the spec as a column name even if it may look
+        like an integer.
+        """
+        
+        return self.__class__.gkeys_to_idxs(
+                    keydict = self.hd,
+                    gkeys = kcols,
+                    inverse = inverse,
+                    )
+                    
+    @staticmethod
+    def gkeys_to_idxs(
+            keydict: Dict[Union[str, int], int],
+            gkeys: Union[str, T_ls, slice, int, T_li, Tuple[Any, Any], None] = None,
+            inverse: bool = False,            
+            ) -> Union[slice, int, T_li, None]:
+        """
+        If keydict is defined, then the idxs can be selected by providing a
+        gkeys parameter that will index the keydict, and return either a 
+        slice, int, T_li, or None, which will index the range.
+        """
+        
+        if not keydict:
+            return []
+            
+        elif isinstance(gkeys, (str, int)):
+            idxs = [keydict.get(gkeys)]   # create a list
+            
+        elif isinstance(gkeys, list):     # can be list of integer or strings (or anything hashable)
+            idxs = []
+            for gkey in gkeys:
+                idx = keydict.get(gkey, -1)
+                if idx >= 0:
+                    idxs.append(idx)
+            #return idxs    # T_li
+            
+        elif isinstance(gkeys, slice):     # can be list of integer or strings (or anything hashable)
+            gkeys_range = range(gkeys.start or 0, gkeys.stop or len(keydict), gkeys.step or 1)
+            idxs = []
+            for gkey in gkeys_range:
+                idx = keydict.get(gkey, -1)
+                if gkey >= 0:
+                    idxs.append(idx)
+            #return idxs    # T_li
+         
+        elif isinstance(gkeys, tuple):         
+            
+            # key_range will return a slice.
+            start_idx = 0    
+            if gkeys:
+                start_idx = keydict.get(gkeys[0], 0)
+                
+            stop_idx = len(keydict)    
+            if len(gkeys) > 1:
+                stop_idx = keydict.get(gkeys[0], stop_idx - 1) + 1
+                    
+            idxs_slice = slice(start_idx, stop_idx, 1)
+            idxs = idxs_slice
+            
+        if inverse:
+            if isinstance(idxs, slice):
+                idxs = utils.slice_to_list(idxs)
+            
+            idxs = [idx for idx in range(len(keydict)) if idx not in idxs]
+            
+        return idxs
+        
+
+    def select_krows(self, krows: Union[slice, str, T_la, int, Tuple[Any, Any], None], inverse: bool=False) -> 'Pydf':
+    
+        irows = self.krows_to_irows( 
+            krows = krows,
+            inverse = inverse,
+            )
+        return self.select_irows(irows)
+    
+    
+    def select_kcols(self, kcols: Union[slice, str, T_la, int, Tuple[Any, Any], None], inverse: bool=False) -> 'Pydf':
+    
+        icols = self.kcols_to_icols( 
+            kcols = kcols,
+            inverse = inverse,
+            )
+        return self.select_icols(icols)
+    
+    
+    def select_irows(self, irows: Union[slice, int, T_li, None]) -> 'Pydf':
+        """ select rows from pydf and return a new instance.
+            This is an efficient opeation. The array in the new instance
+            uses references to selected rows in the original array.
+            
+            irows: can be either a slice, int, or list of integers. These
+                    refer to row indices that are inherent in the lol structure.
+            
+            returns a new pydf instance cloned from the original.
+        """
+        row_sliced_lol = self.lol
+        
+        if isinstance(irows, int):
+            # simple single row selection
+            row_sliced_lol = [self.lol[irows]]
+        
+        elif isinstance(irows, list):
+            if irows and isinstance(irows[0], int):
+                # list of integers:
+                row_sliced_lol = [self.lol[i] for i in irows]
+            else:
+                row_sliced_lol = []
+            
+        elif isinstance(irows, slice):
+            slice_spec = irows
+            row_sliced_lol = self.lol[slice_spec]
+            
+        return self.clone_empty(lol=row_sliced_lol)
+    
+    
+    def select_icols(self, icols: Union[slice, int, T_li, None], flip: bool=False) -> 'Pydf':
+        """ select cols from pydf and return a new instance.
+            This is not an efficient operation and can normally be avoided except when:
+                reading/writing data, then columns may need to be dropped.
+                exporting a portion of the array to NumPy, for example.
+                
+            instead, use the cols parameter to select the columns included
+                in operations like apply() and reduce()
+            
+            icols: can be either a slice, int, or list of integers. These
+                    refer to column indices that are inherent in the lol structure.
+                    
+            flip: if True, then the columns selected are turned into rows.
+                    This is a transposition operation. Otherwise, the columns selected
+                    remain as columns in a new pydf instance. There is no additional cost
+                    to transpose if it is done when the columns are selected.
+            
+            returns a new pydf instance cloned from the original,
+                with cols, keyfield, and dtypes adjusted to be reasonable.
+                If flip=True, then colnames=[], dtypes={} and keyfield='' (inactive)
+                
+        """
+        orig_cols = list(self.hd.keys())    # may be an empty list if colnames not defined.
+        orig_dtypes = self.dtypes or {}
+        sliced_cols = []
+        
+        if isinstance(icols, int):
+            # simple single row selection
+            icol = icols
+            if not flip:
+                col_sliced_lol = [[row[icol]] for row in self.lol]
+                if orig_cols:
+                    sliced_cols = orig_cols[icol]
+            else: # flip
+                col_sliced_lol = [row[icol] for row in self.lol]
+            
+        elif isinstance(icols, slice):
+            slice_spec = icols
+            icols_range = range(slice_spec.start or 0, slice_spec.stop or 0, slice_spec.step or 1)
+            
+            if not flip:
+                col_sliced_lol = [[row[icol] for icol in icols_range]
+                                        for row in self.lol]
+                if orig_cols:
+                    sliced_cols = [orig_cols[icol] for icol in icols_range]
+            else: # flip
+                col_sliced_lol = [[row[icol] for row in self.lol]
+                                        for icol in icols_range]
+                
+        elif isinstance(icols, list) and icols and isinstance(icols[0], int):
+            # list of integers:
+            if not flip:
+                col_sliced_lol = [[row[icol] for icol in icols]
+                                        for row in self.lol]
+                if orig_cols:                        
+                    sliced_cols = [orig_cols[icol] for icol in icols]
+                
+            else: # flip
+                col_sliced_lol = [[row[icol] for row in self.lol]
+                                        for icol in icols]
+        else:
+            if not flip:
+                return self
+            else: # flip
+                col_sliced_lol = [[row[icol] for row in self.lol]
+                                        for icol in range(self.num_cols())]
+                sliced_cols = []
+            
+        # fix up the dtypes and reset the keyfield if it is no longer in the pydf.
+        if sliced_cols:
+            new_dtypes = {col:orig_dtypes[col] for col in orig_dtypes if col in sliced_cols}
+            new_keyfield = self.keyfield if self.keyfield in sliced_cols else ''    
+        else:
+            new_dtypes = {}
+            new_keyfield = ''    
+            
+        new_pydf = Pydf(    cols=sliced_cols, 
+                            lol=col_sliced_lol, 
+                            keyfield=new_keyfield,
+                            dtypes=new_dtypes,
+                            )
+        
+        return new_pydf
+    
+    
     
     def select_record_da(self, key: str) -> T_da:
         """ Select one record from pydf using the key and return as a single T_da dict.
@@ -1777,7 +2105,6 @@ class Pydf:
         
         return record_da
         
-    
     def _basic_get_record_da(self, irow: int, include_cols: Optional[T_ls]=None) -> T_da:
         """ return a record at irow as dict 
             include only "include_cols" if it is defined
@@ -1785,7 +2112,7 @@ class Pydf:
             if no column header exists, this will generate a new one using spreadsheet convention.
         """
         if not self.hd:
-            cols = _generate_spreadsheet_column_names_list(num_cols=self.num_cols())
+            cols = Pydf._generate_spreadsheet_column_names_list(num_cols=self.num_cols())
             self.set_cols(cols)
         
         if include_cols:
@@ -1794,19 +2121,19 @@ class Pydf:
             return dict(zip(self.hd, self.lol[irow]))
 
         
-    def select_irows(self, irows_li: T_li) -> 'Pydf':
-        """ Select multiple records from pydf using row indexes and create new pydf.
+    # def select_irows(self, irows_li: T_li) -> 'Pydf':
+        # """ Select multiple records from pydf using row indexes and create new pydf.
             
-        """
+        # """
         
-        selected_pydf = self.clone_empty()
+        # selected_pydf = self.clone_empty()
         
-        for row_idx in irows_li:
-            record_da = self._basic_get_record_da(row_idx)
+        # for row_idx in irows_li:
+            # record_da = self._basic_get_record_da(row_idx)
         
-            selected_pydf.append(record_da)
+            # selected_pydf.append(record_da)
                       
-        return selected_pydf
+        # return selected_pydf
         
         
     def select_records_pydf(self, keys_ls: T_ls, inverse:bool=False) -> 'Pydf':
@@ -1814,26 +2141,15 @@ class Pydf:
             If inverse is true, select records that are not included in the keys.
             
         """
-        #    unit tests exist but not for inverse yet.
+        return self.select_krows(krows=keys_ls, inverse=inverse)
+          
         
-        if not self.keyfield:
-            raise RuntimeError
-            
-        # determine the rows selected.
-        if not inverse:
-            selected_irows = [self.kd[key] for key in keys_ls if key in self.kd]    
-        else:
-            if len(keys_ls) > 10 and len(self.kd) > 30:
-                keys_d = dict.fromkeys(keys_ls)     # create a dictionary for fast lookup.
-                selected_irows = [self.kd[key] for key in self.kd if key not in keys_d]    
-            else:
-                # short lists work just fine for fast lookups.
-                selected_irows = [self.kd[key] for key in self.kd if key not in keys_ls]    
+    def irow_la(self, irow: int) -> T_la:
+        """ return a row as a list.
+        """
+        return self.lol[irow]
+        
 
-        
-        return self.select_irows(selected_irows) 
-        
-        
     def irow(self, irow: int, include_cols: Optional[T_ls]=None) -> T_da:
         """ alias for iloc 
             test exists in test_pydf.py
@@ -2065,32 +2381,35 @@ class Pydf:
         return(new_pydf)
         
 
-    def from_selected_cols(self, cols: Optional[T_ls]=None, exclude_cols: Optional[T_ls]=None) -> 'Pydf':
-        """ given a list of colnames, create a new pydf of those cols.
-            creates as new pydf
-        """
-        
-        if not cols:
-            cols = []
-        if not exclude_cols:
-            exclude_cols = []
+    # def from_selected_cols(self, cols: Optional[T_ls]=None, exclude_cols: Optional[T_ls]=None) -> 'Pydf':
+        # """ given a list of colnames, create a new pydf of those cols.
+            # creates as new pydf
             
-        desired_cols = self.calc_cols(include_cols=cols, exclude_cols=exclude_cols)
+            # use my_pydf[:, colnames_ls]
+            
+        # """
+        
+        # if not cols:
+            # cols = []
+        # if not exclude_cols:
+            # exclude_cols = []
+            
+        # desired_cols = self.calc_cols(include_cols=cols, exclude_cols=exclude_cols)
     
-        selected_idxs = [self.hd[col] for col in desired_cols if col in self.hd]
+        # selected_idxs = [self.hd[col] for col in desired_cols if col in self.hd]
         
-        new_lol = []
+        # new_lol = []
         
-        for irow, la in enumerate(self.lol):
-            la = [la[idx] for idx in range(len(la)) if idx in selected_idxs]
-            new_lol.append(la)
+        # for irow, la in enumerate(self.lol):
+            # la = [la[idx] for idx in range(len(la)) if idx in selected_idxs]
+            # new_lol.append(la)
             
-        old_cols = list(self.hd.keys())
-        new_cols = [old_cols[idx] for idx in range(len(old_cols)) if idx in selected_idxs]
+        # old_cols = list(self.hd.keys())
+        # new_cols = [old_cols[idx] for idx in range(len(old_cols)) if idx in selected_idxs]
         
-        new_dtypes = {col: typ for col, typ in self.dtypes.items() if col in new_cols}
+        # new_dtypes = {col: typ for col, typ in self.dtypes.items() if col in new_cols}
         
-        return Pydf(lol=new_lol, cols=new_cols, dtypes=new_dtypes)
+        # return Pydf(lol=new_lol, cols=new_cols, dtypes=new_dtypes)
         
 
     #=========================
@@ -2181,7 +2500,7 @@ class Pydf:
         
         
         
-    def insert_icol(self, icol: int=-1, col_la: Optional[T_la]=None, colname: str='', default: Any='', keyfield:str=''):
+    def insert_icol(self, icol: int=-1, col_la: Optional[T_la]=None, colname: str='', default: Any=''): #, keyfield:str=''):
         """ insert column col_la at icol, shifting other column data. 
             use default if la not long enough
             If icol==-1, insert column at right end.
@@ -2201,9 +2520,9 @@ class Pydf:
             hl.insert(icol, colname)
             self.hd = {k: idx for idx, k in enumerate(hl)}
             
-        if keyfield:
-            self.keyfield = keyfield
-            self._rebuild_kd()
+        # if keyfield:
+            # self.keyfield = keyfield
+            # self._rebuild_kd()
 
         
     def insert_irow(self, irow: int=-1, row_la: Optional[T_la]=None, default: Any=''):
@@ -2241,12 +2560,18 @@ class Pydf:
         # self.set_icol(icol, val)
         
 
-    def insert_col(self, colname: str, col_la: Optional[T_la]=None, icol:int=-1, default:Any='', keyfield:str=''):
+    def insert_col(
+            self, 
+            colname: str, 
+            col_la: Optional[T_la]=None, 
+            icol: int=-1, 
+            default: Any='',
+            ): #, keyfield:str=''):
         """ add col by colname and set to la at icol
             if la is not long enough for a full column, use the default.
             if colname exists, overwrite it.
             Can use to set a constant value by not passing col_la and setting default.
-            Can assign a new keyfield to this column, if keyfield is not ''
+            use set_keyfield() if this column will become the keyfield.
             unit tested
         """
         
@@ -2261,11 +2586,13 @@ class Pydf:
             self.assign_col(colname, col_la, default)
             return
 
-        self.insert_icol(icol=icol, col_la=col_la, colname=colname, default=default, keyfield=keyfield)
+        self.insert_icol(icol=icol, col_la=col_la, colname=colname, default=default) #, keyfield=keyfield)
         
         # hl = list(self.hd.keys())
         # hl.insert(icol, colname)
-        # self.hd = {k: idx for idx, k in enumerate(hl)}        
+        # self.hd = {k: idx for idx, k in enumerate(hl)}
+        
+        return self
         
     
     def insert_idx_col(self, colname='idx', icol:int=0, startat:int=0):
@@ -2417,6 +2744,10 @@ class Pydf:
         # the following deals with $d, $r, $c in the formulas
         parsed_formulas_pydf = formulas_pydf._parse_formulas()
         
+        # we must use RETMODE_VAL for formulas to work easily for users.
+        prior_retmode = self.retmode
+        self.retmode = self.RETMODE_VAL
+        
         while lol_changed:
             lol_changed = False
             loop_count += 1
@@ -2442,6 +2773,9 @@ class Pydf:
                         lol_changed = True
                     else:
                         continue
+                        
+        self.retmode = prior_retmode
+
         self._rebuild_kd()
         
     def _parse_formulas(self) -> 'Pydf':
@@ -2513,7 +2847,8 @@ class Pydf:
     #===============================
     # apply and reduce
 
-    def apply(self, 
+    def apply(
+            self, 
             func: Callable[[Union[T_da, T_Pydf], Optional[T_la]], Union[T_da, T_Pydf]], 
             by: str='row', 
             cols: Optional[T_la]=None,                      # columns included in the apply operation.
@@ -2575,7 +2910,8 @@ class Pydf:
         return row
       
         
-    def apply_in_place(self, 
+    def apply_in_place(
+            self, 
             func: Callable[[T_da], T_da], 
             by: str='row', 
             keylist: Optional[T_ls]=None,                   # list of keys of rows to include.
@@ -2613,7 +2949,8 @@ class Pydf:
         self._rebuild_kd()
         
         
-    def reduce(self, 
+    def reduce(
+            self, 
             func: Callable[[T_da, T_da], Union[T_da, T_la]], 
             by: str='row', 
             cols: Optional[T_la]=None,                      # columns included in the reduce operation.
@@ -2657,7 +2994,8 @@ class Pydf:
         return [] # for mypy only.
         
         
-    def manifest_apply(self, 
+    def manifest_apply(
+            self, 
             func: Callable[[T_da, Optional[T_la]], Tuple[T_da, 'Pydf']],    # function to apply according to 'by' parameter 
             load_func: Callable[[T_da], 'Pydf'],            # optional function to load data for each manifest entry, defaults to local file system 
             save_func: Callable[[T_da, 'Pydf'], str],       # optional function to save data for each manifest entry, defaults to local file system
@@ -2707,7 +3045,8 @@ class Pydf:
         return result_manifest_pydf        
 
     
-    def manifest_reduce(self, 
+    def manifest_reduce(
+            self, 
             func: Callable[[T_da, Optional[T_la]], T_da], 
             load_func: Optional[Callable[[T_da], 'Pydf']] = None,
             by: str='row',                                  # determines how the func is applied.
@@ -2741,7 +3080,8 @@ class Pydf:
         return final_reduction_da
         
         
-    def manifest_process(self, 
+    def manifest_process(
+            self, 
             func: Callable[[T_da, Optional[T_la]], T_da],   # function to run for each hunk specified by the manifest
             **kwargs: Any,
             ) -> 'Pydf':                                    # records describing metadata of each hunk
@@ -2775,7 +3115,8 @@ class Pydf:
         return result_pydf        
 
     
-    def groupby(self, 
+    def groupby(
+            self, 
             colname: str='', 
             colnames: Optional[T_ls]=None,
             omit_nulls: bool=False,         # do not group to values in column that are null ('')
@@ -2837,7 +3178,8 @@ class Pydf:
         return result_dopydf
 
 
-    def groupby_cols_reduce(self, 
+    def groupby_cols_reduce(
+            self, 
             groupby_colnames: T_ls, 
             func: Callable[[T_da, Union['Pydf', T_da]], Union[T_da, T_la, 'Pydf']], 
             by: str='row',                                  # determines how the func is applied.
@@ -2965,7 +3307,8 @@ class Pydf:
         return result_pydf
     
 
-    def groupby_reduce(self, 
+    def groupby_reduce(
+            self, 
             colname:str, 
             func: Callable[[T_da, T_da], Union[T_da, T_la]], 
             by: str='row',                                  # determines how the func is applied.
@@ -2999,7 +3342,8 @@ class Pydf:
     #===================================
     # apply / reduce convenience methods
 
-    def pydf_sum(self, 
+    def pydf_sum(
+            self, 
             by: str = 'row', 
             cols: Optional[T_la]=None
             ) -> T_da:
@@ -3007,7 +3351,8 @@ class Pydf:
         return self.reduce(func=Pydf.sum_da, by=by, cols=cols)
     
 
-    def pydf_valuecount(self, 
+    def pydf_valuecount(
+            self, 
             by: str = 'row', 
             cols: Optional[T_la]=None
             ) -> T_da:
@@ -3020,7 +3365,8 @@ class Pydf:
         return self.reduce(func=Pydf.count_values_da, by=by, cols=cols)
 
 
-    def groupsum_pydf(self,
+    def groupsum_pydf(
+            self,
             colname:str, 
             func: Callable[[T_da, T_da, Optional[T_la]], Union[T_da, T_la]], 
             by: str='row',                                  # determines how the func is applied.
@@ -3172,7 +3518,11 @@ class Pydf:
     # functions not following apply or reduce pattern
     
     # this function does not use normal reduction approach.
-    def sum(self, colnames_ls: Optional[T_ls]=None, numeric_only: bool=False) -> dict: # sums_di
+    def sum(
+            self, 
+            colnames_ls: Optional[T_ls]=None, 
+            numeric_only: bool=False,
+            ) -> dict: # sums_di
         """ total the columns in the table specified, and return a dict of {colname: total,...} 
         
         
@@ -3210,7 +3560,11 @@ class Pydf:
         return sums_d
         
 
-    def sum_np(self, colnames_ls: Optional[T_ls]=None, ) -> dict: # sums_di
+    def sum_np(
+            self, 
+            colnames_ls: Optional[T_ls]=None, 
+            ) -> dict: # sums_di
+            
         """ total the columns in the table specified, and return a dict of {colname: total,...}
             This uses NumPy and requires that library, but this is about 3x faster.
             If you have mixed types in your Pydf array, then use colnames to subset the
@@ -3228,7 +3582,7 @@ class Pydf:
             to_sum_pydf = self
             colnames_ls = self.columns()
         else:
-            to_sum_pydf = self.from_selected_cols(cols=colnames_ls)
+            to_sum_pydf = self[:, colnames_ls]
             """ given a list of colnames, create a new pydf of those cols.
                 creates as new pydf
             """
@@ -3245,7 +3599,8 @@ class Pydf:
         return sums_d
 
     
-    def valuecounts_for_colname(self, 
+    def valuecounts_for_colname(
+            self, 
             colname: str, 
             sort: bool=False, 
             reverse: bool=True,
@@ -3282,7 +3637,12 @@ class Pydf:
         return valuecounts_di
 
 
-    def valuecounts_for_colnames_ls(self, colnames_ls: Optional[T_ls]=None, sort: bool=False, reverse: bool=True) -> T_dodi:
+    def valuecounts_for_colnames_ls(
+            self, 
+            colnames_ls: Optional[T_ls]=None, 
+            sort: bool=False, 
+            reverse: bool=True
+            ) -> T_dodi:
         """ return value counts for a set of columns or all columns if no colnames_ls are provided.
             sort if noted from most prevalent to least in each column.
         """
@@ -3338,7 +3698,8 @@ class Pydf:
         return valuecounts_di
         
 
-    def valuecounts_for_colnames_ls_selectedby_colname(self, 
+    def valuecounts_for_colnames_ls_selectedby_colname(
+            self, 
             colnames_ls: Optional[T_ls]=None,
             selectedby_colname: str = '', 
             selectedby_colvalue: str = '',
@@ -3373,7 +3734,8 @@ class Pydf:
         return valuecounts_dodi
 
 
-    def valuecounts_for_colname1_groupedby_colname2(self,
+    def valuecounts_for_colname1_groupedby_colname2(
+            self,
             colname1: str,
             groupedby_colname2: str, 
             sort: bool = False, 
