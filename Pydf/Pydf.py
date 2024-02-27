@@ -1964,13 +1964,13 @@ class Pydf:
         return self.select_irows(irows)
     
     
-    def select_kcols(self, kcols: Union[slice, str, T_la, int, Tuple[Any, Any], None], inverse: bool=False) -> 'Pydf':
+    def select_kcols(self, kcols: Union[slice, str, T_la, int, Tuple[Any, Any], None], inverse: bool=False, flip: bool=False) -> 'Pydf':
     
         icols = self.kcols_to_icols( 
             kcols = kcols,
             inverse = inverse,
             )
-        return self.select_icols(icols)
+        return self.select_icols(icols, flip=flip)
     
     
     def select_irows(self, irows: Union[slice, int, T_li, None]) -> 'Pydf':
