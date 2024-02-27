@@ -2087,10 +2087,21 @@ class Pydf:
         
         return new_pydf
     
-    
+    #=============================================
+    # the following methods might be absorbed into the above.
+    #
     
     def select_record_da(self, key: str) -> T_da:
         """ Select one record from pydf using the key and return as a single T_da dict.
+        
+            May be better to simply use 
+            
+                selected_pydf = select_krows(krows=key)
+                
+            to select one row from the array, and then use:
+
+                selected_pydf[0, 'fieldname']   to select fields like you would when using a dict.
+        
             test exists in test_pydf.py
         """
         
