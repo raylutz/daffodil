@@ -45,10 +45,10 @@ pane and calculations from spreadsheet programs can be easily ported in, to avoi
     
 ## Good for general data operations
 
-We were surprised to find that Pandas is very slow in importing python data to a Pandas DataFrame.
+We were surprised to find that Pandas is very slow in importing Python data.
 Pandas uses a numpy array for each column which must be allocated in memory as one contiguous block,
 resulting in substantial overhead. Converting a list-of_dict (lod) array to Pandas DataFrame using the 
-simple `pd.DataFrame(lod)` method takes about 350x longer than converting the same data to a Daffodil instance.
+simple `pd.DataFrame(lod)` method takes about 45x longer than converting the same data to a Daffodil instance.
 
 The Daffodil class is based on list-of-list array (lol), and uses a dictionary for column names (hd -- header dict) and for 
 row keys (kd -- key dict), making it extremely fast for column and row indexing, while avoiding the requirement for 
@@ -64,17 +64,19 @@ performing matrix operations which is already available in NumPy.
 
 Appending rows in Pandas is slow because each column is stored as a 
 separate NumPy array, and appending a row involves creating a new array for each column with the added row. 
-This process can lead to significant overhead, especially when dealing with large DataFrames. In fact, Pandas
-is so bad that the append operation is now deprecated.
+This process can lead to significant overhead, especially when dealing with large DataFrames. In fact, it
+is so bad that the append operation is now deprecated in Pandas. That means you have to turn to some other
+method of building your data, and then the question comes up: Should I export the data to Pandas or just
+work on it in Python.
 
 Pandas can be more performant than Daffodil if column-oriented manipulations are repeated on the same data at least ~30x, 
 otherwise Daffodil will probably be faster due to the overhead of reading a table from a data array into Pandas. In other words,
-if you have an array and you need to do just a few column-based operations (fewer than 30) 
-then it will be faster to just do them in Daffodil using a row-oriented apply or reduce operation, rather than
+if you have an array and you need to do just a few column-based operations (fewer than 30), 
+then it will be probably be faster to just do them in Daffodil using a row-oriented apply or reduce operation, rather than
 exporting the array to Pandas, performing the calcs and the transferring it back in. (You can see our benchmarks
 and other tests linked below.)
 
-Daffodil can work well with Pandas and NumPy when number crunching and array-based operations are needed.
+In additiona, Daffodil can work well with Pandas and NumPy when number crunching and array-based operations are needed.
 Use Daffodil to build the array incrementally using row-based operations, then export the data to NumPy or
 Pandas. Using NumPy is recommended if the data is uniform enough because it is faster and has a smaller
 memory footprint than Pandas.
