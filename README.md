@@ -15,16 +15,14 @@ within a cell, even another Pydf instance.
 
 It works well in traditional pythonic processing paradigms, such as in loops, allowing fast row appends, 
 insertions and other operations that column-oriented packages like Pandas handle poorly or don't offer at all.
-Daffodil offers zero-copy manipulations -- selecting columns and rows does not make a copy of the data but
-works the way Python normally does, leveraging the inherent power of Python without replacing it.
+Daffodil offers zero-copy manipulations -- selecting, inserting, appending rows does not make a copy of the data but uses references to the original data and works the way Python normally does, leveraging the inherent power of Python without replacing it.
 
 Daffodil is particularly well suited to applications for data munging, incremental appending, data pipelines, 
 row-based apply and reduce functions, including support for chunked large data sets that can be described 
-by a Daffodil table which operates as a manifest to chunks, and useful for delegations for parallel processing, 
-where each delegation can handle a number of chunks.
+by a Daffodil table which operates as a manifest to chunks, and useful for delegations for parallel processing, where each delegation can handle a number of chunks.
 
 Daffodil is not necessarily slower than trying to use Pandas (or other packages) within your python program, 
-because moving data in and out of Pandas and those other packages can have an very high overhead. Pydf is a 
+because moving data in and out of Pandas and those other packages can have an very high overhead. Daffodil is a 
 very simple 'bare metal' class that is well suited for those situations where pure number crunching is not 
 the main objective. But it is also very compatible with other dataframe packages and can provide great way 
 to build and clean the data before providing the data to other packages for number crunching.
@@ -59,23 +57,25 @@ Daffodil is not as performant as Pandas or NumPy for numerical operations such a
 when the data is uniform within columns or the entire array. Pydf does not offer array operations like
 C = A + B, where A and B are both large arrays with the same shape producing array C, which is the sum 
 of each cell in the same grid location. This type of functionality is already available in NumPy, and 
-so if that functionality is needed, then NumPy can fill that role.
-
-Pandas can be more performant than Daffodil if manipulated by columns at least ~30x, otherwise Pydf will probably be faster
-due to the overhead of reading a table from a data array into Pandas.
+so if that functionality is needed, then NumPy can fill that role. Also, it is not a replacement for 
+performing matrix manipulation which is already available in NumPy.
 
 Appending rows in Pandas is slow because Pandas DataFrames are designed to be column-oriented, meaning that 
 operations involving columns are more efficient than operations involving rows. Each column is stored as a 
 separate NumPy array, and appending a row involves creating a new array for each column with the added row. 
 This process can lead to significant overhead, especially when dealing with large DataFrames.
 
-Pydf can work well with Pandas and NumPy when number crunching and array-based operations are needed.
-Use Pydf to build the array incrementally using row-based operations, then read the data by NumPy or
-Pandas if the data is uniform enough. Using NumPy for data crunching is preferred because getting
-the data into NumPy is much faster, and NumPy is also a bit smaller and faster than Pandas. But there
-are also many other options when the data can meet their tight constraints.
+Pandas can be more performant than Daffodil the code includes column-oriented manipulations at least ~30x, otherwise Pydf will probably be faster due to the overhead of reading a table from a data array into Pandas. In other words,
+if you have an array with all numbers and you need to do just a few column-based operations (fewer than 30) 
+then it will be faster to just do them in Daffodil using a row-oriented apply or reduce operation, rather than
+exporting the array to Pandas, performing the calcs and the transferring it back in.
 
-Pydf is pure python and can be run with no (or few) other packages installed. If Pandas is not used, start up time is 
+Pydf can work well with Pandas and NumPy when number crunching and array-based operations are needed.
+Use Pydf to build the array incrementally using row-based operations, then export the data to NumPy or
+Pandas. Using NumPy is recommended if the data is uniform enough because it is faster and has a smaller
+memory footprint than Pandas.
+
+Daffodil is pure python and can be run with no (or few) other packages installed. If Pandas is not used, start up time is 
 improved dramatically. This can be very important in cloud-based parallel processing where every millsecond
 is billed or in embedded systems that want to utilize tables but can't suffer the overhead.
 If conversions to or from Pandas is not required, then that package is not needed.
@@ -102,12 +102,11 @@ Pydf arrays.
 Pydf can append one or more rows or concatenate with another Pydf object extremely quickly, because it leverages Python's
 data referencing approach. Although the 'use_copy' option is provided where a new deep copy is made, this can be
 largely avoided in most data manipulation pipelines. When the data can be used without copying, then this will 
-minimize overhead. Concatenating, dropping and inserting columns is fuctionality that is provided, but is not
-recommennded.
+minimize overhead. Concatenating, dropping and inserting columns is functionality that is provided, but is not
+recommennded. Normally, columns need not be manipulated. Just leave any columns that are not needed out of any calculations or other uses.
 
 A lod is an easy to use data structure that mimics a 2-D array and is commonly found in Python code, but it is
-expensive in space (3x larger than Pydf object) because the field names are repeated for each row. Also, it does not
-offer array manipulation primitives, convenient markdown reporting tools, and other features offered by Pydf.
+expensive in space (3x larger than Daffodil object) because the field names are repeated for each row. Also, it does not offer array manipulation primitives, convenient markdown reporting tools, and other features offered by Daffodil.
 
 If a keyfield is specified, a Pydf array is quite similar to a dict-of-dict Python structure, but is 1/3 the size.
 
@@ -122,23 +121,20 @@ allow arbitrary names in SQLite.)
 When reading CSV files, the header is normally taken from the first (non-comment) line. If "user_format" is 
 specified on reading csv files, the csv data will be pre-processed and "comment" lines starting with # are removed.
 
-Pydf supports CSVJ, which is a mix of CSV with JSON metadata in comment fields in the first few lines of the file,
-to provide data type, formatting, and other information. Using CSVJ speeds importing CSV data into a Pydf instance
-because the data can be converted to the appropriate time as it is read, and therefore avoids a second pass to 
-conver data from str type, which is the default. This also may unflatten objects.
+Daffodil supports CSVJ, which is a mix of CSV with JSON metadata in comment fields in the first few lines of the file, to provide data type, formatting, and other information. Using CSVJ speeds importing CSV data into a Pydf instance because the data can be converted to the appropriate time as it is read, and therefore avoids a second pass to convert data from str type, which is the default. This also may unflatten objects. (This feature not supported yet).
 
 In some cases, you may be working with CSV files without a header of column names. Setting noheader=True avoids 
 capturing the column names from the header line from csv input, and then column names will not be defined.
 
 If columns are not appropriate for immediate use, such as if they are sometimes repeated or are missing, then
-the array can be read with noheader=True, and then peeling off the first row and applying it using set_cols()
+the array can be read with noheader=True, and then poping the first row and applying it using set_cols()
 If any column name is blank, then these are named "colN" (or any other prefix you may prefer) 
 where N is the column number staring at 0. If there
 are duplicates, then the duplicate name is named "duplicatename_N", where 'duplicatename' is the original name
 and N is the column number. If you don't want this behavior, then use noheader=True and handle definition of the 
 'cols' parameter yourself.
 
-Even if column names are established, Pydf still allows that columns (and rows) can be indexed by number. 
+Even if column names are established, Daffodil still allows that columns (and rows) can be indexed by number. 
 Therefore, it is best if the column
 names used are not pure numbers to avoid confusion. Traditional column names can be added with .set_cols() method, with
 the cols parameter set to None. This results in column names similar to spreadsheet programs, 
@@ -153,12 +149,11 @@ is optional. Any cell can be any data type.
     
 In many cases, one of the columns can be used as a unique key for locating records. If such a column exists, it 
 can be adopted as the primary index of the table by specifying that column name as the `keyfield`. When this is done,
-then a kd (key dictionary) is built and maintained from data in that column. This is similar behavior to the Polars
+then a kd (key dictionary) is built and maintained from that column. This is similar behavior to the Polars
 package and differs from Pandas, which has an index that sticks with each row. The row indexes do not stick in Pydf,
 and are always with respect to the frame.
     
-If keyfield is set, then that column must be a hashable type and must have unique values. Searches of row entries based on the keyfield
-will use dictionary lookups, which are highly optimized for speed by Python.
+If keyfield is set, then that column must be a hashable type and must have unique values. Searches of row entries based on the keyfield use dictionary lookups, which are highly optimized for speed by Python.
 
 Creating a key index does not remove that field from the data array, but creates an additional key dictionary, kd.
 
@@ -176,14 +171,12 @@ Only one keyfield is supported.
 Pydf is a row-oriented package, rather than being column oriented, as are other popular packages, like Pandas, Polars, etc, 
 Thus, it is easy to manipulate rows (appending, inserting, deleting, selecting, etc) while it is relatively much more difficult to manipulate
 columns (appending, inserting, deleting, etc.)  Rows are very easy to handle because the list-of-list underlying structure
-re-uses any lists selected in any selection operation. A new pydf which might be a subset of the original 
+re-uses any lists selected in any selection operation. A new Daffodil instance which might be a subset of the original 
 does not consume much additional space because the contents of those rows is not copied. Instead, Python
-copies only the references to the rows. If only a few rows are used from the original pydf, the the remaining rows will 
-be garbage collected by the normal Python mechanisms and the rows that are still active are the same rows that existed in the
-original array without copying.
+copies only the references to the rows. If only a few rows are used from the original, the the remaining rows will 
+be garbage collected by the normal Python mechanisms and the rows that are still active are the same rows that existed in the original array without copying.
 
-This use-without-copying pattern means that Pydf can perform quite well when compared with other packages when doing this type 
-of manipulation, both in terms of space and also time.
+This use-without-copying pattern means that Pydf can perform quite well when compared with other packages when doing this type of manipulation, both in terms of space and also time.
 
 In contrast, operations that add, drop, or insert columns are relatively slow, but it turns out that actually these operations are not normally that 
 necessary. Reducing the number of columns only is important in a few cases:
@@ -192,10 +185,9 @@ necessary. Reducing the number of columns only is important in a few cases:
 2. When performing .apply() or .reduce() operations to avoid processing extraneous columns.
 4. When creating a report and only including some columns in the report
 
-In these cases, the columns to be included can be expressed explicitly. 
+In these cases, the columns to be included can be expressed explicitly. When selecting columns, a transposition can be performed for free, if `flip=True` is indicated.
 Other column operations such as statistics are not as performant but in those cases when
 many operations are required, the array can be ported to NumPy.
-
 
 ## Common Usage Pattern
        
@@ -539,9 +531,11 @@ Will generally return the simplest type possible, such as cell contents, a list 
 - if multiple columns are specified, they will be returned in the original orientation in a consistent pydf instance copied from the original, and with the data specified.
 
 Please note: operations on columns is relatively inefficient. Instead, use .apply() or .reduce() and handle any manipulations of all
-columns at the same time. Current design that each instance has the my_pydf.retmode attribute, which can be 'obj' or 'val'.
+columns at the same time. 
+
+Each instance has the my_pydf.retmode attribute, which can be 'obj' or 'val'.
 If it is 'obj', then using indexing below will always return a pydf object. If .retmode is 'val', then it will return either
-a single value, list, or pydf object.
+a single value, list, or pydf object, if it is possible to simplify.
 
       my_pydf[2, 3]     -- select cell at row 2, col 3 and return value.
       my_pydf[2]        -- select row 2, including all columns, return a list.
@@ -562,9 +556,10 @@ a single value, list, or pydf object.
       my_pydf[:, (, 'col23')]] -- return columns with column names from the first column through 'col23' inclusive
       my_pydf[:, ('col23',)]] -- return columns with column names from 'col23', through the end
 
-Please note that if you want to index row by keyfield name or column names that are integers, then you must use method calls.
+Please note that if you want to index rows by a keyfield or index columns using column names that are integers, 
+then you must use method calls. The square-bracket indexing will assume any integers are indices, not names.
 The integer values shown in these examples do not index the array directly, but choose the row or columns by name.
-To choose by row keys (krows) then keyfield must be set. To choose by column keys, cols must be set.
+To choose by row keys (krows), then keyfield must be set. To choose by column keys (kcols), cols must be set.
 
       my_pydf.select_krows(krows = 123, inverse=False)  -- return pydf with one row with integer 123 in keyfield column.
       my_pydf.select_krows(krows = [123, 456], inverse=False)  -- return pydf with two rows selected by with integers in the keyfield column.
@@ -573,9 +568,18 @@ To choose by row keys (krows) then keyfield must be set. To choose by column key
       my_pydf.select_krows(krows = (, 123), inverse=True)   -- drop all rows from the first through row named 123.
      
       my_pydf.select_kcols(kcols = 123, inverse=False)  -- return pydf with one column with integer 123 colname.
-      my_pydf.select_kcols(kcols = 123, inverse=True)   -- drop column with name 123 
+      my_pydf.select_kcols(kcols = 123, inverse=True)   -- drop column with name 123
+      my_pydf.select_kcols(kcols = 123, inverse=True, flip=True)   -- drop column with name 123 and transpose columns to rows.
 
-      
+There are also similar methods for selecting by indexes. If flip=True, a transposition is performed and when selecting columns,
+it can be done for free (but realize that selecting columns is relatively slow).
+
+    my_pydf.select_irows(irows=[1,2,3,45])    -- select rows 1,2,3, and 45 using indices.
+
+    my_pydf.select_icols(icols=slice(4,10))   -- select columns 4 thorugh 9 (inclusive) 
+    my_pydf.select_icols(icols=slice(4,10), flip=True)   -- select columns 4 thorugh 9 (inclusive) and transpose columns to rows.
+    my_pydf.select_icols(flip=True)   -- select all columns and transpose columns to rows.
+          
 ### Indexing: setting values in a pydf:
      my_pydf[irow] = list              -- assign the entire row at index irow to the list provided
      my_pydf[irow] = value             -- assign the entire row at index row to the value provided.
