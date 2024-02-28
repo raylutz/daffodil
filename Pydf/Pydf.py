@@ -89,7 +89,7 @@ See README file at this location: https://github.com/raylutz/Pydf/blob/main/READ
                 improved set_cols() to test sanitize_cols flag.
                 .len(), num_cols(), shape(), len()
                 row_idx_of()
-                remove_key -- keyfield not set.
+                remove_key -- keyfield not set. (remove)
                 get_existing_keys
                 select_record_da -- row_idx >= len(self.lol)
                 _basic_get_record_da -- no hd, include_cols
@@ -1566,52 +1566,56 @@ class Pydf:
     #=========================
     # remove records per keyfield; drop cols
 
-    def remove_key(self, keyval:str, silent_error=True) -> None:
+    def remove_key(self, keyval:str, silent_error=False) -> None:
         """ remove record from pydf using keyfield
             This directly modifies pydf
         """
         # test exists in test_pydf.py
-
-        if not self.keyfield:
-            return self
         
-        try:
-            key_idx = self.kd[keyval]   #will raise KeyError if key not exists.
-        except KeyError:
-            if silent_error: 
-                return self
-            raise
+        return self.select_krows(krows=keyval, inverse=True, silent_error=silent_error)
+
+        # if not self.keyfield:
+            # return self
+        
+        # try:
+            # key_idx = self.kd[keyval]   #will raise KeyError if key not exists.
+        # except KeyError:
+            # if silent_error: 
+                # return self
+            # raise
             
-        self.lol.pop(key_idx)
-        self._rebuild_kd()
-        return self
+        # self.lol.pop(key_idx)
+        # self._rebuild_kd()
+        # return self
         
     
-    def remove_keylist(self, keylist: T_ls, silent_error=True):
+    def remove_keylist(self, keylist: T_ls, silent_error=False):
         """ remove records from pydf using keyfields
             This directly modifies pydf
             test exists in test_pydf.py
         """
 
-        # get the indexes of rows to be deleted.
-        idx_li: T_li = []
-        for keyval in keylist:
-            try:
-                idx = self.kd[keyval]
-            except KeyError:
-                if silent_error: continue
-                raise
-            idx_li.append(idx)    
+        return self.select_krows(krows=keylist, inverse=True, silent_error=silent_error)
+
+        # # get the indexes of rows to be deleted.
+        # idx_li: T_li = []
+        # for keyval in keylist:
+            # try:
+                # idx = self.kd[keyval]
+            # except KeyError:
+                # if silent_error: continue
+                # raise
+            # idx_li.append(idx)    
                 
-        # delete records from the end so the indexes are valid after each deletion.
-        reverse_sorted_idx_li = sorted(idx_li, reverse=True)
+        # # delete records from the end so the indexes are valid after each deletion.
+        # reverse_sorted_idx_li = sorted(idx_li, reverse=True)
 
-        for idx in reverse_sorted_idx_li:
-            self.lol.pop(idx)
+        # for idx in reverse_sorted_idx_li:
+            # self.lol.pop(idx)
 
-        self._rebuild_kd()
+        # self._rebuild_kd()
             
-        return self
+        # return self
         
         
     #===========================
@@ -1716,8 +1720,7 @@ class Pydf:
             # do nothing in this case.
             return self
         
-        num_cols = self.num_cols()
-        num_rows = len(self.lol)
+        num_rows, num_cols = self.shape()
 
         if num_rows == 1 and num_cols == 1:
             # single value, just return it.
@@ -1733,7 +1736,6 @@ class Pydf:
             
         return self
         
-
 
     def set_irows_icols(self, irows: Union[slice, int, T_li, None], icols: Union[slice, int, T_li, None], value) -> 'Pydf':
         """ set rows and cols in given pydf.
@@ -1862,6 +1864,7 @@ class Pydf:
     def krows_to_irows(self, 
             krows: Union[slice, str, T_la, int, Tuple[Any, Any], None],
             inverse: bool = False,
+            silent_error: bool=False,
             ) -> Union[slice, int, T_li]:
         """
         If the keyfield is set, then the rows can be selected by providing a
@@ -1871,18 +1874,23 @@ class Pydf:
         this method are very fast but there is overhead to reading the column and
         creating the dictionary. Therefore, set keyfield to '' to disable row key lookups.        
         """
-        if not self.keyfield or not self.kd: 
-            return []
+        if not self.keyfield or not self.kd:
+            if inverse:
+                return list(range(len(self)))
+            else:
+                return []
             
         return self.__class__.gkeys_to_idxs(
                     keydict = self.kd,
                     gkeys = krows,
                     inverse = inverse,
+                    silent_error=silent_error,
                     )
     
     def kcols_to_icols(self, 
             kcols: Union[str, T_ls, slice, int, T_li, Tuple[Any, Any], None] = None,
             inverse: bool = False,
+            silent_error: bool=False,
             ) -> Union[slice, int, T_li, None]:
         """
         If cols are defined is set, then the cols can be selected by providing a
@@ -1890,18 +1898,25 @@ class Pydf:
         This forces an attempt to use the spec as a column name even if it may look
         like an integer.
         """
+        if not self.hd:
+            if inverse:
+                return list(range(self.num_cols()))
+            else:
+                return []
         
         return self.__class__.gkeys_to_idxs(
                     keydict = self.hd,
                     gkeys = kcols,
                     inverse = inverse,
+                    silent_error=silent_error,
                     )
                     
     @staticmethod
     def gkeys_to_idxs(
             keydict: Dict[Union[str, int], int],
             gkeys: Union[str, T_ls, slice, int, T_li, Tuple[Any, Any], None] = None,
-            inverse: bool = False,            
+            inverse: bool = False,
+            silent_error: bool=False,
             ) -> Union[slice, int, T_li, None]:
         """
         If keydict is defined, then the idxs can be selected by providing a
@@ -1913,7 +1928,12 @@ class Pydf:
             return []
             
         elif isinstance(gkeys, (str, int)):
-            idxs = [keydict.get(gkeys)]   # create a list
+            idxs = []
+            idx = keydict.get(gkeys, -1)
+            if idx >= 0:
+                idxs.append(idx)
+            elif not silent_error:
+                raise KeyError
             
         elif isinstance(gkeys, list):     # can be list of integer or strings (or anything hashable)
             idxs = []
@@ -1921,7 +1941,9 @@ class Pydf:
                 idx = keydict.get(gkey, -1)
                 if idx >= 0:
                     idxs.append(idx)
-            #return idxs    # T_li
+                elif not silent_error:
+                    raise KeyError
+                    
             
         elif isinstance(gkeys, slice):     # can be list of integer or strings (or anything hashable)
             gkeys_range = range(gkeys.start or 0, gkeys.stop or len(keydict), gkeys.step or 1)
@@ -1930,7 +1952,8 @@ class Pydf:
                 idx = keydict.get(gkey, -1)
                 if gkey >= 0:
                     idxs.append(idx)
-            #return idxs    # T_li
+                elif not silent_error:
+                    raise KeyError
          
         elif isinstance(gkeys, tuple):         
             
@@ -1955,20 +1978,31 @@ class Pydf:
         return idxs
         
 
-    def select_krows(self, krows: Union[slice, str, T_la, int, Tuple[Any, Any], None], inverse: bool=False) -> 'Pydf':
+    def select_krows(self, 
+            krows: Union[slice, str, T_la, int, Tuple[Any, Any], None], 
+            inverse: bool=False,
+            silent_error: bool=False,
+            ) -> 'Pydf':
     
         irows = self.krows_to_irows( 
             krows = krows,
             inverse = inverse,
+            silent_error = silent_error,
             )
         return self.select_irows(irows)
     
     
-    def select_kcols(self, kcols: Union[slice, str, T_la, int, Tuple[Any, Any], None], inverse: bool=False, flip: bool=False) -> 'Pydf':
+    def select_kcols(self, 
+            kcols: Union[slice, str, T_la, int, Tuple[Any, Any], None], 
+            inverse: bool=False, 
+            flip: bool=False,
+            silent_error: bool=False,
+            ) -> 'Pydf':
     
         icols = self.kcols_to_icols( 
             kcols = kcols,
             inverse = inverse,
+            silent_error = silent_error,
             )
         return self.select_icols(icols, flip=flip)
     
@@ -2161,14 +2195,59 @@ class Pydf:
         return self.lol[irow]
         
 
-    def irow(self, irow: int, include_cols: Optional[T_ls]=None) -> T_da:
+    def to_value(self, irow: int=0, icol: int=0) -> Any:
+        """ return a single value from an array,
+            at default location 0,0 or as specified.
+        """
+    
+        num_rows, num_cols = self.shape()
+
+        if num_rows >= 1 and num_cols >= 1:
+            return self.lol[irow][icol]
+
+        return None
+        
+
+    def to_list(self, irow: int=0, unique=False) -> list:
+        """ return data from a pydf array as a list
+            from row index 0 (default)
+        """
+    
+        num_rows, num_cols = self.shape()
+
+        if num_rows == 1 and num_cols >= 1:
+            # single row, return as list.
+            result_la = self.lol[0]
+                
+        elif num_rows > 1 and num_cols == 1:
+            # single column result as a list.
+            result_la = self.icol(0)
+        else:
+            result_la = []
+            
+        if unique:
+            result_la = list(dict.fromkeys(result_la))
+            
+            
+        return result_la
+
+
+    def to_dict(self, irow: int=0, include_cols: Optional[T_ls]=None) -> T_da:
+        """ alias for iloc 
+            Note that this does not convert a column to a dict. Use to_list to convert a column.
+            test exists in test_pydf.py
+        """
+        return self.iloc(irow, include_cols)
+        
+
+    def irow(self, irow: int=0, include_cols: Optional[T_ls]=None) -> T_da:
         """ alias for iloc 
             test exists in test_pydf.py
         """
         return self.iloc(irow, include_cols)
         
 
-    def iloc(self, irow: int, include_cols: Optional[T_ls]=None) -> T_da:
+    def iloc(self, irow: int=0, include_cols: Optional[T_ls]=None) -> T_da:
         """ Select one record from pydf using the idx and return as a single T_da dict
             test exists in test_pydf.py
         """
@@ -2186,6 +2265,8 @@ class Pydf:
     def select_by_dict_to_lod(self, selector_da: T_da, expectmax: int=-1, inverse: bool=False) -> T_loda:
         """ Select rows in pydf which match the fields specified in d, returning lod 
             test exists in test_pydf.py
+            
+            DEPRECATE, use select_by_dict().to_lod()
         """
 
         # from utilities import utils

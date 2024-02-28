@@ -1280,15 +1280,15 @@ class TestPydf(unittest.TestCase):
         pydf = Pydf(cols=cols, lol=lol, keyfield='col1', dtypes={'col1': int, 'col2': str})
 
         keyval = 2
-        pydf.remove_key(keyval)
+        new_pydf = pydf.remove_key(keyval)
 
-        self.assertEqual(pydf.name, '')
-        self.assertEqual(pydf.keyfield, 'col1')
-        self.assertEqual(pydf.hd, hd)
-        self.assertEqual(pydf.lol, [[1, 'a'], [3, 'c']])
-        self.assertEqual(pydf.kd, {1: 0, 3: 1})
-        self.assertEqual(pydf.dtypes, {'col1': int, 'col2': str})
-        self.assertEqual(pydf._iter_index, 0)
+        self.assertEqual(new_pydf.name, '')
+        self.assertEqual(new_pydf.keyfield, 'col1')
+        self.assertEqual(new_pydf.hd, hd)
+        self.assertEqual(new_pydf.lol, [[1, 'a'], [3, 'c']])
+        self.assertEqual(new_pydf.kd, {1: 0, 3: 1})
+        self.assertEqual(new_pydf.dtypes, {'col1': int, 'col2': str})
+        self.assertEqual(new_pydf._iter_index, 0)
 
     def test_remove_key_keyfield_notdefined(self):
         cols = ['col1', 'col2']
@@ -1297,15 +1297,15 @@ class TestPydf(unittest.TestCase):
         pydf = Pydf(cols=cols, lol=lol, keyfield='', dtypes={'col1': int, 'col2': str})
 
         keyval = 4
-        pydf.remove_key(keyval, silent_error=True)
+        new_pydf = pydf.remove_key(keyval, silent_error=True)
 
-        self.assertEqual(pydf.name, '')
-        self.assertEqual(pydf.keyfield, '')
-        self.assertEqual(pydf.hd, hd)
-        self.assertEqual(pydf.lol, [[1, 'a'], [2, 'b'], [3, 'c']])
-        self.assertEqual(pydf.kd, {})
-        self.assertEqual(pydf.dtypes, {'col1': int, 'col2': str})
-        self.assertEqual(pydf._iter_index, 0)
+        self.assertEqual(new_pydf.name, '')
+        self.assertEqual(new_pydf.keyfield, '')
+        self.assertEqual(new_pydf.hd, hd)
+        self.assertEqual(new_pydf.lol, [[1, 'a'], [2, 'b'], [3, 'c']])
+        self.assertEqual(new_pydf.kd, {})
+        self.assertEqual(new_pydf.dtypes, {'col1': int, 'col2': str})
+        self.assertEqual(new_pydf._iter_index, 0)
 
     def test_remove_key_nonexistent_key_silent_error(self):
         cols = ['col1', 'col2']
@@ -1314,15 +1314,15 @@ class TestPydf(unittest.TestCase):
         pydf = Pydf(cols=cols, lol=lol, keyfield='col1', dtypes={'col1': int, 'col2': str})
 
         keyval = 4
-        pydf.remove_key(keyval, silent_error=True)
+        new_pydf = pydf.remove_key(keyval, silent_error=True)
 
-        self.assertEqual(pydf.name, '')
-        self.assertEqual(pydf.keyfield, 'col1')
-        self.assertEqual(pydf.hd, hd)
-        self.assertEqual(pydf.lol, [[1, 'a'], [2, 'b'], [3, 'c']])
-        self.assertEqual(pydf.kd, {1: 0, 2: 1, 3: 2})
-        self.assertEqual(pydf.dtypes, {'col1': int, 'col2': str})
-        self.assertEqual(pydf._iter_index, 0)
+        self.assertEqual(new_pydf.name, '')
+        self.assertEqual(new_pydf.keyfield, 'col1')
+        self.assertEqual(new_pydf.hd, hd)
+        self.assertEqual(new_pydf.lol, [[1, 'a'], [2, 'b'], [3, 'c']])
+        self.assertEqual(new_pydf.kd, {1: 0, 2: 1, 3: 2})
+        self.assertEqual(new_pydf.dtypes, {'col1': int, 'col2': str})
+        self.assertEqual(new_pydf._iter_index, 0)
 
     def test_remove_key_nonexistent_key_raise_error(self):
         cols = ['col1', 'col2']
@@ -1338,19 +1338,23 @@ class TestPydf(unittest.TestCase):
     def test_remove_keylist_existing_keys(self):
         cols = ['col1', 'col2']
         hd = {'col1': 0, 'col2': 1}
-        lol = [[1, 'a'], [2, 'b'], [3, 'c'], [4, 'd']]
+        lol = [ [1, 'a'], 
+                [2, 'b'], 
+                [3, 'c'], 
+                [4, 'd']]
+                
         pydf = Pydf(cols=cols, lol=lol, keyfield='col1', dtypes={'col1': int, 'col2': str})
 
         keylist = [2, 4]
-        pydf.remove_keylist(keylist)
+        
+        new_pydf = pydf.remove_keylist(keylist)
 
-        self.assertEqual(pydf.name, '')
-        self.assertEqual(pydf.keyfield, 'col1')
-        self.assertEqual(pydf.hd, hd)
-        self.assertEqual(pydf.lol, [[1, 'a'], [3, 'c']])
-        self.assertEqual(pydf.kd, {1: 0, 3: 1})
-        self.assertEqual(pydf.dtypes, {'col1': int, 'col2': str})
-        self.assertEqual(pydf._iter_index, 0)
+        self.assertEqual(new_pydf.name, '')
+        self.assertEqual(new_pydf.keyfield, 'col1')
+        self.assertEqual(new_pydf.hd, hd)
+        self.assertEqual(new_pydf.lol, [[1, 'a'], [3, 'c']])
+        self.assertEqual(new_pydf.kd, {1: 0, 3: 1})
+        self.assertEqual(new_pydf.dtypes, {'col1': int, 'col2': str})
 
     def test_remove_keylist_nonexistent_keys_silent_error(self):
         cols = ['col1', 'col2']
@@ -1359,15 +1363,15 @@ class TestPydf(unittest.TestCase):
         pydf = Pydf(cols=cols, lol=lol, keyfield='col1', dtypes={'col1': int, 'col2': str})
 
         keylist = [4, 5, 6]
-        pydf.remove_keylist(keylist, silent_error=True)
+        new_pydf = pydf.remove_keylist(keylist, silent_error=True)
 
-        self.assertEqual(pydf.name, '')
-        self.assertEqual(pydf.keyfield, 'col1')
-        self.assertEqual(pydf.hd, hd)
-        self.assertEqual(pydf.lol, [[1, 'a'], [2, 'b'], [3, 'c']])
-        self.assertEqual(pydf.kd, {1: 0, 2: 1, 3: 2})
-        self.assertEqual(pydf.dtypes, {'col1': int, 'col2': str})
-        self.assertEqual(pydf._iter_index, 0)
+        self.assertEqual(new_pydf.name, '')
+        self.assertEqual(new_pydf.keyfield, 'col1')
+        self.assertEqual(new_pydf.hd, hd)
+        self.assertEqual(new_pydf.lol, [[1, 'a'], [2, 'b'], [3, 'c']])
+        self.assertEqual(new_pydf.kd, {1: 0, 2: 1, 3: 2})
+        self.assertEqual(new_pydf.dtypes, {'col1': int, 'col2': str})
+        self.assertEqual(new_pydf._iter_index, 0)
 
     def test_remove_keylist_nonexistent_keys_raise_error(self):
         cols = ['col1', 'col2']
@@ -2954,9 +2958,33 @@ class TestPydf(unittest.TestCase):
             pydf.groupby(colname='not_found')
 
     # test __get_item__
-    def test_getitem_single_row(self):
+    def test_getitem_single_row_0(self):
+        self.pydf_instance = Pydf(lol=[[1, 2, 3], [4, 5, 6], [7, 8, 9]], cols=['A', 'B', 'C'])
+        result = self.pydf_instance[0]
+        expected_lol = [[1, 2, 3]]
+        self.assertEqual(result.lol, expected_lol)
+
+    def test_getitem_single_row_1(self):
         self.pydf_instance = Pydf(lol=[[1, 2, 3], [4, 5, 6], [7, 8, 9]], cols=['A', 'B', 'C'])
         result = self.pydf_instance[1]
+        expected_lol = [[4, 5, 6]]
+        self.assertEqual(result.lol, expected_lol)
+
+    def test_getitem_single_row_2(self):
+        self.pydf_instance = Pydf(lol=[[1, 2, 3], [4, 5, 6], [7, 8, 9]], cols=['A', 'B', 'C'])
+        result = self.pydf_instance[2]
+        expected_lol = [[7, 8, 9]]
+        self.assertEqual(result.lol, expected_lol)
+
+    def test_getitem_single_row_minus_1(self):
+        self.pydf_instance = Pydf(lol=[[1, 2, 3], [4, 5, 6], [7, 8, 9]], cols=['A', 'B', 'C'])
+        result = self.pydf_instance[-1]
+        expected_lol = [[7, 8, 9]]
+        self.assertEqual(result.lol, expected_lol)
+
+    def test_getitem_single_row_minus_2(self):
+        self.pydf_instance = Pydf(lol=[[1, 2, 3], [4, 5, 6], [7, 8, 9]], cols=['A', 'B', 'C'])
+        result = self.pydf_instance[-2]
         expected_lol = [[4, 5, 6]]
         self.assertEqual(result.lol, expected_lol)
 
@@ -3049,6 +3077,18 @@ class TestPydf(unittest.TestCase):
         expected_val = [4, 5, 6]
         self.assertEqual(result, expected_val)
 
+    def test_getitem_single_row_minus_1(self):
+        self.pydf_instance = Pydf(lol=[[1, 2, 3], [4, 5, 6], [7, 8, 9]], cols=['A', 'B', 'C'], retmode='val')
+        result = self.pydf_instance[-1]
+        expected_lol = [7, 8, 9]
+        self.assertEqual(result.lol, expected_lol)
+
+    def test_getitem_single_row_minus_2(self):
+        self.pydf_instance = Pydf(lol=[[1, 2, 3], [4, 5, 6], [7, 8, 9]], cols=['A', 'B', 'C'], retmode='val')
+        result = self.pydf_instance[-2]
+        expected_lol = [4, 5, 6]
+        self.assertEqual(result.lol, expected_lol)
+
     def test_getitem_single_cell_01_val(self):
         self.pydf_instance = Pydf(lol=[[1, 2, 3], [4, 5, 6], [7, 8, 9]], cols=['A', 'B', 'C'], retmode='val')
         result = self.pydf_instance[0,1]
@@ -3130,6 +3170,122 @@ class TestPydf(unittest.TestCase):
         result = self.pydf_instance[['a','c']]
         expected_result = Pydf(lol=[['a', 1, 2, 3], ['c', 7, 8, 9]], cols=['k', 'A', 'B', 'C'], keyfield='k')
         self.assertEqual(result, expected_result)
+
+
+    # getitem with .to_...()
+    def test_getitem_single_row_val(self):
+        self.pydf_instance = Pydf(lol=[[1, 2, 3], [4, 5, 6], [7, 8, 9]], cols=['A', 'B', 'C'])
+        result = self.pydf_instance[1].to_list()
+        expected_val = [4, 5, 6]
+        self.assertEqual(result, expected_val)
+
+    def test_getitem_single_row_minus_1(self):
+        self.pydf_instance = Pydf(lol=[[1, 2, 3], [4, 5, 6], [7, 8, 9]], cols=['A', 'B', 'C'])
+        result = self.pydf_instance[-1].to_list()
+        expected_lol = [7, 8, 9]
+        self.assertEqual(result.lol, expected_lol)
+
+    def test_getitem_single_row_minus_2(self):
+        self.pydf_instance = Pydf(lol=[[1, 2, 3], [4, 5, 6], [7, 8, 9]], cols=['A', 'B', 'C'])
+        result = self.pydf_instance[-2].to_list()
+        expected_lol = [4, 5, 6]
+        self.assertEqual(result.lol, expected_lol)
+
+    def test_getitem_single_cell_01_val(self):
+        self.pydf_instance = Pydf(lol=[[1, 2, 3], [4, 5, 6], [7, 8, 9]], cols=['A', 'B', 'C'])
+        result = self.pydf_instance[0,1].to_value()
+        expected_val = 2
+        self.assertEqual(result, expected_val)
+
+    def test_getitem_single_cell_10_val(self):
+        self.pydf_instance = Pydf(lol=[[1, 2, 3], [4, 5, 6], [7, 8, 9]], cols=['A', 'B', 'C'])
+        result = self.pydf_instance[1,0].to_value()
+        expected_val = 4
+        self.assertEqual(result, expected_val)
+
+    def test_getitem_single_cell_11_val(self):
+        self.pydf_instance = Pydf(lol=[[1, 2, 3], [4, 5, 6], [7, 8, 9]], cols=['A', 'B', 'C'])
+        result = self.pydf_instance[1,1].to_value()
+        expected_val = 5
+        self.assertEqual(result, expected_val)
+
+    def test_getitem_single_row_with_cols_val(self):
+        self.pydf_instance = Pydf(lol=[[1, 2, 3], [4, 5, 6], [7, 8, 9]], cols=['A', 'B', 'C'])
+        result = self.pydf_instance[1, :].to_list()
+        expected_val = [4, 5, 6]
+        self.assertEqual(result, expected_val)
+
+    def test_getitem_single_col_val(self):
+        self.pydf_instance = Pydf(lol=[[1, 2, 3], [4, 5, 6], [7, 8, 9]], cols=['A', 'B', 'C'])
+        result = self.pydf_instance[:, 1].to_list()
+        expected_val = [2, 5, 8]
+        self.assertEqual(result, expected_val)
+
+    def test_getitem_single_colname_val(self):
+        self.pydf_instance = Pydf(lol=[[1, 2, 3], [4, 5, 6], [7, 8, 9]], cols=['A', 'B', 'C'])
+        result = self.pydf_instance[:, 'B'].to_list()
+        expected_val = [2, 5, 8]
+        self.assertEqual(result, expected_val)
+
+    def test_getitem_single_col_with_rows_val(self):
+        self.pydf_instance = Pydf(lol=[[1, 2, 3], [4, 5, 6], [7, 8, 9]], cols=['A', 'B', 'C'])
+        result = self.pydf_instance[:, 1:2].to_list()
+        expected_val = [2, 5, 8]
+        self.assertEqual(result, expected_val)
+
+    def test_getitem_single_col_with_reduced_rows_val(self):
+        self.pydf_instance = Pydf(lol=[[1, 2, 3], [4, 5, 6], [7, 8, 9]], cols=['A', 'B', 'C'])
+        result = self.pydf_instance[0:2, 1:2].to_list()
+        expected_val = [2, 5]
+        self.assertEqual(result, expected_val)
+
+
+    def test_getitem_single_row_val(self):
+        self.pydf_instance = Pydf(lol=[[1, 2, 3], [4, 5, 6], [7, 8, 9]], cols=['A', 'B', 'C'])
+        result = self.pydf_instance[1].to_dict()
+        expected_val = {'A':4, 'B':5, 'C':6}
+        self.assertEqual(result, expected_val)
+
+    def test_getitem_single_row_minus_1(self):
+        self.pydf_instance = Pydf(lol=[[1, 2, 3], [4, 5, 6], [7, 8, 9]], cols=['A', 'B', 'C'])
+        result = self.pydf_instance[-1].to_dict()
+        expected_val = {'A':7, 'B':8, 'C':9}
+        self.assertEqual(result, expected_val)
+
+    def test_getitem_single_row_minus_2(self):
+        self.pydf_instance = Pydf(lol=[[1, 2, 3], [4, 5, 6], [7, 8, 9]], cols=['A', 'B', 'C'])
+        result = self.pydf_instance[-2].to_dict()
+        expected_val = {'A':4, 'B':5, 'C':6}
+        self.assertEqual(result, expected_val)
+
+    def test_getitem_single_cell_01_val(self):
+        self.pydf_instance = Pydf(lol=[[1, 2, 3], [4, 5, 6], [7, 8, 9]], cols=['A', 'B', 'C'])
+        result = self.pydf_instance[0,1].to_dict()
+        expected_val = {'B':2}
+        self.assertEqual(result, expected_val)
+
+    def test_getitem_single_cell_10_val(self):
+        self.pydf_instance = Pydf(lol=[[1, 2, 3], [4, 5, 6], [7, 8, 9]], cols=['A', 'B', 'C'])
+        result = self.pydf_instance[1,0].to_dict()
+        expected_val = {'A':4}
+        self.assertEqual(result, expected_val)
+
+    def test_getitem_single_cell_11_val(self):
+        self.pydf_instance = Pydf(lol=[[1, 2, 3], [4, 5, 6], [7, 8, 9]], cols=['A', 'B', 'C'])
+        result = self.pydf_instance[1,1].to_dict()
+        expected_val = {'B':5}
+        self.assertEqual(result, expected_val)
+
+    def test_getitem_single_row_with_cols_val(self):
+        self.pydf_instance = Pydf(lol=[[1, 2, 3], [4, 5, 6], [7, 8, 9]], cols=['A', 'B', 'C'])
+        result = self.pydf_instance[1, :].to_dict()
+        expected_val = {'A':4, 'B':5, 'C':6}
+        self.assertEqual(result, expected_val)
+
+
+
+
+
 
     # test transpose
     def test_transpose(self):
