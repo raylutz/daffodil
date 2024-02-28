@@ -2201,7 +2201,7 @@ class Pydf:
         return self.lol[irow]
         
 
-    def to_value(self, irow: int=0, icol: int=0) -> Any:
+    def to_value(self, irow: int=0, icol: int=0, default:Any='') -> Any:
         """ return a single value from an array,
             at default location 0,0 or as specified.
         """
@@ -2211,7 +2211,7 @@ class Pydf:
         if num_rows >= 1 and num_cols >= 1:
             return self.lol[irow][icol]
 
-        return None
+        return default
         
 
     def to_list(self, irow: int=0, unique=False) -> list:
@@ -2274,17 +2274,19 @@ class Pydf:
             
             DEPRECATE, use select_by_dict().to_lod()
         """
-
-        # from utilities import utils
-
-        result_lod = [d2 for d2 in self if inverse ^ utils.is_d1_in_d2(d1=selector_da, d2=d2)]
-    
-        if expectmax != -1 and len(result_lod) > expectmax:
-            raise LookupError
-            # import pdb; pdb.set_trace() #perm
-            # pass
         
-        return result_lod
+        return self.select_by_dict(selector_da=selector_da, expectmax=expect_max, inverse=inverse).to_lod()
+
+        # # from utilities import utils
+
+        # result_lod = [d2 for d2 in self if inverse ^ utils.is_d1_in_d2(d1=selector_da, d2=d2)]
+    
+        # if expectmax != -1 and len(result_lod) > expectmax:
+            # raise LookupError
+            # # import pdb; pdb.set_trace() #perm
+            # # pass
+        
+        # return result_lod
 
 
     def select_by_dict(self, selector_da: T_da, expectmax: int=-1, inverse:bool=False, keyfield:str='') -> 'Pydf':
