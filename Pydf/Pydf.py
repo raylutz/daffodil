@@ -118,7 +118,13 @@ See README file at this location: https://github.com/raylutz/Pydf/blob/main/READ
                 used method equating to introduce them in the class.
             Moved to_pandas and from_pandas to file pydf_pandas.py
             Changed constructors from_... from staticmethods to classmethods
-
+            move toward deprecating remove_key() remove_keys()
+            add silent_error in gkeys_to_idxs and trigger error if not selected.
+            Handle missing keyfield, hd, kd, in inverse mode.
+            Added to_value(), to_list(), to_dict() and tests.
+            Tested negative indexes in []
+            
+            
     TODO
              
             tests: need to add 
