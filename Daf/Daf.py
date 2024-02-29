@@ -123,6 +123,8 @@ See README file at this location: https://github.com/raylutz/Daf/blob/main/READM
             Handle missing keyfield, hd, kd, in inverse mode.
             Added to_value(), to_list(), to_dict() and tests.
             Tested negative indexes in []
+            retmode attribute and constructor parameter to set 'val' vs. 'obj' return value.
+            moved __getitem__ and __setitem__ back to main class now that they are vastely reduced in complexity.
             Name change from Pydf to Daffodil and resolve issues.
 
    v0.3.0  (2024-02-28) 
