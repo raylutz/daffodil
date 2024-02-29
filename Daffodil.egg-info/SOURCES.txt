@@ -1,0 +1,17 @@
+LICENSE
+README.md
+setup.py
+Daf/Daf.py
+Daf/__init__.py
+Daf/daf_indexing.py
+Daf/daf_md.py
+Daf/daf_pandas.py
+Daf/daf_types.py
+Daf/daf_utils.py
+Daf/md_demo.py
+Daffodil.egg-info/PKG-INFO
+Daffodil.egg-info/SOURCES.txt
+Daffodil.egg-info/dependency_links.txt
+Daffodil.egg-info/requires.txt
+Daffodil.egg-info/top_level.txt
+tests/test_daf.py

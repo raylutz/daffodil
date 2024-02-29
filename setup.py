@@ -1,7 +1,7 @@
 from setuptools import setup, find_packages
 
 setup(
-    name='Pydf',
+    name='Daffodil',
     version='0.1.0',
     packages=find_packages(),
     install_requires=[
@@ -9,6 +9,6 @@ setup(
     ],
     author='Ray Lutz',
     author_email='raylutz@cognisys.com',
-    description='Python Daffodil (Pydf) provides lightweight and fast 2-D dataframes',
-    url='https://github.com/raylutz/Pydf',
+    description='Daffodil provides lightweight and fast 2-D dataframes',
+    url='https://github.com/raylutz/Daffodil',
 )

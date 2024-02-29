@@ -1,0 +1,9 @@
+Metadata-Version: 2.1
+Name: Daffodil
+Version: 0.1.0
+Summary: Daffodil provides lightweight and fast 2-D dataframes
+Home-page: https://github.com/raylutz/Daffodil
+Author: Ray Lutz
+Author-email: raylutz@cognisys.com
+License-File: LICENSE
+Requires-Dist: xlsx2csv==0.8.2
