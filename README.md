@@ -2,8 +2,6 @@
 
 # Python Daffodil
 
-(STATUS -- Note: This is an alpha release. The API is in flux. The name of the packege will be changing from Pydf to 'Daffodil' and the class will be Daf, while instance will end with the type _daf. This change is largely reflected in the text below.)
-
 The Python Daffodil (DAtaFrames For Optimized Data Inspection and Logical processing) package provides
 lightweight, simple and flexible 2-d dataframes built on 
 python data types, including a list-of-list array as the core datatype. Daffodil is similar to other data frame
