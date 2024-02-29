@@ -732,7 +732,7 @@ from Daf.Daf import Daf
     print(f"df.at[500, 'Col500'] += 1   {increment_loops} loops: {secs:.4f} secs")
 
     report_daf['insert_irow', 'loops']     = insert_loops = loops * 10
-    report_daf['insert_irow', 'daf']      = secs = timeit.timeit('sample_daf.insert_irow(irow=400, row_la=sample_daf600, :].copy())', setup=setup_code, globals=globals(), number=insert_loops)
+    report_daf['insert_irow', 'daf']      = secs = timeit.timeit('sample_daf.insert_irow(irow=400, row_la=sample_daf[600, :].copy())', setup=setup_code, globals=globals(), number=insert_loops)
     print(f"daf.insert_irow            {insert_loops} loops: {secs:.4f} secs")
 
     report_daf['insert_irow', 'pandas']    = secs = timeit.timeit('pd.concat([df.iloc[: 400], pd.DataFrame([df.loc[600].copy()]), df.iloc[400:]], ignore_index=True)', setup=setup_code, globals=globals(), number=insert_loops)
