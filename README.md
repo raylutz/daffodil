@@ -682,7 +682,7 @@ conversion to Pandas directly from arbitrary Python list-of-dicts, for example, 
 
 We timed the various conversions using Pandas 1.5.3 and 2.4.1.
 
-See: https://github.com/raylutz/daffodil/blob/main/docs/daf_benchmarks
+See: https://github.com/raylutz/daffodil/blob/main/docs/daf_benchmarks.md
 
 ## Demo
 
