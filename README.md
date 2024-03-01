@@ -25,7 +25,7 @@ Daffodil is a very simple 'bare metal' class that is well suited for those situa
 the main objective. But it is also very compatible with other dataframe packages and can provide great way 
 to build and clean the data before providing the data to other packages for number crunching.
 
-tabular data is commonly built
+Tabular data is commonly built
 record-by-record, while popular analysis and manipulation tools are oriented to work on data columns once
 it is fully assembled. If only a very few data operations are performed on columns (such as a sums, stdev, etc.)
 then it is frequently more performant to leave it in row format rather than reforming it into columns and enduring
