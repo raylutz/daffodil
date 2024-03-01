@@ -24,11 +24,7 @@ def fake_function(a: Optional[List[Dict[str, Tuple[int,Union[Any, str]]]]] = Non
     return None or cast(int, 0)       # pragma: no cover
 
 
-from Daf.daf_types import T_lola, T_loda, T_dtype_dict, T_da, T_ds, T_hdlola, T_la, T_loti, T_ls, T_doda, T_buff, T_li
-                    # T_lols, T_loloda, T_lodoloda, T_dtype, T_num, T_lods, T_lodf, 
-                    # T_doloda, T_dodf, T_dola, 
-                    # T_di, T_ls, T_image, T_dateobj, T_lsi, T_si, T_idi, T_idoda, T_dodi, 
-                    # T_lodola, T_lododa, T_df_or_lod, T_lota, T_hllola, T_dols, T_dn, T_df 
+from lib.daf_types import T_lola, T_loda, T_dtype_dict, T_da, T_ds, T_hdlola, T_la, T_loti, T_ls, T_doda, T_buff, T_li
                     
 
 def is_linux() -> bool: 
@@ -1242,7 +1238,7 @@ def _generate_spreadsheet_column_names_list(num_cols: int) -> T_ls:
     """ generate a full list of column names for the num_columns specified 
     """
 
-    return [lib._calculate_single_column_name(i) for i in range(num_cols)]
+    return [_calculate_single_column_name(i) for i in range(num_cols)]
 
 
 def _sanitize_cols(cols: T_ls, unnamed_prefix='col') -> list:

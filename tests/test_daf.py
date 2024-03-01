@@ -10,8 +10,8 @@ import pandas as pd
 from pathlib import Path
 sys.path.append('..')
 
-import daffodil.Daf.Daf as Daf
-from Daf import daf_utils as utils
+from daffodil.daf import Daf
+from lib import daf_utils as utils
 
 class TestDaf(unittest.TestCase):
 

@@ -44,7 +44,7 @@ See README file at this location: https://github.com/raylutz/Daf/blob/main/READM
             Changed the result of a row access, such as $d[$r, :$c] to return a list so it could be compatible with sum.
                 use daf.select_irow() to select a row with dict as the result.
     
-    v0.2.0  (2024-02-03) 
+    v0.2.0  (2024-02-28) 
             Copied related code to Pydf repo and resolved all imports. All tests running.
             Added option of appending a plain list to daf instance using .append()
             Added 'omit_nulls' option to col(), col_to_la(), icol_to_la(), valuecounts_for_colname()
@@ -127,10 +127,16 @@ See README file at this location: https://github.com/raylutz/Daf/blob/main/READM
             moved __getitem__ and __setitem__ back to main class now that they are vastely reduced in complexity.
             Name change from Pydf to Daffodil and resolve issues.
 
-   v0.3.0  (2024-02-28) 
+    v0.3.0  (pending) 
             Added fmt parameter so file are saved with proper Content-Type metadata.
-            Added 'from .Daf import Daf' to __init__.py to reduce level.
-                user can use 'import daffodil.Daf as daf' and then daf.Daf()
+            Added 'from .Daf import Daf' to __init__.py to reduce level.  Eventually removed this.
+            
+    v0.2.2  Changed the file structure to be incompliance with Python traditions.
+                user can use 'from daffodil.daf import Daf' and then Daf()
+            Moved daf.py containing class Daf to the top level.
+            put supporting functions in lib.
+
+
             
     TODO
              
@@ -161,17 +167,17 @@ See README file at this location: https://github.com/raylutz/Daf/blob/main/READM
                 record_append()
                     empty record
                     overwrite of existing
-                select_records_daf
+                select_records_daf   (remove?)
                     no keyfield
                     inverse
                         len(keys_ls) > 10 and len(self.kd) > 30
                         smaller cases
-                iloc
+                iloc                (remove?)
                     no hd
-                icol_to_la
+                icol_to_la          (remove?)
                     unique
                     omit_nulls
-                assign_record_da
+                assign_record_da          (remove?)
                     no keyfield defined.
                 update_by_keylist <-- remove?
                 insert_irow()
@@ -430,7 +436,7 @@ class Daf:
     def __eq__(self, other):
         # test exists in test_daf.py            
 
-        if not isinstance(other, 'Daf'):
+        if not isinstance(other, Daf):
             return False
 
         return (self.lol == other.lol and self.columns() == other.columns() and self.keyfield == other.keyfield)

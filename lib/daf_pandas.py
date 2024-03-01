@@ -40,10 +40,9 @@ a pydf instance 'self'.
 See README file at this location: https://github.com/raylutz/Pydf/blob/main/README.md
 """
 
-from Daf.daf_types import T_df, T_dtype_dict #T_ls, T_li, T_doda, T_lb
+from lib.daf_types import T_df, T_dtype_dict #T_ls, T_li, T_doda, T_lb
                             # T_lola, T_da, T_di, T_hllola, T_loda, T_dola, T_dodi, T_la, T_lota, T_buff, T_df, T_ds, 
                      
-import Daf.Daf as Daf
 import numpy as np
 import csv
 import io

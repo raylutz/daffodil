@@ -14,7 +14,7 @@ import os
 
 sys.path.append('..')
 
-from Daf.md_demo import pr, md_code_seg
+from lib.md_demo import pr, md_code_seg
 
 global     datatable1, datatable2,sample_lod,sample_klod,df,kdf,daf,kdaf,hdlol,hllol,hdnpa
 
@@ -480,7 +480,7 @@ def sqlite_selectrow(table_name, key_col='rowkey', value='500'):
 
 
 def main():
-    from Daf.Daf import Daf
+    from daffodil.daf import Daf
 
     # Specify the number of columns you want
     num_columns = 1000      # You can change this number
@@ -640,7 +640,7 @@ import numpy as np
 from collections import namedtuple
 import sys
 sys.path.append('..')
-from Daf.Daf import Daf
+from daffodil.daf import Daf
 
 '''
     loops = 10

@@ -2,15 +2,13 @@
 
 # copyright (c) 2024 Ray Lutz
 
-
-
 import sys
 import os
 
 sys.path.append('..')
 
-from Daf.md_demo import md_code_seg # pr, 
-
+from lib import daf_utils as utils 
+from lib.md_demo import md_code_seg
 
 def main():
 
@@ -29,7 +27,7 @@ be viewed directly or converted to HTML for use on a static website.
 """
 
     md_report += md_code_seg('Create a new empty table')
-    import daffodil.Daf.Daf as Daf
+    from daffodil.daf import Daf
     
     my_daf = Daf()
     

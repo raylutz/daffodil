@@ -332,7 +332,7 @@ import numpy as np
 from collections import namedtuple
 import sys
 sys.path.append('..')
-from Daf.Daf import Daf
+from daffodil.daf import Daf
 
 '''
     loops = 10
@@ -556,19 +556,19 @@ Notes:
 
 |             Attribute              |  daf   |  pandas  |  numpy   | sqlite |  lod   | loops |
 | ---------------------------------: | :----: | :------: | :------: | :----: | :----: | :---- |
-|                           from_lod |  1.9   |   86.1   |   0.95   |  11.2  |        | 10    |
-|                       to_pandas_df |  72.6  |          | 0.00047  |        |  86.1  | 10    |
-|              to_pandas_df_thru_csv |  8.0   |          |          |        |        | 10    |
-|                     from_pandas_df |  7.7   |          | 0.000063 |        |        | 10    |
-|                           to_numpy |  0.77  | 0.000063 |          |        |  0.95  | 10    |
-|                         from_numpy |  0.13  | 0.00047  |          |        |        | 10    |
-|                     increment cell |  0.30  |   0.18   |          |        |        | 1,000 |
-|                        insert_irow | 0.039  |   1.7    |          |        |        | 100   |
-|                        insert_icol |  0.31  |   0.43   |          |        |        | 100   |
-|                           sum cols |  3.9   |  0.098   |  0.037   |  6.1   |  3.1   | 10    |
-|                             sum_np |  1.3   |          |          |        |        | 10    |
-|                          transpose |  36.3  |  0.0078  | 0.000023 |        |        | 10    |
-|                       keyed lookup | 0.0071 |  0.065   |          |  0.48  | 0.0080 | 100   |
+|                           from_lod |  1.2   |   47.0   |   0.66   |  6.4   |        | 10    |
+|                       to_pandas_df |  47.7  |          | 0.00032  |        |  47.0  | 10    |
+|              to_pandas_df_thru_csv |  5.4   |          |          |        |        | 10    |
+|                     from_pandas_df |  3.8   |          | 0.000049 |        |        | 10    |
+|                           to_numpy |  0.48  | 0.000049 |          |        |  0.66  | 10    |
+|                         from_numpy | 0.085  | 0.00032  |          |        |        | 10    |
+|                     increment cell |  0.13  |  0.045   |          |        |        | 1,000 |
+|                        insert_irow | 0.012  |   0.89   |          |        |        | 100   |
+|                        insert_icol |  0.15  |   0.20   |          |        |        | 100   |
+|                           sum cols |  1.5   |  0.058   |  0.027   |  2.6   |  1.4   | 10    |
+|                             sum_np |  0.59  |          |          |        |        | 10    |
+|                          transpose |  20.3  |  0.0016  | 0.000028 |        |        | 10    |
+|                       keyed lookup | 0.0075 |  0.075   |          |  0.33  | 0.0089 | 100   |
 |       Size of 1000x1000 array (MB) |  38.3  |   9.3    |          |  4.9   |  119   |       |
 | Size of keyed 1000x1000 array (MB) |  38.5  |   98.1   |    --    |  4.9   |  119   |       |
 

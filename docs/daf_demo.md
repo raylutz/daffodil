@@ -16,7 +16,7 @@ be viewed directly or converted to HTML for use on a static website.
 
 
 ```python
-    from Daf.Daf import Daf
+    from daffodil.daf import Daf as Daf
     
     my_daf = Daf()
     
@@ -598,7 +598,7 @@ Contents of C:\Windows\System32:
 | \zipfldr.dll                                                    | 285696 | 2023-12-13T18:13:32 | False  |
 | \ztrace_maps.dll                                                |  30720 | 2019-12-07T01:08:28 | False  |
 
-\[8735 rows x 4 cols; keyfield=; 0 keys ] (Daf)
+\[8730 rows x 4 cols; keyfield=; 0 keys ] (Daf)
 
 
 
@@ -638,12 +638,12 @@ Contents of C:\Windows\System32 (in raw text format):
 | \zipfldr.dll                                                    | 285696 | 2023-12-13T18:13:32 | False  |
 | \ztrace_maps.dll                                                |  30720 | 2019-12-07T01:08:28 | False  |
 
-\[8735 rows x 4 cols; keyfield=; 0 keys ] (Daf)
+\[8730 rows x 4 cols; keyfield=; 0 keys ] (Daf)
 
 ```
 
-- daf size in memory: 2,387,008 bytes
-- pandas df size in memory: 2,853,000 bytes
+- daf size in memory: 2,385,680 bytes
+- pandas df size in memory: 2,851,384 bytes
 
 ## Limit this list to just the files
 
@@ -701,7 +701,7 @@ Files only in C:\Windows\System32:
 | \zipfldr.dll                                                    | 285696 | 2023-12-13T18:13:32 | False  |
 | \ztrace_maps.dll                                                |  30720 | 2019-12-07T01:08:28 | False  |
 
-\[8613 rows x 4 cols; keyfield=; 0 keys ] (Daf)
+\[8608 rows x 4 cols; keyfield=; 0 keys ] (Daf)
 
 
 
