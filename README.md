@@ -8,6 +8,10 @@ python data types, including a list-of-list array as the core datatype. Daffodil
 packages, such as Pandas, Numpy, Polars, Swift, Vaex, Dask, PyArrow, SQLite, PySpark, etc. but is simpler and may be faster 
 because it does not have conversion overhead.
 
+## Visualization of the data model
+
+![pydf_table](https://github.com/raylutz/daffodil/assets/14955977/05c54a27-8d8e-47b6-ae73-957709a5d398)
+
 Daffodil provides basic dataframe functionality which is not available in core python, but should be. 
 Daffodil uses standard python data types, and can mix data types in rows and columns, and can store any type 
 within a cell, even another Daffodil instance. 
@@ -35,11 +39,6 @@ Spreadsheet-like operations are also provided, which are useful for processing t
 and can avoid glue code for many transformations. Python equations in the formula pane operate on the data
 pane and calculations from spreadsheet programs can be easily ported in, to avoid random glue code.
 
-## Visualization of the data model
-
-![pydf_table](https://github.com/raylutz/daffodil/assets/14955977/05c54a27-8d8e-47b6-ae73-957709a5d398)
-
-    
 ## Good for general data operations
 
 We were surprised to find that Pandas is **very slow** in importing Python data.
