@@ -10,7 +10,7 @@ import pandas as pd
 from pathlib import Path
 sys.path.append('..')
 
-from Daf.Daf import Daf
+import Daffodil.Daf.Daf as Daf
 from Daf import daf_utils as utils
 
 class TestDaf(unittest.TestCase):
@@ -19,14 +19,14 @@ class TestDaf(unittest.TestCase):
     
     # initialization
     def test_init_default_values(self):
-        daf = Daf()
-        self.assertEqual(daf.name, '')
-        self.assertEqual(daf.keyfield, '')
-        self.assertEqual(daf.hd, {})
-        self.assertEqual(daf.lol, [])
-        self.assertEqual(daf.kd, {})
-        self.assertEqual(daf.dtypes, {})
-        self.assertEqual(daf._iter_index, 0)
+        mydaf = Daf()
+        self.assertEqual(mydaf.name, '')
+        self.assertEqual(mydaf.keyfield, '')
+        self.assertEqual(mydaf.hd, {})
+        self.assertEqual(mydaf.lol, [])
+        self.assertEqual(mydaf.kd, {})
+        self.assertEqual(mydaf.dtypes, {})
+        self.assertEqual(mydaf._iter_index, 0)
 
     def test_init_custom_values(self):
         cols = ['col1', 'col2']

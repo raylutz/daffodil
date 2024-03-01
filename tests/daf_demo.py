@@ -29,7 +29,7 @@ be viewed directly or converted to HTML for use on a static website.
 """
 
     md_report += md_code_seg('Create a new empty table')
-    from Daf.Daf import Daf
+    import Daffodil.Daf.Daf as Daf
     
     my_daf = Daf()
     

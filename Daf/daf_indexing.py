@@ -381,8 +381,8 @@ def _handle_slice(self, row_slice: Union[slice, int, None], col_slice: Union[sli
         else:
             sliced_cols = None            
 
-    from Daf.Daf import Daf
-    sliced_daf = Daf(lol=row_col_sliced_lol, cols=sliced_cols, dtypes=self.dtypes, keyfield=self.keyfield)
+    import Daffodil.Daf as daf    
+    sliced_daf = daf.Daf(lol=row_col_sliced_lol, cols=sliced_cols, dtypes=self.dtypes, keyfield=self.keyfield)
     return indexing._adjust_return_val(sliced_daf)
 
 
