@@ -1,4 +1,4 @@
-![daffodil_logo](https://github.com/raylutz/Pydf/assets/14955977/5e141583-0216-429d-9ba8-be938aa13017)
+![daffodil_logo](https://github.com/raylutz/daffodil/assets/14955977/5e141583-0216-429d-9ba8-be938aa13017)
 
 # Python Daffodil
 
@@ -37,7 +37,7 @@ pane and calculations from spreadsheet programs can be easily ported in, to avoi
 
 ## Visualization of the data model
 
-![pydf_table](https://github.com/raylutz/Pydf/assets/14955977/011b0bf9-5461-4b0a-af45-5f2bf523417c)
+![daf_table](https://github.com/raylutz/daffodil/assets/14955977/011b0bf9-5461-4b0a-af45-5f2bf523417c)
 
     
 ## Good for general data operations
@@ -205,10 +205,10 @@ many operations are required, the appropriate portion of the array can be ported
 One common usage pattern allows iteration over the rows and appending to another instance. For example:
     
         # read csv file into 2-D array, handling column headers and unflattening
-        my_daf = Pydf.from_csv(file_path, unflatten=True)  
+        my_daf = Daf.from_csv(file_path, unflatten=True)  
     
         # create a new (empty) table to be built as we scan the input.
-        new_daf = Pydf()
+        new_daf = Daf()
         
         # scan the input my_daf row by row and construct the output. Pandas can't do this efficiently.
         for original_row in my_daf:  
@@ -221,7 +221,7 @@ One common usage pattern allows iteration over the rows and appending to another
 
 This common pattern can be abbreviated using the apply() method:
 
-        my_daf = Pydf.from_csv(file_path, unflatten=True)
+        my_daf = Daf.from_csv(file_path, unflatten=True)
         
         new_daf = my_daf.apply(transform_row)
         
@@ -229,19 +229,19 @@ This common pattern can be abbreviated using the apply() method:
 
 Or
 
-        Pydf.from_csv(file_path).apply(transform_row).to_csv(file_path)
+        Daf.from_csv(file_path).apply(transform_row).to_csv(file_path)
 
 And further extension of this pattern can apply the transformation to a set of csv files described by a chunk_manifest.
 The chunk manifest essentially provides metadata and instructions for accessing the source data, which may be many 1000s
 of chunks, each of which will fit in memory.
 
-        chunk_manifest_daf = Pydf.from_csv(file_path)  
+        chunk_manifest_daf = Daf.from_csv(file_path)  
         result_manifest_daf = chunk_manifest_daf.manifest_apply(transform_row)
 
 Similarly, a set of csv_files can be reduced to a single record using a reduction method. For example, 
 for determining valuecounts of columns in a set of files:
 
-        chunk_manifest_daf = Pydf.from_csv(file_path, unflatten=True)
+        chunk_manifest_daf = Daf.from_csv(file_path, unflatten=True)
         result_record = chunk_manifest_daf.manifest_reduce(count_values)
     
 ## Methods and functionality
@@ -334,15 +334,15 @@ data types. A CSVJ file is generally also a valid CSV file with # comment lines.
 
 #### create empty daf with nothing specified.
     
-    my_daf = Pydf()
+    my_daf = Daf()
 
 #### create empty daf with specified cols and keyfield, and with dtypes defined.
     
-    my_daf = Pydf(cols=list_of_colnames, keyfield=fieldname, dtypes=dtype_dict) 
+    my_daf = Daf(cols=list_of_colnames, keyfield=fieldname, dtypes=dtype_dict) 
     
 #### create empty daf with only keyfield specified.
     
-    my_daf = Pydf(keyfield=fieldname)
+    my_daf = Daf(keyfield=fieldname)
 
 #### create an empty daf object with same cols and keyfield.
     
@@ -537,24 +537,23 @@ syntax.
     
 #### remove multiple records using multiple keys in a list.
     
-    new_daf = select_krows(krows=keylist, invert=True)
+    new_daf = my_daf.select_krows(krows=keylist, invert=True)
 
 ### selecting records without using keyfield
 
 #### select records based on a conditional expression.
 
-    new_daf = daf.select_where(lambda row: row['fieldname'] > 5)
+    new_daf = my_daf.select_where(lambda row: row['fieldname'] > 5)
 
 or
 
-    new_daf = daf.select_where(lambda row: row['fieldname'] > row_limit")
+    new_daf = my_daf.select_where(lambda row: row['fieldname'] > row_limit)
     
 #### Select one record from daf using the idx and return as a dict.
     
-    record_da = my_daf.iloc(row_idx)    # deprecate
-or
     record_da = my_daf[row_idx].to_dict()
 or
+
     record_da = my_daf.select_irows(irows=[row_idx]).to_dict()
     
     
@@ -601,8 +600,6 @@ or
     
 #### drop columns by list of colnames
 This operation is not efficient and should be avoided.
-
-    my_daf.drop_cols(colnames_ls)  # DEPRECATED
 
     my_daf.select_kcols(colnames_ls, invert=True)
     
@@ -658,13 +655,13 @@ here, the references are absolute unless you create a relative reference by rela
 #### Example usage:
 In this example, we have an 4 x 3 array and we will sum the rows and columns to the right and bottom col and row, respectively.
 
-            example_daf = Pydf(cols=['A', 'B', 'C'], 
+            example_daf = Daf(cols=['A', 'B', 'C'], 
                                 lol=[ [1,  2,   0],
                                       [4,  5,   0],
                                       [7,  8,   0],
                                       [0,  0,   0]])
                                       
-            formulas_daf = Pydf(cols=['A', 'B', 'C'], 
+            formulas_daf = Daf(cols=['A', 'B', 'C'], 
                     lol=[['',                    '',                    "sum($d[$r,:$c])"],
                          ['',                    '',                    "sum($d[$r,:$c])"],
                          ['',                    '',                    "sum($d[$r,:$c])"],
@@ -673,7 +670,7 @@ In this example, we have an 4 x 3 array and we will sum the rows and columns to 
                          
             example_daf.apply_formulas(formulas_daf)
         
-            result       = Pydf(cols=['A', 'B', 'C'], 
+            result       = Daf(cols=['A', 'B', 'C'], 
                                 lol=[ [1,  2,   3],
                                       [4,  5,   9],
                                       [7,  8,   15],
@@ -685,15 +682,14 @@ One of the primary reasons for developing Daffodil is that
 conversion to Pandas directly from arbitrary Python list-of-dicts, for example, is surprisingly slow.
 
 We timed the various conversions using Pandas 1.5.3 and 2.4.1.
-(See the table below for the results of our tests). 
 
-Also see: https://github.com/raylutz/daffodil/blob/main/docs/daf_benchmarks
+See: https://github.com/raylutz/daffodil/blob/main/docs/daf_benchmarks
 
 ## Demo
 
 See this demo of Daffodil functionality.
 
-https://github.com/raylutz/Pydf/blob/main/docs/pydf_demo.md
+https://github.com/raylutz/daffodil/blob/main/docs/daf_demo.md
 
 ## Syntax Comparison with Pandas
 
