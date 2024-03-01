@@ -293,9 +293,8 @@ sys.path.append('..')
 from lib.daf_types import T_ls, T_lola, T_di, T_hllola, T_loda, T_da, T_li, T_dtype_dict, \
                             T_dola, T_dodi, T_la, T_lota, T_doda, T_buff, T_ds, T_lb # , T_df
                      
-import lib.daf_utils as utils
-import lib.daf_md    as md
-#import lib.daf_indexing as indexing
+import lib.daf_utils    as utils
+import lib.daf_md       as md
 import lib.daf_pandas   as daf_pandas
 
 from typing import List, Dict, Any, Tuple, Optional, Union, cast, Type, Callable #
