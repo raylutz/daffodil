@@ -10,7 +10,7 @@ import pandas as pd
 from pathlib import Path
 sys.path.append('..')
 
-import Daffodil.Daf.Daf as Daf
+import daffodil.Daf.Daf as Daf
 from Daf import daf_utils as utils
 
 class TestDaf(unittest.TestCase):
@@ -3610,22 +3610,22 @@ class TestDaf(unittest.TestCase):
 
     def test_generate_spreadsheet_column_names_list(self):
         # Test for 0 columns
-        self.assertEqual(Daf._generate_spreadsheet_column_names_list(0), [])
+        self.assertEqual(utils._generate_spreadsheet_column_names_list(0), [])
 
         # Test for 1 column
-        self.assertEqual(Daf._generate_spreadsheet_column_names_list(1), ['A'])
+        self.assertEqual(utils._generate_spreadsheet_column_names_list(1), ['A'])
 
         # Test for 5 columns
-        self.assertEqual(Daf._generate_spreadsheet_column_names_list(5), ['A', 'B', 'C', 'D', 'E'])
+        self.assertEqual(utils._generate_spreadsheet_column_names_list(5), ['A', 'B', 'C', 'D', 'E'])
 
         # Test for 27 columns
-        self.assertEqual(Daf._generate_spreadsheet_column_names_list(27), ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z', 'AA'])
+        self.assertEqual(utils._generate_spreadsheet_column_names_list(27), ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z', 'AA'])
 
         # Test for 52 columns
-        self.assertEqual(Daf._generate_spreadsheet_column_names_list(52), ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z', 'AA', 'AB', 'AC', 'AD', 'AE', 'AF', 'AG', 'AH', 'AI', 'AJ', 'AK', 'AL', 'AM', 'AN', 'AO', 'AP', 'AQ', 'AR', 'AS', 'AT', 'AU', 'AV', 'AW', 'AX', 'AY', 'AZ'])
+        self.assertEqual(utils._generate_spreadsheet_column_names_list(52), ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z', 'AA', 'AB', 'AC', 'AD', 'AE', 'AF', 'AG', 'AH', 'AI', 'AJ', 'AK', 'AL', 'AM', 'AN', 'AO', 'AP', 'AQ', 'AR', 'AS', 'AT', 'AU', 'AV', 'AW', 'AX', 'AY', 'AZ'])
 
         # Test for 53 columns
-        self.assertEqual(Daf._generate_spreadsheet_column_names_list(53), ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z', 'AA', 'AB', 'AC', 'AD', 'AE', 'AF', 'AG', 'AH', 'AI', 'AJ', 'AK', 'AL', 'AM', 'AN', 'AO', 'AP', 'AQ', 'AR', 'AS', 'AT', 'AU', 'AV', 'AW', 'AX', 'AY', 'AZ', 'BA'])
+        self.assertEqual(utils._generate_spreadsheet_column_names_list(53), ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z', 'AA', 'AB', 'AC', 'AD', 'AE', 'AF', 'AG', 'AH', 'AI', 'AJ', 'AK', 'AL', 'AM', 'AN', 'AO', 'AP', 'AQ', 'AR', 'AS', 'AT', 'AU', 'AV', 'AW', 'AX', 'AY', 'AZ', 'BA'])
 
 
     # from_lod_to_cols

@@ -1222,4 +1222,48 @@ def slice_to_range(slice_obj, length):
     else:
         return range(slice_obj.start or 0, min(slice_obj.stop, length), slice_obj.step or 1)
 
+
+def _calculate_single_column_name(index: int) -> str:
+    """ provide the spreadsheet-style column name for integer offset.
+    """
+    
+    letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
+    result = ''
+    
+    while index >= 0:
+        index, remainder = divmod(index, 26)
+        result = letters[remainder] + result
+        index -= 1
+
+    return result
+    
+
+def _generate_spreadsheet_column_names_list(num_cols: int) -> T_ls:
+    """ generate a full list of column names for the num_columns specified 
+    """
+
+    return [lib._calculate_single_column_name(i) for i in range(num_cols)]
+
+
+def _sanitize_cols(cols: T_ls, unnamed_prefix='col') -> list:
+    """ make sure there are no blanks and columns are unique.
+        if missing, substitute with {unnamed_prefix}{col_idx}
+        if duplicated, substitute with prior_name_{col_idx}
+    """
+    
+    if cols:
+        # first make sure all columns have names.
+        cols = [col if col else f"{unnamed_prefix}{idx}" for idx, col in enumerate(cols)] 
+            
+        # next make sure they are all unique    
+        col_hd = {}
+        for idx, col in enumerate(cols):
+            if col not in col_hd:
+                col_hd[col] = idx
+            else:
+                # if not unique, add _NNN after the name.
+                col_hd[f"{col}_{idx}"] = idx
+        return list(col_hd.keys())
+            
+            
        

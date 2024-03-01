@@ -1,4 +1,4 @@
-# Daf.py
+# daf.py
 """
 
 # Daffodil -- Python Dataframes
@@ -130,7 +130,7 @@ See README file at this location: https://github.com/raylutz/Daf/blob/main/READM
    v0.3.0  (2024-02-28) 
             Added fmt parameter so file are saved with proper Content-Type metadata.
             Added 'from .Daf import Daf' to __init__.py to reduce level.
-                user can use 'import Daffodil.Daf as daf' and then daf.Daf()
+                user can use 'import daffodil.Daf as daf' and then daf.Daf()
             
     TODO
              
@@ -284,13 +284,13 @@ import numpy as np
     
 sys.path.append('..')
 
-from Daf.daf_types import T_ls, T_lola, T_di, T_hllola, T_loda, T_da, T_li, T_dtype_dict, \
+from lib.daf_types import T_ls, T_lola, T_di, T_hllola, T_loda, T_da, T_li, T_dtype_dict, \
                             T_dola, T_dodi, T_la, T_lota, T_doda, T_buff, T_ds, T_lb # , T_df
                      
-import Daf.daf_utils as utils
-import Daf.daf_md    as md
-#import Pydf.daf_indexing as indexing
-import Daf.daf_pandas   as daf_pandas
+import lib.daf_utils as utils
+import lib.daf_md    as md
+#import lib.daf_indexing as indexing
+import lib.daf_pandas   as daf_pandas
 
 from typing import List, Dict, Any, Tuple, Optional, Union, cast, Type, Callable #
 def fake_function(a: Optional[List[Dict[str, Tuple[int,Union[Any, str]]]]] = None) -> Optional[int]:
@@ -350,7 +350,7 @@ class Daf:
         else:
             self._cols_to_hd(cols)
             if len(cols) != len(self.hd):
-                cols = self.__class__._sanitize_cols(cols=cols)
+                cols = utils._sanitize_cols(cols=cols)
                 self._cols_to_hd(cols)
                 if len(cols) != len(self.hd):                
                     import pdb; pdb.set_trace() #temp
@@ -430,7 +430,7 @@ class Daf:
     def __eq__(self, other):
         # test exists in test_daf.py            
 
-        if not isinstance(other, Daf):
+        if not isinstance(other, 'Daf'):
             return False
 
         return (self.lol == other.lol and self.columns() == other.columns() and self.keyfield == other.keyfield)
@@ -576,30 +576,6 @@ class Daf:
         return self
         
 
-    @staticmethod
-    def _calculate_single_column_name(index: int) -> str:
-        """ provide the spreadsheet-style column name for integer offset.
-        """
-        
-        letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
-        result = ''
-        
-        while index >= 0:
-            index, remainder = divmod(index, 26)
-            result = letters[remainder] + result
-            index -= 1
-    
-        return result
-        
-    
-    @staticmethod
-    def _generate_spreadsheet_column_names_list(num_cols: int) -> T_ls:
-        """ generate a full list of column names for the num_columns specified 
-        """
-    
-        return [Daf._calculate_single_column_name(i) for i in range(num_cols)]
-
-
     def rename_cols(self, from_to_dict: T_ds):
         """ rename columns using the from_to_dict provided. 
             respects dtypes and rebuilds hd
@@ -614,28 +590,6 @@ class Daf:
             
         return self
 
-    @staticmethod
-    def _sanitize_cols(cols: T_ls, unnamed_prefix='col') -> str:
-        """ make sure there are no blanks and columns are unique.
-            if missing, substitute with {unnamed_prefix}{col_idx}
-            if duplicated, substitute with prior_name_{col_idx}
-        """
-        
-        if cols:
-            # first make sure all columns have names.
-            cols = [col if col else f"{unnamed_prefix}{idx}" for idx, col in enumerate(cols)] 
-                
-            # next make sure they are all unique    
-            col_hd = {}
-            for idx, col in enumerate(cols):
-                if col not in col_hd:
-                    col_hd[col] = idx
-                else:
-                    # if not unique, add _NNN after the name.
-                    col_hd[f"{col}_{idx}"] = idx
-            return list(col_hd.keys())
-            
-            
     def set_cols(self, new_cols: Optional[T_ls]=None, sanitize_cols: bool=True, unnamed_prefix: str='col'):
         """ set the column names of the daf using an ordered list.
         
@@ -648,10 +602,10 @@ class Daf:
         num_cols = self.num_cols() or len(self.hd)
         
         if new_cols is None:
-            new_cols = self.__class__._generate_spreadsheet_column_names_list(num_cols)
+            new_cols = utils._generate_spreadsheet_column_names_list(num_cols)
             
         elif sanitize_cols:
-            new_cols = self.__class__._sanitize_cols(new_cols, unnamed_prefix=unnamed_prefix)
+            new_cols = utils._sanitize_cols(new_cols, unnamed_prefix=unnamed_prefix)
         
         if num_cols and len(new_cols) < num_cols:
             raise AttributeError("Length of new_cols not the same as existing cols")
@@ -829,7 +783,7 @@ class Daf:
     # initializers
     
     def clone_empty(self, lol: Optional[T_lola]=None, cols: Optional[T_ls]=None) -> 'Daf':
-        """ Create Daf instance from daf, adopting dict keys as column names
+        """ Create Daf instance from self, adopting dict keys as column names
             adopts keyfield but does not adopt kd.
             test exists in test_daf.py
             if lol is provided, it is used in the new Daf.
@@ -1333,7 +1287,7 @@ class Daf:
         #num_rows = len(lol)
         num_cols = 0 if not lol else len(lol[0])
         
-        cols = Daf._generate_spreadsheet_column_names_list(num_cols)
+        cols = utils._generate_spreadsheet_column_names_list(num_cols)
 
         gs_daf = cls(cols=cols, lol=lol)
         
@@ -2170,7 +2124,7 @@ class Daf:
             if no column header exists, this will generate a new one using spreadsheet convention.
         """
         if not self.hd:
-            cols = Daf._generate_spreadsheet_column_names_list(num_cols=self.num_cols())
+            cols = utils._generate_spreadsheet_column_names_list(num_cols=self.num_cols())
             self.set_cols(cols)
         
         if include_cols:
@@ -2271,7 +2225,7 @@ class Daf:
         if self.hd: 
             return self._basic_get_record_da(irow, include_cols)
                 
-        colnames = self.__class__._generate_spreadsheet_column_names_list(num_cols=len(self.lol[irow]))
+        colnames = utils._generate_spreadsheet_column_names_list(num_cols=len(self.lol[irow]))
         return dict(zip(colnames, self.lol[irow]))
         
 
@@ -3909,7 +3863,7 @@ class Daf:
         """
 
         if not new_cols:
-            new_cols = ['key'] + Daf._generate_spreadsheet_column_names_list(num_cols=len(self.lol))
+            new_cols = ['key'] + utils._generate_spreadsheet_column_names_list(num_cols=len(self.lol))
 
         # transpose the array
         new_lol = [list(row) for row in zip(*self.lol)]
