@@ -299,24 +299,24 @@ sizeof_di['sqlite']=5,148,672 bytes
 use Daf.from_lod_to_cols to create a table with first colunm key names, and second column values.
 
 ```python
-    all_sizes_daf = Daf.from_lod_to_cols([sizeof_di], cols=['Datatype' 'Size in Memory (bytes)'])
+    all_sizes_daf = Daf.from_lod_to_cols([sizeof_di], cols=['Datatype', 'Size in Memory (bytes)'])
     md_report += all_sizes_daf.to_md(smart_fmt=True)
 ```
 
 
-| DatatypeSize in Memory (bytes) |             |
-| -----------------------------: | :---------- |
-|                            lod | 124,968,872 |
-|                           klod | 125,024,928 |
-|                            daf | 40,190,856  |
-|                           kdaf | 40,323,616  |
-|                             df | 9,767,776   |
-|                         csv_df | 17,983,776  |
-|                            kdf | 102,910,896 |
-|                          hdnpa | 4,125,152   |
-|                           lont | 40,048,872  |
-|                          hdlot | 40,173,880  |
-|                         sqlite | 5,148,672   |
+| Datatype | Size in Memory (bytes) |
+| -------: | ---------------------: |
+|      lod |            124,968,872 |
+|     klod |            125,024,928 |
+|      daf |             40,190,856 |
+|     kdaf |             40,323,616 |
+|       df |              9,767,776 |
+|   csv_df |             17,983,776 |
+|      kdf |            102,910,896 |
+|    hdnpa |              4,125,152 |
+|     lont |             40,048,872 |
+|    hdlot |             40,173,880 |
+|   sqlite |              5,148,672 |
 
 ## Time conversions and operations
 
@@ -335,6 +335,7 @@ sys.path.append('..')
 from daffodil.daf import Daf
 
 '''
+
     loops = 10
     report_cols = [ 'Attribute',            'daf', 'pandas', 'numpy', 'sqlite', 'lod', 'loops'] #, 'note']
     report_attrs = [ 
@@ -556,19 +557,19 @@ Notes:
 
 |             Attribute              |  daf   |  pandas  |  numpy   | sqlite |  lod   | loops |
 | ---------------------------------: | :----: | :------: | :------: | :----: | :----: | :---- |
-|                           from_lod |  1.2   |   47.0   |   0.66   |  6.4   |        | 10    |
-|                       to_pandas_df |  47.7  |          | 0.00032  |        |  47.0  | 10    |
-|              to_pandas_df_thru_csv |  5.4   |          |          |        |        | 10    |
-|                     from_pandas_df |  3.8   |          | 0.000049 |        |        | 10    |
-|                           to_numpy |  0.48  | 0.000049 |          |        |  0.66  | 10    |
-|                         from_numpy | 0.085  | 0.00032  |          |        |        | 10    |
-|                     increment cell |  0.13  |  0.045   |          |        |        | 1,000 |
-|                        insert_irow | 0.012  |   0.89   |          |        |        | 100   |
-|                        insert_icol |  0.15  |   0.20   |          |        |        | 100   |
-|                           sum cols |  1.5   |  0.058   |  0.027   |  2.6   |  1.4   | 10    |
-|                             sum_np |  0.59  |          |          |        |        | 10    |
-|                          transpose |  20.3  |  0.0016  | 0.000028 |        |        | 10    |
-|                       keyed lookup | 0.0075 |  0.075   |          |  0.33  | 0.0089 | 100   |
+|                           from_lod |  1.3   |   50.9   |   0.62   |  6.5   |        | 10    |
+|                       to_pandas_df |  47.9  |          | 0.00030  |        |  50.9  | 10    |
+|              to_pandas_df_thru_csv |  5.1   |          |          |        |        | 10    |
+|                     from_pandas_df |  3.8   |          | 0.000046 |        |        | 10    |
+|                           to_numpy |  0.48  | 0.000046 |          |        |  0.62  | 10    |
+|                         from_numpy | 0.088  | 0.00030  |          |        |        | 10    |
+|                     increment cell |  0.14  |  0.046   |          |        |        | 1,000 |
+|                        insert_irow | 0.014  |   0.83   |          |        |        | 100   |
+|                        insert_icol |  0.15  |   0.27   |          |        |        | 100   |
+|                           sum cols |  1.6   |  0.069   |  0.024   |  2.7   |  1.3   | 10    |
+|                             sum_np |  0.57  |          |          |        |        | 10    |
+|                          transpose |  20.6  |  0.0016  | 0.000023 |        |        | 10    |
+|                       keyed lookup | 0.0073 |  0.080   |          |  0.32  | 0.0083 | 100   |
 |       Size of 1000x1000 array (MB) |  38.3  |   9.3    |          |  4.9   |  119   |       |
 | Size of keyed 1000x1000 array (MB) |  38.5  |   98.1   |    --    |  4.9   |  119   |       |
 
