@@ -37,7 +37,7 @@ pane and calculations from spreadsheet programs can be easily ported in, to avoi
 
 ## Visualization of the data model
 
-![daf_table](https://github.com/raylutz/daffodil/assets/14955977/011b0bf9-5461-4b0a-af45-5f2bf523417c)
+![pydf_table](https://github.com/raylutz/daffodil/assets/14955977/05c54a27-8d8e-47b6-ae73-957709a5d398)
 
     
 ## Good for general data operations
