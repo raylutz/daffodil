@@ -1117,7 +1117,7 @@ def preprocess_csv_buff(buff: Union[bytes, str]) -> str:
     return buff
     
 
-def write_buff_to_fp(buff: T_buff, file_path: str, rtype='.csv', local_mirror: bool=False, if_unmodified: bool=False) -> str: # file_path
+def write_buff_to_fp(buff: T_buff, file_path: str, fmt='.csv', rtype='.csv', local_mirror: bool=False, if_unmodified: bool=False) -> str: # file_path
 
     if buff:
         #--- write buffer based on path
@@ -1135,9 +1135,9 @@ def write_buff_to_fp(buff: T_buff, file_path: str, rtype='.csv', local_mirror: b
                 s3buff = cast(bytes, buff)    
                 
             if if_unmodified:
-                num_written = s3utils.write_buff_to_s3path(file_path, s3buff, format) #, backup_flag=backup_flag)
+                num_written = s3utils.write_buff_to_s3path(file_path, s3buff, fmt) #, backup_flag=backup_flag)
             else:
-                num_written = s3utils.write_buff_to_s3path_if_modified(file_path, s3buff, format) #, backup_flag=backup_flag)
+                num_written = s3utils.write_buff_to_s3path_if_modified(file_path, s3buff, fmt) #, backup_flag=backup_flag)
             
             if num_written:
                 sts(f"Saved {len(s3buff):,} bytes to {file_path}")

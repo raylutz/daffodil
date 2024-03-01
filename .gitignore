@@ -65,3 +65,5 @@ tests/tempdata1.db
 tests/tempdata2.db
 tests/tempdata1.db
 tests/tempdata2.db
+*.db
+tests/tempdata2.db

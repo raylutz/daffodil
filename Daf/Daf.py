@@ -128,7 +128,9 @@ See README file at this location: https://github.com/raylutz/Daf/blob/main/READM
             Name change from Pydf to Daffodil and resolve issues.
 
    v0.3.0  (2024-02-28) 
- 
+            Added fmt parameter so file are saved with proper Content-Type metadata.
+            Added 'from .Daf import Daf' to __init__.py to reduce level.
+                user can use 'import Daffodil.Daf as daf' and then daf.Daf()
             
     TODO
              
@@ -1178,7 +1180,7 @@ class Daf:
                 include_header=include_header,
                 )
 
-        self.__class__.buff_to_file(buff, file_path=file_path)
+        self.__class__.buff_to_file(buff, file_path=file_path, fmt='.csv')
         
         return file_path
 
@@ -1209,9 +1211,9 @@ class Daf:
 
 
     @staticmethod
-    def buff_to_file(buff: T_buff, file_path: str):
+    def buff_to_file(buff: T_buff, file_path: str, fmt:str='.csv'):
     
-        return utils.write_buff_to_fp(buff, file_path)
+        return utils.write_buff_to_fp(buff, file_path, fmt=fmt)
 
     
     #==== Pandas
