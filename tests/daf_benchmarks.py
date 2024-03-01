@@ -626,7 +626,7 @@ We found tha twe could save a lot of time by coverting the data to a csv buffer 
 
     md_report += md_code_seg("Create table of estimated memory usage for all types")
     """ use Daf.from_lod_to_cols to create a table with first colunm key names, and second column values. """
-    all_sizes_daf = Daf.from_lod_to_cols([sizeof_di], cols=['Datatype' 'Size in Memory (bytes)'])
+    all_sizes_daf = Daf.from_lod_to_cols([sizeof_di], cols=['Datatype', 'Size in Memory (bytes)'])
     md_report += all_sizes_daf.to_md(smart_fmt=True)
     
     md_report += md_code_seg("Time conversions and operations")
@@ -643,6 +643,7 @@ sys.path.append('..')
 from daffodil.daf import Daf
 
 '''
+
     loops = 10
     report_cols = [ 'Attribute',            'daf', 'pandas', 'numpy', 'sqlite', 'lod', 'loops'] #, 'note']
     report_attrs = [ 

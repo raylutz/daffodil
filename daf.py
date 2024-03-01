@@ -2180,26 +2180,37 @@ class Daf:
         return default
         
 
-    def to_list(self, irow: int=0, unique=False) -> list:
+    def to_list(self, irow: Optional[int]=None, icol: Optional[int]=None, unique=False) -> list:
         """ return data from a daf array as a list
-            from row index 0 (default)
+            defaults to the most obvious list if irow and icol not specified.
+                from irow 0, if num_rows is 1 and num_cols >= 1
+                from icol 0, if num_rows >= 1 and num_cols == 1
+            otherwise, choose irow or icol specified.
+                if irow, specified, ignore icol.
+                if irow=None and icol specified, then use icol.
         """
     
         num_rows, num_cols = self.shape()
 
-        if num_rows == 1 and num_cols >= 1:
-            # single row, return as list.
-            result_la = self.lol[0]
-                
-        elif num_rows > 1 and num_cols == 1:
-            # single column result as a list.
-            result_la = self.icol(0)
+        if irow is None and icol is None:
+            if num_rows == 1 and num_cols >= 1:
+                # single row, return as list.
+                result_la = self.lol[0]
+                    
+            elif num_rows > 1 and num_cols == 1:
+                # single column result as a list.
+                result_la = self.icol(0)
+            else:
+                result_la = []
+        elif irow is not None and num_rows:
+            result_la = self.lol[irow]
+        elif icol and num_cols:
+            result_la = self.icol(icol)
         else:
             result_la = []
             
-        if unique:
+        if unique and result_la:
             result_la = list(dict.fromkeys(result_la))
-            
             
         return result_la
 
@@ -4017,21 +4028,16 @@ class Daf:
         return value_counts_daf
 
 # ALIASES
+# these must not be established until after the class is fully defined.
 Pydf = Daf
 Pydf.pydf_to_lol_summary    = Daf.daf_to_lol_summary
-Daf.split_pydf_into_ranges  = Daf.split_daf_into_ranges
-Daf.select_records_pydf     = Daf.select_records_daf
-Daf.pydf_sum                = Daf.daf_sum
-Daf.pydf_valuecount         = Daf.daf_valuecount
-Daf.groupsum_pydf           = Daf.groupsum_daf
-Daf.gen_stats_pydf          = Daf.gen_stats_daf
-Daf.value_counts_pydf       = Daf.value_counts_daf
+Pydf.split_pydf_into_ranges  = Daf.split_daf_into_ranges
+Pydf.select_records_pydf     = Daf.select_records_daf
+Pydf.pydf_sum                = Daf.daf_sum
+Pydf.pydf_valuecount         = Daf.daf_valuecount
+Pydf.groupsum_pydf           = Daf.groupsum_daf
+Pydf.gen_stats_pydf          = Daf.gen_stats_daf
+Pydf.value_counts_pydf       = Daf.value_counts_daf
 
 Pydf.md_pydf_table = Pydf.to_md            
 
-
-# DO NOT DELETE THESE LINES.
-# these are required to define these.
-# these were required before making a full package that is pip loaded.
-#T_pydf = Pydf
-#T_dopydf = Dict[Union[str, Tuple[str, ...]], Optional[T_pydf]]

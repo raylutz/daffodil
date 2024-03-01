@@ -684,6 +684,18 @@ We timed the various conversions using Pandas 1.5.3 and 2.4.1.
 
 See: https://github.com/raylutz/daffodil/blob/main/docs/daf_benchmarks.md
 
+Daffodil is faster than Pandas for array manipulation (inserting rows (300x faster) and cols (1.4x faster)), 
+performing actions on individual cells (5x faster), appending rows (which Pandas essentially outlaws), 
+and performing keyed lookups (8.4x faster). Daffodil arrays are smaller whenever any strings are included 
+in the array by about 3x over Pandas. While Pandas and Numpy are faster for columnar calculations, 
+Numpy is always faster if columns are all numeric data. Daffodil is larger than purely numeric arrays than
+Numpy and Pandas but if string columns are included, Pandas will likely be 3x larger. Numpy does not handle
+string columns mixed with numeric data.
+
+Therefore it is a good strategy to use Daffodil for all operations except for pure data manipulation, 
+and then port the appropriate columns to NumPy.
+
+
 ## Demo
 
 See this demo of Daffodil functionality.
