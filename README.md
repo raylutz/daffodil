@@ -69,7 +69,7 @@ But a convenient rule of thumb from our testing is that Pandas can be more perfo
 column-oriented manipulations (similar to summing) are repeated on the same data at least ~30 times.
 
 In other words, if you have an array and you need to do just a few column-based operations (fewer than 30), 
-then it will be probably be faster to just do them using Daffodil `apply` or `reduce` operations, rather than
+then it will be probably be faster to just do them using Daffodil `.apply()` or `.reduce()` operations, rather than
 exporting the array to Pandas, performing the calcs and the transferring it back in. (You can see our benchmarks
 and other tests linked below.)
 
@@ -155,7 +155,8 @@ can be adopted as the primary index of the table by specifying that column name 
 then the `kd` (key dictionary) is built and maintained from that column. 
 Creating a key index does not remove that field from the data array. `kd` is an additional structure created internally.
 
-If keyfield is set, then that column must be a hashable type and must have unique values. Searches of row entries use dictionary lookups, which are highly optimized for speed by Python.
+If keyfield is set, then that column must be a hashable type and must have unique values. Searches of row entries use 
+dictionary lookups, which are highly optimized for speed by Python.
 
 Unlike the keyfield oriented lookup functionality, row indices do not stick to the rows and are always with respect to the frame. 
 This is similar behavior to the Polars package and differs from Pandas, which has an index that sticks with each row, and is more
@@ -189,7 +190,7 @@ but it turns out that actually these operations are not normally that
 necessary. Reducing the number of columns only is important in a few cases:
 
 1. When converting from/to other forms. Extraneous columns may exist or may be of the wrong type.
-2. When performing .apply() or .reduce() operations to avoid processing extraneous columns.
+2. When performing `.apply()` or `.reduce()` operations to avoid processing extraneous columns.
 4. When creating a report and only including some columns in the report
 
 In these cases, the columns to be included can be expressed explicitly, rather then modifying the array by dropping them. 
