@@ -8,6 +8,11 @@ python data types, including a list-of-list array as the core datatype. Daffodil
 packages, such as Pandas, Numpy, Polars, Swift, Vaex, Dask, PyArrow, SQLite, PySpark, etc. but is simpler and may be faster 
 because it does not have conversion overhead.
 
+STATUS: Daffodil is largely operating quite well, but there are still design tradeoffs that are being investigated.
+Some of the methods of the class and assumptions that can be made about the state of the data may change slightly
+as these design tradeoffs are being evaluated and the final initial design resolved. Please see GitHub issues to
+weigh in on the design.
+
 ## Visualization of the data model
 
 ![pydf_table](https://github.com/raylutz/daffodil/assets/14955977/05c54a27-8d8e-47b6-ae73-957709a5d398)
