@@ -24,25 +24,57 @@ def fake_function(a: Optional[List[Dict[str, Tuple[int,Union[Any, str]]]]] = Non
     return None or cast(int, 0)       # pragma: no cover
 
 
-from lib.daf_types import T_lola, T_loda, T_dtype_dict, T_da, T_ds, T_hdlola, T_la, T_loti, T_ls, T_doda, T_buff, T_li
+from lib.daf_types import T_lola, T_loda, T_dtype_dict, T_da, T_ds, T_hdlola, T_la, T_loti, T_ls, T_doda, T_buff, T_li, T_lt
                     
 
 def is_linux() -> bool: 
     return platform.system() == 'Linux'
+    
 
-def apply_dtypes_to_hdlol(hdlol: T_hdlola, dtypes: T_dtype_dict) -> T_hdlola:
+def apply_dtypes_to_hdlol(hdlol: T_hdlola, dtypes: T_dtype_dict, initially_all_str: bool=True) -> T_hdlola:
 
     hd, lol = hdlol
     
     if not lol or not lol[0] or not hd:
         return (hd, lol)
 
-    for idx, la in enumerate(lol):
-        da = dict(zip(hd.keys(), la))
-        type_set_da = set_dict_dtypes(da, dtypes)
-        lol[idx] = [type_set_da[col] for col in hd.keys()]
+    # make a worklist of those fields that need to be checked.
+    dtypes_worklist: List[Tuple[int, Type]] = []
+    # create a list of types
+    for idx, col in enumerate(hd.keys()):
+        desired_type = dtypes.get(col, str)
+        if desired_type == str and initially_all_str:
+            continue
+        dtypes_worklist.append( (idx, desired_type ) )
+
+    for la in lol:
+        set_type_la(la, dtypes_worklist)
         
     return (hd, lol)
+    
+
+def set_type_la(la: T_la, dtypes_worklist: List[Tuple[int, Type]]) -> T_la:
+    """ set the types of each item in place based on a list of types without making a copy,
+        and only working on those fields that may need work.
+    """
+    
+    for idx, desired_type in dtypes_worklist:
+        value = la[idx]
+        if isinstance(value, desired_type):
+            continue
+        if desired_type in (int, bool):
+            try:
+                la[idx] = int(value)
+            except ValueError:
+                la[idx] = int(float(value))
+                
+        elif desired_type == float:
+            la[idx] = float(value)
+            
+        elif desired_type == str:    
+            la[idx] = str(value)
+    
+    return la
     
 
 def set_cols_da(da: T_da, cols: T_ls, default: Any='') -> T_da:
@@ -52,7 +84,7 @@ def set_cols_da(da: T_da, cols: T_ls, default: Any='') -> T_da:
     
     new_da = {k:da.get(k, default) for k in cols}
     return new_da
-    
+
 
 def select_col_of_lol_by_col_idx(lol: T_lola, col_idx: int) -> T_la:
     """
@@ -445,14 +477,14 @@ def list_stats_index(alist:T_la) -> T_da: # info_dict
     if info_d['all_ints']:
         local_ilist = [int(float(clean_numeric_str(str(i)))) for i in non_missing if is_numeric(i)]
         info_d['all_numeric'] = True
-        info_d['max'] = safe_max(local_ilist)
-        info_d['min'] = safe_min(local_ilist)
+        info_d['max'] = max(local_ilist, default=0)
+        info_d['min'] = min(local_ilist, default=0)
 
     else:
         info_d['all_numeric'] = is_list_allnumeric(non_missing)
         local_flist = [float(clean_numeric_str(str(i))) for i in non_missing if is_numeric(i)]
-        info_d['max'] = safe_max(local_flist)
-        info_d['min'] = safe_min(local_flist)
+        info_d['max'] = max(local_flist, default=0)
+        info_d['min'] = min(local_flist, default=0)
         
     return info_d
     
@@ -519,15 +551,15 @@ def list_stats_scalar(alist:T_la) -> T_da:
     if info_d['all_ints']:
         info_d['all_numeric'] = True
         local_ilist     = [int(float(i)) for i in nonmissing]
-        info_d['max']   = safe_max(local_ilist)
-        info_d['min']   = safe_min(local_ilist)
+        info_d['max']   = max(local_ilist, default=0)
+        info_d['min']   = min(local_ilist, default=0)
         info_d['mean']  = safe_mean(local_ilist)
         info_d['stdev'] = safe_stdev(local_ilist)
 
     elif info_d['all_numeric']:
         local_flist     = [float(i) for i in nonmissing]
-        info_d['max']   = safe_max(local_flist)
-        info_d['min']   = safe_min(local_flist)
+        info_d['max']   = max(local_flist, default=0)
+        info_d['min']   = min(local_flist, default=0)
         info_d['mean']  = safe_mean(local_flist)
         info_d['stdev'] = safe_stdev(local_flist)
   
@@ -546,8 +578,8 @@ def list_stats_localidx(alist: T_la) -> T_da:
             
     info_d['all_ints'] = True
     local_alist = [int(float(i)) for i in alist]
-    info_d['max'] = safe_max(local_alist)
-    info_d['min'] = safe_min(local_alist)
+    info_d['max'] = max(local_alist, default=0)
+    info_d['min'] = min(local_alist, default=0)
     
     info_d['sequential'] = bool(info_d['max'] - info_d['min'] == len(alist) - 1)
     
@@ -754,9 +786,7 @@ def safe_max(listlike):
     # note! Using try/except in to guard for the length of list is not specific enough. 
     #   We still need failure under other conditions.
 
-    if len(listlike) < 1:
-        return 0
-    return max(listlike)
+    return max(listlike, default=0)
      
 
 def shorten_str_keeping_ends(string: str, limit: int) -> str:
@@ -1260,6 +1290,17 @@ def _sanitize_cols(cols: T_ls, unnamed_prefix='col') -> list:
                 # if not unique, add _NNN after the name.
                 col_hd[f"{col}_{idx}"] = idx
         return list(col_hd.keys())
+
+
+def dict_with_index(iterable) -> Dict[Any, int]:
+
+    return dict(with_index(iterable))
+    
             
+def with_index(iterable):
+    """Like enumerate, but (val, i) tuples instead of (i, val)."""
+    for i, item in enumerate(iterable):
+        yield (item, i)
+
             
        

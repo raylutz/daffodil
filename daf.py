@@ -69,7 +69,7 @@ See README file at this location: https://github.com/raylutz/Daf/blob/main/READM
                 2. pull off first row using indexing (could add pop_row())
                 3. set set_cols with sanitize_cols=True.
             Removed:
-                unflatten_dirname() <-- remove?
+                unflatten_dirname() <-- remove? (YES)
                 flatten_dirname() <-- remove?
                 cols_to_strbool() <-- remove?
                 insert_icol()
@@ -256,7 +256,6 @@ See README file at this location: https://github.com/raylutz/Daf/blob/main/READM
                 transpose_lol
                 safe_get_idx
                 shorten_str_keeping_ends
-                safe_max
                 smart_fmt
                 str2bool
                 safe_del_key
@@ -368,7 +367,7 @@ class Daf:
             # setting dtypes may be better done manually if required.
             if self.num_cols():
 
-                self.lol = utils.apply_dtypes_to_hdlol((self.hd, self.lol), effective_dtypes)[1]
+                self.lol = utils.apply_dtypes_to_hdlol((self.hd, self.lol), effective_dtypes, initially_all_str=False)[1]
             
         # rebuild kd if possible.
         self._rebuild_kd()
@@ -668,7 +667,7 @@ class Daf:
         
         if self.keyfield and self.keyfield in self.hd:
             col_idx = self.hd[self.keyfield]
-            self.kd = self.__class__._build_kd(col_idx, self.lol)
+            self.kd = type(self)._build_kd(col_idx, self.lol)
             
         return self
 
@@ -1139,7 +1138,7 @@ class Daf:
                 include_header=include_header,
                 )
 
-        self.__class__.buff_to_file(buff, file_path=file_path, fmt='.csv')
+        type(self).buff_to_file(buff, file_path=file_path, fmt='.csv')
         
         return file_path
 
@@ -1744,7 +1743,7 @@ class Daf:
                 self.lol[irow] = value
             elif isinstance(value, dict):
                 self.assign_record_da_irow(irow, record_da=value)
-            elif isinstance(value, self.__class__):
+            elif isinstance(value, type(self)):
                 self.lol[irow] = value
             else:
                 # set the same value in the row for all columns.
@@ -1768,7 +1767,7 @@ class Daf:
             elif isinstance(value, dict):
                 for irow in irows:
                     self.assign_record_da_irow(irow, record_da=value)
-            elif isinstance(value, self.__class__):
+            elif isinstance(value, type(self)):
                 for source_row, irow in enumerate(irows):
                     self.lol[irow] = value[source_row]
             else:
@@ -1795,7 +1794,7 @@ class Daf:
                 # for irow in irows:
                     # self.assign_record_da_irow(irow, record_da=value)
                 
-            elif isinstance(value, self.__class__):
+            elif isinstance(value, type(self)):
                 for source_idx, irow in enumerate(irows):
                     self.lol[irow][icol] = value[source_idx][0]
                 
@@ -1820,7 +1819,7 @@ class Daf:
                 for irow in irows:
                     self.assign_record_da_irow(irow, record_da=value)
                 
-            elif isinstance(value, self.__class__):
+            elif isinstance(value, type(self)):
                 for irow in irows:
                     for source_col, icol in enumerate(icols):
                         self.lol[irow][icol] = value[source_col]
@@ -1837,7 +1836,7 @@ class Daf:
             krows: Union[slice, str, T_la, int, Tuple[Any, Any], None],
             inverse: bool = False,
             silent_error: bool=False,
-            ) -> Union[slice, int, T_li]:
+            ) -> Union[slice, int, T_li, range]:
         """
         If the keyfield is set, then the rows can be selected by providing a
         krows parameter that will index the rows by using values in the keyfield column.
@@ -1848,11 +1847,11 @@ class Daf:
         """
         if not self.keyfield or not self.kd:
             if inverse:
-                return list(range(len(self)))
+                return range(len(self))
             else:
                 return []
             
-        return self.__class__.gkeys_to_idxs(
+        return type(self).gkeys_to_idxs(
                     keydict = self.kd,
                     gkeys = krows,
                     inverse = inverse,
@@ -1863,7 +1862,7 @@ class Daf:
             kcols: Union[str, T_ls, slice, int, T_li, Tuple[Any, Any], None] = None,
             inverse: bool = False,
             silent_error: bool=False,
-            ) -> Union[slice, int, T_li, None]:
+            ) -> Union[slice, int, T_li, range, None]:
         """
         If cols are defined is set, then the cols can be selected by providing a
         kcols parameter that will index the cols by using values in the header dict hd.
@@ -1872,11 +1871,11 @@ class Daf:
         """
         if not self.hd:
             if inverse:
-                return list(range(self.num_cols()))
+                return range(self.num_cols())
             else:
                 return []
         
-        return self.__class__.gkeys_to_idxs(
+        return type(self).gkeys_to_idxs(
                     keydict = self.hd,
                     gkeys = kcols,
                     inverse = inverse,
@@ -1889,7 +1888,7 @@ class Daf:
             gkeys: Union[str, T_ls, slice, int, T_li, Tuple[Any, Any], None] = None,
             inverse: bool = False,
             silent_error: bool=False,
-            ) -> Union[slice, int, T_li, None]:
+            ) -> Union[slice, int, T_li, range, None]:
         """
         If keydict is defined, then the idxs can be selected by providing a
         gkeys parameter that will index the keydict, and return either a 
@@ -1901,18 +1900,25 @@ class Daf:
             
         elif isinstance(gkeys, (str, int)):
             idxs = []
-            idx = keydict.get(gkeys, -1)
-            if idx >= 0:
-                idxs.append(idx)
+            gkey = gkeys
+            
+            # please note! the following statements 10% faster than:
+            #   idx = keydict.get(gkey, -1)
+            #   if idx >= 0:
+            #       idxs.append(idx)
+            #   elif not silent_error
+            #       raise KeyError
+            
+            if gkey in keydict:
+                idxs.append(keydict[gkey])                
             elif not silent_error:
                 raise KeyError
             
         elif isinstance(gkeys, list):     # can be list of integer or strings (or anything hashable)
             idxs = []
             for gkey in gkeys:
-                idx = keydict.get(gkey, -1)
-                if idx >= 0:
-                    idxs.append(idx)
+                if gkey in keydict:
+                    idxs.append(keydict[gkey])                
                 elif not silent_error:
                     raise KeyError
                     
@@ -1921,9 +1927,8 @@ class Daf:
             gkeys_range = range(gkeys.start or 0, gkeys.stop or len(keydict), gkeys.step or 1)
             idxs = []
             for gkey in gkeys_range:
-                idx = keydict.get(gkey, -1)
-                if gkey >= 0:
-                    idxs.append(idx)
+                if gkey in keydict:
+                    idxs.append(keydict[gkey])                
                 elif not silent_error:
                     raise KeyError
          
@@ -1979,12 +1984,12 @@ class Daf:
         return self.select_icols(icols, flip=flip)
     
     
-    def select_irows(self, irows: Union[slice, int, T_li, None]) -> 'Daf':
+    def select_irows(self, irows: Union[slice, int, T_li, range, None]) -> 'Daf':
         """ select rows from daf and return a new instance.
             This is an efficient opeation. The array in the new instance
             uses references to selected rows in the original array.
             
-            irows: can be either a slice, int, or list of integers. These
+            irows: can be either a slice, int, range, or list of integers. These
                     refer to row indices that are inherent in the lol structure.
             
             returns a new daf instance cloned from the original.
@@ -1995,7 +2000,7 @@ class Daf:
             # simple single row selection
             row_sliced_lol = [self.lol[irows]]
         
-        elif isinstance(irows, list):
+        elif isinstance(irows, (list, range)):
             if irows and isinstance(irows[0], int):
                 # list of integers:
                 row_sliced_lol = [self.lol[i] for i in irows]
@@ -2009,7 +2014,7 @@ class Daf:
         return self.clone_empty(lol=row_sliced_lol)
     
     
-    def select_icols(self, icols: Union[slice, int, T_li, None], flip: bool=False) -> 'Daf':
+    def select_icols(self, icols: Union[slice, int, T_li, range, None], flip: bool=False) -> 'Daf':
         """ select cols from daf and return a new instance.
             This is not an efficient operation and can normally be avoided except when:
                 reading/writing data, then columns may need to be dropped.
@@ -2018,7 +2023,7 @@ class Daf:
             instead, use the cols parameter to select the columns included
                 in operations like apply() and reduce()
             
-            icols: can be either a slice, int, or list of integers. These
+            icols: can be either a slice, int, range, or list of integers. These
                     refer to column indices that are inherent in the lol structure.
                     
             flip: if True, then the columns selected are turned into rows.
@@ -2058,7 +2063,7 @@ class Daf:
                 col_sliced_lol = [[row[icol] for row in self.lol]
                                         for icol in icols_range]
                 
-        elif isinstance(icols, list) and icols and isinstance(icols[0], int):
+        elif isinstance(icols, (list, range)) and icols and isinstance(icols[0], int):
             # list of integers:
             if not flip:
                 col_sliced_lol = [[row[icol] for icol in icols]
@@ -2114,13 +2119,11 @@ class Daf:
         if not self.keyfield:
             raise RuntimeError
             
-        row_idx = self.kd.get(key, -1)
-        if row_idx < 0:
-            return {}
-        
-        record_da = self._basic_get_record_da(row_idx)
-        
-        return record_da
+        if key in self.kd:
+            return self._basic_get_record_da(self.kd[key])
+
+        return {}
+
         
     def _basic_get_record_da(self, irow: int, include_cols: Optional[T_ls]=None) -> T_da:
         """ return a record at irow as dict 
@@ -3431,7 +3434,7 @@ class Daf:
             Need a way to specify that blank values will also be counted.
         """
             
-        return self.reduce(func=self.__class__.count_values_da, by=by, cols=cols)
+        return self.reduce(func=type(self).count_values_da, by=by, cols=cols)
 
 
     def groupsum_daf(
@@ -3498,6 +3501,7 @@ class Daf:
             will safely skip data that can't be summed.
         """
         diagnose = diagnose
+        nan_indicator = ''
         
         cols_list = {}
         
@@ -3514,6 +3518,9 @@ class Daf:
             cols_list_or_dict = cols_list
             
         for key, value in row_da.items():
+            if value == nan_indicator:
+                continue
+        
             if cols_list_or_dict and key not in cols_list_or_dict:
                 # accum_da[key] = ''
                 continue
@@ -3601,18 +3608,18 @@ class Daf:
 
         if colnames_ls is None:
             cleaned_colnames_ls = list(self.hd.keys())
-            cleaned_colidxs_li = list(range(len(cleaned_colnames_ls)))
+            cleaned_colidxs_li_or_range = range(len(cleaned_colnames_ls))
         elif not (numeric_only and self.dtypes):
             cleaned_colnames_ls = [col for col in colnames_ls if col in self.hd]
-            cleaned_colidxs_li = [self.hd[col] for col in cleaned_colnames_ls]  
+            cleaned_colidxs_li_or_range = [self.hd[col] for col in cleaned_colnames_ls]  
         else:    
             cleaned_colnames_ls = [col for col in colnames_ls if col in self.hd and self.dtypes.get(col) in [int, float]]
-            cleaned_colidxs_li = [self.hd[col] for col in cleaned_colnames_ls]  
+            cleaned_colidxs_li_or_range = [self.hd[col] for col in cleaned_colnames_ls]  
         
-        sums_d_by_colidx = dict.fromkeys(cleaned_colidxs_li, 0.0)
+        sums_d_by_colidx = dict.fromkeys(cleaned_colidxs_li_or_range, 0.0)
         
         for la in self.lol:
-            for colidx in cleaned_colidxs_li:
+            for colidx in cleaned_colidxs_li_or_range:
                 if la[colidx]:
                     if numeric_only:
                         sums_d_by_colidx[colidx] += Daf._safe_tofloat(la[colidx])
@@ -3620,7 +3627,7 @@ class Daf:
                         sums_d_by_colidx[colidx] += float(la[colidx])
 
         try:
-            sums_d = {cleaned_colnames_ls[idx]: sums_d_by_colidx[colidx] for idx, colidx in enumerate(cleaned_colidxs_li)}
+            sums_d = {cleaned_colnames_ls[idx]: sums_d_by_colidx[colidx] for idx, colidx in enumerate(cleaned_colidxs_li_or_range)}
         except Exception:
             import pdb; pdb.set_trace() #perm ok
             pass 
@@ -3643,6 +3650,8 @@ class Daf:
         """
         # unit tests exist
         #   need tests for blanks and subsetting columns.
+        
+        import numpy as np
         
         if not self:
             return {}
@@ -3942,7 +3951,7 @@ class Daf:
             
             )
         if include_summary:    
-            mdstr += f"\n\[{len(self.lol)} rows x {len(self.hd)} cols; keyfield={self.keyfield}; {len(self.kd)} keys ] ({self.__class__.__name__})\n"
+            mdstr += f"\n\[{len(self.lol)} rows x {len(self.hd)} cols; keyfield={self.keyfield}; {len(self.kd)} keys ] ({type(self).__name__})\n"
         return mdstr
         
 

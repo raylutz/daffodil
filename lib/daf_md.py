@@ -260,7 +260,8 @@ def md_cols_lol_table(
     if max_text_len is None:
         max_text_len = 80
         
-    mutated_cols_lol = copy.deepcopy(cols_lol)
+    #mutated_cols_lol = copy.deepcopy(cols_lol)
+    mutated_cols_lol = cols_lol
 
     # either get the header or pull it off the columns
     if omit_header:
@@ -275,7 +276,7 @@ def md_cols_lol_table(
         raise RuntimeError ("md header is required if 'omit_header' not specified.")
     
     num_cols = len(mutated_cols_lol)
-    max_row = utils.safe_max([len(col) for col in mutated_cols_lol])
+    max_row = max([len(col) for col in mutated_cols_lol], default=0)
     
     # fill new_cols with blanks to start with.
     new_cols_lol = []
