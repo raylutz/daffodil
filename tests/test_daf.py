@@ -1222,6 +1222,8 @@ class TestDaf(unittest.TestCase):
         hd = {'col1': 0, 'col2': 1}
         lol1 = [[1, 'a'], [2, 'b']]
         lol2 = [['x', 'y'], ['z', 'w']]
+        
+        # import pdb; pdb.set_trace() #temp
         daf1 = Daf(cols=cols, lol=lol1, keyfield='', dtypes={'col1': str, 'col2': str})
         daf2 = Daf(cols=cols, lol=lol2, keyfield='', dtypes={'col1': str, 'col2': str})
 
