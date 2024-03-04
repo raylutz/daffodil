@@ -390,27 +390,27 @@ class TestDaf(unittest.TestCase):
         with self.assertRaises(KeyError):
             daf.set_keyfield('nonexistent_column')
 
-    # row_idx_of
-    def test_row_idx_of_existing_key(self):
-        # Test getting row index of an existing key
-        daf = Daf(lol=[['1', 'a'], ['2', 'b']], cols=['ID', 'Value'], keyfield='ID')
-        self.assertEqual(daf.row_idx_of('1'), 0)
+    # # row_idx_of (DEPRECATED)
+    # def test_row_idx_of_existing_key(self):
+        # # Test getting row index of an existing key
+        # daf = Daf(lol=[['1', 'a'], ['2', 'b']], cols=['ID', 'Value'], keyfield='ID')
+        # self.assertEqual(daf.row_idx_of('1'), 0)
     
-    def test_row_idx_of_nonexistent_key(self):
-        # Test getting row index of a nonexistent key
-        daf = Daf(lol=[['1', 'a'], ['2', 'b']], cols=['ID', 'Value'], keyfield='ID')
-        self.assertEqual(daf.row_idx_of('3'), -1)
+    # def test_row_idx_of_nonexistent_key(self):
+        # # Test getting row index of a nonexistent key
+        # daf = Daf(lol=[['1', 'a'], ['2', 'b']], cols=['ID', 'Value'], keyfield='ID')
+        # self.assertEqual(daf.row_idx_of('3'), -1)
     
-    def test_row_idx_of_no_keyfield(self):
-        # Test getting row index when no keyfield is defined
-        daf = Daf(lol=[['1', 'a'], ['2', 'b']], cols=['ID', 'Value'])
-        self.assertEqual(daf.row_idx_of('1'), -1)
+    # def test_row_idx_of_no_keyfield(self):
+        # # Test getting row index when no keyfield is defined
+        # daf = Daf(lol=[['1', 'a'], ['2', 'b']], cols=['ID', 'Value'])
+        # self.assertEqual(daf.row_idx_of('1'), -1)
     
-    def test_row_idx_of_no_kd(self):
-        # Test getting row index when kd is not available
-        daf = Daf(lol=[['1', 'a'], ['2', 'b']], cols=['ID', 'Value'], keyfield='ID')
-        daf.kd = None
-        self.assertEqual(daf.row_idx_of('1'), -1)
+    # def test_row_idx_of_no_kd(self):
+        # # Test getting row index when kd is not available
+        # daf = Daf(lol=[['1', 'a'], ['2', 'b']], cols=['ID', 'Value'], keyfield='ID')
+        # daf.kd = None
+        # self.assertEqual(daf.row_idx_of('1'), -1)
 
 
     # get_existing_keys

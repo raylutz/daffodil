@@ -88,7 +88,7 @@ See README file at this location: https://github.com/raylutz/Daf/blob/main/READM
                 daf_utils.is_d1_in_d2()
                 improved set_cols() to test sanitize_cols flag.
                 .len(), num_cols(), shape(), len()
-                row_idx_of()
+                row_idx_of()   (REMOVE!)
                 remove_key -- keyfield not set. (remove)
                 get_existing_keys
                 select_record_da -- row_idx >= len(self.lol)
@@ -290,7 +290,7 @@ import numpy as np
 sys.path.append('..')
 
 from lib.daf_types import T_ls, T_lola, T_di, T_hllola, T_loda, T_da, T_li, T_dtype_dict, \
-                            T_dola, T_dodi, T_la, T_lota, T_doda, T_buff, T_ds, T_lb # , T_df
+                            T_dola, T_dodi, T_la, T_lota, T_doda, T_buff, T_ds, T_lb, T_rli # , T_df
                      
 import lib.daf_utils    as utils
 import lib.daf_md       as md
@@ -350,7 +350,9 @@ class Daf:
 
         if not cols:
             if dtypes:
-                self.hd = {col: idx for idx, col in enumerate(dtypes.keys())}
+                # see https://github.com/raylutz/daffodil/issues/6
+                self.hd = dict(zip(dtypes.keys(), range(len(dtypes.keys()))))
+                #self.hd = {col: idx for idx, col in enumerate(dtypes.keys())}
         else:
             self._cols_to_hd(cols)
             if len(cols) != len(self.hd):
@@ -472,7 +474,9 @@ class Daf:
         
     def _cols_to_hd(self, cols: T_ls):
         """ rebuild internal hd from cols provided """
-        self.hd = {col:idx for idx, col in enumerate(cols)}
+        # see https://github.com/raylutz/daffodil/issues/6
+        self.hd = dict(zip(cols, range(len(cols))))
+        #self.hd = {col:idx for idx, col in enumerate(cols)}
         
         
     @staticmethod
@@ -564,20 +568,23 @@ class Daf:
 
         return selected_cols
         
-        
-    def normalize(self, defined_cols: T_ls):
-        # add or subtract columns and place in order per defined_cols.
-        # UNUSED
-        if not self:
-            return
-        
-        # from utilities import utils
+    # @staticmethod
+    # def normalize(da: T_da, defined_cols: T_ls):
+        # """ if given a dict, fill out any columns that exist to match 'defined_cols'
+        # """
 
-        for irow, da in enumerate(self):
-            record_da = utils.set_cols_da(da, defined_cols)
-            self.update_record_da_irow(irow, record_da)
+        # if not self:
+            # return
+        
+        # # from utilities import utils
+
+        # for key in defined_cols:
+        
+            # record_da = utils.set_cols_da(da, defined_cols)
             
-        return self
+            # self.update_record_da_irow(irow, record_da)
+            
+        # return self
         
 
     def rename_cols(self, from_to_dict: T_ds):
@@ -674,21 +681,26 @@ class Daf:
 
     @staticmethod
     def _build_kd(col_idx: int, lol: T_lola) -> T_di:
-        """ build key dictionary from col_idx col of lol """
+        """ build key dictionary from col_idx col of lol """        
         
         key_col = utils.select_col_of_lol_by_col_idx(lol, col_idx)
-        kd = {key: index for index, key in enumerate(key_col)}
+
+        # see https://github.com/raylutz/daffodil/issues/6
+        kd = dict(zip(key_col, range(len(key_col))))
+        #kd = {key: index for index, key in enumerate(key_col)}
         return kd
         
         
-    def row_idx_of(self, rowkey: str) -> int:
-        """ return row_idx of key provided or -1 if not able to do it.
-        """
-        # unit tested
+    # def row_idx_of(self, rowkey: str) -> int:
+        # """ return row_idx of key provided or -1 if not able to do it.
+        # """
+        # # unit tested
         
-        if not self.keyfield or not self.kd:
-            return -1
-        return self.kd.get(rowkey, -1)
+        # # for the following, see https://github.com/raylutz/daffodil/issues/7
+
+        # if not self.keyfield or not self.kd:
+            # return -1
+        # return self.kd.get(rowkey, -1)
         
 
     def get_existing_keys(self, keylist: T_ls) -> T_ls:
@@ -1492,7 +1504,10 @@ class Daf:
             # but there is only one header and data is lol
             # this saves space.
             
-            self.hd = {col_name: index for index, col_name in enumerate(record_da.keys())}
+            # see https://github.com/raylutz/daffodil/issues/6
+            self.hd = dict(zip(record_da.keys(), range(len(record_da.keys()))))
+            
+            #self.hd = {col_name: index for index, col_name in enumerate(record_da.keys())}
             self.lol = [list(record_da.values())]
             self._rebuild_kd()   # only if the keyfield is set.
             return self
@@ -1512,9 +1527,13 @@ class Daf:
         if self.keyfield:
             # insert will overwrite any existing key with the same value.
             keyval = record_da[self.keyfield]
-            idx = self.kd.get(keyval, -1)
-            if idx >= 0:
-                self.lol[idx] = rec_la
+            
+            # the following, see https://github.com/raylutz/daffodil/issues/7
+            if keyval in self.kd:
+                self.lol[self.kd[keyval]] = rec_la
+            # idx = self.kd.get(keyval, -1)
+            # if idx >= 0:
+                # self.lol[idx] = rec_la
             else:
                 self._basic_append_la(rec_la, keyval)
         else:
@@ -1902,35 +1921,38 @@ class Daf:
             idxs = []
             gkey = gkeys
             
-            # please note! the following statements 10% faster than:
-            #   idx = keydict.get(gkey, -1)
-            #   if idx >= 0:
-            #       idxs.append(idx)
-            #   elif not silent_error
-            #       raise KeyError
-            
-            if gkey in keydict:
+            # For the following, see https://github.com/raylutz/daffodil/issues/6
+            try:
                 idxs.append(keydict[gkey])                
-            elif not silent_error:
-                raise KeyError
+            except KeyError:
+                if not silent_error:
+                    raise 
             
         elif isinstance(gkeys, list):     # can be list of integer or strings (or anything hashable)
             idxs = []
             for gkey in gkeys:
-                if gkey in keydict:
+                # For the following, see https://github.com/raylutz/daffodil/issues/6
+                try:
                     idxs.append(keydict[gkey])                
-                elif not silent_error:
-                    raise KeyError
+                except KeyError:
+                    if not silent_error:
+                        raise 
                     
             
         elif isinstance(gkeys, slice):     # can be list of integer or strings (or anything hashable)
             gkeys_range = range(gkeys.start or 0, gkeys.stop or len(keydict), gkeys.step or 1)
             idxs = []
             for gkey in gkeys_range:
-                if gkey in keydict:
+                # For the following, see https://github.com/raylutz/daffodil/issues/6
+                try:
                     idxs.append(keydict[gkey])                
-                elif not silent_error:
-                    raise KeyError
+                except KeyError:
+                    if not silent_error:
+                        raise 
+                # if gkey in keydict:
+                    # idxs.append(keydict[gkey])                
+                # elif not silent_error:
+                    # raise KeyError
          
         elif isinstance(gkeys, tuple):         
             
@@ -1948,9 +1970,10 @@ class Daf:
             
         if inverse:
             if isinstance(idxs, slice):
-                idxs = utils.slice_to_list(idxs)
-            
-            idxs = [idx for idx in range(len(keydict)) if idx not in idxs]
+                this_range = slice_to_range(slice_obj, len(gkeys))
+                idxs = [idx for idx in range(len(keydict)) if idx not in this_range]
+            else:
+                idxs = [idx for idx in range(len(keydict)) if idx not in idxs]
             
         return idxs
         
@@ -2502,13 +2525,21 @@ class Daf:
             raise RuntimeError("record fields not equal to daf columns")
             
         keyval = record_da[keyfield]
-            
-        row_idx = self.kd.get(keyval, -1)
-        if row_idx < 0 or row_idx >= len(self.lol):
-            self.append(record_da)
+
+        # for the following, see https://github.com/raylutz/daffodil/issues/7
+        if keyval in self.kd:
+            # assign the record, normalize the fields.
+            self.lol[self.kd[keyval]] = [record_da.get(col, '') for col in self.hd]
         else:
-            #normal_record_da = Daf.normalize_record_da(record_da, cols=self.columns(), dtypes=self.dtypes)   
-            self.lol[row_idx] = [record_da.get(col, '') for col in self.hd]
+            # otherwise add it.
+            self.append(record_da)
+            
+        # row_idx = self.kd.get(keyval, -1)
+        # if row_idx < 0 or row_idx >= len(self.lol):
+            # self.append(record_da)
+        # else:
+            # #normal_record_da = Daf.normalize_record_da(record_da, cols=self.columns(), dtypes=self.dtypes)   
+            # self.lol[row_idx] = [record_da.get(col, '') for col in self.hd]
         
 
     def assign_record_da_irow(self, irow: int=-1, record_da: Optional[T_da]=None):
@@ -2536,7 +2567,8 @@ class Daf:
             return
 
         for key in keylist:
-            self.update_record_da_irow(self.kd.get(key, -1), record_da)
+            if key in self.kd:
+                self.update_record_da_irow(self.kd[key], record_da)
             
         
 
@@ -2553,10 +2585,13 @@ class Daf:
         if irow < 0 or irow >= len(self.lol):
             return
         
+        # see https://github.com/raylutz/daffodil/issues/7
         for colname, val in record_da.items():
-            icol = self.hd.get(colname, -1)
-            if icol >= 0:
-                self.lol[irow][icol] = record_da[colname]
+            if colname in self.hd:
+                self.lol[irow][self.hd[colname]] = record_da[colname]
+            # icol = self.hd.get(colname, -1)
+            # if icol >= 0:
+                # self.lol[irow][icol] = record_da[colname]
         
 
     def assign_icol(self, icol: int=-1, col_la: Optional[T_la]=None, default: Any=''):
@@ -2597,7 +2632,7 @@ class Daf:
             # self._rebuild_kd()
 
         
-    def insert_irow(self, irow: int=-1, row_la: Optional[T_la]=None, default: Any=''):
+    def insert_irow(self, irow: int=-1, row_la_or_da: Optional[Union[T_la, T_da]]=None, default: Any=''):
         """ insert row row_la at irow, shifting other rows down. 
             use default if la not long enough
             If irow > len(daf), insert row at the end.
@@ -2605,7 +2640,16 @@ class Daf:
         """
         
         # from utilities import utils
+        
+        if isinstance(row_la_or_da, list):
+        
+            row_la = row_la_or_da
 
+        elif isinstance(row_la_or_da, dict):
+        
+            # create normalize list
+            row_la = [row_la_or_da.get(col, '') for col in self.hd] 
+        
         self.lol = utils.insert_row_in_lol_at_irow(irow=irow, row_la=row_la, lol=self.lol, default=default)
         
         self._rebuild_kd()
@@ -2617,11 +2661,10 @@ class Daf:
             test exists in test_daf.py
         """
         
-        if not colname or colname not in self.hd:
-            return []
-        icol = self.hd[colname]
-        self.assign_icol(icol, la, default)
+        if colname in self.hd:
+            self.assign_icol(self.hd[colname], la, default)
         
+        return self
 
     # def set_col(self, colname: str, val: Any):
         # """ modify col by colname using val """
@@ -2652,13 +2695,18 @@ class Daf:
         if not col_la:
             col_la = []
             
-        colname_icol = self.hd.get(colname, -1)
-        if colname_icol >= 0:
+        # see https://github.com/raylutz/daffodil/issues/7
+        if colname in self.hd:
             # column already exists. ignore icol, overwrite data.
             self.assign_col(colname, col_la, default)
-            return
-
-        self.insert_icol(icol=icol, col_la=col_la, colname=colname, default=default) #, keyfield=keyfield)
+                   
+        # colname_icol = self.hd.get(colname, -1)
+        # if colname_icol >= 0:
+            # # column already exists. ignore icol, overwrite data.
+            # self.assign_col(colname, col_la, default)
+            # return
+        else:
+            self.insert_icol(icol=icol, col_la=col_la, colname=colname, default=default) #, keyfield=keyfield)
         
         # hl = list(self.hd.keys())
         # hl.insert(icol, colname)
@@ -2681,11 +2729,15 @@ class Daf:
     def set_col_irows(self, colname: str, irows: T_li, val: Any):
         """ set a given icol and list of irows to val """
         
-        if not colname or colname not in self.hd:
-            return
-        icol = self.hd[colname]
+        # see https://github.com/raylutz/daffodil/issues/7
+        try:
+            icol = self.hd[colname]
+        except KeyError:
+            return self
 
         self.set_icol_irows(icol, irows, val)
+        
+        return self
     
 
     def set_icol(self, icol: int, val: Any):
@@ -2914,7 +2966,55 @@ class Daf:
 
         result_dola = {k: list(d.keys()) for k, d in result_dadn.items()}
                 
-        return result_dola        
+        return result_dola
+        
+        
+    def insert_dif_row(self, 
+            irow1: int, 
+            irow2: Optional[int]=None, 
+            irow_insert: Optional[int]=None, 
+            cols: Optional[T_ls]=None,
+            ) -> 'Daf':
+        
+        if irow2 is None:
+            irow2 = irow1 + 1
+        if irow_insert is None:
+            irow_insert = irow2
+        if cols is None:
+            cols = self.columns()
+            
+        # calculate the difference.    
+        diff_result_da = type(self).diff_da(self[irow1], self[irow2], keys=cols)
+        
+        # this function handles normalizing the columns before insertion
+        self.insert_irow(irow=irow_insert,  row_la_or_da=diff_result_da)
+        
+        return self
+        
+        
+    def insert_dif_rows(self, 
+            irows_rli: Optional[T_rli]=None, 
+            cols: Optional[T_ls]=None, 
+            offset: int=0
+            ) -> 'Daf':
+    
+        """ given a list of row indexes irows_li, insert a difference row of that row
+            and the next row, for the columns specified by name, either
+            between them (offset=0) or after them (offset=1)
+            Note: do not include the final row in the list which is compared with the prior list.
+        """
+        
+        if irows_li is None:
+            reversed_irows_rli = range(len(self) - 2, -1, -1)
+        else:
+            reversed_irows_rli = sort(irows_rli, reverse=True)
+        
+        for irow in reversed_irows_rli:
+        
+            self.insert_dif_row(irow1=irow, irow_insert=irow + 1 + offset, cols=cols)
+                
+        return self 
+        
 
     #===============================
     # apply and reduce
@@ -3536,6 +3636,29 @@ class Daf:
 
 
     @staticmethod
+    def diff_da(d1_da: T_da, d2_da: T_da, keys: Optional[T_la]=None) -> T_da:     # result_da
+        """ difference of two dictionaries by keys, according to the columns provided.
+            if keys not specified or value does not exist in both rows, then do not include a result.
+            if value exists in only one row, assume the value in the other row is 0.
+        """
+
+        keys_list = {}
+        
+        if keys is None:
+            keys_list = []
+        elif not isinstance(keys, list):
+            keys_list = [keys]
+        else:
+            keys_list = keys
+        
+        # the 'or 0' part handles null string.
+        result_da = {key: (d1_da.get(key, 0) or 0) - (d2_da.get(key, 0) or 0)
+                        for key in keys_list}
+                
+        return result_da
+
+
+    @staticmethod
     def count_values_da(row_da: T_da, result_dodi: T_dodi, cols: Optional[T_la]=None) -> T_dodi:
         """ incrementally build the result_dodi, which is the valuecounts for each item in row_da.
             can be used to calculate valuecounts over all rows and chunks.
@@ -3608,18 +3731,18 @@ class Daf:
 
         if colnames_ls is None:
             cleaned_colnames_ls = list(self.hd.keys())
-            cleaned_colidxs_li_or_range = range(len(cleaned_colnames_ls))
+            cleaned_colidxs_rli = range(len(cleaned_colnames_ls))
         elif not (numeric_only and self.dtypes):
             cleaned_colnames_ls = [col for col in colnames_ls if col in self.hd]
-            cleaned_colidxs_li_or_range = [self.hd[col] for col in cleaned_colnames_ls]  
+            cleaned_colidxs_rli = [self.hd[col] for col in cleaned_colnames_ls]  
         else:    
             cleaned_colnames_ls = [col for col in colnames_ls if col in self.hd and self.dtypes.get(col) in [int, float]]
-            cleaned_colidxs_li_or_range = [self.hd[col] for col in cleaned_colnames_ls]  
+            cleaned_colidxs_rli = [self.hd[col] for col in cleaned_colnames_ls]  
         
-        sums_d_by_colidx = dict.fromkeys(cleaned_colidxs_li_or_range, 0.0)
+        sums_d_by_colidx = dict.fromkeys(cleaned_colidxs_rli, 0.0)
         
         for la in self.lol:
-            for colidx in cleaned_colidxs_li_or_range:
+            for colidx in cleaned_colidxs_rli:
                 if la[colidx]:
                     if numeric_only:
                         sums_d_by_colidx[colidx] += Daf._safe_tofloat(la[colidx])
@@ -3627,7 +3750,7 @@ class Daf:
                         sums_d_by_colidx[colidx] += float(la[colidx])
 
         try:
-            sums_d = {cleaned_colnames_ls[idx]: sums_d_by_colidx[colidx] for idx, colidx in enumerate(cleaned_colidxs_li_or_range)}
+            sums_d = {cleaned_colnames_ls[idx]: sums_d_by_colidx[colidx] for idx, colidx in enumerate(cleaned_colidxs_rli)}
         except Exception:
             import pdb; pdb.set_trace() #perm ok
             pass 
@@ -3954,6 +4077,39 @@ class Daf:
             mdstr += f"\n\[{len(self.lol)} rows x {len(self.hd)} cols; keyfield={self.keyfield}; {len(self.kd)} keys ] ({type(self).__name__})\n"
         return mdstr
         
+
+    def to_md_cols(
+            self, 
+            max_rows:       int     = 0,         # limit the maximum number of row by keeping leading and trailing rows.
+            max_cols:       int     = 0,         # limit the maximum number of cols by keeping leading and trailing cols.
+            just:           str     = '',        # provide the justification for each column, using <, ^, > meaning left, center, right justified.
+            shorten_text:   bool    = True,      # if the text in any field is more than the max_text_len, then shorten by keeping the ends and redacting the center text.
+            max_text_len:   int     = 80,        # see above.
+            smart_fmt:      bool    = False,     # if columns are numeric, then limit the number of figures right of the decimal to "smart" numbers.
+            include_summary: bool   = False,     # include a one-line summary after the table.
+            disp_cols:      Optional[T_ls]=None, # use these column names instead of those defined in daf.
+            ) -> str:
+        """ treat rows as columns """
+
+        daf_lol = self.daf_to_lol_summary(max_rows=max_rows, max_cols=max_cols, disp_cols=disp_cols)
+        
+        header_exists = bool(self.hd)
+        
+        mdstr = md_cols_lol_table(
+                cols_lol        = daf_lol, 
+                header          = None, 
+                just            = just, 
+                omit_header     = False, 
+                shorten_text    = shorten_text,
+                max_text_len    = max_text_len,
+                smart_fmt       = smart_fmt,
+                )
+        # if include_summary:    
+            # mdstr += f"\n\[{len(self.lol)} rows x {len(self.hd)} cols; keyfield={self.keyfield}; {len(self.kd)} keys ] ({type(self).__name__})\n"
+        return mdstr
+
+
+
 
     def daf_to_lol_summary(self, max_rows: int=10, max_cols: int=10, disp_cols:Optional[T_ls]=None) -> T_lola:
     
