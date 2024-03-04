@@ -13,11 +13,12 @@ Some of the methods of the class and assumptions that can be made about the stat
 as these design tradeoffs are being evaluated and the final initial design resolved. Please see GitHub issues to
 weigh in on the design.
 
-## Visualization of the data model
+## Data Model
+The Daffodil data model is really very simple. The core array is a list-of-lists (lol), optionally with one or two associated
+dictionaries, one for the column names and one for row keys.
 
 ![pydf_table](https://github.com/raylutz/daffodil/assets/14955977/05c54a27-8d8e-47b6-ae73-957709a5d398)
 
-Daffodil provides basic dataframe functionality which is not available in core python, but should be. 
 Daffodil uses standard python data types, and can mix data types in rows and columns, and can store any type 
 within a cell, even another Daffodil instance. 
 
