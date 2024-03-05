@@ -715,6 +715,28 @@ class Daf:
     #===========================
     # dtypes
     
+    def set_dtypes(self, 
+            default_type: Type = str, 
+            typ_to_cols_dict: Optional[Dict[Type, T_ls]] = None,
+            ) -> 'Daf':
+        
+        dtypes = {}
+        
+        col_to_typ_dict = utils.invert_dol_to_dict(typ_to_cols_dict)
+        
+        for colname in self.kd:
+            
+            if colname in col_to_typ_dict:
+                dtypes[colname] = col_to_typ_dict[colname]
+            else:
+                dtypes[colname] = default_typ
+
+        self.dtypes = dtypes
+        
+        return self
+        
+    
+    
     def apply_dtypes(self):
         """ convert columns to the datatypes specified in self.dtypes dict """
         
@@ -1926,6 +1948,8 @@ class Daf:
                 idxs.append(keydict[gkey])                
             except KeyError:
                 if not silent_error:
+                    import pdb; pdb.set_trace() #temp
+                
                     raise 
             
         elif isinstance(gkeys, list):     # can be list of integer or strings (or anything hashable)

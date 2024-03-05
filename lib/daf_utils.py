@@ -1303,4 +1303,20 @@ def with_index(iterable):
         yield (item, i)
 
             
+def invert_dol_to_dict(input_dol:dict) -> dict:
+    """ given a dict of lists where no element in any is seen twice,
+        create a dict, where the list elements are the key and the
+        value is the prior key. This allows reverse lookup of key
+        based on values in the list. If some dict lists have duplicates,
+        the last item will dominate.
+    """
+    result_dict: Dict[Any, Any] = {}
+
+    for key, lst in input_dol.items():
+        for val in lst:
+            result_dict[val] = key
+
+    return result_dict
+
+
        
