@@ -285,7 +285,7 @@ import io
 import csv
 import copy
 import re
-import numpy as np
+#import numpy as np
     
 sys.path.append('..')
 
@@ -354,6 +354,7 @@ class Daf:
                 self.hd = dict(zip(dtypes.keys(), range(len(dtypes.keys()))))
                 #self.hd = {col: idx for idx, col in enumerate(dtypes.keys())}
         else:
+            # cols will be sanitized only if necessary.
             self._cols_to_hd(cols)
             if len(cols) != len(self.hd):
                 cols = utils._sanitize_cols(cols=cols)
@@ -729,7 +730,7 @@ class Daf:
             if colname in col_to_typ_dict:
                 dtypes[colname] = col_to_typ_dict[colname]
             else:
-                dtypes[colname] = default_typ
+                dtypes[colname] = default_type
 
         self.dtypes = dtypes
         
@@ -1395,6 +1396,7 @@ class Daf:
         
     def append(self, data_item: Union[T_Daf, T_loda, T_da, T_la]):
         """ general append method can handle appending one record as T_da or T_la, many records as T_loda or T_daf
+            if the data item is None or empty, do not append.
         """
         # test exists in test_daf.py for all three cases
         
@@ -1994,7 +1996,8 @@ class Daf:
             
         if inverse:
             if isinstance(idxs, slice):
-                this_range = slice_to_range(slice_obj, len(gkeys))
+                slice_obj = idxs
+                this_range = utils.slice_to_range(slice_obj, len(gkeys))
                 idxs = [idx for idx in range(len(keydict)) if idx not in this_range]
             else:
                 idxs = [idx for idx in range(len(keydict)) if idx not in idxs]
@@ -3028,10 +3031,10 @@ class Daf:
             Note: do not include the final row in the list which is compared with the prior list.
         """
         
-        if irows_li is None:
+        if irows_rli is None:
             reversed_irows_rli = range(len(self) - 2, -1, -1)
         else:
-            reversed_irows_rli = sort(irows_rli, reverse=True)
+            reversed_irows_rli = sorted(irows_rli, reverse=True)
         
         for irow in reversed_irows_rli:
         
@@ -3047,14 +3050,18 @@ class Daf:
             self, 
             func: Callable[[Union[T_da, T_Daf], Optional[T_la]], Union[T_da, T_Daf]], 
             by: str='row', 
-            cols: Optional[T_la]=None,                      # columns included in the apply operation.
-            keylist: Optional[T_ls]=None,                   # list of keys of rows to include.
+            keylist: Optional[T_ls]=None,                   # list of keys of rows to include (DEPRECATE?)
             **kwargs: Any,
+                # kwargs may commonly include:
+                # cols: Optional[T_la]=None,                      # columns included in the apply operation.
             ) -> "Daf":
         """
         Apply a function to each 'row', 'col', or 'table' in the Daf and create a new Daf with the transformed data.
+        If the function returns an empty record or None, then do not append.
+        
         Note: to apply a function to a portion of the table, first select the columns or rows desired 
                 using a selection process.
+            Keylist: probably will be deprecated. Select rows prior to invocation.
 
         Args:
             func (Callable): The function to apply to each 'row', 'col', or 'table'. 
@@ -3070,7 +3077,7 @@ class Daf:
         if by == 'table':
             return func(self, **kwargs)
        
-        result_daf = self.clone_empty()
+        result_daf = Daf()
 
         if by == 'row':
             if keylist is None:
@@ -3080,8 +3087,8 @@ class Daf:
             for row in self:
                 if self.keyfield and keylist_or_dict and self.keyfield not in keylist_or_dict:
                     continue
-                transformed_row = func(row, cols, **kwargs)
-                result_daf.append(transformed_row)
+                transformed_row = func(row, **kwargs)
+                result_daf.append(transformed_row)          # Will not append an empty row.
                 
         elif by == 'col':
             # this is not working yet, don't know how to handle cols, for example.
@@ -3090,7 +3097,7 @@ class Daf:
             num_cols = self.num_cols()
             for icol in range(num_cols):
                 col_la = self.icol(icol)
-                transformed_col = func(col_la, cols, **kwargs)
+                transformed_col = func(col_la, **kwargs)
                 result_daf.insert_icol(icol, transformed_col)
         else:
             raise NotImplementedError
@@ -4051,6 +4058,86 @@ class Daf:
 
 
     #===============================
+    # wide to narrow and narrow to wide conversion
+    
+    def wide_to_narrow(self, 
+            id_cols: T_ls,                      # identify the record but are not used to identify values
+            varname_colname: str = 'varname',   # narrow format provides varname for each value col.
+            value_colname: str = 'value',       # column of values from each value column
+            ) -> 'Daf':
+        """
+        Convert a wide DataFrame to a narrow format.
+        This can be called "melt" or "unpivot"
+        
+        Parameters:
+            self (daf.Daf): The wide Daffodil dataframe to convert.
+            id_cols (List[str]): Columns to use as identifier variables.
+            value_cols (Union[str, List[str]]): Columns to unpivot.
+            varval_cols: defaults to 'variable', 'value'
+        
+        Returns:
+            equivalent dataframe in narrow (i.e tidy) format.
+        """
+        
+        narrow_daf = Daf(cols= id_cols + [varname_colname, value_colname])
+        
+        value_cols = [colname for colname in self.columns() if colname not in id_cols]
+        
+        for row_da in self:
+            # accept id values from original wide rows.
+            new_row = {col: row_da[col] for col in id_cols}
+            
+            # add a new row for each column
+            for col in value_cols:
+                new_row[varname_colname] = col
+                new_row[value_colname] = row_da[col]
+                narrow_daf.append(new_row)
+                
+        return narrow_daf
+
+
+    def narrow_to_wide(self,
+            id_cols: T_ls,
+            varname_col: str = 'variable',
+            value_col: str = 'value',
+            wide_cols: Optional[T_ls]=None,
+            ) -> 'Daf':
+        """
+        Convert a narrow Daf DataFrame to a wide format.
+        This can be called "pivot" or "spread"
+        
+        Parameters:
+            self (Daffodil DataFrame): The narrow DataFrame to convert.
+            id_cols:        Columns to use as index/identifier.
+            varname_col:    Column to pivot into new DataFrame columns.
+            value_col:      Column to pivot into new DataFrame values.
+        
+        Returns:
+            Daf: The wide DataFrame.
+            
+        """
+        wide_daf = Daf()
+        
+        wide_row_da = {}
+        for row_da in self:
+            index_cols_da = {col: row_da[col] for col in id_cols}
+            if not wide_row_da:
+                wide_row_da = index_cols_da.copy()
+            elif not utils.is_d1_in_d2(index_cols_da, wide_row_da):
+                wide_daf.append(wide_row_da)
+                wide_row_da = index_cols_da.copy()
+
+            var_name = row_da[varname_col]
+            value    = row_da[value_col]
+                    
+            wide_row_da[var_name] = value
+            
+        wide_daf.append(wide_row_da)
+
+        return wide_daf
+    
+    
+    #===============================
     # reporting
 
     def md_daf_table_snippet(
@@ -4117,9 +4204,9 @@ class Daf:
 
         daf_lol = self.daf_to_lol_summary(max_rows=max_rows, max_cols=max_cols, disp_cols=disp_cols)
         
-        header_exists = bool(self.hd)
+        #header_exists = bool(self.hd)
         
-        mdstr = md_cols_lol_table(
+        mdstr = md.md_cols_lol_table(
                 cols_lol        = daf_lol, 
                 header          = None, 
                 just            = just, 

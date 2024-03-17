@@ -28,17 +28,6 @@ def function3(gkeys, keydict, silent_error):
                 raise
 
 
-def function3(gkeys, keydict, silent_error):
-    idxs = []
-    
-    for gkey in gkeys:
-        try:
-            idxs.append(keydict[gkey])
-        except KeyError:        
-            if not silent_error:
-                raise
-
-
 # Define test data
 gkeys = [str(i) for i in range (1000)]
 keydict = {str(k): idx for idx, k in enumerate(range(10000))}

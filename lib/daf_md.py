@@ -3,7 +3,7 @@
 # copyright (c) 2024 Ray Lutz
 
 import re
-import copy
+#import copy
 import markdown
 #import functools
 

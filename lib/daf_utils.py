@@ -24,7 +24,7 @@ def fake_function(a: Optional[List[Dict[str, Tuple[int,Union[Any, str]]]]] = Non
     return None or cast(int, 0)       # pragma: no cover
 
 
-from lib.daf_types import T_lola, T_loda, T_dtype_dict, T_da, T_ds, T_hdlola, T_la, T_loti, T_ls, T_doda, T_buff, T_li, T_lt
+from lib.daf_types import T_lola, T_loda, T_dtype_dict, T_da, T_ds, T_hdlola, T_la, T_loti, T_ls, T_doda, T_buff, T_li #, T_lt
                     
 
 def is_linux() -> bool: 
@@ -626,7 +626,12 @@ def is_list_allbools(alist: T_la) -> Tuple[bool, int]: # allbools, num_true
     
         return False, 0
     
-def profile_ls_to_loti(input_ls: T_ls, repeat_startswith='Unnamed', ignore_cols: Optional[T_ls]=None) -> T_loti:
+def profile_ls_to_loti(
+        input_ls: T_ls, 
+        repeat_startswith='Unnamed', 
+        include_cols: Optional[T_ls]=None,
+        ignore_cols: Optional[T_ls]=None,
+        ) -> T_loti:
     """ 
         Given a list strings, which are typically the header of a column,
         return a list of tuples of integers loti, that describes the
@@ -638,6 +643,9 @@ def profile_ls_to_loti(input_ls: T_ls, repeat_startswith='Unnamed', ignore_cols:
         
         will return:
         output_loti = [(0, 1), (1, 2), (3, 1), (4, 3)]
+        
+        if either ignore cols or include cols are provided, then  do not profile 
+        any columns not included but include the offsets in the profile.
         
     """    
     repeat_count = 0
@@ -1271,7 +1279,7 @@ def _generate_spreadsheet_column_names_list(num_cols: int) -> T_ls:
     return [_calculate_single_column_name(i) for i in range(num_cols)]
 
 
-def _sanitize_cols(cols: T_ls, unnamed_prefix='col') -> list:
+def _sanitize_cols(cols: T_ls, unnamed_prefix='Unnamed') -> list:
     """ make sure there are no blanks and columns are unique.
         if missing, substitute with {unnamed_prefix}{col_idx}
         if duplicated, substitute with prior_name_{col_idx}

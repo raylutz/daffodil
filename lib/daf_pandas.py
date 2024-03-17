@@ -65,7 +65,7 @@ def _from_pandas_df(
         name: str='', 
         use_csv: bool=False, 
         dtypes: Optional[T_dtype_dict]=None
-        ) -> 'Daf':
+        ):
     """
     Convert a Pandas dataframe to pydf object
         @@TODO: This does not enforce dtypes are correct.
