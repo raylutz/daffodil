@@ -38,7 +38,7 @@ See README file at this location: https://github.com/raylutz/Daf/blob/main/READM
 """
 
 """
-    v0.1.X (pending)
+    v0.1.X 
             Started creating separate package, moved comment text to README.md
             For apply_formulas(), added relative row and column references $r and $c plus $d to reference the daf object.
             Changed the result of a row access, such as $d[$r, :$c] to return a list so it could be compatible with sum.
@@ -127,16 +127,23 @@ See README file at this location: https://github.com/raylutz/Daf/blob/main/READM
             moved __getitem__ and __setitem__ back to main class now that they are vastely reduced in complexity.
             Name change from Pydf to Daffodil and resolve issues.
 
-    v0.3.0  (pending) 
-            Added fmt parameter so file are saved with proper Content-Type metadata.
-            Added 'from .Daf import Daf' to __init__.py to reduce level.  Eventually removed this.
-            
     v0.2.2  Changed the file structure to be incompliance with Python traditions.
                 user can use 'from daffodil.daf import Daf' and then Daf()
             Moved daf.py containing class Daf to the top level.
             put supporting functions in lib.
+            added narrow_to_wide and wide_to_narrow methods.
 
+    v0.3.0  (2024-04-14) 
+            Added fmt parameter so file are saved with proper Content-Type metadata.
+            Added 'from .Daf import Daf' to __init__.py to reduce level.  Eventually removed this.
+            Added CODE_OF_CONDUCT.md
+            Improved performance of daf_sum(), reduce() and sum_da() by avoiding explicit comparisons and leveraging try/except.
+            Improved daf_benchmarks.py to help to diagnose nonperformant design of sum_da().
+            Added basic indexed manipulation to daf_demo.py
+            Changes due to the suggestions by Trey Hunner.
+            
 
+    v0.4.0  (pending) 
             
     TODO
              
@@ -250,6 +257,7 @@ See README file at this location: https://github.com/raylutz/Daf/blob/main/READM
                 list_stats_localidx
                 is_list_allints
                 profile_ls_to_loti
+                profile_ls_to_lr
                 reduce_lol_cols
                 s3path_to_url
                 parse_s3path
@@ -296,12 +304,13 @@ import lib.daf_utils    as utils
 import lib.daf_md       as md
 import lib.daf_pandas   as daf_pandas
 
-from typing import List, Dict, Any, Tuple, Optional, Union, cast, Type, Callable #
+from typing import List, Dict, Any, Tuple, Optional, Union, cast, Type, Callable, Iterable #
 def fake_function(a: Optional[List[Dict[str, Tuple[int,Union[Any, str]]]]] = None) -> Optional[int]:
     return None or cast(int, 0)       # pragma: no cover
 
 T_Pydf = Type['Daf']
 T_Daf = Type['Daf']
+logs = utils                # alias
 
 
 class Daf:
@@ -461,7 +470,12 @@ class Daf:
     
         if not self.lol:
             return 0
-        return len(self.lol[0])
+        try:
+            result = len(self.lol[0])
+        except Exception:
+            import pdb; pdb.set_trace() #temp
+            pass
+        return result
         
 
     #===========================
@@ -1899,6 +1913,8 @@ class Daf:
                     gkeys = krows,
                     inverse = inverse,
                     silent_error=silent_error,
+                    axis='rowkeys',     # for error message only
+                    name=self.name,
                     )
     
     def kcols_to_icols(self, 
@@ -1923,6 +1939,8 @@ class Daf:
                     gkeys = kcols,
                     inverse = inverse,
                     silent_error=silent_error,
+                    axis='colnames',     # for error message only
+                    name=self.name,
                     )
                     
     @staticmethod
@@ -1931,6 +1949,8 @@ class Daf:
             gkeys: Union[str, T_ls, slice, int, T_li, Tuple[Any, Any], None] = None,
             inverse: bool = False,
             silent_error: bool=False,
+            axis: str='rowkeys',                # used for status messages only.
+            name: str='unspecified',           # used for status messages only.
             ) -> Union[slice, int, T_li, range, None]:
         """
         If keydict is defined, then the idxs can be selected by providing a
@@ -1950,8 +1970,7 @@ class Daf:
                 idxs.append(keydict[gkey])                
             except KeyError:
                 if not silent_error:
-                    import pdb; pdb.set_trace() #temp
-                
+                    logs.sts(f"{logs.prog_loc()} Cannot find key '{gkey}' in {axis} in dataframe '{name}'", 3) 
                     raise 
             
         elif isinstance(gkeys, list):     # can be list of integer or strings (or anything hashable)
@@ -1962,6 +1981,7 @@ class Daf:
                     idxs.append(keydict[gkey])                
                 except KeyError:
                     if not silent_error:
+                        logs.sts(f"{logs.prog_loc()} Cannot find key '{gkey}' in {axis} in dataframe '{name}'", 3) 
                         raise 
                     
             
@@ -1974,6 +1994,7 @@ class Daf:
                     idxs.append(keydict[gkey])                
                 except KeyError:
                     if not silent_error:
+                        logs.sts(f"{logs.prog_loc()} Cannot find key '{gkey}' in {axis} in dataframe '{name}'", 3) 
                         raise 
                 # if gkey in keydict:
                     # idxs.append(keydict[gkey])                
@@ -2659,7 +2680,7 @@ class Daf:
             # self._rebuild_kd()
 
         
-    def insert_irow(self, irow: int=-1, row_la_or_da: Optional[Union[T_la, T_da]]=None, default: Any=''):
+    def insert_irow(self, irow: int=-1, row: Optional[Union[T_la, T_da]]=None, default: Any=''):
         """ insert row row_la at irow, shifting other rows down. 
             use default if la not long enough
             If irow > len(daf), insert row at the end.
@@ -2668,14 +2689,15 @@ class Daf:
         
         # from utilities import utils
         
-        if isinstance(row_la_or_da, list):
+        if isinstance(row, list):
         
-            row_la = row_la_or_da
+            row_la = row
 
-        elif isinstance(row_la_or_da, dict):
+        elif isinstance(row, dict):
         
+            row_da = row
             # create normalize list
-            row_la = [row_la_or_da.get(col, '') for col in self.hd] 
+            row_la = [row_da.get(col, '') for col in self.hd] 
         
         self.lol = utils.insert_row_in_lol_at_irow(irow=irow, row_la=row_la, lol=self.lol, default=default)
         
@@ -2824,13 +2846,14 @@ class Daf:
     #=========================
     #   sort
             
-    def sort_by_colname(self, colname:str, reverse: bool=False, length_priority: bool=False):
+    def sort_by_colname(self, colname:str, reverse: bool=False, length_priority: bool=False) -> 'Daf':
         """ sort the data by a given colname, using length priority unless specified.
             sorts in place. Make a copy if you need the original order.
         """
         colidx = self.hd[colname]
         self.lol = utils.sort_lol_by_col(self.lol, colidx, reverse=reverse, length_priority=length_priority)
         self._rebuild_kd()
+        return self
         
     #=========================
     #   apply formulas
@@ -3011,10 +3034,10 @@ class Daf:
             cols = self.columns()
             
         # calculate the difference.    
-        diff_result_da = type(self).diff_da(self[irow1], self[irow2], keys=cols)
+        diff_result_da = type(self).diff_da(self[irow1].to_dict(), self[irow2].to_dict(), keys=cols)
         
         # this function handles normalizing the columns before insertion
-        self.insert_irow(irow=irow_insert,  row_la_or_da=diff_result_da)
+        self.insert_irow(irow=irow_insert,  row=diff_result_da)
         
         return self
         
@@ -3152,49 +3175,49 @@ class Daf:
         self._rebuild_kd()
         
         
-    def reduce(
-            self, 
-            func: Callable[[T_da, T_da], Union[T_da, T_la]], 
-            by: str='row', 
-            cols: Optional[T_la]=None,                      # columns included in the reduce operation.
-            **kwargs: Any,
-            ) -> Union[T_da, T_la]:
-        """
-        Apply a function to each 'row', 'col', or 'table' and accumulate to a single T_da
-        Note: to apply a function to a portion of the table, first select the columns or rows desired 
-                using a selection process.
+    # def reduce(
+            # self, 
+            # func: Callable[[T_da, T_da], Union[T_da, T_la]], 
+            # by: str='row', 
+            # cols: Optional[T_la]=None,                      # columns included in the reduce operation.
+            # **kwargs: Any,
+            # ) -> Union[T_da, T_la]:
+        # """
+        # Apply a function to each 'row', 'col', or 'table' and accumulate to a single T_da
+        # Note: to apply a function to a portion of the table, first select the columns or rows desired 
+                # using a selection process.
 
-        Args:
-            func (Callable): The function to apply to each 'row', 'col', or 'table'. 
-            It should take a row dictionary and any additional parameters.
-            by (str): either 'row', 'col' or 'table'
-                if by == 'table', function should create a new Daf instance.
-            **kwargs: Additional parameters to pass to the function.
+        # Args:
+            # func (Callable): The function to apply to each 'row', 'col', or 'table'. 
+            # It should take a row dictionary and any additional parameters.
+            # by (str): either 'row', 'col' or 'table'
+                # if by == 'table', function should create a new Daf instance.
+            # **kwargs: Additional parameters to pass to the function.
 
-        Returns:
-            either a dict (by='rows' or 'table') or list (by='cols')
-        """
-        if by == 'table':
-            reduction_da = func(self, cols, **kwargs)
-            return reduction_da    
+        # Returns:
+            # either a dict (by='rows' or 'table') or list (by='cols')
+        # """
+        # if by == 'table':
+            # reduction_da = func(self, cols, **kwargs)
+            # return reduction_da    
 
-        if by == 'row':
-            reduction_da = {}
-            for row_da in self:
-                reduction_da = func(row_da, reduction_da, cols, **kwargs)
-            return reduction_da    
+        # if by == 'row':
+            # reduction_da = {}
+            # for row_da in self:
+                # reduction_da = func(row_da, reduction_da, cols, **kwargs)
+            # return reduction_da    
                 
-        elif by == 'col':
-            reduction_la = []
-            num_cols = self.num_cols()
-            for icol in range(num_cols):
-                col_la = self.icol(icol)
-                reduction_la = func(col_la, reduction_la, **kwargs)
-            return reduction_la
+        # elif by == 'col':
+            # reduction_la = []
+            # num_cols = self.num_cols()
+            # for icol in range(num_cols):
+                # col_la = self.icol(icol)
+                # reduction_la = func(col_la, reduction_la, **kwargs)
+            # return reduction_la
 
-        else:
-            raise NotImplementedError
-        return [] # for mypy only.
+        # else:
+            # raise NotImplementedError
+        # return [] # for mypy only.
         
         
     def manifest_apply(
@@ -3512,11 +3535,12 @@ class Daf:
 
     def groupby_reduce(
             self, 
-            colname:str, 
-            func: Callable[[T_da, T_da], Union[T_da, T_la]], 
-            by: str='row',                                  # determines how the func is applied.
-            reduce_cols: Optional[T_la]=None,                      # columns included in the reduce operation.
-            **kwargs: Any,
+            colname:        str, 
+            func:           Callable[[T_da, T_da], Union[T_da, T_la]], 
+            by:             str='row',                                  # determines how the func is applied.
+            reduce_cols:    Optional[T_la]=None,                        # columns included in the reduce operation.
+            diagnose:       bool=False,
+            **kwargs:       Any,
             ) -> 'Daf':
         """ given a daf, break into a number of daf's based on colname specified. 
             For each group, apply callable.
@@ -3524,20 +3548,42 @@ class Daf:
             
         """
         
+        if diagnose:
+            logs.sts(f"{logs.prog_loc()} starting groupby '{colname}' operation", 3)
         grouped_dodaf = self.groupby(colname)
+        
+        if diagnose:
+            logs.sts(f"{logs.prog_loc()} Grouped into {len(grouped_dodaf)} groups.", 3)
+            
+            for group_num, (colval, this_daf) in enumerate(grouped_dodaf.items()):
+                if group_num < 3 or group_num >= len(grouped_dodaf) - 1:
+                    logs.sts(f"## Group {group_num}: {colname}={colval}\n\n{this_daf}\n\n", 3)
+            
+        
         result_daf = Daf(keyfield = colname)
         
-        for colval, this_daf in grouped_dodaf.items():
+        for group_num, (colval, this_daf) in enumerate(grouped_dodaf.items()):
         
             # maybe remove colname from cols here
         
+            if diagnose:
+                logs.sts(f"## Group {group_num}: {colname}={colval}\n\n{this_daf}\n\n", 3)
             reduction_da = this_daf.reduce(func, by=by, cols=reduce_cols, **kwargs)
+            
+            if diagnose:
+                logs.sts(f"Post reduction: {Daf.from_lod([reduction_da])=}", 3)
             
             # add colname:colval to the dict
             reduction_da = {colname: colval, **reduction_da}
             
+            if diagnose:
+                logs.sts(f"Post add colname:colval to the dict: {Daf.from_lod([reduction_da])=}", 3)
+
             # this will also maintain the kd.
             result_daf.append(reduction_da)
+
+        if diagnose:
+            logs.sts(f"{logs.prog_loc()} result_daf:\n\n{result_daf}", 3)
 
         return result_daf
 
@@ -3545,15 +3591,262 @@ class Daf:
     #===================================
     # apply / reduce convenience methods
 
+    # def daf_sum(
+            # self, 
+            # by: str = 'row', 
+            # cols: Optional[T_la]=None,
+            # **kwargs: Any,
+            # ) -> T_da:
+            
+        # return self.reduce(func=Daf.sum_da, by=by, cols=cols, **kwargs)
+    
+
+    # def daf_sum2(
+            # self, 
+            # by: str = 'row', 
+            # cols: Optional[T_la]=None,
+            # **kwargs: Any,
+            # ) -> T_da:
+        # # this one to investigate why daf_sum is so slow!
+            
+        # return self.reduce2(func=Daf.sum_da3, by=by, cols=cols, **kwargs)
+    
+
+    # def reduce2(
+            # self, 
+            # func: Callable[[T_da, T_da], Union[T_da, T_la]], 
+            # by: str='row', 
+            # cols: Optional[T_la]=None,                      # columns included in the reduce operation.
+            # **kwargs: Any,
+            # ) -> Union[T_da, T_la]:
+        # """
+        # Apply a function to each 'row', 'col', or 'table' and accumulate to a single T_da
+        # Note: to apply a function to a portion of the table, first select the columns or rows desired 
+                # using a selection process.
+
+        # Args:
+            # func (Callable): The function to apply to each 'row', 'col', or 'table'. 
+            # It should take a row dictionary and any additional parameters.
+            # by (str): either 'row', 'col' or 'table'
+                # if by == 'table', function should create a new Daf instance.
+            # **kwargs: Additional parameters to pass to the function.
+
+        # Returns:
+            # either a dict (by='rows' or 'table') or list (by='cols')
+        # """
+        # if by == 'table':
+            # reduction_da = func(self, cols, **kwargs)
+            # return reduction_da    
+
+        # if by == 'row':
+
+            # if not self:
+                # return {}
+                
+            # allcols = self.hd.keys()
+
+            # if cols is None:
+                # cols = allcols
+                
+            # reduction_da = dict.fromkeys(cols, 0)
+    
+            # for row in self:
+                # for col in cols:
+                    # reduction_da[col] += row[col]
+            # return reduction_da    
+ 
+
+            # # for row_da in self:
+                # # reduction_da = func(row_da, reduction_da, cols, **kwargs)
+            # # return reduction_da    
+                
+        # elif by == 'col':
+            # reduction_la = []
+            # num_cols = self.num_cols()
+            # for icol in range(num_cols):
+                # col_la = self.icol(icol)
+                # reduction_la = func(col_la, reduction_la, **kwargs)
+            # return reduction_la
+
+        # else:
+            # raise NotImplementedError
+        # return [] # for mypy only.
+        
+        
     def daf_sum(
             self, 
             by: str = 'row', 
-            cols: Optional[T_la]=None
+            cols: Optional[T_la]=None,
+            **kwargs: Any,
             ) -> T_da:
             
-        return self.reduce(func=Daf.sum_da, by=by, cols=cols)
+        return self.reduce(func=Daf.sum_da, by=by, cols=cols, **kwargs)
     
 
+    def reduce(
+            self, 
+            func: Callable[[T_da, T_da], Union[T_da, T_la]], 
+            by: str='row', 
+            cols: Optional[T_la]=None,                      # columns included in the reduce operation.
+            **kwargs: Any,
+            ) -> Union[T_da, T_la]:
+        """
+        Apply a function to each 'row', 'col', or 'table' and accumulate to a single T_da
+        Note: to apply a function to a portion of the table, first select the columns or rows desired 
+                using a selection process.
+
+        Args:
+            func (Callable): The function to apply to each 'row', 'col', or 'table'. 
+            It should take a row dictionary and any additional parameters.
+            by (str): either 'row', 'col' or 'table'
+                if by == 'table', function should create a new Daf instance.
+            **kwargs: Additional parameters to pass to the function.
+
+        Returns:
+            either a dict (by='rows' or 'table') or list (by='cols')
+        """
+        if by == 'table':
+            reduction_da = func(self, cols, **kwargs)
+            return reduction_da    
+
+        if by == 'row':
+
+            if not self:
+                return {}
+                
+            #allcols = self.hd.keys()
+
+            if cols is None:
+                cols_iter = self.hd.keys()
+            elif isinstance(cols, str):
+                cols_iter = [cols]
+            elif isinstance(cols, list) and len(cols) > 10:    
+                cols_iter = dict.fromkeys(cols)
+            else:
+                cols_iter = cols
+                
+            reduction_da = dict.fromkeys(cols_iter, 0)
+    
+            for row_da in self:
+                reduction_da = func(row_da, reduction_da, cols_iter, **kwargs)
+
+            # normalize the result so it contains all columns
+            result_da = {key: reduction_da.get(key,'') for key in self.hd.keys()}
+                
+            return result_da    
+                
+        elif by == 'col':
+            reduction_la = []
+            num_cols = self.num_cols()
+            for icol in range(num_cols):
+                col_la = self.icol(icol)
+                reduction_la = func(col_la, reduction_la, **kwargs)
+            return reduction_la
+
+        else:
+            raise NotImplementedError
+        return [] # for mypy only.
+        
+        
+    @staticmethod
+    def sum_da(row_da: T_da,                   # the current row from the daf array.
+                accum_da: T_da,                 # an accumulated result. Must be initialized for all columns in cols.
+                cols: Iterable,                 # defines the active columns. Can be a list, keys(), range, or slice
+                astype: Optional[Type]=None,    # a type like int, float, str to cast the value if it is not that type. Optional.
+                diagnose:bool=False
+                ) -> T_da:     # result_da
+        """ sum values in row and accum dicts per colunms provided. 
+            will safely skip data that can't be summed.
+        """
+
+        diagnose = diagnose
+        #nan_indicator = ''
+
+        # for col, value in row_da.items():       # doing it this way requires a check for existence in each loop.
+            # if col not in cols:                 # this check is not needed in the version below.
+                # continue                        # 251 vs 207.
+
+        for col in cols:
+            
+            # if value == nan_indicator:        # this makes the loop take 10x longer (2162) (1044% of original)
+            # if isinstance(value, str):        # this makes the loop take 42% longer (294)
+            # if isinstance(value, str) and value == '':  # same (294)
+            # if value is None or isinstance(value, str) and not value:     (350) vs 207 = 69% longer
+            # if value == '':                     # this makes the loop take 10x longer (2105) (1044% of original)
+            # if isinstance(value, str) and not value:    # this makes the loop take 50% longer (305)
+                # continue
+            
+            # the try/except below is the most time efficient way to handle this while still
+            # allowing for astype and nan values. (212 ms for 1000x1000 array)
+            # Please note that the cols value is determined
+            # prior to entering the function and must contain an iterable, even if all columns
+            # are specified.
+            
+            # writing this loop the other way around, by going through all columns and skipping those not
+            # mentioned in cols is also very inefficient.
+                
+            # 213 for the version below, which seems like it should be fastest.
+            # but it is slightly less advantageous because initial assignment is inside the try/except block.
+            
+            # try:
+                # if astype:
+                    # value = row_da[col]
+                    # if astype==int and isinstance(value, (str, float, bool)):
+                        # value = int(float(value))
+                    # elif astype==float and isinstance(value, (str, int, bool)):    
+                        # value = float(value)
+                    # elif astype==str and isinstance(value, (float, int, bool)):
+                        # value = str(value)
+                    # accum_da[col] += value
+                # else:
+                    # accum_da[col] += row_da[col]
+            # except Exception:
+                # continue
+
+            # this one measured at 230
+            # value = row_da[col]
+            # try:
+                # if astype:
+                    # if astype==int and isinstance(value, (str, float, bool)):
+                        # value = int(float(value))
+                    # elif astype==float and isinstance(value, (str, int, bool)):    
+                        # value = float(value)
+                    # elif astype==str and isinstance(value, (float, int, bool)):
+                        # value = str(value)
+                        
+                # accum_da[col] += value
+                
+            # except Exception:
+                # continue
+
+            # this one measured at 209 with all cols and no astype.
+            if astype:
+                value = row_da[col]
+                try:
+                    if astype==int and isinstance(value, (str, float, bool)):
+                        value = int(float(value))
+                    elif astype==float and isinstance(value, (str, int, bool)):    
+                        value = float(value)
+                    elif astype==str and isinstance(value, (float, int, bool)):
+                        value = str(value)
+                    
+                    accum_da[col] += value
+            
+                except Exception:
+                    continue
+                    
+            else:
+                try:
+                    accum_da[col] += row_da[col]
+                
+                except Exception:
+                        continue
+
+
+                
+        return accum_da
+
+        
     def daf_valuecount(
             self, 
             by: str = 'row', 
@@ -3626,44 +3919,49 @@ class Daf:
     
     
 
-    @staticmethod
-    def sum_da(row_da: T_da, accum_da: T_da, cols: Optional[T_la]=None, diagnose:bool=False) -> T_da:     # result_da
-        """ sum values in row and accum dicts per colunms provided. 
-            will safely skip data that can't be summed.
-        """
-        diagnose = diagnose
-        nan_indicator = ''
+    # @staticmethod
+    # def sum_da(row_da: T_da, accum_da: T_da, cols: Optional[T_la]=None, astype:Type=int, diagnose:bool=False) -> T_da:     # result_da
+        # """ sum values in row and accum dicts per colunms provided. 
+            # will safely skip data that can't be summed.
+        # """
+        # diagnose = diagnose
+        # nan_indicator = ''
         
-        cols_list = {}
-        
-        if cols is None:
-            cols_list = []
-        elif not isinstance(cols, list):
-            cols_list = [cols]
-        else:
-            cols_list = cols
+        # if cols is None:
+            # cols_list = []
+        # elif not isinstance(cols, list):
+            # cols_list = [cols]
+        # else:
+            # cols_list = cols
             
-        if len(cols_list) > 10:    
-            cols_list_or_dict = dict.fromkeys(cols)
-        else:
-            cols_list_or_dict = cols_list
+        # if len(cols_list) > 10:    
+            # cols_list_or_dict = dict.fromkeys(cols_list)
+        # else:
+            # cols_list_or_dict = cols_list
             
-        for key, value in row_da.items():
-            if value == nan_indicator:
-                continue
+        # for key, value in row_da.items():
+            # if value == nan_indicator:
+                # continue
         
-            if cols_list_or_dict and key not in cols_list_or_dict:
-                # accum_da[key] = ''
-                continue
+            # if cols_list_or_dict and key not in cols_list_or_dict:
+                # # accum_da[key] = ''
+                # continue
+                
+            # if astype==int and isinstance(value, (str, float, bool)):
+                # value = int(float(value))
+            # elif astype==float and isinstance(value, (str, int, bool)):    
+                # value = float(value)
+            # elif astype==str and isinstance(value, (float, int, bool)):
+                # value = str(value)
 
-            try:
-                if key in accum_da:
-                    accum_da[key] += value
-                else:
-                    accum_da[key] = value
-            except Exception:
-                pass
-        return accum_da
+            # try:
+                # if key in accum_da:
+                    # accum_da[key] += value
+                # else:
+                    # accum_da[key] = value
+            # except Exception:
+                # pass
+        # return accum_da
 
 
     @staticmethod
@@ -3747,44 +4045,37 @@ class Daf:
     #===============================================
     # functions not following apply or reduce pattern
     
-    # this function does not use normal reduction approach.
+    # this function does not use reduction approach.
     def sum(
             self, 
             colnames_ls: Optional[T_ls]=None, 
             numeric_only: bool=False,
             ) -> dict: # sums_di
         """ total the columns in the table specified, and return a dict of {colname: total,...} 
-        
-        
             unit tests exist
         """
 
 
         if colnames_ls is None:
-            cleaned_colnames_ls = list(self.hd.keys())
-            cleaned_colidxs_rli = range(len(cleaned_colnames_ls))
+            cleaned_colnames_is = self.hd.keys()
         elif not (numeric_only and self.dtypes):
-            cleaned_colnames_ls = [col for col in colnames_ls if col in self.hd]
-            cleaned_colidxs_rli = [self.hd[col] for col in cleaned_colnames_ls]  
+            cleaned_colnames_is = [col for col in colnames_ls if col in self.hd.keys()]
         else:    
-            cleaned_colnames_ls = [col for col in colnames_ls if col in self.hd and self.dtypes.get(col) in [int, float]]
-            cleaned_colidxs_rli = [self.hd[col] for col in cleaned_colnames_ls]  
+            cleaned_colnames_is = [col for col in colnames_ls if col in self.hd and self.dtypes.get(col) in [int, float]]
         
-        sums_d_by_colidx = dict.fromkeys(cleaned_colidxs_rli, 0.0)
+        sums_d = dict.fromkeys(cleaned_colnames_is, 0.0)
         
-        for la in self.lol:
-            for colidx in cleaned_colidxs_rli:
+        for colname, colidx in self.hd.items():
+            if colname not in cleaned_colnames_is:
+                # sums_d[colname] = ''
+                continue
+            for la in self.lol:
                 if la[colidx]:
                     if numeric_only:
-                        sums_d_by_colidx[colidx] += Daf._safe_tofloat(la[colidx])
+                        sums_d[colname] += Daf._safe_tofloat(la[colidx])
                     else:
-                        sums_d_by_colidx[colidx] += float(la[colidx])
+                        sums_d[colname] += float(la[colidx])
 
-        try:
-            sums_d = {cleaned_colnames_ls[idx]: sums_d_by_colidx[colidx] for idx, colidx in enumerate(cleaned_colidxs_rli)}
-        except Exception:
-            import pdb; pdb.set_trace() #perm ok
-            pass 
         sums_d = utils.set_dict_dtypes(sums_d, self.dtypes)  # type: ignore
         
         return sums_d
@@ -4185,7 +4476,7 @@ class Daf:
             
             )
         if include_summary:    
-            mdstr += f"\n\[{len(self.lol)} rows x {len(self.hd)} cols; keyfield={self.keyfield}; {len(self.kd)} keys ] ({type(self).__name__})\n"
+            mdstr += f"\n\[{len(self.lol)} rows x {len(self.hd)} cols; keyfield={self.keyfield}; {len(self.kd)} keys ] ({self.name or type(self).__name__})\n"
         return mdstr
         
 
@@ -4205,12 +4496,13 @@ class Daf:
         daf_lol = self.daf_to_lol_summary(max_rows=max_rows, max_cols=max_cols, disp_cols=disp_cols)
         
         #header_exists = bool(self.hd)
+        #import pdb; pdb.set_trace() #temp
         
         mdstr = md.md_cols_lol_table(
                 cols_lol        = daf_lol, 
                 header          = None, 
                 just            = just, 
-                omit_header     = False, 
+                omit_header     = True, 
                 shorten_text    = shorten_text,
                 max_text_len    = max_text_len,
                 smart_fmt       = smart_fmt,

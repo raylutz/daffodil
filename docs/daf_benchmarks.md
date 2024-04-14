@@ -1,13 +1,35 @@
 # Evaluate conversion and calculation time tradeoffs between Pandas, Daffodil, Numpy, etc.
-
-
+    
+The Daffodil package was originally developed because we found we were using list-of-dict (lod)
+    structure to build a table suitable for porting into Pandas, because Pandas is slow in performing
+    row-by-row appends. The question was originally when was it beneficial to convert to Pandas to
+    take advantage of its faster C implementation vs. continuing to use Python structures. What we
+    found was that converting from Python lod to Pandas DataFrame was very slow and unless we needed
+    to perform many repeated column-based calculations, we may as well leave it as Python and not
+    suffer the conversion time. The Daffodil Package (DAta Frames For Optimized Data Inspection and Logical operations)
+    was created to allow for data structures that are 1/3 the size of a lod, allowing for fast appends,
+    while also providing for a rich indexing syntax to reference rows and columns, and also support 
+    column and row keys using fast lookups provided by Python dictionaries. 
+    
+This series of tests compares the speed of converting Python lod structure to Pandas and Numpy,
+    and also compares a few other operations. Certainly, Pandas is a good choice for anyone doing
+    interactive data exploration and where the user is already familiar with Pandas syntax. The 
+    benefit of Daffodil is for those programmers who are using Pandas as a convenient tabular 
+    representation in repetitive data conversion programs used in pipelines, ETL applications, etc.
+    and even in big-data applications where the data can be operated on in chunks, but where the
+    entirety of the data cannot fit in memory at the same time. Daffodil is competitive with mixed
+    data types, particularly string data. Daffodil can be used to prep the data for Pandas or Numpy
+    using fast row appends while leveraging the faster column processing of Pandas or Numpy
+    for numeric columns that will benefit.
+    
+    
 ## Create sample_lod
 
 Here we generate a table using a python list-of-dict structure,
         with 1000 columns and 1000 rows, consisting of 1 million
         integers from 0 to 100. Set the seed to an arbitrary value for
         reproducibility. Also, create other forms similarly or by converting
-        the sample_lod.
+        the sample_lod. We will show the table once it is converted to other forms.
 
 ```python
     np.random.seed(42)  # For reproducibility
@@ -33,7 +55,10 @@ Generated sample_lod with 1000 records
 ## Create sample_klod
 
 sample_klod is similar to sample_lod but it has a first column 
-        'rowkey' is a string key that can be used to look up a row.
+        'rowkey' is a string key that can be used to look up a row. Each rowkey is
+        simply 'ColN', where N is the row number. Please note that this is different
+        from indexing the rows (which is always tied to the position) as the rowkeys 
+        are tied to the row, even if the order is changed.
 
 ```python
     sample_klod = [dict(zip(['rowkey']+[f'Col{i}' 
@@ -55,7 +80,10 @@ Generated sample_klod with 1000 records
 
 ## Create daf from sample_lod
 
-
+Here we simply create a Daffodil DataFrame 'sample_daf' of the same random data.
+        The Daffodil DataFrame core datatype is List[List[Any]], i.e. a list of lists of anything, 
+        and iwll be about 1/3 the size of an equivalent list-of-dict structure because the
+        keys for each dictionary are not repeated.
 
 ```python
     sample_daf = Daf.from_lod(sample_lod)
@@ -88,7 +116,7 @@ sizeof_di['daf']=40,190,856 bytes
 
 ## Create kdaf from sample_klod
 
-
+Similarly, we create the keyed daf table by converting the sample_klod structure
 
 ```python
     sample_kdaf = Daf.from_lod(sample_klod, keyfield='rowkey')
@@ -121,9 +149,12 @@ sizeof_di['kdaf']=40,323,616 bytes
 
 ## Create Pandas df
 
-Create a Pandas DataFrame
-    
-Here we use an unadorned basic pre-canned Pandas function to construct the dataframe.
+Here we use an unadorned basic pre-canned Pandas function to construct the dataframe,
+        but to make sure it may take advantage of the fact that all data is integers, we provide
+        also the dtype=int parameter. As it turns out, the performance does not change either way.
+        We can note here that this DataFrame is more efficient in terms of space than the Daffodil
+        object by a factor of about 4. But as we will see once we start timing these, the conversion
+        is quite slow.
 
 ```python
     df = pd.DataFrame(sample_lod, dtype=int)
@@ -159,8 +190,9 @@ sizeof_di['df']=9,767,776 bytes
 
 Create a Pandas DataFrame by convering Daf through a csv buffer.
 
-We found tha twe could save a lot of time by coverting the data to a csv buffer and then 
+We found tha twe could save a lot of time by converting the data to a csv buffer and then 
     importing that buffer into Pandas. This does not make a lot of sense, but it is true.
+    But it is slightly more wasteful in terms of space than the direct conversion.
 
 ```python
     csv_df = sample_daf.to_pandas_df(use_csv=True)
@@ -195,9 +227,11 @@ sizeof_di['csv_df']=17,983,776 bytes
 ## Create keyed Pandas df
 
 Create a keyed Pandas df based on the sample_klod generated.
+        This object has one column which provides a string row key for looking up a row.
         Please note this takes far more memory than a Pandas df without this
         str column, almost 3x the size of Daf instance with the same data. To test fast lookups,
         we also use set_index to get ready for fast lookups so we can compare with Daffodil lookups.
+        Daffodil uses a very fast dictionary lookup, and is faster than Pandas.
 
 ```python
     kdf = pd.DataFrame(sample_klod)
@@ -234,7 +268,9 @@ rowkey                                                                     ...
 
 ## create hdnpa from lod
 
-A hdnpa is a Numpy array with a header dictionary. The overall size is about the same as just the NumPy array.
+A hdnpa is a Numpy array with a header dictionary. The overall size is about the same as just the NumPy array,
+        but it provides column names to be comparable with the DataFrame form. However, we must remind the reader that
+        the numpy array must be a uniform data type.
 
 ```python
     hdnpa = lod_to_hdnpa(sample_lod)
@@ -268,18 +304,16 @@ Another option is a list of tuples with a header dictionary. This is also slow a
     hdlot = lod_to_hdlot(sample_lod)
     sizeof_di['hdlot'] = asizeof.asizeof(hdlot)
     md_report += pr(f"{sizeof_di['hdlot']=:,} bytes\n\n")
-
-    # create sqlite_table
 ```
 
-Convering to a sqlite table is surprisingly fast as it beats creating a Pandas dataframe with this data.
-    The space taken in memory is hard to calculate and the method we used to calculate it would produce 0.
+
 sizeof_di['hdlot']=40,173,880 bytes
 
 
 ## Create sqlite_table from klod
 
-
+Converting to a sqlite table is surprisingly fast as it beats creating a Pandas dataframe with this data.
+    The space taken in memory is hard to calculate and the method we used to calculate it would produce 0.
 
 ```python
     lod_to_sqlite_table(sample_klod, table_name='tempdata1')
@@ -296,7 +330,8 @@ sizeof_di['sqlite']=5,148,672 bytes
 
 ## Create table of estimated memory usage for all types
 
-use Daf.from_lod_to_cols to create a table with first colunm key names, and second column values.
+use Daf.from_lod_to_cols to create a table with first colunm key names, and second column values. 
+        We will update this table using Daffodil indexing to provide the timing for all tested combinations.
 
 ```python
     all_sizes_daf = Daf.from_lod_to_cols([sizeof_di], cols=['Datatype', 'Size in Memory (bytes)'])
@@ -318,10 +353,10 @@ use Daf.from_lod_to_cols to create a table with first colunm key names, and seco
 |    hdlot |             40,173,880 |
 |   sqlite |              5,148,672 |
 
-## Time conversions and operations
+## Times for conversions and operations
 
 This secion uses the timeit() function to time conversions.
-        For each convertion, the time wil be added to the (datatype)_times dicts.
+        For each conversion, the time wil be added to the (datatype)_times dicts.
 
 ```python
     setup_code =
@@ -337,7 +372,7 @@ from daffodil.daf import Daf
 '''
 
     loops = 10
-    report_cols = [ 'Attribute',            'daf', 'pandas', 'numpy', 'sqlite', 'lod', 'loops'] #, 'note']
+    report_cols = [ 'Attribute',            'daf', 'pandas', 'numpy', 'sqlite', 'lod'] #, 'note']
     report_attrs = [ 
                     'from_lod', 
                     'to_pandas_df', 
@@ -349,10 +384,14 @@ from daffodil.daf import Daf
                     'insert_irow',
                     'insert_icol',
                     'sum cols',
+                    'sample_daf.daf_sum()',
+                    # 'sample_daf.daf_sum2()',
+                    # 'sample_daf.daf_sum3()',
                     'sum_np',
                     'transpose',
                     #'transpose_keyed',
                     'keyed lookup',
+                    '=====',
                     'Size of 1000x1000 array (MB)',
                     'Size of keyed 1000x1000 array (MB)',
                   ]
@@ -361,50 +400,50 @@ from daffodil.daf import Daf
         report_daf.append({'Attribute': attr})
     
 
-    report_daf['from_lod', 'loops']    = loops
-    report_daf['from_lod', 'daf']     = secs = timeit.timeit('Daf.from_lod(sample_lod)',  setup=setup_code, globals=globals(), number=loops)
-    print(f"Daf.from_lod()             {loops} loops: {secs:.4f} secs")
+    #report_daf['from_lod', 'loops']    = loops
+    report_daf['from_lod', 'daf']           = ms = timeit.timeit('Daf.from_lod(sample_lod)',  setup=setup_code, globals=globals(), number=loops) * 1000 / (loops)
+    print(f"Daf.from_lod()                  {ms:.4f} ms")
 
-    report_daf['from_lod', 'pandas']   = secs = timeit.timeit('pd.DataFrame(sample_lod)',   setup=setup_code, globals=globals(), number=loops)
-    report_daf['to_pandas_df', 'lod']  = secs
-    print(f"lod_to_df() plain           {loops} loops: {secs:.4f} secs")
+    report_daf['from_lod', 'pandas']        = ms = timeit.timeit('pd.DataFrame(sample_lod)',   setup=setup_code, globals=globals(), number=loops) * 1000 / (loops)
+    report_daf['to_pandas_df', 'lod']       = ms
+    print(f"lod_to_df() plain               {ms:.4f} ms")
 
-    report_daf['from_lod', 'numpy']    = secs = timeit.timeit('lod_to_hdnpa(sample_lod)', setup=setup_code, globals=globals(), number=loops)
-    report_daf['to_numpy', 'lod']      = secs
-    print(f"lod_to_numpy()              {loops} loops: {secs:.4f} secs")
+    report_daf['from_lod', 'numpy']         = ms = timeit.timeit('lod_to_hdnpa(sample_lod)', setup=setup_code, globals=globals(), number=loops) * 1000 / (loops)
+    report_daf['to_numpy', 'lod']           = ms
+    print(f"lod_to_numpy()                  {ms:.4f} ms")
 
-    report_daf['from_lod', 'sqlite']   = secs = timeit.timeit('lod_to_sqlite_table(sample_klod, table_name=datatable2)', setup=setup_code, globals=globals(), number=loops)
-    print(f"lod_to_sqlite_table()       {loops} loops: {secs:.4f} secs")
+    report_daf['from_lod', 'sqlite']        = ms = timeit.timeit('lod_to_sqlite_table(sample_klod, table_name=datatable2)', setup=setup_code, globals=globals(), number=loops) * 1000 / (loops)
+    print(f"lod_to_sqlite_table()           {ms:.4f} ms")
 
     #-------------------------------
 
-    report_daf['to_pandas_df', 'loops']    = loops
-    report_daf['to_pandas_df', 'daf']     = secs = timeit.timeit('sample_daf.to_pandas_df()', setup=setup_code, globals=globals(), number=loops)
-    print(f"daf.to_pandas_df()         {loops} loops: {secs:.4f} secs")
+    #report_daf['to_pandas_df', 'loops']    = loops
+    report_daf['to_pandas_df', 'daf']       = ms = timeit.timeit('sample_daf.to_pandas_df()', setup=setup_code, globals=globals(), number=loops) * 1000 / (loops)
+    print(f"daf.to_pandas_df()              {ms:.4f} ms")
 
-    report_daf['to_pandas_df_thru_csv', 'loops']   = loops
-    report_daf['to_pandas_df_thru_csv', 'daf']    = secs = timeit.timeit('sample_daf.to_pandas_df(use_csv=True)', setup=setup_code, globals=globals(), number=loops)
-    print(f"daf.to_pandas_df(use_csv=True)  {loops} loops: {secs:.4f} secs")
+    #report_daf['to_pandas_df_thru_csv', 'loops']   = loops
+    report_daf['to_pandas_df_thru_csv', 'daf']    = ms = timeit.timeit('sample_daf.to_pandas_df(use_csv=True)', setup=setup_code, globals=globals(), number=loops) * 1000 / (loops)
+    print(f"daf.to_pandas_df(use_csv=True)  {ms:.4f} ms")
 
-    report_daf['from_pandas_df', 'loops']          = loops
-    report_daf['from_pandas_df', 'daf']           = secs = timeit.timeit('Daf.from_pandas_df(df)', setup=setup_code, globals=globals(), number=loops)
-    print(f"Daf.from_pandas_df()       {loops} loops: {secs:.4f} secs")
+    #report_daf['from_pandas_df', 'loops']  = loops
+    report_daf['from_pandas_df', 'daf']     = ms = timeit.timeit('Daf.from_pandas_df(df)', setup=setup_code, globals=globals(), number=loops) * 1000 / (loops)
+    print(f"Daf.from_pandas_df()            {ms:.4f} ms")
 
-    report_daf['to_numpy', 'loops']        = loops
-    report_daf['to_numpy', 'daf']         = secs = timeit.timeit('sample_daf.to_numpy()',            setup=setup_code, globals=globals(), number=loops)
-    print(f"daf.to_numpy()             {loops} loops: {secs:.4f} secs")
+    #report_daf['to_numpy', 'loops']        = loops
+    report_daf['to_numpy', 'daf']           = ms = timeit.timeit('sample_daf.to_numpy()',            setup=setup_code, globals=globals(), number=loops) * 1000 / (loops)
+    print(f"daf.to_numpy()                  {ms:.4f} ms")
 
-    report_daf['from_numpy', 'loops']      = loops 
-    report_daf['from_numpy', 'daf']       = secs = timeit.timeit('Daf.from_numpy(hdnpa[1])',  setup=setup_code, globals=globals(), number=loops)
-    print(f"Daf.from_numpy()           {loops} loops: {secs:.4f} secs")
+    #report_daf['from_numpy', 'loops']      = loops 
+    report_daf['from_numpy', 'daf']         = ms = timeit.timeit('Daf.from_numpy(hdnpa[1])',  setup=setup_code, globals=globals(), number=loops) * 1000 / (loops)
+    print(f"Daf.from_numpy()                {ms:.4f} secs")
 
-    report_daf['to_pandas_df', 'numpy']    = secs = timeit.timeit('pd.DataFrame(hdnpa[1])',  setup=setup_code, globals=globals(), number=loops)
-    report_daf['from_numpy', 'pandas']     = secs
-    print(f"numpy to pandas df          {loops} loops: {secs:.4f} secs")
+    report_daf['to_pandas_df', 'numpy']     = ms = timeit.timeit('pd.DataFrame(hdnpa[1])',  setup=setup_code, globals=globals(), number=loops) * 1000 / (loops)
+    report_daf['from_numpy', 'pandas']      = ms
+    print(f"numpy to pandas df              {ms:.4f} ms")
 
-    report_daf['from_pandas_df', 'numpy']  = secs = timeit.timeit('df.values',  setup=setup_code, globals=globals(), number=loops)
-    report_daf['to_numpy', 'pandas']       = secs
-    print(f"numpy from pandas df          {loops} loops: {secs:.4f} secs")
+    report_daf['from_pandas_df', 'numpy']   = ms = timeit.timeit('df.values',  setup=setup_code, globals=globals(), number=loops) * 1000 / (loops)
+    report_daf['to_numpy', 'pandas']        = ms
+    print(f"numpy from pandas df            {ms:.4f} ms")
 
 
     ## print(f"lod_to_hdlol()            {loops} loops: {timeit.timeit('lod_to_hdlol(sample_lod)', setup=setup_code, globals=globals(), number=loops):.4f} secs")
@@ -417,58 +456,70 @@ from daffodil.daf import Daf
 
     sample_daf.retmode = 'val'
 
-    report_daf['increment cell', 'loops']  = increment_loops = loops * 100
-    report_daf['increment cell', 'daf']   = secs = timeit.timeit('sample_daf[500, 500] += 1', setup=setup_code, globals=globals(), number=increment_loops)
-    print(f"daf[500, 500] += 1         {increment_loops} loops: {secs:.4f} secs")
+    #report_daf['increment cell', 'loops']   = 
+    increment_loops = loops * 100
+    report_daf['increment cell', 'daf']     = ms = timeit.timeit('sample_daf[500, 500] += 1', setup=setup_code, globals=globals(), number=increment_loops) * 1000 / (increment_loops)
+    print(f"daf[500, 500] += 1              {ms:.4f} ms")
 
-    report_daf['increment cell', 'pandas']    = secs = timeit.timeit('df.at[500, "Col500"] += 1', setup=setup_code, globals=globals(), number=increment_loops)
-    print(f"df.at[500, 'Col500'] += 1   {increment_loops} loops: {secs:.4f} secs")
+    report_daf['increment cell', 'pandas']  = ms = timeit.timeit('df.at[500, "Col500"] += 1', setup=setup_code, globals=globals(), number=increment_loops) * 1000 / (increment_loops)
+    print(f"df.at[500, 'Col500'] += 1       {ms:.4f} ms")
 
-    report_daf['insert_irow', 'loops']     = insert_loops = loops * 10
-    report_daf['insert_irow', 'daf']      = secs = timeit.timeit('sample_daf.insert_irow(irow=400, row_la=sample_daf[600, :].copy())', setup=setup_code, globals=globals(), number=insert_loops)
-    print(f"daf.insert_irow            {insert_loops} loops: {secs:.4f} secs")
+    #report_daf['insert_irow', 'loops']     = 
+    insert_loops = loops * 10
+    report_daf['insert_irow', 'daf']        = ms = timeit.timeit('sample_daf.insert_irow(irow=400, row=sample_daf[600, :].copy())', setup=setup_code, globals=globals(), number=insert_loops) * 1000 / (insert_loops)
+    print(f"daf.insert_irow                 {ms:.4f} ms")
 
-    report_daf['insert_irow', 'pandas']    = secs = timeit.timeit('pd.concat([df.iloc[: 400], pd.DataFrame([df.loc[600].copy()]), df.iloc[400:]], ignore_index=True)', setup=setup_code, globals=globals(), number=insert_loops)
-    print(f"df insert row               {insert_loops} loops: {secs:.4f} secs")
+    report_daf['insert_irow', 'pandas']     = ms = timeit.timeit('pd.concat([df.iloc[: 400], pd.DataFrame([df.loc[600].copy()]), df.iloc[400:]], ignore_index=True)', setup=setup_code, globals=globals(), number=insert_loops)  * 1000/ (insert_loops)
+    print(f"df insert row                   {ms:.4f} ms")
 
-    report_daf['insert_icol', 'loops']     = insert_loops = loops * 10
-    report_daf['insert_icol', 'daf']      = secs = timeit.timeit('sample_daf.insert_icol(icol=400, col_la=sample_daf[:, 600].copy())', setup=setup_code, globals=globals(), number=insert_loops)
-    print(f"daf.insert_icol            {insert_loops} loops: {secs:.4f} secs")
+    #report_daf['insert_icol', 'loops']     = 
+    insert_loops = loops * 10
+    report_daf['insert_icol', 'daf']        = ms = timeit.timeit('sample_daf.insert_icol(icol=400, col_la=sample_daf[:, 600].copy())', setup=setup_code, globals=globals(), number=insert_loops)  * 1000/ (insert_loops)
+    print(f"daf.insert_icol                 {ms:.4f} ms")
 
-    report_daf['insert_icol', 'pandas']    = secs = timeit.timeit("pd.concat([df.iloc[:, :400], pd.DataFrame({'Col600_Copy': df['Col600'].copy()}), df.iloc[:, 400:]], axis=1)", setup=setup_code, globals=globals(), number=insert_loops)
-    print(f"df insert col               {insert_loops} loops: {secs:.4f} secs")
+    report_daf['insert_icol', 'pandas']     = ms = timeit.timeit("pd.concat([df.iloc[:, :400], pd.DataFrame({'Col600_Copy': df['Col600'].copy()}), df.iloc[:, 400:]], axis=1)", setup=setup_code, globals=globals(), number=insert_loops) * 1000 / (insert_loops)
+    print(f"df insert col                   {ms:.4f} ms")
 
     print("\nTime for sums:")
 
-    report_daf['sum cols', 'loops']        = loops
-    report_daf['sum cols', 'pandas']       = secs = timeit.timeit('cols=list[df.columns]; df[cols].sum().to_dict()', setup=setup_code, globals=globals(), number=loops)
-    print(f"df_sum_cols()               {loops} loops: {secs:.4f} secs")
+    #report_daf['sum cols', 'loops']        = loops
+    report_daf['sum cols', 'pandas']        = ms = timeit.timeit('cols=list[df.columns]; df[cols].sum().to_dict()', setup=setup_code, globals=globals(), number=loops) * 1000 / (loops)
+    print(f"df_sum_cols()                   {ms:.4f} ms")
 
-    report_daf['sum cols', 'daf']         = secs = timeit.timeit('sample_daf.sum()', setup=setup_code, globals=globals(), number=loops)
-    print(f"daf.sum()                  {loops} loops: {secs:.4f} secs")
+    report_daf['sum cols', 'daf']           = ms = timeit.timeit('sample_daf.sum()', setup=setup_code, globals=globals(), number=loops) * 1000 / (loops)
+    print(f"daf.sum()                       {ms:.4f} ms")
 
-    report_daf['sum_np', 'loops']          = loops
-    report_daf['sum_np', 'daf']           = secs = timeit.timeit('sample_daf.sum_np()',    setup=setup_code, globals=globals(), number=loops)
-    print(f"daf.sum_np()               {loops} loops: {secs:.4f} secs")
+    report_daf['sample_daf.daf_sum()', 'daf'] = ms = timeit.timeit('sample_daf.daf_sum()', setup=setup_code, globals=globals(), number=loops) * 1000 / (loops)
+    print(f"sample_daf.daf_sum()            {ms:.4f} ms")
 
-    report_daf['sum cols', 'numpy']        = secs = timeit.timeit('hdnpa_dotsum_cols(hdnpa)',  setup=setup_code, globals=globals(), number=loops)
-    print(f"hdnpa_dotsum_cols()         {loops} loops: {secs:.4f} secs")
+    # report_daf['sample_daf.daf_sum2()', 'daf'] = ms = timeit.timeit('sample_daf.daf_sum2()', setup=setup_code, globals=globals(), number=loops) * 1000 / (loops)
+    # print(f"sample_daf.daf_sum2()           {ms:.4f} ms")
 
-    report_daf['sum cols', 'sqlite']       = secs = timeit.timeit('sum_columns_in_sqlite_table(table_name=datatable1)', setup=setup_code, globals=globals(), number=loops)
-    print(f"sqlite_sum_cols()           {loops} loops: {secs:.4f} secs")
+    # report_daf['sample_daf.daf_sum3()', 'daf'] = ms = timeit.timeit('sample_daf.daf_sum3()', setup=setup_code, globals=globals(), number=loops) * 1000 / (loops)
+    # print(f"sample_daf.daf_sum3()           {ms:.4f} ms")
 
-    report_daf['sum cols', 'lod']          = secs = timeit.timeit('lod_sum_cols(sample_lod)',  setup=setup_code, globals=globals(), number=loops)
-    print(f"lod_sum_cols()              {loops} loops: {secs:.4f} secs")
+    #report_daf['sum_np', 'loops']          = loops
+    report_daf['sum_np', 'daf']             = ms = timeit.timeit('sample_daf.sum_np()',    setup=setup_code, globals=globals(), number=loops) * 1000 / (loops)
+    print(f"daf.sum_np()                    {ms:.4f} ms")
 
-    report_daf['transpose', 'loops']       = loops
-    report_daf['transpose', 'pandas']      = secs = timeit.timeit('df.transpose()',            setup=setup_code, globals=globals(), number=loops)
-    print(f"df.transpose()              {loops} loops: {secs:.4f} secs")
+    report_daf['sum cols', 'numpy']         = ms = timeit.timeit('hdnpa_dotsum_cols(hdnpa)',  setup=setup_code, globals=globals(), number=loops) * 1000 / (loops)
+    print(f"hdnpa_dotsum_cols()             {ms:.4f} ms")
 
-    report_daf['transpose', 'daf']        = secs = timeit.timeit('sample_daf.transpose()',          setup=setup_code, globals=globals(), number=loops)
-    print(f"daf.transpose()            {loops} loops: {secs:.4f} secs")
+    report_daf['sum cols', 'sqlite']        = ms = timeit.timeit('sum_columns_in_sqlite_table(table_name=datatable1)', setup=setup_code, globals=globals(), number=loops) * 1000 / (loops)
+    print(f"sqlite_sum_cols()               {ms:.4f} ms")
 
-    report_daf['transpose', 'numpy']       = secs = timeit.timeit('np.transpose(hdnpa[1])',    setup=setup_code, globals=globals(), number=loops)
-    print(f"daf.transpose()            {loops} loops: {secs:.4f} secs")
+    report_daf['sum cols', 'lod']           = ms = timeit.timeit('lod_sum_cols(sample_lod)',  setup=setup_code, globals=globals(), number=loops) * 1000 / (loops)
+    print(f"lod_sum_cols()                  {ms:.4f} ms")
+
+    #report_daf['transpose', 'loops']        = loops
+    report_daf['transpose', 'pandas']       = ms = timeit.timeit('df.transpose()',            setup=setup_code, globals=globals(), number=loops) * 1000 / (loops)
+    print(f"df.transpose()                  {ms:.4f} ms")
+
+    report_daf['transpose', 'daf']          = ms = timeit.timeit('sample_daf.transpose()',          setup=setup_code, globals=globals(), number=loops) * 1000 / (loops)
+    print(f"daf.transpose()                 {ms:.4f} ms")
+
+    report_daf['transpose', 'numpy']        = ms = timeit.timeit('np.transpose(hdnpa[1])',    setup=setup_code, globals=globals(), number=loops) * 1000 / (loops)
+    print(f"daf.transpose()                 {ms:.4f} ms")
 
     ##print(f"lod_sum_cols2()             {loops} loops: {timeit.timeit('lod_sum_cols2(sample_lod)',setup=setup_code, globals=globals(), number=loops):.4f} secs")
     ##print(f"lont_sum_cols()            {loops} loops: {timeit.timeit('lont_sum_cols(lont)',      setup=setup_code, globals=globals(), number=loops):.4f} secs")
@@ -483,94 +534,104 @@ from daffodil.daf import Daf
 
     print("\nTime for lookups:")
 
-    report_daf['keyed lookup', 'loops']    = keyed_lookup_loops = loops*10
-    report_daf['keyed lookup', 'daf']     = secs = timeit.timeit("sample_kdaf.select_record_da('500')", setup=setup_code, globals=globals(), number=keyed_lookup_loops)
-    print(f"kdaf row lookup            {keyed_lookup_loops} loops: {secs:.4f} secs")
+    #report_daf['keyed lookup', 'loops']    = 
+    keyed_lookup_loops = loops*10
+    report_daf['keyed lookup', 'daf']       = ms = timeit.timeit("sample_kdaf.select_record_da('500')", setup=setup_code, globals=globals(), number=keyed_lookup_loops) * 1000 / (keyed_lookup_loops)
+    print(f"kdaf row lookup                 {ms:.4f} ms")
 
-    report_daf['keyed lookup', 'pandas']   = secs = timeit.timeit("kdf.loc['500'].to_dict()",      setup=setup_code, globals=globals(), number=keyed_lookup_loops)
-    print(f"kdf row lookup (indexed)    {keyed_lookup_loops} loops: {secs:.4f} secs")
+    report_daf['keyed lookup', 'pandas']    = ms = timeit.timeit("kdf.loc['500'].to_dict()",      setup=setup_code, globals=globals(), number=keyed_lookup_loops) * 1000 / (keyed_lookup_loops)
+    print(f"kdf row lookup (indexed)        {ms:.4f} ms")
 
-    report_daf['keyed lookup', 'lod']      = secs = timeit.timeit('klod_row_lookup(sample_klod)',  setup=setup_code, globals=globals(), number=keyed_lookup_loops)
-    print(f"klod_row_lookup()           {keyed_lookup_loops} loops: {secs:.4f} secs")
+    report_daf['keyed lookup', 'lod']       = ms = timeit.timeit('klod_row_lookup(sample_klod)',  setup=setup_code, globals=globals(), number=keyed_lookup_loops) * 1000 / (keyed_lookup_loops)
+    print(f"klod_row_lookup()               {ms:.4f} ms")
 
-    report_daf['keyed lookup', 'sqlite']   = secs = timeit.timeit('sqlite_selectrow(table_name=datatable1)', setup=setup_code, globals=globals(), number=keyed_lookup_loops)
-    print(f"sqlite_row_lookup()         {keyed_lookup_loops} loops: {secs:.4f} secs")
+    report_daf['keyed lookup', 'sqlite']    = ms = timeit.timeit('sqlite_selectrow(table_name=datatable1)', setup=setup_code, globals=globals(), number=keyed_lookup_loops) * 1000 / (keyed_lookup_loops)
+    print(f"sqlite_row_lookup()             {ms:.4f} ms")
 
     MB = 1024 * 1024
 
+    report_daf.append({'Attribute': '=====', 
+                        'daf':      '=====', 
+                        'pandas':   '=====', 
+                        'numpy':    '=====', 
+                        'sqlite':   '=====', 
+                        'lod':      '=====',
+                        })
+
     report_daf.append({'Attribute': 'Size of 1000x1000 array (MB)', 
-                        'daf':     sizeof_di['daf'] / MB, 
-                        'pandas':   sizeof_di['df'] / MB, 
-                        'pumpy':    sizeof_di['hdnpa'] / MB, 
+                        'daf':      sizeof_di['daf']    / MB, 
+                        'pandas':   sizeof_di['df']     / MB, 
+                        'numpy':    sizeof_di['hdnpa']  / MB, 
                         'sqlite':   sizeof_di['sqlite'] / MB, 
-                        'lod':      sizeof_di['lod'] / MB,
-                        'loops':    '',
+                        'lod':      sizeof_di['lod']    / MB,
                         })
 
     report_daf.append({'Attribute': 'Size of keyed 1000x1000 array (MB)', 
-                        'daf':     sizeof_di['kdaf'] / MB, 
-                        'pandas':   sizeof_di['kdf'] / MB, 
+                        'daf':      sizeof_di['kdaf']   / MB, 
+                        'pandas':   sizeof_di['kdf']    / MB, 
                         'numpy':    '--' , 
                         'sqlite':   sizeof_di['sqlite'] / MB, 
-                        'lod':      sizeof_di['klod'] / MB,
-                        'loops':    '',
+                        'lod':      sizeof_di['klod']   / MB,
                         })
 
-    md_report += "\n\n" + report_daf.to_md(smart_fmt = True, just = '>^^^^^') + "\n\n"
+    md_report += "### Summary of times (ms) and Sizes (MB)\n\n" + report_daf.to_md(smart_fmt = True, just = '>^^^^^') + "\n\n"
     
     """
     
 Notes:
 
 1. `to_pandas_df()` -- this is a critical operation where Pandas has a severe problem, as it takes about 34x
-    longer to load an array vs. Daf. Since Pandas is very slow appending rows, it is a common pattern to
-    first build a table to list of dictionaries (lod) or Daf array, and then port to a pandas df. But
+    longer to load an array vs. Daffodil directly. Since Pandas is very slow appending rows, it is a common pattern to
+    first build a table to list of dictionaries (lod), and then port to a pandas df. But
     the overhead is so severe that it will take at least 30 column operations across all columns to make
-    up the difference.
-1. `to_pandas_df_thru_csv()` -- This exports the array to csv in a buffer, then reads the buffer into Pandas,
+    up the difference, and so it is commonly better to avoid Pandas altogether, particular in repetitive operations.
+2. `to_pandas_df_thru_csv()` -- This exports the array to csv in a buffer, then reads the buffer into Pandas,
     and can improve the porting to pandas df by about 10x.
-2. `sum_cols()` uses best python summing of all columns with one pass through the data, while `sum_np` first
+3. `sum_cols()` uses best python summing of all columns with one pass through the data, while `sum_np` first
     exports the columns to NumPy, performs the sum of all columns there, and then reads it back to Daf. In this case,
     it takes about 1/3 the time to use NumPy for summing. This demonstrates that using NumPy for 
     strictly numeric operations on columns may be a good idea if the number of columns and rows being summed is
-    sufficient. Otherwise, using Daffodil to sum the columns may still be substantialy faster.
-3. Transpose: Numpy does not create a separate copy of the array in memory. Instead, it returns a 
+    sufficient. Otherwise, using Daffodil to sum the columns may still be substantially faster.
+4. Transpose: Numpy performs a transposition without creating a separate copy of the array in memory. Instead, it returns a 
     view of the original array with the dimensions rearranged. It is a constant-time operation, as it simply 
     involves changing the shape and strides of the array metadata without moving any of the actual data in 
-    memory. It is an efficient operation and does not consume additional memory. There may be a way to 
-    accelerate transposition within python and of non-numeric objects by using a similar strategy
+    memory. It is extremely efficient and does not consume additional memory. There may be a way to 
+    accelerate transposition within Daffodil using python and of non-numeric objects by using a similar strategy
     with the references to objects that Python uses. Transpose with Daffodil is slow right now but there may be
-    a way to more quickly provide the transpose operation if coded at a lower level.
-4. In general, we note that Daffodil is faster than Pandas for array manipulation (inserting rows (300x faster) 
+    a way to more quickly provide the transpose operation if coded at a lower level. If columns are selected or dropped,
+    a transposition (set flip=True) is 'free' because any column manipulation in Daffodil is relatively difficult.
+5. In general, we note that Daffodil is faster than Pandas for array manipulation (inserting rows (300x faster) 
     and cols (1.4x faster)), performing actions on individual cells (5x faster), appending rows (which Pandas essentially outlaws), 
     and performing keyed lookups (8.4x faster). Daffodil arrays are smaller 
     whenever any strings are included in the array by about 3x over Pandas. While Pandas and Numpy
     are faster for columnar calculations, Numpy is always faster on all numeric data. Therefore
     it is a good strategy to use Daffodil for all operations except for pure data manipulation, and then
-    port the appropriate columns to NumPy.
-5. Thus, the stragegy of Daffodil vs Pandas is that Daffodil leaves data in Python native form, which requires no 
+    port the appropriate columns to NumPy. 
+6. Thus, the stragegy of Daffodil vs Pandas is that Daffodil leaves data in Python native form, which requires no 
     conversion for all cases except when rapid processing is required, and then the user should export only those
     columns to Numpy. In contrast, Pandas converts all columns to Numpy, and then has to repair the columns that
-    have strings or other types. Daffodil is not a direct replacement for Pandas, as it covers a different use case,
-    and can be used effectively in data pipelines and to fix up the data prior to porting to Pandas.
+    have strings or other types. Daffodil is not a direct replacement for Pandas which is still going to be a good choice
+    for interactive data exploration and where data already exists and is not being built by any Python code.
+### Summary of times (ms) and Sizes (MB)
 
-
-|             Attribute              |  daf   |  pandas  |  numpy   | sqlite |  lod   | loops |
-| ---------------------------------: | :----: | :------: | :------: | :----: | :----: | :---- |
-|                           from_lod |  1.3   |   50.9   |   0.62   |  6.5   |        | 10    |
-|                       to_pandas_df |  47.9  |          | 0.00030  |        |  50.9  | 10    |
-|              to_pandas_df_thru_csv |  5.1   |          |          |        |        | 10    |
-|                     from_pandas_df |  3.8   |          | 0.000046 |        |        | 10    |
-|                           to_numpy |  0.48  | 0.000046 |          |        |  0.62  | 10    |
-|                         from_numpy | 0.088  | 0.00030  |          |        |        | 10    |
-|                     increment cell |  0.14  |  0.046   |          |        |        | 1,000 |
-|                        insert_irow | 0.014  |   0.83   |          |        |        | 100   |
-|                        insert_icol |  0.15  |   0.27   |          |        |        | 100   |
-|                           sum cols |  1.6   |  0.069   |  0.024   |  2.7   |  1.3   | 10    |
-|                             sum_np |  0.57  |          |          |        |        | 10    |
-|                          transpose |  20.6  |  0.0016  | 0.000023 |        |        | 10    |
-|                       keyed lookup | 0.0073 |  0.080   |          |  0.32  | 0.0083 | 100   |
-|       Size of 1000x1000 array (MB) |  38.3  |   9.3    |          |  4.9   |  119   |       |
-| Size of keyed 1000x1000 array (MB) |  38.5  |   98.1   |    --    |  4.9   |  119   |       |
+|             Attribute              |  daf  | pandas | numpy  | sqlite |  lod  |
+| ---------------------------------: | :---: | :----: | :----: | :----: | :---: |
+|                           from_lod |  133  | 4,800  |  75.6  |  668   |       |
+|                       to_pandas_df | 5,528 |        | 0.034  |        | 4,800 |
+|              to_pandas_df_thru_csv |  571  |        |        |        |       |
+|                     from_pandas_df | 95.3  |        | 0.0047 |        |       |
+|                           to_numpy | 53.1  | 0.0047 |        |        | 75.6  |
+|                         from_numpy | 10.5  | 0.034  |        |        |       |
+|                     increment cell | 0.12  | 0.047  |        |        |       |
+|                        insert_irow | 0.095 |  9.8   |        |        |       |
+|                        insert_icol |  1.7  |  2.6   |        |        |       |
+|                           sum cols |  349  |  7.6   |  3.2   |  345   |  160  |
+|               sample_daf.daf_sum() |  254  |        |        |        |       |
+|                             sum_np | 64.0  |        |        |        |       |
+|                          transpose | 2,315 |  0.18  | 0.0051 |        |       |
+|                       keyed lookup | 0.087 |  1.0   |        |  5.0   | 0.094 |
+|                              ===== | ===== | =====  | =====  | =====  | ===== |
+|       Size of 1000x1000 array (MB) | 38.3  |  9.3   |  3.9   |  4.9   |  119  |
+| Size of keyed 1000x1000 array (MB) | 38.5  |  98.1  |   --   |  4.9   |  119  |
 
 

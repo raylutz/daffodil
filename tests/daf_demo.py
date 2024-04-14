@@ -50,6 +50,30 @@ be viewed directly or converted to HTML for use on a static website.
     # notice that when each row is appended, the columns are respected,
     # even if the data is provided in a different order.
 
+    md_report += md_code_seg('Subset rows, cols using row and cols using indices:') + "\n" 
+    """ Square brackets index using row, col syntax, using normal Python indexing
+        using explicit numbering, slices, list of indices, string names, ranges
+        of sring names, or list of string names. Row selection is fast because
+        no additional copies are made of the data, whereas column dropping is not. 
+        Although available, subsetting columns in this manner is
+        relatively non-performant because a copy must be made, and is not recommended.
+        Instead, indicate active columns in apply() and other functions using cols=[] parameter,
+        and leave columns as-is.
+    """    
+   
+    md_report += f"First 2 rows (and all columns) by slicing:\nmy_daf[0:2] = \n{my_daf[0:2]}\n"
+    
+    md_report += f"Row 0 and 2 (and all columns) using a list:\nmy_daf[[0,2]] = \n{my_daf[[0,2]]}\n"
+
+    md_report += f"Just row 1:\nmy_daf[1] = \n{my_daf[1] = }\n"
+    
+    md_report += f"First 2 cols by slicing:\nmy_daf[:, 0:2] = \n{my_daf[:, 0:2]}\n"
+    
+    md_report += f"Columns 0 and 2 using a list:\nmy_daf[:, [0,2]] = \n{my_daf[:, [0,2]]}\n"
+
+    md_report += f"Just col 1:\nmy_daf[:, 1] = \n{my_daf[:, 1]}\n"
+    
+
     md_report += md_code_seg('Read and write individual cells by row,col indices') + "\n" 
     """ replace value at row 2, col 1 (i.e. 9) with value from row 1, col 0 (i.e. 5)
         multiplied by the value in cell [2,2] (i.e. 10) resulting in 50 at [2,1].
@@ -392,8 +416,8 @@ In general, the number of rows is reduced to no more than the product of number 
     grouped_and_summed_daf = data_table_daf.groupby_cols_reduce(
         groupby_colnames    = groupby_colnames,     # columns used for groups
         reduce_cols         = reduce_colnames,      # columns included in the reduce operation.
-        func                = Daf.sum_np,
-        by                  = 'table',              # determines how the func is applied. sum_np is by table not row.
+        func                = Daf.sum_da,
+        by                  = 'row',                # determines how the func is applied. sum_da is by row.
         )
 
     expected_lol = [

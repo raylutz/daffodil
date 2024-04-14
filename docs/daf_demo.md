@@ -16,7 +16,7 @@ be viewed directly or converted to HTML for use on a static website.
 
 
 ```python
-    from daffodil.daf import Daf as Daf
+    from daffodil.daf import Daf
     
     my_daf = Daf()
     
@@ -62,6 +62,91 @@ The appended my_daf:
 | 8 | 9 | 10 |
 
 \[3 rows x 3 cols; keyfield=; 0 keys ] (Daf)
+
+
+## Subset rows, cols using row and cols using indices:
+
+Square brackets index using row, col syntax, using normal Python indexing
+        using explicit numbering, slices, list of indices, string names, ranges
+        of sring names, or list of string names. Row selection is fast because
+        no additional copies are made of the data, whereas column dropping is not. 
+        Although available, subsetting columns in this manner is
+        relatively non-performant because a copy must be made, and is not recommended.
+        Instead, indicate active columns in apply() and other functions using cols=[] parameter,
+        and leave columns as-is.
+
+```python
+    md_report += f"First 2 rows (and all columns) by slicing:\nmy_daf[0:2] = \n{my_daf[0:2]}\n"
+    
+    md_report += f"Row 0 and 2 (and all columns) using a list:\nmy_daf[[0,2]] = \n{my_daf[[0,2]]}\n"
+
+    md_report += f"Just row 1:\nmy_daf[1] = \n{my_daf[1] = }\n"
+    
+    md_report += f"First 2 cols by slicing:\nmy_daf[:, 0:2] = \n{my_daf[:, 0:2]}\n"
+    
+    md_report += f"Columns 0 and 2 using a list:\nmy_daf[:, [0,2]] = \n{my_daf[:, [0,2]]}\n"
+
+    md_report += f"Just col 1:\nmy_daf[:, 1] = \n{my_daf[:, 1]}\n"
+```
+
+
+
+First 2 rows (and all columns) by slicing:
+my_daf[0:2] = 
+| A | B | C |
+| -: | -: | -: |
+| 1 | 2 | 3 |
+| 5 | 6 | 7 |
+
+\[2 rows x 3 cols; keyfield=; 0 keys ] (Daf)
+
+Row 0 and 2 (and all columns) using a list:
+my_daf[[0,2]] = 
+| A | B | C  |
+| -: | -: | -: |
+| 1 | 2 |  3 |
+| 8 | 9 | 10 |
+
+\[2 rows x 3 cols; keyfield=; 0 keys ] (Daf)
+
+Just row 1:
+my_daf[1] = 
+my_daf[1] = 
+| A | B | C |
+| -: | -: | -: |
+| 5 | 6 | 7 |
+
+\[1 rows x 3 cols; keyfield=; 0 keys ] (Daf)
+
+First 2 cols by slicing:
+my_daf[:, 0:2] = 
+| A | B |
+| -: | -: |
+| 1 | 2 |
+| 5 | 6 |
+| 8 | 9 |
+
+\[3 rows x 2 cols; keyfield=; 0 keys ] (Daf)
+
+Columns 0 and 2 using a list:
+my_daf[:, [0,2]] = 
+| A | C  |
+| -: | -: |
+| 1 |  3 |
+| 5 |  7 |
+| 8 | 10 |
+
+\[3 rows x 2 cols; keyfield=; 0 keys ] (Daf)
+
+Just col 1:
+my_daf[:, 1] = 
+| B |
+| -: |
+| 2 |
+| 6 |
+| 9 |
+
+\[3 rows x 1 cols; keyfield=; 0 keys ] (Daf)
 
 
 ## Read and write individual cells by row,col indices
@@ -598,7 +683,7 @@ Contents of C:\Windows\System32:
 | \zipfldr.dll                                                    | 285696 | 2023-12-13T18:13:32 | False  |
 | \ztrace_maps.dll                                                |  30720 | 2019-12-07T01:08:28 | False  |
 
-\[8730 rows x 4 cols; keyfield=; 0 keys ] (Daf)
+\[8802 rows x 4 cols; keyfield=; 0 keys ] (Daf)
 
 
 
@@ -638,12 +723,12 @@ Contents of C:\Windows\System32 (in raw text format):
 | \zipfldr.dll                                                    | 285696 | 2023-12-13T18:13:32 | False  |
 | \ztrace_maps.dll                                                |  30720 | 2019-12-07T01:08:28 | False  |
 
-\[8730 rows x 4 cols; keyfield=; 0 keys ] (Daf)
+\[8802 rows x 4 cols; keyfield=; 0 keys ] (Daf)
 
 ```
 
-- daf size in memory: 2,385,680 bytes
-- pandas df size in memory: 2,851,384 bytes
+- daf size in memory: 2,404,880 bytes
+- pandas df size in memory: 2,875,088 bytes
 
 ## Limit this list to just the files
 
@@ -701,7 +786,7 @@ Files only in C:\Windows\System32:
 | \zipfldr.dll                                                    | 285696 | 2023-12-13T18:13:32 | False  |
 | \ztrace_maps.dll                                                |  30720 | 2019-12-07T01:08:28 | False  |
 
-\[8608 rows x 4 cols; keyfield=; 0 keys ] (Daf)
+\[8679 rows x 4 cols; keyfield=; 0 keys ] (Daf)
 
 
 
@@ -808,8 +893,8 @@ Original data_table_daf:
     grouped_and_summed_daf = data_table_daf.groupby_cols_reduce(
         groupby_colnames    = groupby_colnames,     # columns used for groups
         reduce_cols         = reduce_colnames,      # columns included in the reduce operation.
-        func                = Daf.sum_np,
-        by                  = 'table',              # determines how the func is applied. sum_np is by table not row.
+        func                = Daf.sum_da,
+        by                  = 'row',                # determines how the func is applied. sum_da is by row.
         )
 
     expected_lol = [

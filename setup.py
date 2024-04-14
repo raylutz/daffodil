@@ -3,7 +3,7 @@ from pathlib import Path
 
 setup(
     name='daffodil',
-    version='0.2.2',
+    version='0.3.0',
     packages=find_packages(),
     install_requires=[
         'xlsx2csv==0.8.2'

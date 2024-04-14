@@ -2590,7 +2590,7 @@ class TestDaf(unittest.TestCase):
         daf = Daf(cols=cols, lol=lol, keyfield='col1', dtypes={'col1': int, 'col2': int, 'col3': int})
 
         result_sum = daf.daf_sum(cols=['col1', 'col3'])
-        expected_sum = {'col1': 12, 'col3': 18}
+        expected_sum = {'col1': 12, 'col2': '', 'col3': 18}
         self.assertEqual(result_sum, expected_sum)
 
     def test_daf_sum_include_types_int(self):
@@ -2601,7 +2601,7 @@ class TestDaf(unittest.TestCase):
 
         reduce_cols = daf.calc_cols(include_types=int)
         result_sum = daf.daf_sum(cols=reduce_cols)
-        expected_sum = {'col2': 15, 'col3': 18}
+        expected_sum = {'col1': '', 'col2': 15, 'col3': 18}
         self.assertEqual(result_sum, expected_sum)
 
     def test_daf_sum_include_types_int_and_float(self):
@@ -2625,7 +2625,7 @@ class TestDaf(unittest.TestCase):
 
         reduce_cols = daf.calc_cols(exclude_types=[str, bool, list])
         result_sum = daf.daf_sum(cols=reduce_cols)
-        expected_sum = {'col2': 15, 'col3': 18}
+        expected_sum = {'col1': '', 'col2': 15, 'col3': 18}
         self.assertEqual(result_sum, expected_sum)
 
     def test_daf_sum_empty_daf(self):
@@ -3846,6 +3846,92 @@ class TestDaf(unittest.TestCase):
         # Check if kd is recalculated
         self.assertIsNotNone(self.daf.kd)
         
+
+    # wide to narrow
+    def test_wide_to_narrow_conversion_basic(self):
+        # Initialize a wide Daffodil dataframe for testing
+        wide_daf = Daf(cols=['ID', 'A', 'B'], lol=[[1, 10, 100], [2, 20, 200], [3, 30, 300]])
+        
+        # Test if the method converts a wide DataFrame to a narrow format
+        narrow_daf = wide_daf.wide_to_narrow(id_cols=['ID'])
+        
+        # Check the exact content of the narrow DataFrame
+        expected_content = [
+            {'ID': 1, 'varname': 'A', 'value': 10},
+            {'ID': 1, 'varname': 'B', 'value': 100},
+            {'ID': 2, 'varname': 'A', 'value': 20},
+            {'ID': 2, 'varname': 'B', 'value': 200},
+            {'ID': 3, 'varname': 'A', 'value': 30},
+            {'ID': 3, 'varname': 'B', 'value': 300}
+        ]
+        self.assertEqual(len(narrow_daf), 6)  # Ensure correct number of rows
+        
+        # Check each row in the narrow DataFrame
+        for i, row in enumerate(narrow_daf):
+            self.assertDictEqual(row, expected_content[i])
+        
+        # Add more assertions based on the expected structure of the narrow DataFrame
+        
+        
+    # def test_wide_to_narrow_id_cols_handling_additional_columns(self):
+        # # Initialize a wide Daffodil dataframe for testing
+        # wide_daf = Daf(cols=['ID', 'A', 'B'], lol=[[1, 10, 100], [2, 20, 200], [3, 30, 300]])
+        
+        # # Test the handling of identifier columns
+        # narrow_daf = wide_daf.wide_to_narrow(id_cols=['ID', 'SomeOtherColumn'])
+        # self.assertEqual(len(narrow_daf.columns()), 4)  # ID, SomeOtherColumn, varname, value
+        
+        # # Add more assertions based on the expected handling of identifier columns
+        
+    def test_wide_to_narrow_input_data_types_invalid_id_cols(self):
+        # Initialize a wide Daffodil dataframe for testing
+        wide_daf = Daf(cols=['ID', 'A', 'B'], lol=[[1, 10, 100], [2, 20, 200], [3, 30, 300]])
+        
+        # Test the handling of different input data types
+        with self.assertRaises(TypeError):
+            wide_daf.wide_to_narrow(id_cols='ID')  # id_cols should be a list
+        
+        # Add more assertions based on the expected behavior with different data types
+
+    # narrow_to_wide
+    def test_narrow_to_wide_conversion_basic(self):
+        # Initialize a narrow Daffodil dataframe for testing
+        narrow_daf = Daf(
+                cols=['ID', 'varname', 'value'], 
+                lol=[[1, 'A', 10], 
+                    [1, 'B', 100], 
+                    [2, 'A', 20], 
+                    [2, 'B', 200], 
+                    [3, 'A', 30], 
+                    [3, 'B', 300]])
+        
+        # Test if the method converts a narrow DataFrame to a wide format
+        wide_daf = narrow_daf.narrow_to_wide(id_cols=['ID'], varname_col='varname', value_col='value')
+        
+        # Check the exact content of the wide DataFrame
+        expected_content = Daf(cols=['ID', 'A', 'B'], lol=[[1, 10, 100], [2, 20, 200], [3, 30, 300]])
+        self.assertEqual(wide_daf, expected_content)
+        
+        # Add more assertions based on the expected structure of the wide DataFrame
+        
+    def test_narrow_to_wide_id_cols_handling_additional_columns(self):
+        # Initialize a narrow Daffodil dataframe for testing
+        narrow_daf = Daf(
+                cols=['ID', 'varname', 'value'], 
+                lol=[[1, 'A', 10], 
+                    [1, 'B', 100], 
+                    [2, 'A', 20], 
+                    [2, 'B', 200], 
+                    [3, 'A', 30], 
+                    [3, 'B', 300]])
+        
+        # Test the handling of identifier columns
+        wide_daf = narrow_daf.narrow_to_wide(id_cols=['ID'], varname_col='varname', value_col='value')
+        self.assertEqual(len(wide_daf.columns()), 3)  # ID, A, B
+        
+        # Add more assertions based on the expected handling of identifier columns
+        
+
 
 if __name__ == '__main__':
     unittest.main()

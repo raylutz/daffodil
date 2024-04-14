@@ -24,7 +24,7 @@ def fake_function(a: Optional[List[Dict[str, Tuple[int,Union[Any, str]]]]] = Non
     return None or cast(int, 0)       # pragma: no cover
 
 
-from lib.daf_types import T_lola, T_loda, T_dtype_dict, T_da, T_ds, T_hdlola, T_la, T_loti, T_ls, T_doda, T_buff, T_li #, T_lt
+from lib.daf_types import T_lola, T_loda, T_dtype_dict, T_da, T_ds, T_hdlola, T_la, T_loti, T_ls, T_doda, T_buff, T_li, T_lr
                     
 
 def is_linux() -> bool: 
@@ -677,6 +677,59 @@ def profile_ls_to_loti(
         result_loti.append( (unique_idx, repeat_count) )
         
     return result_loti            
+            
+
+def profile_ls_to_lr(
+        input_ls: T_ls, 
+        repeat_startswith='Unnamed', 
+        include_cols: Optional[T_ls]=None,
+        ignore_cols: Optional[T_ls]=None,
+        ) -> T_lr:
+    """ 
+        Given a list strings, which each are typically the header of a column,
+        return a list of ranges T_lr, that describes the
+        column offset of a given starting string, and the ending offest of
+        any repeats of that string, or strings marked with the repeat_marker.
+        
+        for example:
+        input_ls = ['Alice', 'Bob', 'Unnamed2', 'Charlie', 'David', 'Unnamed5', 'Unnamed6']
+        
+        will return:
+        output_loti = [range(0, 1), range(1, 3), range(3, 4), range(4, 7)]
+        
+        if either ignore cols or include cols are provided, then  do not profile 
+        any columns not included but include the offsets in the profile.
+        
+    """    
+    repeat_count = 0
+    result_lr: T_lr = []
+    unique_idx  = 0
+    
+    if ignore_cols is None:
+        ignore_cols = []
+    
+    unique_idx = -1
+    for idx, colstr in enumerate(input_ls):
+    
+        if colstr in ignore_cols:
+            continue
+    
+        if unique_idx == -1:
+            repeat_count = 1
+            unique_idx = idx
+                
+        elif colstr.startswith(repeat_startswith):
+            repeat_count += 1
+            
+        else:
+            result_lr.append( range(unique_idx, unique_idx + repeat_count) )
+            unique_idx = idx
+            repeat_count = 1
+    
+    if repeat_count:
+        result_lr.append( range(unique_idx, unique_idx + repeat_count) )
+        
+    return result_lr
             
 
 def reduce_lol_cols(lol: T_lola, max_cols:int=10, divider_str: str='...') -> T_lola:
