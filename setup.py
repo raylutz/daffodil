@@ -6,7 +6,7 @@ setup(
     version='0.3.0',
     packages=find_packages(),
     install_requires=[
-        'xlsx2csv==0.8.2'
+        'xlsx2csv==0.8.2',
         'Markdown==3.4.1',
     ],
     extras_require={
