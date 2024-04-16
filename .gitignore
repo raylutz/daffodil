@@ -69,3 +69,13 @@ tests/tempdata2.db
 tests/tempdata2.db
 tests/tempdata1.db
 tests/tempdata2.db
+dist/daffodil-0.2.2.tar.gz
+dist/daffodil-0.2.2.tar.gz
+dist/daffodil-0.2.2.tar.gz
+dist/daffodil-0.3.0-py3-none-any.whl
+dist/daffodil-0.2.2.tar.gz
+dist/daffodil-0.3.0.tar.gz
+tests/tempdata1.db
+tests/tempdata2.db
+*.db
+*.gz

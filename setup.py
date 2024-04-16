@@ -19,6 +19,7 @@ setup(
     long_description_content_type='text/markdown',
     url='https://github.com/raylutz/daffodil',
     python_requires='>=3.6',
+    readme="READMD.md",
     license='MIT',
     classifiers=[
         'Development Status :: 2 - Pre-Alpha',

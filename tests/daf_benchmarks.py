@@ -704,8 +704,8 @@ from daffodil.daf import Daf
                     'insert_icol',
                     'sum cols',
                     'sample_daf.daf_sum()',
-                    # 'sample_daf.daf_sum2()',
-                    # 'sample_daf.daf_sum3()',
+                    'sample_daf.daf_sum2()',
+                    'sample_daf.daf_sum3()',
                     'sum_np',
                     'transpose',
                     #'transpose_keyed',
@@ -811,11 +811,11 @@ from daffodil.daf import Daf
     report_daf['sample_daf.daf_sum()', 'daf'] = ms = timeit.timeit('sample_daf.daf_sum()', setup=setup_code, globals=globals(), number=loops) * 1000 / (loops)
     print(f"sample_daf.daf_sum()            {ms:.4f} ms")
 
-    # report_daf['sample_daf.daf_sum2()', 'daf'] = ms = timeit.timeit('sample_daf.daf_sum2()', setup=setup_code, globals=globals(), number=loops) * 1000 / (loops)
-    # print(f"sample_daf.daf_sum2()           {ms:.4f} ms")
+    report_daf['sample_daf.daf_sum2()', 'daf'] = ms = timeit.timeit('sample_daf.daf_sum2()', setup=setup_code, globals=globals(), number=loops) * 1000 / (loops)
+    print(f"sample_daf.daf_sum2()           {ms:.4f} ms")
 
-    # report_daf['sample_daf.daf_sum3()', 'daf'] = ms = timeit.timeit('sample_daf.daf_sum3()', setup=setup_code, globals=globals(), number=loops) * 1000 / (loops)
-    # print(f"sample_daf.daf_sum3()           {ms:.4f} ms")
+    report_daf['sample_daf.daf_sum3()', 'daf'] = ms = timeit.timeit('sample_daf.daf_sum3()', setup=setup_code, globals=globals(), number=loops) * 1000 / (loops)
+    print(f"sample_daf.daf_sum3()           {ms:.4f} ms")
 
     #report_daf['sum_np', 'loops']          = loops
     report_daf['sum_np', 'daf']             = ms = timeit.timeit('sample_daf.sum_np()',    setup=setup_code, globals=globals(), number=loops) * 1000 / (loops)

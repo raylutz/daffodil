@@ -385,8 +385,8 @@ from daffodil.daf import Daf
                     'insert_icol',
                     'sum cols',
                     'sample_daf.daf_sum()',
-                    # 'sample_daf.daf_sum2()',
-                    # 'sample_daf.daf_sum3()',
+                    'sample_daf.daf_sum2()',
+                    'sample_daf.daf_sum3()',
                     'sum_np',
                     'transpose',
                     #'transpose_keyed',
@@ -492,11 +492,11 @@ from daffodil.daf import Daf
     report_daf['sample_daf.daf_sum()', 'daf'] = ms = timeit.timeit('sample_daf.daf_sum()', setup=setup_code, globals=globals(), number=loops) * 1000 / (loops)
     print(f"sample_daf.daf_sum()            {ms:.4f} ms")
 
-    # report_daf['sample_daf.daf_sum2()', 'daf'] = ms = timeit.timeit('sample_daf.daf_sum2()', setup=setup_code, globals=globals(), number=loops) * 1000 / (loops)
-    # print(f"sample_daf.daf_sum2()           {ms:.4f} ms")
+    report_daf['sample_daf.daf_sum2()', 'daf'] = ms = timeit.timeit('sample_daf.daf_sum2()', setup=setup_code, globals=globals(), number=loops) * 1000 / (loops)
+    print(f"sample_daf.daf_sum2()           {ms:.4f} ms")
 
-    # report_daf['sample_daf.daf_sum3()', 'daf'] = ms = timeit.timeit('sample_daf.daf_sum3()', setup=setup_code, globals=globals(), number=loops) * 1000 / (loops)
-    # print(f"sample_daf.daf_sum3()           {ms:.4f} ms")
+    report_daf['sample_daf.daf_sum3()', 'daf'] = ms = timeit.timeit('sample_daf.daf_sum3()', setup=setup_code, globals=globals(), number=loops) * 1000 / (loops)
+    print(f"sample_daf.daf_sum3()           {ms:.4f} ms")
 
     #report_daf['sum_np', 'loops']          = loops
     report_daf['sum_np', 'daf']             = ms = timeit.timeit('sample_daf.sum_np()',    setup=setup_code, globals=globals(), number=loops) * 1000 / (loops)
@@ -616,20 +616,22 @@ Notes:
 
 |             Attribute              |  daf  | pandas | numpy  | sqlite |  lod  |
 | ---------------------------------: | :---: | :----: | :----: | :----: | :---: |
-|                           from_lod |  133  | 4,800  |  75.6  |  668   |       |
-|                       to_pandas_df | 5,528 |        | 0.034  |        | 4,800 |
-|              to_pandas_df_thru_csv |  571  |        |        |        |       |
-|                     from_pandas_df | 95.3  |        | 0.0047 |        |       |
-|                           to_numpy | 53.1  | 0.0047 |        |        | 75.6  |
-|                         from_numpy | 10.5  | 0.034  |        |        |       |
-|                     increment cell | 0.12  | 0.047  |        |        |       |
-|                        insert_irow | 0.095 |  9.8   |        |        |       |
-|                        insert_icol |  1.7  |  2.6   |        |        |       |
-|                           sum cols |  349  |  7.6   |  3.2   |  345   |  160  |
-|               sample_daf.daf_sum() |  254  |        |        |        |       |
-|                             sum_np | 64.0  |        |        |        |       |
-|                          transpose | 2,315 |  0.18  | 0.0051 |        |       |
-|                       keyed lookup | 0.087 |  1.0   |        |  5.0   | 0.094 |
+|                           from_lod |  116  | 4,935  |  63.8  |  679   |       |
+|                       to_pandas_df | 4,798 |        | 0.049  |        | 4,935 |
+|              to_pandas_df_thru_csv |  534  |        |        |        |       |
+|                     from_pandas_df | 72.2  |        | 0.0061 |        |       |
+|                           to_numpy | 43.5  | 0.0061 |        |        | 63.8  |
+|                         from_numpy |  7.8  | 0.049  |        |        |       |
+|                     increment cell | 0.11  | 0.043  |        |        |       |
+|                        insert_irow | 0.082 |  8.3   |        |        |       |
+|                        insert_icol |  1.5  |  1.8   |        |        |       |
+|                           sum cols |  186  |  4.0   |  2.4   |  274   |  124  |
+|               sample_daf.daf_sum() |  196  |        |        |        |       |
+|              sample_daf.daf_sum2() | 2,033 |        |        |        |       |
+|              sample_daf.daf_sum3() |  261  |        |        |        |       |
+|                             sum_np | 63.0  |        |        |        |       |
+|                          transpose | 1,971 |  0.17  | 0.0032 |        |       |
+|                       keyed lookup | 0.058 |  0.57  |        |  3.4   | 0.068 |
 |                              ===== | ===== | =====  | =====  | =====  | ===== |
 |       Size of 1000x1000 array (MB) | 38.3  |  9.3   |  3.9   |  4.9   |  119  |
 | Size of keyed 1000x1000 array (MB) | 38.5  |  98.1  |   --   |  4.9   |  119  |

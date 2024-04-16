@@ -62,6 +62,10 @@ def set_type_la(la: T_la, dtypes_worklist: List[Tuple[int, Type]]) -> T_la:
         value = la[idx]
         if isinstance(value, desired_type):
             continue
+        if isinstance(value, str) and not value:
+            # value is null str.
+            # leave alone.
+            continue
         if desired_type in (int, bool):
             try:
                 la[idx] = int(value)
