@@ -79,6 +79,3 @@ tests/tempdata1.db
 tests/tempdata2.db
 *.db
 *.gz
-
-dist/
-*/**/*.egg-info

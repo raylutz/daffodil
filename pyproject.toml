@@ -2,34 +2,3 @@
 requires = ["setuptools"]
 build-backend = "setuptools.build_meta"
 
-[project]
-name = "daffodil"
-version = "0.3.0-rc1"
-authors = [
-    {name = "Ray Lutz", email = "raylutz@cognisys.com"},
-]
-description = "Daffodil provides lightweight and fast 2-D dataframes"
-readme = "README.md"
-requires-python = ">=3.6"
-
-license = {text = "MIT"}
-classifiers = [
-    "Development Status :: 2 - Pre-Alpha",
-    "Programming Language :: Python :: 3",
-    "License :: OSI Approved :: MIT License",
-    "Operating System :: OS Independent",
-]
-dependencies = [
-    "xlsx2csv==0.8.2",
-    "Markdown==3.4.1",
-]
-
-[project.optional-dependencies]
-numpy = ['numpy']
-
-[project.urls]
-Homepage = "https://github.com/raylutz/daffodil"
-
-[tool.setuptools.packages.find]
-where = ["src"]
-namespaces = false 

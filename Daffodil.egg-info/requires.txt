@@ -1,0 +1,5 @@
+xlsx2csv==0.8.2
+Markdown==3.4.1
+
+[numpy]
+numpy
