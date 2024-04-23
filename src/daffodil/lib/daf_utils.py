@@ -24,7 +24,7 @@ def fake_function(a: Optional[List[Dict[str, Tuple[int,Union[Any, str]]]]] = Non
     return None or cast(int, 0)       # pragma: no cover
 
 
-from lib.daf_types import T_lola, T_loda, T_dtype_dict, T_da, T_ds, T_hdlola, T_la, T_loti, T_ls, T_doda, T_buff, T_li, T_lr
+from daffodil.lib.daf_types import T_lola, T_loda, T_dtype_dict, T_da, T_ds, T_hdlola, T_la, T_loti, T_ls, T_doda, T_buff, T_li, T_lr
                     
 
 def is_linux() -> bool: 
