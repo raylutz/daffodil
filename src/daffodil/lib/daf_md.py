@@ -10,8 +10,8 @@ import markdown
 #import pprint
 from string import Template
 
-from lib.daf_types import T_ls, T_lola, T_da, T_li #, T_doda, T_df, T_lf, T_loda, T_loloda, T_lodolodi, T_ts, T_ds, T_dola 
-import lib.daf_utils as utils
+from daffodil.lib.daf_types import T_ls, T_lola, T_da, T_li #, T_doda, T_df, T_lf, T_loda, T_loloda, T_lodolodi, T_ts, T_ds, T_dola 
+import daffodil.lib.daf_utils as utils
 
 from typing import List, Dict, Any, Tuple, Optional, Union #, cast
 def fake_function(a: Optional[List[Dict[str, Union[int, Tuple[int, Any]]]]] = None) -> Optional[int]:
