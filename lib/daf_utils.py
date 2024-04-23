@@ -70,10 +70,18 @@ def set_type_la(la: T_la, dtypes_worklist: List[Tuple[int, Type]]) -> T_la:
             try:
                 la[idx] = int(value)
             except ValueError:
-                la[idx] = int(float(value))
+                try:
+                    la[idx] = int(float(value))
+                except ValueError:
+                    if value in ('False', 'True'):
+                        la[idx] = int(eval(value))
                 
         elif desired_type == float:
-            la[idx] = float(value)
+            try:
+                la[idx] = float(value)
+            except ValueError:
+                if value in ('False', 'True'):
+                    la[idx] = float(eval(value))
             
         elif desired_type == str:    
             la[idx] = str(value)
@@ -1311,7 +1319,15 @@ def slice_to_range(slice_obj, length):
     if slice_obj == slice(None, None, None):
         return range(length)
     else:
-        return range(slice_obj.start or 0, min(slice_obj.stop, length), slice_obj.step or 1)
+        if slice_obj.stop is None:
+            stop = length
+        else:
+            stop = min(slice_obj.stop, length)
+        try:
+            return range(slice_obj.start or 0, stop, slice_obj.step or 1)
+        except Exception:
+            breakpoint()    # perm
+            pass
 
 
 def _calculate_single_column_name(index: int) -> str:

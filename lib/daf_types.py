@@ -1,4 +1,4 @@
-# pydf_types.py
+# daf_types.py
 
 from typing import List, Dict, Any, Tuple, Type, Optional, Union, Set #, TYPE_CHECKING, Callable, cast
 
@@ -154,8 +154,4 @@ T_corner_points = List[Optional[T_corner_points_one_p]]    # each page, options 
 T_buff = Union[bytes, str]
 
 
-# from models.Pydf import Pydf
-
-# T_pydf = Type['Pydf']  # Use 'Pydf' as a string to avoid circular import
-# T_dopydf = Dict[str, Optional[T_pydf]]
 

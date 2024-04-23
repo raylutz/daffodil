@@ -755,7 +755,12 @@ class Daf:
     def apply_dtypes(self):
         """ convert columns to the datatypes specified in self.dtypes dict """
         
-        self.lol = utils.apply_dtypes_to_hdlol((self.hd, self.lol), self.dtypes)[1]
+        if not self.lol or not self.lol[0] or not self.hd or not self.dtypes:
+            return self
+
+        for idx, da in enumerate(self):
+            da = utils.set_dict_dtypes(da, self.dtypes)
+            self.lol[idx] = list(da.values())
             
         return self
         
@@ -3699,6 +3704,7 @@ class Daf:
             func: Callable[[T_da, T_da], Union[T_da, T_la]], 
             by: str='row', 
             cols: Optional[T_la]=None,                      # columns included in the reduce operation.
+            initial_da: Optional[T_da]=None,
             **kwargs: Any,
             ) -> Union[T_da, T_la]:
         """
@@ -3736,7 +3742,10 @@ class Daf:
             else:
                 cols_iter = cols
                 
-            reduction_da = dict.fromkeys(cols_iter, 0)
+            if initial_da:
+                reduction_da = initial_da
+            else:
+                reduction_da = dict.fromkeys(cols_iter, 0)
     
             for row_da in self:
                 reduction_da = func(row_da, reduction_da, cols_iter, **kwargs)
@@ -3835,9 +3844,9 @@ class Daf:
                 value = row_da[col]
                 try:
                     if astype==int and isinstance(value, (str, float, bool)):
-                        value = int(float(value))
+                        value = int(float(value or 0))
                     elif astype==float and isinstance(value, (str, int, bool)):    
-                        value = float(value)
+                        value = float(value or 0)
                     elif astype==str and isinstance(value, (float, int, bool)):
                         value = str(value)
                     
@@ -4074,8 +4083,8 @@ class Daf:
     def groupsum_daf(
             self,
             colname:str, 
-            func: Callable[[T_da, T_da, Optional[T_la]], Union[T_da, T_la]], 
-            by: str='row',                                  # determines how the func is applied.
+            #func: Callable[[T_da, T_da, Optional[T_la]], Union[T_da, T_la]], 
+            #by: str='row',                                  # determines how the func is applied.
             reduce_cols: Optional[T_la]=None,               # columns included in the reduce operation.
             ) -> 'Daf':
     
@@ -4198,7 +4207,7 @@ class Daf:
 
 
     @staticmethod
-    def count_values_da(row_da: T_da, result_dodi: T_dodi, cols: Optional[T_la]=None) -> T_dodi:
+    def count_values_da(row_da: T_da, result_dodi: T_dodi, cols: Iterable) -> T_dodi:
         """ incrementally build the result_dodi, which is the valuecounts for each item in row_da.
             can be used to calculate valuecounts over all rows and chunks.
             
@@ -4213,28 +4222,32 @@ class Daf:
             
         """
     
-        if cols is None:
-            cols_dict = {}
-        else:
-            cols_dict = dict.fromkeys(cols)
-        
-        for key, val in row_da.items():
+        # if cols is None:
+            # cols_dict = {}
+        # else:
+            # cols_dict = dict.fromkeys(cols)
             
-            if cols_dict and key not in cols_dict:
-                continue
+        if not result_dodi:
+            result_dodi = {}
+        
+        for col in cols:
 
-            if key not in result_dodi:
-                result_dodi[key] = {}
-                
+            val = row_da[col]
+            
             if val and isinstance(val, dict):
                 # val is a dict of values determined in another pass.
-                Daf.sum_dodis(val, result_dodi)
+                if col not in result_dodi:
+                    result_dodi[col] = val
+                else:    
+                    result_dodi[col] = Daf.sum_da(val, result_dodi[col])
                 continue
                 
-            if val not in result_dodi[key]:
-                result_dodi[key][val] = 1
+            if col not in result_dodi or not result_dodi[col]:
+                result_dodi[col] = {val: 1}
+            elif val not in result_dodi[col]:
+                result_dodi[col][val] = 1
             else:    
-                result_dodi[key][val] += 1
+                result_dodi[col][val] += 1
         
         return result_dodi
         
@@ -4250,6 +4263,14 @@ class Daf:
                 Daf.sum_da(this_di, accum_dodi[key])
             else:
                 accum_dodi[key] = this_di
+                
+                
+
+    # def classify_by_logic_spec(self, groupcol, input_da: T_da) -> T_da: # groupname
+    
+        # for logic_spec_da in self:
+
+
 
                     
     #===============================================

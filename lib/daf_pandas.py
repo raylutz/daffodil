@@ -7,7 +7,7 @@ The Daf class provides a lightweight, simple and fast alternative to provide
 2-d data arrays with mixed types.
 
 This file handles indexing with square brackets[] as functions that operate on
-a pydf instance 'self'.
+a daf instance 'self'.
 
 """
 
@@ -37,7 +37,7 @@ a pydf instance 'self'.
 
 
 """
-See README file at this location: https://github.com/raylutz/Pydf/blob/main/README.md
+See README file at this location: https://github.com/raylutz/daffodil/blob/main/README.md
 """
 
 from lib.daf_types import T_df, T_dtype_dict #T_ls, T_li, T_doda, T_lb
@@ -67,7 +67,7 @@ def _from_pandas_df(
         dtypes: Optional[T_dtype_dict]=None
         ):
     """
-    Convert a Pandas dataframe to pydf object
+    Convert a Pandas dataframe to daf object
         @@TODO: This does not enforce dtypes are correct.
     """
     import pandas as pd     # type: ignore

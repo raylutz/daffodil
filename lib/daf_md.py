@@ -1,4 +1,4 @@
-# pydf_md.py -- markdown generation
+# daf_md.py -- markdown generation
 
 # copyright (c) 2024 Ray Lutz
 
@@ -80,7 +80,7 @@ right_rule = {'<': '-', '^': ':', '>': ':'}
  
     # """
 
-    # # commented out for Pydf.
+    # # commented out for Daf.
     # # if not locale:
         # # locale = args.argsdict.get('locale', 'en_US') or 'en_US'
 
@@ -170,7 +170,7 @@ def md_toc(headings_list: T_ls):
         rep += f"- [{heading}](#{escape_internal_link(heading)})\n"  
     return rep + "\n\n"
 
-# called by Pydf.to_md()
+# called by Daf.to_md()
 
 def md_lol_table(
         records_lol:        T_lola, 
