@@ -40,7 +40,7 @@ a daf instance 'self'.
 See README file at this location: https://github.com/raylutz/daffodil/blob/main/README.md
 """
 
-from daffodil.lib.daf_types import T_df, T_dtype_dict #T_ls, T_li, T_doda, T_lb
+from lib.daf_types import T_df, T_dtype_dict #T_ls, T_li, T_doda, T_lb
                             # T_lola, T_da, T_di, T_hllola, T_loda, T_dola, T_dodi, T_la, T_lota, T_buff, T_df, T_ds, 
                      
 import numpy as np

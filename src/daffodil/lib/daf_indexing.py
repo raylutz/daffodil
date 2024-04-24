@@ -105,13 +105,13 @@ General Form:   my_daf[row, col]
 See README file at this location: https://github.com/raylutz/Daf/blob/main/README.md
 """
 
-from .lib.daf_types import T_ls, T_li, T_doda, T_lb
+from lib.daf_types import T_ls, T_li, T_doda, T_lb
                             # T_lola, T_da, T_di, T_hllola, T_loda, T_dtype_dict, T_dola, T_dodi, T_la, T_lota, T_buff, T_df, T_ds, 
                      
-import daffodil.lib.daf_utils as utils
+import lib.daf_utils as utils
 #import Daf.daf_md    as md
-import daffodil.lib.daf_indexing as indexing       # self import so internal references to indexing will work.
-from daffodil.daf import Daf
+import lib.daf_indexing as indexing       # self import so internal references to indexing will work.
+from daf import Daf
 
 
 from typing import List, Dict, Any, Tuple, Optional, Union, cast, Type, Callable #
@@ -380,7 +380,7 @@ def _handle_slice(self, row_slice: Union[slice, int, None], col_slice: Union[sli
         else:
             sliced_cols = None            
 
-    from daffodil.daf import Daf    
+    from daf import Daf    
     sliced_daf = Daf(lol=row_col_sliced_lol, cols=sliced_cols, dtypes=self.dtypes, keyfield=self.keyfield)
     return indexing._adjust_return_val(sliced_daf)
 

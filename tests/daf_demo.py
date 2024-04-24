@@ -5,10 +5,10 @@
 import sys
 import os
 
-sys.path.append('..')
+sys.path.append(os.path.join(os.path.dirname(sys.path[0]), 'src', 'daffodil'))
 
-#from src.daffodil.lib import daf_utils as utils 
-from src.daffodil.lib.md_demo import md_code_seg
+#from lib import daf_utils as utils 
+from lib.md_demo import md_code_seg
 
 def main():
 
@@ -27,7 +27,7 @@ be viewed directly or converted to HTML for use on a static website.
 """
 
     md_report += md_code_seg('Create a new empty table')
-    from daffodil.daf import Daf
+    from daf import Daf
     
     my_daf = Daf()
     

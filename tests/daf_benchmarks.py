@@ -12,9 +12,8 @@ import sqlite3
 import sys
 import os
 
-sys.path.append('..')
-
-from src.daffodil.lib.md_demo import pr, md_code_seg
+sys.path.append(os.path.join(os.path.dirname(sys.path[0]), 'src', 'daffodil'))
+from lib.md_demo import pr, md_code_seg
 
 global     datatable1, datatable2,sample_lod,sample_klod,df,kdf,daf,kdaf,hdlol,hllol,hdnpa
 
@@ -480,7 +479,7 @@ def sqlite_selectrow(table_name, key_col='rowkey', value='500'):
 
 
 def main():
-    from daffodil.daf import Daf
+    from daf import Daf
 
     # Specify the number of columns you want
     num_columns = 1000      # You can change this number
@@ -685,7 +684,8 @@ import pandas as pd
 import numpy as np
 from collections import namedtuple
 import sys
-sys.path.append('..')
+import os
+sys.path.append(os.path.join(os.path.dirname(sys.path[0]), 'src'))
 from daffodil.daf import Daf
 
 '''

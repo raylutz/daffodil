@@ -288,6 +288,7 @@ See README file at this location: https://github.com/raylutz/Daf/blob/main/READM
 #VERSION  = 'v0.2.X'
 #VERSDATE = '2024-02-28'  
 
+import os
 import sys
 import io
 import csv
@@ -295,15 +296,14 @@ import copy
 import re
 #import numpy as np
     
-sys.path.append('..')
-
-from .lib.daf_types import T_ls, T_lola, T_di, T_hllola, T_loda, T_da, T_li, T_dtype_dict, \
+sys.path.append(os.path.dirname(os.path.realpath(__file__)))
+from lib.daf_types import T_ls, T_lola, T_di, T_hllola, T_loda, T_da, T_li, T_dtype_dict, \
                             T_dola, T_dodi, T_la, T_lota, T_doda, T_buff, T_ds, T_lb, T_rli # , T_df
                      
 
-import daffodil.lib.daf_utils    as utils
-import daffodil.lib.daf_md       as md
-import daffodil.lib.daf_pandas   as daf_pandas
+import lib.daf_utils    as utils
+import lib.daf_md       as md
+import lib.daf_pandas   as daf_pandas
 
 from typing import List, Dict, Any, Tuple, Optional, Union, cast, Type, Callable, Iterable #
 def fake_function(a: Optional[List[Dict[str, Tuple[int,Union[Any, str]]]]] = None) -> Optional[int]:

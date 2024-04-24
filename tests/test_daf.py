@@ -1,17 +1,17 @@
 # test_daf
 # copyright (c) 2024 Ray Lutz
 
-#import os
+import os
 import sys
 import unittest
 import numpy as np
 import pandas as pd
 #from io import BytesIO
 from pathlib import Path
-sys.path.append('..')
+sys.path.append(os.path.join(os.path.dirname(sys.path[0]), 'src', 'daffodil'))
 
-from src.daffodil.daf import Daf
-from src.daffodil.lib import daf_utils as utils
+from daf import Daf
+from lib import daf_utils as utils
 
 class TestDaf(unittest.TestCase):
 
