@@ -246,19 +246,19 @@ Create a keyed Pandas df based on the sample_klod generated.
 
 
 
-```        Col0  Col1  Col2  Col3  Col4  Col5  Col6  Col7  Col8  Col9  Col10  ...  Col989  Col990  Col991  Col992  Col993  Col994  Col995  Col996  Col997  Col998  Col999
-rowkey                                                                     ...                                                                                        
-0         26    56    78    29    56    83    63    16    79    65     14  ...      20      40      67      65      17      57      62      74      69      75      20
-1         46    72    39    48     3    13    65    92    83    73      5  ...       6       3      55      69      58      53      29      68      90      43       2
-2         27     4    19    82    87    85    15    49     6    41     59  ...       6      40      98      59       8      83      17      31      28      13      79
-3         18     2    49    30     1    74    39    78    17     2     13  ...      27      77      36      65      99      47       3      83      12      97      13
-4         84    69     9    18    18    47    60    57    48     9     41  ...      74      90      84      21      23      63      53       2      19      34      41
-...      ...   ...   ...   ...   ...   ...   ...   ...   ...   ...    ...  ...     ...     ...     ...     ...     ...     ...     ...     ...     ...     ...     ...
-995       11    75    33    98     9    21    84    42    75     3     54  ...      58      63      63      86      52       4      85      15      13       5      28
-996       73     2    59    13    29     5    24     1    30    98     34  ...      92      42      46      10      96      75      29      24      63      71      27
-997       81    74    63    79    90    19    43    73    73    19     57  ...      23      72      74      16      67      81       3      41      33      74      62
-998       98    76    29    51    99    49    99    56    12    86     49  ...      24      86      51      83       3      16      55      59      30       3      47
-999       52    59    80    13    36    26    74    71     2    69     87  ...      41      35      20      63       1      25      58      33      33      90      89
+```        Col0  Col1  Col2  Col3  Col4  Col5  Col6  Col7  Col8  Col9  Col10  Col11  ...  Col988  Col989  Col990  Col991  Col992  Col993  Col994  Col995  Col996  Col997  Col998  Col999
+rowkey                                                                            ...                                                                                                
+0         26    56    78    29    56    83    63    16    79    65     14     75  ...      11      20      40      67      65      17      57      62      74      69      75      20
+1         46    72    39    48     3    13    65    92    83    73      5     38  ...      77       6       3      55      69      58      53      29      68      90      43       2
+2         27     4    19    82    87    85    15    49     6    41     59      1  ...      77       6      40      98      59       8      83      17      31      28      13      79
+3         18     2    49    30     1    74    39    78    17     2     13     50  ...      32      27      77      36      65      99      47       3      83      12      97      13
+4         84    69     9    18    18    47    60    57    48     9     41     94  ...      88      74      90      84      21      23      63      53       2      19      34      41
+...      ...   ...   ...   ...   ...   ...   ...   ...   ...   ...    ...    ...  ...     ...     ...     ...     ...     ...     ...     ...     ...     ...     ...     ...     ...
+995       11    75    33    98     9    21    84    42    75     3     54     67  ...      69      58      63      63      86      52       4      85      15      13       5      28
+996       73     2    59    13    29     5    24     1    30    98     34     32  ...      30      92      42      46      10      96      75      29      24      63      71      27
+997       81    74    63    79    90    19    43    73    73    19     57     15  ...       6      23      72      74      16      67      81       3      41      33      74      62
+998       98    76    29    51    99    49    99    56    12    86     49     53  ...      89      24      86      51      83       3      16      55      59      30       3      47
+999       52    59    80    13    36    26    74    71     2    69     87     13  ...       9      41      35      20      63       1      25      58      33      33      90      89
 
 [1000 rows x 1000 columns]
 ```
@@ -368,6 +368,8 @@ from collections import namedtuple
 import sys
 sys.path.append('..')
 from daffodil.daf import Daf
+import gc
+gc.disable()
 
 '''
 
@@ -402,46 +404,57 @@ from daffodil.daf import Daf
 
     #report_daf['from_lod', 'loops']    = loops
     report_daf['from_lod', 'daf']           = ms = timeit.timeit('Daf.from_lod(sample_lod)',  setup=setup_code, globals=globals(), number=loops) * 1000 / (loops)
+    gc.enable()
     print(f"Daf.from_lod()                  {ms:.4f} ms")
 
     report_daf['from_lod', 'pandas']        = ms = timeit.timeit('pd.DataFrame(sample_lod)',   setup=setup_code, globals=globals(), number=loops) * 1000 / (loops)
+    gc.enable()
     report_daf['to_pandas_df', 'lod']       = ms
     print(f"lod_to_df() plain               {ms:.4f} ms")
 
     report_daf['from_lod', 'numpy']         = ms = timeit.timeit('lod_to_hdnpa(sample_lod)', setup=setup_code, globals=globals(), number=loops) * 1000 / (loops)
+    gc.enable()
     report_daf['to_numpy', 'lod']           = ms
     print(f"lod_to_numpy()                  {ms:.4f} ms")
 
     report_daf['from_lod', 'sqlite']        = ms = timeit.timeit('lod_to_sqlite_table(sample_klod, table_name=datatable2)', setup=setup_code, globals=globals(), number=loops) * 1000 / (loops)
+    gc.enable()
     print(f"lod_to_sqlite_table()           {ms:.4f} ms")
 
     #-------------------------------
 
     #report_daf['to_pandas_df', 'loops']    = loops
     report_daf['to_pandas_df', 'daf']       = ms = timeit.timeit('sample_daf.to_pandas_df()', setup=setup_code, globals=globals(), number=loops) * 1000 / (loops)
+    gc.enable()
     print(f"daf.to_pandas_df()              {ms:.4f} ms")
 
     #report_daf['to_pandas_df_thru_csv', 'loops']   = loops
     report_daf['to_pandas_df_thru_csv', 'daf']    = ms = timeit.timeit('sample_daf.to_pandas_df(use_csv=True)', setup=setup_code, globals=globals(), number=loops) * 1000 / (loops)
+    gc.enable()
     print(f"daf.to_pandas_df(use_csv=True)  {ms:.4f} ms")
 
     #report_daf['from_pandas_df', 'loops']  = loops
     report_daf['from_pandas_df', 'daf']     = ms = timeit.timeit('Daf.from_pandas_df(df)', setup=setup_code, globals=globals(), number=loops) * 1000 / (loops)
+    gc.enable()
     print(f"Daf.from_pandas_df()            {ms:.4f} ms")
 
     #report_daf['to_numpy', 'loops']        = loops
     report_daf['to_numpy', 'daf']           = ms = timeit.timeit('sample_daf.to_numpy()',            setup=setup_code, globals=globals(), number=loops) * 1000 / (loops)
+    gc.enable()
     print(f"daf.to_numpy()                  {ms:.4f} ms")
 
     #report_daf['from_numpy', 'loops']      = loops 
     report_daf['from_numpy', 'daf']         = ms = timeit.timeit('Daf.from_numpy(hdnpa[1])',  setup=setup_code, globals=globals(), number=loops) * 1000 / (loops)
+    gc.enable()
     print(f"Daf.from_numpy()                {ms:.4f} secs")
 
     report_daf['to_pandas_df', 'numpy']     = ms = timeit.timeit('pd.DataFrame(hdnpa[1])',  setup=setup_code, globals=globals(), number=loops) * 1000 / (loops)
+    gc.enable()
     report_daf['from_numpy', 'pandas']      = ms
     print(f"numpy to pandas df              {ms:.4f} ms")
 
     report_daf['from_pandas_df', 'numpy']   = ms = timeit.timeit('df.values',  setup=setup_code, globals=globals(), number=loops) * 1000 / (loops)
+    gc.enable()
     report_daf['to_numpy', 'pandas']        = ms
     print(f"numpy from pandas df            {ms:.4f} ms")
 
@@ -459,66 +472,83 @@ from daffodil.daf import Daf
     #report_daf['increment cell', 'loops']   = 
     increment_loops = loops * 100
     report_daf['increment cell', 'daf']     = ms = timeit.timeit('sample_daf[500, 500] += 1', setup=setup_code, globals=globals(), number=increment_loops) * 1000 / (increment_loops)
+    gc.enable()
     print(f"daf[500, 500] += 1              {ms:.4f} ms")
 
     report_daf['increment cell', 'pandas']  = ms = timeit.timeit('df.at[500, "Col500"] += 1', setup=setup_code, globals=globals(), number=increment_loops) * 1000 / (increment_loops)
+    gc.enable()
     print(f"df.at[500, 'Col500'] += 1       {ms:.4f} ms")
 
     #report_daf['insert_irow', 'loops']     = 
     insert_loops = loops * 10
     report_daf['insert_irow', 'daf']        = ms = timeit.timeit('sample_daf.insert_irow(irow=400, row=sample_daf[600, :].copy())', setup=setup_code, globals=globals(), number=insert_loops) * 1000 / (insert_loops)
+    gc.enable()
     print(f"daf.insert_irow                 {ms:.4f} ms")
 
     report_daf['insert_irow', 'pandas']     = ms = timeit.timeit('pd.concat([df.iloc[: 400], pd.DataFrame([df.loc[600].copy()]), df.iloc[400:]], ignore_index=True)', setup=setup_code, globals=globals(), number=insert_loops)  * 1000/ (insert_loops)
+    gc.enable()
     print(f"df insert row                   {ms:.4f} ms")
 
     #report_daf['insert_icol', 'loops']     = 
     insert_loops = loops * 10
     report_daf['insert_icol', 'daf']        = ms = timeit.timeit('sample_daf.insert_icol(icol=400, col_la=sample_daf[:, 600].copy())', setup=setup_code, globals=globals(), number=insert_loops)  * 1000/ (insert_loops)
+    gc.enable()
     print(f"daf.insert_icol                 {ms:.4f} ms")
 
     report_daf['insert_icol', 'pandas']     = ms = timeit.timeit("pd.concat([df.iloc[:, :400], pd.DataFrame({'Col600_Copy': df['Col600'].copy()}), df.iloc[:, 400:]], axis=1)", setup=setup_code, globals=globals(), number=insert_loops) * 1000 / (insert_loops)
+    gc.enable()
     print(f"df insert col                   {ms:.4f} ms")
 
     print("\nTime for sums:")
 
     #report_daf['sum cols', 'loops']        = loops
     report_daf['sum cols', 'pandas']        = ms = timeit.timeit('cols=list[df.columns]; df[cols].sum().to_dict()', setup=setup_code, globals=globals(), number=loops) * 1000 / (loops)
+    gc.enable()
     print(f"df_sum_cols()                   {ms:.4f} ms")
 
     report_daf['sum cols', 'daf']           = ms = timeit.timeit('sample_daf.sum()', setup=setup_code, globals=globals(), number=loops) * 1000 / (loops)
+    gc.enable()
     print(f"daf.sum()                       {ms:.4f} ms")
 
     report_daf['sample_daf.daf_sum()', 'daf'] = ms = timeit.timeit('sample_daf.daf_sum()', setup=setup_code, globals=globals(), number=loops) * 1000 / (loops)
     print(f"sample_daf.daf_sum()            {ms:.4f} ms")
 
     report_daf['sample_daf.daf_sum2()', 'daf'] = ms = timeit.timeit('sample_daf.daf_sum2()', setup=setup_code, globals=globals(), number=loops) * 1000 / (loops)
+    gc.enable()
     print(f"sample_daf.daf_sum2()           {ms:.4f} ms")
 
     report_daf['sample_daf.daf_sum3()', 'daf'] = ms = timeit.timeit('sample_daf.daf_sum3()', setup=setup_code, globals=globals(), number=loops) * 1000 / (loops)
+    gc.enable()
     print(f"sample_daf.daf_sum3()           {ms:.4f} ms")
 
     #report_daf['sum_np', 'loops']          = loops
     report_daf['sum_np', 'daf']             = ms = timeit.timeit('sample_daf.sum_np()',    setup=setup_code, globals=globals(), number=loops) * 1000 / (loops)
+    gc.enable()
     print(f"daf.sum_np()                    {ms:.4f} ms")
 
     report_daf['sum cols', 'numpy']         = ms = timeit.timeit('hdnpa_dotsum_cols(hdnpa)',  setup=setup_code, globals=globals(), number=loops) * 1000 / (loops)
+    gc.enable()
     print(f"hdnpa_dotsum_cols()             {ms:.4f} ms")
 
     report_daf['sum cols', 'sqlite']        = ms = timeit.timeit('sum_columns_in_sqlite_table(table_name=datatable1)', setup=setup_code, globals=globals(), number=loops) * 1000 / (loops)
+    gc.enable()
     print(f"sqlite_sum_cols()               {ms:.4f} ms")
 
     report_daf['sum cols', 'lod']           = ms = timeit.timeit('lod_sum_cols(sample_lod)',  setup=setup_code, globals=globals(), number=loops) * 1000 / (loops)
+    gc.enable()
     print(f"lod_sum_cols()                  {ms:.4f} ms")
 
     #report_daf['transpose', 'loops']        = loops
     report_daf['transpose', 'pandas']       = ms = timeit.timeit('df.transpose()',            setup=setup_code, globals=globals(), number=loops) * 1000 / (loops)
+    gc.enable()
     print(f"df.transpose()                  {ms:.4f} ms")
 
     report_daf['transpose', 'daf']          = ms = timeit.timeit('sample_daf.transpose()',          setup=setup_code, globals=globals(), number=loops) * 1000 / (loops)
+    gc.enable()
     print(f"daf.transpose()                 {ms:.4f} ms")
 
     report_daf['transpose', 'numpy']        = ms = timeit.timeit('np.transpose(hdnpa[1])',    setup=setup_code, globals=globals(), number=loops) * 1000 / (loops)
+    gc.enable()
     print(f"daf.transpose()                 {ms:.4f} ms")
 
     ##print(f"lod_sum_cols2()             {loops} loops: {timeit.timeit('lod_sum_cols2(sample_lod)',setup=setup_code, globals=globals(), number=loops):.4f} secs")
@@ -537,15 +567,19 @@ from daffodil.daf import Daf
     #report_daf['keyed lookup', 'loops']    = 
     keyed_lookup_loops = loops*10
     report_daf['keyed lookup', 'daf']       = ms = timeit.timeit("sample_kdaf.select_record_da('500')", setup=setup_code, globals=globals(), number=keyed_lookup_loops) * 1000 / (keyed_lookup_loops)
+    gc.enable()
     print(f"kdaf row lookup                 {ms:.4f} ms")
 
     report_daf['keyed lookup', 'pandas']    = ms = timeit.timeit("kdf.loc['500'].to_dict()",      setup=setup_code, globals=globals(), number=keyed_lookup_loops) * 1000 / (keyed_lookup_loops)
+    gc.enable()
     print(f"kdf row lookup (indexed)        {ms:.4f} ms")
 
     report_daf['keyed lookup', 'lod']       = ms = timeit.timeit('klod_row_lookup(sample_klod)',  setup=setup_code, globals=globals(), number=keyed_lookup_loops) * 1000 / (keyed_lookup_loops)
+    gc.enable()
     print(f"klod_row_lookup()               {ms:.4f} ms")
 
     report_daf['keyed lookup', 'sqlite']    = ms = timeit.timeit('sqlite_selectrow(table_name=datatable1)', setup=setup_code, globals=globals(), number=keyed_lookup_loops) * 1000 / (keyed_lookup_loops)
+    gc.enable()
     print(f"sqlite_row_lookup()             {ms:.4f} ms")
 
     MB = 1024 * 1024
@@ -616,22 +650,22 @@ Notes:
 
 |             Attribute              |  daf  | pandas | numpy  | sqlite |  lod  |
 | ---------------------------------: | :---: | :----: | :----: | :----: | :---: |
-|                           from_lod |  116  | 4,935  |  63.8  |  679   |       |
-|                       to_pandas_df | 4,798 |        | 0.049  |        | 4,935 |
-|              to_pandas_df_thru_csv |  534  |        |        |        |       |
-|                     from_pandas_df | 72.2  |        | 0.0061 |        |       |
-|                           to_numpy | 43.5  | 0.0061 |        |        | 63.8  |
-|                         from_numpy |  7.8  | 0.049  |        |        |       |
-|                     increment cell | 0.11  | 0.043  |        |        |       |
-|                        insert_irow | 0.082 |  8.3   |        |        |       |
-|                        insert_icol |  1.5  |  1.8   |        |        |       |
-|                           sum cols |  186  |  4.0   |  2.4   |  274   |  124  |
-|               sample_daf.daf_sum() |  196  |        |        |        |       |
-|              sample_daf.daf_sum2() | 2,033 |        |        |        |       |
-|              sample_daf.daf_sum3() |  261  |        |        |        |       |
-|                             sum_np | 63.0  |        |        |        |       |
-|                          transpose | 1,971 |  0.17  | 0.0032 |        |       |
-|                       keyed lookup | 0.058 |  0.57  |        |  3.4   | 0.068 |
+|                           from_lod |  126  | 4,855  |  65.9  |  663   |       |
+|                       to_pandas_df | 4,851 |        | 0.036  |        | 4,855 |
+|              to_pandas_df_thru_csv |  563  |        |        |        |       |
+|                     from_pandas_df |  103  |        | 0.0052 |        |       |
+|                           to_numpy | 65.0  | 0.0052 |        |        | 65.9  |
+|                         from_numpy |  9.7  | 0.036  |        |        |       |
+|                     increment cell | 0.14  | 0.061  |        |        |       |
+|                        insert_irow | 0.10  |  10.6  |        |        |       |
+|                        insert_icol |  1.9  |  2.4   |        |        |       |
+|                           sum cols |  281  |  6.2   |  2.7   |  279   |  126  |
+|               sample_daf.daf_sum() |  276  |        |        |        |       |
+|              sample_daf.daf_sum2() | 2,172 |        |        |        |       |
+|              sample_daf.daf_sum3() |  271  |        |        |        |       |
+|                             sum_np | 58.2  |        |        |        |       |
+|                          transpose | 1,993 |  0.17  | 0.0039 |        |       |
+|                       keyed lookup | 0.073 |  0.77  |        |  3.6   | 0.089 |
 |                              ===== | ===== | =====  | =====  | =====  | ===== |
 |       Size of 1000x1000 array (MB) | 38.3  |  9.3   |  3.9   |  4.9   |  119  |
 | Size of keyed 1000x1000 array (MB) | 38.5  |  98.1  |   --   |  4.9   |  119  |

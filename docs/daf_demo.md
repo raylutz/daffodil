@@ -680,7 +680,7 @@ Contents of C:\Windows\System32:
 | \zh-TW\windows.ui.xaml.dll.mui                                  |  11776 | 2023-12-13T18:14:00 | False  |
 | \zh-TW\WWAHost.exe.mui                                          |  11264 | 2023-12-13T18:14:04 | False  |
 | \zipcontainer.dll                                               |  79872 | 2019-12-07T01:08:33 | False  |
-| \zipfldr.dll                                                    | 285696 | 2023-12-13T18:13:32 | False  |
+| \zipfldr.dll                                                    | 285696 | 2024-04-15T12:09:09 | False  |
 | \ztrace_maps.dll                                                |  30720 | 2019-12-07T01:08:28 | False  |
 
 \[8802 rows x 4 cols; keyfield=; 0 keys ] (Daf)
@@ -720,7 +720,7 @@ Contents of C:\Windows\System32 (in raw text format):
 | \zh-TW\windows.ui.xaml.dll.mui                                  |  11776 | 2023-12-13T18:14:00 | False  |
 | \zh-TW\WWAHost.exe.mui                                          |  11264 | 2023-12-13T18:14:04 | False  |
 | \zipcontainer.dll                                               |  79872 | 2019-12-07T01:08:33 | False  |
-| \zipfldr.dll                                                    | 285696 | 2023-12-13T18:13:32 | False  |
+| \zipfldr.dll                                                    | 285696 | 2024-04-15T12:09:09 | False  |
 | \ztrace_maps.dll                                                |  30720 | 2019-12-07T01:08:28 | False  |
 
 \[8802 rows x 4 cols; keyfield=; 0 keys ] (Daf)
@@ -783,7 +783,7 @@ Files only in C:\Windows\System32:
 | \zh-TW\windows.ui.xaml.dll.mui                                  |  11776 | 2023-12-13T18:14:00 | False  |
 | \zh-TW\WWAHost.exe.mui                                          |  11264 | 2023-12-13T18:14:04 | False  |
 | \zipcontainer.dll                                               |  79872 | 2019-12-07T01:08:33 | False  |
-| \zipfldr.dll                                                    | 285696 | 2023-12-13T18:13:32 | False  |
+| \zipfldr.dll                                                    | 285696 | 2024-04-15T12:09:09 | False  |
 | \ztrace_maps.dll                                                |  30720 | 2019-12-07T01:08:28 | False  |
 
 \[8679 rows x 4 cols; keyfield=; 0 keys ] (Daf)

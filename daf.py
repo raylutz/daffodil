@@ -142,8 +142,29 @@ See README file at this location: https://github.com/raylutz/Daf/blob/main/READM
             Added basic indexed manipulation to daf_demo.py
             Changes due to the suggestions by Trey Hunner.
             
+            
 
-    v0.4.0  (pending) 
+    v0.4.0  (pending)
+            added disabling of garbage collection during timing, getting more consistent results, but does not explain anomaly.
+            Improved philosophy of apply_dtypes() and flatten()
+                Upon loading of csv file, set dtypes and then use my_daf.apply_dtypes()
+                Before writing, use my_daf.flatten() to flatten any list or dict types, if applicable.
+                
+            apply_dtypes() now handles the entire array, and will skip str entries if initially_all_str is True.
+                
+                unflatten_cols()        DEPRECATED. use apply_dtypes()
+                unflatten_by_dtypes()   DEPRECATED. use apply_dtypes()
+                flatten_cols()          DEPRECATED. use flatten()
+                flatten_by_dtypes()     Renamed:    use flatten()
+                
+            added optional dtypes parameter in apply_dtypes() which will be used to initialize dtypes in daf object and
+                use it to convert types within the array.
+            Changed from la type to interable in reduce()
+            added disabling of garbage collection in daf_benchmarks.py
+            deprecated functions dealing with hdlol type which was a precursor to daf.
+            added convert_type_value() to convert a single value to a desired type and unflatten if enabled.
+            removed use of set_dict_dtypes from apply_dtypes() and instead it is done on the entire daf array.
+            added in daf_utils.py unflatten_val(), json_decode(), validate_json_with_error_details, and safe_convert_json_to_obj.
             
     TODO
              
@@ -153,10 +174,6 @@ See README file at this location: https://github.com/raylutz/Daf/blob/main/READM
                 normalize() <-- keep this? (not used)
                 
                 apply_dtypes()
-                unflatten_cols()
-                unflatten_by_dtypes()
-                flatten_cols()
-                flatten_by_dtypes()
                 from_csv_buff()
                 from_numpy()
                 to_csv_buff()
@@ -230,7 +247,7 @@ See README file at this location: https://github.com/raylutz/Daf/blob/main/READM
                 
             daf_utils
                 is_linux()
-                apply_dtypes_to_hdlol()
+                apply_dtypes_to_hdlol()     DEPRECATED
                     empty case
                 select_col_of_lol_by_col_idx()
                     col_idx out of range.
@@ -285,7 +302,7 @@ See README file at this location: https://github.com/raylutz/Daf/blob/main/READM
 """            
     
     
-#VERSION  = 'v0.2.X'
+#VERSION  = 'v0.3.2'
 #VERSDATE = '2024-02-28'  
 
 import sys
@@ -373,13 +390,13 @@ class Daf:
                     pass
                     raise AttributeError ("AttributeError: cols not unique")
                 
-        if self.hd and dtypes:
-            effective_dtypes = {col: dtypes.get(col, str) for col in self.hd}
+        # if self.hd and dtypes:
+            # effective_dtypes = {col: dtypes.get(col, str) for col in self.hd}
         
-            # setting dtypes may be better done manually if required.
-            if self.num_cols():
+            # # setting dtypes may be better done manually if required.
+            # if self.num_cols():
 
-                self.lol = utils.apply_dtypes_to_hdlol((self.hd, self.lol), effective_dtypes, initially_all_str=False)[1]
+                # self.lol = utils.apply_dtypes_to_hdlol((self.hd, self.lol), effective_dtypes, initially_all_str=False)[1]
             
         # rebuild kd if possible.
         self._rebuild_kd()
@@ -540,11 +557,11 @@ class Daf:
                 
 
     def calc_cols(self, 
-            include_cols: Optional[T_la]=None,
-            exclude_cols: Optional[T_la]=None,
+            include_cols: Optional[Iterable]=None,
+            exclude_cols: Optional[Iterable]=None,
             include_types: Optional[List[Type]]=None,
             exclude_types: Optional[List[Type]]=None,
-           ) -> T_la:
+           ) -> Iterable:
         """ this method helps to calculate the columns to be specified for a apply or reduce operation.
             Can use any combination of listing columns to be included, or excluded by name,
                 or included by type.
@@ -553,30 +570,44 @@ class Daf:
             
             
         # start with all cols.
-        selected_cols = list(self.hd.keys())
+        selected_cols = self.hd.keys()
         if not selected_cols:
             return []
             
         if include_cols:
-            if len(include_cols) > 10:
-                include_cols_dict = dict.fromkeys(include_cols)
-                selected_cols = [col for col in selected_cols if col in include_cols_dict]
+            if isinstance(include_cols, str):
+                include_cols = [include_cols]
+            # if len(include_cols) > 10:
+                # include_cols_dict = dict.fromkeys(include_cols)
+                # selected_cols = [col for col in selected_cols if col in include_cols_dict]
             else:
                 selected_cols = [col for col in selected_cols if col in include_cols]
 
         if exclude_cols:
-            if len(exclude_cols) > 10:
-                exclude_cols_dict = dict.fromkeys(exclude_cols)
-                selected_cols = [col for col in selected_cols if col not in exclude_cols_dict]
+            if isinstance(exclude_cols, str):
+                exclude_cols = [exclude_cols]
+            # if len(exclude_cols) > 10:
+                # exclude_cols_dict = dict.fromkeys(exclude_cols)
+                # selected_cols = [col for col in selected_cols if col not in exclude_cols_dict]
             else:
                 selected_cols = [col for col in selected_cols if col not in exclude_cols]
 
-        if include_types and self.dtypes:
+        if include_types:
+            if not self.dtypes:
+                breakpoint()
+                pass
+                raise RuntimeError
+                
             if not isinstance(include_types, list):
                 include_types = [include_types]
             selected_cols = [col for col in selected_cols if self.dtypes.get(col) in include_types]
 
-        if exclude_types and self.dtypes:
+        if exclude_types:
+            if not self.dtypes:
+                breakpoint()
+                pass
+                raise RuntimeError
+                
             if not isinstance(exclude_types, list):
                 exclude_types = [exclude_types]
             selected_cols = [col for col in selected_cols if self.dtypes.get(col) not in exclude_types]
@@ -752,83 +783,176 @@ class Daf:
         
     
     
-    def apply_dtypes(self):
-        """ convert columns to the datatypes specified in self.dtypes dict """
-        
-        if not self.lol or not self.lol[0] or not self.hd or not self.dtypes:
-            return self
-
-        for idx, da in enumerate(self):
-            da = utils.set_dict_dtypes(da, self.dtypes)
-            self.lol[idx] = list(da.values())
+    def apply_dtypes(self, *, 
+            dtypes: Optional[T_dtype_dict]=None, 
+            unflatten: bool=True, 
+            initially_all_str: bool=True
+            ):
+        """ convert columns of daf array to the datatypes specified in self.dtypes.
+                dtypes can be a dict where each column may have a different type, or it can be a single type.
+            columns must be defined.
+            Will unflatten from json to list or dict types if possible when unflatten is True
+            if initially_all_str is True, assumes that data starts as str, such as when read from csv
+                This is commonly used when csv is first read to convert all types in the array.
+                Columns specified as str type are not converted.
             
+            Note, this converts types in place, and does not create a new array.
+        """
+        
+        if dtypes:
+            self.dtypes = dtypes
+        
+        if not self.lol or not self.lol[0]:
+            # this can sometimes happen, no worries.
+            return self
+            
+        if not self.hd or not self.dtypes:
+            # should not be the case. Logic error.
+            breakpoint()
+            pass
+            raise RuntimeError
+            
+        # first calculate all columns to consider, that are not str or str and unflatten
+        cols = self.hd.keys()
+        for col in cols:
+            if isinstance(self.dtypes, dict):
+                if col not in self.dtypes:
+                    continue
+                desired_type = self.dtypes[col]
+            else:
+                desired_type = self.dtypes
+                
+            if (    desired_type == str and initially_all_str or 
+                    desired_type in [list, dict] and not unflatten
+                ):
+                continue
+        
+            icol = self.hd[col]
+            
+            for irow in range(len(self.lol)):
+            
+                self.lol[irow][icol] = utils.convert_type_value(self.lol[irow][icol], desired_type) # unflatten=True
+                        
         return self
         
         
-    def unflatten_cols(self, cols: T_ls):
-        """ 
-            given a daf and list of cols, 
-            convert cols named to either list or dict if col exists and it appears to be 
-                stringified using f"{}" functionality.
-                
+    def flatten(self, convert_bool_to_int=True):
+        """ convert any columns specified in dtypes as either list or dict, and
+            flatten using JSON encoding. Modifies the array in place.
+            
+            if desired type is bool, it will convert to int, if convert_bool_to_int is True
+            
+            This should be envoked just prior to saving the data to a csv file.            
         """
 
-        if not self:
-            return    
-            
-        # from utilities import utils
-
-        self.hd, self.lol = utils.unflatten_hdlol_by_cols((self.hd, self.lol), cols)    
-            
-        return self
-
-
-    def unflatten_by_dtypes(self):
-
-        if not self or not self.dtypes:
+        if not self.lol or not self.lol[0]:
+            # this can sometimes happen, no worries.
             return self
+            
+        if not self.hd or not self.dtypes:
+            # should not be the case. Logic error.
+            breakpoint()
+            pass
+            raise RuntimeError
+            
+        # first calculate all columns to consider
+        cols = self.hd.keys()
+        for col in cols:
+            if isinstance(self.dtypes, dict):
+                if col not in self.dtypes:
+                    continue
+                desired_type = self.dtypes[col]
+            else:
+                desired_type = self.dtypes
                 
-        unflatten_cols = self.calc_cols(include_types = [list, dict])
+            if desired_type in (list, dict):
         
-        if not unflatten_cols:
-            return self
+                icol = self.hd[col]
+                
+                for irow in range(len(self.lol)):
+                
+                    self.lol[irow][icol] = utils.json_encode(self.lol[irow][icol])
+                    
+            if convert_bool_to_int and desired_type == bool:
+                # this should be rare!
+                
+                icol = self.hd[col]
+                
+                for irow in range(len(self.lol)):
+                
+                    self.lol[irow][icol] = 1 if self.lol[irow][icol] else 0
+
+        return self
+
+
+    # def unflatten_cols(self, cols: T_ls):
+        # """ 
+            # given a daf and list of cols, 
+            # convert cols named to either list or dict if col exists and it appears to be 
+                # stringified using f"{}" functionality.
+                
+        # """
+
+        # if not self:
+            # return    
+            
+        # # from utilities import utils
+
+        # self.hd, self.lol = utils.unflatten_hdlol_by_cols((self.hd, self.lol), cols)    
+            
+        # return self
+
+
+    # def unflatten_by_dtypes(self):
+        # # deprecated. Use unflatten()
+
+        # if not self or not self.dtypes:
+            # return self
+                
+        # unflatten_cols = self.calc_cols(include_types = [list, dict])
+        
+        # if not unflatten_cols:
+            # return self
        
-        self.unflatten_cols(unflatten_cols)
+        # self.unflatten_cols(unflatten_cols)
             
-        return self
+        # return self
         
         
-    def flatten_cols(self, cols: T_ls):
-        # given a daf, convert given list of columns to json.
+    # def flatten_cols(self, cols: T_ls):
+        # # given a daf, convert given list of columns to json.
 
-        if not self:
-            return self
+        # if not self:
+            # return self
         
-        # from utilities import utils
+        # # from utilities import utils
 
-        for irow, da in enumerate(self):
-            record_da = copy.deepcopy(da)
-            for col in cols:
-                if col in da:
-                    record_da[col] = utils.json_encode(record_da[col])        
-            self.update_record_da_irow(irow, record_da)        
+        # for irow, da in enumerate(self):
+            # record_da = copy.deepcopy(da)
+            # for col in cols:
+                # if col in da:
+                    # record_da[col] = utils.json_encode(record_da[col])        
+            # self.update_record_da_irow(irow, record_da)        
             
-        return self
+        # return self
     
     
-    def flatten_by_dtypes(self):
+    # def flatten(self):
 
-        if not self or not self.dtypes:
-            return self
+        # if not self or not self.dtypes or not self.hd:
+            # return self
                 
-        flatten_cols = self.calc_cols(include_types = [list, dict])
+        # flatten_cols = self.calc_cols(include_types = [list, dict])
         
-        if not flatten_cols:
-            return self
+        # if not flatten_cols:
+            # return self
        
-        self.flatten_cols(cols=flatten_cols)
+        # self._flatten_cols(cols=flatten_cols)
             
-        return self
+        # return self
+        
+        
+
 
 
     def _safe_tofloat(val: Any) -> Union[float, str]:
@@ -3692,7 +3816,7 @@ class Daf:
     def daf_sum(
             self, 
             by: str = 'row', 
-            cols: Optional[T_la]=None,
+            cols: Optional[Iterable]=None,
             **kwargs: Any,
             ) -> T_da:
             
@@ -3703,7 +3827,7 @@ class Daf:
             self, 
             func: Callable[[T_da, T_da], Union[T_da, T_la]], 
             by: str='row', 
-            cols: Optional[T_la]=None,                      # columns included in the reduce operation.
+            cols: Optional[Iterable]=None,                  # columns included in the reduce operation.
             initial_da: Optional[T_da]=None,
             **kwargs: Any,
             ) -> Union[T_da, T_la]:
@@ -4084,7 +4208,7 @@ class Daf:
             self,
             colname:str, 
             #func: Callable[[T_da, T_da, Optional[T_la]], Union[T_da, T_la]], 
-            #by: str='row',                                  # determines how the func is applied.
+            by: str='row',                                  # determines how the func is applied.
             reduce_cols: Optional[T_la]=None,               # columns included in the reduce operation.
             ) -> 'Daf':
     
@@ -4307,7 +4431,7 @@ class Daf:
                     else:
                         sums_d[colname] += float(la[colidx])
 
-        sums_d = utils.set_dict_dtypes(sums_d, self.dtypes)  # type: ignore
+        sums_d = utils.set_dict_dtypes(sums_d, self.dtypes)
         
         return sums_d
         

@@ -18,9 +18,9 @@ import xlsx2csv     # type: ignore
 #import numpy as np
 
 
-from typing import List, Dict, Any, Tuple, Optional, Union, cast, Type #, Callable
+from typing import List, Dict, Any, Tuple, Optional, Union, cast, Type, Iterable #, Callable
 
-def fake_function(a: Optional[List[Dict[str, Tuple[int,Union[Any, str]]]]] = None) -> Optional[int]:
+def fake_function(a: Optional[List[Dict[str, Tuple[int,Union[Any, str, Iterable]]]]] = None) -> Optional[int]:
     return None or cast(int, 0)       # pragma: no cover
 
 
@@ -31,26 +31,27 @@ def is_linux() -> bool:
     return platform.system() == 'Linux'
     
 
-def apply_dtypes_to_hdlol(hdlol: T_hdlola, dtypes: T_dtype_dict, initially_all_str: bool=True) -> T_hdlola:
+# def apply_dtypes_to_hdlol(hdlol: T_hdlola, dtypes: T_dtype_dict, initially_all_str: bool=True) -> T_hdlola:
+    # # do we need this any more? Use my_daf.apply_types()
 
-    hd, lol = hdlol
+    # hd, lol = hdlol
     
-    if not lol or not lol[0] or not hd:
-        return (hd, lol)
+    # if not lol or not lol[0] or not hd:
+        # return (hd, lol)
 
-    # make a worklist of those fields that need to be checked.
-    dtypes_worklist: List[Tuple[int, Type]] = []
-    # create a list of types
-    for idx, col in enumerate(hd.keys()):
-        desired_type = dtypes.get(col, str)
-        if desired_type == str and initially_all_str:
-            continue
-        dtypes_worklist.append( (idx, desired_type ) )
+    # # make a worklist of those fields that need to be checked.
+    # dtypes_worklist: List[Tuple[int, Type]] = []
+    # # create a list of types
+    # for idx, col in enumerate(hd.keys()):
+        # desired_type = dtypes.get(col, str)
+        # if desired_type == str and initially_all_str:
+            # continue
+        # dtypes_worklist.append( (idx, desired_type ) )
 
-    for la in lol:
-        set_type_la(la, dtypes_worklist)
+    # for la in lol:
+        # set_type_la(la, dtypes_worklist)
         
-    return (hd, lol)
+    # return (hd, lol)
     
 
 def set_type_la(la: T_la, dtypes_worklist: List[Tuple[int, Type]]) -> T_la:
@@ -383,49 +384,148 @@ def safe_regex_select(regex:Union[str, bytes], s:str, default:str='', flags=0) -
     else:
         return default
         
-    
-def set_dict_dtypes(d: T_da, dtype_dict: T_dtype_dict) -> T_da:
+
+def set_dict_dtypes(
+        da:             T_da,                       # dict in the daf array.
+        dtype_dict:     T_dtype_dict,               # dtypes of each item. May contain more than the items in da
+        #unflatten:      bool=True,                  # also unflatten any list or dict items.
+        # convert_cols:   Optional[Iterable]=None,    # specify which columns should be converted (non-str desired type)
+        # select_cols:    Optional[Iterable]=None,    # initialize the columns to be include in the result. 
+        ) -> T_da:
     """ set the types in da according to dtype_dict or leave alone if not found in dtype_dict 
-        Note, if type is int and val is '', that is considered okay.
+        dtype_dict can contain additional items that are not found in the dict da.
+        Note, if type is int and val is '', that is considered okay, and is how missing values are noted.
+        This function assumes the dict starts with items in str format.
+        if unflatten, then convert strings in from JSON format to dict or list if dict or list spec'd.
+        
+        convert_cols should be set to all columns that are not str that should be converted.
+        Depending on use case, not all columns need to be converted even if they are non-str type.
+        This improves performance to not repeatedly check the columns in the loop that are not a concern.
+        
+        select_cols allows dropping columns not needed simultaneously with converting values.
     
     """
+    
+    d2 = {}
 
-    d2: T_da = {}
-    for k, v in d.items():
-        d2[k] = v                   # assume it is okay as is.
-        if k not in dtype_dict:
-            # logs.sts(f"WARN: {k} not in dtype_dict. Not changing type. Currently: {type(v)}", 3)
-            continue
-        if dtype_dict[k] == int:
-            if v == '':
-                continue                # null string means None or NAN
-            try:
-                d2[k] = int(float(v))
-            except ValueError:
-                d2[k] = ''
-                
-        elif dtype_dict[k] == str:
-            d2[k] = f"{v}"
-        elif dtype_dict[k] == float:
-            if v == '':
-                continue                # null string means None or NAN
-            try:
-                d2[k] = float(v)
-            except ValueError:
-                d2[k] = ''
-        elif dtype_dict[k] == bool:
-            d2[k] = str2bool(v)
-        elif dtype_dict[k] == list:
-            continue
-        elif dtype_dict[k] == dict:
-            continue
-        else:
-            import pdb; pdb.set_trace() #perm
-            error_beep()
-
+    for col in da.keys():
+    
+        if col not in dtype_dict:
+            breakpoint()
             pass
-                 
+            raise RuntimeError
+            continue
+            
+        d2[col] = convert_type_value(da[col], dtype_dict[col])    
+            
     return d2
+    
+            
+def convert_type_value(val: any, desired_type: type, unflatten: bool=True):
+    """ given a single value, and a desired type, convert it if possible.
+        For list and dict type, if str and JSON, convert to list or dict type if unflatten is True.
+    """    
+            
+    if desired_type != bool and (val in ('', None) or val != val):   # null string means None or NAN
+        new_val = ''
+
+    elif desired_type == int:
+        if val in ('0', '0.0', 'False', 'FALSE'):
+            new_val = 0
+        elif val in ('1', '1.0', 'True', 'TRUE'):
+            new_val = 1
+        else:
+            try:
+                new_val = int(float(val))
+            except ValueError:
+                new_val = ''
+            
+    elif desired_type == float:
+        try:
+            new_val = float(val)
+        except ValueError:
+            new_val = ''
+                
+    elif desired_type == bool:
+        # null string means None or NAN
+        new_val = 0 if val in ('0', '', None, False, 'False') or val != val else 1
+            
+    elif desired_type in (list, dict) and isinstance(val, str) and unflatten:
+        new_val = unflatten_val(val)
+
+    elif desired_type == str:
+        if isinstance(val, str):
+            new_val = val
+        elif isinstance(val, bool):
+            new_val = 1 if val else 0
+        else:    
+            new_val = f"{val}"
+        
+    else:
+        breakpoint() #perm
+        error_beep()
+        pass
+                 
+    return new_val
+    
+    
+def unflatten_val(val: str) -> Union[str, list, dict]:
+    val = val.strip()
+    if val and isinstance(val, str) and val.strip()[0] in ('[', '{'):
+        return json_decode(val)
+    return val
+    
+    
+def json_decode(json_str: str) -> Any:
+    # minimal wrapper around json.loads to handle edge conditions only.
+    # good for machine decoding.
+    if not json_str:
+        return json_str
+    try:
+        return json.loads(json_str)
+    except json.decoder.JSONDecodeError:
+        return ''
+        
+
+def safe_convert_json_to_obj(json_str: str, json_name: str='') -> Any:
+
+    # convert directly from JSON to object, except deal with single quotes or None's if found.
+    # THIS IS FOR HUMAN_ENTERED JSON WHICH MAY HAVE HUMAN-ERRORS.
+    # Do not use this for known-good json.
+
+    try:
+        result_obj    = json.loads(json_str or "{}")
+        return result_obj
+    except json.decoder.JSONDecodeError:
+        pass
+
+    #logs.sts(f"{logs.prog_loc()} WARN: Single quotes found in {json_name}: '{json_str}' ", 3)       
+        
+    json_str      = re.sub(r"'", r'"', json_str)
+    json_str      = re.sub(r'None', r'null', json_str)
+        
+    try:
+        result_obj = json.loads(json_str)
+        return result_obj
+    except json.decoder.JSONDecodeError:
+        pass
+        return json_str
+        
+        #print(f"Having trouble with this json_str: '{json_str}'")
+        #import pdb; pdb.set_trace() #perm
+
+
+def validate_json_with_error_details(json_str: str) -> Tuple[bool, str]:  # valid_flag, error_str
+
+    try:
+        json.loads(json_str)
+        return True, ''
+    except json.JSONDecodeError as e:
+        error_message = str(e)
+        line_number = error_message.split(" line ")[-1].split(",")[0]
+        column_number = error_message.split("column ")[-1].split(" ")[0]
+        return False, f"Error on line {line_number}, column {column_number}: {error_message}"
+    
         
 def list_stats(alist:T_la, profile:str) -> T_da:
     """ 
