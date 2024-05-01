@@ -145,6 +145,7 @@ See README file at this location: https://github.com/raylutz/Daf/blob/main/READM
             
 
     v0.4.0  (2024-04-30)
+            v0.4.0 Better dtypes support; apply_dtypes(), flatten(), copy()
             added disabling of garbage collection during timing, getting more consistent results, but does not explain anomaly.
             Improved philosophy of apply_dtypes() and flatten()
                 Upon loading of csv file, set dtypes and then use my_daf.apply_dtypes()
