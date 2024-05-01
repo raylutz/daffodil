@@ -144,7 +144,7 @@ See README file at this location: https://github.com/raylutz/Daf/blob/main/READM
             
             
 
-    v0.4.0  (pending)
+    v0.4.0  (2024-04-30)
             added disabling of garbage collection during timing, getting more consistent results, but does not explain anomaly.
             Improved philosophy of apply_dtypes() and flatten()
                 Upon loading of csv file, set dtypes and then use my_daf.apply_dtypes()
@@ -163,11 +163,21 @@ See README file at this location: https://github.com/raylutz/Daf/blob/main/READM
             added disabling of garbage collection in daf_benchmarks.py
             deprecated functions dealing with hdlol type which was a precursor to daf.
             added convert_type_value() to convert a single value to a desired type and unflatten if enabled.
-            removed use of set_dict_dtypes from apply_dtypes() and instead it is done on the entire daf array.
+            removed use of set_dict_dtypes from apply_dtypes() and instead it is done on the entire daf array for efficiency.
             added in daf_utils.py unflatten_val(), json_decode(), validate_json_with_error_details, and safe_convert_json_to_obj.
+            Added .copy(deep:bool) method to match pandas syntax.
+            Added reference to 1994 workshop in flatten() method docstr.
+            Changed packaging code from setup.py approach to pyproject, but still not able to correctly import in Lambdas container.
+
+    v0.4.1  (2024-04-30)
+            fixed tests to reflect changes to type conversion paradigm.
+            Changed apply_dtypes parameter 'initially_all_str' to 'from_str'
+            fixed set_dict_dtypes() in the case of dtypes = {}; Changed parameter to 'dtypes' for uniformity.
+            set_dict_dtypes() now also modifies types in-place.
+            
             
     TODO
-             
+            Update documentation to reflect new approach to dtypes and flattening. 
             tests: need to add 
                 __str__ and __repr__
                 .isin <-- keep this?
@@ -396,7 +406,7 @@ class Daf:
             # # setting dtypes may be better done manually if required.
             # if self.num_cols():
 
-                # self.lol = utils.apply_dtypes_to_hdlol((self.hd, self.lol), effective_dtypes, initially_all_str=False)[1]
+                # self.lol = utils.apply_dtypes_to_hdlol((self.hd, self.lol), effective_dtypes, from_str=False)[1]
             
         # rebuild kd if possible.
         self._rebuild_kd()
@@ -493,6 +503,16 @@ class Daf:
             import pdb; pdb.set_trace() #temp
             pass
         return result
+
+    #===========================
+    # copying convenience function to mimic pandas syntax.
+    
+
+    def copy(self, deep: bool=False) -> 'Daf':
+    
+        if deep:
+            return copy.deepcopy(self)
+        return copy.copy(self)
         
 
     #===========================
@@ -786,13 +806,13 @@ class Daf:
     def apply_dtypes(self, *, 
             dtypes: Optional[T_dtype_dict]=None, 
             unflatten: bool=True, 
-            initially_all_str: bool=True
+            from_str: bool=True
             ):
-        """ convert columns of daf array to the datatypes specified in self.dtypes.
+        """ convert columns of daf array to the datatypes specified in self.dtypes or in passed parameter.
                 dtypes can be a dict where each column may have a different type, or it can be a single type.
             columns must be defined.
             Will unflatten from json to list or dict types if possible when unflatten is True
-            if initially_all_str is True, assumes that data starts as str, such as when read from csv
+            if from_str is True, assumes that data starts as str, such as when read from csv
                 This is commonly used when csv is first read to convert all types in the array.
                 Columns specified as str type are not converted.
             
@@ -802,15 +822,14 @@ class Daf:
         if dtypes:
             self.dtypes = dtypes
         
+        if not self.hd and self.dtypes:
+            self._cols_to_hd(dtypes.keys())
+            # currently will not overwrite existing cols.
+            # (i.e. pass partial dtypes will alter only those cols)
+            
         if not self.lol or not self.lol[0]:
             # this can sometimes happen, no worries.
             return self
-            
-        if not self.hd or not self.dtypes:
-            # should not be the case. Logic error.
-            breakpoint()
-            pass
-            raise RuntimeError
             
         # first calculate all columns to consider, that are not str or str and unflatten
         cols = self.hd.keys()
@@ -822,7 +841,7 @@ class Daf:
             else:
                 desired_type = self.dtypes
                 
-            if (    desired_type == str and initially_all_str or 
+            if (    desired_type == str and from_str or 
                     desired_type in [list, dict] and not unflatten
                 ):
                 continue
@@ -838,18 +857,23 @@ class Daf:
         
     def flatten(self, convert_bool_to_int=True):
         """ convert any columns specified in dtypes as either list or dict, and
-            flatten using JSON encoding. Modifies the array in place.
+            flatten using JSON encoding. Modifies the array in place. Will not 
+            flatten arbitrary objects, functions or methods.
             
             if desired type is bool, it will convert to int, if convert_bool_to_int is True
             
-            This should be envoked just prior to saving the data to a csv file.            
+            This should be envoked just prior to saving the data to a csv file.
+            
+            Historical Reference: https://legacy.python.org/workshops/1994-11/FlattenPython.html
         """
 
-        if not self.lol or not self.lol[0]:
+        if not self.lol or not self.lol[0] or not self.dtypes:
             # this can sometimes happen, no worries.
+            # when daf is constructed internally and has no list or dict types, there is no need to flatten.
+            # in this case, the self.dtypes need not be initialized or used until the table is read.
             return self
             
-        if not self.hd or not self.dtypes:
+        if not self.hd:
             # should not be the case. Logic error.
             breakpoint()
             pass
@@ -1276,6 +1300,10 @@ class Daf:
             ) -> 'Daf':
         """
         Convert CSV data in a buffer (bytes or string) to a daf object
+        
+        Note: probably just use from_csv() and then apply_dtypes(), remove 'unflatten',
+            however, in the future of a more optimized conversion is written, then python
+            types can be created as the csv is scanned rather than scanning again.
 
         Args:
             buff (Union[bytes, str]): 
@@ -1297,8 +1325,8 @@ class Daf:
         
         my_daf = cls(lol=data_lol, cols=cols, keyfield=keyfield, dtypes=dtypes)
         
-        if unflatten:
-            my_daf.unflatten_by_dtypes()
+        # the following will act nicely if there is no dtypes defined.
+        my_daf.apply_dtypes(unflatten=unflatten)
    
         return my_daf
     
@@ -2302,7 +2330,7 @@ class Daf:
     # the following methods might be absorbed into the above.
     #
     
-    def select_record_da(self, key: str) -> T_da:
+    def select_record_da(self, key: str, silent_error: bool=True) -> T_da:
         """ Select one record from daf using the key and return as a single T_da dict.
         
             May be better to simply use 
@@ -2322,7 +2350,10 @@ class Daf:
         if key in self.kd:
             return self._basic_get_record_da(self.kd[key])
 
-        return {}
+        if silent_error:
+            return {}
+            
+        raise KeyError    
 
         
     def _basic_get_record_da(self, irow: int, include_cols: Optional[T_ls]=None) -> T_da:
@@ -4431,7 +4462,7 @@ class Daf:
                     else:
                         sums_d[colname] += float(la[colidx])
 
-        sums_d = utils.set_dict_dtypes(sums_d, self.dtypes)
+        sums_d = utils.set_dict_dtypes(sums_d, dtypes=self.dtypes)
         
         return sums_d
         
@@ -4813,6 +4844,7 @@ class Daf:
             smart_fmt:      bool    = False,     # if columns are numeric, then limit the number of figures right of the decimal to "smart" numbers.
             include_summary: bool   = False,     # include a one-line summary after the table.
             disp_cols:      Optional[T_ls]=None, # use these column names instead of those defined in daf.
+            header:         Optional[T_ls]=None, # use this header instead.
             ) -> str:
         """ provide an full md table given a daf representation """
 
@@ -4821,7 +4853,7 @@ class Daf:
         header_exists = bool(self.hd)
         
         mdstr = md.md_lol_table(daf_lol, 
-            header              = None, 
+            header              = header, 
             includes_header     = header_exists, 
             just                = just or ('>' * len(self.hd)), 
             omit_header         = not header_exists, 

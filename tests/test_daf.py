@@ -35,7 +35,7 @@ class TestDaf(unittest.TestCase):
         kd = {1: 0, 3: 1}
         dtypes = {'col1': int, 'col2': str}
         expected_lol = [[1, '2'], [3, '4']]
-        daf = Daf(cols=cols, lol=lol, dtypes=dtypes, name='TestDaf', keyfield='col1')
+        daf = Daf(cols=cols, lol=lol, dtypes=dtypes, name='TestDaf', keyfield='col1').apply_dtypes(from_str=False)
         self.assertEqual(daf.name, 'TestDaf')
         self.assertEqual(daf.keyfield, 'col1')
         self.assertEqual(daf.hd, hd)
@@ -51,7 +51,7 @@ class TestDaf(unittest.TestCase):
         kd = {1: 0, 3: 1}
         dtypes = {'col1': int, 'col2': str}
         expected_lol = [[1, '2'], [3, '4']]
-        daf = Daf(lol=lol, dtypes=dtypes, name='TestDaf', keyfield='col1')
+        daf = Daf(lol=lol, dtypes=dtypes, name='TestDaf', keyfield='col1').apply_dtypes(from_str=False)
         self.assertEqual(daf.name, 'TestDaf')
         self.assertEqual(daf.keyfield, 'col1')
         self.assertEqual(daf.hd, hd)
@@ -830,7 +830,7 @@ class TestDaf(unittest.TestCase):
         ])
 
         # Call the method under test
-        daf = Daf.from_pandas_df(df_mock, use_csv=True)
+        daf = Daf.from_pandas_df(df_mock, use_csv=True).apply_dtypes(dtypes={'ID': int, 'Name': str, 'Age': int})
 
         # Assert that the Daf object is created with the correct properties
         self.assertEqual(daf.len(), 3)
@@ -1180,8 +1180,8 @@ class TestDaf(unittest.TestCase):
         hd = {'col1': 0, 'col2': 1}
         lol1 = [[1, 'a'], [2, 'b']]
         lol2 = [['x', 'y'], ['z', 'w']]
-        daf1 = Daf(cols=cols, lol=lol1, keyfield='', dtypes={'col1': str, 'col2': str})
-        daf2 = Daf(cols=cols, lol=lol2, keyfield='', dtypes={'col1': str, 'col2': str})
+        daf1 = Daf(cols=cols, lol=lol1, keyfield='', dtypes={'col1': str, 'col2': str}).apply_dtypes(from_str=False)
+        daf2 = Daf(cols=cols, lol=lol2, keyfield='', dtypes={'col1': str, 'col2': str}).apply_dtypes(from_str=False)
 
         daf1.concat(daf2)
 
@@ -1224,8 +1224,8 @@ class TestDaf(unittest.TestCase):
         lol2 = [['x', 'y'], ['z', 'w']]
         
         # import pdb; pdb.set_trace() #temp
-        daf1 = Daf(cols=cols, lol=lol1, keyfield='', dtypes={'col1': str, 'col2': str})
-        daf2 = Daf(cols=cols, lol=lol2, keyfield='', dtypes={'col1': str, 'col2': str})
+        daf1 = Daf(cols=cols, lol=lol1, keyfield='', dtypes={'col1': str, 'col2': str}).apply_dtypes(from_str=False)
+        daf2 = Daf(cols=cols, lol=lol2, keyfield='', dtypes={'col1': str, 'col2': str}).apply_dtypes(from_str=False)
 
         daf1.append(daf2)
 
@@ -3526,7 +3526,7 @@ class TestDaf(unittest.TestCase):
         # Test creating Daf instance from cols_dol with specified dtype
         cols_dol = {'A': [1, 2, 3], 'B': [4, 5, 6], 'C': [7, 8, 9]}
         dtypes = {'A': int, 'B': float, 'C': str}
-        result_daf = Daf.from_cols_dol(cols_dol, dtypes=dtypes)
+        result_daf = Daf.from_cols_dol(cols_dol).apply_dtypes(dtypes=dtypes, from_str=False)
         expected_daf = Daf(cols=['A', 'B', 'C'], lol=[[1, 4.0, '7'], [2, 5.0, '8'], [3, 6.0, '9']], dtypes=dtypes)
         self.assertEqual(result_daf, expected_daf)
 

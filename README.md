@@ -24,7 +24,7 @@ within a cell, even another Daffodil instance.
 
 It works well in traditional Pythonic processing paradigms, such as in loops, allowing fast row appends, 
 insertions and other operations that column-oriented packages like Pandas handle poorly or don't offer at all.
-Selecting, inserting, appending rows does not make a copy of the data but uses references and works the way 
+Selecting, inserting, appending rows does not make a copy of the data but uses references the way 
 Python normally does, leveraging the inherent power of Python without replacing it.
 
 Daffodil offers row-based apply and reduce functions, including support for chunked large data sets that can be described 
@@ -37,7 +37,7 @@ to build and clean the data before providing the data to other packages for numb
 
 Tabular data is commonly built
 record-by-record, while popular analysis and manipulation tools are oriented to work on data columns once
-it is fully assembled. If only a very few data operations are performed on columns (such as a sums, stdev, etc.)
+it is fully assembled. If only a very few data operations are performed (say < 30) on columns (such as a sums, stdev, etc.)
 then it is frequently more performant to leave it in row format rather than reforming it into columns and enduring
 the delays of porting and converting the data to those other packages.
 
@@ -129,14 +129,17 @@ allow arbitrary names in SQLite.)
 When reading CSV files, the header is normally taken from the first (non-comment) line. If "user_format" is 
 specified on reading csv files, the csv data will be pre-processed and "comment" lines starting with # are removed.
 
+<!--
 Daffodil supports CSVJ, which is a mix of CSV with JSON metadata in comment fields in the first few lines of the file, 
 to provide data type, formatting, and other information. Using CSVJ speeds importing CSV data into a Daffodil instance 
 because the data can be converted to the appropriate type as it is read, and therefore avoids a second pass to convert 
 data from str type, which is the default. This also may unflatten objects. (CSVJ not supported yet).
+-->
 
 In some cases, you may be working with CSV files without a header line providing of column names. This is common
 in xlsx spreadsheets which have column names set by position. Setting noheader=True avoids 
-capturing the column names from the header line from csv input, and then column names will not be defined.
+capturing the column names from the header line from csv input, and then column names will not be defined, but can
+be defined in code.
 
 If columns repeated or are missing, this will be detected when first read, and the header row will be adjusted
 so it can be used. If any column name is blank, then these are named "colN" (or any other prefix you may prefer) 
@@ -218,12 +221,100 @@ Also, rows can be conceptually treated as if they are columns, because the struc
 place column data in each row and name the row with the column name. To sum values in a column, then the values in each row, which is a 
 list, can be summed with the sum() operator.
 
+## Datatypes and conversion
+
+### data typing and conversion
+        
+Since we are using Python data objects, each cell in the array can have a different data type. However, it is useful to 
+convert data when it is first read from a csv file to make sure it is handled correctly. CSV files, by default, provide
+character data and therefore, without conversion, will provide `str` data. 
+        
+Data which is missing is provided as null strings, which will be ignored in apply or reduce operations. When converted to 
+other forms, such as a NumPy array, these values will be expressed as missing data using NAN or other indicators. 
+Daffodil uses null strings because they will print correctly when viewed, rather than seeing the distracting NAN indicators.
+
+Data type conversion is mainly an issue when converting from/to .csv file formats. In many cases, type conversions of the entire
+file may be avoided, so it is handled explicitly. `dtypes` is a dictionary where each column can have a Python type expressed, such as
+`str`, `int`, `float`, `dict`, `list`. 
+
+### .apply_dtypes(dtypes, unflatten, from_str)
+
+When data is read from a `.csv` file, it is parsed into `str` objects, as this is the fastest possible way to load data from such a file.
+The `.apply_dtypes()` method is used to convert all or some of the columns to the appropriate type. This conversion is done "in place"
+and a new array is not created. Thus, if only a limited number of columns is converted, it will not disturb the other columns for 
+best performance.
+
+If `from_str` is True (the default), only non-`str` columns are converted. Otherwise, columns specified as `str` will 
+also be scanned to ensure that they are expressed as `str` types.
+
+If `unflatten` is True (the default), columns with `list` or `dict` types will be unflattened from JSON if possible to create 
+accurate internal object types. (Tuples are not directly supported due to the use of JSON and will be imported as lists).
+
+If the `.apply_dtypes()` method is called with a `dtypes` argument, then if the Daf object does not have any dtypes defined, 
+the `dtypes` parameter will be used to initiallize the internal `dtypes` attribute and 
+the columns will be defined accordingly. However, if the `dtypes` attribute is already defined as non-empty, 
+then the `dtypes` dictionary argument is used to define which columns will be included in the operation.
+
+To apply dtypes to a .csv file, then the following syntax can be used:
+
+    my_daf = Daf.from_csv('filename.csv').apply_dtypes(dtypes=my_daf_dtypes)
+    
+which will convert all non-`str` types and unflatten JSON encoded `dict` and `list` values. Here, any `str` data is left alone.
+
+The explicit nature of the `.apply_dtypes()` method makes it feasible to avoid any conversion if say only `str` formatted columns
+are needed, and improve performance, and the operation of conversion of types is easy to understand.
+
+### .flatten()
+
+Prior to writing a file, if the Daf array has any `list` or `dict` objects, then the `.flatten()` method should be used prior to
+writing it. Also, this converts `bool` data to `1` and `0` to avoid the overhead of `True` and `False` in the `.csv` file. 
+
+    my_daf.flatten().to_csv('filename.csv')
+    
+or alternatively:
+
+    my_daf.to_csv('filename.csv', flatten=True)
+    
+### .to_list(), .to_dict(), .to_value()
+
+When selecting a single row or column in a Daf array, it will be returned normally as another Daf object.
+However, you can use `.to_list()` to convert it to a single list of values, or `.to_dict()` to get a dictionary,
+with keys set as the column names. If a single cell is selected, use .to_value() to obtain that single value.
+
+### .retmode
+
+A Daf object also has the attribute `.retmode` which can be either 'obj' (default) or 'val'
+If set to 'obj', then Daffodil objects are always produced from a selection operation. If set to 'val',
+then it will return a single value if a single cell is selected, or a list if a single row or column
+is selected.
+
+### example1
+
+For example, to sum all the values in a specific column, converting to a list will allow the python sum()
+operator to correctly sum the values. Caution: if the values must be numeric types.
+
+    `total = sum(my_daf[:, 'this_column'].to_list())`
+    
+Note: for performance, use `reduce()` and process all columns at the same time if multiple columns are to be
+summed, for example, as this is much more peformant and is scalable to multiple `.csv` files.
+
+### example2
+
+In this example, we set the retmode to 'val' so individual or list values will result
+
+    my_daf.retmode = 'val'
+    
+    `total_one = my_daf[3,4] + my_daf[5,6] * 10`
+
+    `total_two = sum(my_daf[:, 'this_column'])
+
+       
 ## Common Usage Pattern
        
-One common usage pattern allows iteration over the rows and appending to another instance. For example:
+One common usage pattern allows iteration over the rows and appending to another Daf instance. For example:
     
-        # read csv file into 2-D array, handling column headers and unflattening
-        my_daf = Daf.from_csv(file_path, unflatten=True)  
+        # read csv file into 2-D array, handling column headers, respecting data types and unflattening
+        my_daf = Daf.from_csv(file_path).apply_dtypes(my_daf_dtypes)
     
         # create a new (empty) table to be built as we scan the input.
         new_daf = Daf()
@@ -233,21 +324,22 @@ One common usage pattern allows iteration over the rows and appending to another
             new_row = transform_row(original_row)
             new_daf.append(new_row)                
             # appending is no problem in Daffodil. Pandas will emit a future warning that appending is deprecated.
+            # here the column names are initialized as the first dictionary is appended.
             
         # create a flat csv file with any python objects flattened using JSON.
-        new_daf.to_csv(file_path, flatten=True)        
+        new_daf.flatten().to_csv(file_path)        
 
 This common pattern can be abbreviated using the apply() method:
 
-        my_daf = Daf.from_csv(file_path, unflatten=True)
+        my_daf = Daf.from_csv(file_path).apply_dtypes(my_daf_dtypes)
         
         new_daf = my_daf.apply(transform_row)
         
-        new_daf.to_csv(file_path, flatten=True)
+        new_daf.flatten().to_csv(file_path)
 
 Or
 
-        Daf.from_csv(file_path).apply(transform_row).to_csv(file_path)
+        Daf.from_csv(file_path).apply_dtypes(my_daf_dtypes).apply(transform_row).flatten().to_csv(file_path)
 
 And further extension of this pattern can apply the transformation to a set of csv files described by a chunk_manifest.
 The chunk manifest essentially provides metadata and instructions for accessing the source data, which may be many 1000s
@@ -259,7 +351,7 @@ of chunks, each of which will fit in memory.
 Similarly, a set of csv_files can be reduced to a single record using a reduction method. For example, 
 for determining valuecounts of columns in a set of files:
 
-        chunk_manifest_daf = Daf.from_csv(file_path, unflatten=True)
+        chunk_manifest_daf = Daf.from_csv(file_path)
         result_record = chunk_manifest_daf.manifest_reduce(count_values)
         
 Daffodil actually extends to chunks very elegantly because the apply() or reduce() operators can be applied to the
@@ -321,24 +413,6 @@ The method 'to_md()' can be used for more flexible reporting.
     
     (rows, cols) = daf.shape()   # Provide the current size of the data array.
     
-### data typing and conversion
-        
-Since we are using Python data objects, each cell in the array can have a different data type. However, it is useful to 
-convert data when it is first read from a csv file to make sure it is handled correctly. CSV files, by default, provide
-character data and therefore, without conversion, will provide `str` data. 
-        
-`dtypes` is a dict that specifies the datatype for each column, and if provided, will convert the data as it is initially read
-from the source. Other sources of data will normally provide the data type when it is imported.
-    
-When reading flat csv files, if `unflatten` is specified and `dtypes` specifies a list or a dict, then the data in those columns 
-will be converted from JSON to produce the list or dict object.
-
-Data which is missing is provided as null strings, which will be ignored in apply or reduce operations, and when converted to 
-other forms, like NumPy, will be expressed as missing data using NAN or other indicators. We use null strings because they will
-print correctly when viewed, rather than seeing the distracting NAN indicators.
-
-Daffodil supports the CSVJ file format, which includes a set of initial comments that are valid JSON to describe metdata and 
-data types. A CSVJ file is generally also a valid CSV file with # comment lines.
 
 
 ### creation and conversion
@@ -361,7 +435,10 @@ data types. A CSVJ file is generally also a valid CSV file with # comment lines.
 
 #### create empty daf with specified cols and keyfield, and with dtypes defined.
     
-    my_daf = Daf(cols=list_of_colnames, keyfield=fieldname, dtypes=dtype_dict) 
+    my_daf = Daf(cols=list_of_colnames, keyfield=fieldname, dtypes=dtype_dict)
+    
+Note that although dtypes may be defined, conversion of types can be an expensive
+operation and so it is done explicitly, using the `apply_dtypes()' method.    
     
 #### create empty daf with only keyfield specified.
     
@@ -444,27 +521,27 @@ if retmode is 'val':
 Please note: operations on columns is relatively inefficient. Try to avoid working on one column at a time.
 Instead, use .apply() or .reduce() and handle any manipulations of all columns at the same time, and select them with the cols parameter at that time.
 
-      my_daf[2, 3]     -- select cell at row 2, col 3 and return value.
-      my_daf[2]        -- select row 2, including all columns, return a list.
-      my_daf[2, :]     -- same as above
-      my_daf[-1, :]    -- select the last row
-      my_daf[:5]       -- select first 5 rows; like `head()` in other dataframe packages.
-      my_daf[:-5]      -- select last 5 rows; like `tail()` in other dataframe packages.
-      my_daf[:, 3]     -- select only column 3, including all rows. Return a list.
-      my_daf[:, 'C']   -- select only column named 'C', including all rows, return a list.
-      my_daf[2:4]      -- select rows 2 and 3, including all columns, return as daf.
-      my_daf[2:4, :]   -- same as above
-      my_daf[:, 3:5]   -- select columns 3 and 4, including all rows, return as daf.
-      my_daf[[2,4,6]]  -- return rows with indices 2,4,6 as daf array.
-      my_daf[:, [1,3,5]] -- return columns with indices 1,3,5 as daf array.
-      my_daf[['row5','row6','row7']] -- return rows with keyfield values 'row5','row6','row7'
-      my_daf[:, ['col1', 'col3', 'col5']] -- return columns with column names 'col1', 'col3', 'col5'
-      my_daf[('row5','row49'), :]] -- return rows with keyfield values 'row5' through 'row49' inclusive (note: column idx is required)
-      my_daf[('row5',), :]] -- return rows with keyfield values 'row5' through the end (note: column idx is required)
-      my_daf[(,'row49'), :]] -- return rows with keyfield values from the first row through 'row49' inclusive (note: column idx is required)
-      my_daf[:, ('col5', 'col23')]] -- return columns with column names from 'col5', through 'col23' inclusive
-      my_daf[:, (, 'col23')]] -- return columns with column names from the first column through 'col23' inclusive
-      my_daf[:, ('col23',)]] -- return columns with column names from 'col23', through the end
+      `my_daf[2, 3]`     -- select cell at row 2, col 3 and return value.
+      `my_daf[2]`        -- select row 2, including all columns, return a list.
+      `my_daf[2, :]`     -- same as above
+      `my_daf[-1, :]`    -- select the last row
+      `my_daf[:5]`       -- select first 5 rows; like `head()` in other dataframe packages.
+      `my_daf[:-5]`      -- select last 5 rows; like `tail()` in other dataframe packages.
+      `my_daf[:, 3]`     -- select only column 3, including all rows. Return a list.
+      `my_daf[:, 'C']`   -- select only column named 'C', including all rows, return a list.
+      `my_daf[2:4]`      -- select rows 2 and 3, including all columns, return as daf.
+      `my_daf[2:4, :]`   -- same as above
+      `my_daf[:, 3:5]`   -- select columns 3 and 4, including all rows, return as daf.
+      `my_daf[[2,4,6]]`  -- return rows with indices 2,4,6 as daf array.
+      `my_daf[:, [1,3,5]]` -- return columns with indices 1,3,5 as daf array.
+      `my_daf[['row5','row6','row7']]` -- return rows with keyfield values 'row5','row6','row7'
+      `my_daf[:, ['col1', 'col3', 'col5']]` -- return columns with column names 'col1', 'col3', 'col5'
+      `my_daf[('row5','row49'), :]]` -- return rows with keyfield values 'row5' through 'row49' inclusive (note: column idx is required)
+      `my_daf[('row5',), :]]` -- return rows with keyfield values 'row5' through the end (note: column idx is required)
+      `my_daf[(,'row49'), :]]` -- return rows with keyfield values from the first row through 'row49' inclusive (note: column idx is required)
+      `my_daf[:, ('col5', 'col23')]]` -- return columns with column names from 'col5', through 'col23' inclusive
+      `my_daf[:, (, 'col23')]]` -- return columns with column names from the first column through 'col23' inclusive
+      `my_daf[:, ('col23',)]]` -- return columns with column names from 'col23', through the end
 
 
 Please note that if you want to index rows by a keyfield or index columns using column names that are integers, 
@@ -472,17 +549,17 @@ then you must use method calls. The square-bracket indexing will assume any inte
 The integer values shown in the examples below do not index the array directly, but choose the row or columns by name.
 To choose by row keys (krows), then keyfield must be set. To choose by column keys (kcols), cols must be set.
 
-      my_daf.select_krows(krows = 123)  -- return daf with one row with integer 123 in keyfield column.
-      my_daf.select_krows(krows = [123, 456])  -- return daf with two rows selected by with integers in the keyfield column.
-      my_daf.select_krows(krows = [123, 456], inverse=True)   -- return daf dropping two rows selected by with integers in the keyfield column.
-      my_daf.select_krows(krows = (123, ), inverse=True)   -- drop all rows starting with row named 123 to the end.
-      my_daf.select_krows(krows = (, 123), inverse=True)   -- drop all rows from the first through row named 123.
+    `my_daf.select_krows(krows = 123)`  -- return daf with one row with integer 123 in keyfield column.
+    `my_daf.select_krows(krows = [123, 456])`  -- return daf with two rows selected by with integers in the keyfield column.
+    `my_daf.select_krows(krows = [123, 456], inverse=True)`   -- return daf dropping two rows selected by with integers in the keyfield column.
+    `my_daf.select_krows(krows = (123, ), inverse=True)`   -- drop all rows starting with row named 123 to the end.
+    `my_daf.select_krows(krows = (, 123), inverse=True)`   -- drop all rows from the first through row named 123.
      
-      my_daf.select_kcols(kcols = 123)  -- return daf of column named 123 (integer), placed in col 0
-      my_daf.select_kcols(kcols = 123).to_list()  -- return list of column named 123 (integer).
-      my_daf.select_kcols(kcols = 123).to_list(unique=True)  -- return list with one column with integer 123 colname, and remove duplicates.
-      my_daf.select_kcols(kcols = 123, inverse=True)   -- drop column with name 123
-      my_daf.select_kcols(kcols = 123, inverse=True, flip=True)   -- drop column with name 123 and transpose columns to rows.
+    `my_daf.select_kcols(kcols = 123)`  -- return daf of column named 123 (integer), placed in col 0
+    `my_daf.select_kcols(kcols = 123).to_list()`  -- return list of column named 123 (integer).
+    `my_daf.select_kcols(kcols = 123).to_list(unique=True)`  -- return list with one column with integer 123 colname, and remove duplicates.
+    `my_daf.select_kcols(kcols = 123, inverse=True)`   -- drop column with name 123
+    `my_daf.select_kcols(kcols = 123, inverse=True, flip=True)`   -- drop column with name 123 and transpose columns to rows.
 
 There are also similar methods for selecting rows and cols by indexes. Selecting rows using select_irows(rows_spec) is the same as my_daf[row_spec],
 except the parameter inverse is available to drop rows rather than keeping them.

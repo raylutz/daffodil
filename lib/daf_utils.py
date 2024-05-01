@@ -31,7 +31,7 @@ def is_linux() -> bool:
     return platform.system() == 'Linux'
     
 
-# def apply_dtypes_to_hdlol(hdlol: T_hdlola, dtypes: T_dtype_dict, initially_all_str: bool=True) -> T_hdlola:
+# def apply_dtypes_to_hdlol(hdlol: T_hdlola, dtypes: T_dtype_dict, from_str: bool=True) -> T_hdlola:
     # # do we need this any more? Use my_daf.apply_types()
 
     # hd, lol = hdlol
@@ -44,7 +44,7 @@ def is_linux() -> bool:
     # # create a list of types
     # for idx, col in enumerate(hd.keys()):
         # desired_type = dtypes.get(col, str)
-        # if desired_type == str and initially_all_str:
+        # if desired_type == str and from_str:
             # continue
         # dtypes_worklist.append( (idx, desired_type ) )
 
@@ -387,7 +387,7 @@ def safe_regex_select(regex:Union[str, bytes], s:str, default:str='', flags=0) -
 
 def set_dict_dtypes(
         da:             T_da,                       # dict in the daf array.
-        dtype_dict:     T_dtype_dict,               # dtypes of each item. May contain more than the items in da
+        dtypes:         T_dtype_dict,               # dtypes of each item. May contain more than the items in da
         #unflatten:      bool=True,                  # also unflatten any list or dict items.
         # convert_cols:   Optional[Iterable]=None,    # specify which columns should be converted (non-str desired type)
         # select_cols:    Optional[Iterable]=None,    # initialize the columns to be include in the result. 
@@ -406,19 +406,17 @@ def set_dict_dtypes(
     
     """
     
-    d2 = {}
-
-    for col in da.keys():
+    if not dtypes:
+        return da
     
-        if col not in dtype_dict:
-            breakpoint()
-            pass
-            raise RuntimeError
-            continue
+    for col, val in da.items():
+    
+        if col not in dtypes:
+             continue
             
-        d2[col] = convert_type_value(da[col], dtype_dict[col])    
+        da[col] = convert_type_value(da[col], dtypes[col])    
             
-    return d2
+    return da
     
             
 def convert_type_value(val: any, desired_type: type, unflatten: bool=True):
