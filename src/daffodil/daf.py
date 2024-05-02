@@ -323,6 +323,7 @@ See README file at this location: https://github.com/raylutz/Daf/blob/main/READM
 #VERSION  = 'v0.3.2'
 #VERSDATE = '2024-02-28'  
 
+import os
 import sys
 import io
 import csv
@@ -330,7 +331,7 @@ import copy
 import re
 #import numpy as np
     
-sys.path.append('..')
+sys.path.append(os.path.dirname(os.path.dirname(os.path.realpath(__file__))))
 
 from daffodil.lib.daf_types import T_ls, T_lola, T_di, T_hllola, T_loda, T_da, T_li, T_dtype_dict, \
                             T_dola, T_dodi, T_la, T_lota, T_doda, T_buff, T_ds, T_lb, T_rli # , T_df

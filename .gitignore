@@ -61,3 +61,6 @@ tests/tempdata2.db
 Daffodil.egg-info/PKG-INFO
 Daffodil.egg-info/SOURCES.txt
 Daffodil.egg-info/top_level.txt
+
+dist/
+*/**/*.egg-info

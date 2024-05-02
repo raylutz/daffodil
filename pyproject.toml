@@ -1,24 +1,35 @@
 [build-system]
-requires = ["setuptools>=42", "wheel"]
+requires = ["setuptools"]
 build-backend = "setuptools.build_meta"
 
-# [tool.flit.metadata]
-# module = "daffodil"
-# version = "0.4.1"  # Specify the version here
-# author = "Ray Lutz"
-# author-email = "raylutz@cognisys.com"
-# home-page = "https://github.com/raylutz/daffodil"
-# requires-python = ">=3.6"
-# license = "MIT"
-# description = "Daffodil provides lightweight and fast 2-D dataframes"
-# readme = "README.md"
-# readme_content_type = "text/markdown"
+[project]
+name = "daffodil"
+version = "0.4.3"
+authors = [
+    {name = "Ray Lutz", email = "raylutz@cognisys.com"},
+]
+description = "Daffodil provides lightweight and fast 2-D dataframes"
+readme = "README.md"
+requires-python = ">=3.6"
 
-# [tool.flit.metadata.classifiers]
-# "Development Status" = "2 - Pre-Alpha"
-# "Programming Language" = "Python :: 3"
-# License = "OSI Approved :: MIT License"
-# "Operating System" = "OS Independent"
+license = {text = "MIT"}
+classifiers = [
+    "Development Status :: 2 - Pre-Alpha",
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+]
+dependencies = [
+    "xlsx2csv==0.8.2",
+    "Markdown==3.4.1",
+]
 
-# [tool.flit.metadata.requires-extra]
-# numpy = ["numpy"]
+[project.optional-dependencies]
+numpy = ['numpy']
+
+[project.urls]
+Homepage = "https://github.com/raylutz/daffodil"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+namespaces = false 
