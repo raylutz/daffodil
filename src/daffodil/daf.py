@@ -623,7 +623,7 @@ class Daf:
 
         if include_types:
             if not self.dtypes:
-                breakpoint()
+                breakpoint()  # perm
                 pass
                 raise RuntimeError
                 
@@ -633,7 +633,7 @@ class Daf:
 
         if exclude_types:
             if not self.dtypes:
-                breakpoint()
+                breakpoint()  # perm
                 pass
                 raise RuntimeError
                 
@@ -794,12 +794,15 @@ class Daf:
             default_type: Type = str, 
             typ_to_cols_dict: Optional[Dict[Type, T_ls]] = None,
             ) -> 'Daf':
+            
+        if not self.hd:
+            raise NotImplementedError ("self.hd must be defined to use .set_dtypes()")
         
         dtypes = {}
         
         col_to_typ_dict = utils.invert_dol_to_dict(typ_to_cols_dict)
         
-        for colname in self.kd:
+        for colname in self.hd:
             
             if colname in col_to_typ_dict:
                 dtypes[colname] = col_to_typ_dict[colname]
@@ -884,7 +887,7 @@ class Daf:
             
         if not self.hd:
             # should not be the case. Logic error.
-            breakpoint()
+            breakpoint()   # perm
             pass
             raise RuntimeError
             

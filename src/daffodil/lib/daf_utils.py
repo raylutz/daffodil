@@ -468,12 +468,37 @@ def convert_type_value(val: any, desired_type: type, unflatten: bool=True):
     
     
 def unflatten_val(val: str) -> Union[str, list, dict]:
+    """ convert a str into python object.
+    
+        allows correct JSON or python objects stringified with f"{obj}"
+    
+    """
+
+
     val = val.strip()
-    if val and isinstance(val, str) and val.strip()[0] in ('[', '{'):
-        return json_decode(val)
-    return val
+    
+    if val and isinstance(val, str) and val.strip()[0] in ('[', '{', '('):
+        obj_val = json_decode(val)
+        
+    if not obj_val:
+        obj_val = safe_eval(val)
+        
+    if not obj_val:
+        return val
+        
+    return obj_val
     
     
+def safe_eval(value: str) -> Optional[Any]:
+    """ un-stringify an object without risk of using eval. """
+    
+    try:
+        parsed_value = ast.literal_eval(value)
+        return parsed_value
+    except (SyntaxError, ValueError):
+        return None
+
+
 def json_decode(json_str: str) -> Any:
     # minimal wrapper around json.loads to handle edge conditions only.
     # good for machine decoding.
