@@ -183,10 +183,22 @@ See README file at this location: https://github.com/raylutz/Daf/blob/main/READM
                 To use --editable mode for local development, must set PYTHONPATH to refer to the daffodil/src folder.
                 In that folder is daffodil/daf.py and daffodil/lib/daf_(name).py 
                 To import supporting py files from lib, must use import daffodil.lib.daf_utils as utils, for example.
+                
+    v0.4.3  (2024-05-02)
+            Went back to pyproject.toml approach. Eliminated setup.py.
+            Lambdas now importing daffodil
+
+    v0.4.4  (2024-05-02)
+            Improved unflattening to handle f-string type flattening, including tuples.
+            fixed bug in set_dtypes()
+            added daf_utils.safe_eval()
+            
+            
             
     TODO
-            Update documentation to reflect new approach to dtypes and flattening. 
+            Update documentation to reflect new approach to dtypes and flattening.
             tests: need to add 
+                unflattening f-string formatted str data.
                 __str__ and __repr__
                 .isin <-- keep this?
                 normalize() <-- keep this? (not used)
@@ -320,8 +332,8 @@ See README file at this location: https://github.com/raylutz/Daf/blob/main/READM
 """            
     
     
-#VERSION  = 'v0.3.2'
-#VERSDATE = '2024-02-28'  
+#VERSION  = 'v0.4.4'
+#VERSDATE = '2024-05-02'  
 
 import os
 import sys
