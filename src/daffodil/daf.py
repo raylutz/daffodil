@@ -176,6 +176,13 @@ See README file at this location: https://github.com/raylutz/Daf/blob/main/READM
             fixed set_dict_dtypes() in the case of dtypes = {}; Changed parameter to 'dtypes' for uniformity.
             set_dict_dtypes() now also modifies types in-place.
             
+    v0.4.2  (2024-05-01)
+            Modified packaging for package distribution on PyPI to hopefully make it compatible with installing into AWS Lambdas.
+                Tried to use pyproject.toml and flit, but flit has poor toml parsing it seems, and could not find a suitable toml file.
+                Went back to setup.py and setuptools, but reorganized files into daffodil/src folder which will be included in the distro.
+                To use --editable mode for local development, must set PYTHONPATH to refer to the daffodil/src folder.
+                In that folder is daffodil/daf.py and daffodil/lib/daf_(name).py 
+                To import supporting py files from lib, must use import daffodil.lib.daf_utils as utils, for example.
             
     TODO
             Update documentation to reflect new approach to dtypes and flattening. 
