@@ -1,8 +1,8 @@
 # pydf_googlesheets_demo.py
-
+import os
 import sys
 import Pydf.Pydf as daf
-sys.path.append('..')
+sys.path.append(os.path.join(os.path.dirname(sys.path[0]), 'src'))
 
 
 def main():

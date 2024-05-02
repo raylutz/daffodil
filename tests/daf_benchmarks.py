@@ -13,7 +13,7 @@ import sys
 import os
 import gc
 
-sys.path.append('..')
+sys.path.append(os.path.join(os.path.dirname(sys.path[0]), 'src'))
 
 from daffodil.lib.md_demo import pr, md_code_seg
 
@@ -686,7 +686,8 @@ import pandas as pd
 import numpy as np
 from collections import namedtuple
 import sys
-sys.path.append('..')
+import os
+sys.path.append(os.path.join(os.path.dirname(sys.path[0]), 'src'))
 from daffodil.daf import Daf
 import gc
 gc.disable()

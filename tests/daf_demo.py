@@ -5,7 +5,7 @@
 import sys
 import os
 
-sys.path.append('..')
+sys.path.append(os.path.join(os.path.dirname(sys.path[0]), 'src'))
 
 #from lib import daf_utils as utils 
 from daffodil.lib.md_demo import md_code_seg
