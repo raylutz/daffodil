@@ -8,7 +8,7 @@ import os
 sys.path.append('..')
 
 #from lib import daf_utils as utils 
-from lib.md_demo import md_code_seg
+from daffodil.lib.md_demo import md_code_seg
 
 def main():
 
