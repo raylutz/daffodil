@@ -1,4 +1,24 @@
 [build-system]
-requires = ["setuptools"]
+requires = ["setuptools>=42", "wheel"]
 build-backend = "setuptools.build_meta"
 
+# [tool.flit.metadata]
+# module = "daffodil"
+# version = "0.4.1"  # Specify the version here
+# author = "Ray Lutz"
+# author-email = "raylutz@cognisys.com"
+# home-page = "https://github.com/raylutz/daffodil"
+# requires-python = ">=3.6"
+# license = "MIT"
+# description = "Daffodil provides lightweight and fast 2-D dataframes"
+# readme = "README.md"
+# readme_content_type = "text/markdown"
+
+# [tool.flit.metadata.classifiers]
+# "Development Status" = "2 - Pre-Alpha"
+# "Programming Language" = "Python :: 3"
+# License = "OSI Approved :: MIT License"
+# "Operating System" = "OS Independent"
+
+# [tool.flit.metadata.requires-extra]
+# numpy = ["numpy"]

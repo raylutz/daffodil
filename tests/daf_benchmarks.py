@@ -15,7 +15,7 @@ import gc
 
 sys.path.append('..')
 
-from lib.md_demo import pr, md_code_seg
+from daffodil.lib.md_demo import pr, md_code_seg
 
 global     datatable1, datatable2,sample_lod,sample_klod,df,kdf,daf,kdaf,hdlol,hllol,hdnpa
 

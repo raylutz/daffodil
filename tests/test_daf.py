@@ -11,7 +11,7 @@ from pathlib import Path
 sys.path.append('..')
 
 from daffodil.daf import Daf
-from lib import daf_utils as utils
+from daffodil.lib import daf_utils as utils
 
 class TestDaf(unittest.TestCase):
 
