@@ -1117,16 +1117,6 @@ def lod_to_dod(lod: T_loda,
     return dod        
     
 
-def safe_eval(value: str) -> Optional[Any]:
-    """ un-stringify an object without risk of using eval for malicious actions. """
-    
-    try:
-        parsed_value = ast.literal_eval(value)
-        return parsed_value
-    except (SyntaxError, ValueError):
-        return None
-        
-        
 def safe_min(listlike: List[Any]) -> Any:
     # note! Using try/except in to guard for the length of list is not specific enough. 
     #   We still need failure under other conditions.

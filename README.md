@@ -314,7 +314,7 @@ In this example, we set the retmode to 'val' so individual or list values will r
 One common usage pattern allows iteration over the rows and appending to another Daf instance. For example:
     
         # read csv file into 2-D array, handling column headers, respecting data types and unflattening
-        my_daf = Daf.from_csv(file_path).apply_dtypes(my_daf_dtypes)
+        my_daf = Daf.from_csv(file_path).apply_dtypes(dtypes=my_daf_dtypes)
     
         # create a new (empty) table to be built as we scan the input.
         new_daf = Daf()
@@ -331,7 +331,7 @@ One common usage pattern allows iteration over the rows and appending to another
 
 This common pattern can be abbreviated using the apply() method:
 
-        my_daf = Daf.from_csv(file_path).apply_dtypes(my_daf_dtypes)
+        my_daf = Daf.from_csv(file_path).apply_dtypes(dtypes=my_daf_dtypes)
         
         new_daf = my_daf.apply(transform_row)
         
@@ -339,7 +339,7 @@ This common pattern can be abbreviated using the apply() method:
 
 Or
 
-        Daf.from_csv(file_path).apply_dtypes(my_daf_dtypes).apply(transform_row).flatten().to_csv(file_path)
+        Daf.from_csv(file_path).apply_dtypes(dtypes=my_daf_dtypes).apply(transform_row).flatten().to_csv(file_path)
 
 And further extension of this pattern can apply the transformation to a set of csv files described by a chunk_manifest.
 The chunk manifest essentially provides metadata and instructions for accessing the source data, which may be many 1000s
