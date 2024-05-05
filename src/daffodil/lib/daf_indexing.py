@@ -100,7 +100,6 @@ General Form:   my_daf[row, col]
     SOFTWARE.
 """
 
-
 """
 See README file at this location: https://github.com/raylutz/Daf/blob/main/README.md
 """
@@ -109,28 +108,29 @@ from pathlib import Path
 
 sys.path.append(str(Path(__file__).resolve().parents[2]))
 
-
 from daffodil.lib.daf_types import T_ls, T_li, T_doda, T_lb
-                            # T_lola, T_da, T_di, T_hllola, T_loda, T_dtype_dict, T_dola, T_dodi, T_la, T_lota, T_buff, T_df, T_ds,
+# T_lola, T_da, T_di, T_hllola, T_loda, T_dtype_dict, T_dola, T_dodi, T_la, T_lota, T_buff, T_df, T_ds,
 
 import daffodil.lib.daf_utils as utils
-#import Daf.daf_md    as md
-import daffodil.lib.daf_indexing as indexing       # self import so internal references to indexing will work.
+# import Daf.daf_md    as md
+import daffodil.lib.daf_indexing as indexing  # self import so internal references to indexing will work.
 from daffodil.daf import Daf
 
+from typing import List, Dict, Any, Tuple, Optional, Union, cast, Type, Callable  #
 
-from typing import List, Dict, Any, Tuple, Optional, Union, cast, Type, Callable #
-def fake_function(a: Optional[List[Dict[str, Tuple[int,Union[Any, str, Type, Callable ]]]]] = None) -> Optional[int]:
-    return None or cast(int, 0)   # pragma: no cover
+
+def fake_function(a: Optional[List[Dict[str, Tuple[int, Union[Any, str, Type, Callable]]]]] = None) -> Optional[int]:
+    return None or cast(int, 0)  # pragma: no cover
+
 
 indexing_version = 'version3'
 
 
 def _get_item(self,
-        slice_spec:   Union[slice, int, str, T_li, T_ls, T_lb,
-                            Tuple[  Union[slice, int, str, T_li, T_ls, T_lb],
-                                    Union[slice, int, str, T_li, T_ls, T_lb]]],
-        ) -> 'Daf':
+              slice_spec: Union[slice, int, str, T_li, T_ls, T_lb,
+              Tuple[Union[slice, int, str, T_li, T_ls, T_lb],
+              Union[slice, int, str, T_li, T_ls, T_lb]]],
+              ) -> 'Daf':
     """ allow selection and slicing using one or two specs:
         
             my_daf[2, 3]         -- select cell at row 2, col 3 and return value.
@@ -170,26 +170,23 @@ def _get_item(self,
             if only one col is selected, return a list.
         """
 
-
-
     if indexing_version == 'version2':
         return indexing._get_item2(self, slice_spec)
     elif indexing_version == 'version3':
         return indexing._get_item3(self, slice_spec)
 
-
     return indexing._get_item1(self, slice_spec)
+
 
 def _set_item3(self, slice_spec):
     pass
 
 
 def _get_item3(self,
-        slice_spec:   Union[slice, int, str, T_li, T_ls, T_lb,
-                            Tuple[  Union[slice, int, str, T_li, T_ls, T_lb],
-                                    Union[slice, int, str, T_li, T_ls, T_lb]]],
-        ) -> 'Daf':
-
+               slice_spec: Union[slice, int, str, T_li, T_ls, T_lb,
+               Tuple[Union[slice, int, str, T_li, T_ls, T_lb],
+               Union[slice, int, str, T_li, T_ls, T_lb]]],
+               ) -> 'Daf':
     if isinstance(slice_spec, tuple) and len(slice_spec) == 2:
         # Handle parsing slices for  both rows and columns
         row_spec, col_spec = slice_spec
@@ -215,19 +212,11 @@ def _get_item3(self,
         return sel_rows_daf
 
 
-
-
-
-
-
-
 def _get_item1(self,
-        slice_spec:   Union[slice, int, str, T_li, T_ls, T_lb,
-                            Tuple[  Union[slice, int, str, T_li, T_ls, T_lb],
-                                    Union[slice, int, str, T_li, T_ls, T_lb]]],
-        ) -> 'Daf':
-
-
+               slice_spec: Union[slice, int, str, T_li, T_ls, T_lb,
+               Tuple[Union[slice, int, str, T_li, T_ls, T_lb],
+               Union[slice, int, str, T_li, T_ls, T_lb]]],
+               ) -> 'Daf':
     if isinstance(slice_spec, slice):
         # Handle slicing only rows
         return indexing._handle_slice(self, slice_spec, None)
@@ -275,7 +264,7 @@ def _handle_slice(self, row_slice: Union[slice, int, None], col_slice: Union[sli
     """
     all_cols = self.columns()
     sliced_cols = all_cols
-    row_sliced_lol = self.lol   # default is no change
+    row_sliced_lol = self.lol  # default is no change
 
     # handle simple cases first:
     # selecting a row spec is integer.
@@ -308,7 +297,7 @@ def _handle_slice(self, row_slice: Union[slice, int, None], col_slice: Union[sli
     elif row_slice is None:
         # no specs, return the entire array.
         if col_slice is None:
-            return indexing._adjust_return_val(self)   # is this correct?
+            return indexing._adjust_return_val(self)  # is this correct?
 
         # all rows, one column
         elif isinstance(col_slice, int) or isinstance(col_slice, str):
@@ -342,13 +331,13 @@ def _handle_slice(self, row_slice: Union[slice, int, None], col_slice: Union[sli
         if row_indices:
             row_sliced_lol = [self.lol[i] for i in row_indices]
         # else:
-            # row_sliced_lol = self.lol
+        # row_sliced_lol = self.lol
 
     elif isinstance(row_slice, slice):
         start_row, stop_row, step_row = indexing._parse_slice(self, row_slice)
         row_sliced_lol = self.lol[start_row:stop_row:step_row]
     # else:
-        # row_sliced_lol = self.lol
+    # row_sliced_lol = self.lol
 
     # sliced rows, all columns
     if col_slice is None:
@@ -423,17 +412,17 @@ def _col_indices_from_collist(self, collist) -> T_li:  # col_indices
         return []
 
     first_item = collist[0]
-    if isinstance(first_item, str):             # probably list of column names (did not check them all)
+    if isinstance(first_item, str):  # probably list of column names (did not check them all)
         colnames = collist
         col_indices = [self.hd[col] for col in colnames]
-    elif isinstance(first_item, int):           # probably list of column indices (did not check them all)
+    elif isinstance(first_item, int):  # probably list of column indices (did not check them all)
         col_indices = collist
     else:
         raise ValueError("column slice, if a list, must be a list of strings or ints")
     return col_indices
 
 
-def _row_indices_from_rowlist(self, rowlist) -> T_li: # row_indices
+def _row_indices_from_rowlist(self, rowlist) -> T_li:  # row_indices
     if not rowlist:
         return []
 
@@ -449,7 +438,9 @@ def _row_indices_from_rowlist(self, rowlist) -> T_li: # row_indices
 
     return row_indices
 
-def _parse_slice(self, s: Union[slice, int, None], row_or_col:str='row') -> Tuple[Optional[int], Optional[int], Optional[int]]:
+
+def _parse_slice(self, s: Union[slice, int, None], row_or_col: str = 'row') -> Tuple[
+    Optional[int], Optional[int], Optional[int]]:
     if isinstance(s, slice):
         start = s.start if s.start is not None else 0
 
@@ -464,9 +455,9 @@ def _parse_slice(self, s: Union[slice, int, None], row_or_col:str='row') -> Tupl
 
 
 def _set_item(self,
-        slice_spec: Union[int, Tuple[Union[slice, int, List[str], List[bool]], Union[slice, int, str, List[str], List[bool]]]],
-        value: Any):
-
+              slice_spec: Union[
+                  int, Tuple[Union[slice, int, List[str], List[bool]], Union[slice, int, str, List[str], List[bool]]]],
+              value: Any):
     """
         Handles the assignment of values, lists or dicts to Daf elements.
         
@@ -516,10 +507,11 @@ def _set_item(self,
         return _set_item3(self, slice_spec, value)
     return _set_item1(self, slice_spec, value)
 
-def _set_item1(self,
-        slice_spec: Union[int, Tuple[Union[slice, int, List[str], List[bool]], Union[slice, int, str, List[str], List[bool]]]],
-        value: Any):
 
+def _set_item1(self,
+               slice_spec: Union[
+                   int, Tuple[Union[slice, int, List[str], List[bool]], Union[slice, int, str, List[str], List[bool]]]],
+               value: Any):
     if isinstance(slice_spec, int):
         irow = slice_spec
         # Assigning a row based on a single integer index and a value which is a list.
@@ -568,7 +560,7 @@ def _set_item1(self,
                 # my_daf[irow, start:end] = value  -- set a value in cells in row irow, from columns start to end.
                 # my_daf[irow, start:end] = list   -- set values from a list in cells in row irow, from columns start to end.
                 col_start, col_stop, col_step = indexing._parse_slice(self, col_spec)
-                for idx, icol in enumerate(range(col_start, col_stop, col_step)):   # type: ignore
+                for idx, icol in enumerate(range(col_start, col_stop, col_step)):  # type: ignore
                     if isinstance(value, list):
                         self.lol[irow][icol] = value[idx]
                     else:
@@ -591,7 +583,7 @@ def _set_item1(self,
                 else:
                     icol = col_spec
 
-                for idx, irow in enumerate(range(row_start, row_stop, row_step)):       # type: ignore
+                for idx, irow in enumerate(range(row_start, row_stop, row_step)):  # type: ignore
                     if isinstance(value, list):
                         self.lol[irow][icol] = value[idx]
                     else:
@@ -613,7 +605,7 @@ def _set_item1(self,
                 else:
                     icol = col_spec
 
-                for idx, irow in enumerate(range(row_start, row_stop, row_step)):       # type: ignore
+                for idx, irow in enumerate(range(row_start, row_stop, row_step)):  # type: ignore
                     if isinstance(value, list):
                         self.lol[irow][icol] = value[idx]
                     else:
@@ -651,10 +643,11 @@ def _set_item1(self,
 
     self._rebuild_kd()
 
-#===== VERSION 2 ======
 
-def _parse_itemidx(self, slice_spec: Union[slice, int, str, T_li, T_ls, T_lb], row_or_col:str='row',
-                    parse_doda: Optional[T_doda]=None) -> T_doda: # parse_doda
+# ===== VERSION 2 ======
+
+def _parse_itemidx(self, slice_spec: Union[slice, int, str, T_li, T_ls, T_lb], row_or_col: str = 'row',
+                   parse_doda: Optional[T_doda] = None) -> T_doda:  # parse_doda
 
     """ parse one index of the item specification using square brackets.
     
@@ -668,7 +661,7 @@ def _parse_itemidx(self, slice_spec: Union[slice, int, str, T_li, T_ls, T_lb], r
         
     """
     if parse_doda is None:
-        parse_doda = {'row':{}, 'col':{}}
+        parse_doda = {'row': {}, 'col': {}}
 
     if isinstance(slice_spec, slice):
         if slice_spec.start is None and slice_spec.stop is None:
@@ -728,52 +721,49 @@ def _parse_itemidx(self, slice_spec: Union[slice, int, str, T_li, T_ls, T_lb], r
 
 
 def _get_parse_doda(self,
-        slice_spec:   Union[slice, int, str, T_li, T_ls, T_lb,
-                            Tuple[  Union[slice, int, str, T_li, T_ls, T_lb],
-                                    Union[slice, int, str, T_li, T_ls, T_lb]]],
-        ) -> T_doda: # parse_doda
+                    slice_spec: Union[slice, int, str, T_li, T_ls, T_lb,
+                    Tuple[Union[slice, int, str, T_li, T_ls, T_lb],
+                    Union[slice, int, str, T_li, T_ls, T_lb]]],
+                    ) -> T_doda:  # parse_doda
 
     if isinstance(slice_spec, tuple) and len(slice_spec) == 2:
         # Handle parsing slices for  both rows and columns
         parse_doda = indexing._parse_itemidx(self, slice_spec[0],
-                            row_or_col='row',
-                            )
+                                             row_or_col='row',
+                                             )
         parse_doda = indexing._parse_itemidx(self, slice_spec[1],
-                            row_or_col='col',
-                            parse_doda = parse_doda,
-                            )
+                                             row_or_col='col',
+                                             parse_doda=parse_doda,
+                                             )
     else:
         parse_doda = indexing._parse_itemidx(self, slice_spec,
-                            row_or_col='row',
-                            )
+                                             row_or_col='row',
+                                             )
     return parse_doda
 
 
 def _get_item2(self,
-        slice_spec:   Union[slice, int, str, T_li, T_ls, T_lb,
-                            Tuple[  Union[slice, int, str, T_li, T_ls, T_lb],
-                                    Union[slice, int, str, T_li, T_ls, T_lb]]],
-        ) -> 'Daf':
-
+               slice_spec: Union[slice, int, str, T_li, T_ls, T_lb,
+               Tuple[Union[slice, int, str, T_li, T_ls, T_lb],
+               Union[slice, int, str, T_li, T_ls, T_lb]]],
+               ) -> 'Daf':
     parse_doda = indexing._get_parse_doda(self, slice_spec)
 
     return indexing._get_by_parse_doda(self, parse_doda)
 
 
 def _set_item2(self,
-        slice_spec:   Union[slice, int, str, T_li, T_ls, T_lb,
-                            Tuple[  Union[slice, int, str, T_li, T_ls, T_lb],
-                                    Union[slice, int, str, T_li, T_ls, T_lb]]],
-        value: Any,
-        ) -> 'Daf':
-
+               slice_spec: Union[slice, int, str, T_li, T_ls, T_lb,
+               Tuple[Union[slice, int, str, T_li, T_ls, T_lb],
+               Union[slice, int, str, T_li, T_ls, T_lb]]],
+               value: Any,
+               ) -> 'Daf':
     parse_doda = indexing._get_parse_doda(self, slice_spec)
 
     return indexing._set_by_parse_doda(self, parse_doda, value)
 
 
 def _get_by_parse_doda(self, parse_doda: T_doda) -> 'Daf':
-
     if not parse_doda['row'] and not parse_doda['col']:
         # return all rows and columns unchanged.
         return self
@@ -815,7 +805,6 @@ def _get_by_parse_doda(self, parse_doda: T_doda) -> 'Daf':
 
 
 def _set_by_parse_doda(self, parse_doda: T_doda, value: Any) -> 'Daf':
-
     if not parse_doda['row'] and not parse_doda['col']:
         # return all rows and columns unchanged.
         return self
@@ -926,7 +915,8 @@ def _set_by_parse_doda(self, parse_doda: T_doda, value: Any) -> 'Daf':
                     for source_icol, dest_icol in enumerate(dest_col_li):
                         self.lol[dest_irow][dest_icol] = value.lol[source_irow][source_icol]
             else:
-                import pdb; pdb.set_trace() #temp
+                import pdb;
+                pdb.set_trace()  # temp
                 pass
 
                 raise NotImplementedError
@@ -934,7 +924,4 @@ def _set_by_parse_doda(self, parse_doda: T_doda, value: Any) -> 'Daf':
         else:
             raise NotImplementedError
 
-
     return self
-
-
