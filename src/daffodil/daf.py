@@ -196,6 +196,7 @@ See README file at this location: https://github.com/raylutz/Daf/blob/main/READM
     v04.5   (pending)
             Added split_where(self, where: Callable) which makes a single pass and splits the daf array in two
                 true_daf, false_daf.
+            Added to Daffodil multi_groupby(), reduce_dodaf_to_daf() and multi_groupby_reduce()
 
     
             
