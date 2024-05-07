@@ -193,7 +193,11 @@ See README file at this location: https://github.com/raylutz/Daf/blob/main/READM
             fixed bug in set_dtypes()
             added daf_utils.safe_eval()
             
-            
+    v04.5   (pending)
+            Added split_where(self, where: Callable) which makes a single pass and splits the daf array in two
+                true_daf, false_daf.
+
+    
             
     TODO
             Update documentation to reflect new approach to dtypes and flattening.
@@ -346,7 +350,7 @@ import re
 sys.path.append(os.path.dirname(os.path.dirname(os.path.realpath(__file__))))
 
 from daffodil.lib.daf_types import T_ls, T_lola, T_di, T_hllola, T_loda, T_da, T_li, T_dtype_dict, \
-                            T_dola, T_dodi, T_la, T_lota, T_doda, T_buff, T_ds, T_lb, T_rli # , T_df
+                            T_dola, T_dodi, T_la, T_lota, T_doda, T_buff, T_ds, T_lb, T_rli
                      
 import daffodil.lib.daf_utils    as utils
 import daffodil.lib.daf_md       as md
@@ -358,6 +362,8 @@ def fake_function(a: Optional[List[Dict[str, Tuple[int,Union[Any, str]]]]] = Non
 
 T_Pydf = Type['Daf']
 T_Daf = Type['Daf']
+T_dodaf = Dict[str, T_Daf]
+
 logs = utils                # alias
 
 
@@ -1652,7 +1658,9 @@ class Daf:
             
         # fields must match exactly!
         if self.hd != other_instance.hd:
-            raise KeyError ("keys in daf do not match lod keys")
+            print(f"keys mismatch: daf: ({list(self.hd.keys())}) \nother_instance: ({list(other_instance.hd.keys())})")
+            breakpoint()
+            raise KeyError
         
         # simply append the rows from daf.lol to the end of self.lol
         for idx in range(len(other_instance.lol)):
@@ -2569,7 +2577,7 @@ class Daf:
 
         daf = Daf(cols=self.columns(), lol=result_lol, keyfield=self.keyfield, dtypes=self.dtypes)
 
-        return daf    
+        return daf
         
 
     def select_where_idxs(self, where: Callable) -> T_li:
@@ -2585,6 +2593,34 @@ class Daf:
         # unit test exists.
         
         return [idx for idx, row in enumerate(self) if where(row)]
+
+
+    def split_where(self, where: Callable) -> Tuple['Daf', 'Daf']:
+        """
+        Select rows in Daf based on the provided where condition,
+        and split into two Daf objects, for True and False.
+        
+        Note: this does a shallow copy of the lines and any changes to
+        the split objects will change the original daf object.
+
+        # Example Usage
+        
+            true_daf, false_daf = original_daf.split_where(lambda row: bool(int(row['colname']) > 5))
+        
+        """
+        true_lol = []
+        false_lol = []
+        
+        for idx, row_da in enumerate(self):
+            if where(row_da):
+                true_lol.append(self.lol[idx])
+            else:
+                false_lol.append(self.lol[idx])
+
+        true_daf = Daf(cols=self.columns(), lol=true_lol, keyfield=self.keyfield, dtypes=self.dtypes)
+        false_daf = Daf(cols=self.columns(), lol=false_lol, keyfield=self.keyfield, dtypes=self.dtypes)
+
+        return true_daf, false_daf
 
 
     def col(self, colname: str, unique: bool=False, omit_nulls: bool=False, silent_error:bool=False) -> list:
@@ -3034,7 +3070,16 @@ class Daf:
         """ sort the data by a given colname, using length priority unless specified.
             sorts in place. Make a copy if you need the original order.
         """
-        colidx = self.hd[colname]
+        if not self:
+            return self
+        
+        try:
+            colidx = self.hd[colname]
+        except Exception as err:
+            print(f"{err}")
+            breakpoint()
+            pass
+            
         self.lol = utils.sort_lol_by_col(self.lol, colidx, reverse=reverse, length_priority=length_priority)
         self._rebuild_kd()
         return self
@@ -3735,9 +3780,96 @@ class Daf:
         if diagnose:
             logs.sts(f"{logs.prog_loc()} starting groupby '{colname}' operation", 3)
         grouped_dodaf = self.groupby(colname)
+        result_daf = Daf.reduce_dodaf_to_daf(
+            func            = func, 
+            colname         = colname, 
+            grouped_dodaf   = grouped_dodaf, 
+            reduce_cols     = reduce_cols,
+            diagnose        = diagnose,
+            **kwargs,
+            )
+        return result_daf
+        
+    
+    def multi_groupby(
+            self, 
+            groupby_colnames: T_ls, 
+            colnames: Optional[T_ls]=None,
+            omit_nulls: bool=False,         # do not group to values in column that are null ('')
+            ) -> Dict[str, Dict[str, 'Daf']]:   # result_dododaf
+            
+        """ given a daf, break into a number of daf's based on a list of colnames specified. 
+            For each groupby_colname, for each discrete value, create a daf table with all cols,
+            including colname, and provide a dodaf structure for each groupby_colname.
+            
+            Please note that each daf array which is built the value of each colname is not reduced.
+            
+            {groupby_colname1:
+                {value1: Daf,
+                 value2: Daf,
+                 ...
+                 valuen: Daf,
+                }
+             groupby_colname2:
+                {value1: Daf,
+                 value2: Daf,
+                 ...
+                 valuen: Daf,
+                }
+            ...
+            }
+            
+        """
+        if isinstance(groupby_colnames, str):
+            groupby_colnames = [groupby_colnames]
+        
+        result_dododaf: Dict[str, Dict[str, 'Daf']] = {}
+        
+        # the following makes a single pass through Daf array, and
+        # allocates the record to one daf for each colname, for each colvalue.
+        # these daf arrays are not reduced here.
+        
+        # (TODO this loop would be better to iterate through list items rather than dicts.)
+        
+        for da in self:
+            for col in groupby_colnames:
+                if col not in result_dododaf:
+                    result_dododaf[col] = {}
+            
+                fieldval = da[col]
+                if omit_nulls and fieldval=='':
+                    continue
+            
+                if fieldval not in result_dododaf[col]:
+                    result_dododaf[col][fieldval] = self.clone_empty()
+                
+                this_daf = result_dododaf[col][fieldval]
+                this_daf.record_append(record_da=da)
+                result_dododaf[col][fieldval] = this_daf
+    
+        return result_dododaf
+        
+    
+
+    @staticmethod
+    def reduce_dodaf_to_daf(
+            colname:        str, 
+            func:           Callable[[T_da, T_da], Union[T_da, T_la]], 
+            grouped_dodaf:  T_dodaf, 
+            reduce_cols:    Optional[T_la]=None,    # columns included in the reduce operation, None = all except for colname.
+            diagnose:       bool=False,
+            **kwargs:       Any,
+            ) -> 'Daf':
+        """ after splitting a daf into a number of mutually exclusive daf objects based on the value in colname,
+            combine these using reduction function func, resulting in a single record for each Daf array.
+            Then append these records into the resulting Daf array, containing one record per value in column 'colname'
+            Other than columns specified in 'reduce_cols', other columns are '' unless they are single-valued.
+        """
         
         if diagnose:
             logs.sts(f"{logs.prog_loc()} Grouped into {len(grouped_dodaf)} groups.", 3)
+            
+            # display the first three daf arrays and the last
             
             for group_num, (colval, this_daf) in enumerate(grouped_dodaf.items()):
                 if group_num < 3 or group_num >= len(grouped_dodaf) - 1:
@@ -3752,13 +3884,21 @@ class Daf:
         
             if diagnose:
                 logs.sts(f"## Group {group_num}: {colname}={colval}\n\n{this_daf}\n\n", 3)
-            reduction_da = this_daf.reduce(func, by=by, cols=reduce_cols, **kwargs)
+            reduction_da = this_daf.reduce(func, cols=reduce_cols, **kwargs)
+                    # def reduce(
+                            # self, 
+                            # func: Callable[[T_da, T_da], Union[T_da, T_la]], 
+                            # by: str='row', 
+                            # cols: Optional[Iterable]=None,                  # columns included in the reduce operation.
+                            # initial_da: Optional[T_da]=None,
+                            # **kwargs: Any,
+                            # ) -> Union[T_da, T_la]:
             
             if diagnose:
                 logs.sts(f"Post reduction: {Daf.from_lod([reduction_da])=}", 3)
             
-            # add colname:colval to the dict
-            reduction_da = {colname: colval, **reduction_da}
+            # add colname:colval to the dict, as it is removed by the reduction func.
+            reduction_da[colname] = colval
             
             if diagnose:
                 logs.sts(f"Post add colname:colval to the dict: {Daf.from_lod([reduction_da])=}", 3)
@@ -3771,6 +3911,50 @@ class Daf:
 
         return result_daf
 
+        
+    def multi_groupby_reduce(
+            self, 
+            colnames:       T_ls, 
+            func:           Callable[[T_da, T_da], Union[T_da, T_la]], 
+            by:             str='row',                                  # determines how the func is applied.
+            reduce_cols:    Optional[T_la]=None,                        # columns included in the reduce operation.
+            diagnose:       bool=False,
+            **kwargs:       Any,
+            ) -> Dict[str, 'Daf']:
+        """ given a daf, break into a number of daf's based on colnames specified. 
+            For each group, apply callable.
+            returns dodaf with one daf per colname.
+            In each of those dafs, there is row per value in the colname, with keyfield the groupby value in colname.
+            
+        """
+        
+        if diagnose:
+            logs.sts(f"{logs.prog_loc()} starting multi-groupby '{colnames}' operation", 3)
+        multi_grouped_dododaf = self.multi_groupby(colnames)
+        
+        result_dodaf: T_dodaf = {}
+        
+        for colname, grouped_dodaf in multi_grouped_dododaf.items():
+        
+            result_dodaf[colname] = Daf.reduce_dodaf_to_daf(
+                func            = func, 
+                colname         = colname, 
+                grouped_dodaf   = grouped_dodaf, 
+                reduce_cols     = reduce_cols,
+                diagnose        = diagnose,
+                **kwargs,
+                )
+        if diagnose:
+            logs.sts(f"{logs.prog_loc()} Grouped into {len(result_dodaf)} groups.", 3)
+            
+            for group_num, (colval, this_daf) in enumerate(result_dodaf.items()):
+                if group_num < 3 or group_num >= len(grouped_dodaf) - 1:
+                    logs.sts(f"## Group {group_num}: {colname}={colval}\n\n{this_daf}\n\n", 3)
+
+        return result_dodaf
+        
+        
+            
         
     #===================================
     # apply / reduce convenience methods
@@ -3916,18 +4100,25 @@ class Daf:
                 cols_iter = self.hd.keys()
             elif isinstance(cols, str):
                 cols_iter = [cols]
-            elif isinstance(cols, list) and len(cols) > 10:    
-                cols_iter = dict.fromkeys(cols)
+            # elif isinstance(cols, list) and len(cols) > 10:    
+                # cols_iter = dict.fromkeys(cols)
             else:
-                cols_iter = cols
-                
+                cols_iter = {col: None for col in self.hd.keys() if col in cols}
+                           
             if initial_da:
                 reduction_da = initial_da
             else:
                 reduction_da = dict.fromkeys(cols_iter, 0)
     
             for row_da in self:
-                reduction_da = func(row_da, reduction_da, cols_iter, **kwargs)
+                try:
+                    reduction_da = func(row_da, reduction_da, cols_iter, **kwargs)
+                except Exception as err:
+                    print(f"err = {err}")
+                    breakpoint()
+                    pass
+                # def count_values_da(row_da: T_da, reduction_da: T_da, cols_iter: Iterable, omit_nulls: bool=False) -> T_dodi:
+                # def sum_da         (row_da: T_da, reduction_da: T_da, cols_iter: Iterable, astype: Optional[Type]=None, diagnose:bool=False
 
             # normalize the result so it contains all columns
             result_da = {key: reduction_da.get(key,'') for key in self.hd.keys()}
@@ -3948,15 +4139,18 @@ class Daf:
         
         
     @staticmethod
-    def sum_da(row_da: T_da,                   # the current row from the daf array.
-                accum_da: T_da,                 # an accumulated result. Must be initialized for all columns in cols.
-                cols: Iterable,                 # defines the active columns. Can be a list, keys(), range, or slice
+    def sum_da( row_da: T_da,                   # the current row from the daf array.
+                reduction_da: T_da,             # an accumulated result. Must be initialized for all columns in cols.
+                cols_iter: Iterable,            # defines the active columns. Can be a list, keys(), range, or slice
+                *,
                 astype: Optional[Type]=None,    # a type like int, float, str to cast the value if it is not that type. Optional.
                 diagnose:bool=False
                 ) -> T_da:     # result_da
         """ sum values in row and accum dicts per colunms provided. 
             will safely skip data that can't be summed.
+            First three args should be provided by position only to avoid naming issues among different reductions.
         """
+        # def sum_da         (row_da: T_da, reduction_da: T_da, cols_iter: Iterable, astype: Optional[Type]=None, diagnose:bool=False
 
         diagnose = diagnose
         #nan_indicator = ''
@@ -3965,7 +4159,7 @@ class Daf:
             # if col not in cols:                 # this check is not needed in the version below.
                 # continue                        # 251 vs 207.
 
-        for col in cols:
+        for col in cols_iter:
             
             # if value == nan_indicator:        # this makes the loop take 10x longer (2162) (1044% of original)
             # if isinstance(value, str):        # this makes the loop take 42% longer (294)
@@ -4029,21 +4223,21 @@ class Daf:
                     elif astype==str and isinstance(value, (float, int, bool)):
                         value = str(value)
                     
-                    accum_da[col] += value
+                    reduction_da[col] += value
             
                 except Exception:
                     continue
                     
             else:
                 try:
-                    accum_da[col] += row_da[col]
+                    reduction_da[col] += row_da[col]
                 
                 except Exception:
                         continue
 
 
                 
-        return accum_da
+        return reduction_da
 
         
     @staticmethod
@@ -4262,14 +4456,29 @@ class Daf:
     def groupsum_daf(
             self,
             colname:str, 
-            #func: Callable[[T_da, T_da, Optional[T_la]], Union[T_da, T_la]], 
             by: str='row',                                  # determines how the func is applied.
             reduce_cols: Optional[T_la]=None,               # columns included in the reduce operation.
+            # keyfield: str=colname,                        # provide this for when no keyfield is desired?
+                                                            # current operation sets keyfield to colname.
             ) -> 'Daf':
     
         result_daf = self.groupby_reduce(colname=colname, func=self.__class__.sum_da, by=by, reduce_cols=reduce_cols)
         
         return result_daf
+
+
+    def multi_groupsum(
+            self,
+            colnames: T_ls,                                 # colnames to group over individually 
+            by: str='row',                                  # determines how the func is applied.
+            reduce_cols: Optional[T_la]=None,               # columns included in the reduce operation.
+            # keyfield: str=colname,                        # provide this for when no keyfield is desired?
+                                                            # current operation sets keyfield to colname.
+            ) -> Dict[str, 'Daf']:
+    
+        result_dodaf = self.multi_groupby_reduce(colnames=colnames, func=self.__class__.sum_da, by=by, reduce_cols=reduce_cols)
+        
+        return result_dodaf
 
 
     def set_col2_from_col1_using_regex_select(self, col1: str, col2: str='', regex: str=''):
@@ -4386,7 +4595,7 @@ class Daf:
 
 
     @staticmethod
-    def count_values_da(row_da: T_da, result_dodi: T_dodi, cols: Iterable) -> T_dodi:
+    def count_values_da(row_da: T_da, reduction_da: T_da, cols_iter: Iterable, *, omit_nulls: bool=False) -> T_dodi:
         """ incrementally build the result_dodi, which is the valuecounts for each item in row_da.
             can be used to calculate valuecounts over all rows and chunks.
             
@@ -4397,7 +4606,17 @@ class Daf:
             Return a dodi.
             Put those in a daf table and then scan those combined values and create a singular result.
             
-            This is a reducing and accumulating operation. Can be used with daf.reduce()
+            This is a reducing and accumulating operation. Can be used with daf.reduce().
+            
+            For example:
+                value_counts_dodi = {}
+                cols_of_interest  = ['gender', 'location']
+            
+                value_counts_dodi = my_daf.reduce(count_values_da, value_counts_dodi, cols_of_interest, omit_nulls=True)
+                
+            results in (something like this):
+            
+                value_counts_dodi = {'gender': {'Male': 2435, 'Female': 2489}, 'location':{'north': 2433, 'south': 345}}
             
         """
     
@@ -4406,12 +4625,17 @@ class Daf:
         # else:
             # cols_dict = dict.fromkeys(cols)
             
-        if not result_dodi:
-            result_dodi = {}
+        if not reduction_da:
+            reduction_da = {}
+            
+        result_dodi = reduction_da
         
-        for col in cols:
+        for col in cols_iter:
 
             val = row_da[col]
+            
+            if omit_nulls and isinstance(val, str) and not val:
+                continue
             
             if val and isinstance(val, dict):
                 # val is a dict of values determined in another pass.
@@ -4574,10 +4798,13 @@ class Daf:
             self, 
             colnames_ls: Optional[T_ls]=None, 
             sort: bool=False, 
-            reverse: bool=True
+            reverse: bool=True,
+            omit_nulls: bool=False,
             ) -> T_dodi:
         """ return value counts for a set of columns or all columns if no colnames_ls are provided.
             sort if noted from most prevalent to least in each column.
+            
+            Note: This is an inefficient algorithm
         """
     
         if not colnames_ls:
@@ -4589,7 +4816,7 @@ class Daf:
         
         for colname in colnames_ls:
             valuecounts_dodi[colname] = \
-                self.valuecounts_for_colname(colname, sort=sort, reverse=reverse)
+                self.valuecounts_for_colname(colname, sort=sort, reverse=reverse, omit_nulls=omit_nulls)
 
         return valuecounts_dodi
     
@@ -5017,6 +5244,8 @@ Pydf.pydf_valuecount         = Daf.daf_valuecount
 Pydf.groupsum_pydf           = Daf.groupsum_daf
 Pydf.gen_stats_pydf          = Daf.gen_stats_daf
 Pydf.value_counts_pydf       = Daf.value_counts_daf
+
+Daf.groupsum                 = Daf.groupsum_daf
 
 Pydf.md_pydf_table = Pydf.to_md            
 
