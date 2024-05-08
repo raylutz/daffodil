@@ -366,7 +366,8 @@ import pandas as pd
 import numpy as np
 from collections import namedtuple
 import sys
-sys.path.append('..')
+import os
+sys.path.append(os.path.join(os.path.dirname(sys.path[0]), 'src'))
 from daffodil.daf import Daf
 import gc
 gc.disable()
@@ -650,22 +651,22 @@ Notes:
 
 |             Attribute              |  daf  | pandas | numpy  | sqlite |  lod  |
 | ---------------------------------: | :---: | :----: | :----: | :----: | :---: |
-|                           from_lod |  132  | 4,857  |  62.5  |  771   |       |
-|                       to_pandas_df | 5,535 |        | 0.031  |        | 4,857 |
-|              to_pandas_df_thru_csv |  544  |        |        |        |       |
-|                     from_pandas_df | 12.0  |        | 0.0045 |        |       |
-|                           to_numpy | 50.1  | 0.0045 |        |        | 62.5  |
-|                         from_numpy |  8.6  | 0.031  |        |        |       |
-|                     increment cell | 0.11  | 0.046  |        |        |       |
-|                        insert_irow | 0.091 |  9.1   |        |        |       |
-|                        insert_icol |  1.2  |  1.7   |        |        |       |
-|                           sum cols |  210  |  4.9   |  3.1   |  391   |  210  |
-|               sample_daf.daf_sum() |  212  |        |        |        |       |
-|              sample_daf.daf_sum2() | 2,219 |        |        |        |       |
-|              sample_daf.daf_sum3() |  364  |        |        |        |       |
-|                             sum_np | 93.1  |        |        |        |       |
-|                          transpose | 2,483 |  0.21  | 0.0025 |        |       |
-|                       keyed lookup | 0.081 |  0.72  |        |  3.2   | 0.083 |
+|                           from_lod |  139  | 5,624  |  65.3  |  748   |       |
+|                       to_pandas_df | 5,446 |        | 0.042  |        | 5,624 |
+|              to_pandas_df_thru_csv |  564  |        |        |        |       |
+|                     from_pandas_df | 12.0  |        | 0.0063 |        |       |
+|                           to_numpy | 48.2  | 0.0063 |        |        | 65.3  |
+|                         from_numpy |  8.5  | 0.042  |        |        |       |
+|                     increment cell | 0.10  | 0.038  |        |        |       |
+|                        insert_irow | 0.072 |  8.1   |        |        |       |
+|                        insert_icol |  1.6  |  2.0   |        |        |       |
+|                           sum cols |  202  |  4.0   |  3.7   |  283   |  123  |
+|               sample_daf.daf_sum() |  191  |        |        |        |       |
+|              sample_daf.daf_sum2() | 2,124 |        |        |        |       |
+|              sample_daf.daf_sum3() |  274  |        |        |        |       |
+|                             sum_np | 59.8  |        |        |        |       |
+|                          transpose | 2,296 |  0.17  | 0.0027 |        |       |
+|                       keyed lookup | 0.085 |  0.60  |        |  3.6   | 0.075 |
 |                              ===== | ===== | =====  | =====  | =====  | ===== |
 |       Size of 1000x1000 array (MB) | 38.3  |  9.3   |  3.9   |  4.9   |  119  |
 | Size of keyed 1000x1000 array (MB) | 38.5  |  98.1  |   --   |  4.9   |  119  |

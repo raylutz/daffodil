@@ -64,3 +64,5 @@ Daffodil.egg-info/top_level.txt
 
 dist/
 */**/*.egg-info
+tests/tempdata1.db
+tests/tempdata2.db
