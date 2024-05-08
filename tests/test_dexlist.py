@@ -38,6 +38,7 @@ class TestDexList(unittest.TestCase):
         self.assertEqual(dexlist['b'], 5)
         del dexlist['c']
         self.assertNotIn('c', dexlist)
+        self.assertEqual(dexlist.to_dict(), {'a': 1, 'b': 5})
     
     def test_keys_values_items(self):
         dexlist = DexList(['a', 'b', 'c'], [1, 2, 3])
