@@ -9,23 +9,23 @@ class DexList:
     optimized for efficient indexing and manipulation of data. It maintains an index (dex) for fast key-based
     access to values stored in a list.
     
-    For data that is already stored as a list, a dexlist can be produced instead of a conventional dict, and 
-    the list can be adopted without copying. An important attribute of this approach is that the parent list is
-    modified if values in the dexlist is modified. The code should make a copy if the values in the source list
-    need to remain unaltered, or convert to a conventional dict which will inherently make a copy.
+    For data that is already stored as a list, the list can be adopted without copying. An important attribute 
+    of this approach is that the parent list is modified if values in the dexlist is modified. The code should 
+    make a copy if the values in the source list need to remain unaltered, or convert to a conventional dict 
+    which will inherently make a copy, using .to_dict()
 
     Usage:
         - DexList can be initialized from either a list of keys and values, a dictionary, or an existing dex and
           list of values.
         - It supports standard dictionary operations such as __getitem__, __setitem__, __delitem__, __len__,
-          __iter__, keys, values, items, get, update, and conversion to a conventional dictionary using to_dict().
+          __iter__, keys, values, items, get, update, and conversion to a conventional dictionary using .to_dict().
         - DexList instances provide fast key-based access to values similar to dictionaries, while also allowing
           list-like operations for efficient value manipulation.
 
     Initialization:
         - DexList(keys: List, values: List) -> DexList: Initialize DexList from a list of keys and values.
         - DexList(da: Dict) -> DexList: Initialize DexList from a dictionary.
-        - DexList(dex: Dict, values: List) -> DexList: Initialize DexList from an existing index (dex) and a list
+        - DexList(dex: Dict, values: List) -> DexList: Initialize DexList from an existing dict index (dex) and a list
           of values.
 
     Example:
@@ -35,6 +35,10 @@ class DexList:
         print(dexlist['a'])  # Output: 1
         dexlist['b'] = 5
         print(dexlist)  # Output: {'a': 1, 'b': 5, 'c': 3}
+        
+    See also:
+        https://peps.python.org/pep-0412/#alternative-implementation
+        
     """
 
     def __init__(self, arg1: Union[Dict[Any, Any], List[Any]], arg2: Optional[List[Any]] = None):
