@@ -54,9 +54,9 @@ class KeyedList:
             klist item will update the lol array, because the list item is actually the same list a the one in the array.
             This behavior is not possible with dictionaries.
             
-        - As a result, a KeyedList instance is more 'dangerous' for beginner Python programmers because they are constructed
+        - As a result, a KeyedList instance is more 'dangerous' for beginner Python programmers because dicts are constructed
             always by copying in the keys and values and do not maintain the connection to the prior source of the list
-            portion. 
+            portion. Instead, a keylist instance may may have only references to existing dex and list portions.
             
         - similar to a dictionary, a KeyedList can provide the keys and values as iterators or lists. The difference is that
             a KeyedList allows assignment to the dex and the list.
@@ -67,21 +67,22 @@ class KeyedList:
             print(klist.values())   # output: [5, 8]
             alist = klist.values    # grab a reference to the values.
             alist[1] = 10           # assign a value to the list.
-            print(alist)            # [5, 10]
-            print(klist)            # {'a': 5, 'b' 10}
+            print(alist)            # output: [5, 10]
+            print(klist)            # output: {'a': 5, 'b' 10}
             
-            klist.values = [2,3]
-            print(klist)            # {'a': 2, 'b' 3}
-            print(alist)            # [2,3]
+            klist.values = [2,3]    # assign new values to the list portion. Not supported for dicts.
+            print(klist)            # output: {'a': 2, 'b' 3}
+            print(alist)            # output: [2,3]     # note that the list that is a reference to the list portion changes.
 
 
         Example2:
             keys = ['a', 'b', 'c']
             values = [1, 2, 3]
-            klist = KeyedList(keys, values)
-            print(klist['a'])  # Output: 1
-            klist['b'] = 5
-            print(klist)  # Output: {'a': 1, 'b': 5, 'c': 3}
+            klist = KeyedList(keys, values)     # initialize like you would a dict using dict(keys, values)
+            print(klist)                        # Output: {'a': 1, 'b': 2, 'c': 3}
+            print(klist['a'])                   # Output: 1
+            klist['b'] = 5                      # overwrite a value
+            print(klist)                        # Output: {'a': 1, 'b': 5, 'c': 3}
             
         See also:
             https://peps.python.org/pep-0412/#alternative-implementation
