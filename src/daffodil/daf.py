@@ -197,7 +197,9 @@ See README file at this location: https://github.com/raylutz/Daf/blob/main/READM
             Added split_where(self, where: Callable) which makes a single pass and splits the daf array in two
                 true_daf, false_daf.
             Added to Daffodil multi_groupby(), reduce_dodaf_to_daf() and multi_groupby_reduce()
-            Added class DexList() to provide a new data item that functions like a dict but is a dex plus list.
+            Added class KeyedList() to provide a new data item that functions like a dict but is a dex plus list.
+                can result in much better performance by not redistributing values in the dict structure.
+                This is not yet integrated into daffodil, but should be.
     
             
     TODO
