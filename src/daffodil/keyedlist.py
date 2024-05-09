@@ -14,13 +14,13 @@ class KeyedList:
     are just examples here. For convenience, we call this structure a dict of index or 'dex'.
     
     For data that is already stored as a list, the list can be adopted without copying. An important attribute 
-    of this approach is that the parent list is modified if values in the dexlist is modified. The code should 
+    of this approach is that the parent list is modified if values in the keyedlist is modified. The code should 
     make a copy if the values in the source list need to remain unaltered, or convert to a conventional dict 
     which will inherently make a copy, using .to_dict()
     
     Similarly, if the dex already exists, it can be reused on many instances of keyed list. Further, the dex can 
     be used on a list-of-list structure as the column indexes of all rows. If related to such an array, then the
-    keys are frequently called 'cols'.
+    keys are frequently called 'cols'. See the daffodil package for a full implementation of such an array.
 
     Usage:
         - KeyedList can be initialized from either a list of keys and values, a dictionary, or an existing dex and
