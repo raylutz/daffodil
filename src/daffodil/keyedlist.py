@@ -10,17 +10,23 @@ class KeyedList:
     access to values stored in a list. This is similar to a conventional dictionary, but the list items are
     not distributed to each item in the dict, but can be an existing list, used without copying.
     
-    The keys are implemented as a dictionary of indexes, i.e. {'key0': 0, 'key1', 1, ... 'keyn'} where the keys
-    are just examples here. For convenience, we call this structure a dict of index or 'dex'.
+    The keys are implemented as a dictionary of indexes, i.e. {'key0': 0, 'key1', 1, ... 'keyn': n} where the keys
+    are just examples here. For convenience, we call this structure a dict of index or 'dex'. To create this
+    the following code has good performance to create a dex from a keylist:
     
-    For data that is already stored as a list, the list can be adopted without copying. An important attribute 
-    of this approach is that the parent list is modified if values in the keyedlist is modified. The code should 
-    make a copy if the values in the source list need to remain unaltered, or convert to a conventional dict 
-    which will inherently make a copy, using .to_dict()
+        dex = dict(zip(keylist, range(len(keylist))))
+        
+    But this likely can be improved if a concise standard library function is created, since the current nature
+    of a dict is that it is ordered, and thus has an implied index.    
     
-    Similarly, if the dex already exists, it can be reused on many instances of keyed list. Further, the dex can 
-    be used on a list-of-list structure as the column indexes of all rows. If related to such an array, then the
-    keys are frequently called 'cols'. See the daffodil package for a full implementation of such an array.
+    For values that are already stored as a list, the list can be adopted as values without copying. An 
+    important attribute of this approach is that the parent list is modified if values in the keyedlist 
+    are modified, and vice versa. The code should make a copy if the values in the source list need to 
+    remain unaltered, or convert to a conventional dict which will inherently make a copy, such as by using .to_dict()
+    
+    Similarly, if the dex portion already exists, it can be reused on many instances of keyed list. Further, the dex can 
+    be used with a list-of-list structure as the column indexes of all rows. If related to such an array, then the
+    keys are frequently called 'cols'. See the daffodil package for a full implementation of such a dataframe array.
 
     Usage:
         - KeyedList can be initialized from either a list of keys and values, a dictionary, or an existing dex and
