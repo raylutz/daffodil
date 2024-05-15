@@ -887,7 +887,7 @@ gc.disable()
 
     #report_daf['keyed lookup', 'loops']    = 
     keyed_lookup_loops = loops*10
-    report_daf['keyed lookup', 'daf']       = ms = timeit.timeit("sample_kdaf.select_record_da('500')", setup=setup_code, globals=globals(), number=keyed_lookup_loops) * 1000 / (keyed_lookup_loops)
+    report_daf['keyed lookup', 'daf']       = ms = timeit.timeit("sample_kdaf.select_record('500')", setup=setup_code, globals=globals(), number=keyed_lookup_loops) * 1000 / (keyed_lookup_loops)
     gc.enable()
     print(f"kdaf row lookup                 {ms:.4f} ms")
 

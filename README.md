@@ -616,11 +616,11 @@ with all types of appending.
 
 #### select one record using keyfield.
 
-    record_da = my_daf.select_record_da(keyvalue)
+    record = my_daf.select_record(keyvalue)
     
 or
 
-   record_list = my_daf[keyvalue].to_dict()
+   record_list = my_daf[keyvalue].to_list()
    
 Note that this syntax differs from Pandas, which normally references a column if square brackets are used with no other
 syntax.

@@ -1386,28 +1386,28 @@ class TestDaf(unittest.TestCase):
         with self.assertRaises(KeyError):
             daf.remove_keylist(keylist, silent_error=False)
 
-    # select_record_da
-    def test_select_record_da_existing_key(self):
+    # select_record
+    def test_select_record_existing_key(self):
         cols = ['col1', 'col2']
         lol = [[1, 'a'], [2, 'b'], [3, 'c']]
         daf = Daf(cols=cols, lol=lol, keyfield='col1', dtypes={'col1': int, 'col2': str})
 
         key = 2
-        record_da = daf.select_record_da(key)
+        record_da = daf.select_record(key)
 
         self.assertEqual(record_da, {'col1': 2, 'col2': 'b'})
 
-    def test_select_record_da_nonexistent_key(self):
+    def test_select_record_nonexistent_key(self):
         cols = ['col1', 'col2']
         lol = [[1, 'a'], [2, 'b'], [3, 'c']]
         daf = Daf(cols=cols, lol=lol, keyfield='col1', dtypes={'col1': int, 'col2': str})
 
         key = 4
-        record_da = daf.select_record_da(key)
+        record_da = daf.select_record(key)
 
         self.assertEqual(record_da, {})
 
-    def test_select_record_da_no_keyfield(self):
+    def test_select_record_no_keyfield(self):
         cols = ['col1', 'col2']
         lol = [[1, 'a'], [2, 'b'], [3, 'c']]
         daf = Daf(cols=cols, lol=lol, keyfield='', dtypes={'col1': int, 'col2': str})
@@ -1415,7 +1415,7 @@ class TestDaf(unittest.TestCase):
         key = 'col1'
 
         with self.assertRaises(RuntimeError):
-            daf.select_record_da(key)
+            daf.select_record(key)
 
     # iloc / irow
     def test_iloc_existing_row_idx(self):
@@ -2000,7 +2000,7 @@ class TestDaf(unittest.TestCase):
         daf = Daf(cols=cols, lol=lol, keyfield='col1', dtypes={})
 
         record_da = {'col1': 1, 'col2': 'a'}
-        daf.assign_record_da(record_da)
+        daf.assign_record(record_da)
 
         expected_lol = [[1, 'a']]
         self.assertEqual(daf.lol, expected_lol)
@@ -2011,7 +2011,7 @@ class TestDaf(unittest.TestCase):
         daf = Daf(cols=cols, lol=lol, keyfield='col1', dtypes={'col1': int, 'col2': str})
 
         record_da = {'col1': 4, 'col2': 'd'}
-        daf.assign_record_da(record_da)
+        daf.assign_record(record_da)
 
         expected_lol = [[1, 'a'], [2, 'b'], [3, 'c'], [4, 'd']]
         self.assertEqual(daf.lol, expected_lol)
@@ -2022,7 +2022,7 @@ class TestDaf(unittest.TestCase):
         daf = Daf(cols=cols, lol=lol, keyfield='col1', dtypes={'col1': int, 'col2': str})
 
         record_da = {'col1': 2, 'col2': 'x'}
-        daf.assign_record_da(record_da)
+        daf.assign_record(record_da)
 
         expected_lol = [[1, 'a'], [2, 'x'], [3, 'c']]
         self.assertEqual(daf.lol, expected_lol)
@@ -2034,7 +2034,7 @@ class TestDaf(unittest.TestCase):
 
         record_da = {'col2': 'x'}
         with self.assertRaises(RuntimeError):
-            daf.assign_record_da(record_da)
+            daf.assign_record(record_da)
 
     def test_assign_record_fields_not_equal_to_columns(self):
         cols = ['col1', 'col2']
@@ -2043,7 +2043,7 @@ class TestDaf(unittest.TestCase):
 
         record_da = {'col1': 4, 'col2': 'd', 'col3': 'extra'}
         with self.assertRaises(RuntimeError):
-            daf.assign_record_da(record_da)
+            daf.assign_record(record_da)
 
     # assign_record_irow
     def test_assign_record_irow_empty_daf(self):
@@ -2052,7 +2052,7 @@ class TestDaf(unittest.TestCase):
         daf = Daf(cols=cols, lol=lol, keyfield='col1', dtypes={})
 
         record_da = {'col1': 1, 'col2': 'a'}
-        daf.assign_record_da_irow(irow=0, record_da=record_da)
+        daf.assign_record_irow(irow=0, record=record_da)
 
         expected_lol = [[1, 'a']]
         self.assertEqual(daf.lol, expected_lol)
@@ -2063,7 +2063,7 @@ class TestDaf(unittest.TestCase):
         daf = Daf(cols=cols, lol=lol, keyfield='col1', dtypes={'col1': int, 'col2': str})
 
         record_da = {'col1': 4, 'col2': 'd'}
-        daf.assign_record_da_irow(irow=3, record_da=record_da)
+        daf.assign_record_irow(irow=3, record=record_da)
 
         expected_lol = [[1, 'a'], [2, 'b'], [3, 'c'], [4, 'd']]
         self.assertEqual(daf.lol, expected_lol)
@@ -2074,7 +2074,7 @@ class TestDaf(unittest.TestCase):
         daf = Daf(cols=cols, lol=lol, keyfield='col1', dtypes={'col1': int, 'col2': str})
 
         record_da = {'col1': 2, 'col2': 'x'}
-        daf.assign_record_da_irow(irow=1, record_da=record_da)
+        daf.assign_record_irow(irow=1, record=record_da)
 
         expected_lol = [[1, 'a'], [2, 'x'], [3, 'c']]
         self.assertEqual(daf.lol, expected_lol)
@@ -2088,7 +2088,7 @@ class TestDaf(unittest.TestCase):
 
         record_da = {'col1': 4, 'col2': 'd'}
         
-        daf.assign_record_da_irow(irow=5, record_da=record_da)
+        daf.assign_record_irow(irow=5, record=record_da)
 
         expected_lol = [[1, 'a'], 
                         [2, 'b'], 
@@ -2097,12 +2097,12 @@ class TestDaf(unittest.TestCase):
                         ]
         self.assertEqual(daf.lol, expected_lol)
 
-    def test_assign_record_irow_missing_record_da(self):
+    def test_assign_record_irow_missing_record(self):
         cols = ['col1', 'col2']
         lol = [[1, 'a'], [2, 'b'], [3, 'c']]
         daf = Daf(cols=cols, lol=lol, keyfield='col1', dtypes={'col1': int, 'col2': str})
 
-        daf.assign_record_da_irow(irow=1, record_da=None)
+        daf.assign_record_irow(irow=1, record=None)
 
         expected_lol = [[1, 'a'], [2, 'b'], [3, 'c']]
         self.assertEqual(daf.lol, expected_lol)
@@ -2114,7 +2114,7 @@ class TestDaf(unittest.TestCase):
         daf = Daf(cols=cols, lol=lol, keyfield='col1', dtypes={})
 
         record_da = {'col1': 1, 'col2': 'a'}
-        daf.update_record_da_irow(irow=0, record_da=record_da)
+        daf.update_record_irow(irow=0, record=record_da)
 
         self.assertEqual(daf.lol, [])
 
@@ -2124,7 +2124,7 @@ class TestDaf(unittest.TestCase):
         daf = Daf(cols=cols, lol=lol, keyfield='col1', dtypes={'col1': int, 'col2': str})
 
         record_da = {'col1': 2, 'col2': 'x', 'col3': 'extra'}
-        daf.update_record_da_irow(irow=1, record_da=record_da)
+        daf.update_record_irow(irow=1, record=record_da)
 
         expected_lol = [[1, 'a'], [2, 'x'], [3, 'c']]
         self.assertEqual(daf.lol, expected_lol)
@@ -2135,16 +2135,16 @@ class TestDaf(unittest.TestCase):
         daf = Daf(cols=cols, lol=lol, keyfield='col1', dtypes={'col1': int, 'col2': str})
 
         record_da = {'col1': 4, 'col2': 'd'}
-        daf.update_record_da_irow(irow=5, record_da=record_da)
+        daf.update_record_irow(irow=5, record=record_da)
 
         self.assertEqual(daf.lol, lol)
 
-    def test_update_record_irow_missing_record_da(self):
+    def test_update_record_irow_missing_record(self):
         cols = ['col1', 'col2']
         lol = [[1, 'a'], [2, 'b'], [3, 'c']]
         daf = Daf(cols=cols, lol=lol, keyfield='col1', dtypes={'col1': int, 'col2': str})
 
-        daf.update_record_da_irow(irow=1, record_da=None)
+        daf.update_record_irow(irow=1, record=None)
 
         expected_lol = [[1, 'a'], [2, 'b'], [3, 'c']]
         self.assertEqual(daf.lol, expected_lol)

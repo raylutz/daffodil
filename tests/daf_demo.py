@@ -131,7 +131,7 @@ be viewed directly or converted to HTML for use on a static website.
     """ Selecting one record by the key will return a dictionary.
     """
 
-    da = my_daf.select_record_da('car')
+    da = my_daf.select_record('car')
 
     md_report += f"Result:\n\n- {da=}\n"
     

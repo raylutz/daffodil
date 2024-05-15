@@ -526,7 +526,7 @@ def _set_item1(self,
             
         # if value is a dict, use it and make sure the right columns are assigned per dict keys.    
         elif isinstance(value, dict):
-            self.assign_record_da_irow(irow, record_da=value)
+            self.assign_record_irow(irow, record=value)
         else:
             # set the same value in the row for all columns.
             self.lol[irow] = [value] * len(self.lol[irow])

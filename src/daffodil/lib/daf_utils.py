@@ -459,6 +459,10 @@ def convert_type_value(val: any, desired_type: type, unflatten: bool=True):
         else:    
             new_val = f"{val}"
         
+    elif desired_type == list and isinstance(val, list) or desired_type == dict and isinstance(val, dict):
+        # no conversion required.
+        new_val = val
+
     else:
         breakpoint() #perm
         error_beep()
