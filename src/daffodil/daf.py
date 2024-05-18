@@ -216,8 +216,11 @@ See README file at this location: https://github.com/raylutz/Daf/blob/main/READM
             Changed nomenclature in KeyedList class from dex to hd.
             Added from_json and to_json to KeyedList class to allow custom JSONEncoder to be developed.
             
+            select_record() silently returns {} if self is empty.
+            mark chunks saved to local_mirror if not use_lambdas
             
-            
+            fixed _itermode vs. itermode.
+            Added .strip() method.
     
             
     TODO
@@ -509,11 +512,11 @@ class Daf:
 
     def __next__(self) -> Union[Dict[str, int], KeyedList]:
         if self._iter_index < len(self.lol):
-            if self.itermode == self.ITERMODE_DICT:
+            if self._itermode == self.ITERMODE_DICT:
                 row_dict = dict(zip(self.hd.keys(), self.lol[self._iter_index]))
                 self._iter_index += 1
                 return row_dict
-            elif self.itermode == self.ITERMODE_KEYEDLIST:
+            elif self._itermode == self.ITERMODE_KEYEDLIST:
                 row_klist = KeyedList(self.hd, self.lol[self._iter_index])
                 self._iter_index += 1
                 return row_klist
@@ -889,6 +892,15 @@ class Daf:
             typ_to_cols_dict: Optional[Dict[Type, T_ls]] = None,
             ) -> 'Daf':
             
+        """ set dtypes from default and dol where the key of the dict is the type, 
+            and the list is the column names of that type.
+            Useful if most columns are the same type and there are only a few exceptions.
+            
+            Otherwise, simply set my_daf.dtypes = dtypes dict, and then 
+            apply_dtypes() when reading files and 
+            flatten() when writing.
+        """
+            
         if not self.hd:
             raise NotImplementedError ("self.hd must be defined to use .set_dtypes()")
         
@@ -1082,8 +1094,21 @@ class Daf:
         # return self
         
         
+    def strip(self, chrs: str=' ') -> 'Daf':
+    
+        """ remove leading or trailing characters in the string chrs from each str value in the array.
+            modifies in-place.  Ignores non str values.
+        
+            each character in chrs treated seperately, such as strip('"()') removes quotes and parens.
+        """    
+    
+        for row_la in self.lol:
+            for icol in range(len(row_la)):
+                if isinstance(row_la[icol], str) and row_la[icol]:
+                    row_la[icol] = row_la[icol].strip(chrs)
 
-
+        return self
+       
 
     def _safe_tofloat(val: Any) -> Union[float, str]:
         try:
@@ -2488,21 +2513,20 @@ class Daf:
     def select_record(self, key: str, silent_error: bool=True) -> T_da:
         """ Select one record from daf using the key and return as a single T_da dict.
         
-            May be better to simply use 
-            
-                selected_daf = select_krows(krows=key)
-                
-            to select one row from the array, and then use:
-
-                selected_daf[0, 'fieldname']   to select fields like you would when using a dict.
-        
-            test exists in test_daf.py
-            
+            returns {} if not self
+            assertion break if keyfield not defined.
+            if key not found, return {} if silent_error, else raise KeyError exception.
+                   
             TODO Update for returning KeyedList
         """
         
+        if not self:
+            return {}
+        
         if not self.keyfield:
-            raise RuntimeError
+            logs.sts(f"{logs.prog_loc()} LOGIC ERROR. No keyfield is defined, required for select_record():\n{self}")
+            breakpoint()    # perm LOGIC ERROR
+            raise RuntimeError ("No keyfield is defined, required for select_record()")
             
         if key in self.kd:
             return self._basic_get_record(self.kd[key])
@@ -5290,7 +5314,7 @@ class Daf:
             
             )
         if include_summary:    
-            mdstr += f"\n\[{len(self.lol)} rows x {len(self.hd)} cols; keyfield={self.keyfield}; {len(self.kd)} keys ] ({self.name or type(self).__name__})\n"
+            mdstr += f"\n\[{len(self.lol)} rows x {len(self.hd)} cols; keyfield='{self.keyfield}'; {len(self.kd)} keys ] ({self.name or type(self).__name__})\n"
         return mdstr
         
 
