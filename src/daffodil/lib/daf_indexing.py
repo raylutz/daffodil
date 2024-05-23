@@ -100,34 +100,37 @@ General Form:   my_daf[row, col]
     SOFTWARE.
 """
 
-
 """
 See README file at this location: https://github.com/raylutz/Daf/blob/main/README.md
 """
 import sys
-import os
-sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.realpath(__file__)))))
+from pathlib import Path
+
+sys.path.append(str(Path(__file__).resolve().parents[2]))
+
 from daffodil.lib.daf_types import T_ls, T_li, T_doda, T_lb
-                            # T_lola, T_da, T_di, T_hllola, T_loda, T_dtype_dict, T_dola, T_dodi, T_la, T_lota, T_buff, T_df, T_ds, 
-                     
+# T_lola, T_da, T_di, T_hllola, T_loda, T_dtype_dict, T_dola, T_dodi, T_la, T_lota, T_buff, T_df, T_ds,
+
 import daffodil.lib.daf_utils as utils
-#import Daf.daf_md    as md
-import daffodil.lib.daf_indexing as indexing       # self import so internal references to indexing will work.
+# import Daf.daf_md    as md
+import daffodil.lib.daf_indexing as indexing  # self import so internal references to indexing will work.
 from daffodil.daf import Daf
 
+from typing import List, Dict, Any, Tuple, Optional, Union, cast, Type, Callable  #
 
-from typing import List, Dict, Any, Tuple, Optional, Union, cast, Type, Callable #
-def fake_function(a: Optional[List[Dict[str, Tuple[int,Union[Any, str, Type, Callable ]]]]] = None) -> Optional[int]:
-    return None or cast(int, 0)   # pragma: no cover
-    
+
+def fake_function(a: Optional[List[Dict[str, Tuple[int, Union[Any, str, Type, Callable]]]]] = None) -> Optional[int]:
+    return None or cast(int, 0)  # pragma: no cover
+
+
 indexing_version = 'version3'
 
 
 def _get_item(self,
-        slice_spec:   Union[slice, int, str, T_li, T_ls, T_lb, 
-                            Tuple[  Union[slice, int, str, T_li, T_ls, T_lb], 
-                                    Union[slice, int, str, T_li, T_ls, T_lb]]],
-        ) -> 'Daf':
+              slice_spec: Union[slice, int, str, T_li, T_ls, T_lb,
+              Tuple[Union[slice, int, str, T_li, T_ls, T_lb],
+              Union[slice, int, str, T_li, T_ls, T_lb]]],
+              ) -> 'Daf':
     """ allow selection and slicing using one or two specs:
         
             my_daf[2, 3]         -- select cell at row 2, col 3 and return value.
@@ -166,34 +169,31 @@ def _get_item(self,
             If only one row is selected, return a list. If a dict is required, use select_irow()
             if only one col is selected, return a list.
         """
-    
-    
-    
+
     if indexing_version == 'version2':
         return indexing._get_item2(self, slice_spec)
-    elif indexing_version == 'version3':    
+    elif indexing_version == 'version3':
         return indexing._get_item3(self, slice_spec)
-        
-        
+
     return indexing._get_item1(self, slice_spec)
+
 
 def _set_item3(self, slice_spec):
     pass
 
 
 def _get_item3(self,
-        slice_spec:   Union[slice, int, str, T_li, T_ls, T_lb, 
-                            Tuple[  Union[slice, int, str, T_li, T_ls, T_lb], 
-                                    Union[slice, int, str, T_li, T_ls, T_lb]]],
-        ) -> 'Daf':
-
+               slice_spec: Union[slice, int, str, T_li, T_ls, T_lb,
+               Tuple[Union[slice, int, str, T_li, T_ls, T_lb],
+               Union[slice, int, str, T_li, T_ls, T_lb]]],
+               ) -> 'Daf':
     if isinstance(slice_spec, tuple) and len(slice_spec) == 2:
         # Handle parsing slices for  both rows and columns
         row_spec, col_spec = slice_spec
     else:
         row_spec = slice_spec
         col_spec = None
-        
+
     if isinstance(row_spec, (int, slice)) or utils.is_list_of_type(row_spec, int):
         sel_rows_daf = self.select_irows(irows=slice_spec)
     elif isinstance(row_spec, str) or utils.is_list_of_type(row_spec, str):
@@ -210,30 +210,22 @@ def _get_item3(self,
         return sel_rows_daf.select_kcols(kcols=slice_spec)
     else:
         return sel_rows_daf
-        
 
-           
-
-
-
-    
 
 def _get_item1(self,
-        slice_spec:   Union[slice, int, str, T_li, T_ls, T_lb, 
-                            Tuple[  Union[slice, int, str, T_li, T_ls, T_lb], 
-                                    Union[slice, int, str, T_li, T_ls, T_lb]]],
-        ) -> 'Daf':
-
-
+               slice_spec: Union[slice, int, str, T_li, T_ls, T_lb,
+               Tuple[Union[slice, int, str, T_li, T_ls, T_lb],
+               Union[slice, int, str, T_li, T_ls, T_lb]]],
+               ) -> 'Daf':
     if isinstance(slice_spec, slice):
         # Handle slicing only rows
         return indexing._handle_slice(self, slice_spec, None)
-        
+
     elif isinstance(slice_spec, int):
         # Handle indexing a single row
         irow = slice_spec
         return indexing._handle_slice(self, slice(irow, irow + 1), None)
-        
+
     elif isinstance(slice_spec, str):
         # Handle indexing a single row using keyfield
         if not self.keyfield:
@@ -241,20 +233,20 @@ def _get_item1(self,
         irow = self.kd.get(slice_spec, -1)
         if irow < 0:
             raise RuntimeError("Row spec not a valid row key.")
-        
+
         return indexing._handle_slice(self, slice(irow, irow + 1), None)
-        
+
     elif isinstance(slice_spec, list):
         # single list of row indices
-        row_indices = indexing._row_indices_from_rowlist(self, slice_spec)            
+        row_indices = indexing._row_indices_from_rowlist(self, slice_spec)
         return indexing._handle_slice(self, row_indices, None)
-        
+
     elif isinstance(slice_spec, tuple) and len(slice_spec) == 2:
         # Handle slicing both rows and columns
         return indexing._handle_slice(self, slice_spec[0], slice_spec[1])
     else:
         raise TypeError("Unsupported indexing type. Use slices, integers, or tuples of slices and integers.")
-        
+
 
 def _handle_slice(self, row_slice: Union[slice, int, None], col_slice: Union[slice, int, str, None]) -> Any:
     """
@@ -272,8 +264,8 @@ def _handle_slice(self, row_slice: Union[slice, int, None], col_slice: Union[sli
     """
     all_cols = self.columns()
     sliced_cols = all_cols
-    row_sliced_lol = self.lol   # default is no change
-    
+    row_sliced_lol = self.lol  # default is no change
+
     # handle simple cases first:
     # selecting a row spec is integer.
     if isinstance(row_slice, int):
@@ -284,16 +276,16 @@ def _handle_slice(self, row_slice: Union[slice, int, None], col_slice: Union[sli
         elif isinstance(col_slice, str):
             icol = self.hd[col_slice]
             return self.lol[irow][icol]
-            
+
         # full row    
         if col_slice is None:
             la = self.lol[irow]
-            
+
         # part of a row, according to a slice
         elif isinstance(col_slice, slice):
             start_col, stop_col, step_col = indexing._parse_slice(self, col_slice, row_or_col='col')
             la = self.lol[irow][start_col:stop_col:step_col]
-            
+
         # part of a row, according to a column list    
         elif isinstance(col_slice, list):
             # the following handles cases of integer list as well as str list of colnames.
@@ -305,8 +297,8 @@ def _handle_slice(self, row_slice: Union[slice, int, None], col_slice: Union[sli
     elif row_slice is None:
         # no specs, return the entire array.
         if col_slice is None:
-            return indexing._adjust_return_val(self)   # is this correct?
-        
+            return indexing._adjust_return_val(self)  # is this correct?
+
         # all rows, one column
         elif isinstance(col_slice, int) or isinstance(col_slice, str):
             if isinstance(col_slice, str):
@@ -317,7 +309,7 @@ def _handle_slice(self, row_slice: Union[slice, int, None], col_slice: Union[sli
             return col_la
 
         # part of all rows, according to a list    
-        elif isinstance(col_slice, list):    
+        elif isinstance(col_slice, list):
             col_indices_li = indexing._col_indices_from_collist(self, col_slice)
             row_col_sliced_lol = [[row[i] for i in col_indices_li] for row in self.lol]
             sliced_cols = [all_cols[i] for i in col_indices_li]
@@ -328,51 +320,51 @@ def _handle_slice(self, row_slice: Union[slice, int, None], col_slice: Union[sli
             row_col_sliced_lol = [[row[icol] for icol in range(start_col, stop_col, step_col)] for row in self.lol]
             sliced_cols = [all_cols[icol] for icol in range(start_col, stop_col, step_col)]
             # also respect the column names
-            
+
         sliced_daf = Daf(lol=row_col_sliced_lol, cols=sliced_cols, dtypes=self.dtypes, keyfield=self.keyfield)
         return sliced_daf._adjust_return_val()
 
     # sliced or listed rows, first reduce the array by rows.
     elif isinstance(row_slice, list):
-        row_indices = indexing._row_indices_from_rowlist(self, row_slice)            
-            
+        row_indices = indexing._row_indices_from_rowlist(self, row_slice)
+
         if row_indices:
             row_sliced_lol = [self.lol[i] for i in row_indices]
         # else:
-            # row_sliced_lol = self.lol
-                
-    elif isinstance(row_slice, slice):    
+        # row_sliced_lol = self.lol
+
+    elif isinstance(row_slice, slice):
         start_row, stop_row, step_row = indexing._parse_slice(self, row_slice)
         row_sliced_lol = self.lol[start_row:stop_row:step_row]
     # else:
-        # row_sliced_lol = self.lol
+    # row_sliced_lol = self.lol
 
     # sliced rows, all columns
     if col_slice is None:
         row_col_sliced_lol = row_sliced_lol
-        
+
     #   one column    
     elif isinstance(col_slice, int) or isinstance(col_slice, str):
         if isinstance(col_slice, str):
             icol = self.hd[col_slice]
         else:
             icol = col_slice
-            
+
         col_la = [row[icol] for row in row_sliced_lol]
         return col_la
 
     # part of all sliced rows, according to a list    
-    elif isinstance(col_slice, list):    
+    elif isinstance(col_slice, list):
         col_indices_li = indexing._col_indices_from_collist(self, col_slice)
         row_col_sliced_lol = [[row[i] for i in col_indices_li] for row in row_sliced_lol]
         # also respect the column names, if they are defined.
         if self.hd:
             sliced_cols = [all_cols[i] for i in col_indices_li]
         else:
-            sliced_cols = None            
+            sliced_cols = None
 
     elif isinstance(col_slice, slice):
-                       
+
         # use normal slice approach
         start_col, stop_col, step_col = indexing._parse_slice(self, col_slice, row_or_col='col')
         row_col_sliced_lol = [[row[icol] for icol in range(start_col, stop_col, step_col)] for row in row_sliced_lol]
@@ -380,9 +372,9 @@ def _handle_slice(self, row_slice: Union[slice, int, None], col_slice: Union[sli
         if self.hd:
             sliced_cols = [self.columns()[icol] for icol in range(start_col, stop_col, step_col)]
         else:
-            sliced_cols = None            
+            sliced_cols = None
 
-    from daffodil.daf import Daf    
+    from daffodil.daf import Daf
     sliced_daf = Daf(lol=row_col_sliced_lol, cols=sliced_cols, dtypes=self.dtypes, keyfield=self.keyfield)
     return indexing._adjust_return_val(sliced_daf)
 
@@ -395,24 +387,24 @@ def _adjust_return_val(self):
     # if the method returns a daf.
     #
     # @@TODO: Must be fixed for zero_copy
-    
+
     num_cols = self.num_cols()
     num_rows = len(self.lol)
 
     if num_rows == 1 and num_cols == 1:
         # single value, just return it.
         return self.lol[0][0]
-        
+
     elif num_rows == 1 and num_cols > 1:
         # single row, return as list.
         return self.lol[0]
-            
+
     elif num_rows > 1 and num_cols == 1:
         # single column result as a list.
         return self.icol(0)
-        
+
     return self
-    
+
 
 def _col_indices_from_collist(self, collist) -> T_li:  # col_indices
 
@@ -420,20 +412,20 @@ def _col_indices_from_collist(self, collist) -> T_li:  # col_indices
         return []
 
     first_item = collist[0]
-    if isinstance(first_item, str):             # probably list of column names (did not check them all)
+    if isinstance(first_item, str):  # probably list of column names (did not check them all)
         colnames = collist
         col_indices = [self.hd[col] for col in colnames]
-    elif isinstance(first_item, int):           # probably list of column indices (did not check them all)
+    elif isinstance(first_item, int):  # probably list of column indices (did not check them all)
         col_indices = collist
     else:
         raise ValueError("column slice, if a list, must be a list of strings or ints")
     return col_indices
-    
 
-def _row_indices_from_rowlist(self, rowlist) -> T_li: # row_indices
+
+def _row_indices_from_rowlist(self, rowlist) -> T_li:  # row_indices
     if not rowlist:
         return []
-        
+
     first_item = rowlist[0]
     if isinstance(first_item, str):
         if not self.keyfield:
@@ -443,27 +435,29 @@ def _row_indices_from_rowlist(self, rowlist) -> T_li: # row_indices
         row_indices = rowlist
     else:
         raise RuntimeError("list spec must use str or int values")
-        
+
     return row_indices
 
-def _parse_slice(self, s: Union[slice, int, None], row_or_col:str='row') -> Tuple[Optional[int], Optional[int], Optional[int]]:
+
+def _parse_slice(self, s: Union[slice, int, None], row_or_col: str = 'row') -> Tuple[
+    Optional[int], Optional[int], Optional[int]]:
     if isinstance(s, slice):
         start = s.start if s.start is not None else 0
-        
+
         stop = s.stop if s.stop is not None else (self.num_cols() if row_or_col == 'col' else len(self.lol))
-        
+
         step = s.step if s.step is not None else 1
         return start, stop, step
     elif isinstance(s, int):
         return s, s + 1, 1
     elif s is None:
         return None, None, None
-    
-            
-def _set_item(self, 
-        slice_spec: Union[int, Tuple[Union[slice, int, List[str], List[bool]], Union[slice, int, str, List[str], List[bool]]]], 
-        value: Any):
 
+
+def _set_item(self,
+              slice_spec: Union[
+                  int, Tuple[Union[slice, int, List[str], List[bool]], Union[slice, int, str, List[str], List[bool]]]],
+              value: Any):
     """
         Handles the assignment of values, lists or dicts to Daf elements.
         
@@ -513,24 +507,25 @@ def _set_item(self,
         return _set_item3(self, slice_spec, value)
     return _set_item1(self, slice_spec, value)
 
-def _set_item1(self, 
-        slice_spec: Union[int, Tuple[Union[slice, int, List[str], List[bool]], Union[slice, int, str, List[str], List[bool]]]], 
-        value: Any):
 
+def _set_item1(self,
+               slice_spec: Union[
+                   int, Tuple[Union[slice, int, List[str], List[bool]], Union[slice, int, str, List[str], List[bool]]]],
+               value: Any):
     if isinstance(slice_spec, int):
         irow = slice_spec
         # Assigning a row based on a single integer index and a value which is a list.
         # will trigger an error if the list is not the right length for the row.
         if isinstance(value, list):
             self.lol[irow] = value
-            
+
         # if value is a dict, use it and make sure the right columns are assigned per dict keys.    
         elif isinstance(value, dict):
             self.assign_record_irow(irow, record=value)
         else:
             # set the same value in the row for all columns.
             self.lol[irow] = [value] * len(self.lol[irow])
-        
+
     elif isinstance(slice_spec, list) and isinstance(value, self.__class__):
         # assign a number of rows to the data in daf provided.
         row_indices = self._row_indices_from_rowlist(slice_spec)
@@ -544,97 +539,97 @@ def _set_item1(self,
                 irow = self.kd[row_spec]
             else:
                 irow = row_spec
-                
+
             if isinstance(col_spec, int):
                 # my_daf[irow, icol] = value       -- set cell irow, icol to value, where irow, icol are integers.
                 self.lol[irow][col_spec] = value
-                
+
             elif isinstance(col_spec, str):
                 # my_daf[irow, colname] = value    -- set a value in cell irow, col, where colname is a string.
                 icol = self.hd[col_spec]
                 self.lol[irow][icol] = value
-                
+
             elif isinstance(col_spec, list) and col_spec:
                 col_indices = indexing._col_indices_from_collist(self, col_spec)
-                    
+
                 # assign a number of columns specified in a list of colnames to a single row, from a list with only those columns.
                 for source_col, icol in enumerate(col_indices):
-                    self.lol[irow][icol] = value[source_col]                
-        
+                    self.lol[irow][icol] = value[source_col]
+
             elif isinstance(col_spec, slice):
                 # my_daf[irow, start:end] = value  -- set a value in cells in row irow, from columns start to end.
                 # my_daf[irow, start:end] = list   -- set values from a list in cells in row irow, from columns start to end.
                 col_start, col_stop, col_step = indexing._parse_slice(self, col_spec)
-                for idx, icol in enumerate(range(col_start, col_stop, col_step)):   # type: ignore
+                for idx, icol in enumerate(range(col_start, col_stop, col_step)):  # type: ignore
                     if isinstance(value, list):
                         self.lol[irow][icol] = value[idx]
                     else:
                         self.lol[irow][icol] = value
-                        
+
         elif isinstance(row_spec, slice):
             row_start, row_stop, row_step = indexing._parse_slice(self, row_spec)
-            
+
             if isinstance(col_spec, list) and col_spec:
                 col_indices = indexing._col_indices_from_collist(self, col_spec)
-                     
+
                 for source_row, irow in enumerate(range(row_start, row_stop, row_step)):
                     for source_col, icol in enumerate(col_indices):
                         self.lol[irow][icol] = value.lol[source_row][source_col]
-                    
-            
+
+
             elif isinstance(col_spec, int) or isinstance(col_spec, str):
                 if isinstance(col_spec, str):
                     icol = self.hd[col_spec]
                 else:
                     icol = col_spec
-            
-                for idx, irow in enumerate(range(row_start, row_stop, row_step)):       # type: ignore
+
+                for idx, irow in enumerate(range(row_start, row_stop, row_step)):  # type: ignore
                     if isinstance(value, list):
                         self.lol[irow][icol] = value[idx]
                     else:
                         self.lol[irow][icol] = value
-                        
+
         elif isinstance(row_spec, str) and self.keyfield:
             irow = self.kd[row_spec]
-            
+
             if isinstance(col_spec, list) and col_spec:
                 col_indices = indexing._col_indices_from_collist(self, col_spec)
 
                 for source_row, irow in enumerate(row_indices):
                     for source_col, icol in enumerate(col_indices):
                         self.lol[irow][icol] = value.lol[source_row][source_col]
-                        
+
             elif isinstance(col_spec, int) or isinstance(col_spec, str):
                 if isinstance(col_spec, str):
                     icol = self.hd[col_spec]
                 else:
                     icol = col_spec
-            
-                for idx, irow in enumerate(range(row_start, row_stop, row_step)):       # type: ignore
+
+                for idx, irow in enumerate(range(row_start, row_stop, row_step)):  # type: ignore
                     if isinstance(value, list):
                         self.lol[irow][icol] = value[idx]
                     else:
                         self.lol[irow][icol] = value
-                        
-            
+
+
         elif isinstance(row_spec, list):
             row_indices = indexing._row_indices_from_rowlist(self, row_spec)
-            
+
             if isinstance(col_spec, list) and col_spec:
                 col_indices = indexing._col_indices_from_collist(self, col_spec)
 
                 for source_row, irow in enumerate(row_indices):
                     for source_col, icol in enumerate(col_indices):
                         self.lol[irow][icol] = value.lol[source_row][source_col]
-                    
-            
+
+
             elif isinstance(col_spec, int) or isinstance(col_spec, str):
                 if isinstance(col_spec, str):
                     icol = self.hd[col_spec]
                 else:
                     icol = col_spec
-            
-                for idx, irow in enumerate(row_indices): 
+
+                for idx, irow in enumerate(row_indices):
                     if isinstance(value, list):
                         self.lol[irow][icol] = value[idx]
                     else:
@@ -642,17 +637,18 @@ def _set_item1(self,
         else:
             raise ValueError("Unsupported key type for assignment")
 
-        
+
     else:
         raise ValueError("Unsupported key type for assignment")
 
-    self._rebuild_kd()    
-    
-#===== VERSION 2 ======
+    self._rebuild_kd()
 
-def _parse_itemidx(self, slice_spec: Union[slice, int, str, T_li, T_ls, T_lb], row_or_col:str='row', 
-                    parse_doda: Optional[T_doda]=None) -> T_doda: # parse_doda
-                    
+
+# ===== VERSION 2 ======
+
+def _parse_itemidx(self, slice_spec: Union[slice, int, str, T_li, T_ls, T_lb], row_or_col: str = 'row',
+                   parse_doda: Optional[T_doda] = None) -> T_doda:  # parse_doda
+
     """ parse one index of the item specification using square brackets.
     
         if the return value is a boolean mask, then the rows or columns cannot be reordered.
@@ -665,28 +661,28 @@ def _parse_itemidx(self, slice_spec: Union[slice, int, str, T_li, T_ls, T_lb], r
         
     """
     if parse_doda is None:
-        parse_doda = {'row':{}, 'col':{}}
-    
+        parse_doda = {'row': {}, 'col': {}}
+
     if isinstance(slice_spec, slice):
         if slice_spec.start is None and slice_spec.stop is None:
             # no slicing.
             parse_doda[row_or_col] = {}
-            
+
         start_idx, stop_idx, step_idx = indexing._parse_slice(self, slice_spec, row_or_col=row_or_col)
-        
+
         if row_or_col == 'row':
             # save slice tuple directly and do not construct a list of indices
             parse_doda[row_or_col]['slice'] = (start_idx, stop_idx, step_idx)
-        else: 
+        else:
             # for col, always resolve to li
             parse_doda[row_or_col]['li'] = [idx for idx in range(start_idx, stop_idx, step_idx)]
-        
+
     elif isinstance(slice_spec, int):
         if row_or_col == 'row' or not self.kd:
             parse_doda[row_or_col]['li'] = [slice_spec]
         else:
             parse_doda[row_or_col]['li'] = [list(self.hd.values())[slice_spec]]
-            
+
     elif isinstance(slice_spec, str):
         if row_or_col == 'col':
             icol = self.hd[slice_spec]
@@ -694,13 +690,13 @@ def _parse_itemidx(self, slice_spec: Union[slice, int, str, T_li, T_ls, T_lb], r
         else:
             irow = self.kd[slice_spec]
             parse_doda[row_or_col]['li'] = [irow]
-    
+
     elif isinstance(slice_spec, list) and slice_spec:
         first_item = slice_spec[0]
-        
+
         if isinstance(first_item, int):
             parse_doda[row_or_col]['li'] = slice_spec
-            
+
         elif isinstance(first_item, str):
             if row_or_col == 'col':
                 colnames_ls = slice_spec
@@ -717,60 +713,57 @@ def _parse_itemidx(self, slice_spec: Union[slice, int, str, T_li, T_ls, T_lb], r
             else:
                 # for col, always resolve to li
                 parse_doda[row_or_col]['li'] = [idx for idx, istrue in enumerate(slice_spec) if istrue]
-            
+
     else:
         raise AttributeError("slice spec error")
-        
-    return parse_doda
-        
 
-def _get_parse_doda(self, 
-        slice_spec:   Union[slice, int, str, T_li, T_ls, T_lb, 
-                            Tuple[  Union[slice, int, str, T_li, T_ls, T_lb], 
-                                    Union[slice, int, str, T_li, T_ls, T_lb]]],
-        ) -> T_doda: # parse_doda
+    return parse_doda
+
+
+def _get_parse_doda(self,
+                    slice_spec: Union[slice, int, str, T_li, T_ls, T_lb,
+                    Tuple[Union[slice, int, str, T_li, T_ls, T_lb],
+                    Union[slice, int, str, T_li, T_ls, T_lb]]],
+                    ) -> T_doda:  # parse_doda
 
     if isinstance(slice_spec, tuple) and len(slice_spec) == 2:
         # Handle parsing slices for  both rows and columns
-        parse_doda = indexing._parse_itemidx(self, slice_spec[0], 
-                            row_or_col='row', 
-                            )
-        parse_doda = indexing._parse_itemidx(self, slice_spec[1], 
-                            row_or_col='col',
-                            parse_doda = parse_doda,
-                            )
+        parse_doda = indexing._parse_itemidx(self, slice_spec[0],
+                                             row_or_col='row',
+                                             )
+        parse_doda = indexing._parse_itemidx(self, slice_spec[1],
+                                             row_or_col='col',
+                                             parse_doda=parse_doda,
+                                             )
     else:
-        parse_doda = indexing._parse_itemidx(self, slice_spec, 
-                            row_or_col='row', 
-                            )
+        parse_doda = indexing._parse_itemidx(self, slice_spec,
+                                             row_or_col='row',
+                                             )
     return parse_doda
-    
-    
-def _get_item2(self,
-        slice_spec:   Union[slice, int, str, T_li, T_ls, T_lb, 
-                            Tuple[  Union[slice, int, str, T_li, T_ls, T_lb], 
-                                    Union[slice, int, str, T_li, T_ls, T_lb]]],
-        ) -> 'Daf':
 
+
+def _get_item2(self,
+               slice_spec: Union[slice, int, str, T_li, T_ls, T_lb,
+               Tuple[Union[slice, int, str, T_li, T_ls, T_lb],
+               Union[slice, int, str, T_li, T_ls, T_lb]]],
+               ) -> 'Daf':
     parse_doda = indexing._get_parse_doda(self, slice_spec)
-    
+
     return indexing._get_by_parse_doda(self, parse_doda)
-    
+
 
 def _set_item2(self,
-        slice_spec:   Union[slice, int, str, T_li, T_ls, T_lb, 
-                            Tuple[  Union[slice, int, str, T_li, T_ls, T_lb], 
-                                    Union[slice, int, str, T_li, T_ls, T_lb]]],
-        value: Any,              
-        ) -> 'Daf':
-
+               slice_spec: Union[slice, int, str, T_li, T_ls, T_lb,
+               Tuple[Union[slice, int, str, T_li, T_ls, T_lb],
+               Union[slice, int, str, T_li, T_ls, T_lb]]],
+               value: Any,
+               ) -> 'Daf':
     parse_doda = indexing._get_parse_doda(self, slice_spec)
-    
+
     return indexing._set_by_parse_doda(self, parse_doda, value)
 
 
 def _get_by_parse_doda(self, parse_doda: T_doda) -> 'Daf':
-
     if not parse_doda['row'] and not parse_doda['col']:
         # return all rows and columns unchanged.
         return self
@@ -779,23 +772,23 @@ def _get_by_parse_doda(self, parse_doda: T_doda) -> 'Daf':
         all_cols = sliced_cols = list(self.hd.keys())
     else:
         all_cols = sliced_cols = None
-        
+
     if parse_doda['row']:
         if 'li' in parse_doda['row']:
             row_indices = parse_doda['row']['li']
             # list of indices specified
             row_sliced_lol = [self.lol[i] for i in row_indices if i >= 0]
-            
+
         elif 'slice' in parse_doda['row']:
             start, stop, step = parse_doda['row']['slice']
             # list of indices specified
             row_sliced_lol = [self.lol[i] for i in range(start, stop, step)]
-            
+
         elif 'lb' in parse_doda['row']:
             row_boolean_mask_lb = parse_doda['row']['lb']
             # list of indices specified
             row_sliced_lol = [self.lol[i] for i in range(len(self.lol)) if row_boolean_mask_lb[i]]
-            
+
     if parse_doda['col']:
         col_indices_li = parse_doda['col']['li']
         row_col_sliced_lol = [[row[i] for i in col_indices_li] for row in row_sliced_lol]
@@ -806,32 +799,31 @@ def _get_by_parse_doda(self, parse_doda: T_doda) -> 'Daf':
     else:
         row_col_sliced_lol = row_sliced_lol
 
-    new_daf = self.clone_empty(lol=row_col_sliced_lol, cols=sliced_cols)        
+    new_daf = self.clone_empty(lol=row_col_sliced_lol, cols=sliced_cols)
 
     return new_daf._adjust_return_val()
-    
-        
-def _set_by_parse_doda(self, parse_doda: T_doda, value: Any) -> 'Daf':
 
+
+def _set_by_parse_doda(self, parse_doda: T_doda, value: Any) -> 'Daf':
     if not parse_doda['row'] and not parse_doda['col']:
         # return all rows and columns unchanged.
         return self
-        
+
     elif parse_doda['row'] and not parse_doda['col']:
         # no column spec, affect complete rows.
-        
+
         if 'li' in parse_doda['row'] and isinstance(value, self.__class__):
             row_indices = parse_doda['row']['li']
             # list of indices specified
             for source_row, irow in enumerate(row_indices):
                 self.lol[irow] = value.lol[source_row]
-            
+
         elif 'slice' in parse_doda['row']:
             start, stop, step = parse_doda['row']['slice']
             # slice specified
             for source_row, irow in enumerate(range(start, stop, step)):
                 self.lol[irow] = value.lol[source_row]
-            
+
         elif 'lb' in parse_doda['row']:
             row_boolean_mask_lb = parse_doda['row']['lb']
             # boolean mask specified
@@ -846,92 +838,90 @@ def _set_by_parse_doda(self, parse_doda: T_doda, value: Any) -> 'Daf':
 
     elif parse_doda['col'] and not parse_doda['row']:
         # affecting only columns.
-        
+
         dest_col_li = parse_doda['col']['li']
         num_dest_cols = len(dest_col_li)
-        
+
         if num_dest_cols == 1 and isinstance(value, list):
             icol = dest_col_li[0]
             utils.assign_col_in_lol_at_icol(icol, col_la=value, lol=self.lol)
-          
+
         # scalar value: repeat in the entire column.  
         elif num_dest_cols == 1 and isinstance(value, (float, int, str)):
             icol = dest_col_li[0]
             utils.assign_col_in_lol_at_icol(icol, col_la=None, lol=self.lol, default=value)
-            
+
         elif num_dest_cols > 1 and isinstance(value, self.__class__):
             for irow in range(len(value.lol)):
                 for source_icol, dest_icol in enumerate(dest_col_li):
                     self.lol[irow][dest_icol] = value.lol[irow][source_icol]
         else:
             raise NotImplementedError
-                
+
     elif parse_doda['col'] and parse_doda['row']:
-                
+
         dest_col_li = parse_doda['col']['li']
         num_dest_cols = len(dest_col_li)
-        
+
         if 'li' in parse_doda['row'] or 'lb' in parse_doda['row']:
-        
+
             if 'lb' in parse_doda['row']:
                 dest_row_li = [idx for idx, istrue in enumerate(parse_doda['row']['lb']) if istrue]
             else:
                 dest_row_li = parse_doda['row']['li']
-                
+
             num_dest_rows = len(dest_row_li)
-            
+
             if num_dest_rows == 1:
                 irow = dest_row_li[0]
-            
+
                 if num_dest_cols == 1:
                     icol = dest_col_li[0]
                     self.lol[irow][icol] = value
-        
+
                 elif num_dest_cols > 1 and isinstance(value, list):
                     for source_icol, dest_icol in enumerate(dest_col_li):
                         self.lol[irow][dest_icol] = value[source_icol]
-                        
+
             elif num_dest_rows > 1 and isinstance(value, self.__class__):
                 for source_irow, dest_irow in enumerate(dest_row_li):
                     for source_icol, dest_icol in enumerate(dest_col_li):
-                        self.lol[dest_irow][dest_icol] = value.lol[source_irow][source_icol]            
+                        self.lol[dest_irow][dest_icol] = value.lol[source_irow][source_icol]
             else:
                 raise NotImplementedError
 
         elif 'slice' in parse_doda['row']:
             dest_row_start, dest_row_stop, dest_row_step = parse_doda['row']['slice']
             num_dest_rows = (dest_row_stop - dest_row_start) // dest_row_step
-            
+
             if num_dest_rows == 1:
                 irow = dest_row_start
-            
+
                 if num_dest_cols == 1:
                     icol = dest_col_li[0]
                     self.lol[irow][icol] = value
-        
+
                 elif num_dest_cols > 1 and isinstance(value, list):
                     for source_icol, dest_icol in enumerate(dest_col_li):
                         self.lol[irow][dest_icol] = value[source_icol]
-                        
+
             elif num_dest_rows > 1 and isinstance(value, list):
                 for source_irow, dest_irow in enumerate(range(dest_row_start, dest_row_stop, dest_row_step)):
                     for source_icol, dest_icol in enumerate(dest_col_li):
-                        self.lol[dest_irow][dest_icol] = value[source_irow]            
+                        self.lol[dest_irow][dest_icol] = value[source_irow]
 
             elif num_dest_rows > 1 and isinstance(value, self.__class__):
                 for source_irow, dest_irow in enumerate(range(dest_row_start, dest_row_stop, dest_row_step)):
                     for source_icol, dest_icol in enumerate(dest_col_li):
-                        self.lol[dest_irow][dest_icol] = value.lol[source_irow][source_icol]            
+                        self.lol[dest_irow][dest_icol] = value.lol[source_irow][source_icol]
             else:
-                import pdb; pdb.set_trace() #temp
+                import pdb;
+                pdb.set_trace()  # temp
                 pass
-                
+
                 raise NotImplementedError
-        
+
         else:
             raise NotImplementedError
 
-            
     return self
-            
-    
