@@ -221,6 +221,11 @@ See README file at this location: https://github.com/raylutz/Daf/blob/main/READM
             
             fixed _itermode vs. itermode.
             Added .strip() method.
+            correct icols when providing a single str column name, and when column names have more than one character each.
+            Added 'flatten' in '.to_list' method which will combine lol to a single list.
+            Added .num_rows() which will more robustly calculate the number of rows in edge cases.
+            Fix unflattening issue discovered when running edge_test_utils.py.
+            
     
             
     TODO
@@ -459,6 +464,8 @@ class Daf:
             if dtypes:
                 self.hd = type(self)._build_hd(dtypes.keys())
         else:
+            if isinstance(cols, str):
+                cols = [cols]
             # cols will be sanitized only if necessary.
             self._cols_to_hd(cols)
             if len(cols) != len(self.hd):
@@ -543,13 +550,7 @@ class Daf:
         """ Return the number of rows in the Daf instance.
         """
         # unit tested
-        return len(self.lol)
-        
-        
-    def len(self):
-        # unit tested
-
-        return len(self.lol)
+        return self.num_rows()
         
         
     def shape(self):
@@ -560,7 +561,7 @@ class Daf:
         
         if not len(self): return (0, 0)
         
-        return (len(self.lol), self.num_cols()) 
+        return (self.num_rows(), self.num_cols()) 
         
         
     def __eq__(self, other):
@@ -597,6 +598,19 @@ class Daf:
             pass
         return result
 
+
+    def num_rows(self):
+        # unit tested
+        if not self.lol:
+            return 0
+
+        return len(self.lol)
+        
+        
+    def len(self):
+        return self.num_rows()
+        
+        
     #===========================
     # copying convenience function to mimic pandas syntax.
     
@@ -952,12 +966,12 @@ class Daf:
         # first calculate all columns to consider, that are not str or str and unflatten
         cols = self.hd.keys()
         for col in cols:
-            if isinstance(self.dtypes, dict):
+            if isinstance(self.dtypes, dict):           # this is the normal case, where each column is defined.
                 if col not in self.dtypes:
                     continue
                 desired_type = self.dtypes[col]
             else:
-                desired_type = self.dtypes
+                desired_type = self.dtypes              # only one type is defined.
                 
             if (    desired_type == str and from_str or 
                     desired_type in [list, dict] and not unflatten
@@ -1404,7 +1418,7 @@ class Daf:
         # from utilities import xlsx_utils
 
         csv_buff = utils.xlsx_to_csv(excel_buff)
-
+        
         my_daf  = cls.from_csv_buff(
                         csv_buff, 
                         keyfield    = keyfield,         # field to use as unique key, if not ''
@@ -1453,6 +1467,8 @@ class Daf:
         cols = []
         if not noheader:
             cols = data_lol.pop(0)        # return the first item and shorten the list.
+        
+        #breakpoint()
         
         my_daf = cls(lol=data_lol, cols=cols, keyfield=keyfield, dtypes=dtypes)
         
@@ -1807,7 +1823,7 @@ class Daf:
         # fields must match exactly!
         if self.hd != other_instance.hd:
             print(f"keys mismatch: daf: ({list(self.hd.keys())}) \nother_instance: ({list(other_instance.hd.keys())})")
-            breakpoint()
+            breakpoint()    # assertion break
             raise KeyError
         
         # simply append the rows from daf.lol to the end of self.lol
@@ -2318,7 +2334,8 @@ class Daf:
                     idxs.append(keydict[gkey])                
                 except KeyError:
                     if not silent_error:
-                        logs.sts(f"{logs.prog_loc()} Cannot find key '{gkey}' in {axis} in dataframe '{name}'", 3) 
+                        logs.sts(f"{logs.prog_loc()} Cannot find key '{gkey}' in {axis} in dataframe '{name}'", 3)
+                        #breakpoint()
                         raise 
                     
             
@@ -2454,7 +2471,7 @@ class Daf:
             if not flip:
                 col_sliced_lol = [[row[icol]] for row in self.lol]
                 if orig_cols:
-                    sliced_cols = orig_cols[icol]
+                    sliced_cols = [orig_cols[icol]]
             else: # flip
                 col_sliced_lol = [row[icol] for row in self.lol]
             
@@ -2525,7 +2542,7 @@ class Daf:
         
         if not self.keyfield:
             logs.sts(f"{logs.prog_loc()} LOGIC ERROR. No keyfield is defined, required for select_record():\n{self}")
-            breakpoint()    # perm LOGIC ERROR
+            #breakpoint()    # temp
             raise RuntimeError ("No keyfield is defined, required for select_record()")
             
         if key in self.kd:
@@ -2597,7 +2614,12 @@ class Daf:
         return default
         
 
-    def to_list(self, irow: Optional[int]=None, icol: Optional[int]=None, unique=False) -> list:
+    def to_list(self, 
+        irow: Optional[int]=None,   # select a row 
+        icol: Optional[int]=None,   # or column.
+        unique=False,               # reduce to unique values
+        flatten=False,              # if items is the list are lists, combine them into one list.
+        ) -> list:
         """ return data from a daf array as a list
             defaults to the most obvious list if irow and icol not specified.
                 from irow 0, if num_rows is 1 and num_cols >= 1
@@ -2625,6 +2647,15 @@ class Daf:
             result_la = self.icol(icol)
         else:
             result_la = []
+            
+        if flatten:
+            new_list = []
+            for sublist in result_la:
+                if isinstance(sublist, list):
+                    new_list += sublist
+                else:
+                    new_list += [sublist]
+            result_la = new_list        
             
         if unique and result_la:
             result_la = list(dict.fromkeys(result_la))
@@ -3278,7 +3309,7 @@ class Daf:
             colidx = self.hd[colname]
         except Exception as err:
             print(f"{err}")
-            breakpoint()
+            breakpoint()    # assertion break
             pass
             
         self.lol = utils.sort_lol_by_col(self.lol, colidx, reverse=reverse, length_priority=length_priority)
@@ -3966,7 +3997,7 @@ class Daf:
     def groupby_reduce(
             self, 
             colname:        str, 
-            func:           Callable[[T_da, T_da], Union[T_da, T_la]], 
+            func:           Callable[['Daf', T_da], Union[T_da, T_la]], # function reduces one grouped daf to one record. 
             by:             str='row',                                  # determines how the func is applied.
             reduce_cols:    Optional[T_la]=None,                        # columns included in the reduce operation.
             diagnose:       bool=False,
@@ -3982,10 +4013,11 @@ class Daf:
             logs.sts(f"{logs.prog_loc()} starting groupby '{colname}' operation", 3)
         grouped_dodaf = self.groupby(colname)
         result_daf = Daf.reduce_dodaf_to_daf(
-            func            = func, 
+            func            = func,             # function reduces one grouped daf to one record. 
             colname         = colname, 
             grouped_dodaf   = grouped_dodaf, 
             reduce_cols     = reduce_cols,
+            by              = by,
             diagnose        = diagnose,
             **kwargs,
             )
@@ -4116,7 +4148,7 @@ class Daf:
     def multi_groupby_reduce(
             self, 
             colnames:       T_ls, 
-            func:           Callable[[T_da, T_da], Union[T_da, T_la]], 
+            func:           Callable[[T_da, T_da], Union[T_da, T_la]],  # function reduces one grouped daf to one record.
             by:             str='row',                                  # determines how the func is applied.
             reduce_cols:    Optional[T_la]=None,                        # columns included in the reduce operation.
             diagnose:       bool=False,
@@ -4137,7 +4169,7 @@ class Daf:
         for colname, grouped_dodaf in multi_grouped_dododaf.items():
         
             result_dodaf[colname] = Daf.reduce_dodaf_to_daf(
-                func            = func, 
+                func            = func,         # function reduces one grouped daf to one record.
                 colname         = colname, 
                 grouped_dodaf   = grouped_dodaf, 
                 reduce_cols     = reduce_cols,
@@ -4315,7 +4347,7 @@ class Daf:
                     reduction_da = func(row_da, reduction_da, cols_iter, **kwargs)
                 except Exception as err:
                     print(f"err = {err}")
-                    breakpoint()
+                    breakpoint()    # perm: investigate why reduction function not working
                     pass
                 # def count_values_da(row_da: T_da, reduction_da: T_da, cols_iter: Iterable, omit_nulls: bool=False) -> T_dodi:
                 # def sum_da         (row_da: T_da, reduction_da: T_da, cols_iter: Iterable, astype: Optional[Type]=None, diagnose:bool=False
@@ -4795,7 +4827,14 @@ class Daf:
 
 
     @staticmethod
-    def count_values_da(row_da: T_da, reduction_da: T_da, cols_iter: Iterable, *, omit_nulls: bool=False) -> T_dodi:
+    def count_values_da(
+            row_da: T_da, 
+            reduction_da: T_da, 
+            cols_iter: Iterable, 
+            *, 
+            omit_nulls: bool=False,
+            
+            ) -> T_dodi:
         """ incrementally build the result_dodi, which is the valuecounts for each item in row_da.
             can be used to calculate valuecounts over all rows and chunks.
             
@@ -4837,6 +4876,14 @@ class Daf:
             if omit_nulls and isinstance(val, str) and not val:
                 continue
             
+            if val and isinstance(val, list):
+                # val is a list of values
+                if col not in result_dodi:
+                    result_dodi[col] = val
+                else:    
+                    result_dodi[col].append(val)
+                continue
+                
             if val and isinstance(val, dict):
                 # val is a dict of values determined in another pass.
                 if col not in result_dodi:
@@ -5370,7 +5417,7 @@ class Daf:
         if not max_rows and not max_cols:
             return result_lol
 
-        num_rows    = len(self.lol) if self.lol else 0
+        num_rows    = self.num_rows()
         num_cols    = self.num_cols()
 
         if max_rows and num_rows <= max_rows:

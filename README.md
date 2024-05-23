@@ -620,7 +620,7 @@ with all types of appending.
     
 or
 
-   record_list = my_daf[keyvalue].to_list()
+    record_list = my_daf[keyvalue].to_list()
    
 Note that this syntax differs from Pandas, which normally references a column if square brackets are used with no other
 syntax.

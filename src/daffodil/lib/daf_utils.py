@@ -481,13 +481,13 @@ def unflatten_val(val: str) -> Union[str, list, dict]:
 
     val = val.strip()
     
-    if val and isinstance(val, str) and val.strip()[0] in ('[', '{', '('):
-        obj_val = json_decode(val)
+    if val and isinstance(val, str) and val[0] in ('[', '{', '('):
+        obj_val = json_decode(val)  # this returns '' on failure
         
-    if not obj_val:
+    if obj_val == '':
         obj_val = safe_eval(val)
         
-    if not obj_val:
+    if obj_val == '':
         return val
         
     return obj_val
@@ -881,9 +881,9 @@ def reduce_lol_cols(lol: T_lola, max_cols:int=10, divider_str: str='...') -> T_l
     if not max_cols or not lol:
         return lol
         
-    col_num = len(lol[0])
+    num_cols = len(lol[0])
 
-    if col_num <= max_cols:
+    if num_cols <= max_cols:
         return lol
         
     first_col_num = math.ceil(max_cols/2)
