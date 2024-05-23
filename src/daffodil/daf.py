@@ -193,7 +193,7 @@ See README file at this location: https://github.com/raylutz/Daf/blob/main/READM
             fixed bug in set_dtypes()
             added daf_utils.safe_eval()
             
-    v04.5   (pending)
+    v0.5.0  (2024-05-23)
             Added split_where(self, where: Callable) which makes a single pass and splits the daf array in two
                 true_daf, false_daf.
             Added to Daffodil multi_groupby(), reduce_dodaf_to_daf() and multi_groupby_reduce()
@@ -225,16 +225,15 @@ See README file at this location: https://github.com/raylutz/Daf/blob/main/READM
             Added 'flatten' in '.to_list' method which will combine lol to a single list.
             Added .num_rows() which will more robustly calculate the number of rows in edge cases.
             Fix unflattening issue discovered when running edge_test_utils.py.
-            
+            Updated documentation to reflect new approach to dtypes and flattening.
+             
+    v0.5.1  (pending)
     
             
     TODO
-            Update documentation to reflect new approach to dtypes and flattening.
-            tests: need to add 
-                unflattening f-string formatted str data.
+            add use of pickledjson to express contents of individual cells when not jsonable.
+            tests: need to add
                 __str__ and __repr__
-                .isin <-- keep this?
-                normalize() <-- keep this? (not used)
                 
                 apply_dtypes()
                 from_csv_buff()
@@ -362,11 +361,28 @@ See README file at this location: https://github.com/raylutz/Daf/blob/main/READM
             daf_md
                 not tested at all.
                 
-"""            
+"""     
+
+"""
+    To update the package:
+        1. run all tests and demos to verify validity of the version.
+            in tests:
+                python test_daf.py
+                python test_keyedlist.py
+                python daf_demo.py
+                python daf_benchmarks.py
+        2. Increment version number in pyproject.toml
+        3. build the release
+                python -m build --sdist
+        4. Upload it
+                twine upload dist/*
+                
+        
+"""       
     
     
-#VERSION  = 'v0.4.4'
-#VERSDATE = '2024-05-02'  
+#VERSION  = 'v0.5.0'
+#VERSDATE = '2024-05-23'  
 
 import os
 import sys

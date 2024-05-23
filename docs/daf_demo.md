@@ -683,7 +683,7 @@ Contents of C:\Windows\System32:
 | \zipfldr.dll                                                    | 285696 | 2024-04-24T05:28:01 | False  |
 | \ztrace_maps.dll                                                |  30720 | 2019-12-07T01:08:28 | False  |
 
-\[8805 rows x 4 cols; keyfield=''; 0 keys ] (Daf)
+\[8801 rows x 4 cols; keyfield=''; 0 keys ] (Daf)
 
 
 
@@ -723,12 +723,12 @@ Contents of C:\Windows\System32 (in raw text format):
 | \zipfldr.dll                                                    | 285696 | 2024-04-24T05:28:01 | False  |
 | \ztrace_maps.dll                                                |  30720 | 2019-12-07T01:08:28 | False  |
 
-\[8805 rows x 4 cols; keyfield=''; 0 keys ] (Daf)
+\[8801 rows x 4 cols; keyfield=''; 0 keys ] (Daf)
 
 ```
 
-- daf size in memory: 2,405,904 bytes
-- pandas df size in memory: 2,876,088 bytes
+- daf size in memory: 2,404,832 bytes
+- pandas df size in memory: 2,874,784 bytes
 
 ## Limit this list to just the files
 
@@ -786,7 +786,7 @@ Files only in C:\Windows\System32:
 | \zipfldr.dll                                                    | 285696 | 2024-04-24T05:28:01 | False  |
 | \ztrace_maps.dll                                                |  30720 | 2019-12-07T01:08:28 | False  |
 
-\[8682 rows x 4 cols; keyfield=''; 0 keys ] (Daf)
+\[8678 rows x 4 cols; keyfield=''; 0 keys ] (Daf)
 
 
 
