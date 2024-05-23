@@ -17,7 +17,8 @@ weigh in on the design.
 The Daffodil data model is really very simple. The core array is a list-of-lists (lol), optionally with one or two associated
 dictionaries, one for the column names and one for row keys.
 
-![pydf_table](https://github.com/raylutz/daffodil/assets/14955977/05c54a27-8d8e-47b6-ae73-957709a5d398)
+![image](https://github.com/raylutz/daffodil/assets/14955977/fa33237c-2075-4bbe-81e1-a6c1e324f46a)
+
 
 Daffodil uses standard python data types, and can mix data types in rows and columns, and can store any type 
 within a cell, even another Daffodil instance. 
