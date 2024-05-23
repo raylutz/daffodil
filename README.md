@@ -510,8 +510,9 @@ For fast lookups of rows and columns, dictionaries are used to look up the row a
 ### Indexing: inspecting values in a daf array
 
 Daffodil offers easy-to-used indexing of rows, columns, individual cells or any ranges.
-Will generally return the simplest type possible, such as cell contents, a list or daf if retmode == 'val'
-otherwise, if retmode == 'obj', then a full daf object is returned.
+if retmode == 'val', then it will generally return the simplest type possible, such as cell contents, a list or daf 
+otherwise, if retmode == 'obj', then a full daf object is returned. If you desired a list or dict, then it is 
+convenient to just use the .to_list() or .to_dict() methods.
 
 if retmode is 'val':
 - if only one cell is selected, return a single value.
@@ -520,7 +521,7 @@ if retmode is 'val':
 - if multiple columns are specified, they will be returned in the original orientation in a consistent daf instance copied from the original, and with the data specified.
 
 Please note: operations on columns is relatively inefficient. Try to avoid working on one column at a time.
-Instead, use .apply() or .reduce() and handle any manipulations of all columns at the same time, and select them with the cols parameter at that time.
+Instead, use .apply() or .reduce() and handle any manipulations without dropping columns, and select them with the cols parameter at that time.
 
       `my_daf[2, 3]`     -- select cell at row 2, col 3 and return value.
       `my_daf[2]`        -- select row 2, including all columns, return a list.
