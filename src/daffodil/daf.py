@@ -372,8 +372,10 @@ See README file at this location: https://github.com/raylutz/Daf/blob/main/READM
                 python daf_demo.py
                 python daf_benchmarks.py
         2. Increment version number in pyproject.toml
+        3. Remove prior release
+                rm -r dist
         3. build the release
-                python -m build --sdist
+                python -m build
         4. Upload it
                 twine upload dist/*
                 
