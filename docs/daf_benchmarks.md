@@ -49,7 +49,7 @@ Here we generate a table using a python list-of-dict structure,
 
 
 Generated sample_lod with 1000 records
-- sizeof_di['lod']=124,968,872 bytes
+- sizeof_di['lod']=114,040,872 bytes
 
 
 ## Create sample_klod
@@ -75,7 +75,7 @@ sample_klod is similar to sample_lod but it has a first column
 
 
 Generated sample_klod with 1000 records
-- sizeof_di['klod']=125,024,928 bytes
+- sizeof_di['klod']=114,096,928 bytes
 
 
 ## Create daf from sample_lod
@@ -111,7 +111,7 @@ daf:
 \[1000 rows x 1000 cols; keyfield=''; 0 keys ] (Daf)
 
 
-sizeof_di['daf']=40,191,064 bytes
+sizeof_di['daf']=40,180,216 bytes
 
 
 ## Create kdaf from sample_klod
@@ -144,7 +144,7 @@ kdaf:
 \[1000 rows x 1001 cols; keyfield='rowkey'; 1000 keys ] (Daf)
 
 
-sizeof_di['kdaf']=40,323,824 bytes
+sizeof_di['kdaf']=40,302,040 bytes
 
 
 ## Create Pandas df
@@ -183,7 +183,7 @@ Here we use an unadorned basic pre-canned Pandas function to construct the dataf
 [1000 rows x 1000 columns]
 ```
 
-sizeof_di['df']=9,767,776 bytes
+sizeof_di['df']=9,820,880 bytes
 
 
 ## Create Pandas csv_df from Daf thru csv
@@ -221,7 +221,7 @@ We found tha twe could save a lot of time by converting the data to a csv buffer
 [1000 rows x 1000 columns]
 ```
 
-sizeof_di['csv_df']=17,983,776 bytes
+sizeof_di['csv_df']=17,820,624 bytes
 
 
 ## Create keyed Pandas df
@@ -263,7 +263,7 @@ rowkey                                                              ...
 [1000 rows x 1000 columns]
 ```
 
-- sizeof_di['kdf']=102,910,896 bytes
+- sizeof_di['kdf']=102,739,584 bytes
 
 
 ## create hdnpa from lod
@@ -279,7 +279,7 @@ A hdnpa is a Numpy array with a header dictionary. The overall size is about the
 ```
 
 
-sizeof_di['hdnpa']=4,125,152 bytes
+sizeof_di['hdnpa']=4,114,232 bytes
 
 
 ## Create lont from lod
@@ -307,7 +307,7 @@ Another option is a list of tuples with a header dictionary. This is also slow a
 ```
 
 
-sizeof_di['hdlot']=40,173,880 bytes
+sizeof_di['hdlot']=40,162,960 bytes
 
 
 ## Create sqlite_table from klod
@@ -341,16 +341,16 @@ use Daf.from_lod_to_cols to create a table with first colunm key names, and seco
 
 | Datatype | Size in Memory (bytes) |
 | -------: | ---------------------: |
-|      lod |            124,968,872 |
-|     klod |            125,024,928 |
-|      daf |             40,191,064 |
-|     kdaf |             40,323,824 |
-|       df |              9,767,776 |
-|   csv_df |             17,983,776 |
-|      kdf |            102,910,896 |
-|    hdnpa |              4,125,152 |
+|      lod |            114,040,872 |
+|     klod |            114,096,928 |
+|      daf |             40,180,216 |
+|     kdaf |             40,302,040 |
+|       df |              9,820,880 |
+|   csv_df |             17,820,624 |
+|      kdf |            102,739,584 |
+|    hdnpa |              4,114,232 |
 |     lont |             40,048,872 |
-|    hdlot |             40,173,880 |
+|    hdlot |             40,162,960 |
 |   sqlite |              5,148,672 |
 
 ## Times for conversions and operations
@@ -651,24 +651,24 @@ Notes:
 
 |             Attribute              |  daf  | pandas | numpy  | sqlite |  lod  |
 | ---------------------------------: | :---: | :----: | :----: | :----: | :---: |
-|                           from_lod |  131  | 4,951  |  64.2  |  670   |       |
-|                       to_pandas_df | 4,941 |        | 0.031  |        | 4,951 |
-|              to_pandas_df_thru_csv |  536  |        |        |        |       |
-|                     from_pandas_df | 12.2  |        | 0.0048 |        |       |
-|                           to_numpy | 48.4  | 0.0048 |        |        | 64.2  |
-|                         from_numpy |  7.7  | 0.031  |        |        |       |
-|                     increment cell | 0.10  | 0.042  |        |        |       |
-|                        insert_irow | 0.076 |  8.8   |        |        |       |
-|                        insert_icol |  1.5  |  1.9   |        |        |       |
-|                           sum cols |  209  |  5.2   |  3.1   |  288   |  131  |
-|               sample_daf.daf_sum() |  193  |        |        |        |       |
-|              sample_daf.daf_sum2() | 2,166 |        |        |        |       |
-|              sample_daf.daf_sum3() |  293  |        |        |        |       |
-|                             sum_np | 68.8  |        |        |        |       |
-|                          transpose | 2,097 |  0.18  | 0.0024 |        |       |
-|                       keyed lookup | 0.075 |  0.65  |        |  3.4   | 0.072 |
+|                           from_lod |  116  | 5,566  |  74.9  |  784   |       |
+|                       to_pandas_df | 4,996 |        | 0.029  |        | 5,566 |
+|              to_pandas_df_thru_csv |  236  |        |        |        |       |
+|                     from_pandas_df | 11.5  |        | 0.0037 |        |       |
+|                           to_numpy | 47.7  | 0.0037 |        |        | 74.9  |
+|                         from_numpy |  6.8  | 0.029  |        |        |       |
+|                     increment cell | 0.091 | 0.043  |        |        |       |
+|                        insert_irow | 0.080 |  6.8   |        |        |       |
+|                        insert_icol |  1.5  |  2.0   |        |        |       |
+|                           sum cols |  192  |  4.1   |  2.3   | 2,340  |  132  |
+|               sample_daf.daf_sum() |  209  |        |        |        |       |
+|              sample_daf.daf_sum2() | 2,285 |        |        |        |       |
+|              sample_daf.daf_sum3() |  272  |        |        |        |       |
+|                             sum_np | 59.2  |        |        |        |       |
+|                          transpose | 1,812 |  0.16  | 0.0025 |        |       |
+|                       keyed lookup | 0.077 |  0.29  |        |  5.3   | 0.072 |
 |                              ===== | ===== | =====  | =====  | =====  | ===== |
-|       Size of 1000x1000 array (MB) | 38.3  |  9.3   |  3.9   |  4.9   |  119  |
-| Size of keyed 1000x1000 array (MB) | 38.5  |  98.1  |   --   |  4.9   |  119  |
+|       Size of 1000x1000 array (MB) | 38.3  |  9.4   |  3.9   |  4.9   |  109  |
+| Size of keyed 1000x1000 array (MB) | 38.4  |  98.0  |   --   |  4.9   |  109  |
 
 

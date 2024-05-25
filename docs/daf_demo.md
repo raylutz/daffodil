@@ -727,8 +727,8 @@ Contents of C:\Windows\System32 (in raw text format):
 
 ```
 
-- daf size in memory: 2,404,832 bytes
-- pandas df size in memory: 2,874,784 bytes
+- daf size in memory: 2,404,736 bytes
+- pandas df size in memory: 2,872,816 bytes
 
 ## Limit this list to just the files
 

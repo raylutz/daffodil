@@ -6,6 +6,9 @@ temp.py
 __pycache__
 env
 venv
+venv310/
+venv311/
+.coverage
 pyzbar*/
 *Levenshtein*/
 dominate*/
@@ -50,12 +53,11 @@ Pydf.egg-info/PKG-INFO
 Pydf.egg-info/requires.txt
 Pydf.egg-info/SOURCES.txt
 Pydf.egg-info/top_level.txt
-docs/pydf_demo.md
 *.db
 dist
 *.gz
-docs/daf_benchmarks.md
-docs/daf_demo.md
+daf_benchmarks.md
+daf_demo.md
 tests/tempdata1.db
 tests/tempdata2.db
 Daffodil.egg-info/PKG-INFO
@@ -64,5 +66,9 @@ Daffodil.egg-info/top_level.txt
 
 dist/
 */**/*.egg-info
-tests/tempdata1.db
-tests/tempdata2.db
+tempdata1.db
+tempdata2.db
+
+docs/daf_benchmarks.md
+docs/daf_demo.md
+

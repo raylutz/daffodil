@@ -227,8 +227,14 @@ See README file at this location: https://github.com/raylutz/Daf/blob/main/READM
             Fix unflattening issue discovered when running edge_test_utils.py.
             Updated documentation to reflect new approach to dtypes and flattening.
              
-    v0.5.1  (pending)
+    v0.5.1  (2024-05-25)
+            changed dependencies in pyproject.toml so they would allow newer versions.
+            Upgraded to Python 3.11 and upgraded all libraries to the latest.
+            Using venv311
     
+    v0.5.2  (pending)
+    
+            
             
     TODO
             add use of pickledjson to express contents of individual cells when not jsonable.
