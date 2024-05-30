@@ -58,17 +58,20 @@ dist
 *.gz
 daf_benchmarks.md
 daf_demo.md
+tests\\tempdata1.db
+tests\\tempdata2.db
 tests/tempdata1.db
 tests/tempdata2.db
+tempdata1.db
+tempdata2.db
 Daffodil.egg-info/PKG-INFO
 Daffodil.egg-info/SOURCES.txt
 Daffodil.egg-info/top_level.txt
 
 dist/
 */**/*.egg-info
-tempdata1.db
-tempdata2.db
-
 docs/daf_benchmarks.md
 docs/daf_demo.md
+docs/
+docs\\
 

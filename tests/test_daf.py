@@ -12,6 +12,7 @@ import sys
 sys.path.append(os.path.join(os.path.dirname(sys.path[0]), 'src'))
 
 from daffodil.daf import Daf
+from daffodil.keyedlist import KeyedList
 from daffodil.lib import daf_utils as utils
 
 class TestDaf(unittest.TestCase):
@@ -3933,6 +3934,71 @@ class TestDaf(unittest.TestCase):
         # Add more assertions based on the expected handling of identifier columns
         
 
+class TestDafIteration(unittest.TestCase):
+
+    def setUp(self):
+        self.header = {'name': 0, 'age': 1}
+        self.data = [['Alice', 30], ['Bob', 25]]
+        self.daf = Daf(lol=self.data, hd=self.header)
+
+    def test_iter_dict_returns_correct_dicts(self):
+        expected_results = [
+            {'name': 'Alice', 'age': 30},
+            {'name': 'Bob', 'age': 25}
+        ]
+
+        results = list(self.daf.iter_dict())
+        self.assertEqual(results, expected_results)
+
+    def test_iter_klist_returns_correct_keyedlists(self):
+        results = list(self.daf.iter_klist())
+
+        self.assertEqual(len(results), 2)
+        self.assertIsInstance(results[0], KeyedList)
+        self.assertEqual(results[0]['name'], 'Alice')
+        self.assertEqual(results[0]['age'], 30)
+        self.assertEqual(results[1]['name'], 'Bob')
+        self.assertEqual(results[1]['age'], 25)
+
+    def test_iter_klist_modifies_underlying_data(self):
+        for row in self.daf.iter_klist():
+            row['age'] += 1
+
+        expected_data = [['Alice', 31], ['Bob', 26]]
+        self.assertEqual(self.data, expected_data)
+
+    def test_default_iteration_mode_dict(self):
+        self.daf._itermode = Daf.ITERMODE_DICT
+
+        expected_results = [
+            {'name': 'Alice', 'age': 30},
+            {'name': 'Bob', 'age': 25}
+        ]
+
+        results = list(iter(self.daf))
+        self.assertEqual(results, expected_results)
+
+    def test_default_iteration_mode_keyedlist(self):
+        self.daf._itermode = Daf.ITERMODE_KEYEDLIST
+
+        results = list(iter(self.daf))
+
+        self.assertEqual(len(results), 2)
+        self.assertIsInstance(results[0], KeyedList)
+        self.assertEqual(results[0]['name'], 'Alice')
+        self.assertEqual(results[0]['age'], 30)
+        self.assertEqual(results[1]['name'], 'Bob')
+        self.assertEqual(results[1]['age'], 25)
+
+    def test_iteration_resets_after_stop_iteration(self):
+        # First iteration
+        results_1 = list(iter(self.daf))
+
+        # Second iteration
+        results_2 = list(iter(self.daf))
+
+        # Verify that the results of both iterations are the same
+        self.assertEqual(results_1, results_2)
 
 if __name__ == '__main__':
     unittest.main()

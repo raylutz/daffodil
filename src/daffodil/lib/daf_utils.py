@@ -1401,27 +1401,35 @@ def is_list_of_type(test_item: Any, of_type: Type) -> bool:
 
     if test_item and isinstance(test_item, list) and isinstance(test_item[0], of_type):
         return True
+        
 
-def len_slice(slice_obj: slice):
-    # Calculate the length of the slice, including step
+def len_slice(slice_obj: slice, tot_len: int=0):
+    """ Calculate the length of the slice, including step 
+    
+        tot_len should be the total length of the sliced object.    
+    """
     
     if slice_obj == slice(None, None, None):
         return 0
         
-    start, stop, step = slice_obj.start or 0, slice_obj.stop or 0, slice_obj.step or 1
+    start, stop, step = slice_obj.start or 0, slice_obj.stop or tot_len, slice_obj.step or 1
     
     try:
         len_int = (stop - start + step - 1) // step
     except Exception:
-        import pdb; pdb.set_trace() #perm
+        breakpoint() #perm
         
     return len_int
+    
 
-def len_rowcol_spec(ispec: Union[slice, int, T_li, None]) -> int:
-    """ return the length of a slice, int, li. If None, then len = 0 """
+def len_rowcol_spec(ispec: Union[slice, int, T_li, None], tot_len: int) -> int:
+    """ return the length of a slice, int, li. If None, then len = 0 
+    
+        returns -1 if the length is not terminated
+    """
     
     if isinstance(ispec, slice):
-        return len_slice(ispec)
+        return len_slice(ispec, tot_len)
     elif isinstance(ispec, int):
         return 1
     elif isinstance(ispec, list):

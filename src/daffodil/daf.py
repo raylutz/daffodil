@@ -232,8 +232,17 @@ See README file at this location: https://github.com/raylutz/Daf/blob/main/READM
             Upgraded to Python 3.11 and upgraded all libraries to the latest.
             Using venv311
     
-    v0.5.2  (pending)
-    
+    v0.5.2  (2024-05-30)
+            Added .iter_dict() and .iter_klist() to force iteration to produce either dicts or KeyedLists.
+                Producing KeyedLists means the list is not copied into a dict but can be mutated and the lol will be mutated.
+            Correct calculation of slice_len to correct column assignment from another column
+                This may still have some ambiguity if a nested list structure is meant to be assigned to an array cell.
+                    collist = my_daf[:, 'colname'].to_list()    # this will return a list, but sometimes of only one value.
+                    my_daf[:, 'colname2'] = collist             # there is ambiguity here as to whether the list with one
+                                                                # item should be placed in the cell or if just the value.
+                
+    v0.5.3  (pending)            
+            
             
             
     TODO
@@ -381,16 +390,18 @@ See README file at this location: https://github.com/raylutz/Daf/blob/main/READM
         3. Remove prior release
                 rm -r dist
         3. build the release
+                pip install --upgrade build
                 python -m build
         4. Upload it
                 twine upload dist/*
                 
-        
+     
+    venv311\Scripts\activate     
 """       
     
     
-#VERSION  = 'v0.5.0'
-#VERSDATE = '2024-05-23'  
+#VERSION  = 'v0.5.2'
+#VERSDATE = '2024-05-30'  
 
 import os
 import sys
@@ -413,7 +424,7 @@ import daffodil.lib.daf_pandas   as daf_pandas
 from daffodil.keyedlist import KeyedList
 
 
-from typing import List, Dict, Any, Tuple, Optional, Union, cast, Type, Callable, Iterable #
+from typing import List, Dict, Any, Tuple, Optional, Union, cast, Type, Callable, Iterable, Iterator #
 def fake_function(a: Optional[List[Dict[str, Tuple[int,Union[Any, str]]]]] = None) -> Optional[int]:
     return None or cast(int, 0)       # pragma: no cover
 
@@ -537,25 +548,39 @@ class Daf:
         else:
             raise ValueError("Invalid itermode")
 
-    def __iter__(self):
-        self._iter_index = 0
-        return self
-
-    def __next__(self) -> Union[Dict[str, int], KeyedList]:
-        if self._iter_index < len(self.lol):
-            if self._itermode == self.ITERMODE_DICT:
-                row_dict = dict(zip(self.hd.keys(), self.lol[self._iter_index]))
-                self._iter_index += 1
-                return row_dict
-            elif self._itermode == self.ITERMODE_KEYEDLIST:
-                row_klist = KeyedList(self.hd, self.lol[self._iter_index])
-                self._iter_index += 1
-                return row_klist
-            else:
-                raise NotImplementedError
+    def __iter__(self) -> Iterator[Union[Dict[str, Any], KeyedList]]:
+        return self._default_iterator()
+        
+    def _default_iterator(self) -> Iterator[Union[Dict[str, Any], KeyedList]]:
+        if self._itermode == self.ITERMODE_DICT:
+            return self.iter_dict()
+        elif self._itermode == self.ITERMODE_KEYEDLIST:
+            return self.iter_klist()
         else:
-            self._iter_index = 0
-            raise StopIteration
+            raise ValueError(f"Invalid iteration mode: {self._itermode}")
+
+    def iter_dict(self) -> Iterator[Dict[str, Any]]:
+        return DafIterator(self, dict)
+
+    def iter_klist(self) -> Iterator[KeyedList]:
+        return DafIterator(self, KeyedList)
+        
+
+    # def __next__(self) -> Union[Dict[str, int], KeyedList]:
+        # if self._iter_index < len(self.lol):
+            # if self._itermode == self.ITERMODE_DICT:
+                # row_dict = dict(zip(self.hd.keys(), self.lol[self._iter_index]))
+                # self._iter_index += 1
+                # return row_dict
+            # elif self._itermode == self.ITERMODE_KEYEDLIST:
+                # row_klist = KeyedList(self.hd, self.lol[self._iter_index])
+                # self._iter_index += 1
+                # return row_klist
+            # else:
+                # raise NotImplementedError
+        # else:
+            # self._iter_index = 0
+            # raise StopIteration
 
     def __bool__(self):
         """ test daf for existance and not empty 
@@ -2154,9 +2179,12 @@ class Daf:
             icols = []
         if irows is None:
             irows = []
+            
+        tot_num_cols = self.num_cols()    
+        tot_num_rows = self.num_rows()    
         
-        num_irows = utils.len_rowcol_spec(irows)
-        num_icols = utils.len_rowcol_spec(icols)
+        num_irows = utils.len_rowcol_spec(irows, tot_num_rows)
+        num_icols = utils.len_rowcol_spec(icols, tot_num_cols)
         
         if num_irows == 1 and isinstance(irows, int):
             irows = [irows]
@@ -2190,6 +2218,14 @@ class Daf:
             
             if isinstance(value, dict):
                 self.assign_record_irow(irow, record=value)
+            elif isinstance(value, list) and len(value) == 1:    
+                # frequently, we will have a list generated from a selection of a column, and it it has only one value
+                # it needs to be entered in the array location, but not as a list.
+                # place a list with only one item in a cell can't be done this way:
+                
+                # my_daf[0,0] = [4]   # this will insert 4 not [4]
+            
+                self.lol[irow][icol] = value[0]
             else:    
                 self.lol[irow][icol] = value
                 
@@ -2218,10 +2254,11 @@ class Daf:
         
             if isinstance(value, list):
                 for source_idx, irow in enumerate(irows):
+                    
                     try:
                         self.lol[irow][icol] = value[source_idx]
                     except Exception:
-                        import pdb; pdb.set_trace() #temp
+                        breakpoint() #temp
                     
             # elif isinstance(value, dict):
                 # # this is the same as cols=0 bc dict updates the corresponding cols.
@@ -2656,6 +2693,8 @@ class Daf:
         num_rows, num_cols = self.shape()
 
         if irow is None and icol is None:
+            # no explicit irow or icol specified, this is the normal case
+            
             if num_rows == 1 and num_cols >= 1:
                 # single row, return as list.
                 result_la = self.lol[0]
@@ -5520,3 +5559,26 @@ Daf.groupsum                 = Daf.groupsum_daf
 
 Pydf.md_pydf_table = Pydf.to_md            
 
+
+class DafIterator:
+    def __init__(self, this_daf: Daf, rtype: Type[Union[Dict[str, Any], KeyedList]]):
+        self.this_daf = this_daf
+        self.rtype = rtype
+        self._index = 0
+
+    def __iter__(self):
+        return self
+
+    def __next__(self) -> Union[Dict[str, Any], KeyedList]:
+        if self._index < len(self.this_daf.lol):
+            row = self.this_daf.lol[self._index]
+            self._index += 1
+            if self.rtype == dict:
+                return dict(zip(self.this_daf.hd.keys(), row))
+            elif self.rtype == KeyedList:
+                return KeyedList(self.this_daf.hd, row)
+            else:
+                raise NotImplementedError(f"Unknown return type: {self.rtype}")
+        else:
+            self._index = 0
+            raise StopIteration

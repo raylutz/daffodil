@@ -651,22 +651,22 @@ Notes:
 
 |             Attribute              |  daf  | pandas | numpy  | sqlite |  lod  |
 | ---------------------------------: | :---: | :----: | :----: | :----: | :---: |
-|                           from_lod |  116  | 5,566  |  74.9  |  784   |       |
-|                       to_pandas_df | 4,996 |        | 0.029  |        | 5,566 |
-|              to_pandas_df_thru_csv |  236  |        |        |        |       |
-|                     from_pandas_df | 11.5  |        | 0.0037 |        |       |
-|                           to_numpy | 47.7  | 0.0037 |        |        | 74.9  |
-|                         from_numpy |  6.8  | 0.029  |        |        |       |
-|                     increment cell | 0.091 | 0.043  |        |        |       |
-|                        insert_irow | 0.080 |  6.8   |        |        |       |
-|                        insert_icol |  1.5  |  2.0   |        |        |       |
-|                           sum cols |  192  |  4.1   |  2.3   | 2,340  |  132  |
-|               sample_daf.daf_sum() |  209  |        |        |        |       |
-|              sample_daf.daf_sum2() | 2,285 |        |        |        |       |
-|              sample_daf.daf_sum3() |  272  |        |        |        |       |
-|                             sum_np | 59.2  |        |        |        |       |
-|                          transpose | 1,812 |  0.16  | 0.0025 |        |       |
-|                       keyed lookup | 0.077 |  0.29  |        |  5.3   | 0.072 |
+|                           from_lod |  114  | 4,634  |  62.6  |  640   |       |
+|                       to_pandas_df | 4,576 |        | 0.028  |        | 4,634 |
+|              to_pandas_df_thru_csv |  237  |        |        |        |       |
+|                     from_pandas_df | 14.8  |        | 0.0026 |        |       |
+|                           to_numpy | 47.7  | 0.0026 |        |        | 62.6  |
+|                         from_numpy |  7.9  | 0.028  |        |        |       |
+|                     increment cell | 0.089 | 0.043  |        |        |       |
+|                        insert_irow | 0.078 |  7.1   |        |        |       |
+|                        insert_icol |  1.4  |  1.9   |        |        |       |
+|                           sum cols |  188  |  3.9   |  2.9   | 2,200  |  129  |
+|               sample_daf.daf_sum() |  190  |        |        |        |       |
+|              sample_daf.daf_sum2() | 2,911 |        |        |        |       |
+|              sample_daf.daf_sum3() |  343  |        |        |        |       |
+|                             sum_np | 73.8  |        |        |        |       |
+|                          transpose | 1,825 |  0.15  | 0.0025 |        |       |
+|                       keyed lookup | 0.085 |  0.35  |        |  5.9   | 0.10  |
 |                              ===== | ===== | =====  | =====  | =====  | ===== |
 |       Size of 1000x1000 array (MB) | 38.3  |  9.4   |  3.9   |  4.9   |  109  |
 | Size of keyed 1000x1000 array (MB) | 38.4  |  98.0  |   --   |  4.9   |  109  |
