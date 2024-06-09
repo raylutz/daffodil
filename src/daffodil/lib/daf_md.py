@@ -228,7 +228,7 @@ def md_lol_table(
     except RuntimeError as err:
         print(f"{err}: records:{records_lol}")
         #logs.error_beep()
-        import pdb; pdb.set_trace() #perm -- debugging aide
+        breakpoint() #perm -- debugging aide
         pass
         
     if include_idx:

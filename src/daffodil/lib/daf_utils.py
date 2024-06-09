@@ -185,7 +185,7 @@ def test_strbool(val: Union[bool, str, int, None, object]) -> bool:
     elif not bool(val == val):  # nan
         return False
     else:    
-        import pdb; pdb.set_trace() #perm
+        breakpoint() #perm
         error_beep()
         
     return False    # token return for mypy.
@@ -378,7 +378,7 @@ def safe_regex_select(regex:Union[str, bytes], s:str, default:str='', flags=0) -
         try:
             valstr = match.group(1)   # type: ignore
         except IndexError:
-            import pdb; pdb.set_trace() #perm
+            breakpoint() #perm
             error_beep()
         return valstr.strip()
     else:
@@ -539,7 +539,7 @@ def safe_convert_json_to_obj(json_str: str, json_name: str='') -> Any:
         return json_str
         
         #print(f"Having trouble with this json_str: '{json_str}'")
-        #import pdb; pdb.set_trace() #perm
+        #breakpoint() #perm
 
 
 def validate_json_with_error_details(json_str: str) -> Tuple[bool, str]:  # valid_flag, error_str
@@ -1370,7 +1370,7 @@ def write_buff_to_fp(buff: T_buff, file_path: str, fmt='.csv', rtype='.csv', loc
                         file.write(buff)
                 except Exception:
                     error_beep()
-                    import pdb; pdb.set_trace() #perm
+                    breakpoint() #perm
                     pass
             else:
                 buff = cast(str, buff)

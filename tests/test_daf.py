@@ -2,6 +2,7 @@
 # copyright (c) 2024 Ray Lutz
 
 import os
+import json
 import unittest
 import numpy as np
 import pandas as pd
@@ -1225,7 +1226,7 @@ class TestDaf(unittest.TestCase):
         lol1 = [[1, 'a'], [2, 'b']]
         lol2 = [['x', 'y'], ['z', 'w']]
         
-        # import pdb; pdb.set_trace() #temp
+        # breakpoint() #temp
         daf1 = Daf(cols=cols, lol=lol1, keyfield='', dtypes={'col1': str, 'col2': str}).apply_dtypes(from_str=False)
         daf2 = Daf(cols=cols, lol=lol2, keyfield='', dtypes={'col1': str, 'col2': str}).apply_dtypes(from_str=False)
 
@@ -3398,7 +3399,7 @@ class TestDaf(unittest.TestCase):
             lol=[[1, 2, 3], [4, 5, 6], [7, 8, 9]],
             cols=['A', 'B', 'C']
             )
-        #import pdb; pdb.set_trace() #temp
+        #breakpoint() #temp
         self.daf_instance[:, 'B'] = [55, 66, 77]
         expected_result = Daf(lol=[[1, 55, 3], [4, 66, 6], [7, 77, 9]], cols=['A', 'B', 'C'])
         if self.daf_instance != expected_result:
@@ -3999,6 +4000,228 @@ class TestDafIteration(unittest.TestCase):
 
         # Verify that the results of both iterations are the same
         self.assertEqual(results_1, results_2)
+
+
+
+
+class TestDafFlattenMethod(unittest.TestCase):
+    
+    def test_flatten_no_columns_to_flatten(self):
+        instance = Daf(
+            lol=[],
+            dtypes={},
+            hd={}
+        )
+        result = instance.flatten()
+        self.assertEqual(result.lol, [])
+
+    def test_flatten_columns_with_lists_to_flatten(self):
+        instance = Daf(
+            lol=   [[1, [2, 3]], 
+                    [4, [5, 6]]],
+            dtypes={'col1': int, 'col2': list},
+            hd=    {'col1': 0, 'col2': 1}
+        )
+        result = instance.flatten()
+        self.assertEqual(result.lol, [[1, '[2, 3]'], [4, '[5, 6]']])
+
+    def test_flatten_columns_with_dicts_to_flatten(self):
+        instance = Daf(
+            lol=[[1, {'a': 2}], [3, {'b': 4}]],
+            dtypes={'col1': int, 'col2': dict},
+            hd={'col1': 0, 'col2': 1}
+        )
+        result = instance.flatten()
+        self.assertEqual(result.lol, [[1, '{"a": 2}'], [3, '{"b": 4}']])
+
+    def test_flatten_bool_columns_to_int(self):
+        instance = Daf(
+            lol=[[1, True], [3, False]],
+            dtypes={'col1': int, 'col2': bool},
+            hd={'col1': 0, 'col2': 1}
+        )
+        result = instance.flatten()
+        self.assertEqual(result.lol, [[1, 1], [3, 0]])
+
+    def test_flatten_bool_columns_to_int_singlar_type(self):
+        instance = Daf(
+            lol=[[True, True], [True, False]],
+            dtypes=bool,
+            cols=['col1', 'col2']
+        )
+        result = instance.flatten()
+        self.assertEqual(result.lol, [[1, 1], [1, 0]])
+
+    def test_flatten_mixed_columns(self):
+        instance = Daf(
+            lol=[[1, [2, 3], {'a': 4}, True], [4, [5, 6], {'b': 7}, False]],
+            dtypes={'col1': int, 'col2': list, 'col3': dict, 'col4': bool},
+            hd={'col1': 0, 'col2': 1, 'col3': 2, 'col4': 3}
+        )
+        result = instance.flatten()
+        self.assertEqual(result.lol, [
+            [1, '[2, 3]', '{"a": 4}', 1],
+            [4, '[5, 6]', '{"b": 7}', 0]
+        ])
+
+    def test_flatten_mixed_columns_missing_first_dtype(self):
+        instance = Daf(
+            lol=[[1, [2, 3], {'a': 4}, True], [4, [5, 6], {'b': 7}, False]],
+            cols=['col1', 'col2', 'col3', 'col4'],
+            dtypes={'col2': list, 'col3': dict, 'col4': bool},
+            hd={'col1': 0, 'col2': 1, 'col3': 2, 'col4': 3}
+        )
+        
+        result = instance.flatten()
+        self.assertEqual(result.lol, [
+            [1, '[2, 3]', '{"a": 4}', 1],
+            [4, '[5, 6]', '{"b": 7}', 0]
+        ])
+
+    # def test_flatten_no_hd_raises_runtime_error(self):
+        # instance = Daf(
+            # lol=[[1, {'a': 2}], [3, {'b': 4}]],
+            # dtypes={'col1': int, 'col2': dict},
+            # hd=None
+        # )
+        # with self.assertRaises(RuntimeError):
+            # result = instance.flatten()
+            
+
+class TestDafStripMethod(unittest.TestCase):
+
+    def test_strip_default_space(self):
+        instance = Daf(
+            lol=[['  hello  ', ' world ', 'test']],
+            dtypes={},
+            hd={'col1': 0, 'col2': 1, 'col3': 2}
+        )
+        result = instance.strip()
+        self.assertEqual(result.lol, [['hello', 'world', 'test']])
+
+    def test_strip_specific_chars(self):
+        instance = Daf(
+            lol=[['"hello"', '(world)', '[test]']],
+            dtypes={},
+            hd={'col1': 0, 'col2': 1, 'col3': 2}
+        )
+        result = instance.strip('"()[]')
+        self.assertEqual(result.lol, [['hello', 'world', 'test']])
+
+    def test_strip_mixed_chars(self):
+        instance = Daf(
+            lol=[['**hello**', '~~world~~', '^^test^^']],
+            dtypes={},
+            hd={'col1': 0, 'col2': 1, 'col3': 2}
+        )
+        result = instance.strip('*~^')
+        self.assertEqual(result.lol, [['hello', 'world', 'test']])
+
+    def test_strip_no_str_values(self):
+        instance = Daf(
+            lol=[[123, True, None, 45.67]],
+            dtypes={},
+            hd={'col1': 0, 'col2': 1, 'col3': 2, 'col4': 3}
+        )
+        result = instance.strip()
+        self.assertEqual(result.lol, [[123, True, None, 45.67]])
+
+    def test_strip_empty_strings(self):
+        instance = Daf(
+            lol=[['', ' ', '   ']],
+            dtypes={},
+            hd={'col1': 0, 'col2': 1, 'col3': 2}
+        )
+        result = instance.strip()
+        self.assertEqual(result.lol, [['', '', '']])
+
+    def test_strip_multiple_rows(self):
+        instance = Daf(
+            lol=[
+                ['  hello  ', ' world ', 'test'],
+                ['**foo**', '  bar  ', 'baz  '],
+                ['~abc~', '~~def~~', 'ghi']
+            ],
+            dtypes={},
+            hd={'col1': 0, 'col2': 1, 'col3': 2}
+        )
+        result = instance.strip(' *~')
+        self.assertEqual(result.lol, [
+            ['hello', 'world', 'test'],
+            ['foo', 'bar', 'baz'],
+            ['abc', 'def', 'ghi']
+        ])
+
+
+class TestDafJsonMethods(unittest.TestCase):
+
+    def test_to_json(self):
+        instance = Daf(
+            lol=[[1, 2, 3], [4, 5, 6]],
+            hd={'col1': 0, 'col2': 1, 'col3': 2},
+            kd={'key1': 0},
+            dtypes={'col1': int, 'col2': int, 'col3': int},
+            keyfield='col1',
+            name='TestDaf',
+            retmode='val',
+            itermode='keyedlist'
+        )
+        json_str = instance.to_json()
+        expected_dict = {
+            'name': 'TestDaf',
+            'lol': [[1, 2, 3], [4, 5, 6]],
+            'hd': {'col1': 0, 'col2': 1, 'col3': 2},
+            'kd': {'key1': 0},
+            'dtypes': {'col1': 'int', 'col2': 'int', 'col3': 'int'},
+            'keyfield': 'col1',
+            '_retmode': 'val',
+            '_itermode': 'keyedlist',
+        }
+        self.assertEqual(json.loads(json_str), expected_dict)
+
+    def test_from_json(self):
+        json_str = json.dumps({
+            'name': 'TestDaf',
+            'lol': [[1, 2, 3], [4, 5, 6]],
+            'hd': {'col1': 0, 'col2': 1, 'col3': 2},
+            'kd': {'key1': 0},
+            'dtypes': {'col1': 'int', 'col2': 'int', 'col3': 'int'},
+            'keyfield': 'col1',
+            '_retmode': 'val',
+            '_itermode': 'keyedlist',
+        })
+        instance = Daf.from_json(json_str)
+        self.assertEqual(instance.name, 'TestDaf')
+        self.assertEqual(instance.lol, [[1, 2, 3], [4, 5, 6]])
+        self.assertEqual(instance.hd, {'col1': 0, 'col2': 1, 'col3': 2})
+        self.assertEqual(instance.kd, {'key1': 0})
+        self.assertEqual(instance.dtypes, {'col1': int, 'col2': int, 'col3': int})
+        self.assertEqual(instance.keyfield, 'col1')
+        self.assertEqual(instance._retmode, 'val')
+        self.assertEqual(instance._itermode, 'keyedlist')
+
+    def test_to_json_and_from_json(self):
+        original_instance = Daf(
+            lol=[[1, 2, 3], [4, 5, 6]],
+            hd={'col1': 0, 'col2': 1, 'col3': 2},
+            kd={'key1': 0},
+            dtypes={'col1': int, 'col2': int, 'col3': int},
+            keyfield='col1',
+            name='TestDaf',
+            retmode='val',
+            itermode='keyedlist'
+        )
+        json_str = original_instance.to_json()
+        new_instance = Daf.from_json(json_str)
+        self.assertEqual(original_instance.name, new_instance.name)
+        self.assertEqual(original_instance.lol, new_instance.lol)
+        self.assertEqual(original_instance.hd, new_instance.hd)
+        self.assertEqual(original_instance.kd, new_instance.kd)
+        self.assertEqual(original_instance.dtypes, new_instance.dtypes)
+        self.assertEqual(original_instance.keyfield, new_instance.keyfield)
+        self.assertEqual(original_instance._retmode, new_instance._retmode)
+        self.assertEqual(original_instance._itermode, new_instance._itermode)
+
 
 if __name__ == '__main__':
     unittest.main()

@@ -118,7 +118,7 @@ def md_code_seg(
     code_segment = match.group(1)
     
     # if label == 'Select a record by the key:':
-        # import pdb; pdb.set_trace() #temp
+        # breakpoint() #temp
     
     # look for a first comment block in triple quotes
     first_comment = ''

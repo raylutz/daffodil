@@ -242,7 +242,12 @@ See README file at this location: https://github.com/raylutz/Daf/blob/main/READM
                                                                 # item should be placed in the cell or if just the value.
                 
     v0.5.3  (pending)            
-            
+            added tests:
+                flatten()
+                to_json()       not completely working.
+                from_json()     not completely working.
+                
+                
             
             
     TODO
@@ -329,9 +334,9 @@ See README file at this location: https://github.com/raylutz/Daf/blob/main/READM
                 select_col_of_lol_by_col_idx()
                     col_idx out of range.
                 unflatten_hdlol_by_cols 
-                json_encode
-                make_strbool <-- remove?
-                test_strbool >-- remove?
+                json_encode  --> now 'to_json()'
+                make_strbool <-- remove? yes, remove.
+                test_strbool >-- remove? yes, remove.
                 xlsx_to_csv
                 add_trailing_columns_csv()
                 insert_col_in_lol_at_icol()
@@ -394,6 +399,7 @@ See README file at this location: https://github.com/raylutz/Daf/blob/main/READM
                 python -m build
         4. Upload it
                 twine upload dist/*
+            You will need pypi security token    
                 
      
     venv311\Scripts\activate     
@@ -496,7 +502,7 @@ class Daf:
         self._iter_index = 0
 
         if not cols:
-            if dtypes:
+            if dtypes and isinstance(dtypes, dict):
                 self.hd = type(self)._build_hd(dtypes.keys())
         else:
             if isinstance(cols, str):
@@ -507,7 +513,7 @@ class Daf:
                 cols = utils._sanitize_cols(cols=cols)
                 self._cols_to_hd(cols)
                 if len(cols) != len(self.hd):                
-                    import pdb; pdb.set_trace() #temp
+                    breakpoint() #temp
                     pass
                     raise AttributeError ("AttributeError: cols not unique")
                 
@@ -643,7 +649,7 @@ class Daf:
         try:
             result = len(self.lol[0])
         except Exception:
-            import pdb; pdb.set_trace() #temp
+            breakpoint() #temp
             pass
         return result
 
@@ -1054,7 +1060,7 @@ class Daf:
             # in this case, the self.dtypes need not be initialized or used until the table is read.
             return self
             
-        if not self.hd:
+        if not self.hd:     # pragma: no cover
             # should not be the case. Logic error.
             breakpoint()   # perm
             pass
@@ -1754,14 +1760,26 @@ class Daf:
     #===========================
     # JSON compatible representation.
 
+    # Define a mapping of string representations to Python types
+    TYPE_MAP = {
+        'int': int,
+        'float': float,
+        'str': str,
+        'bool': bool,
+        # Add more types as needed
+    }
+
     def to_json(self) -> str:
+        # Convert data types to string representations using the TYPE_MAP
+        dtypes_str = {k: self.TYPE_MAP.get(v, v).__name__ for k, v in self.dtypes.items()}
+        
         # Serialize Daf object to a JSON-compatible dictionary
         daf_dict = {
             'name': self.name,
             'lol': self.lol,
             'hd': self.hd,
             'kd': self.kd,
-            'dtypes': self.dtypes,
+            'dtypes': dtypes_str,
             'keyfield': self.keyfield,
             '_retmode': self._retmode,
             '_itermode': self._itermode,
@@ -1773,16 +1791,19 @@ class Daf:
     def from_json(cls, json_str: str) -> 'Daf':
         # Deserialize JSON string into a Daf object
         daf_dict = json.loads(json_str)
+        
+        # Convert string representations of data types back to actual types
+        dtypes = {k: cls.TYPE_MAP.get(v, v) for k, v in daf_dict.get('dtypes', {}).items()}
+        
         return cls(lol=daf_dict.get('lol', []),
                    hd=daf_dict.get('hd', {}),
                    kd=daf_dict.get('kd', {}),
-                   dtypes=daf_dict.get('dtypes', {}),
+                   dtypes=dtypes,
                    keyfield=daf_dict.get('keyfield', ''),
                    name=daf_dict.get('name', ''),
                    retmode=daf_dict.get('_retmode', 'obj'),
                    itermode=daf_dict.get('_itermode', 'dict'))
-
-
+                   
     #===========================
     # convert to other format
     
@@ -2258,7 +2279,7 @@ class Daf:
                     try:
                         self.lol[irow][icol] = value[source_idx]
                     except Exception:
-                        breakpoint() #temp
+                        breakpoint() #perm ok
                     
             # elif isinstance(value, dict):
                 # # this is the same as cols=0 bc dict updates the corresponding cols.
@@ -2283,7 +2304,7 @@ class Daf:
                         try:
                             self.lol[irow][icol] = value[source_col]
                         except Exception:
-                            import pdb; pdb.set_trace() #temp
+                            breakpoint() #perm ok
                     
             elif isinstance(value, dict):
                 # this is the same as cols=0 bc dict updates the corresponding cols.
@@ -2782,7 +2803,7 @@ class Daf:
     
         if expectmax != -1 and len(result_lol) > expectmax:
             raise LookupError
-            # import pdb; pdb.set_trace() #perm
+            # breakpoint() #perm
             # pass
             
         new_keyfield = keyfield or self.keyfield
@@ -3431,7 +3452,7 @@ class Daf:
             return
         
         if self.shape() != formulas_daf.shape():
-            import pdb; pdb.set_trace() #temp
+            breakpoint() #temp
             
             raise RuntimeError("apply_formulas requires data arrays of the same shape.")
         
@@ -3462,7 +3483,7 @@ class Daf:
                         new_value = eval(cell_formula)
                     except Exception as err:
                         print(f"Error in formula for cell [{irow},{icol}]: '{cell_formula}': '{err}'")
-                        import pdb; pdb.set_trace() #temp
+                        breakpoint() #temp
                         raise
                     
                     if new_value != self.lol[irow][icol]:
@@ -4024,7 +4045,7 @@ class Daf:
         """
         
         # divide up the table into groups where each group has a unique set of values in groupby_colnames
-        # import pdb; pdb.set_trace() #temp
+        # breakpoint() #temp
         
         if diagnose:  # pragma: no cover
             utils.sts(f"Starting groupby_cols() of {len(self):,} records.", 3)
@@ -5444,7 +5465,7 @@ class Daf:
         daf_lol = self.daf_to_lol_summary(max_rows=max_rows, max_cols=max_cols, disp_cols=disp_cols)
         
         #header_exists = bool(self.hd)
-        #import pdb; pdb.set_trace() #temp
+        #breakpoint() #temp
         
         mdstr = md.md_cols_lol_table(
                 cols_lol        = daf_lol, 
