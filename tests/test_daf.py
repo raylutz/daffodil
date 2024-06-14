@@ -4159,7 +4159,7 @@ class TestDafJsonMethods(unittest.TestCase):
         instance = Daf(
             lol=[[1, 2, 3], [4, 5, 6]],
             hd={'col1': 0, 'col2': 1, 'col3': 2},
-            kd={'key1': 0},
+            kd={1: 0, 4: 1},
             dtypes={'col1': int, 'col2': int, 'col3': int},
             keyfield='col1',
             name='TestDaf',
@@ -4171,7 +4171,7 @@ class TestDafJsonMethods(unittest.TestCase):
             'name': 'TestDaf',
             'lol': [[1, 2, 3], [4, 5, 6]],
             'hd': {'col1': 0, 'col2': 1, 'col3': 2},
-            'kd': {'key1': 0},
+            'kd': {'1': 0, '4': 1},     # Note json dict must use str keys
             'dtypes': {'col1': 'int', 'col2': 'int', 'col3': 'int'},
             'keyfield': 'col1',
             '_retmode': 'val',
@@ -4184,7 +4184,7 @@ class TestDafJsonMethods(unittest.TestCase):
             'name': 'TestDaf',
             'lol': [[1, 2, 3], [4, 5, 6]],
             'hd': {'col1': 0, 'col2': 1, 'col3': 2},
-            'kd': {'key1': 0},
+            'kd': {1: 0, 4: 1},     # will create str keys
             'dtypes': {'col1': 'int', 'col2': 'int', 'col3': 'int'},
             'keyfield': 'col1',
             '_retmode': 'val',
@@ -4194,7 +4194,7 @@ class TestDafJsonMethods(unittest.TestCase):
         self.assertEqual(instance.name, 'TestDaf')
         self.assertEqual(instance.lol, [[1, 2, 3], [4, 5, 6]])
         self.assertEqual(instance.hd, {'col1': 0, 'col2': 1, 'col3': 2})
-        self.assertEqual(instance.kd, {'key1': 0})
+        self.assertEqual(instance.kd, {1: 0, 4: 1})     # but conversion must create ints
         self.assertEqual(instance.dtypes, {'col1': int, 'col2': int, 'col3': int})
         self.assertEqual(instance.keyfield, 'col1')
         self.assertEqual(instance._retmode, 'val')

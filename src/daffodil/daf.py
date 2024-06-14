@@ -246,8 +246,8 @@ See README file at this location: https://github.com/raylutz/Daf/blob/main/READM
                 flatten()
                 to_json()       not completely working.
                 from_json()     not completely working.
-                
-                
+            added __format__ to allow use of {:,} and other f-string formatting. Invokes .to_value()    
+            added alias for valuecountes_for_colname() to value_counts() to match Pandas syntax.
             
             
     TODO
@@ -417,6 +417,7 @@ import copy
 import re
 import json
 #import numpy as np
+from typing_extensions import deprecated
     
 sys.path.append(os.path.dirname(os.path.dirname(os.path.realpath(__file__))))
 
@@ -608,6 +609,14 @@ class Daf:
         return self.num_rows()
         
         
+    def __format__(self, format_spec):
+        # Assuming the current object is a single cell when called in formatting
+        value = self.to_value()
+        if isinstance(value, (int, float)):
+            return format(value, format_spec)
+        return str(value)
+
+
     def shape(self):
         """ return the number of rows and cols in the daf data array
             number of columns is based on the first record
@@ -1759,6 +1768,12 @@ class Daf:
 
     #===========================
     # JSON compatible representation.
+    
+    # there are some limitations to JSON encoding, as it does not correctly allow
+    # for non-str keys of dictionaries. The kd can be corrected if the keyfield is
+    # defined and there is a dtypes that defines the type of that column, so it can
+    # be corrected if it is not a str. Also, the dtypes dict cannot contain values
+    # that are types.
 
     # Define a mapping of string representations to Python types
     TYPE_MAP = {
@@ -1795,9 +1810,16 @@ class Daf:
         # Convert string representations of data types back to actual types
         dtypes = {k: cls.TYPE_MAP.get(v, v) for k, v in daf_dict.get('dtypes', {}).items()}
         
+        # if keyfield is not str type, it must be converted bc JSON converts all keys to str.
+        keyfield_dtype = dtypes.get(daf_dict.get('keyfield', ''), str)
+
+        kd = daf_dict.get('kd', {})
+        if keyfield_dtype != str:
+            kd = {keyfield_dtype(k): v for k, v in kd.items()}
+        
         return cls(lol=daf_dict.get('lol', []),
                    hd=daf_dict.get('hd', {}),
-                   kd=daf_dict.get('kd', {}),
+                   kd=kd,
                    dtypes=dtypes,
                    keyfield=daf_dict.get('keyfield', ''),
                    name=daf_dict.get('name', ''),
@@ -1807,7 +1829,7 @@ class Daf:
     #===========================
     # convert to other format
     
-    # DEPRECATED
+    @deprecated("use Daf instead")
     def to_hllola(self) -> T_hllola:
         """ Create hllola from daf 
             test exists in test_daf.py
@@ -5577,6 +5599,7 @@ Pydf.gen_stats_pydf          = Daf.gen_stats_daf
 Pydf.value_counts_pydf       = Daf.value_counts_daf
 
 Daf.groupsum                 = Daf.groupsum_daf
+Daf.value_counts             = Daf.valuecounts_for_colname
 
 Pydf.md_pydf_table = Pydf.to_md            
 
