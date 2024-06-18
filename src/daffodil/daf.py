@@ -247,7 +247,15 @@ See README file at this location: https://github.com/raylutz/Daf/blob/main/READM
                 to_json()       not completely working.
                 from_json()     not completely working.
             added __format__ to allow use of {:,} and other f-string formatting. Invokes .to_value()    
-            added alias for valuecountes_for_colname() to value_counts() to match Pandas syntax.
+            added alias for valuecounts_for_colname() to value_counts() to match Pandas syntax.
+            extend .iloc to support klist and list rtypes.
+            Added .to_klist() to return a record as KeyedList type.
+            extended .assign_col() to insert a column if the colname does not exist.
+            Enhanced KeyedList() to allow both args to be None, and thus initialize to empty KeyedList.
+            insert_col_in_lol_at_icol(): 
+                fix bug if icol resolves to add a column. --> '>' changed to '>='
+                allow empty lol and create a lol with one column if col_la exists.
+            
             
             
     TODO
@@ -2495,7 +2503,9 @@ class Daf:
             inverse = inverse,
             silent_error = silent_error,
             )
-        return self.select_irows(irows)
+        new_daf = self.select_irows(irows)
+        
+        return new_daf
     
     
     def select_kcols(self, 
@@ -2540,7 +2550,9 @@ class Daf:
             slice_spec = irows
             row_sliced_lol = self.lol[slice_spec]
             
-        return self.clone_empty(lol=row_sliced_lol)
+        new_daf = self.clone_empty(lol=row_sliced_lol)
+        
+        return new_daf
     
     
     def select_icols(self, icols: Union[slice, int, T_li, range, None], flip: bool=False) -> 'Daf':
@@ -2777,6 +2789,12 @@ class Daf:
         return self.iloc(irow, include_cols)
         
 
+    def to_klist(self, irow: int=0) -> KeyedList:
+        """ return a row as a klist
+        """
+        return self.iloc(irow, rtype='klist')
+        
+
     def irow(self, irow: int=0, include_cols: Optional[T_ls]=None) -> T_da:
         """ alias for iloc 
             test exists in test_daf.py
@@ -2784,21 +2802,36 @@ class Daf:
         return self.iloc(irow, include_cols)
         
 
-    def iloc(self, irow: int=0, include_cols: Optional[T_ls]=None) -> T_da:
+    def iloc(self, irow: int=0, include_cols: Optional[T_ls]=None, rtype: str='dict') -> Union[T_da, KeyedList]:
         """ Select one record from daf using the idx and return as a single T_da dict
             test exists in test_daf.py
             
-            TODO allow KeyedList return value.
-        """
-        
-        if irow < 0 or irow >= len(self.lol) or not self.lol or not self.lol[irow]:
-            return {}
+            rtype can be 'dict', 'klist', or 'list'
             
-        if self.hd: 
-            return self._basic_get_record(irow, include_cols)
+        """
+        if irow < 0 or irow >= len(self.lol) or not self.lol or not self.lol[irow]:
+            if rtype == 'dict':
+                return {}
+            else:
+                return KeyedList()
+            
+        if rtype == 'klist':
+            return KeyedList(self.hd, self.lol[irow])
+        
+        elif rtype == 'dict':
+            if self.hd: 
+                return self._basic_get_record(irow, include_cols)
                 
-        colnames = utils._generate_spreadsheet_column_names_list(num_cols=len(self.lol[irow]))
-        return dict(zip(colnames, self.lol[irow]))
+            colnames = utils._generate_spreadsheet_column_names_list(num_cols=len(self.lol[irow]))
+            return dict(zip(colnames, self.lol[irow]))
+            
+        elif rtype == 'list':
+            return self.to_list( 
+                irow = irow, 
+                icol = None,
+                unique = False,
+                flatten = False,
+                )        
         
 
     def select_by_dict_to_lod(self, selector_da: T_da, expectmax: int=-1, inverse: bool=False) -> T_loda:
@@ -3211,6 +3244,7 @@ class Daf:
         # if keyfield:
             # self.keyfield = keyfield
             # self._rebuild_kd()
+        return self
 
         
     def insert_irow(self, irow: int=-1, row: Optional[Union[T_la, T_da]]=None, default: Any=''):
@@ -3244,11 +3278,21 @@ class Daf:
             
             Equivalent to my_daf[:, colname] = la
             
-            DEPRECATE?
+            if colname not exists, then add column of that name and initialize.
         """
         
         if colname in self.hd:
             self.assign_icol(self.hd[colname], la, default)
+            
+        else:
+            breakpoint()
+        
+            self.insert_col(
+                colname = colname, 
+                col_la = la, 
+                #icol: int=-1, 
+                default = default,
+                )
         
         return self
 
@@ -3281,6 +3325,8 @@ class Daf:
             return
         if not col_la:
             col_la = []
+
+        breakpoint()
             
         # see https://github.com/raylutz/daffodil/issues/7
         if colname in self.hd:

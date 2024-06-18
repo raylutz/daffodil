@@ -274,17 +274,28 @@ def insert_col_in_lol_at_icol(icol: int=-1, col_la: Optional[T_la]=None, lol: Op
         use default value if col_la not long enough.
         
     """
-    if not lol:
-        return []
-    if not col_la:
-        return lol
+    if not lol: 
+        if not col_la:
+            return []
+        else:
+            lol = [[val] for val in col_la]
+            return lol
+    
+    # if not col_la:
+        # return lol
         
-    if icol < 0 or icol > len(lol[0]):
-        icol = len(lol[0])    
+    num_cols = len(lol[0])
+        
+    if icol < 0 or icol >= num_cols:
+        icol = num_cols    
     
     for irow, row_la in enumerate(lol):
         val = safe_get_idx(col_la, irow, default)
         row_la.insert(icol, val)
+        
+        if len(row_la) == num_cols:
+            breakpoint()    # perm Should never happen, insert should add a column.
+            pass        
         
     return lol
     
@@ -837,7 +848,9 @@ def profile_ls_to_lr(
         output_loti = [range(0, 1), range(1, 3), range(3, 4), range(4, 7)]
         
         if either ignore cols or include cols are provided, then  do not profile 
-        any columns not included but include the offsets in the profile.
+        any columns not included but respect the offsets in the profile.
+        These tend to be leading columns that need not be profiled because they
+        are known to never be repeated.
         
     """    
     repeat_count = 0

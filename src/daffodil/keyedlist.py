@@ -109,7 +109,7 @@ class KeyedList:
     """
 
     def __init__(self, 
-            arg1: Union[Dict[Any, Any], List[Any], 'KeyedList'], 
+            arg1: Optional[Union[Dict[Any, Any], List[Any], 'KeyedList']] = None, 
             arg2: Optional[List[Any]] = None,
             ):
             
@@ -139,6 +139,13 @@ class KeyedList:
         if isinstance(arg1, type(self)) and arg2 is None:
             self.hd = arg1.hd
             self.values = arg1.values
+            return
+            
+        if arg1 is None and arg2 is None:
+            # return a functional empty keyedlist, like {}
+            self.hd = {}
+            self.values = []
+            return
         
         raise ValueError("Must provide either a dict, keys and values, hd and list, or KeyedList")
     
