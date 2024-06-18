@@ -248,6 +248,7 @@ See README file at this location: https://github.com/raylutz/Daf/blob/main/READM
                 from_json()     not completely working.
             added __format__ to allow use of {:,} and other f-string formatting. Invokes .to_value()    
             added alias for valuecounts_for_colname() to value_counts() to match Pandas syntax.
+            
             extend .iloc to support klist and list rtypes.
             Added .to_klist() to return a record as KeyedList type.
             extended .assign_col() to insert a column if the colname does not exist.
