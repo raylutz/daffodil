@@ -256,10 +256,17 @@ See README file at this location: https://github.com/raylutz/Daf/blob/main/READM
             insert_col_in_lol_at_icol(): 
                 fix bug if icol resolves to add a column. --> '>' changed to '>='
                 allow empty lol and create a lol with one column if col_la exists.
-            
-            
+            Add .iter_list() to allow iteration over just lol without cols defined.
+            fixed __format__ so unadorned daf name prints summary. It takes more than {daf:} in fstring to cause formatting.
+            Improved robustness of num_cols() to check first few rows.
+                TODO: It will probably be better to keep a value of the num cols and not calculate evertime.
+            changed name of values in KeyedList to _values and created accessors.
+            added support for Iterables passed for row and col selection.
+            Added method "remove_dups()" which returns unique records and duplicated records based on keyfield.
+            Changed operation of assign_col to append col to right if colname not exist.
             
     TODO
+            It will probably be better to keep a value of the num cols and not calculate every time.
             add use of pickledjson to express contents of individual cells when not jsonable.
             tests: need to add
                 __str__ and __repr__
