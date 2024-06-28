@@ -43,7 +43,7 @@ class TestKeyedList(unittest.TestCase):
     def test_keys_values_items(self):
         keyedlist = KeyedList(['a', 'b', 'c'], [1, 2, 3])
         self.assertEqual(list(keyedlist.keys()), ['a', 'b', 'c'])
-        self.assertEqual(list(keyedlist.values), [1, 2, 3])
+        self.assertEqual(list(keyedlist.values()), [1, 2, 3])
         self.assertEqual(list(keyedlist.items()), [('a', 1), ('b', 2), ('c', 3)])
     
     def test_update(self):

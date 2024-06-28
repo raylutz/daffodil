@@ -426,7 +426,8 @@ import copy
 import re
 import json
 #import numpy as np
-from typing_extensions import deprecated
+#from typing_extensions import deprecated       # can't get this to import correctly
+import collections      # to provide collections.abc.Iterable type.
     
 sys.path.append(os.path.dirname(os.path.dirname(os.path.realpath(__file__))))
 
@@ -535,7 +536,7 @@ class Daf:
 
                 # self.lol = utils.apply_dtypes_to_hdlol((self.hd, self.lol), effective_dtypes, from_str=False)[1]
             
-        # rebuild kd if possible.
+        # rebuild kd if possible, only if keyfield is defined.
         self._rebuild_kd()
         
             
@@ -581,6 +582,8 @@ class Daf:
     def iter_klist(self) -> Iterator[KeyedList]:
         return DafIterator(self, KeyedList)
         
+    def iter_list(self) -> Iterator[list]:
+        return DafIterator(self, list)
 
     # def __next__(self) -> Union[Dict[str, int], KeyedList]:
         # if self._iter_index < len(self.lol):
@@ -620,10 +623,13 @@ class Daf:
         
     def __format__(self, format_spec):
         # Assuming the current object is a single cell when called in formatting
-        value = self.to_value()
-        if isinstance(value, (int, float)):
-            return format(value, format_spec)
-        return str(value)
+        # If a format_spec is provided, use it; otherwise, use __str__
+        if format_spec:
+            value = self.to_value()
+            if isinstance(value, (int, float)):
+                return format(value, format_spec)
+            return str(value)
+        return self.__str__()
 
 
     def shape(self):
@@ -664,11 +670,7 @@ class Daf:
     
         if not self.lol:
             return 0
-        try:
-            result = len(self.lol[0])
-        except Exception:
-            breakpoint() #temp
-            pass
+        _, result = utils.min_max_cols_lol(self.lol, limit=10)
         return result
 
 
@@ -707,6 +709,9 @@ class Daf:
         # self.hd = {col: idx for idx, col in enumerate(dtypes.keys())}
         
         # usage here: self.hd = type(self)._build_hd(keys)
+        
+        # TODO: Consider building this so that any duplicates that are
+        # encountered will not overwrite the prior key
 
         return dict(zip(keys, range(len(keys))))
 
@@ -1012,7 +1017,7 @@ class Daf:
             dtypes: Optional[T_dtype_dict]=None, 
             unflatten: bool=True, 
             from_str: bool=True
-            ):
+            ) -> 'Daf':
         """ convert columns of daf array to the datatypes specified in self.dtypes or in passed parameter.
                 dtypes can be a dict where each column may have a different type, or it can be a single type.
             columns must be defined.
@@ -1588,7 +1593,7 @@ class Daf:
         csv_writer = csv.writer(f, lineterminator=line_terminator)
         if include_header:
             csv_writer.writerow(self.columns())     # Write the header row
-        csv_writer.writerows(self.lol)          # Write the data rows
+        csv_writer.writerows(self.lol)              # Write the data rows
 
         buff = f.getvalue()
         f.close()
@@ -1838,7 +1843,7 @@ class Daf:
     #===========================
     # convert to other format
     
-    @deprecated("use Daf instead")
+    #@deprecated("use Daf instead")
     def to_hllola(self) -> T_hllola:
         """ Create hllola from daf 
             test exists in test_daf.py
@@ -1880,7 +1885,7 @@ class Daf:
         elif isinstance(data_item, KeyedList):
             # hd matches.
             if self.hd == data_item.hd:
-                self.lol.append(data_item.values)        
+                self.lol.append(data_item.values())        
                 if self.kd and self.keyfield:
                     self.kd[data_item[self.keyfield]] = len(self.kd)
             else:
@@ -1992,29 +1997,42 @@ class Daf:
             return self
             
         if not self.lol and not self.hd:
-            # new daf, adopt structure of lod.
+            # new daf, adopt structure of da or keyedlist.
             # but there is only one header and data is lol
             # this makes daffodil arrays about 2/3 smaller.
             
-            # see https://github.com/raylutz/daffodil/issues/6
-            self.hd = type(self)._build_hd(record.keys())
-            
-            #self.hd = {col_name: index for index, col_name in enumerate(record_da.keys())}
-            self.lol = [list(record.values())]
-            self._rebuild_kd()   # only if the keyfield is set.
+            if isinstance(record, KeyedList):
+                # for keyedlist, simply adopt the hd and the list as first row.
+                self.hd = record.hd
+                self.lol = [record.values()]
+                
+            elif isinstance(record, dict):
+                self.hd = type(self)._build_hd(record.keys())
+                self.lol = [list(record.values())]
+                
+            self._rebuild_kd()   # functions only if the keyfield is set.
             return self
             
         # check if fields match exactly.
         reorder = False
-        if list(self.hd.keys()) != list(record.keys()):
+        if isinstance(record, KeyedList):
+            if record.hd != self.hd:
+                reorder = True
+        elif list(self.hd.keys()) != list(record.keys()):
             reorder = True
         
         if reorder:
             # construct a dict with exactly the cols specified.
             # defaults to '' at this point.
+            # this works for both dict and KeyedList
             rec_la = [record.get(col, '') for col in self.hd]
+        # not reordering, slightly different    
+        elif isinstance(record, KeyedList):
+            rec_la = record.values()        # returns a list.
+        elif isinstance(record, dict):    
+            rec_la = list(record.values())  # must copy into a list.
         else:
-            rec_la = list(record.values())
+            breakpoint() # perm
             
         if self.keyfield:
             # insert will overwrite any existing key with the same value.
@@ -2163,13 +2181,13 @@ class Daf:
             row_spec = None
             irows = list(range(len(self)))
             
-        if isinstance(row_spec, str) or utils.is_list_of_type(row_spec, str) or isinstance(row_spec, tuple):
+        if isinstance(row_spec, (str, tuple)) or utils.is_list_of_type(row_spec, str):
             irows = self.krows_to_irows(krows = row_spec)
             
         elif isinstance(row_spec, (int, slice)) or utils.is_list_of_type(row_spec, int):
             irows = row_spec
             
-        if col_spec and isinstance(col_spec, str) or utils.is_list_of_type(col_spec, str) or isinstance(col_spec, tuple):
+        if col_spec and isinstance(col_spec, (str, tuple)) or utils.is_list_of_type(col_spec, str):
             icols = self.kcols_to_icols(kcols = col_spec)
             
         elif isinstance(col_spec, (int, slice)) or utils.is_list_of_type(col_spec, int):
@@ -2219,7 +2237,7 @@ class Daf:
         return self
         
 
-    def set_irows_icols(self, irows: Union[slice, int, T_li, None], icols: Union[slice, int, T_li, None], value) -> 'Daf':
+    def set_irows_icols(self, irows: Union[slice, int, T_li, Iterable, None], icols: Union[slice, int, T_li, None], value) -> 'Daf':
         """ set rows and cols in given daf.
             
             irows, icols: can be either a slice, int, or list of integers. These
@@ -2270,7 +2288,7 @@ class Daf:
             
             if isinstance(value, dict):
                 self.assign_record_irow(irow, record=value)
-            elif isinstance(value, list) and len(value) == 1:    
+            elif isinstance(value, (list, collections.abc.Iterable)) and len(value) == 1:    
                 # frequently, we will have a list generated from a selection of a column, and it it has only one value
                 # it needs to be entered in the array location, but not as a list.
                 # place a list with only one item in a cell can't be done this way:
@@ -2283,7 +2301,7 @@ class Daf:
                 
         elif num_irows > 1 and num_icols == 0:
             
-            if isinstance(value, list):
+            if isinstance(value, (list, collections.abc.Iterable)):
                 for irow in irows:
                     self.lol[irow] = value
             elif isinstance(value, dict):
@@ -2304,7 +2322,7 @@ class Daf:
             if irows is None:
                 irows = range(len(self.lol))
         
-            if isinstance(value, list):
+            if isinstance(value, (list, collections.abc.Iterable)):
                 for source_idx, irow in enumerate(irows):
                     
                     try:
@@ -2329,7 +2347,7 @@ class Daf:
             if irows is None:
                 irows = range(len(self.lol))
         
-            if isinstance(value, list):
+            if isinstance(value, (list, collections.abc.Iterable)):
                 for irow in irows:
                     for source_col, icol in enumerate(icols):
                         try:
@@ -2356,7 +2374,7 @@ class Daf:
     
     
     def krows_to_irows(self, 
-            krows: Union[slice, str, T_la, int, Tuple[Any, Any], None],
+            krows: Union[slice, str, T_la, int, Tuple[Any, Any], Iterable, None],
             inverse: bool = False,
             silent_error: bool=False,
             ) -> Union[slice, int, T_li, range]:
@@ -2384,7 +2402,7 @@ class Daf:
                     )
     
     def kcols_to_icols(self, 
-            kcols: Union[str, T_ls, slice, int, T_li, Tuple[Any, Any], None] = None,
+            kcols: Union[str, T_ls, slice, int, T_li, Tuple[Any, Any], Iterable, None] = None,
             inverse: bool = False,
             silent_error: bool=False,
             ) -> Union[slice, int, T_li, range, None]:
@@ -2412,7 +2430,7 @@ class Daf:
     @staticmethod
     def gkeys_to_idxs(
             keydict: Dict[Union[str, int], int],
-            gkeys: Union[str, T_ls, slice, int, T_li, Tuple[Any, Any], None] = None,
+            gkeys: Union[str, T_ls, slice, int, T_li, Tuple[Any, Any], Iterable, None] = None,
             inverse: bool = False,
             silent_error: bool=False,
             axis: str='rowkeys',                # used for status messages only.
@@ -2439,7 +2457,7 @@ class Daf:
                     logs.sts(f"{logs.prog_loc()} Cannot find key '{gkey}' in {axis} in dataframe '{name}'", 3) 
                     raise 
             
-        elif isinstance(gkeys, list):     # can be list of integer or strings (or anything hashable)
+        elif isinstance(gkeys, (list, collections.abc.Iterable)):     # can be list of integer or strings (or anything hashable)
             idxs = []
             for gkey in gkeys:
                 # For the following, see https://github.com/raylutz/daffodil/issues/6
@@ -2494,7 +2512,7 @@ class Daf:
         
 
     def select_krows(self, 
-            krows: Union[slice, str, T_la, int, Tuple[Any, Any], None], 
+            krows: Union[slice, str, T_la, int, Tuple[Any, Any], Iterable, None], 
             inverse: bool=False,
             silent_error: bool=False,
             ) -> 'Daf':
@@ -2524,7 +2542,7 @@ class Daf:
         return self.select_icols(icols, flip=flip)
     
     
-    def select_irows(self, irows: Union[slice, int, T_li, range, None]) -> 'Daf':
+    def select_irows(self, irows: Union[slice, int, T_li, range, Iterable, None], invert: bool=False) -> 'Daf':
         """ select rows from daf and return a new instance.
             This is an efficient opeation. The array in the new instance
             uses references to selected rows in the original array.
@@ -2537,19 +2555,35 @@ class Daf:
         row_sliced_lol = self.lol
         
         if isinstance(irows, int):
-            # simple single row selection
-            row_sliced_lol = [self.lol[irows]]
+            if not invert:
+                # simple single row selection
+                row_sliced_lol = [self.lol[irows]]
+            else:
+                row_sliced_lol.pop(irows)
         
-        elif isinstance(irows, (list, range)):
-            if irows and isinstance(irows[0], int):
-                # list of integers:
+        elif irows and isinstance(irows, list) and utils.is_list_of_type(irows, int):
+                
+            if not invert:
                 row_sliced_lol = [self.lol[i] for i in irows]
             else:
-                row_sliced_lol = []
+                if len(irows) > 10:
+                    irows_iter = dict.fromkeys(irows)
+                else:
+                    irows_iter = irows
+                row_sliced_lol = [self.lol[i] for i in range(len(self.lol)) if i not in irows_iter]
             
+        elif irows and isinstance(irows, (range, collections.abc.Iterable)):
+            if not invert:
+                row_sliced_lol = [self.lol[i] for i in irows]
+            else:
+                row_sliced_lol = [self.lol[i] for i in range(len(self.lol)) if i not in irows]
+             
         elif isinstance(irows, slice):
             slice_spec = irows
-            row_sliced_lol = self.lol[slice_spec]
+            if not invert:
+                row_sliced_lol = self.lol[slice_spec]
+            else:
+                row_sliced_lol = [self.lol[i] for i in range(len(self.lol)) if i not in slice_spec]
             
         new_daf = self.clone_empty(lol=row_sliced_lol)
         
@@ -2583,7 +2617,7 @@ class Daf:
         sliced_cols = []
         
         if isinstance(icols, int):
-            # simple single row selection
+            # simple single col selection
             icol = icols
             if not flip:
                 col_sliced_lol = [[row[icol]] for row in self.lol]
@@ -2594,7 +2628,7 @@ class Daf:
             
         elif isinstance(icols, slice):
             slice_spec = icols
-            icols_range = range(slice_spec.start or 0, slice_spec.stop or 0, slice_spec.step or 1)
+            icols_range = range(slice_spec.start or 0, slice_spec.stop or self.num_cols(), slice_spec.step or 1)
             
             if not flip:
                 col_sliced_lol = [[row[icol] for icol in icols_range]
@@ -2704,7 +2738,7 @@ class Daf:
         # return selected_daf
         
         
-    def select_records_daf(self, keys_ls: T_ls, inverse:bool=False) -> 'Daf':
+    def select_records_daf(self, keys_ls: Union[T_ls, Iterable], inverse:bool=False) -> 'Daf':
         """ Select multiple records from daf using the keys and return as a single daf.
             If inverse is true, select records that are not included in the keys.
             
@@ -2917,6 +2951,43 @@ class Daf:
         # unit test exists.
         
         return [idx for idx, row in enumerate(self) if where(row)]
+        
+
+    def remove_dups(self, keyfield: str='') -> Tuple['Daf', 'Daf']:  # unique_daf, duplicates_daf
+        """
+        If it is known that duplicates may exist in the array with respect to keyfield,
+        remove records that have the same keyfield and return two daf arrays,
+        uniques_daf, dups_daf. 
+        
+        Please note that this does NOT compare wall components, only the keyfields.
+               
+        """
+        num_rows_orig = self.num_rows()
+        
+        self.set_keyfield(keyfield=keyfield)
+        
+        num_rows_after_set_keyfield = self.num_rows()
+        
+        if num_rows_orig == num_rows_after_set_keyfield:
+            return self, Daf()
+        
+        # key irows of records that are unique
+        unique_irows = self.kd.values()
+        
+        # unset the keyfield
+        self.set_keyfield(keyfield='')
+        
+        # remove duplicated rows and set the keyfield to form unique_daf
+        unique_daf = self.select_irows(irows=unique_irows, invert=False)
+        unique_daf.set_keyfield(keyfield=keyfield)
+        
+        # all the other records are duplicates.
+        dups_daf   = self.select_irows(irows=unique_irows, invert=True)
+
+        return unique_daf, dups_daf
+
+
+
 
 
     def split_where(self, where: Callable) -> Tuple['Daf', 'Daf']:
@@ -2935,11 +3006,11 @@ class Daf:
         true_lol = []
         false_lol = []
         
-        for idx, row_da in enumerate(self):
-            if where(row_da):
-                true_lol.append(self.lol[idx])
+        for klist in self.iter_klist():
+            if where(klist):
+                true_lol.append(klist.values)
             else:
-                false_lol.append(self.lol[idx])
+                false_lol.append(klist.values)
 
         true_daf = Daf(cols=self.columns(), lol=true_lol, keyfield=self.keyfield, dtypes=self.dtypes)
         false_daf = Daf(cols=self.columns(), lol=false_lol, keyfield=self.keyfield, dtypes=self.dtypes)
@@ -3286,8 +3357,6 @@ class Daf:
             self.assign_icol(self.hd[colname], la, default)
             
         else:
-            breakpoint()
-        
             self.insert_col(
                 colname = colname, 
                 col_la = la, 
@@ -3327,8 +3396,6 @@ class Daf:
         if not col_la:
             col_la = []
 
-        breakpoint()
-            
         # see https://github.com/raylutz/daffodil/issues/7
         if colname in self.hd:
             # column already exists. ignore icol, overwrite data.
@@ -4531,7 +4598,8 @@ class Daf:
                 astype: Optional[Type]=None,    # a type like int, float, str to cast the value if it is not that type. Optional.
                 diagnose:bool=False
                 ) -> T_da:     # result_da
-        """ sum values in row and accum dicts per colunms provided. 
+        """ 
+            sum values in row and accum dicts per colunms provided. 
             will safely skip data that can't be summed.
             First three args should be provided by position only to avoid naming issues among different reductions.
         """
@@ -5503,7 +5571,8 @@ class Daf:
         
         header_exists = bool(self.hd)
         
-        mdstr = md.md_lol_table(daf_lol, 
+        mdstr = md.md_lol_table(
+            daf_lol, 
             header              = header, 
             includes_header     = header_exists, 
             just                = just or ('>' * len(self.hd)), 
@@ -5514,7 +5583,7 @@ class Daf:
             
             )
         if include_summary:    
-            mdstr += f"\n\[{len(self.lol)} rows x {len(self.hd)} cols; keyfield='{self.keyfield}'; {len(self.kd)} keys ] ({self.name or type(self).__name__})\n"
+            mdstr += f"\n\[{len(self.lol)} rows x {self.num_cols()} cols; keyfield='{self.keyfield}'; {len(self.kd)} keys ] ({self.name or type(self).__name__})\n"
         return mdstr
         
 
@@ -5556,7 +5625,7 @@ class Daf:
     
         # from utilities import utils
 
-        # first build a basic summary
+        # first build a basic summary by adding colnames, if they exist.
         if disp_cols:
             colnames_ls = disp_cols
         else:
@@ -5585,7 +5654,7 @@ class Daf:
             divider_lol = [['...'] * num_cols]
             
             result_lol  = [colnames_ls] + first_lol + divider_lol + last_lol
-            result_lol = utils.reduce_lol_cols(result_lol, max_cols=max_cols)
+            result_lol  = utils.reduce_lol_cols(result_lol, max_cols=max_cols)
 
         return result_lol
         
@@ -5652,7 +5721,7 @@ Pydf.md_pydf_table = Pydf.to_md
 
 
 class DafIterator:
-    def __init__(self, this_daf: Daf, rtype: Type[Union[Dict[str, Any], KeyedList]]):
+    def __init__(self, this_daf: Daf, rtype: Type[Union[Dict[str, Any], KeyedList, list]]):
         self.this_daf = this_daf
         self.rtype = rtype
         self._index = 0
@@ -5660,7 +5729,7 @@ class DafIterator:
     def __iter__(self):
         return self
 
-    def __next__(self) -> Union[Dict[str, Any], KeyedList]:
+    def __next__(self) -> Union[Dict[str, Any], KeyedList, list]:
         if self._index < len(self.this_daf.lol):
             row = self.this_daf.lol[self._index]
             self._index += 1
@@ -5668,6 +5737,9 @@ class DafIterator:
                 return dict(zip(self.this_daf.hd.keys(), row))
             elif self.rtype == KeyedList:
                 return KeyedList(self.this_daf.hd, row)
+            elif self.rtype == list:
+                return row
+            
             else:
                 raise NotImplementedError(f"Unknown return type: {self.rtype}")
         else:

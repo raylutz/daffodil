@@ -60,6 +60,9 @@ class KeyedList:
         - KeyedList(full_dict) -> KeyedList: Initialize KeyedList from a full_dict, a conventional dictionary.
             This method of initialization will copy the values and is relatively expensive.
             
+        - KeyedList(keys_iter, default=None) -> KeyedList: Initialize KeyedList from a list of keys and constant 'default' 
+            Like dict.fromkeys(keys, default). If unspecified, default is None.
+            
         - KeyedList(hd, values_list) -> KeyedList: Initialize KeyedList from an existing hd and values_list.
             This is very fast because no copying occurs. 
     
@@ -89,7 +92,7 @@ class KeyedList:
             print(alist)            # output: [5, 10]
             print(klist)            # output: {'a': 5, 'b' 10}  <-- note that klist changes too!
             
-            klist.values = [2,3]    # assign new values to the list portion. Assignment like this is supported for dicts.
+            klist._values = [2,3]   # assign new values to the list portion. Assignment like this is NOT supported for dicts.
             print(klist)            # output: {'a': 2, 'b' 3}
             print(alist)            # output: [2, 3]    # note that the list that is a reference to the list portion changes.
 
@@ -102,7 +105,9 @@ class KeyedList:
             print(klist['a'])                   # Output: 1
             klist['b'] = 5                      # overwrite a value
             print(klist)                        # Output: {'a': 1, 'b': 5, 'c': 3}
-            
+            print(klist.values())               # Output: [1, 2, 3]
+            print(klist.values)                 # Output: [1, 2, 3]
+           
         See also:
             https://peps.python.org/pep-0412/#alternative-implementation
             
@@ -111,13 +116,14 @@ class KeyedList:
     def __init__(self, 
             arg1: Optional[Union[Dict[Any, Any], List[Any], 'KeyedList']] = None, 
             arg2: Optional[List[Any]] = None,
+            default: Optional[Union[int, str, float]] = None,
             ):
             
         if isinstance(arg1, dict):
             if arg2 is None:
                 # Case 1: from_dict
                 self.hd = type(self)._build_hd(arg1.keys())
-                self.values = list(arg1.values())
+                self._values = list(arg1.values())
                 return
                 
             if isinstance(arg2, list):
@@ -125,68 +131,85 @@ class KeyedList:
                 if len(arg1) != len(arg2):
                     raise ValueError("keys and values must have the same length")
                 self.hd = arg1
-                self.values = arg2
+                self._values = arg2
                 return
             
-        if isinstance(arg1, list) and isinstance(arg2, list):
+        elif isinstance(arg1, list) and isinstance(arg2, list):
             # Case 3: from list of keys and values
             if len(arg1) != len(arg2):
                 raise ValueError("keys and values must have the same length")
             self.hd = type(self)._build_hd(arg1)
-            self.values = arg2
+            self._values = arg2
             return
             
-        if isinstance(arg1, type(self)) and arg2 is None:
+        elif isinstance(arg1, list) and arg2 is None:
+            # Case 4: from list of keys and default
+            self.hd = type(self)._build_hd(arg1)
+            self._values = [default] * len(arg1)
+            return
+            
+        elif isinstance(arg1, type(self)) and arg2 is None:
+            # Case 5: from keyedlist type
             self.hd = arg1.hd
-            self.values = arg1.values
+            self._values = arg1.values
             return
             
-        if arg1 is None and arg2 is None:
-            # return a functional empty keyedlist, like {}
+        elif arg1 is None and arg2 is None:
+            # Case 6, Empty - return a functional empty keyedlist, like {}
             self.hd = {}
-            self.values = []
+            self._values = []
             return
         
+        breakpoint() #perm logic error
+        pass
         raise ValueError("Must provide either a dict, keys and values, hd and list, or KeyedList")
     
     def __getitem__(self, key):
-        return self.values[self.hd[key]]
+        return self._values[self.hd[key]]
     
     def __setitem__(self, key, value):
         if key not in self.hd:
             # extend hd
             self.hd[key] = len(self.hd)
             
-            self.values.append(value)
+            self._values.append(value)
         else:    
-            self.values[self.hd[key]] = value
+            self._values[self.hd[key]] = value
 
     
     def __delitem__(self, key):
         index = self.hd.pop(key)
-        del self.values[index]
+        del self._values[index]
                 
         # it is necessary to rebuild hd whenever it is changed.
         self.hd = type(self)._build_hd(self.hd.keys())        
     
     def __len__(self):
-        return len(self.values)
+        return len(self._values)
     
     def __iter__(self):
         return iter(self.hd)
     
     def keys(self):
         return self.hd.keys()
-    
+
+    @property
     def values(self):
-        return self.values
+        return self._values
+
+    @values.setter
+    def values(self, new_values):
+        self._values = new_values
+
+    def values(self):
+        return self._values
     
     def items(self):
-        return ((key, self.values[idx]) for key, idx in self.hd.items())
+        return ((key, self._values[idx]) for key, idx in self.hd.items())
     
     def get(self, key, default=None):
         try:
-            return self.values[self.hd[key]]
+            return self._values[self.hd[key]]
         except Exception:
             return default
     
@@ -203,7 +226,7 @@ class KeyedList:
         
     def __bool__(self):
         """ return true if there is something in the values list. """
-        return bool(self.values)
+        return bool(self._values)
         
    
     @staticmethod
@@ -221,7 +244,7 @@ class KeyedList:
 
     def to_json(self):
         # Serialize KeyedList object to a JSON-compatible dictionary
-        return json.dumps({"__KeyedList__": True, "hd": self.hd, "values": self.values})
+        return json.dumps({"__KeyedList__": True, "hd": self.hd, "values": self._values})
 
     @classmethod
     def from_json(cls, json_str):
@@ -237,6 +260,6 @@ class KeyedList:
 class KeyedListEncoder(json.JSONEncoder):
     def default(self, obj):
         if isinstance(obj, KeyedList):
-            return {"__KeyedList__": True, "hd": obj.hd, "values": obj.values}
+            return {"__KeyedList__": True, "hd": obj.hd, "values": obj._values}
         return super().default(obj)
         

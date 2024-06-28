@@ -11,6 +11,7 @@ from pathlib import Path
 
 import sys
 sys.path.append(os.path.join(os.path.dirname(sys.path[0]), 'src'))
+print(sys.path)
 
 from daffodil.daf import Daf
 from daffodil.keyedlist import KeyedList
@@ -1704,9 +1705,11 @@ class TestDaf(unittest.TestCase):
         colname = 'col4'
         new_values = ['A', 'B', 'C']
         daf.assign_col(colname, new_values)
+        
+        # will insert new col if col not exist.
 
-        expected_hd = {'col1': 0, 'col2': 1, 'col3': 2}
-        expected_lol = [[1, 'a', 'x'], [2, 'b', 'y'], [3, 'c', 'z']]
+        expected_hd = {'col1': 0, 'col2': 1, 'col3': 2, 'col4': 3}
+        expected_lol = [[1, 'a', 'x', 'A'], [2, 'b', 'y', 'B'], [3, 'c', 'z', 'C']]
 
         self.assertEqual(daf.hd, expected_hd)
         self.assertEqual(daf.lol, expected_lol)
@@ -1946,14 +1949,15 @@ class TestDaf(unittest.TestCase):
         dtypes={'col1': int, 'col2': str}
         daf = Daf(cols=cols, lol=lol, keyfield='col1', dtypes=dtypes)
 
+        # empty keys changed to select all records.
         keys_ls = []
         result = daf.select_records_daf(keys_ls)
 
         self.assertEqual(result.name, '')
         self.assertEqual(result.keyfield, 'col1')
         self.assertEqual(result.hd, {'col1': 0, 'col2': 1})
-        self.assertEqual(result.lol, [])
-        self.assertEqual(result.kd, {})
+        self.assertEqual(result.lol, [[1, 'a'], [2, 'b'], [3, 'c']])
+        self.assertEqual(result.kd, {1:0, 2:1, 3:2})
         self.assertEqual(result.dtypes, dtypes)
 
     def test_select_records_daf_without_inverse(self):
@@ -2336,7 +2340,7 @@ class TestDaf(unittest.TestCase):
         col_la = [4, 'd', False]
         daf.insert_icol(icol=1, col_la=col_la)
 
-        self.assertEqual(daf.lol, [])
+        self.assertEqual(daf.lol, [[4], ['d'], [False]])
 
     # insert_col
     def test_insert_col_valid_colname_col_la(self):
@@ -2416,7 +2420,7 @@ class TestDaf(unittest.TestCase):
         col_la = [4, 'd', False]
         daf.insert_col(colname=colname, col_la=col_la, icol=1)
 
-        self.assertEqual(daf.lol, [])
+        self.assertEqual(daf.lol, [[4], ['d'], [False]])
         self.assertEqual(daf.hd, {'new_col': 0})
         
 
@@ -3933,6 +3937,14 @@ class TestDaf(unittest.TestCase):
         self.assertEqual(len(wide_daf.columns()), 3)  # ID, A, B
         
         # Add more assertions based on the expected handling of identifier columns
+        
+    #==============================
+    def test_reduce_lol_cols(self):
+        lol = [['a', 'b', 'c', 'd'], [1, 2, 3, 4], ['x', 'y', 'z', 'w'], [5, 6, 7, 8]]
+        reduced_lol = utils.reduce_lol_cols(lol, max_cols=3, divider_str='...')
+        assert reduced_lol == [['a', 'b', '...', 'd'], [1, 2, '...', 4], ['x', 'y', '...', 'w'], [5, 6, '...', 8]], \
+                  f"Expected: [['a', 'b', '...', 'd'], [1, 2, '...', 4], ['x', 'y', '...', 'w'], [5, 6, '...', 8]], Got: {reduced_lol}"
+
         
 
 class TestDafIteration(unittest.TestCase):

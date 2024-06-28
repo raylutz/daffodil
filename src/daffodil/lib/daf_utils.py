@@ -894,6 +894,8 @@ def reduce_lol_cols(lol: T_lola, max_cols:int=10, divider_str: str='...') -> T_l
     if not max_cols or not lol:
         return lol
         
+    lol = equal_cols_lol(lol)
+    
     num_cols = len(lol[0])
 
     if num_cols <= max_cols:
@@ -1261,7 +1263,7 @@ def is_numeric(val: Any) -> bool:
     """ Test if a string could be treated as numeric after ,$% removed
     """
        
-    if isinstance(val, int) or isinstance(val, float):
+    if isinstance(val, (int, float)):
         return True
     if isinstance(val, str):
         # Remove any commas and dollar signs
@@ -1538,4 +1540,52 @@ def invert_dol_to_dict(input_dol:dict) -> dict:
     return result_dict
 
 
-       
+def min_max_cols_lol(lol: T_lola, start: Optional[int]=None, limit: Optional[int]=None) -> Tuple[int, int]:
+
+    max_cols = 0
+    min_cols = None
+    
+    for la in lol[start:limit]:
+        colnum = len(la)
+        if colnum > max_cols:
+            max_cols = colnum
+        if min_cols is None or colnum < min_cols:
+            min_cols = colnum
+            
+    return min_cols, max_cols
+    
+
+def equal_cols_lol(lol: T_lola, limit: int=10, check_all:bool=False) -> T_lola:
+    """ Make lol have equal number of columns throughout. 
+        Appends columns of '' on the right end.
+        Mutates in place.
+        Max length usually happens at the start of the file.
+        
+        1. first searches the lol array up to limit to find a first guess
+            as to the max length.
+        2. Uses, this, but if a longer ling is encountered, then 
+        
+    """
+    min_cols, max_cols = min_max_cols_lol(lol, limit=limit)
+            
+    if limit is None and max_cols == min_cols:
+        return lol
+        
+    if limit and not check_all and max_cols == min_cols:
+        return lol
+
+    for la in lol:
+        colnum = len(la)
+        if colnum < max_cols:
+            la += [''] * (max_cols - colnum)
+            
+        if colnum > max_cols:
+            # our estimate of the max col was incorrect.
+            break
+    else: 
+        return lol
+
+    # we found a longer line.
+    # recursively call this function with no limit, causes full inspection.
+    return equal_cols_lol(lol=lol, limit=None)
+        

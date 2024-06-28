@@ -300,7 +300,7 @@ def _handle_slice(self, row_slice: Union[slice, int, None], col_slice: Union[sli
             return indexing._adjust_return_val(self)  # is this correct?
 
         # all rows, one column
-        elif isinstance(col_slice, int) or isinstance(col_slice, str):
+        elif isinstance(col_slice, (int, str)):
             if isinstance(col_slice, str):
                 icol = self.hd[col_slice]
             else:
@@ -344,7 +344,7 @@ def _handle_slice(self, row_slice: Union[slice, int, None], col_slice: Union[sli
         row_col_sliced_lol = row_sliced_lol
 
     #   one column    
-    elif isinstance(col_slice, int) or isinstance(col_slice, str):
+    elif isinstance(col_slice, (int, str)):
         if isinstance(col_slice, str):
             icol = self.hd[col_slice]
         else:
@@ -534,7 +534,7 @@ def _set_item1(self,
 
     elif isinstance(slice_spec, tuple):
         row_spec, col_spec = slice_spec
-        if isinstance(row_spec, int) or isinstance(row_spec, str):
+        if isinstance(row_spec, (int, str)):
             if isinstance(row_spec, str) and self.keyfield:
                 irow = self.kd[row_spec]
             else:
@@ -577,7 +577,7 @@ def _set_item1(self,
                         self.lol[irow][icol] = value.lol[source_row][source_col]
 
 
-            elif isinstance(col_spec, int) or isinstance(col_spec, str):
+            elif isinstance(col_spec, (int, str)):
                 if isinstance(col_spec, str):
                     icol = self.hd[col_spec]
                 else:
@@ -599,7 +599,7 @@ def _set_item1(self,
                     for source_col, icol in enumerate(col_indices):
                         self.lol[irow][icol] = value.lol[source_row][source_col]
 
-            elif isinstance(col_spec, int) or isinstance(col_spec, str):
+            elif isinstance(col_spec, (int, str)):
                 if isinstance(col_spec, str):
                     icol = self.hd[col_spec]
                 else:
@@ -623,7 +623,7 @@ def _set_item1(self,
                         self.lol[irow][icol] = value.lol[source_row][source_col]
 
 
-            elif isinstance(col_spec, int) or isinstance(col_spec, str):
+            elif isinstance(col_spec, (int, str)):
                 if isinstance(col_spec, str):
                     icol = self.hd[col_spec]
                 else:
