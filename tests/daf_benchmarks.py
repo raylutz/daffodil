@@ -478,6 +478,17 @@ def sqlite_selectrow(table_name, key_col='rowkey', value='500'):
     else:
         # Return None if no matching row was found
         return None
+        
+
+def safe_sizeof(obj: Any) -> int:
+
+    try:
+        size = asizeof.asizeof(obj)
+    except Exception as err:
+        print(f"Encountering exception in pympler asizeof() function: {err}")
+        size = 0
+        pass
+    return size
 
 
 def main():
@@ -539,7 +550,7 @@ This series of tests compares the speed of converting Python lod structure to Pa
                             
     # build a sizeof_di dict                        
     sizeof_di = {}
-    sizeof_di['lod'] = asizeof.asizeof(sample_lod)
+    sizeof_di['lod'] = safe_sizeof(sample_lod)
     md_report += pr(f"\n\nGenerated sample_lod with {len(sample_lod)} records\n"
                     f"- {sizeof_di['lod']=:,} bytes\n\n")
 
@@ -556,7 +567,7 @@ This series of tests compares the speed of converting Python lod structure to Pa
                         [str(i)] + list(np.random.randint(1, 100, num_columns)))) 
                             for i in range(num_rows)]
 
-    sizeof_di['klod'] = asizeof.asizeof(sample_klod)
+    sizeof_di['klod'] = safe_sizeof(sample_klod)
     md_report += pr(f"\n\nGenerated sample_klod with {len(sample_klod)} records\n"
                  f"- {sizeof_di['klod']=:,} bytes\n\n")
 
@@ -568,7 +579,7 @@ This series of tests compares the speed of converting Python lod structure to Pa
     """        
         
     sample_daf = Daf.from_lod(sample_lod)
-    sizeof_di['daf'] = asizeof.asizeof(sample_daf)
+    sizeof_di['daf'] = safe_sizeof(sample_daf)
     md_report += pr(f"daf:\n{sample_daf}\n\n"
                     f"{sizeof_di['daf']=:,} bytes\n\n")
 
@@ -577,14 +588,14 @@ This series of tests compares the speed of converting Python lod structure to Pa
     """
     
     sample_kdaf = Daf.from_lod(sample_klod, keyfield='rowkey')
-    sizeof_di['kdaf'] = asizeof.asizeof(sample_kdaf)
+    sizeof_di['kdaf'] = safe_sizeof(sample_kdaf)
     md_report += pr(f"kdaf:\n{sample_kdaf}\n\n"
                     f"{sizeof_di['kdaf']=:,} bytes\n\n")
 
     ## # create hdlol
     ## md_report += md_code_seg("Create hdlol from lod")
     ## hdlol = lod_to_hdlol(sample_lod)
-    ## asizeof.asizeof(hdlol)
+    ## safe_sizeof(hdlol)
 
     ## create hllol
     ## print("creating hllol from lod")
@@ -599,7 +610,7 @@ This series of tests compares the speed of converting Python lod structure to Pa
         is quite slow.
     """
     df = pd.DataFrame(sample_lod, dtype=int)
-    sizeof_di['df'] = asizeof.asizeof(df)
+    sizeof_di['df'] = safe_sizeof(df)
 
     md_report += pr(f"\n\n```{df}\n```\n\n"
                     f"{sizeof_di['df']=:,} bytes\n\n")
@@ -613,7 +624,7 @@ We found tha twe could save a lot of time by converting the data to a csv buffer
     """
 
     csv_df = sample_daf.to_pandas_df(use_csv=True)
-    sizeof_di['csv_df'] = asizeof.asizeof(csv_df)
+    sizeof_di['csv_df'] = safe_sizeof(csv_df)
 
     md_report += pr(f"\n\n```{csv_df}\n```\n\n"
                     f"{sizeof_di['csv_df']=:,} bytes\n\n")
@@ -631,7 +642,13 @@ We found tha twe could save a lot of time by converting the data to a csv buffer
     
     # also set the rowkey as the index for fast lookups.
     kdf.set_index('rowkey', inplace=True)
-    sizeof_di['kdf'] = asizeof.asizeof(kdf)
+    
+    try:
+        sizeof_di['kdf'] = safe_sizeof(kdf)
+    except Exception:
+        breakpoint()
+        pass
+        
     md_report += pr(f"\n\n```{kdf}\n```\n\n")
     md_report += pr(f"- {sizeof_di['kdf']=:,} bytes\n\n")
 
@@ -641,21 +658,21 @@ We found tha twe could save a lot of time by converting the data to a csv buffer
         the numpy array must be a uniform data type.
     """
     hdnpa = lod_to_hdnpa(sample_lod)
-    sizeof_di['hdnpa'] = asizeof.asizeof(hdnpa)
+    sizeof_di['hdnpa'] = safe_sizeof(hdnpa)
     md_report += pr(f"{sizeof_di['hdnpa']=:,} bytes\n\n")
 
     md_report += md_code_seg("Create lont from lod")
     """ We also tried a structure based on a list of named tuples. This is very slow and does not provide any savings.
     """
     lont = lod_to_lont(sample_lod)
-    sizeof_di['lont'] = asizeof.asizeof(lont)
+    sizeof_di['lont'] = safe_sizeof(lont)
     md_report += pr(f"{sizeof_di['lont']=:,} bytes\n\n")
 
     md_report += md_code_seg("Create hdlot from lod")
     """ Another option is a list of tuples with a header dictionary. This is also slow and no space savings..
     """
     hdlot = lod_to_hdlot(sample_lod)
-    sizeof_di['hdlot'] = asizeof.asizeof(hdlot)
+    sizeof_di['hdlot'] = safe_sizeof(hdlot)
     md_report += pr(f"{sizeof_di['hdlot']=:,} bytes\n\n")
 
     md_report += md_code_seg("Create sqlite_table from klod")
@@ -967,6 +984,10 @@ Notes:
     columns to Numpy. In contrast, Pandas converts all columns to Numpy, and then has to repair the columns that
     have strings or other types. Daffodil is not a direct replacement for Pandas which is still going to be a good choice
     for interactive data exploration and where data already exists and is not being built by any Python code.
+    
+Note, for kdf (pandas dataframe with one string column used as a row key) the size is not being calculated
+properly if it shows up as 0 due to a new bug exposed in Pympler asizeof function. This should be resolved
+with a new version of Pympler. Pympler provides honest sizes of objects by exploring all objest using ast.
 
 """    
 

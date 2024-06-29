@@ -1,11 +1,14 @@
 # requirements.txt
 
 # Basic dependencies
-python_version == "^3.6"
+# python_version>=3.6
 
 # External library
-xlsx2csv==0.8.2
-Markdown==3.4.1
+xlsx2csv>=0.8.2
+Markdown>=3.4.1
 
-# pandas only required for test_pydf_vs_df.py
-pandas==1.5.3
+# required for daf_benchmarks.py
+# note: pympler does not work with later pandas.
+numpy>=1.23.2
+pandas>=1.5.3
+Pympler==1.1  

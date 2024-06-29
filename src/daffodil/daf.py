@@ -265,6 +265,9 @@ See README file at this location: https://github.com/raylutz/Daf/blob/main/READM
             Added method "remove_dups()" which returns unique records and duplicated records based on keyfield.
             Changed operation of assign_col to append col to right if colname not exist.
             
+            worked around error in Pympler.asizeof.asizeof() function, used in daf_benchmarks.
+                this appears to be resolved in future updates of pympler.
+            
     TODO
             It will probably be better to keep a value of the num cols and not calculate every time.
             add use of pickledjson to express contents of individual cells when not jsonable.

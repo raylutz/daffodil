@@ -40,7 +40,7 @@ Here we generate a table using a python list-of-dict structure,
                             
     # build a sizeof_di dict                        
     sizeof_di = {}
-    sizeof_di['lod'] = asizeof.asizeof(sample_lod)
+    sizeof_di['lod'] = safe_sizeof(sample_lod)
     md_report += pr(f"\n\nGenerated sample_lod with {len(sample_lod)} records\n"
                     f"- {sizeof_di['lod']=:,} bytes\n\n")
 ```
@@ -66,7 +66,7 @@ sample_klod is similar to sample_lod but it has a first column
                         [str(i)] + list(np.random.randint(1, 100, num_columns)))) 
                             for i in range(num_rows)]
 
-    sizeof_di['klod'] = asizeof.asizeof(sample_klod)
+    sizeof_di['klod'] = safe_sizeof(sample_klod)
     md_report += pr(f"\n\nGenerated sample_klod with {len(sample_klod)} records\n"
                  f"- {sizeof_di['klod']=:,} bytes\n\n")
 ```
@@ -87,7 +87,7 @@ Here we simply create a Daffodil DataFrame 'sample_daf' of the same random data.
 
 ```python
     sample_daf = Daf.from_lod(sample_lod)
-    sizeof_di['daf'] = asizeof.asizeof(sample_daf)
+    sizeof_di['daf'] = safe_sizeof(sample_daf)
     md_report += pr(f"daf:\n{sample_daf}\n\n"
                     f"{sizeof_di['daf']=:,} bytes\n\n")
 ```
@@ -120,7 +120,7 @@ Similarly, we create the keyed daf table by converting the sample_klod structure
 
 ```python
     sample_kdaf = Daf.from_lod(sample_klod, keyfield='rowkey')
-    sizeof_di['kdaf'] = asizeof.asizeof(sample_kdaf)
+    sizeof_di['kdaf'] = safe_sizeof(sample_kdaf)
     md_report += pr(f"kdaf:\n{sample_kdaf}\n\n"
                     f"{sizeof_di['kdaf']=:,} bytes\n\n")
 ```
@@ -158,7 +158,7 @@ Here we use an unadorned basic pre-canned Pandas function to construct the dataf
 
 ```python
     df = pd.DataFrame(sample_lod, dtype=int)
-    sizeof_di['df'] = asizeof.asizeof(df)
+    sizeof_di['df'] = safe_sizeof(df)
 
     md_report += pr(f"\n\n```{df}\n```\n\n"
                     f"{sizeof_di['df']=:,} bytes\n\n")
@@ -167,23 +167,23 @@ Here we use an unadorned basic pre-canned Pandas function to construct the dataf
 
 
 
-```     Col0  Col1  Col2  Col3  Col4  Col5  Col6  Col7  Col8  Col9  ...  Col990  Col991  Col992  Col993  Col994  Col995  Col996  Col997  Col998  Col999
-0      51    92    14    71    60    20    82    86    74    74  ...      16      12      83      24      67       9      66      17      99      85
-1      33     7    39    82    41    40     5    51    25    63  ...      88      32      40       7      10      85      50      87      40      16
-2      75    45    31    78    79    53    85    91    19    32  ...      57       3       3      19       9      23      98      25      36      84
-3      53    20    73    37    45     3    59    56    44    19  ...      60      82      15      65      39      16      33      15      59      65
-4      65    89    12    55    30    33    38    66     7    86  ...      31      54      95       4      35      48      57      38      79      96
-..    ...   ...   ...   ...   ...   ...   ...   ...   ...   ...  ...     ...     ...     ...     ...     ...     ...     ...     ...     ...     ...
-995    47    57    85    63    23    69     1    88    15    50  ...      44      65      18      80      70      27      71      55      97      56
-996    71    48    29    19    43    52    13     3    34    40  ...      18      22      45      39      17      70      76      80      64       8
-997    37     4    96    39    82    47    53    83    49    64  ...       9      77       4      26      86      21      17      31      32      20
-998    23    39    77     9    21    61     2    43    55    59  ...      19      71      86      76      16       0      63      22      81      97
-999    86     9    27     2    40     3    66    51    94    90  ...      60      85       7       9       5      86      34      61      77      52
+```     Col0  Col1  Col2  Col3  Col4  Col5  Col6  Col7  Col8  Col9  Col10  Col11  ...  Col988  Col989  Col990  Col991  Col992  Col993  Col994  Col995  Col996  Col997  Col998  Col999
+0      51    92    14    71    60    20    82    86    74    74     87     99  ...      43      24      16      12      83      24      67       9      66      17      99      85
+1      33     7    39    82    41    40     5    51    25    63     97     58  ...      10      44      88      32      40       7      10      85      50      87      40      16
+2      75    45    31    78    79    53    85    91    19    32     73     39  ...      55      82      57       3       3      19       9      23      98      25      36      84
+3      53    20    73    37    45     3    59    56    44    19     16     70  ...      33      44      60      82      15      65      39      16      33      15      59      65
+4      65    89    12    55    30    33    38    66     7    86     77     54  ...      54      45      31      54      95       4      35      48      57      38      79      96
+..    ...   ...   ...   ...   ...   ...   ...   ...   ...   ...    ...    ...  ...     ...     ...     ...     ...     ...     ...     ...     ...     ...     ...     ...     ...
+995    47    57    85    63    23    69     1    88    15    50     95     29  ...      71      35      44      65      18      80      70      27      71      55      97      56
+996    71    48    29    19    43    52    13     3    34    40      3     38  ...      68      21      18      22      45      39      17      70      76      80      64       8
+997    37     4    96    39    82    47    53    83    49    64     72     12  ...      50      59       9      77       4      26      86      21      17      31      32      20
+998    23    39    77     9    21    61     2    43    55    59      3     92  ...      13       3      19      71      86      76      16       0      63      22      81      97
+999    86     9    27     2    40     3    66    51    94    90     23     29  ...      98      37      60      85       7       9       5      86      34      61      77      52
 
 [1000 rows x 1000 columns]
 ```
 
-sizeof_di['df']=9,820,880 bytes
+sizeof_di['df']=9,893,176 bytes
 
 
 ## Create Pandas csv_df from Daf thru csv
@@ -196,7 +196,7 @@ We found tha twe could save a lot of time by converting the data to a csv buffer
 
 ```python
     csv_df = sample_daf.to_pandas_df(use_csv=True)
-    sizeof_di['csv_df'] = asizeof.asizeof(csv_df)
+    sizeof_di['csv_df'] = safe_sizeof(csv_df)
 
     md_report += pr(f"\n\n```{csv_df}\n```\n\n"
                     f"{sizeof_di['csv_df']=:,} bytes\n\n")
@@ -205,23 +205,23 @@ We found tha twe could save a lot of time by converting the data to a csv buffer
 
 
 
-```     Col0  Col1  Col2  Col3  Col4  Col5  Col6  Col7  Col8  Col9  ...  Col990  Col991  Col992  Col993  Col994  Col995  Col996  Col997  Col998  Col999
-0      51    92    14    71    60    20    82    86    74    74  ...      16      12      83      24      67       9      66      17      99      85
-1      33     7    39    82    41    40     5    51    25    63  ...      88      32      40       7      10      85      50      87      40      16
-2      75    45    31    78    79    53    85    91    19    32  ...      57       3       3      19       9      23      98      25      36      84
-3      53    20    73    37    45     3    59    56    44    19  ...      60      82      15      65      39      16      33      15      59      65
-4      65    89    12    55    30    33    38    66     7    86  ...      31      54      95       4      35      48      57      38      79      96
-..    ...   ...   ...   ...   ...   ...   ...   ...   ...   ...  ...     ...     ...     ...     ...     ...     ...     ...     ...     ...     ...
-995    47    57    85    63    23    69     1    88    15    50  ...      44      65      18      80      70      27      71      55      97      56
-996    71    48    29    19    43    52    13     3    34    40  ...      18      22      45      39      17      70      76      80      64       8
-997    37     4    96    39    82    47    53    83    49    64  ...       9      77       4      26      86      21      17      31      32      20
-998    23    39    77     9    21    61     2    43    55    59  ...      19      71      86      76      16       0      63      22      81      97
-999    86     9    27     2    40     3    66    51    94    90  ...      60      85       7       9       5      86      34      61      77      52
+```     Col0  Col1  Col2  Col3  Col4  Col5  Col6  Col7  Col8  Col9  Col10  Col11  ...  Col988  Col989  Col990  Col991  Col992  Col993  Col994  Col995  Col996  Col997  Col998  Col999
+0      51    92    14    71    60    20    82    86    74    74     87     99  ...      43      24      16      12      83      24      67       9      66      17      99      85
+1      33     7    39    82    41    40     5    51    25    63     97     58  ...      10      44      88      32      40       7      10      85      50      87      40      16
+2      75    45    31    78    79    53    85    91    19    32     73     39  ...      55      82      57       3       3      19       9      23      98      25      36      84
+3      53    20    73    37    45     3    59    56    44    19     16     70  ...      33      44      60      82      15      65      39      16      33      15      59      65
+4      65    89    12    55    30    33    38    66     7    86     77     54  ...      54      45      31      54      95       4      35      48      57      38      79      96
+..    ...   ...   ...   ...   ...   ...   ...   ...   ...   ...    ...    ...  ...     ...     ...     ...     ...     ...     ...     ...     ...     ...     ...     ...     ...
+995    47    57    85    63    23    69     1    88    15    50     95     29  ...      71      35      44      65      18      80      70      27      71      55      97      56
+996    71    48    29    19    43    52    13     3    34    40      3     38  ...      68      21      18      22      45      39      17      70      76      80      64       8
+997    37     4    96    39    82    47    53    83    49    64     72     12  ...      50      59       9      77       4      26      86      21      17      31      32      20
+998    23    39    77     9    21    61     2    43    55    59      3     92  ...      13       3      19      71      86      76      16       0      63      22      81      97
+999    86     9    27     2    40     3    66    51    94    90     23     29  ...      98      37      60      85       7       9       5      86      34      61      77      52
 
 [1000 rows x 1000 columns]
 ```
 
-sizeof_di['csv_df']=17,820,624 bytes
+sizeof_di['csv_df']=17,892,880 bytes
 
 
 ## Create keyed Pandas df
@@ -238,7 +238,13 @@ Create a keyed Pandas df based on the sample_klod generated.
     
     # also set the rowkey as the index for fast lookups.
     kdf.set_index('rowkey', inplace=True)
-    sizeof_di['kdf'] = asizeof.asizeof(kdf)
+    
+    try:
+        sizeof_di['kdf'] = safe_sizeof(kdf)
+    except Exception:
+        breakpoint()
+        pass
+        
     md_report += pr(f"\n\n```{kdf}\n```\n\n")
     md_report += pr(f"- {sizeof_di['kdf']=:,} bytes\n\n")
 ```
@@ -246,24 +252,24 @@ Create a keyed Pandas df based on the sample_klod generated.
 
 
 
-```        Col0  Col1  Col2  Col3  Col4  Col5  Col6  Col7  Col8  Col9  ...  Col990  Col991  Col992  Col993  Col994  Col995  Col996  Col997  Col998  Col999
-rowkey                                                              ...                                                                                
-0         26    56    78    29    56    83    63    16    79    65  ...      40      67      65      17      57      62      74      69      75      20
-1         46    72    39    48     3    13    65    92    83    73  ...       3      55      69      58      53      29      68      90      43       2
-2         27     4    19    82    87    85    15    49     6    41  ...      40      98      59       8      83      17      31      28      13      79
-3         18     2    49    30     1    74    39    78    17     2  ...      77      36      65      99      47       3      83      12      97      13
-4         84    69     9    18    18    47    60    57    48     9  ...      90      84      21      23      63      53       2      19      34      41
-...      ...   ...   ...   ...   ...   ...   ...   ...   ...   ...  ...     ...     ...     ...     ...     ...     ...     ...     ...     ...     ...
-995       11    75    33    98     9    21    84    42    75     3  ...      63      63      86      52       4      85      15      13       5      28
-996       73     2    59    13    29     5    24     1    30    98  ...      42      46      10      96      75      29      24      63      71      27
-997       81    74    63    79    90    19    43    73    73    19  ...      72      74      16      67      81       3      41      33      74      62
-998       98    76    29    51    99    49    99    56    12    86  ...      86      51      83       3      16      55      59      30       3      47
-999       52    59    80    13    36    26    74    71     2    69  ...      35      20      63       1      25      58      33      33      90      89
+```        Col0  Col1  Col2  Col3  Col4  Col5  Col6  Col7  Col8  Col9  Col10  ...  Col989  Col990  Col991  Col992  Col993  Col994  Col995  Col996  Col997  Col998  Col999
+rowkey                                                                     ...                                                                                        
+0         26    56    78    29    56    83    63    16    79    65     14  ...      20      40      67      65      17      57      62      74      69      75      20
+1         46    72    39    48     3    13    65    92    83    73      5  ...       6       3      55      69      58      53      29      68      90      43       2
+2         27     4    19    82    87    85    15    49     6    41     59  ...       6      40      98      59       8      83      17      31      28      13      79
+3         18     2    49    30     1    74    39    78    17     2     13  ...      27      77      36      65      99      47       3      83      12      97      13
+4         84    69     9    18    18    47    60    57    48     9     41  ...      74      90      84      21      23      63      53       2      19      34      41
+...      ...   ...   ...   ...   ...   ...   ...   ...   ...   ...    ...  ...     ...     ...     ...     ...     ...     ...     ...     ...     ...     ...     ...
+995       11    75    33    98     9    21    84    42    75     3     54  ...      58      63      63      86      52       4      85      15      13       5      28
+996       73     2    59    13    29     5    24     1    30    98     34  ...      92      42      46      10      96      75      29      24      63      71      27
+997       81    74    63    79    90    19    43    73    73    19     57  ...      23      72      74      16      67      81       3      41      33      74      62
+998       98    76    29    51    99    49    99    56    12    86     49  ...      24      86      51      83       3      16      55      59      30       3      47
+999       52    59    80    13    36    26    74    71     2    69     87  ...      41      35      20      63       1      25      58      33      33      90      89
 
 [1000 rows x 1000 columns]
 ```
 
-- sizeof_di['kdf']=102,739,584 bytes
+- sizeof_di['kdf']=0 bytes
 
 
 ## create hdnpa from lod
@@ -274,7 +280,7 @@ A hdnpa is a Numpy array with a header dictionary. The overall size is about the
 
 ```python
     hdnpa = lod_to_hdnpa(sample_lod)
-    sizeof_di['hdnpa'] = asizeof.asizeof(hdnpa)
+    sizeof_di['hdnpa'] = safe_sizeof(hdnpa)
     md_report += pr(f"{sizeof_di['hdnpa']=:,} bytes\n\n")
 ```
 
@@ -288,7 +294,7 @@ We also tried a structure based on a list of named tuples. This is very slow and
 
 ```python
     lont = lod_to_lont(sample_lod)
-    sizeof_di['lont'] = asizeof.asizeof(lont)
+    sizeof_di['lont'] = safe_sizeof(lont)
     md_report += pr(f"{sizeof_di['lont']=:,} bytes\n\n")
 ```
 
@@ -302,7 +308,7 @@ Another option is a list of tuples with a header dictionary. This is also slow a
 
 ```python
     hdlot = lod_to_hdlot(sample_lod)
-    sizeof_di['hdlot'] = asizeof.asizeof(hdlot)
+    sizeof_di['hdlot'] = safe_sizeof(hdlot)
     md_report += pr(f"{sizeof_di['hdlot']=:,} bytes\n\n")
 ```
 
@@ -345,9 +351,9 @@ use Daf.from_lod_to_cols to create a table with first colunm key names, and seco
 |     klod |            114,096,928 |
 |      daf |             40,180,216 |
 |     kdaf |             40,302,040 |
-|       df |              9,820,880 |
-|   csv_df |             17,820,624 |
-|      kdf |            102,739,584 |
+|       df |              9,893,176 |
+|   csv_df |             17,892,880 |
+|      kdf |                      0 |
 |    hdnpa |              4,114,232 |
 |     lont |             40,048,872 |
 |    hdlot |             40,162,960 |
@@ -651,24 +657,24 @@ Notes:
 
 |             Attribute              |  daf  | pandas | numpy  | sqlite |  lod  |
 | ---------------------------------: | :---: | :----: | :----: | :----: | :---: |
-|                           from_lod |  114  | 4,634  |  62.6  |  640   |       |
-|                       to_pandas_df | 4,576 |        | 0.028  |        | 4,634 |
-|              to_pandas_df_thru_csv |  237  |        |        |        |       |
-|                     from_pandas_df | 14.8  |        | 0.0026 |        |       |
-|                           to_numpy | 47.7  | 0.0026 |        |        | 62.6  |
-|                         from_numpy |  7.9  | 0.028  |        |        |       |
-|                     increment cell | 0.089 | 0.043  |        |        |       |
-|                        insert_irow | 0.078 |  7.1   |        |        |       |
-|                        insert_icol |  1.4  |  1.9   |        |        |       |
-|                           sum cols |  188  |  3.9   |  2.9   | 2,200  |  129  |
+|                           from_lod |  110  | 4,417  |  70.6  |  634   |       |
+|                       to_pandas_df | 4,950 |        | 0.029  |        | 4,417 |
+|              to_pandas_df_thru_csv |  522  |        |        |        |       |
+|                     from_pandas_df | 11.7  |        | 0.0043 |        |       |
+|                           to_numpy | 49.8  | 0.0043 |        |        | 70.6  |
+|                         from_numpy |  6.6  | 0.029  |        |        |       |
+|                     increment cell | 0.097 | 0.041  |        |        |       |
+|                        insert_irow | 0.081 |  7.4   |        |        |       |
+|                        insert_icol |  1.5  |  1.8   |        |        |       |
+|                           sum cols |  177  |  7.4   |  2.8   | 2,270  |  126  |
 |               sample_daf.daf_sum() |  190  |        |        |        |       |
-|              sample_daf.daf_sum2() | 2,911 |        |        |        |       |
-|              sample_daf.daf_sum3() |  343  |        |        |        |       |
-|                             sum_np | 73.8  |        |        |        |       |
-|                          transpose | 1,825 |  0.15  | 0.0025 |        |       |
-|                       keyed lookup | 0.085 |  0.35  |        |  5.9   | 0.10  |
+|              sample_daf.daf_sum2() | 1,983 |        |        |        |       |
+|              sample_daf.daf_sum3() |  261  |        |        |        |       |
+|                             sum_np | 61.7  |        |        |        |       |
+|                          transpose | 1,801 |  0.16  | 0.0030 |        |       |
+|                       keyed lookup | 0.087 |  0.65  |        |  6.5   | 0.075 |
 |                              ===== | ===== | =====  | =====  | =====  | ===== |
 |       Size of 1000x1000 array (MB) | 38.3  |  9.4   |  3.9   |  4.9   |  109  |
-| Size of keyed 1000x1000 array (MB) | 38.4  |  98.0  |   --   |  4.9   |  109  |
+| Size of keyed 1000x1000 array (MB) | 38.4  |  0.0   |   --   |  4.9   |  109  |
 
 
