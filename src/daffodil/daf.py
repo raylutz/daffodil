@@ -241,7 +241,7 @@ See README file at this location: https://github.com/raylutz/Daf/blob/main/READM
                     my_daf[:, 'colname2'] = collist             # there is ambiguity here as to whether the list with one
                                                                 # item should be placed in the cell or if just the value.
                 
-    v0.5.3  (pending)            
+    v0.5.3  (2024-06-28)            
             added tests:
                 flatten()
                 to_json()       not completely working.
@@ -267,6 +267,8 @@ See README file at this location: https://github.com/raylutz/Daf/blob/main/READM
             
             worked around error in Pympler.asizeof.asizeof() function, used in daf_benchmarks.
                 this appears to be resolved in future updates of pympler.
+                
+    v0.5.4  (pending)            
             
     TODO
             It will probably be better to keep a value of the num cols and not calculate every time.
@@ -425,8 +427,8 @@ See README file at this location: https://github.com/raylutz/Daf/blob/main/READM
 """       
     
     
-#VERSION  = 'v0.5.2'
-#VERSDATE = '2024-05-30'  
+#VERSION  = 'v0.5.3'
+#VERSDATE = '2024-06-28'  
 
 import os
 import sys
