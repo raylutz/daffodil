@@ -536,7 +536,7 @@ class Daf:
                 cols = utils._sanitize_cols(cols=cols)
                 self._cols_to_hd(cols)
                 if len(cols) != len(self.hd):                
-                    breakpoint() #temp
+                    breakpoint() #temp assertion error
                     pass
                     raise AttributeError ("AttributeError: cols not unique")
                 
@@ -2782,6 +2782,7 @@ class Daf:
         icol: Optional[int]=None,   # or column.
         unique=False,               # reduce to unique values
         flatten=False,              # if items is the list are lists, combine them into one list.
+        omit_nulls=False,           # omit items that are empty strings (nulls).
         ) -> list:
         """ return data from a daf array as a list
             defaults to the most obvious list if irow and icol not specified.
@@ -2806,6 +2807,7 @@ class Daf:
                 result_la = self.icol(0)
             else:
                 result_la = []
+                
         elif irow is not None and num_rows:
             result_la = self.lol[irow]
         elif icol and num_cols:
@@ -2824,6 +2826,9 @@ class Daf:
             
         if unique and result_la:
             result_la = list(dict.fromkeys(result_la))
+            
+        if omit_nulls and '' in result_la:
+            result_la = [val for val in result_la if val != '']
             
         return result_la
 
@@ -3020,9 +3025,9 @@ class Daf:
         
         for klist in self.iter_klist():
             if where(klist):
-                true_lol.append(klist.values)
+                true_lol.append(klist._values)
             else:
-                false_lol.append(klist.values)
+                false_lol.append(klist._values)
 
         true_daf = Daf(cols=self.columns(), lol=true_lol, keyfield=self.keyfield, dtypes=self.dtypes)
         false_daf = Daf(cols=self.columns(), lol=false_lol, keyfield=self.keyfield, dtypes=self.dtypes)
@@ -3531,8 +3536,16 @@ class Daf:
     #   sort
             
     def sort_by_colname(self, colname:str, reverse: bool=False, length_priority: bool=False) -> 'Daf':
-        """ sort the data by a given colname, using length priority unless specified.
+        """ sort the data by a given colname, using length priority if specified.
             sorts in place. Make a copy if you need the original order.
+            Note, this will place an empty field before fields with contents, which differs from spreadsheet operation.
+            
+            Length priority will allow proper sorting when values include embedded integers which are not left-padded.
+            
+                ie.             ['10', '99', '8', '100', '0'] 
+                will sort to    ['0', '8', '10', '99', '100']
+                rather than     ['0', '10', '100', '8', '99']
+            
         """
         if not self:
             return self
@@ -3547,6 +3560,33 @@ class Daf:
         self.lol = utils.sort_lol_by_col(self.lol, colidx, reverse=reverse, length_priority=length_priority)
         self._rebuild_kd()
         return self
+        
+        
+    def sort_by_colnames(self, colnames:T_ls, reverse: bool=False, length_priority: bool=False) -> 'Daf':
+        """ sort the data by multiple colnames, using length priority if specified.
+            sorts in place. Make a copy if you need the original order.
+            
+            Length priority will allow proper sorting when values include embedded integers which are not left-padded.
+            
+                ie.             ['10', '99', '8', '100', '0'] 
+                will sort to    ['0', '8', '10', '99', '100']
+                rather than     ['0', '10', '100', '8', '99']
+            
+        """
+        if not self:
+            return self
+        
+        try:
+            colidxs = [self.hd[colname] for colname in colnames]
+        except Exception as err:
+            print(f"{err}")
+            breakpoint()    # assertion break
+            pass
+            
+        self.lol = utils.sort_lol_by_cols(self.lol, colidxs, reverse=reverse, length_priority=length_priority)
+        self._rebuild_kd()
+        return self
+        
         
     #=========================
     #   apply formulas
@@ -3600,7 +3640,7 @@ class Daf:
             return
         
         if self.shape() != formulas_daf.shape():
-            breakpoint() #temp
+            breakpoint() #temp assertion error
             
             raise RuntimeError("apply_formulas requires data arrays of the same shape.")
         
@@ -3631,7 +3671,7 @@ class Daf:
                         new_value = eval(cell_formula)
                     except Exception as err:
                         print(f"Error in formula for cell [{irow},{icol}]: '{cell_formula}': '{err}'")
-                        breakpoint() #temp
+                        breakpoint() #temp assertion error
                         raise
                     
                     if new_value != self.lol[irow][icol]:
@@ -3758,6 +3798,33 @@ class Daf:
                 
         return self 
         
+    #===============================
+    # annotate and join
+    
+    def annotate_daf(self, other_daf: 'Daf', my_to_other_dict: T_ds) -> 'Daf':
+        """
+            Adopt fields from other_daf for fields in self using my_to_other_dict map.
+        """
+    
+        my_keyfield = self.keyfield
+        if not my_keyfield:
+            raise KeyError("annotate_daf: self must have keyfield defined")
+            
+        other_keyfield = other_daf.keyfield
+        if not other_keyfield:
+            raise KeyError("annotate_daf: other daf array must have keyfield defined")
+
+        for my_rec_klist in self.iter_klist():
+        
+            rowkey = my_rec_klist[my_keyfield]
+
+            other_rec = other_daf.select_record(rowkey)
+            
+            for my_field, other_field in my_to_other_dict.items():
+                my_rec_klist[my_field] = other_rec[other_field]
+            
+        return self
+
 
     #===============================
     # apply and reduce
@@ -5710,7 +5777,7 @@ class Daf:
         value_counts_daf = Daf.from_lod_to_cols([value_counts_di], cols=[colname, 'counts'])
 
         if include_total:
-            value_counts_daf.append({colname: ' **Total** ', 'counts': sum(value_counts_daf[:,'counts'])})
+            value_counts_daf.append({colname: ' **Total** ', 'counts': sum(value_counts_daf[:,'counts'].to_list())})
             
         return value_counts_daf
 

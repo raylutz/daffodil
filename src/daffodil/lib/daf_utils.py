@@ -377,6 +377,13 @@ def sort_lol_by_col(lol:T_lola, colidx: int=0, reverse: bool=False, length_prior
         return sorted(lol, key=lambda x: (len(x[colidx]), x[colidx]), reverse=reverse)
     else:
         return sorted(lol, key=operator.itemgetter(colidx), reverse=reverse)
+
+
+def sort_lol_by_cols(lol: T_lola, colidxs: T_li, reverse: bool = False, length_priority: bool = True) -> T_lola:
+    if length_priority:
+        return sorted(lol, key=lambda x: [(len(x[idx]), x[idx]) for idx in colidxs], reverse=reverse)
+    else:
+        return sorted(lol, key=lambda x: [x[idx] for idx in colidxs], reverse=reverse)
     
     
 def safe_regex_select(regex:Union[str, bytes], s:str, default:str='', flags=0) -> str:

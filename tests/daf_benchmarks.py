@@ -643,11 +643,7 @@ We found tha twe could save a lot of time by converting the data to a csv buffer
     # also set the rowkey as the index for fast lookups.
     kdf.set_index('rowkey', inplace=True)
     
-    try:
-        sizeof_di['kdf'] = safe_sizeof(kdf)
-    except Exception:
-        breakpoint()
-        pass
+    sizeof_di['kdf'] = safe_sizeof(kdf)
         
     md_report += pr(f"\n\n```{kdf}\n```\n\n")
     md_report += pr(f"- {sizeof_di['kdf']=:,} bytes\n\n")
