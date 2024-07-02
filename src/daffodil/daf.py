@@ -268,7 +268,7 @@ See README file at this location: https://github.com/raylutz/Daf/blob/main/READM
             worked around error in Pympler.asizeof.asizeof() function, used in daf_benchmarks.
                 this appears to be resolved in future updates of pympler.
                 
-    v0.5.4  (pending)
+    v0.5.4  (2024-07-02)
             Add sort_by_colnames(self, colnames:T_ls, reverse: bool=False, length_priority: bool=False)
                 Add daf_utils.sort_lol_by_cols()
             Add argument 'omit_nulls' to .to_list() method.
@@ -276,7 +276,8 @@ See README file at this location: https://github.com/raylutz/Daf/blob/main/READM
             Add annotate_daf(self, other_daf: 'Daf', my_to_other_dict: T_ds) to effectively join two tables.
             Fix value_counts_daf() by adding .to_list for total.
             
-            
+    v0.5.5  (pending)
+    
             
     TODO
             It will probably be better to keep a value of the num cols and not calculate every time.
@@ -435,8 +436,8 @@ See README file at this location: https://github.com/raylutz/Daf/blob/main/READM
 """       
     
     
-#VERSION  = 'v0.5.3'
-#VERSDATE = '2024-06-28'  
+#VERSION  = 'v0.5.4'
+#VERSDATE = '2024-07-02'  
 
 import os
 import sys
