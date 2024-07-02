@@ -239,11 +239,7 @@ Create a keyed Pandas df based on the sample_klod generated.
     # also set the rowkey as the index for fast lookups.
     kdf.set_index('rowkey', inplace=True)
     
-    try:
-        sizeof_di['kdf'] = safe_sizeof(kdf)
-    except Exception:
-        breakpoint()
-        pass
+    sizeof_di['kdf'] = safe_sizeof(kdf)
         
     md_report += pr(f"\n\n```{kdf}\n```\n\n")
     md_report += pr(f"- {sizeof_di['kdf']=:,} bytes\n\n")
@@ -653,26 +649,30 @@ Notes:
     columns to Numpy. In contrast, Pandas converts all columns to Numpy, and then has to repair the columns that
     have strings or other types. Daffodil is not a direct replacement for Pandas which is still going to be a good choice
     for interactive data exploration and where data already exists and is not being built by any Python code.
+    
+Note, for kdf (pandas dataframe with one string column used as a row key) the size is not being calculated
+properly if it shows up as 0 due to a new bug exposed in Pympler asizeof function. This should be resolved
+with a new version of Pympler. Pympler provides honest sizes of objects by exploring all objest using ast.
 ### Summary of times (ms) and Sizes (MB)
 
 |             Attribute              |  daf  | pandas | numpy  | sqlite |  lod  |
 | ---------------------------------: | :---: | :----: | :----: | :----: | :---: |
-|                           from_lod |  110  | 4,417  |  70.6  |  634   |       |
-|                       to_pandas_df | 4,950 |        | 0.029  |        | 4,417 |
-|              to_pandas_df_thru_csv |  522  |        |        |        |       |
-|                     from_pandas_df | 11.7  |        | 0.0043 |        |       |
-|                           to_numpy | 49.8  | 0.0043 |        |        | 70.6  |
-|                         from_numpy |  6.6  | 0.029  |        |        |       |
-|                     increment cell | 0.097 | 0.041  |        |        |       |
-|                        insert_irow | 0.081 |  7.4   |        |        |       |
-|                        insert_icol |  1.5  |  1.8   |        |        |       |
-|                           sum cols |  177  |  7.4   |  2.8   | 2,270  |  126  |
-|               sample_daf.daf_sum() |  190  |        |        |        |       |
-|              sample_daf.daf_sum2() | 1,983 |        |        |        |       |
-|              sample_daf.daf_sum3() |  261  |        |        |        |       |
-|                             sum_np | 61.7  |        |        |        |       |
-|                          transpose | 1,801 |  0.16  | 0.0030 |        |       |
-|                       keyed lookup | 0.087 |  0.65  |        |  6.5   | 0.075 |
+|                           from_lod |  138  | 6,440  |  77.0  |  888   |       |
+|                       to_pandas_df | 6,639 |        | 0.030  |        | 6,440 |
+|              to_pandas_df_thru_csv |  639  |        |        |        |       |
+|                     from_pandas_df | 10.4  |        | 0.0047 |        |       |
+|                           to_numpy | 57.6  | 0.0047 |        |        | 77.0  |
+|                         from_numpy |  7.1  | 0.030  |        |        |       |
+|                     increment cell | 0.098 | 0.042  |        |        |       |
+|                        insert_irow | 0.086 |  7.8   |        |        |       |
+|                        insert_icol |  1.2  |  1.7   |        |        |       |
+|                           sum cols |  207  |  4.6   |  4.0   | 3,189  |  156  |
+|               sample_daf.daf_sum() |  234  |        |        |        |       |
+|              sample_daf.daf_sum2() | 2,764 |        |        |        |       |
+|              sample_daf.daf_sum3() |  443  |        |        |        |       |
+|                             sum_np | 87.1  |        |        |        |       |
+|                          transpose | 2,061 |  0.16  | 0.0026 |        |       |
+|                       keyed lookup | 0.065 |  0.55  |        |  7.2   | 0.068 |
 |                              ===== | ===== | =====  | =====  | =====  | ===== |
 |       Size of 1000x1000 array (MB) | 38.3  |  9.4   |  3.9   |  4.9   |  109  |
 | Size of keyed 1000x1000 array (MB) | 38.4  |  0.0   |   --   |  4.9   |  109  |
