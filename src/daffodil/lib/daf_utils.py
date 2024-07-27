@@ -403,6 +403,53 @@ def safe_regex_select(regex:Union[str, bytes], s:str, default:str='', flags=0) -
         return default
         
 
+def safe_regex_replace(regex: Union[List[Union[str, bytes]], str, bytes], s: str, flags=re.S) -> str:
+
+    """ apply one or more replac regex patterns.
+        replace pattern is /find/replace/
+        any single character can be used for separators but must be consistent
+        
+        use to replace, remove, or select
+        
+        /find/replace/  -- find pattern 'find' and replace with 'replace'
+        /find//         -- remove 'find'
+        /pre(find)post/prefix\1suffix/     -- select pattern find and create with prefix and suffix
+        
+        normal regex patterns apply.
+    """        
+
+    regex_str = regex.decode('utf-8') if isinstance(regex, bytes) else regex
+    regex_str = regex_str.strip('"')
+    
+    if isinstance(regex_str, str):
+        regex_list = [regex_str]   # form a list
+    else:
+        regex_list = regex_str
+        
+    result = s
+    
+    # apply list of regexes in order provided.
+        
+    for one_replace_regex in regex_list:
+        one_replace_regex = one_replace_regex.strip()
+        sep_char = one_replace_regex[0]
+        if sep_char == one_replace_regex[-1]:
+            one_replace_regex = one_replace_regex[1:-1]   # remove them -- strip() removes too many in remove case, /asdff//
+        else:
+            sts(f"malformed replace regex: '{one_replace_regex}', ignoring", 3)
+            continue    # give up on this pattern.
+        try:
+            findpat, replacepat = re.split(sep_char, one_replace_regex)
+        except Exception as err:
+            print(err)
+            breakpoint() #perm
+            pass
+        result = re.sub(findpat, replacepat, result, flags=flags)
+        
+    return result
+
+        
+
 def set_dict_dtypes(
         da:             T_da,                       # dict in the daf array.
         dtypes:         T_dtype_dict,               # dtypes of each item. May contain more than the items in da
@@ -1551,7 +1598,7 @@ def min_max_cols_lol(lol: T_lola, start: Optional[int]=None, limit: Optional[int
 
     max_cols = 0
     min_cols = None
-    
+
     for la in lol[start:limit]:
         colnum = len(la)
         if colnum > max_cols:
@@ -1595,4 +1642,9 @@ def equal_cols_lol(lol: T_lola, limit: int=10, check_all:bool=False) -> T_lola:
     # we found a longer line.
     # recursively call this function with no limit, causes full inspection.
     return equal_cols_lol(lol=lol, limit=None)
+
+
+
+
+            
         

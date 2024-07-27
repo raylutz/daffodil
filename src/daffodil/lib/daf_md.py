@@ -343,15 +343,15 @@ def md_cols_lol_table(
     row_template        = '| ' + ' | '.join([f"{{:{a}{w}}}" for a, w in zip(cell_align, field_widths)])    + ' |'
     ruling              = '| ' + ' | '.join([left_rule[a] + '-'*(w-2) + right_rule[a] for a, w in zip(cell_align, field_widths)]) + ' |'
 
-    s = ''
+    ls = []
     if not omit_header:
         heading = [col.pop(0) for col in new_cols_lol]
         if heading:
-            s += heading_template.format(*heading).rstrip() + '\n'
-        s += ruling.rstrip() + '\n'
+            ls.append( heading_template.format(*heading).rstrip() + '\n' )
+        ls.append( ruling.rstrip() + '\n' )
     for row in zip(*new_cols_lol):
-        s += row_template.format(*row).rstrip() + '\n'
-    return s
+        ls.append( row_template.format(*row).rstrip() + '\n')
+    return ''.join(ls)
         
        
     
@@ -447,6 +447,7 @@ def md_2_html_snippet(md: str, strip_newlines: bool=True):
     snippet = markdown.markdown(md, extensions=['tables','toc'])
     if strip_newlines:
         snippet = snippet.replace('\n', '')
+        
     return snippet
     
     

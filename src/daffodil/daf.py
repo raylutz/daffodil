@@ -8,7 +8,7 @@ The Daffodil class provides a lightweight, simple and fast alternative to provid
 
 """
 
-"""
+r"""
     MIT License
 
     Copyright (c) 2024 Ray Lutz
@@ -33,11 +33,11 @@ The Daffodil class provides a lightweight, simple and fast alternative to provid
 """
 
 
-"""
+r"""
 See README file at this location: https://github.com/raylutz/Daf/blob/main/README.md
 """
 
-"""
+r"""
     v0.1.X 
             Started creating separate package, moved comment text to README.md
             For apply_formulas(), added relative row and column references $r and $c plus $d to reference the daf object.
@@ -280,6 +280,11 @@ See README file at this location: https://github.com/raylutz/Daf/blob/main/READM
     
             
     TODO
+        offer dropping unexpected columns when doing concat/append ??
+            keys mismatch: daf: (['ballot_id', 'style_num', 'precinct', 'contest', 'option', 'has_indication', 'num_marks', 'num_votes', 'pixel_metric_value', 'sm_pmv', 'writein_name', 'overvotes', 'undervotes', 'ssidx', 'delta_y', 'ev_coord_str', 'ev_precinct_id', 'target_pixels', 'gray_eval', 'is_bmd', 'wipmv', 'p', 'x', 'y', 'w', 'h', 'b', 'bmd_str'])
+            other_instance:     (['ballot_id', 'style_num', 'precinct', 'contest', 'option', 'has_indication', 'num_marks', 'num_votes', 'pixel_metric_value', 'sm_pmv', 'writein_name', 'overvotes', 'undervotes', 'ssidx', 'delta_y', 'ev_coord_str', 'ev_precinct_id', 'target_pixels', 'gray_eval', 'is_bmd', 'wipmv', 'p', 'x', 'y', 'w', 'h'])
+            > daf.py(2003)concat()
+    
             It will probably be better to keep a value of the num cols and not calculate every time.
             add use of pickledjson to express contents of individual cells when not jsonable.
             tests: need to add
@@ -413,7 +418,7 @@ See README file at this location: https://github.com/raylutz/Daf/blob/main/READM
                 
 """     
 
-"""
+r"""
     To update the package:
         1. run all tests and demos to verify validity of the version.
             in tests:
@@ -453,7 +458,7 @@ import collections      # to provide collections.abc.Iterable type.
 sys.path.append(os.path.dirname(os.path.dirname(os.path.realpath(__file__))))
 
 from daffodil.lib.daf_types import T_ls, T_lola, T_di, T_hllola, T_loda, T_da, T_li, T_dtype_dict, \
-                            T_dola, T_dodi, T_la, T_lota, T_doda, T_buff, T_ds, T_lb, T_rli
+                            T_dola, T_dodi, T_la, T_lota, T_doda, T_buff, T_ds, T_lb, T_rli, T_ta
                      
 import daffodil.lib.daf_utils    as utils
 import daffodil.lib.daf_md       as md
@@ -488,8 +493,9 @@ class Daf:
             cols:       Optional[T_ls]          = None,     # Optional column names to use.
             dtypes:     Optional[T_dtype_dict]  = None,     # Optional dtype_dict describing the desired type of each column.
                                                             #   also used to define column names if provided and cols not provided.
-            keyfield:   str                     = '',       # A field of the columns to be used as a key.
+            keyfield:   Union[str, int, T_ta, T_la]  = '',  # A field of the columns to be used as a key.
                                                             # can be set even if columns not set yet.
+                                                            # can be tuple or list of colnames, and then they are used as tuple keys.
             name:       str                     = '',       # An optional name of the Daf array.
             use_copy:   bool                    = False,    # If True, make a deep copy of the lol data.
             disp_cols:  Optional[T_ls]          = None,     # Optional list of strings to use for display, if initialized.
@@ -875,14 +881,15 @@ class Daf:
     def rename_cols(self, from_to_dict: T_ds):
         """ rename columns using the from_to_dict provided. 
             respects dtypes and rebuilds hd
+            clears keyfield, it must be reset
         """
         # unit tests exist
         
-        self.hd     = {from_to_dict.get(col, col):idx for idx, col in enumerate(self.hd.keys())}
-        self.dtypes = {from_to_dict.get(col, col):typ for col, typ in self.dtypes.items()}
-        if self.keyfield:
-            self.keyfield = from_to_dict.get(self.keyfield, self.keyfield)
-            # no need to rebuild the kd, it should be the same.
+        self.hd         = {from_to_dict.get(col, col):idx for idx, col in enumerate(self.hd.keys())}
+        self.dtypes     = {from_to_dict.get(col, col):typ for col, typ in self.dtypes.items()}
+        self.keyfield   = ''
+            # self.keyfield = from_to_dict.get(self.keyfield, self.keyfield)
+            # # no need to rebuild the kd, it should be the same.
             
         return self
 
@@ -906,10 +913,16 @@ class Daf:
         if num_cols and len(new_cols) < num_cols:
             raise AttributeError("Length of new_cols not the same as existing cols")
         
-        if self.keyfield and self.hd:
+        if self.keyfield and isinstance(self.keyfield, str) and self.hd:
             # if column names are already defined (hd) then we need to repair the keyfield.
-            keyfield_idx = self.hd[self.keyfield]
-            self.keyfield = new_cols[keyfield_idx]
+            # will only be done if keyfield is a simple string or integer column name.
+            try:
+                keyfield_idx = self.hd.get[self.keyfield]
+                self.keyfield = new_cols[keyfield_idx]
+            except Exception:
+                self.keyfield = ''
+        else:
+            self.keyfield = ''
         
         # set new cols to the hd
         self._cols_to_hd(new_cols)
@@ -924,9 +937,12 @@ class Daf:
     #===========================
     # keyfield
         
-    def keys(self):
+    def keys(self) -> Union[T_la, T_lota]:
         """ return list of keys from kd of keyfield
-            test exists in test_daf.py            
+            may return a list of str or int or list of tuple of (str or int).
+        
+            test exists in test_daf.py
+            
         """
         
         if not self.keyfield:
@@ -935,13 +951,14 @@ class Daf:
         return list(self.kd.keys())
         
 
-    def set_keyfield(self, keyfield: str=''):
+    def set_keyfield(self, keyfield: Union[str, T_ta, T_la]=''):
         """ set the indexing keyfield to a new column
             if keyfield == '', then reset the keyfield and reset the kd.
             if keyfield not in columns, then KeyError
+            keyfield can be a tuple or list of colnames.
         """
         if keyfield:
-            if keyfield not in self.hd:
+            if not self._is_keyfield_valid(keyfield):
                 raise KeyError
             self.keyfield = keyfield
             self._rebuild_kd()
@@ -957,24 +974,57 @@ class Daf:
             if the keyfield is set.
         """
         
-        if self.keyfield and self.keyfield in self.hd:
-            col_idx = self.hd[self.keyfield]
-            self.kd = type(self)._build_kd(col_idx, self.lol)
-            
+        if self._is_keyfield_valid():
+            if isinstance(self.keyfield, (str, int)):
+                col_idx = self.hd[self.keyfield]
+                self.kd = type(self)._build_kd(col_idx, self.lol)
+            else:
+                col_idx_list = [self.hd[key_tup] for key_tup in self.keyfield]
+                self.kd = type(self)._build_kd(col_idx_list, self.lol)
         return self
 
 
     @staticmethod
-    def _build_kd(col_idx: int, lol: T_lola) -> T_di:
+    def _build_kd(col_idx: Union[int, T_li], lol: T_lola) -> T_di:
         """ build key dictionary from col_idx col of lol """        
-        
-        key_col = utils.select_col_of_lol_by_col_idx(lol, col_idx)
+        if isinstance(col_idx, int):
+            key_col = utils.select_col_of_lol_by_col_idx(lol, col_idx)
 
-        # see https://github.com/raylutz/daffodil/issues/6
-        kd = Daf._build_hd(key_col)
-        #kd = {key: index for index, key in enumerate(key_col)}
+            # see https://github.com/raylutz/daffodil/issues/6
+            kd = Daf._build_hd(key_col)
+            #kd = {key: index for index, key in enumerate(key_col)}
+        else:
+            col_idx_list = col_idx
+            kd = Daf._build_hd(Daf(lol=lol)[:, col_idx_list].to_lota())
         return kd
+
         
+    def _get_keyval(self, data_item):                  
+        if isinstance(self.keyfield, (str, int)):
+            keyval = data_item[self.keyfield]
+        elif isinstance(self.keyfield, (tuple, list)):
+            keyval = tuple((data_item[key_tup] for key_tup in self.keyfield))
+        return keyval
+
+
+    def _is_keyfield_valid(self, keyfield: str=''):
+        """
+            evaluate self.keyfield or passed keyfield instead,
+            to confirm that the key is composed of valid colnames,
+            either as a single str or int, or as a tuple of str or int.
+        """
+        
+        keyfield_to_test = keyfield or self.keyfield
+            
+    
+        if isinstance(keyfield_to_test, (str, int)):
+            return bool(keyfield_to_test in self.hd)
+        elif isinstance(keyfield_to_test, (tuple, list)):
+            return all(key_tup in self.hd for key_tup in keyfield_to_test)
+
+        raise RuntimeError(f"keyfield '{keyfield_to_test}' invalid")
+    
+
         
     # def row_idx_of(self, rowkey: str) -> int:
         # """ return row_idx of key provided or -1 if not able to do it.
@@ -1267,7 +1317,7 @@ class Daf:
     def from_lod(
             cls,
             records_lod:    T_loda,                         # List[List[Any]] to initialize the lol data array.
-            keyfield:       str='',                         # set a new keyfield or set no keyfield.
+            keyfield:       Union[str, int, T_ta, T_la]='', # set a new keyfield or set no keyfield.
             dtypes:         Optional[T_dtype_dict]=None     # set the data types for each column.
             ) -> 'Daf':
         """ Create Daf instance from loda type, adopting dict keys as column names
@@ -1288,7 +1338,7 @@ class Daf:
         
         # from utilities import utils
         
-        lol = [list(utils.set_cols_da(record_da, cols).values()) for record_da in records_lod]
+        lol = [list(utils.set_cols_da(record_da, cols).values()) for record_da in records_lod if record_da and isinstance(record_da, dict)]
         
         return cls(cols=cols, lol=lol, keyfield=keyfield, dtypes=dtypes)
         
@@ -1908,7 +1958,11 @@ class Daf:
             if self.hd == data_item.hd:
                 self.lol.append(data_item.values())        
                 if self.kd and self.keyfield:
-                    self.kd[data_item[self.keyfield]] = len(self.kd)
+                    keyval = self._get_keyval(data_item)
+
+                    self.kd[keyval] = len(self.kd)
+                    
+                    
             else:
                 da = data_item.to_dict()
                 self.record_append(da)  # <-- this takes care of respecing the row kd.
@@ -1940,17 +1994,17 @@ class Daf:
             
         if not self.lol and not self.hd:
             
-            self.hd = other_instance.hd
-            self.lol = other_instance.lol
-            self.kd = other_instance.kd
-            self.keyfield = other_instance.keyfield
+            self.hd         = other_instance.hd
+            self.lol        = other_instance.lol
+            self.kd         = other_instance.kd
+            self.keyfield   = other_instance.keyfield
             self._rebuild_kd()   # only if the keyfield is set.
             return self
             
         # fields must match exactly!
         if self.hd != other_instance.hd:
             print(f"keys mismatch: daf: ({list(self.hd.keys())}) \nother_instance: ({list(other_instance.hd.keys())})")
-            breakpoint()    # assertion break
+            breakpoint()    # perm -- assertion break
             raise KeyError
         
         # simply append the rows from daf.lol to the end of self.lol
@@ -2056,9 +2110,8 @@ class Daf:
             breakpoint() # perm
             
         if self.keyfield:
-            # insert will overwrite any existing key with the same value.
-            keyval = record[self.keyfield]
-            
+            keyval = self._get_keyval(record)        
+        
             # the following, see https://github.com/raylutz/daffodil/issues/7
             if keyval in self.kd:
                 self.lol[self.kd[keyval]] = rec_la
@@ -2087,7 +2140,7 @@ class Daf:
     #=========================
     # remove records per keyfield; drop cols
 
-    def remove_key(self, keyval:str, silent_error=False) -> None:
+    def remove_key(self, keyval: Optional[Union[str, int, T_la, T_ta]], silent_error=False) -> None:
         """ remove record from daf using keyfield
             This directly modifies daf
         """
@@ -2395,9 +2448,9 @@ class Daf:
     
     
     def krows_to_irows(self, 
-            krows: Union[slice, str, T_la, int, Tuple[Any, Any], Iterable, None],
-            inverse: bool = False,
-            silent_error: bool=False,
+            krows:          Union[slice, str, T_la, int, Tuple[Any, Any], T_lota, Iterable, None],
+            inverse:        bool = False,
+            silent_error:   bool = False,
             ) -> Union[slice, int, T_li, range]:
         """
         If the keyfield is set, then the rows can be selected by providing a
@@ -2414,12 +2467,12 @@ class Daf:
                 return []
             
         return type(self).gkeys_to_idxs(
-                    keydict = self.kd,
-                    gkeys = krows,
-                    inverse = inverse,
-                    silent_error=silent_error,
-                    axis='rowkeys',     # for error message only
-                    name=self.name,
+                    keydict         = self.kd,
+                    gkeys           = krows,
+                    inverse         = inverse,
+                    silent_error    = silent_error,
+                    axis            = 'rowkeys',     # for error message only
+                    name            = self.name,
                     )
     
     def kcols_to_icols(self, 
@@ -2450,12 +2503,12 @@ class Daf:
                     
     @staticmethod
     def gkeys_to_idxs(
-            keydict: Dict[Union[str, int], int],
-            gkeys: Union[str, T_ls, slice, int, T_li, Tuple[Any, Any], Iterable, None] = None,
-            inverse: bool = False,
+            keydict:    Dict[Union[str, int], int],
+            gkeys:      Union[str, T_ls, slice, int, T_li, Tuple[Any, Any], T_lota, Iterable, None] = None,
+            inverse:    bool = False,
             silent_error: bool=False,
-            axis: str='rowkeys',                # used for status messages only.
-            name: str='unspecified',           # used for status messages only.
+            axis:       str='rowkeys',                # used for status messages only.
+            name:       str='unspecified',           # used for status messages only.
             ) -> Union[slice, int, T_li, range, None]:
         """
         If keydict is defined, then the idxs can be selected by providing a
@@ -2533,7 +2586,7 @@ class Daf:
         
 
     def select_krows(self, 
-            krows: Union[slice, str, T_la, int, Tuple[Any, Any], Iterable, None], 
+            krows: Union[slice, str, T_la, int, T_lota, Tuple[Any, Any], Iterable, None], 
             inverse: bool=False,
             silent_error: bool=False,
             ) -> 'Daf':
@@ -2682,7 +2735,11 @@ class Daf:
         # fix up the dtypes and reset the keyfield if it is no longer in the daf.
         if sliced_cols:
             new_dtypes = {col:orig_dtypes[col] for col in orig_dtypes if col in sliced_cols}
-            new_keyfield = self.keyfield if self.keyfield in sliced_cols else ''    
+            if self.keyfield and isinstance(self.keyfield, str):
+                new_keyfield = self.keyfield if self.keyfield in sliced_cols else ''
+            else:
+                new_keyfield = ''
+            
         else:
             new_dtypes = {}
             new_keyfield = ''    
@@ -2699,7 +2756,7 @@ class Daf:
     # the following methods might be absorbed into the above.
     #
     
-    def select_record(self, key: str, silent_error: bool=True) -> T_da:
+    def select_record(self, key: Union[str, int, T_ta], silent_error: bool=True) -> T_da:
         """ Select one record from daf using the key and return as a single T_da dict.
         
             returns {} if not self
@@ -2707,6 +2764,7 @@ class Daf:
             if key not found, return {} if silent_error, else raise KeyError exception.
                    
             TODO Update for returning KeyedList
+            should return daf unless .to_dict() is used?
         """
         
         if not self:
@@ -2842,6 +2900,21 @@ class Daf:
         return result_la
 
 
+    def to_lota(self, 
+        ) -> T_lota:
+        """ return data from a daf array as a list of tuple of any (List[Tuple[Any...]])
+            This is convenient for creating compound keys
+        """
+    
+        lota = []
+        
+        for la in self.lol:
+            lota.append(tuple(la))
+            
+        return lota    
+
+
+
     def to_dict(self, irow: int=0, include_cols: Optional[T_ls]=None) -> T_da:
         """ alias for iloc 
             Note that this does not convert a column to a dict. Use to_list to convert a column.
@@ -2895,19 +2968,25 @@ class Daf:
                 )        
         
 
-    def select_by_dict_to_lod(self, selector_da: T_da, expectmax: int=-1, inverse: bool=False) -> T_loda:
-        """ Select rows in daf which match the fields specified in d, returning lod 
-            test exists in test_daf.py
+    # def select_by_dict_to_lod(self, selector_da: T_da, expectmax: int=-1, inverse: bool=False) -> T_loda:
+        # """ Select rows in daf which match the fields specified in d, returning lod 
+            # test exists in test_daf.py
             
-            DEPRECATE, use select_by_dict().to_lod()
-        """
+            # DEPRECATE, use select_by_dict().to_lod()
+        # """
         
-        result_lod = self.select_by_dict(selector_da=selector_da, expectmax=expectmax, inverse=inverse).to_lod()
+        # result_lod = self.select_by_dict(selector_da=selector_da, expectmax=expectmax, inverse=inverse).to_lod()
 
-        return result_lod
+        # return result_lod
 
 
-    def select_by_dict(self, selector_da: T_da, expectmax: int=-1, inverse:bool=False, keyfield:str='') -> 'Daf':
+    def select_by_dict(
+            self, 
+            selector_da:    T_da, 
+            expectmax:      int=-1, 
+            inverse:        bool=False, 
+            keyfield:       Union[str, int, T_ta]='',
+            ) -> 'Daf':
         """ Selects rows in daf which match the fields specified in d
             and return new daf, with keyfield set according to 'keyfield' argument.
             test exists in test_daf.py
@@ -2970,8 +3049,10 @@ class Daf:
         variable 'row' is the current row being evaluated
         and return list of indexes.
 
-        # Examle Usage
+        # Example Usage
             result_daf = original_daf.select_where("int(row['colname']) > 5")
+            
+        Could use .to_index() approach instead?    
         
         """
         # unit test exists.
@@ -2979,7 +3060,7 @@ class Daf:
         return [idx for idx, row in enumerate(self) if where(row)]
         
 
-    def remove_dups(self, keyfield: str='') -> Tuple['Daf', 'Daf']:  # unique_daf, duplicates_daf
+    def remove_dups(self, keyfield: Union[str, T_ta, T_la]='') -> Tuple['Daf', 'Daf']:  # unique_daf, duplicates_daf
         """
         If it is known that duplicates may exist in the array with respect to keyfield,
         remove records that have the same keyfield and return two daf arrays,
@@ -3155,9 +3236,10 @@ class Daf:
        
         old_cols = self.columns()
         new_cols = [old_cols[idx] for idx in range(len(old_cols)) if idx in selected_cols_li]
-        dtypes = {col: typ for col, typ in self.dtypes.items() if col in new_cols}
+        dtypes   = {col: typ for col, typ in self.dtypes.items() if col in new_cols}
         
-        new_keyfield = self.keyfield if self.keyfield and self.keyfield in new_cols else ''
+        new_keyfield = self.keyfield \
+            if self.keyfield and isinstance(self.keyfield, str) and self.keyfield in new_cols else ''
 
         new_daf = Daf(lol=new_lol, cols=new_cols, dtypes=dtypes, keyfield=new_keyfield)
     
@@ -3210,13 +3292,17 @@ class Daf:
             raise RuntimeError("No keyfield estabished for daf.")
             
         keyfield = self.keyfield
-        if keyfield not in record:
-            raise RuntimeError("No keyfield in dict.")
+        if isinstance(keyfield, str):
+            if keyfield not in record:
+                raise RuntimeError(f"No keyfield '{keyfield}' in dict.")
+        elif isinstance(keyfield, T_ta):
+            if not all(keytup in record for keytup in keyfield):
+                raise RuntimeError(f"Not all keyfields '{keyfield}' in dict.")
             
         if self and list(record.keys()) != list(self.hd.keys()):
             raise RuntimeError("record fields not equal to daf columns")
-            
-        keyval = record[keyfield]
+        
+        keyval = self._get_keyval(record)
 
         # for the following, see https://github.com/raylutz/daffodil/issues/7
         if keyval in self.kd:
@@ -3252,6 +3338,7 @@ class Daf:
             self.lol[irow] = [record.get(col, '') for col in self.hd]
         
 
+    #@deprecated("Use 'my_daf[keylist] = record' syntax")
     def update_by_keylist(self, keylist: Optional[T_ls]=None, record: Optional[T_da]=None):
         """ Update selected records in daf by keylist using record
             only update those columns that have dict keys
@@ -3300,7 +3387,12 @@ class Daf:
                 # self.lol[irow][icol] = record_da[colname]
         
 
-    def assign_icol(self, icol: int=-1, col_la: Optional[T_la]=None, default: Any=''):
+    def assign_icol(
+            self, 
+            icol: int=-1, 
+            col_la: Optional[T_la]=None, 
+            default: Any=''
+            ):
         """ modify icol by index using col_la 
             use default if col_la not long enough to fill all cells.
             Also, if col_la not provided, use default to fill all cells in the column.
@@ -3318,11 +3410,17 @@ class Daf:
         
         
         
-    def insert_icol(self, icol: int=-1, col_la: Optional[T_la]=None, colname: str='', default: Any=''): #, keyfield:str=''):
+    def insert_icol(
+            self, 
+            icol:       int=-1, 
+            col_la:     Optional[T_la]=None, 
+            colname:    str='', 
+            default:    Any=''
+            ):
         """ insert column col_la at icol, shifting other column data. 
             use default if la not long enough
             If icol==-1, insert column at right end.
-            use set_keyfield() if this column will become the keyfield.
+            Note: use set_keyfield() if this column will become the keyfield.
             unit tests
         """
         
@@ -3339,9 +3437,6 @@ class Daf:
             hl.insert(icol, colname)
             self.hd = {k: idx for idx, k in enumerate(hl)}
             
-        # if keyfield:
-            # self.keyfield = keyfield
-            # self._rebuild_kd()
         return self
 
         
@@ -3403,11 +3498,11 @@ class Daf:
 
     def insert_col(
             self, 
-            colname: str, 
-            col_la: Optional[T_la]=None, 
-            icol: int=-1, 
-            default: Any='',
-            ): #, keyfield:str=''):
+            colname:    str, 
+            col_la:     Optional[T_la]=None, 
+            icol:       int=-1, 
+            default:    Any='',
+            ):
             
         """ add col by colname and set to la at icol
             if la is not long enough for a full column, use the default.
@@ -3442,7 +3537,7 @@ class Daf:
         return self
         
     
-    def insert_idx_col(self, colname='idx', icol:int=0, startat:int=0):
+    def insert_idx_col(self, colname='idx', icol:int=0, startat:int=0) -> 'Daf':
         """ insert an index column at column icol with name colname with indexes starting at 'startat' 
             unit tested
         """
@@ -3451,6 +3546,8 @@ class Daf:
         col_la = list(range(startat, startat + num_rows))
     
         self.insert_col(colname, col_la, icol)
+        
+        return self
 
 
     def set_col_irows(self, colname: str, irows: T_li, val: Any):
@@ -3840,12 +3937,12 @@ class Daf:
 
     def apply(
             self, 
-            func: Callable[[Union[T_da, T_Daf], Optional[T_la]], Union[T_da, T_Daf]], 
-            by: str='row', 
-            keylist: Optional[T_ls]=None,                   # list of keys of rows to include (DEPRECATE?)
-            **kwargs: Any,
+            func:       Callable[[Union[T_da, T_Daf], Optional[T_la]], Union[T_da, T_Daf]], 
+            by:         str='row', 
+            keylist:    Optional[Union[T_la, T_lota]]=None,     # list of keys of rows to include (DEPRECATE?)
+            **kwargs:   Any,
                 # kwargs may commonly include:
-                # cols: Optional[T_la]=None,                      # columns included in the apply operation.
+                # cols: Optional[T_la]=None,                    # columns included in the apply operation.
             ) -> "Daf":
         """
         Apply a function to each 'row', 'col', or 'table' in the Daf and create a new Daf with the transformed data.
@@ -3907,10 +4004,10 @@ class Daf:
         
     def apply_in_place(
             self, 
-            func: Callable[[T_da], T_da], 
-            by: str='row', 
-            keylist: Optional[T_ls]=None,                   # list of keys of rows to include.
-            **kwargs: Any,
+            func:       Callable[[T_da], T_da], 
+            by:         str='row', 
+            keylist:    Optional[Union[T_la, T_lota]]=None,                   # list of keys of rows to include.
+            **kwargs:   Any,
             ):
         """
         Apply a function to each 'row', 'col', or 'table' in the daf.
@@ -4996,9 +5093,9 @@ class Daf:
 
     def groupsum_daf(
             self,
-            colname:str, 
-            by: str='row',                                  # determines how the func is applied.
-            reduce_cols: Optional[T_la]=None,               # columns included in the reduce operation.
+            colname:        str, 
+            by:             str='row',                      # determines how the func is applied.
+            reduce_cols:    Optional[T_la]=None,            # columns included in the reduce operation.
             # keyfield: str=colname,                        # provide this for when no keyfield is desired?
                                                             # current operation sets keyfield to colname.
             ) -> 'Daf':
@@ -5038,6 +5135,147 @@ class Daf:
             col2 = col1
 
         self.apply_in_place(lambda row_da: set_row_col2_from_col1_using_regex_select(row_da, col1, col2, regex)) 
+
+
+    def apply_replace_regex(self, col: str, col2: str='', replace_regex: str='') -> 'Daf':
+    
+        """ apply a replace regex pattern, with form '/find/replace/' to col, or 
+            by from col to col2. 
+            
+            remove pattern:                 /find//
+            replace pattern:                /find/replace/
+            select pattern:                 /pretext(select)posttext/\1/
+            select pattern with changes     /pretext(select)posttext/prefix\1suffix/
+        
+        """
+        
+        # from utilities import utils
+    
+        def set_row_col2_from_col_using_regex_replace(row_da: T_da, col: str, col2: str, replace_regex: str) -> T_da:
+            if col in row_da:
+                row_da[col2] = utils.safe_regex_replace(regex=replace_regex, s=row_da[col])
+            return row_da
+            
+        if not col2:
+            col2 = col
+
+        self.apply_in_place(lambda row_da: set_row_col2_from_col_using_regex_replace(row_da, col, col2, replace_regex)) 
+
+        return self
+        
+
+    def alter_daf_per_setting(self, settingsdict: T_da, setting_name: str, setting_select_dict: dict) -> 'Daf':
+
+        """ alter a daf using setting_name in settingsdict, selected by setting_select_dict
+
+            Example:
+                biabif_daf = daf_utils.alter_daf_per_setting(
+                    this_daf            = biabif_daf, 
+                    settingsdict        = argsdict, 
+                    setting_name        = 'daf_replace_regex_spec', 
+                    setting_select_dict = {'spec_name':archive_basename},
+                    )
+        
+                cvrbif_daf = daf_utils.alter_daf_per_setting(
+                    this_daf            = cvrbif_daf, 
+                    settingsdict        = argsdict, 
+                    setting_name        = 'daf_replace_regex_spec', 
+                    setting_select_dict = {'spec_name':cvr_fn},
+                    )
+        
+        
+        """
+
+        setting_lod = settingsdict.get(setting_name, [])
+        if not setting_lod:
+            print(f"{setting_name = } not found in settingdict")
+            breakpoint()  # perm
+            pass
+        if isinstance(setting_lod, dict):
+            setting_lod = [setting_lod]
+        try:    
+            setting_daf = Daf.from_lod(setting_lod)
+        except Exception:
+            breakpoint()  # perm (fixed edge case in .from_lod()
+            pass
+            
+        alter_specs_daf = setting_daf.select_by_dict(setting_select_dict)
+        
+        return self.alter_daf_per_alter_specs_daf(
+            alter_specs_daf     = alter_specs_daf,     # daf containing cols: colname, replace_regex
+            )
+
+
+
+    def alter_daf_per_alter_specs_daf(
+            self,                       # daf to alter
+            alter_specs_daf: 'Daf',     # daf containing cols: colname, replace_regex
+            ) -> 'Daf':
+        """ 
+            Given daf array, use alter_specs_daf to alter the array with individual replace_regex specs.
+            
+            alter_specs_daf should be preselected to retain only those specs (rows) that apply using "spec_name"
+            alter_specs_daf has columns:
+                spec_name       - used to select the appropriate alter specs.
+                                    prior to entry, the daf contains only those records that are appropriate.
+                colname         - column to alter
+                replace_regex   - string formatted to provide find and replace.
+        
+            Sometimes, duplicate ballot_id value will be used for different ballots
+            This can happen if the ballots are in different src or cvr files.
+            Check argsdict[setting_name] to see if it is a single dict or a lod. Convert da to loda
+            Match field 'spec_name' in lod with value 'spec_name'.
+            in this dict, use colname specified.
+            Apply 'replace_regexp' to column specified.
+            
+            usage:
+                if argsdict['daf_replace_regex_spec']:
+                    alter_specs_daf = Daf.from_lod(argsdict['daf_replace_regex_spec'])
+                    alter_specs_daf = alter_specs_daf.select_dict({'spec_name': spec_name})
+                    
+                    for alter_spec_da in alter_specs_daf:
+                        this_daf.apply_replace_regex(colname=alter_spec_da['colname']
+                        
+            Example:
+                alter_specs_daf = Daf.from_lod(
+                    [{  "spec_name": "Database 2 All Tabulators Results.zip", 
+                        "colname": "ballot_id", 
+                        "replace_regex": r"/04000_(\d\d\d\d\d_\d\d\d\d\d\d)/14000_\1/"
+                     },
+                     {  "spec_name": "CVR_Export_20230206180329 DB2 Certified.csv", 
+                        "colname": "ballot_id",
+                        "replace_regex":r"/04000_(\d\d\d\d\d_\d\d\d\d\d\d)/14000_\1/"
+                     }])
+
+            biabif_daf = Daf(cols=['ballot_id', 'batchid', 'archive_basename'],
+                lol = [['01780_00000_983814', '01780_00000', 'Database 1 All Tabulators Results.zip'],
+                       ['01780_00000_996586', '01780_00000', 'Database 1 All Tabulators Results.zip'],
+                       ['01780_00000_998212', '01780_00000', 'Database 1 All Tabulators Results.zip'],
+                       ['04000_00001_000001', '04000_00001', 'Database 1 All Tabulators Results.zip'],
+                       ['04000_00001_000002', '04000_00001', 'Database 1 All Tabulators Results.zip'],
+                       ['04000_00001_000003', '04000_00001', 'Database 1 All Tabulators Results.zip'],
+                      ],
+                )      
+                
+            result_daf = biabif_daf.alter_daf_per_alter_specs_daf(
+                alter_specs_daf=alter_specs_daf)
+            
+            expected_daf = Daf(cols=['ballot_id', 'batchid', 'archive_basename'],
+                lol = [['01780_00000_983814', '01780_00000', 'Database 1 All Tabulators Results.zip'],
+                       ['01780_00000_996586', '01780_00000', 'Database 1 All Tabulators Results.zip'],
+                       ['01780_00000_998212', '01780_00000', 'Database 1 All Tabulators Results.zip'],
+                       ['14000_00001_000001', '04000_00001', 'Database 1 All Tabulators Results.zip'],
+                       ['14000_00001_000002', '04000_00001', 'Database 1 All Tabulators Results.zip'],
+                       ['14000_00001_000003', '04000_00001', 'Database 1 All Tabulators Results.zip'],
+                      ],
+                )                  
+        """
+        for alter_spec_da in alter_specs_daf:
+
+            self.apply_replace_regex(col=alter_spec_da['colname'], replace_regex=alter_spec_da['replace_regex'])
+        
+        return self
+
 
 
     def apply_to_col(self, col: str, func: Callable, **kwargs):
@@ -5670,7 +5908,8 @@ class Daf:
             smart_fmt           = smart_fmt,
             
             )
-        if include_summary:    
+        if include_summary:
+            # this is okay with change to tuple keys.
             mdstr += f"\n\[{len(self.lol)} rows x {self.num_cols()} cols; keyfield='{self.keyfield}'; {len(self.kd)} keys ] ({self.name or type(self).__name__})\n"
         return mdstr
         

@@ -24,7 +24,7 @@ class KeyedList:
         
     Which is more performant and equivalent to:
     
-        hd = {col: idx for idx, col in enumerate(keys)
+        hd = {col: idx for idx, col in enumerate(keys)}
         
     But this likely can be improved if a concise standard library function is created, since the current nature
     of a dict is that it is ordered, and thus has an implied index.
@@ -194,14 +194,17 @@ class KeyedList:
         return self.hd.keys()
 
     @property
-    def values(self):
+    def values(self) -> List[Any]:
         return self._values
 
     @values.setter
-    def values(self, new_values):
-        self._values = new_values
+    def values(self, new_values) -> None:
+        if isinstance(new_values, list):
+            self._values = new_values
+        
 
-    def values(self):
+
+    def values(self) -> List[Any]:
         return self._values
     
     def items(self):
@@ -247,7 +250,7 @@ class KeyedList:
         return json.dumps({"__KeyedList__": True, "hd": self.hd, "values": self._values})
 
     @classmethod
-    def from_json(cls, json_str):
+    def from_json(cls, json_str) -> 'KeyedList':
         # Deserialize JSON string into a KeyedList object
         obj_dict = json.loads(json_str)
         if "__KeyedList__" in obj_dict and obj_dict["__KeyedList__"]:

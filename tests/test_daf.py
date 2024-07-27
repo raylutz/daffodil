@@ -315,7 +315,7 @@ class TestDaf(unittest.TestCase):
         daf = Daf(cols=['col1', 'col2'], keyfield='col1')
         new_cols = ['A', 'B']
         daf.set_cols(new_cols)
-        self.assertEqual(daf.keyfield, 'A')
+        self.assertEqual(daf.keyfield, '')
     
     def test_set_cols_update_dtypes(self):
         # Test updating dtypes dictionary with new column names
@@ -379,6 +379,10 @@ class TestDaf(unittest.TestCase):
     def test_set_keyfield_existing_column(self):
         # Test setting keyfield to an existing column
         daf = Daf(lol=[[1, 'a'], [2, 'b']], cols=['ID', 'Value'])
+        
+        # breakpoint()
+        # pass
+        
         daf.set_keyfield('ID')
         self.assertEqual(daf.keyfield, 'ID')
     
@@ -1488,7 +1492,7 @@ class TestDaf(unittest.TestCase):
         daf = Daf(cols=cols, lol=lol, keyfield='col1', dtypes={'col1': int, 'col2': str})
 
         selector_da = {'col2': 'b'}
-        result_lod = daf.select_by_dict_to_lod(selector_da)
+        result_lod = daf.select_by_dict(selector_da).to_lod()
 
         expected_lod = [{'col1': 2, 'col2': 'b'}, {'col1': 4, 'col2': 'b'}]
         self.assertEqual(result_lod, expected_lod)
@@ -1499,7 +1503,7 @@ class TestDaf(unittest.TestCase):
         daf = Daf(cols=cols, lol=lol, keyfield='col1', dtypes={'col1': int, 'col2': str})
 
         selector_da = {'col2': 'd'}
-        result_lod = daf.select_by_dict_to_lod(selector_da)
+        result_lod = daf.select_by_dict(selector_da).to_lod()
 
         self.assertEqual(result_lod, [])
 
@@ -1511,7 +1515,7 @@ class TestDaf(unittest.TestCase):
         selector_da = {'col2': 'b'}
         expectmax = 1
         with self.assertRaises(LookupError):  # You should replace this with the actual exception that should be raised
-            daf.select_by_dict_to_lod(selector_da, expectmax=expectmax)
+            daf.select_by_dict(selector_da, expectmax=expectmax).to_lod()
 
     # select_by_dict
     def test_select_by_dict_existing_selector_da(self):
@@ -4233,6 +4237,71 @@ class TestDafJsonMethods(unittest.TestCase):
         self.assertEqual(original_instance.keyfield, new_instance.keyfield)
         self.assertEqual(original_instance._retmode, new_instance._retmode)
         self.assertEqual(original_instance._itermode, new_instance._itermode)
+
+
+
+class TestAlterDaf(unittest.TestCase):
+
+    def setUp(self):
+        # Setup for Daf object
+        self.daf_data = [
+            ['01780_00000_983814', '01780_00000', 'Database 1 All Tabulators Results.zip'],
+            ['01780_00000_996586', '01780_00000', 'Database 1 All Tabulators Results.zip'],
+            ['01780_00000_998212', '01780_00000', 'Database 1 All Tabulators Results.zip'],
+            ['04000_00001_000001', '04000_00001', 'Database 1 All Tabulators Results.zip'],
+            ['04000_00001_000002', '04000_00001', 'Database 1 All Tabulators Results.zip'],
+            ['04000_00001_000003', '04000_00001', 'Database 1 All Tabulators Results.zip'],
+        ]
+        self.daf_cols = ['ballot_id', 'batchid', 'archive_basename']
+        self.biabif_daf = Daf(cols=self.daf_cols, lol=self.daf_data)
+        
+        self.alter_specs_data = [
+            {"spec_name": "Database 2 All Tabulators Results.zip", 
+             "colname": "ballot_id", 
+             "replace_regex": r"/04000_(\d\d\d\d\d_\d\d\d\d\d\d)/14000_\1/"},
+            {"spec_name": "CVR_Export_20230206180329 DB2 Certified.csv", 
+             "colname": "ballot_id",
+             "replace_regex": r"/04000_(\d\d\d\d\d_\d\d\d\d\d\d)/14000_\1/"}
+        ]
+        self.alter_specs_daf = Daf.from_lod(self.alter_specs_data)
+        self.alter_specs_daf = self.alter_specs_daf.select_by_dict({'spec_name': "Database 2 All Tabulators Results.zip"})
+        
+        self.expected_data = [
+            ['01780_00000_983814', '01780_00000', 'Database 1 All Tabulators Results.zip'],
+            ['01780_00000_996586', '01780_00000', 'Database 1 All Tabulators Results.zip'],
+            ['01780_00000_998212', '01780_00000', 'Database 1 All Tabulators Results.zip'],
+            ['14000_00001_000001', '04000_00001', 'Database 1 All Tabulators Results.zip'],
+            ['14000_00001_000002', '04000_00001', 'Database 1 All Tabulators Results.zip'],
+            ['14000_00001_000003', '04000_00001', 'Database 1 All Tabulators Results.zip'],
+        ]
+        self.expected_daf = Daf(cols=self.daf_cols, lol=self.expected_data)
+
+    def test_alter_daf_per_alter_specs_daf(self):
+        result_daf = self.biabif_daf.alter_daf_per_alter_specs_daf(self.alter_specs_daf)
+        
+        self.assertEqual(result_daf.lol, self.expected_daf.lol)
+        self.assertEqual(result_daf.hd, self.expected_daf.hd)
+
+    def test_empty_alter_specs(self):
+        empty_alter_specs_daf = Daf(cols=self.daf_cols, lol=[])
+        result_daf = self.biabif_daf.alter_daf_per_alter_specs_daf(empty_alter_specs_daf)
+        
+        self.assertEqual(result_daf.lol, self.biabif_daf.lol)
+        self.assertEqual(result_daf.hd, self.biabif_daf.hd)
+
+    def test_no_matching_colname(self):
+        alter_specs_data_no_match = [
+            {"spec_name": "Database 2 All Tabulators Results.zip", 
+             "colname": "non_existent_col", 
+             "replace_regex": r"/04000_(\d\d\d\d\d_\d\d\d\d\d\d)/14000_\1/"}
+        ]
+        alter_specs_daf_no_match = Daf.from_lod(alter_specs_data_no_match)
+        alter_specs_daf_no_match = alter_specs_daf_no_match.select_by_dict({'spec_name': "Database 2 All Tabulators Results.zip"})
+        
+        result_daf = self.biabif_daf.alter_daf_per_alter_specs_daf(alter_specs_daf_no_match)
+        
+        self.assertEqual(result_daf.lol, self.biabif_daf.lol)
+        self.assertEqual(result_daf.hd, self.biabif_daf.hd)
 
 
 if __name__ == '__main__':
