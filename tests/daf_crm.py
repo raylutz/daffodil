@@ -8,7 +8,7 @@ This project was started by San Diego Python community as a learning tool, origi
 ## Uses:
 - Keep track of friends and contacts. -- But everyone has a cell phone that does this pretty well.
 - Track employers and job market in San Diego for those looking for work. Possibly useful for SDPUG community.
-- Freate html reports that can be hosted on website.
+- Create html reports that can be hosted on website.
 - Tiny CRM for customer relationship management, for small firms.
 - Includes email blasting capability.
 
@@ -102,9 +102,6 @@ The following fields are a starter set. These were found to be very commonly use
 ### Blast:
 	use template selected or default and send emails to all records selected.
 
-### Write:
-	write data file
-
 ### Import:
     enter file name -- add records from import file.
 	possibly do field name and record adjusting.
@@ -195,7 +192,7 @@ def main():
             op_rec = ops_daf[opchr].to_dict()
         except KeyError:
             print("Operation not recognized")
-            op_help()
+            op_help(ops_daf)
             continue
             
         op_rec['func'](**op_rec['kwargs'])
