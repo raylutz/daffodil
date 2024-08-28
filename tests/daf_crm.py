@@ -124,41 +124,55 @@ The following fields are a starter set. These were found to be very commonly use
 
 import sys
 import os
+import json
+
 
 from daffodil.daf import Daf
+import daffodil.lib.daf_utils    as utils
+from daffodil.lib.daf_types import T_daf
+                     
+# import daffodil.lib.daf_md       as md
+# import daffodil.lib.daf_pandas   as daf_pandas
+
+# from daffodil.keyedlist import KeyedList
+
+from typing import List, Dict, Any, Tuple, Optional, Union, cast, Type, Callable, Iterable # Iterator
+def fake_function(a: Optional[List[Dict[str, Tuple[int,Union[Any, str, Type, Callable, Iterable]]]]] = None) -> Optional[int]:
+    return None or cast(int, 0)       # pragma: no cover
 
 
 contacts_dtypes = {
-    'Prefix': str,
-    'FullName': str,
-    'FirstName': str,
-    'LastName': str,
-    'Nickname': str,
-    'Suffix': str,
-    'Gender': str,
-    'Phone1': str,
-    'Phone2': str,
-    'Email1': str,
-    'Email2': str,
-    'Org': str,
-    'Employer': str,
-    'JobTitle': str,
-    'Industry': str,
-    'Addr1': str,	
-    'Addr2': str,	
-    'City': str,	
-    'State': str,	
-    'Zip': str,
-    'Country': str,
-    'DOB': str,
-    'Website': str,
-    'SocialMedia': str,
-    'NoEmail': bool,
-    'NoPhone': bool,
-    'NoSms': bool,
-    'Notes': str,
-    'Keywords': str,
-    'Alias': str,
+    'Prefix':       str,
+    'FullName':     str,
+    'FirstName':    str,
+    'LastName':     str,
+    'Nickname':     str,
+    'Suffix':       str,
+    'Gender':       str,
+    'Phone1':       str,
+    'Phone2':       str,
+    'Email1':       str,
+    'Email2':       str,
+    'Org':          str,
+    'Employer':     str,
+    'JobTitle':     str,
+    'Industry':     str,
+    'Addr1':        str,	
+    'Addr2':        str,	
+    'City':         str,
+    'County':       str,
+    'State':        str,	
+    'Zip':          str,
+    'Country':      str,
+    'DOB':          str,
+    'Website':      str,
+    'SocialMedia':  str,
+    'NoEmail':      bool,
+    'NoPhone':      bool,
+    'NoSms':        bool,
+    'Notes':        str,
+    'Keywords':     str,
+    'Alias':        str,
     }
 
 contacts_formats = {
@@ -186,14 +200,16 @@ def main():
 
     while True:
         opchr = get_single_character(f"Select Operation ({', '.join(ops_list)}): ")
-        print(opchr)
     
         try:
             op_rec = ops_daf[opchr].to_dict()
         except KeyError:
-            print("Operation not recognized")
+            print(f"{opchr}: Operation not recognized")
             op_help(ops_daf)
             continue
+
+        print(opchr + ': ' + op_rec['Description'])
+
             
         op_rec['func'](**op_rec['kwargs'])
             
@@ -202,52 +218,27 @@ def main():
 def gen_ops_daf() -> Daf:
 
     ops_daf = Daf(
-        cols = ['OpName', 'Abr', 'Description', 'func', 'kwargs', 'Help'],
+        dtypes = {'OpName': str, 'Abr': str, 'func': Callable, 'kwargs': dict, 'Description': str, 'Help': str},
         )
-    ops_daf.lol = [
-            ['Select', 's', 'Select Records', op_select, {},
-                    """ search for single or multiple records, or "All"
-                    Once selected, these are used in other operations.
-                    Multiple selections keep reducing the records found.
-                    Displays portion of the records selected. """,
-                ],
-            ['Report', 'r', 'Create Reports', op_report, {},
-                    """ Create markdown or html reports to screen or file.
-                        select columns to include
-                    """,
-                ],    
-            ['Manage', 'm', 'Edit Individual Records', op_manage, {}, 
-                    """ process each record selected.
-                        edit the fields
-                        Check formats 
-                        delete records individually
-                    """,
-                ],
-            ['Delete', 'd', 'Delete Selection', op_delete, {},
-                    """ Delete all records selected after confirmation.""",
-                ],
-            ['Glink',  'g', 'Link to Googledocs spreadsheet', op_glink, {},
-                    """ Estalish linkage to googledocs spreadsheet"""
-                ],
-            ['Template', 't', 'edit email template to use with email blast', op_template, {},
-                    """ Edit the template used in email blast. """
-                ],
-            ['Blast',   'b', 'blast to email list', op_blast, {},
-                    """ using email template, merge data fields and send emails to all records selected. """
-                ],
-            ['Import',  'i', 'Import Records', op_import, {},
-                    """ enter file name -- add records from import file.
-                        provides field name and record adjusting
-                    """,
-                ],
-            ['Export', 'e', 'Export Selection', op_export, {},
-                    """ enter file name, export selected records
-                        provides field name and record adjusting.
-                    """,
-                ],
-            ['Help', 'h', 'Help', op_help, {'ops_daf': ops_daf}, "Verbose Help"],
-            ['Quit', 'q', 'Quit', op_quit, {}, "Quit"],
-        ]
+    ops_daf.append([{'OpName': 'Select',     'func': op_select},
+                    {'OpName': 'Report',     'func': op_report},
+                    {'OpName': 'Manage',     'func': op_manage},
+                    {'OpName': 'Delete',     'func': op_delete},
+                    {'OpName': 'Glink',      'func': op_glink},
+                    {'OpName': 'Template',   'func': op_template},
+                    {'OpName': 'Blast',      'func': op_blast},
+                    {'OpName': 'Import',     'func': op_import},
+                    {'OpName': 'Export',     'func': op_export},
+                    {'OpName': 'Help',       'func': op_help,       'kwargs': {'ops_daf': ops_daf}},
+                    {'OpName': 'Quit',       'func': op_quit},
+                   ])
+    
+    # add Desciption and Help from docstring    
+        
+    for klist in ops_daf.iter_klist():
+        klist['Abr'] = klist['OpName'][0].lower()
+        klist['Description'], klist['Help'] = utils.extract_docstring_parts(klist['func'])
+        klist['kwargs'] = klist['kwargs'] or {} 
 
     ops_daf.set_keyfield('Abr')
 
@@ -255,21 +246,28 @@ def gen_ops_daf() -> Daf:
     
 
 def op_select():
-    """ search for single or multiple records, or "All"
-        Once selected, these are used in other operations.
+    """ Select Records.
+    
+        Select single or multiple records, or "All".
         Multiple selections keep reducing the records found.
         Displays portion of the records selected. 
+        Once selected, these are used in other operations.
     """
     pass
     
 def op_report():    
-    """ Create markdown or html reports to screen or file.
-        select columns to include
+    """ Create Reports.
+    
+        Create markdown or html reports to screen or file.
+        Includes records previously selected.
+        Allows selection of columns to include
     """
     pass
 
 def op_manage():
-    """ process each record selected.
+    """ Manage: Edit Individual Records
+    
+        process each record selected.
         edit the fields
         Check formats 
         delete records individually
@@ -278,45 +276,117 @@ def op_manage():
     
 
 def op_delete():
-    """ Delete all records selected after confirmation."""
+    """ Delete Selection.
+    
+        Delete all records selected after confirmation.
+    """
     pass
     
 
 def op_glink():
-    """ Estalish linkage to googledocs spreadsheet """
+    """ Link to googlesheet.
+    
+    Estalish linkage to googledocs spreadsheet """
     pass
     
 def op_template():
-    """ Edit the template used in email blast. """
+    """ Template Edit.
+    
+    Edit the template used in email blast.
+    Use {} to insert fields.    
+    """
     pass
     
 def op_blast():
-    """ using email template, merge data fields and send emails to all records selected. """
-    pass
-
-def op_import():
-    """ enter file name -- add records from import file.
-        provides field name and record adjusting
+    """ Blast to email list
+    
+    using email template, merge data fields and send emails to all records selected. 
     """
     pass
 
+def op_import():
+    """ Import Records.
+    
+    enter file name -- add records from import file.
+    allows adjusting field names
+    """
+    default_fn = 'crm_data.csv'
+    
+    print("\nImport Records:")
+    fn = input(f"Please enter file name to import (default is {default_fn}): ")
+    if not fn:
+        fn = default_fn
+    
+    try:
+        with open(fn) as f:
+            csv_buff = f.read()
+    except Exception as err:
+        print(f"Error reading the file: {err}")
+        return 
+        
+    missing_list, extra_list = utils.precheck_csv_cols(csv_buff, list(contacts_dtypes.keys()))
+
+    from_to_dict = {}
+    if missing_list or extra_list:
+        print(f"The following expected fields are missing from the import file:\n{missing_list}\n\n"
+              f"The following fields are extra, and may need to be renamed:\n{extra_list}\n\n"
+              "You can provide a from-to dict json file to convert the existing field names to the proper names.\n"
+              )
+        from_to_fn = input("If conversion is required, enter the file name of the from_to.json file (default = '')")
+        if from_to_fn:
+            from_to_dict = json.loads(from_to_fn)
+            
+    my_daf = Daf.from_csv_buff(
+            csv_buff    = csv_buff,
+            # dtypes      = contacts_dtypes,        # initially we don't set dtypes bc we're not sure of the columns.
+            noheader    = False,
+            user_format = True,                     # if True, preprocess the file and omit comment lines.
+            # sep: str=',',                         # field separator.
+            unflatten   = False,                    # unflatten fields that are defined as dict or list (none exist).
+            # include_cols: Optional[T_ls]=None,    # include only the columns specified. noheader must be false.
+            )
+    
+    if from_to_dict:
+        my_daf.rename_cols(from_to_dict=from_to_dict)
+    
+    my_daf.apply_dtypes(enforce_cols = True)
+        
+    cache_and_write_daf(my_daf)
+
 
 def op_export():
-    """ enter file name, export selected records
-        provides field name and record adjusting.
+    """ Export Selected Records.
+    
+    enter file name, export selected records
+    allows adjusting field names
     """
     pass
     
 def op_help(ops_daf):
-    """ Verbose help """
+    """ Help
+    
+    Verbose help 
+    """
     
     print("\n" + ops_daf[:,['OpName', 'Abr', 'Description']].to_md(just='^^<'))
     return
     
 
 def op_quit():
+    """ Quit.
+    
+    Exit daffodil crm 
+    """
+    
     print("\nGoodbye!\n")
     sys.exit(0)
+
+
+#===================================
+# support functions
+
+def cache_and_write_daf(my_daf: T_daf):
+    pass
 
 
 def get_single_character(prompt):

@@ -1373,7 +1373,6 @@ def buff_csv_to_lol(
     if not raw:
         # @@TODO grab the first few lines and get the header section.
         pass
-    
         
     if user_format:
         buff = preprocess_csv_buff(buff)  # remove comments, blank lines
@@ -1384,6 +1383,24 @@ def buff_csv_to_lol(
     data_lol = [row for row in csv_reader]
 
     return data_lol
+
+
+def get_csv_column_names(csv_buff: str) -> List[str]:
+    # Split the buffer into lines
+    lines = csv_buff.splitlines()
+    
+    # Iterate over lines to find the first valid line
+    for line in lines:
+        stripped_line = line.strip()
+        if not is_comment_line(stripped_line):
+            # Return the column names as a list
+            csv_reader = csv.reader([stripped_line])
+            for row in csv_reader:
+                return row
+    
+    # Return an empty list if no valid line is found
+    return []
+
     
 
 def preprocess_csv_buff(buff: Union[bytes, str]) -> str:
@@ -1396,10 +1413,16 @@ def preprocess_csv_buff(buff: Union[bytes, str]) -> str:
         buff = buff.decode("utf-8")
 
     lines = buff.splitlines()
-    lines = [line for line in lines if line and not bool(re.search(r'^"?#', line)) and not bool(re.search(r'^,+$', line))]
+    lines = [line for line in lines if not is_comment_line(line)]
     buff = '\n'.join(lines)
     
     return buff
+    
+    
+def is_comment_line(line: str) -> bool:
+    """ test a line to see if qualifies as a comment or blank line """
+
+    return bool(not line or bool(re.search(r'^"?#', line)) or bool(re.search(r'^,+$', line)))
     
 
 def write_buff_to_fp(buff: T_buff, file_path: str, fmt='.csv', rtype='.csv', local_mirror: bool=False, if_unmodified: bool=False) -> str: # file_path
@@ -1644,7 +1667,102 @@ def equal_cols_lol(lol: T_lola, limit: int=10, check_all:bool=False) -> T_lola:
     return equal_cols_lol(lol=lol, limit=None)
 
 
+def extract_docstring_parts(func) -> Tuple[str, str]:
+    """
+    Extract the description and help text from a function's docstring.
+
+    Args:
+        func (callable): The function whose docstring is to be extracted.
+
+    Returns:
+        Tuple[str, str]: A tuple containing the description (first line) and the help text (rest of the docstring).
+    """
+    docstring = func.__doc__
+    if not docstring:
+        return "", ""
+    
+    lines = docstring.strip().split('\n')
+    description = lines[0].strip().rstrip('.')
+    help_text = '\n'.join(line.strip() for line in lines[1:]).strip()
+    
+    return description, help_text
 
 
+
+def precheck_csv_cols(csv_buff, expected_cols: T_ls) -> Tuple[T_ls, T_ls]:
+    
+    original_cols = get_csv_column_names(csv_buff)
+
+    _, missing_list, extra_list, _ = compare_lists(
+        work_list = original_cols, 
+        ref_list  = expected_cols, 
+        # req_list: Optional[list]=None,
+        # maintain_order: bool=True,
+        )
+    return missing_list, extra_list
+        
+
+def compare_lists(
+        work_list: list, 
+        ref_list: list, 
+        req_list: Optional[list]=None,
+        # maintain_order: bool=True,
+        ) -> Tuple[list, list, list, list]: #matching_list, missing_list, extra_list, missing_req_list
+        
+    """ compare work_list with ref_list and req_list.
+        matching_list are the items found in both work_list and ref_list.
+        missing_list are found in ref_list but not work_list (extra ref_list items)
+        extra_list are found in work_list but not ref_list   (extra work_list items)
+        missing_req_list are not found in work_list but listed in req_list
+        
+        We tested three implementations:
+        list comprehension with test that it is in a list is very slow: 77 seconds.
+        using sets is fast, but reorders the lists: 0.0385 secs
+        using list comprehension with test that it is in a dict is fastest: 0.0322 secs
+        
+        The result is the same order as the worklist.
+    """
+    
+    if True: #maintain_order:
+        # use the property that dicts are now ordered by default yet provide faster lookups.
+        try:
+            # first assume the items are hashable.
+            # this will raise TypeError: unhashable type if they are not hashable.
+            
+            ref_dict            = dict.fromkeys(ref_list)   # returns dictionary with specified keys and values are all None.
+            work_dict           = dict.fromkeys(work_list)
+            
+            matching_list       = [val for val in work_list if val in ref_dict]
+            missing_list        = [val for val in ref_list if val not in work_dict]
+            extra_list          = [val for val in work_list if val not in ref_dict]
+            
+            missing_req_list    = [val for val in req_list if val not in work_dict] if req_list else []
+            
+        except (TypeError):            
+            # use list comprehension when items are not hashable.
+            matching_list       = [val for val in work_list if val in ref_list]
+            missing_list        = [val for val in ref_list if val not in work_list]
+            extra_list          = [val for val in work_list if val not in ref_list]
+            
+            missing_req_list    = [val for val in req_list if val not in work_list] if req_list else []
+
+    else:  
+        # this algorithm is much faster (not any more!) but it does not maintain order.
+        # and it still requires that the lists have hashable items.
+        # use this for very large lists or when order is not important.
+        
+        work_set            = set(work_list)
+        ref_set             = set(ref_list)
+        req_set             = set(req_list) if req_list else set()
+        
+        matching_list       = list(work_set.intersection(ref_set))
+        missing_list        = list(ref_set.difference(work_set))
+        extra_list          = list(work_set.difference(ref_set))
+
+        missing_req_list    = list(req_set.difference(work_set))
+    
+    return matching_list, missing_list, extra_list, missing_req_list
+       
+    
             
         

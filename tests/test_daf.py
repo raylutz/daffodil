@@ -10,8 +10,15 @@ import pandas as pd
 from pathlib import Path
 
 import sys
-sys.path.append(os.path.join(os.path.dirname(sys.path[0]), 'src'))
-print(sys.path)
+# sys.path.append(os.path.join(os.path.dirname(sys.path[0]), 'src'))
+# print(sys.path)
+
+# Get the path to the 'src' directory
+src_path = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
+
+# Append the path only if it's not already in sys.path
+if src_path not in sys.path:
+    sys.path.append(src_path)
 
 from daffodil.daf import Daf
 from daffodil.keyedlist import KeyedList

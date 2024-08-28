@@ -13,7 +13,14 @@ import sys
 import os
 import gc
 
-sys.path.append(os.path.join(os.path.dirname(sys.path[0]), 'src'))
+# sys.path.append(os.path.join(os.path.dirname(sys.path[0]), 'src'))
+
+# Get the path to the 'src' directory
+src_path = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
+
+# Append the path only if it's not already in sys.path
+if src_path not in sys.path:
+    sys.path.append(src_path)
 
 from daffodil.lib.md_demo import pr, md_code_seg
 

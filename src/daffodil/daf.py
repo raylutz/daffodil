@@ -2507,8 +2507,8 @@ class Daf:
             gkeys:      Union[str, T_ls, slice, int, T_li, Tuple[Any, Any], T_lota, Iterable, None] = None,
             inverse:    bool = False,
             silent_error: bool=False,
-            axis:       str='rowkeys',                # used for status messages only.
-            name:       str='unspecified',           # used for status messages only.
+            axis:       str='rowkeys',              # used for status messages only.
+            name:       str='unspecified',          # used for status messages only.
             ) -> Union[slice, int, T_li, range, None]:
         """
         If keydict is defined, then the idxs can be selected by providing a
@@ -2528,7 +2528,7 @@ class Daf:
                 idxs.append(keydict[gkey])                
             except KeyError:
                 if not silent_error:
-                    logs.sts(f"{logs.prog_loc()} Cannot find key '{gkey}' in {axis} in dataframe '{name}'", 3) 
+                    # logs.sts(f"{logs.prog_loc()} Cannot find key '{gkey}' in {axis} in dataframe '{name}'", 3) 
                     raise 
             
         elif isinstance(gkeys, (list, collections.abc.Iterable)):     # can be list of integer or strings (or anything hashable)
@@ -5186,13 +5186,18 @@ class Daf:
         
         """
 
-        setting_lod = settingsdict.get(setting_name, [])
-        if not setting_lod:
+        setting_lod = settingsdict.get(setting_name, None)
+        if setting_lod is None:
             print(f"{setting_name = } not found in settingdict")
             breakpoint()  # perm
             pass
+            
+        if not setting_lod:
+            return self     # do nothing.
+            
         if isinstance(setting_lod, dict):
             setting_lod = [setting_lod]
+            
         try:    
             setting_daf = Daf.from_lod(setting_lod)
         except Exception:
