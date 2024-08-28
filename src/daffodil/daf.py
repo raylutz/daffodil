@@ -277,7 +277,16 @@ r"""
             Fix value_counts_daf() by adding .to_list for total.
             
     v0.5.5  (pending)
-    
+            add daf_crm.py as demonstration.
+                add op_import() 
+            add get_csv_column_names() as refactoring in daf_utils for reading csv.
+            precheck_csv_cols()
+            compare_lists() -- imported from utils
+            Introduce ops_daf for running operations, can also use in audit-engine.
+                operation descriptions taken from docstring.
+            
+            
+            
             
     TODO
         offer dropping unexpected columns when doing concat/append ??
