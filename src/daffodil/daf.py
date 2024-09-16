@@ -1094,9 +1094,10 @@ class Daf:
     
     
     def apply_dtypes(self, *, 
-            dtypes: Optional[T_dtype_dict]=None, 
-            unflatten: bool=True, 
-            from_str: bool=True
+            dtypes:         Optional[T_dtype_dict]=None, 
+            unflatten:      bool=True, 
+            from_str:       bool=True,
+            default_type:   Type=str,
             ) -> 'Daf':
         """ convert columns of daf array to the datatypes specified in self.dtypes or in passed parameter.
                 dtypes can be a dict where each column may have a different type, or it can be a single type.
@@ -1126,7 +1127,8 @@ class Daf:
         for col in cols:
             if isinstance(self.dtypes, dict):           # this is the normal case, where each column is defined.
                 if col not in self.dtypes:
-                    continue
+                    desired_type = default_type         # type not specified for a column, but it exists, use default_type
+                    self.dtypes[col] = default_type     # make sure self.dtypes is updated.
                 desired_type = self.dtypes[col]
             else:
                 desired_type = self.dtypes              # only one type is defined.
@@ -1136,6 +1138,7 @@ class Daf:
                 ):
                 continue
         
+            # update this column if needed.
             icol = self.hd[col]
             
             for irow in range(len(self.lol)):

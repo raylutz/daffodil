@@ -1403,20 +1403,44 @@ def get_csv_column_names(csv_buff: str) -> List[str]:
 
     
 
+# def preprocess_csv_buff(buff: Union[bytes, str]) -> str:
+    # """ given a buffer which is csv file read without conversion,
+        # perform preprocessing to remove comments and blank lines.
+        # controls in pandas csv do not work very well, such as when
+        # there is a comma in a comment line.
+        
+        # Also, fails to properly comment out lines that have embedded newlines in cells.
+        
+    # """
+    # if isinstance(buff, bytes):
+        # buff = buff.decode("utf-8")
+
+    # lines = buff.splitlines()
+    # lines = [line for line in lines if not is_comment_line(line)]
+    # buff = '\n'.join(lines)
+    
+    # return buff
+
+
 def preprocess_csv_buff(buff: Union[bytes, str]) -> str:
-    """ given a buffer which is csv file read without conversion,
-        perform preprocessing to remove comments and blank lines.
-        controls in pandas csv do not work very well, such as when
-        there is a comma in a comment line.
-    """
+    """Preprocess the buffer to remove comment lines (starting with '#') and blank lines,
+    while preserving embedded newlines and handling quoted content."""
+    
     if isinstance(buff, bytes):
         buff = buff.decode("utf-8")
-
-    lines = buff.splitlines()
-    lines = [line for line in lines if not is_comment_line(line)]
-    buff = '\n'.join(lines)
     
-    return buff
+    output = io.StringIO()
+    reader = csv.reader(io.StringIO(buff), skipinitialspace=True)
+    writer = csv.writer(output)
+    
+    for row in reader:
+        # Check if the first cell starts with '#' without quotes
+        first_cell = row[0].strip() if row else ""
+        
+        if first_cell and not (first_cell.startswith('#') and not first_cell.startswith('"#')):
+            writer.writerow(row)
+    
+    return output.getvalue()
     
     
 def is_comment_line(line: str) -> bool:
