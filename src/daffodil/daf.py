@@ -284,7 +284,8 @@ r"""
             compare_lists() -- imported from utils
             Introduce ops_daf for running operations, can also use in audit-engine.
                 operation descriptions taken from docstring.
-            
+            added 'default_type' to apply_dtypes for any cols not specified in passed dtypes.
+            Improved preprocessing of csv file when line is commented out and embedded newlines exist in the line.
             
             
             
