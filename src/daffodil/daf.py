@@ -286,8 +286,9 @@ r"""
                 operation descriptions taken from docstring.
             added 'default_type' to apply_dtypes for any cols not specified in passed dtypes.
             Improved preprocessing of csv file when line is commented out and embedded newlines exist in the line.
+            Improved Daf.from_lod() by using columns in dtypes dict if provided instead of relying only on first record of lod.
             
-            
+            Added indexing with range and T_lor (list of range) types, for both column and row indexing.
             
     TODO
         offer dropping unexpected columns when doing concat/append ??
@@ -461,6 +462,7 @@ import csv
 import copy
 import re
 import json
+import time
 #import numpy as np
 #from typing_extensions import deprecated       # can't get this to import correctly
 import collections      # to provide collections.abc.Iterable type.
@@ -468,7 +470,7 @@ import collections      # to provide collections.abc.Iterable type.
 sys.path.append(os.path.dirname(os.path.dirname(os.path.realpath(__file__))))
 
 from daffodil.lib.daf_types import T_ls, T_lola, T_di, T_hllola, T_loda, T_da, T_li, T_dtype_dict, \
-                            T_dola, T_dodi, T_la, T_lota, T_doda, T_buff, T_ds, T_lb, T_rli, T_ta
+                            T_dola, T_dodi, T_la, T_lota, T_doda, T_buff, T_ds, T_lb, T_rli, T_ta, T_lor
                      
 import daffodil.lib.daf_utils    as utils
 import daffodil.lib.daf_md       as md
@@ -528,11 +530,12 @@ class Daf:
         else:
             self.hd         = {}
         
+
         if use_copy:
             self.lol        = copy.deepcopy(lol)
         else:
             self.lol        = lol
-        
+            
         if kd is not None:
             self.kd         = kd
         else:
@@ -545,7 +548,7 @@ class Daf:
 
         self._retmode       = retmode       # retmode can be either RETMODE_OBJ or RETMODE_VAL
         self._itermode      = itermode      # itermode can be either ITERMODE_DICT or ITERMODE_KEYEDLIST
-
+        
         # Initialize iterator variables        
         self._iter_index = 0
 
@@ -651,13 +654,6 @@ class Daf:
         return bool(self.num_cols())
 
 
-    def __len__(self):
-        """ Return the number of rows in the Daf instance.
-        """
-        # unit tested
-        return self.num_rows()
-        
-        
     def __format__(self, format_spec):
         # Assuming the current object is a single cell when called in formatting
         # If a format_spec is provided, use it; otherwise, use __str__
@@ -669,17 +665,6 @@ class Daf:
         return self.__str__()
 
 
-    def shape(self):
-        """ return the number of rows and cols in the daf data array
-            number of columns is based on the first record
-        """
-        # test exists in test_daf.py
-        
-        if not len(self): return (0, 0)
-        
-        return (self.num_rows(), self.num_cols()) 
-        
-        
     def __eq__(self, other):
         # test exists in test_daf.py            
 
@@ -697,9 +682,15 @@ class Daf:
         return "\n"+self.md_daf_table_snippet()
     
 
+    #===========================
+    # size and shape
+    
+    # Please note that daffodil supports pre-allocated arrays with None values to speed appending.
+
+
     def num_cols(self) -> int:
         """ return 0 if self.lol is empty.
-            return the length of the first row otherwise.
+            return the max length of the first up to 10 rows otherwise.
             
             this only works well if the array has rows that are all the same length.            
         """
@@ -711,8 +702,14 @@ class Daf:
         return result
 
 
+    def __len__(self):
+        """ Return the number of rows in the Daf instance.
+        """
+        return self.num_rows()
+        
+        
     def num_rows(self):
-        # unit tested
+
         if not self.lol:
             return 0
 
@@ -721,6 +718,17 @@ class Daf:
         
     def len(self):
         return self.num_rows()
+        
+        
+    def shape(self):
+        """ return the number of rows and cols in the daf data array
+            number of columns is based on the first record
+        """
+        # test exists in test_daf.py
+        
+        if not len(self): return (0, 0)
+        
+        return (self.num_rows(), self.num_cols()) 
         
         
     #===========================
@@ -849,7 +857,7 @@ class Daf:
 
         if include_types:
             if not self.dtypes:
-                breakpoint()  # perm
+                breakpoint() #perm
                 pass
                 raise RuntimeError
                 
@@ -859,7 +867,7 @@ class Daf:
 
         if exclude_types:
             if not self.dtypes:
-                breakpoint()  # perm
+                breakpoint() #perm
                 pass
                 raise RuntimeError
                 
@@ -1169,7 +1177,7 @@ class Daf:
             
         if not self.hd:     # pragma: no cover
             # should not be the case. Logic error.
-            breakpoint()   # perm
+            breakpoint() #perm
             pass
             raise RuntimeError
             
@@ -1336,6 +1344,7 @@ class Daf:
         """ Create Daf instance from loda type, adopting dict keys as column names
             Generally, all dicts in records_lod should be the same OR the first one must have all keys
                 and others can be missing keys.
+            However, if dtypes is provided, it will be used to establish the columns.
         
             test exists in test_daf.py
             
@@ -1347,9 +1356,12 @@ class Daf:
         if not records_lod:
             return cls(keyfield=keyfield, dtypes=dtypes)
         
-        cols = list(records_lod[0].keys())
+        if not dtypes:
+            cols = list(records_lod[0].keys())
+        else:
+            cols = list(dtypes.keys())
         
-        # from utilities import utils
+        # is this better than just appending dicts?
         
         lol = [list(utils.set_cols_da(record_da, cols).values()) for record_da in records_lod if record_da and isinstance(record_da, dict)]
         
@@ -1945,8 +1957,14 @@ class Daf:
         """
         # test exists in test_daf.py for all three cases
         
+        diagnose = False
+        
         if not data_item:
             return self
+        
+        if diagnose:
+            start_time = time.time()
+            logs.sts(f"{logs.prog_loc()} starting append.", 3)
         
         if isinstance(data_item, (dict, KeyedList)):
             self.record_append(data_item)
@@ -1984,6 +2002,9 @@ class Daf:
             self.concat(data_item)
         else:    
             raise RuntimeError    # pragma: no cover
+
+        if diagnose:
+            logs.sts(f"{logs.prog_loc()} append done. Elapsed: {(time.time() - start_time):.10f}", 3)
             
         return self
         
@@ -2017,7 +2038,7 @@ class Daf:
         # fields must match exactly!
         if self.hd != other_instance.hd:
             print(f"keys mismatch: daf: ({list(self.hd.keys())}) \nother_instance: ({list(other_instance.hd.keys())})")
-            breakpoint()    # perm -- assertion break
+            breakpoint() #perm -- assertion break
             raise KeyError
         
         # simply append the rows from daf.lol to the end of self.lol
@@ -2120,7 +2141,7 @@ class Daf:
         elif isinstance(record, dict):    
             rec_la = list(record.values())  # must copy into a list.
         else:
-            breakpoint() # perm
+            breakpoint() #perm
             
         if self.keyfield:
             keyval = self._get_keyval(record)        
@@ -2210,9 +2231,9 @@ class Daf:
     #               in the companion file indexing.py
 
     def __getitem__(self,
-            slice_spec:   Union[slice, int, str, T_li, T_ls,  
-                                Tuple[  Union[slice, int, str, T_li, T_ls, Tuple[str, str]], 
-                                        Union[slice, int, str, T_li, T_ls, Tuple[str, str]]]],
+            slice_spec:   Union[slice, int, str, T_li, T_ls, range, T_lor,
+                                Tuple[  Union[slice, int, str, T_li, T_ls, range, T_lor, Tuple[str, str]], 
+                                        Union[slice, int, str, T_li, T_ls, range, T_lor, Tuple[str, str]]]],
             ) -> Any:
 
         if isinstance(slice_spec, tuple) and len(slice_spec) == 2:
@@ -2228,18 +2249,19 @@ class Daf:
         if row_spec == slice(None, None, None):    
             row_spec = None
             
-        if isinstance(row_spec, (int, slice)) or utils.is_list_of_type(row_spec, int):
+        if isinstance(row_spec, (int, slice, range)) or utils.is_list_of_type(row_spec, (int, range)):
             sel_rows_daf = self.select_irows(irows=row_spec)
             
         elif isinstance(row_spec, str) or utils.is_list_of_type(row_spec, str):
             sel_rows_daf = self.select_krows(krows=row_spec)
+
         else:
             sel_rows_daf = self
 
         if col_spec is None:
             ret_daf = sel_rows_daf
         else:
-            if isinstance(col_spec, (int, slice)) or  utils.is_list_of_type(col_spec, int):
+            if isinstance(col_spec, (int, slice, range)) or  utils.is_list_of_type(col_spec, (int, range)):
                 ret_daf = sel_rows_daf.select_icols(icols=col_spec)
                 
             elif isinstance(col_spec, str) or utils.is_list_of_type(col_spec, str):
@@ -2251,9 +2273,9 @@ class Daf:
     
         
     def __setitem__(self,
-            slice_spec:   Union[slice, int, str, T_li, T_ls, T_lb,
-                                Tuple[  Union[slice, int, str, T_li, T_ls, T_lb, Tuple[Any, Any]], 
-                                        Union[slice, int, str, T_li, T_ls, T_lb, Tuple[Any, Any]]]],
+            slice_spec:   Union[slice, int, str, range, T_li, T_ls, T_lb, T_lor,
+                                Tuple[  Union[slice, int, str, range, T_lor, T_li, T_ls, T_lb, Tuple[Any, Any]], 
+                                        Union[slice, int, str, range, T_lor, T_li, T_ls, T_lb, Tuple[Any, Any]]]],
             value: Any,
             ) -> 'Daf':
 
@@ -2271,13 +2293,13 @@ class Daf:
         if isinstance(row_spec, (str, tuple)) or utils.is_list_of_type(row_spec, str):
             irows = self.krows_to_irows(krows = row_spec)
             
-        elif isinstance(row_spec, (int, slice)) or utils.is_list_of_type(row_spec, int):
+        elif isinstance(row_spec, (int, slice, range)) or utils.is_list_of_type(row_spec, (int, range)):
             irows = row_spec
             
         if col_spec and isinstance(col_spec, (str, tuple)) or utils.is_list_of_type(col_spec, str):
             icols = self.kcols_to_icols(kcols = col_spec)
             
-        elif isinstance(col_spec, (int, slice)) or utils.is_list_of_type(col_spec, int):
+        elif isinstance(col_spec, (int, slice, range)) or utils.is_list_of_type(col_spec, (int, range)):
             icols = col_spec
         else:
             icols = None
@@ -2506,12 +2528,12 @@ class Daf:
                 return []
         
         return type(self).gkeys_to_idxs(
-                    keydict = self.hd,
-                    gkeys = kcols,
-                    inverse = inverse,
-                    silent_error=silent_error,
-                    axis='colnames',     # for error message only
-                    name=self.name,
+                    keydict         = self.hd,
+                    gkeys           = kcols,
+                    inverse         = inverse,
+                    silent_error    = silent_error,
+                    axis            = 'colnames',     # for error message only
+                    name            = self.name,
                     )
                     
     @staticmethod
@@ -2599,9 +2621,9 @@ class Daf:
         
 
     def select_krows(self, 
-            krows: Union[slice, str, T_la, int, T_lota, Tuple[Any, Any], Iterable, None], 
-            inverse: bool=False,
-            silent_error: bool=False,
+            krows:          Union[slice, str, T_la, int, T_lota, Tuple[Any, Any], Iterable, None], 
+            inverse:        bool=False,
+            silent_error:   bool=False,
             ) -> 'Daf':
     
         irows = self.krows_to_irows( 
@@ -2615,10 +2637,10 @@ class Daf:
     
     
     def select_kcols(self, 
-            kcols: Union[slice, str, T_la, int, Tuple[Any, Any], None], 
-            inverse: bool=False, 
-            flip: bool=False,
-            silent_error: bool=False,
+            kcols:          Union[slice, str, T_la, int, Tuple[Any, Any], None], 
+            inverse:        bool=False, 
+            flip:           bool=False,
+            silent_error:   bool=False,
             ) -> 'Daf':
     
         icols = self.kcols_to_icols( 
@@ -2629,7 +2651,7 @@ class Daf:
         return self.select_icols(icols, flip=flip)
     
     
-    def select_irows(self, irows: Union[slice, int, T_li, range, Iterable, None], invert: bool=False) -> 'Daf':
+    def select_irows(self, irows: Union[slice, int, T_li, range, T_lor, Iterable, None], invert: bool=False) -> 'Daf':
         """ select rows from daf and return a new instance.
             This is an efficient opeation. The array in the new instance
             uses references to selected rows in the original array.
@@ -2648,17 +2670,25 @@ class Daf:
             else:
                 row_sliced_lol.pop(irows)
         
-        elif irows and isinstance(irows, list) and utils.is_list_of_type(irows, int):
-                
-            if not invert:
-                row_sliced_lol = [self.lol[i] for i in irows]
-            else:
-                if len(irows) > 10:
-                    irows_iter = dict.fromkeys(irows)
+        elif irows and isinstance(irows, list):
+        
+            if utils.is_list_of_type(irows, int):                
+                if not invert:
+                    row_sliced_lol = [self.lol[i] for i in irows]
                 else:
-                    irows_iter = irows
-                row_sliced_lol = [self.lol[i] for i in range(len(self.lol)) if i not in irows_iter]
+                    if len(irows) > 10:
+                        irows_iter = dict.fromkeys(irows)
+                    else:
+                        irows_iter = irows
+                    row_sliced_lol = [self.lol[i] for i in range(len(self.lol)) if i not in irows_iter]
             
+            elif utils.is_list_of_type(irows, range):
+                rows_lor = irows    # just a name change
+                if not invert:
+                    row_sliced_lol = [self.lol[i] for irange in rows_lor for i in irange]
+                else:
+                    row_sliced_lol = [self.lol[i] for i in range(len(self.lol)) if not any(i in r for r in rows_lor)]
+                
         elif irows and isinstance(irows, (range, collections.abc.Iterable)):
             if not invert:
                 row_sliced_lol = [self.lol[i] for i in irows]
@@ -2677,7 +2707,7 @@ class Daf:
         return new_daf
     
     
-    def select_icols(self, icols: Union[slice, int, T_li, range, None], flip: bool=False) -> 'Daf':
+    def select_icols(self, icols: Union[slice, int, T_li, range, T_lor, None], flip: bool=False) -> 'Daf':
         """ select cols from daf and return a new instance.
             This is not an efficient operation and can normally be avoided except when:
                 reading/writing data, then columns may need to be dropped.
@@ -2686,7 +2716,7 @@ class Daf:
             instead, use the cols parameter to select the columns included
                 in operations like apply() and reduce()
             
-            icols: can be either a slice, int, range, or list of integers. These
+            icols: can be either a slice, int, range, list of integers, or list of ranges. These
                     refer to column indices that are inherent in the lol structure.
                     
             flip: if True, then the columns selected are turned into rows.
@@ -2726,7 +2756,7 @@ class Daf:
                 col_sliced_lol = [[row[icol] for row in self.lol]
                                         for icol in icols_range]
                 
-        elif isinstance(icols, (list, range)) and icols and isinstance(icols[0], int):
+        elif isinstance(icols, (list, range)) and icols and utils.is_list_of_type(icols, int):
             # list of integers:
             if not flip:
                 col_sliced_lol = [[row[icol] for icol in icols]
@@ -2737,6 +2767,23 @@ class Daf:
             else: # flip
                 col_sliced_lol = [[row[icol] for row in self.lol]
                                         for icol in icols]
+                                    
+        # this part needs to be tested!                                    
+        elif isinstance(icols, list) and icols and utils.is_list_of_type(icols, range):
+            # list of ranges:
+            cols_lor = icols # name change only.
+            if not flip:
+                # Flatten ranges into individual column indices
+                col_sliced_lol = [[row[icol] for irange in cols_lor for icol in irange]
+                                        for row in self.lol]
+                if orig_cols:
+                    # Also handle orig_cols, slicing them similarly
+                    sliced_cols = [orig_cols[icol] for irange in cols_lor for icol in irange]
+            
+            else:  # flip
+                # Flip logic, slice columns and then rows, based on ranges
+                col_sliced_lol = [[row[icol] for row in self.lol]
+                                        for irange in cols_lor for icol in irange]
         else:
             if not flip:
                 return self
@@ -2744,7 +2791,7 @@ class Daf:
                 col_sliced_lol = [[row[icol] for row in self.lol]
                                         for icol in range(self.num_cols())]
                 sliced_cols = []
-            
+    
         # fix up the dtypes and reset the keyfield if it is no longer in the daf.
         if sliced_cols:
             new_dtypes = {col:orig_dtypes[col] for col in orig_dtypes if col in sliced_cols}
@@ -2783,10 +2830,10 @@ class Daf:
         if not self:
             return {}
         
-        if not self.keyfield:
-            logs.sts(f"{logs.prog_loc()} LOGIC ERROR. No keyfield is defined, required for select_record():\n{self}")
+        if not self.keyfield and not self.kd:
+            logs.sts(f"{logs.prog_loc()} LOGIC ERROR. No keyfield and no kd is defined, required for select_record():\n{self}")
             #breakpoint()    # temp
-            raise RuntimeError ("No keyfield is defined, required for select_record()")
+            raise RuntimeError ("No keyfield and no kd is defined, required for select_record()")
             
         if key in self.kd:
             return self._basic_get_record(self.kd[key])
@@ -3079,7 +3126,9 @@ class Daf:
         remove records that have the same keyfield and return two daf arrays,
         uniques_daf, dups_daf. 
         
-        Please note that this does NOT compare wall components, only the keyfields.
+        Please note that this does NOT compare all components, only the keyfields.
+        
+        Returns unique_daf array with keyfield set and duplicates_daf, which may have repeats.
                
         """
         num_rows_orig = self.num_rows()
@@ -3666,14 +3715,14 @@ class Daf:
                 rather than     ['0', '10', '100', '8', '99']
             
         """
-        if not self:
+        if not self or len(self) <= 1:
             return self
         
         try:
             colidx = self.hd[colname]
         except Exception as err:
             print(f"{err}")
-            breakpoint()    # assertion break
+            breakpoint() #perm # assertion break
             pass
             
         self.lol = utils.sort_lol_by_col(self.lol, colidx, reverse=reverse, length_priority=length_priority)
@@ -3690,16 +3739,19 @@ class Daf:
                 ie.             ['10', '99', '8', '100', '0'] 
                 will sort to    ['0', '8', '10', '99', '100']
                 rather than     ['0', '10', '100', '8', '99']
+                
+            Note: consider deprecating. Can accomplish with some loss of efficiency as:
+                sort_by_colname('colname1').sort_by_colname('colname2')
             
         """
-        if not self:
+        if not self or len(self) <= 1:
             return self
         
         try:
             colidxs = [self.hd[colname] for colname in colnames]
         except Exception as err:
             print(f"{err}")
-            breakpoint()    # assertion break
+            breakpoint() #perm # assertion break
             pass
             
         self.lol = utils.sort_lol_by_cols(self.lol, colidxs, reverse=reverse, length_priority=length_priority)
@@ -4765,7 +4817,7 @@ class Daf:
                     reduction_da = func(row_da, reduction_da, cols_iter, **kwargs)
                 except Exception as err:
                     print(f"err = {err}")
-                    breakpoint()    # perm: investigate why reduction function not working
+                    breakpoint() #perm: investigate why reduction function not working
                     pass
                 # def count_values_da(row_da: T_da, reduction_da: T_da, cols_iter: Iterable, omit_nulls: bool=False) -> T_dodi:
                 # def sum_da         (row_da: T_da, reduction_da: T_da, cols_iter: Iterable, astype: Optional[Type]=None, diagnose:bool=False
@@ -5186,16 +5238,26 @@ class Daf:
                     this_daf            = biabif_daf, 
                     settingsdict        = argsdict, 
                     setting_name        = 'daf_replace_regex_spec', 
-                    setting_select_dict = {'spec_name':archive_basename},
+                    setting_select_dict = {'spec_name': archive_basename},
                     )
         
                 cvrbif_daf = daf_utils.alter_daf_per_setting(
                     this_daf            = cvrbif_daf, 
                     settingsdict        = argsdict, 
                     setting_name        = 'daf_replace_regex_spec', 
-                    setting_select_dict = {'spec_name':cvr_fn},
+                    setting_select_dict = {'spec_name': cvr_fn},
                     )
         
+        daf_replace_regex_spec: 
+            list of replace regex specs to apply to biabif, cvrbif, and cvrvotes, specific to each 
+            archive or cvr file. Can use to alter ballotids if duplicate names do not reference 
+            the same ballot. Format is {'spec_name':archive_filename, "colname"="colname str", 
+            replace_regex="replace regex str"}. 
+            
+            Apply replace regex to ballotids in biabif from specified archive, or cvrbif or cvrvotes 
+            from specified cvr fn.  replace_regex is like "/findstr/replstr/
+            
+        The action is to filter to 'spec_name' in colname, and then apply the replace regex.
         
         """
 

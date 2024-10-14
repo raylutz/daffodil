@@ -101,7 +101,7 @@ def set_cols_da(da: T_da, cols: T_ls, default: Any='') -> T_da:
 
 def select_col_of_lol_by_col_idx(lol: T_lola, col_idx: int) -> T_la:
     """
-    select a row and col from lol
+    select a col from lol
     
     Note: this creates a new object.
         
@@ -111,7 +111,7 @@ def select_col_of_lol_by_col_idx(lol: T_lola, col_idx: int) -> T_la:
         result_la = [la[col_idx] for la in lol]
     except IndexError:
         pass
-    
+        
     return result_la
     
 
@@ -160,6 +160,8 @@ def json_encode(data_item: Any, indent: Optional[int]=None) -> str:
     # use ensure_ascii=False
     # encoding="utf-8" is not supported.
     # if indent is left as None, there is no indenting.
+    # @TODO use orjson.
+    
     if data_item is None:
         return ''
     return json.dumps(data_item, cls=NpEncoder, default=str, indent=indent, ensure_ascii=False)    
@@ -196,18 +198,23 @@ def xlsx_to_csv(xlsx: bytes, sheetname: Optional[str]=None, add_trailing_blank_c
         Additional blank columns are added so all rows have the same number of values.
         xlsx2csv returns minimal records, stopping when the last value is filled.
     """
+    diagnose = False
     
     buff = io.BytesIO(xlsx)
     buff_out = io.StringIO()
-    sts("Converting using xlxs2csv...", 3)
+    if diagnose:
+        sts("Converting using xlxs2csv...", 3)
     xlsx2csv.Xlsx2csv(buff, outputencoding="utf-8").convert(buff_out, sheetname=sheetname)
-    sts(f"Conversion to buff_out completed: {len(buff_out.getvalue())} bytes.", 3)
+    if diagnose:
+        sts(f"Conversion to buff_out completed: {len(buff_out.getvalue())} bytes.", 3)
 
     buff_out.seek(0)
     if add_trailing_blank_cols:
-        sts("Adding trailing columns...", 3)
+        if diagnose:
+            sts("Adding trailing columns...", 3)
         buff_out = io.StringIO(add_trailing_columns_csv(buff_out.getvalue()))
-        sts(f"Trailing Columns added: {len(buff_out.getvalue())} bytes.", 3)
+        if diagnose:
+            sts(f"Trailing Columns added: {len(buff_out.getvalue())} bytes.", 3)
     return buff_out.getvalue().encode('utf-8')
 
 
@@ -294,7 +301,7 @@ def insert_col_in_lol_at_icol(icol: int=-1, col_la: Optional[T_la]=None, lol: Op
         row_la.insert(icol, val)
         
         if len(row_la) == num_cols:
-            breakpoint()    # perm Should never happen, insert should add a column.
+            breakpoint() #perm Should never happen, insert should add a column.
             pass        
         
     return lol
@@ -1511,9 +1518,10 @@ def path_sep_per_os(path: str, sep: Optional[str]=None) -> str:
         return re.sub(r'/', r'\\', path)
 
 
-def is_list_of_type(test_item: Any, of_type: Type) -> bool:
+def is_list_of_type(test_item: Any, of_type: Union[Type, Tuple[Type, ...]]) -> bool:
 
     # test if test_item is T_ls and it is not empty.
+    # Can use of_type is tuple, such as is_list_of_type(test_list, (range, int))
 
     if test_item and isinstance(test_item, list) and isinstance(test_item[0], of_type):
         return True
@@ -1567,7 +1575,7 @@ def slice_to_range(slice_obj, length):
         try:
             return range(slice_obj.start or 0, stop, slice_obj.step or 1)
         except Exception:
-            breakpoint()    # perm
+            breakpoint() #perm
             pass
 
 

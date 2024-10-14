@@ -292,8 +292,8 @@ class TestDaf(unittest.TestCase):
         from_to_dict = {'Col1': 'NewCol1', 'Col3': 'NewCol3'}
         daf.rename_cols(from_to_dict)
         
-        # Check if keyfield is updated correctly
-        self.assertEqual(daf.keyfield, 'NewCol1')
+        # Check if keyfield is updated correctly -- requires manual updating of keyfield
+        self.assertEqual(daf.keyfield, '')
         
 
     # set_cols
@@ -686,7 +686,7 @@ class TestDaf(unittest.TestCase):
             'row_0': {'rowkey': 'row_0', 'data1': 1, 'data2': 2},
             'row_1': {'rowkey': 'row_1', 'data1': 11, 'data2': 22},
         }
-        dtypes = {'data1': int, 'data2': float}
+        dtypes = {'rowkey': str, 'data1': int, 'data2': float}
         daf = Daf.from_dod(dod, keyfield='rowkey', dtypes=dtypes)
         self.assertEqual(daf.columns(), ['rowkey', 'data1', 'data2'])
         self.assertEqual(daf.lol, [['row_0', 1, 2.0], ['row_1', 11, 22.0]])

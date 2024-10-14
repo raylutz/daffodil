@@ -534,7 +534,9 @@ Instead, use .apply() or .reduce() and handle any manipulations without dropping
       `my_daf[2:4]`      -- select rows 2 and 3, including all columns, return as daf.
       `my_daf[2:4, :]`   -- same as above
       `my_daf[:, 3:5]`   -- select columns 3 and 4, including all rows, return as daf.
+      `my_daf[:, range(2,6)]`   -- select columns 2,3,4,5, including all rows, return as daf.
       `my_daf[[2,4,6]]`  -- return rows with indices 2,4,6 as daf array.
+      `my_daf[range(2,6)]`  -- return rows with indices 2,3,4,5 as daf array.
       `my_daf[:, [1,3,5]]` -- return columns with indices 1,3,5 as daf array.
       `my_daf[['row5','row6','row7']]` -- return rows with keyfield values 'row5','row6','row7'
       `my_daf[:, ['col1', 'col3', 'col5']]` -- return columns with column names 'col1', 'col3', 'col5'
@@ -589,6 +591,7 @@ Here are some examples.
      my_daf[irow, icol] = value       -- set cell irow, icol to value, where irow, icol are integers.
      my_daf[irow, start:end] = value  -- set a value in cells in row irow, from columns start to end.
      my_daf[irow, start:end] = list   -- set values from a list in cells in row irow, from columns start to end.
+     my_daf[irow, range] = list       -- set values from a list in cells in row irow, from columns in range.
      my_daf[:, icol] = list           -- assign the entire column at index icol to the list provided.
      my_daf[start:end, icol] = list   -- assign a partial column at index icol to list provided.
      my_daf[irow, colname] = value    -- set a value in cell irow, col, where colname is a string.
