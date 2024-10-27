@@ -291,6 +291,8 @@ r"""
             Added indexing with range and T_lor (list of range) types, for both column and row indexing.
             Added __contains__ method to allow " if key in my_daf: " to test if a given key exists. Requires kd exists.
             revised .sum_da() based on feedback from user group.
+            Improve formatting of README.md to include tables of examples.
+            improve daf_benchmarks.py to use objsize instead of pympler to evaluate memory use.
             
     TODO
         offer dropping unexpected columns when doing concat/append ??
