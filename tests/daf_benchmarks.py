@@ -2,11 +2,14 @@
 
 # copyright (c) 2024 Ray Lutz
 
+# 2024-10-26 -- changed safe_sizeof() to use objsize.get_deep_size() instead of pympler.asizeof.asizeof()
+
 import pandas as pd
 from typing import List, Dict, Optional, Any, Tuple
 import timeit
 import numpy as np
-from pympler import asizeof
+#from pympler import asizeof
+import objsize
 from collections import namedtuple
 import sqlite3
 import sys
@@ -141,20 +144,20 @@ def lont_sum_cols(lont, cols: Optional[List[str]] = None) -> Dict[str, int]:
     return result
     
     
-def lod_to_hdlol(lod: List[Dict[str, Any]]) -> Tuple[Dict[str, int], List[List[Any]]]:
+# def lod_to_hdlol(lod: List[Dict[str, Any]]) -> Tuple[Dict[str, int], List[List[Any]]]:
 
-    header_di = {col_name: index for index, col_name in enumerate(lod[0].keys())}
-    lol = [list(d.values()) for d in lod]
+    # header_di = {col_name: index for index, col_name in enumerate(lod[0].keys())}
+    # lol = [list(d.values()) for d in lod]
     
-    return (header_di, lol)
+    # return (header_di, lol)
     
     
-def lod_to_hllol(lod: List[Dict[str, Any]]) -> Tuple[List[str], List[List[Any]]]:
+# def lod_to_hllol(lod: List[Dict[str, Any]]) -> Tuple[List[str], List[List[Any]]]:
 
-    header_ls = list(lod[0].keys())
-    lol = [list(d.values()) for d in lod]
+    # header_ls = list(lod[0].keys())
+    # lol = [list(d.values()) for d in lod]
     
-    return (header_ls, lol)
+    # return (header_ls, lol)
     
     
 def lod_to_hdnpa(lod: List[Dict[str, Any]]):
@@ -490,10 +493,12 @@ def sqlite_selectrow(table_name, key_col='rowkey', value='500'):
 def safe_sizeof(obj: Any) -> int:
 
     try:
-        size = asizeof.asizeof(obj)
+        size = objsize.get_deep_size(obj)
     except Exception as err:
-        print(f"Encountering exception in pympler asizeof() function: {err}")
+        print(f"Encountering exception in objsize.get_deep_size() function: {err}")
         size = 0
+        breakpoint()
+        
         pass
     return size
 
@@ -599,15 +604,6 @@ This series of tests compares the speed of converting Python lod structure to Pa
     md_report += pr(f"kdaf:\n{sample_kdaf}\n\n"
                     f"{sizeof_di['kdaf']=:,} bytes\n\n")
 
-    ## # create hdlol
-    ## md_report += md_code_seg("Create hdlol from lod")
-    ## hdlol = lod_to_hdlol(sample_lod)
-    ## safe_sizeof(hdlol)
-
-    ## create hllol
-    ## print("creating hllol from lod")
-    ## hllol = lod_to_hllol(sample_lod)
-
     md_report += md_code_seg("Create Pandas df")
     """ Here we use an unadorned basic pre-canned Pandas function to construct the dataframe,
         but to make sure it may take advantage of the fact that all data is integers, we provide
@@ -625,7 +621,7 @@ This series of tests compares the speed of converting Python lod structure to Pa
     md_report += md_code_seg("Create Pandas csv_df from Daf thru csv")
     """ Create a Pandas DataFrame by convering Daf through a csv buffer.
 
-We found tha twe could save a lot of time by converting the data to a csv buffer and then 
+    We found tha twe could save a lot of time by converting the data to a csv buffer and then 
     importing that buffer into Pandas. This does not make a lot of sense, but it is true.
     But it is slightly more wasteful in terms of space than the direct conversion.
     """
@@ -800,12 +796,6 @@ gc.disable()
     print(f"numpy from pandas df            {ms:.4f} ms")
 
 
-    ## print(f"lod_to_hdlol()            {loops} loops: {timeit.timeit('lod_to_hdlol(sample_lod)', setup=setup_code, globals=globals(), number=loops):.4f} secs")
-    ## print(f"lod_to_hllol()            {loops} loops: {timeit.timeit('lod_to_hllol(sample_lod)', setup=setup_code, globals=globals(), number=loops):.4f} secs")
-    ## print(f"hdlol_to_df()             {loops} loops: {timeit.timeit('hdlol_to_df(hdlol)',       setup=setup_code, globals=globals(), number=loops):.4f} secs")
-    ## print(f"lod_to_lont()              {loops} loops: {timeit.timeit('lod_to_lont(sample_lod)',  setup=setup_code, globals=globals(), number=loops):.4f} secs")
-    ## print(f"lod_to_hdlot()             {loops} loops: {timeit.timeit('lod_to_hdlot(sample_lod)', setup=setup_code, globals=globals(), number=loops):.4f} secs")
-
     print("\nMutations:")
 
     sample_daf.retmode = 'val'
@@ -892,17 +882,6 @@ gc.disable()
     gc.enable()
     print(f"daf.transpose()                 {ms:.4f} ms")
 
-    ##print(f"lod_sum_cols2()             {loops} loops: {timeit.timeit('lod_sum_cols2(sample_lod)',setup=setup_code, globals=globals(), number=loops):.4f} secs")
-    ##print(f"lont_sum_cols()            {loops} loops: {timeit.timeit('lont_sum_cols(lont)',      setup=setup_code, globals=globals(), number=loops):.4f} secs")
-    ##print(f"hdnpa_sum_cols()            {loops} loops: {timeit.timeit('hdnpa_sum_cols(hdnpa)',    setup=setup_code, globals=globals(), number=loops):.4f} secs")
-    ## print(f"hdlol_sum_cols()          {loops} loops: {timeit.timeit('hdlol_sum_cols(hdlol)',    setup=setup_code, globals=globals(), number=loops):.4f} secs")
-    ##print(f"hllol_sum_cols()          {loops} loops: {timeit.timeit('hllol_sum_cols(hllol)',    setup=setup_code, globals=globals(), number=loops):.4f} secs")
-    ##print(f"hllol_sum_cols2()         {loops} loops: {timeit.timeit('hllol_sum_cols2(hllol)',    setup=setup_code, globals=globals(), number=loops):.4f} secs")
-    ##print(f"hdlot_sum_cols()           {loops} loops: {timeit.timeit('hdlot_sum_cols(hdlot)',    setup=setup_code, globals=globals(), number=loops):.4f} secs")
-
-    ## print(f"transpose_hdlol()         {loops} loops: {timeit.timeit('transpose_hdlol(hdlol)',   setup=setup_code, globals=globals(), number=loops):.4f} secs")
-    ## print(f"transpose_hdlol2()        {loops} loops: {timeit.timeit('transpose_hdlol2(hdlol)',  setup=setup_code, globals=globals(), number=loops):.4f} secs")
-
     print("\nTime for lookups:")
 
     #report_daf['keyed lookup', 'loops']    = 
@@ -949,7 +928,9 @@ gc.disable()
                         'lod':      sizeof_di['klod']   / MB,
                         })
 
-    md_report += "### Summary of times (ms) and Sizes (MB)\n\n" + report_daf.to_md(smart_fmt = True, just = '>^^^^^') + "\n\n"
+    md_report += f"\n### Summary of times (ms) and Sizes (MB)\n\n{report_daf.to_md(smart_fmt = True, just = '>^^^^^')}\n\n"
+    
+    #md_report += f"\n### Raw data for purposes of obtaining a plot using AI:\n\n{report_daf.to_json()}\n\n"
     
     """
     
@@ -959,14 +940,15 @@ Notes:
     longer to load an array vs. Daffodil directly. Since Pandas is very slow appending rows, it is a common pattern to
     first build a table to list of dictionaries (lod), and then port to a pandas df. But
     the overhead is so severe that it will take at least 30 column operations across all columns to make
-    up the difference, and so it is commonly better to avoid Pandas altogether, particular in repetitive operations.
+    up the difference, and so it is commonly better to avoid Pandas altogether, particular in repetitive operations.<br>
 2. `to_pandas_df_thru_csv()` -- This exports the array to csv in a buffer, then reads the buffer into Pandas,
-    and can improve the porting to pandas df by about 10x.
+    and can improve the porting to pandas df by nearly 10x.<br>
 3. `sum_cols()` uses best python summing of all columns with one pass through the data, while `sum_np` first
     exports the columns to NumPy, performs the sum of all columns there, and then reads it back to Daf. In this case,
     it takes about 1/3 the time to use NumPy for summing. This demonstrates that using NumPy for 
     strictly numeric operations on columns may be a good idea if the number of columns and rows being summed is
-    sufficient. Otherwise, using Daffodil to sum the columns may still be substantially faster.
+    sufficient. Otherwise, using Daffodil to sum the columns may still be substantially faster.<br>
+    Note: daf_sum2() has an interesting simple change in the code and it results in over 10x increase in time (under study!)<br>
 4. Transpose: Numpy performs a transposition without creating a separate copy of the array in memory. Instead, it returns a 
     view of the original array with the dimensions rearranged. It is a constant-time operation, as it simply 
     involves changing the shape and strides of the array metadata without moving any of the actual data in 
@@ -974,24 +956,23 @@ Notes:
     accelerate transposition within Daffodil using python and of non-numeric objects by using a similar strategy
     with the references to objects that Python uses. Transpose with Daffodil is slow right now but there may be
     a way to more quickly provide the transpose operation if coded at a lower level. If columns are selected or dropped,
-    a transposition (set flip=True) is 'free' because any column manipulation in Daffodil is relatively difficult.
-5. In general, we note that Daffodil is faster than Pandas for array manipulation (inserting rows (300x faster) 
-    and cols (1.4x faster)), performing actions on individual cells (5x faster), appending rows (which Pandas essentially outlaws), 
-    and performing keyed lookups (8.4x faster). Daffodil arrays are smaller 
-    whenever any strings are included in the array by about 3x over Pandas. While Pandas and Numpy
-    are faster for columnar calculations, Numpy is always faster on all numeric data. Therefore
+    a transposition (set flip=True) is 'free' because any column manipulation in Daffodil is relatively difficult.<br>
+5. In general, we note that Daffodil is faster than Pandas for array manipulation (inserting rows (94x faster) 
+    and cols (20% faster)), appending rows (which Pandas essentially outlaws), 
+    and performing keyed lookups (10x faster). Daffodil arrays are smaller 
+    whenever any strings are included in the array to about half that of Pandas, as a Pandas array will explode by 5x when a 
+    single string column is added for indexing.  While Pandas and Numpy
+    are far faster for columnar calculations, Numpy is always faster on all numeric data. Therefore
     it is a good strategy to use Daffodil for all operations except for pure data manipulation, and then
-    port the appropriate columns to NumPy. 
-6. Thus, the stragegy of Daffodil vs Pandas is that Daffodil leaves data in Python native form, which requires no 
-    conversion for all cases except when rapid processing is required, and then the user should export only those
+    port the appropriate columns to NumPy. <br>
+6. The stragegy of Daffodil compared with Pandas is that Daffodil leaves data in Python native form, which requires no 
+    conversion, and is smaller if there are any strings involved. This is a benefit for all cases except when rapid 
+    and repeated numeric processing is required, and then the user should export only those
     columns to Numpy. In contrast, Pandas converts all columns to Numpy, and then has to repair the columns that
     have strings or other types. Daffodil is not a direct replacement for Pandas which is still going to be a good choice
-    for interactive data exploration and where data already exists and is not being built by any Python code.
+    when data already exists and is not being built by any Python code, and there is no need to change world view.
+7. Programmers should avoid unnecessary transitions between Python and Pandas if time is of concern.
     
-Note, for kdf (pandas dataframe with one string column used as a row key) the size is not being calculated
-properly if it shows up as 0 due to a new bug exposed in Pympler asizeof function. This should be resolved
-with a new version of Pympler. Pympler provides honest sizes of objects by exploring all objest using ast.
-
 """    
 
     md_code_seg()

@@ -49,7 +49,7 @@ Here we generate a table using a python list-of-dict structure,
 
 
 Generated sample_lod with 1000 records
-- sizeof_di['lod']=114,040,872 bytes
+- sizeof_di['lod']=54,040,856 bytes
 
 
 ## Create sample_klod
@@ -75,7 +75,7 @@ sample_klod is similar to sample_lod but it has a first column
 
 
 Generated sample_klod with 1000 records
-- sizeof_di['klod']=114,096,928 bytes
+- sizeof_di['klod']=54,092,746 bytes
 
 
 ## Create daf from sample_lod
@@ -111,7 +111,7 @@ daf:
 \[1000 rows x 1000 cols; keyfield=''; 0 keys ] (Daf)
 
 
-sizeof_di['daf']=40,180,216 bytes
+sizeof_di['daf']=36,119,226 bytes
 
 
 ## Create kdaf from sample_klod
@@ -144,7 +144,7 @@ kdaf:
 \[1000 rows x 1001 cols; keyfield='rowkey'; 1000 keys ] (Daf)
 
 
-sizeof_di['kdaf']=40,302,040 bytes
+sizeof_di['kdaf']=36,233,971 bytes
 
 
 ## Create Pandas df
@@ -167,30 +167,30 @@ Here we use an unadorned basic pre-canned Pandas function to construct the dataf
 
 
 
-```     Col0  Col1  Col2  Col3  Col4  Col5  Col6  Col7  Col8  Col9  Col10  Col11  ...  Col988  Col989  Col990  Col991  Col992  Col993  Col994  Col995  Col996  Col997  Col998  Col999
-0      51    92    14    71    60    20    82    86    74    74     87     99  ...      43      24      16      12      83      24      67       9      66      17      99      85
-1      33     7    39    82    41    40     5    51    25    63     97     58  ...      10      44      88      32      40       7      10      85      50      87      40      16
-2      75    45    31    78    79    53    85    91    19    32     73     39  ...      55      82      57       3       3      19       9      23      98      25      36      84
-3      53    20    73    37    45     3    59    56    44    19     16     70  ...      33      44      60      82      15      65      39      16      33      15      59      65
-4      65    89    12    55    30    33    38    66     7    86     77     54  ...      54      45      31      54      95       4      35      48      57      38      79      96
-..    ...   ...   ...   ...   ...   ...   ...   ...   ...   ...    ...    ...  ...     ...     ...     ...     ...     ...     ...     ...     ...     ...     ...     ...     ...
-995    47    57    85    63    23    69     1    88    15    50     95     29  ...      71      35      44      65      18      80      70      27      71      55      97      56
-996    71    48    29    19    43    52    13     3    34    40      3     38  ...      68      21      18      22      45      39      17      70      76      80      64       8
-997    37     4    96    39    82    47    53    83    49    64     72     12  ...      50      59       9      77       4      26      86      21      17      31      32      20
-998    23    39    77     9    21    61     2    43    55    59      3     92  ...      13       3      19      71      86      76      16       0      63      22      81      97
-999    86     9    27     2    40     3    66    51    94    90     23     29  ...      98      37      60      85       7       9       5      86      34      61      77      52
+```     Col0  Col1  Col2  Col3  Col4  Col5  Col6  Col7  Col8  ...  Col991  Col992  Col993  Col994  Col995  Col996  Col997  Col998  Col999
+0      51    92    14    71    60    20    82    86    74  ...      12      83      24      67       9      66      17      99      85
+1      33     7    39    82    41    40     5    51    25  ...      32      40       7      10      85      50      87      40      16
+2      75    45    31    78    79    53    85    91    19  ...       3       3      19       9      23      98      25      36      84
+3      53    20    73    37    45     3    59    56    44  ...      82      15      65      39      16      33      15      59      65
+4      65    89    12    55    30    33    38    66     7  ...      54      95       4      35      48      57      38      79      96
+..    ...   ...   ...   ...   ...   ...   ...   ...   ...  ...     ...     ...     ...     ...     ...     ...     ...     ...     ...
+995    47    57    85    63    23    69     1    88    15  ...      65      18      80      70      27      71      55      97      56
+996    71    48    29    19    43    52    13     3    34  ...      22      45      39      17      70      76      80      64       8
+997    37     4    96    39    82    47    53    83    49  ...      77       4      26      86      21      17      31      32      20
+998    23    39    77     9    21    61     2    43    55  ...      71      86      76      16       0      63      22      81      97
+999    86     9    27     2    40     3    66    51    94  ...      85       7       9       5      86      34      61      77      52
 
 [1000 rows x 1000 columns]
 ```
 
-sizeof_di['df']=9,893,176 bytes
+sizeof_di['df']=13,988,692 bytes
 
 
 ## Create Pandas csv_df from Daf thru csv
 
 Create a Pandas DataFrame by convering Daf through a csv buffer.
 
-We found tha twe could save a lot of time by converting the data to a csv buffer and then 
+    We found tha twe could save a lot of time by converting the data to a csv buffer and then 
     importing that buffer into Pandas. This does not make a lot of sense, but it is true.
     But it is slightly more wasteful in terms of space than the direct conversion.
 
@@ -205,23 +205,23 @@ We found tha twe could save a lot of time by converting the data to a csv buffer
 
 
 
-```     Col0  Col1  Col2  Col3  Col4  Col5  Col6  Col7  Col8  Col9  Col10  Col11  ...  Col988  Col989  Col990  Col991  Col992  Col993  Col994  Col995  Col996  Col997  Col998  Col999
-0      51    92    14    71    60    20    82    86    74    74     87     99  ...      43      24      16      12      83      24      67       9      66      17      99      85
-1      33     7    39    82    41    40     5    51    25    63     97     58  ...      10      44      88      32      40       7      10      85      50      87      40      16
-2      75    45    31    78    79    53    85    91    19    32     73     39  ...      55      82      57       3       3      19       9      23      98      25      36      84
-3      53    20    73    37    45     3    59    56    44    19     16     70  ...      33      44      60      82      15      65      39      16      33      15      59      65
-4      65    89    12    55    30    33    38    66     7    86     77     54  ...      54      45      31      54      95       4      35      48      57      38      79      96
-..    ...   ...   ...   ...   ...   ...   ...   ...   ...   ...    ...    ...  ...     ...     ...     ...     ...     ...     ...     ...     ...     ...     ...     ...     ...
-995    47    57    85    63    23    69     1    88    15    50     95     29  ...      71      35      44      65      18      80      70      27      71      55      97      56
-996    71    48    29    19    43    52    13     3    34    40      3     38  ...      68      21      18      22      45      39      17      70      76      80      64       8
-997    37     4    96    39    82    47    53    83    49    64     72     12  ...      50      59       9      77       4      26      86      21      17      31      32      20
-998    23    39    77     9    21    61     2    43    55    59      3     92  ...      13       3      19      71      86      76      16       0      63      22      81      97
-999    86     9    27     2    40     3    66    51    94    90     23     29  ...      98      37      60      85       7       9       5      86      34      61      77      52
+```     Col0  Col1  Col2  Col3  Col4  Col5  Col6  Col7  Col8  ...  Col991  Col992  Col993  Col994  Col995  Col996  Col997  Col998  Col999
+0      51    92    14    71    60    20    82    86    74  ...      12      83      24      67       9      66      17      99      85
+1      33     7    39    82    41    40     5    51    25  ...      32      40       7      10      85      50      87      40      16
+2      75    45    31    78    79    53    85    91    19  ...       3       3      19       9      23      98      25      36      84
+3      53    20    73    37    45     3    59    56    44  ...      82      15      65      39      16      33      15      59      65
+4      65    89    12    55    30    33    38    66     7  ...      54      95       4      35      48      57      38      79      96
+..    ...   ...   ...   ...   ...   ...   ...   ...   ...  ...     ...     ...     ...     ...     ...     ...     ...     ...     ...
+995    47    57    85    63    23    69     1    88    15  ...      65      18      80      70      27      71      55      97      56
+996    71    48    29    19    43    52    13     3    34  ...      22      45      39      17      70      76      80      64       8
+997    37     4    96    39    82    47    53    83    49  ...      77       4      26      86      21      17      31      32      20
+998    23    39    77     9    21    61     2    43    55  ...      71      86      76      16       0      63      22      81      97
+999    86     9    27     2    40     3    66    51    94  ...      85       7       9       5      86      34      61      77      52
 
 [1000 rows x 1000 columns]
 ```
 
-sizeof_di['csv_df']=17,892,880 bytes
+sizeof_di['csv_df']=25,988,692 bytes
 
 
 ## Create keyed Pandas df
@@ -248,24 +248,24 @@ Create a keyed Pandas df based on the sample_klod generated.
 
 
 
-```        Col0  Col1  Col2  Col3  Col4  Col5  Col6  Col7  Col8  Col9  Col10  ...  Col989  Col990  Col991  Col992  Col993  Col994  Col995  Col996  Col997  Col998  Col999
-rowkey                                                                     ...                                                                                        
-0         26    56    78    29    56    83    63    16    79    65     14  ...      20      40      67      65      17      57      62      74      69      75      20
-1         46    72    39    48     3    13    65    92    83    73      5  ...       6       3      55      69      58      53      29      68      90      43       2
-2         27     4    19    82    87    85    15    49     6    41     59  ...       6      40      98      59       8      83      17      31      28      13      79
-3         18     2    49    30     1    74    39    78    17     2     13  ...      27      77      36      65      99      47       3      83      12      97      13
-4         84    69     9    18    18    47    60    57    48     9     41  ...      74      90      84      21      23      63      53       2      19      34      41
-...      ...   ...   ...   ...   ...   ...   ...   ...   ...   ...    ...  ...     ...     ...     ...     ...     ...     ...     ...     ...     ...     ...     ...
-995       11    75    33    98     9    21    84    42    75     3     54  ...      58      63      63      86      52       4      85      15      13       5      28
-996       73     2    59    13    29     5    24     1    30    98     34  ...      92      42      46      10      96      75      29      24      63      71      27
-997       81    74    63    79    90    19    43    73    73    19     57  ...      23      72      74      16      67      81       3      41      33      74      62
-998       98    76    29    51    99    49    99    56    12    86     49  ...      24      86      51      83       3      16      55      59      30       3      47
-999       52    59    80    13    36    26    74    71     2    69     87  ...      41      35      20      63       1      25      58      33      33      90      89
+```        Col0  Col1  Col2  Col3  Col4  Col5  Col6  Col7  Col8  ...  Col991  Col992  Col993  Col994  Col995  Col996  Col997  Col998  Col999
+rowkey                                                        ...                                                                        
+0         26    56    78    29    56    83    63    16    79  ...      67      65      17      57      62      74      69      75      20
+1         46    72    39    48     3    13    65    92    83  ...      55      69      58      53      29      68      90      43       2
+2         27     4    19    82    87    85    15    49     6  ...      98      59       8      83      17      31      28      13      79
+3         18     2    49    30     1    74    39    78    17  ...      36      65      99      47       3      83      12      97      13
+4         84    69     9    18    18    47    60    57    48  ...      84      21      23      63      53       2      19      34      41
+...      ...   ...   ...   ...   ...   ...   ...   ...   ...  ...     ...     ...     ...     ...     ...     ...     ...     ...     ...
+995       11    75    33    98     9    21    84    42    75  ...      63      86      52       4      85      15      13       5      28
+996       73     2    59    13    29     5    24     1    30  ...      46      10      96      75      29      24      63      71      27
+997       81    74    63    79    90    19    43    73    73  ...      74      16      67      81       3      41      33      74      62
+998       98    76    29    51    99    49    99    56    12  ...      51      83       3      16      55      59      30       3      47
+999       52    59    80    13    36    26    74    71     2  ...      20      63       1      25      58      33      33      90      89
 
 [1000 rows x 1000 columns]
 ```
 
-- sizeof_di['kdf']=0 bytes
+- sizeof_di['kdf']=74,031,064 bytes
 
 
 ## create hdnpa from lod
@@ -281,7 +281,7 @@ A hdnpa is a Numpy array with a header dictionary. The overall size is about the
 ```
 
 
-sizeof_di['hdnpa']=4,114,232 bytes
+sizeof_di['hdnpa']=4,054,216 bytes
 
 
 ## Create lont from lod
@@ -295,7 +295,7 @@ We also tried a structure based on a list of named tuples. This is very slow and
 ```
 
 
-sizeof_di['lont']=40,048,872 bytes
+sizeof_di['lont']=36,048,856 bytes
 
 
 ## Create hdlot from lod
@@ -309,7 +309,7 @@ Another option is a list of tuples with a header dictionary. This is also slow a
 ```
 
 
-sizeof_di['hdlot']=40,162,960 bytes
+sizeof_di['hdlot']=36,102,944 bytes
 
 
 ## Create sqlite_table from klod
@@ -343,16 +343,16 @@ use Daf.from_lod_to_cols to create a table with first colunm key names, and seco
 
 | Datatype | Size in Memory (bytes) |
 | -------: | ---------------------: |
-|      lod |            114,040,872 |
-|     klod |            114,096,928 |
-|      daf |             40,180,216 |
-|     kdaf |             40,302,040 |
-|       df |              9,893,176 |
-|   csv_df |             17,892,880 |
-|      kdf |                      0 |
-|    hdnpa |              4,114,232 |
-|     lont |             40,048,872 |
-|    hdlot |             40,162,960 |
+|      lod |             54,040,856 |
+|     klod |             54,092,746 |
+|      daf |             36,119,226 |
+|     kdaf |             36,233,971 |
+|       df |             13,988,692 |
+|   csv_df |             25,988,692 |
+|      kdf |             74,031,064 |
+|    hdnpa |              4,054,216 |
+|     lont |             36,048,856 |
+|    hdlot |             36,102,944 |
 |   sqlite |              5,148,672 |
 
 ## Times for conversions and operations
@@ -462,12 +462,6 @@ gc.disable()
     print(f"numpy from pandas df            {ms:.4f} ms")
 
 
-    ## print(f"lod_to_hdlol()            {loops} loops: {timeit.timeit('lod_to_hdlol(sample_lod)', setup=setup_code, globals=globals(), number=loops):.4f} secs")
-    ## print(f"lod_to_hllol()            {loops} loops: {timeit.timeit('lod_to_hllol(sample_lod)', setup=setup_code, globals=globals(), number=loops):.4f} secs")
-    ## print(f"hdlol_to_df()             {loops} loops: {timeit.timeit('hdlol_to_df(hdlol)',       setup=setup_code, globals=globals(), number=loops):.4f} secs")
-    ## print(f"lod_to_lont()              {loops} loops: {timeit.timeit('lod_to_lont(sample_lod)',  setup=setup_code, globals=globals(), number=loops):.4f} secs")
-    ## print(f"lod_to_hdlot()             {loops} loops: {timeit.timeit('lod_to_hdlot(sample_lod)', setup=setup_code, globals=globals(), number=loops):.4f} secs")
-
     print("\nMutations:")
 
     sample_daf.retmode = 'val'
@@ -554,17 +548,6 @@ gc.disable()
     gc.enable()
     print(f"daf.transpose()                 {ms:.4f} ms")
 
-    ##print(f"lod_sum_cols2()             {loops} loops: {timeit.timeit('lod_sum_cols2(sample_lod)',setup=setup_code, globals=globals(), number=loops):.4f} secs")
-    ##print(f"lont_sum_cols()            {loops} loops: {timeit.timeit('lont_sum_cols(lont)',      setup=setup_code, globals=globals(), number=loops):.4f} secs")
-    ##print(f"hdnpa_sum_cols()            {loops} loops: {timeit.timeit('hdnpa_sum_cols(hdnpa)',    setup=setup_code, globals=globals(), number=loops):.4f} secs")
-    ## print(f"hdlol_sum_cols()          {loops} loops: {timeit.timeit('hdlol_sum_cols(hdlol)',    setup=setup_code, globals=globals(), number=loops):.4f} secs")
-    ##print(f"hllol_sum_cols()          {loops} loops: {timeit.timeit('hllol_sum_cols(hllol)',    setup=setup_code, globals=globals(), number=loops):.4f} secs")
-    ##print(f"hllol_sum_cols2()         {loops} loops: {timeit.timeit('hllol_sum_cols2(hllol)',    setup=setup_code, globals=globals(), number=loops):.4f} secs")
-    ##print(f"hdlot_sum_cols()           {loops} loops: {timeit.timeit('hdlot_sum_cols(hdlot)',    setup=setup_code, globals=globals(), number=loops):.4f} secs")
-
-    ## print(f"transpose_hdlol()         {loops} loops: {timeit.timeit('transpose_hdlol(hdlol)',   setup=setup_code, globals=globals(), number=loops):.4f} secs")
-    ## print(f"transpose_hdlol2()        {loops} loops: {timeit.timeit('transpose_hdlol2(hdlol)',  setup=setup_code, globals=globals(), number=loops):.4f} secs")
-
     print("\nTime for lookups:")
 
     #report_daf['keyed lookup', 'loops']    = 
@@ -611,7 +594,9 @@ gc.disable()
                         'lod':      sizeof_di['klod']   / MB,
                         })
 
-    md_report += "### Summary of times (ms) and Sizes (MB)\n\n" + report_daf.to_md(smart_fmt = True, just = '>^^^^^') + "\n\n"
+    md_report += f"\n### Summary of times (ms) and Sizes (MB)\n\n{report_daf.to_md(smart_fmt = True, just = '>^^^^^')}\n\n"
+    
+    #md_report += f"\n### Raw data for purposes of obtaining a plot using AI:\n\n{report_daf.to_json()}\n\n"
     
     """
     
@@ -621,14 +606,15 @@ Notes:
     longer to load an array vs. Daffodil directly. Since Pandas is very slow appending rows, it is a common pattern to
     first build a table to list of dictionaries (lod), and then port to a pandas df. But
     the overhead is so severe that it will take at least 30 column operations across all columns to make
-    up the difference, and so it is commonly better to avoid Pandas altogether, particular in repetitive operations.
+    up the difference, and so it is commonly better to avoid Pandas altogether, particular in repetitive operations.<br>
 2. `to_pandas_df_thru_csv()` -- This exports the array to csv in a buffer, then reads the buffer into Pandas,
-    and can improve the porting to pandas df by about 10x.
+    and can improve the porting to pandas df by nearly 10x.<br>
 3. `sum_cols()` uses best python summing of all columns with one pass through the data, while `sum_np` first
     exports the columns to NumPy, performs the sum of all columns there, and then reads it back to Daf. In this case,
     it takes about 1/3 the time to use NumPy for summing. This demonstrates that using NumPy for 
     strictly numeric operations on columns may be a good idea if the number of columns and rows being summed is
-    sufficient. Otherwise, using Daffodil to sum the columns may still be substantially faster.
+    sufficient. Otherwise, using Daffodil to sum the columns may still be substantially faster.<br>
+    Note: daf_sum2() has an interesting simple change in the code and it results in over 10x increase in time (under study!)<br>
 4. Transpose: Numpy performs a transposition without creating a separate copy of the array in memory. Instead, it returns a 
     view of the original array with the dimensions rearranged. It is a constant-time operation, as it simply 
     involves changing the shape and strides of the array metadata without moving any of the actual data in 
@@ -636,45 +622,45 @@ Notes:
     accelerate transposition within Daffodil using python and of non-numeric objects by using a similar strategy
     with the references to objects that Python uses. Transpose with Daffodil is slow right now but there may be
     a way to more quickly provide the transpose operation if coded at a lower level. If columns are selected or dropped,
-    a transposition (set flip=True) is 'free' because any column manipulation in Daffodil is relatively difficult.
-5. In general, we note that Daffodil is faster than Pandas for array manipulation (inserting rows (300x faster) 
-    and cols (1.4x faster)), performing actions on individual cells (5x faster), appending rows (which Pandas essentially outlaws), 
-    and performing keyed lookups (8.4x faster). Daffodil arrays are smaller 
-    whenever any strings are included in the array by about 3x over Pandas. While Pandas and Numpy
-    are faster for columnar calculations, Numpy is always faster on all numeric data. Therefore
+    a transposition (set flip=True) is 'free' because any column manipulation in Daffodil is relatively difficult.<br>
+5. In general, we note that Daffodil is faster than Pandas for array manipulation (inserting rows (94x faster) 
+    and cols (20% faster)), appending rows (which Pandas essentially outlaws), 
+    and performing keyed lookups (10x faster). Daffodil arrays are smaller 
+    whenever any strings are included in the array to about half that of Pandas, as a Pandas array will explode by 5x when a 
+    single string column is added for indexing.  While Pandas and Numpy
+    are far faster for columnar calculations, Numpy is always faster on all numeric data. Therefore
     it is a good strategy to use Daffodil for all operations except for pure data manipulation, and then
-    port the appropriate columns to NumPy. 
-6. Thus, the stragegy of Daffodil vs Pandas is that Daffodil leaves data in Python native form, which requires no 
-    conversion for all cases except when rapid processing is required, and then the user should export only those
+    port the appropriate columns to NumPy. <br>
+6. The stragegy of Daffodil compared with Pandas is that Daffodil leaves data in Python native form, which requires no 
+    conversion, and is smaller if there are any strings involved. This is a benefit for all cases except when rapid 
+    and repeated numeric processing is required, and then the user should export only those
     columns to Numpy. In contrast, Pandas converts all columns to Numpy, and then has to repair the columns that
     have strings or other types. Daffodil is not a direct replacement for Pandas which is still going to be a good choice
-    for interactive data exploration and where data already exists and is not being built by any Python code.
-    
-Note, for kdf (pandas dataframe with one string column used as a row key) the size is not being calculated
-properly if it shows up as 0 due to a new bug exposed in Pympler asizeof function. This should be resolved
-with a new version of Pympler. Pympler provides honest sizes of objects by exploring all objest using ast.
+    when data already exists and is not being built by any Python code, and there is no need to change world view.
+7. Programmers should avoid unnecessary transitions between Python and Pandas if time is of concern.
+
 ### Summary of times (ms) and Sizes (MB)
 
 |             Attribute              |  daf  | pandas | numpy  | sqlite |  lod  |
 | ---------------------------------: | :---: | :----: | :----: | :----: | :---: |
-|                           from_lod |  138  | 6,440  |  77.0  |  888   |       |
-|                       to_pandas_df | 6,639 |        | 0.030  |        | 6,440 |
-|              to_pandas_df_thru_csv |  639  |        |        |        |       |
-|                     from_pandas_df | 10.4  |        | 0.0047 |        |       |
-|                           to_numpy | 57.6  | 0.0047 |        |        | 77.0  |
-|                         from_numpy |  7.1  | 0.030  |        |        |       |
-|                     increment cell | 0.098 | 0.042  |        |        |       |
-|                        insert_irow | 0.086 |  7.8   |        |        |       |
-|                        insert_icol |  1.2  |  1.7   |        |        |       |
-|                           sum cols |  207  |  4.6   |  4.0   | 3,189  |  156  |
-|               sample_daf.daf_sum() |  234  |        |        |        |       |
-|              sample_daf.daf_sum2() | 2,764 |        |        |        |       |
-|              sample_daf.daf_sum3() |  443  |        |        |        |       |
-|                             sum_np | 87.1  |        |        |        |       |
-|                          transpose | 2,061 |  0.16  | 0.0026 |        |       |
-|                       keyed lookup | 0.065 |  0.55  |        |  7.2   | 0.068 |
+|                           from_lod |  112  | 4,347  |  67.8  |  621   |       |
+|                       to_pandas_df | 4,674 |        | 0.054  |        | 4,347 |
+|              to_pandas_df_thru_csv |  581  |        |        |        |       |
+|                     from_pandas_df | 17.5  |        | 0.0080 |        |       |
+|                           to_numpy |  111  | 0.0080 |        |        | 67.8  |
+|                         from_numpy | 13.2  | 0.054  |        |        |       |
+|                     increment cell | 0.15  | 0.071  |        |        |       |
+|                        insert_irow | 0.11  |  11.2  |        |        |       |
+|                        insert_icol |  1.7  |  1.8   |        |        |       |
+|                           sum cols |  174  |  4.9   |  3.2   | 2,264  |  124  |
+|               sample_daf.daf_sum() |  273  |        |        |        |       |
+|              sample_daf.daf_sum2() | 1,969 |        |        |        |       |
+|              sample_daf.daf_sum3() |  265  |        |        |        |       |
+|                             sum_np | 59.3  |        |        |        |       |
+|                          transpose | 1,835 |  0.15  | 0.0029 |        |       |
+|                       keyed lookup | 0.081 |  0.58  |        |  5.1   | 0.065 |
 |                              ===== | ===== | =====  | =====  | =====  | ===== |
-|       Size of 1000x1000 array (MB) | 38.3  |  9.4   |  3.9   |  4.9   |  109  |
-| Size of keyed 1000x1000 array (MB) | 38.4  |  0.0   |   --   |  4.9   |  109  |
+|       Size of 1000x1000 array (MB) | 34.4  |  13.3  |  3.9   |  4.9   | 51.5  |
+| Size of keyed 1000x1000 array (MB) | 34.6  |  70.6  |   --   |  4.9   | 51.6  |
 
 

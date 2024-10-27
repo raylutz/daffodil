@@ -238,7 +238,7 @@ Data type conversion is mainly an issue when converting from/to .csv file format
 file may be avoided, so it is handled explicitly. `dtypes` is a dictionary where each column can have a Python type expressed, such as
 `str`, `int`, `float`, `dict`, `list`. 
 
-### .apply_dtypes(dtypes, unflatten, from_str)
+### `.apply_dtypes(dtypes, unflatten, from_str)`
 
 When data is read from a `.csv` file, it is parsed into `str` objects, as this is the fastest possible way to load data from such a file.
 The `.apply_dtypes()` method is used to convert all or some of the columns to the appropriate type. This conversion is done "in place"
@@ -265,7 +265,7 @@ which will convert all non-`str` types and unflatten JSON encoded `dict` and `li
 The explicit nature of the `.apply_dtypes()` method makes it feasible to avoid any conversion if say only `str` formatted columns
 are needed, and improve performance, and the operation of conversion of types is easy to understand.
 
-### .flatten()
+### `.flatten()`
 
 Prior to writing a file, if the Daf array has any `list` or `dict` objects, then the `.flatten()` method should be used prior to
 writing it. Also, this converts `bool` data to `1` and `0` to avoid the overhead of `True` and `False` in the `.csv` file. 
@@ -276,13 +276,13 @@ or alternatively:
 
     my_daf.to_csv('filename.csv', flatten=True)
     
-### .to_list(), .to_dict(), .to_value()
+### `.to_list()`, `.to_dict()`, `.to_value()`
 
 When selecting a single row or column in a Daf array, it will be returned normally as another Daf object.
 However, you can use `.to_list()` to convert it to a single list of values, or `.to_dict()` to get a dictionary,
 with keys set as the column names. If a single cell is selected, use .to_value() to obtain that single value.
 
-### .retmode
+### `.retmode`
 
 A Daf object also has the attribute `.retmode` which can be either 'obj' (default) or 'val'
 If set to 'obj', then Daffodil objects are always produced from a selection operation. If set to 'val',
@@ -294,7 +294,7 @@ is selected.
 For example, to sum all the values in a specific column, converting to a list will allow the python sum()
 operator to correctly sum the values. Caution: if the values must be numeric types.
 
-    `total = sum(my_daf[:, 'this_column'].to_list())`
+    total = sum(my_daf[:, 'this_column'].to_list())
     
 Note: for performance, use `reduce()` and process all columns at the same time if multiple columns are to be
 summed, for example, as this is much more peformant and is scalable to multiple `.csv` files.
@@ -305,9 +305,9 @@ In this example, we set the retmode to 'val' so individual or list values will r
 
     my_daf.retmode = 'val'
     
-    `total_one = my_daf[3,4] + my_daf[5,6] * 10`
+    total_one = my_daf[3,4] + my_daf[5,6] * 10
 
-    `total_two = sum(my_daf[:, 'this_column'])
+    total_two = sum(my_daf[:, 'this_column'])
 
        
 ## Common Usage Pattern
@@ -321,6 +321,7 @@ One common usage pattern allows iteration over the rows and appending to another
         new_daf = Daf()
         
         # scan the input my_daf row by row and construct the output. Pandas can't do this efficiently.
+        
         for original_row in my_daf:  
             new_row = transform_row(original_row)
             new_daf.append(new_row)                
@@ -328,7 +329,8 @@ One common usage pattern allows iteration over the rows and appending to another
             # here the column names are initialized as the first dictionary is appended.
             
         # create a flat csv file with any python objects flattened using JSON.
-        new_daf.flatten().to_csv(file_path)        
+        new_daf.flatten().to_csv(file_path)
+        
 
 This common pattern can be abbreviated using the apply() method:
 
@@ -391,9 +393,9 @@ can also be included in markdown reports. The following is random data in a 1000
 
 #### create a Markdown table from a Daffodil instance that can be incorporated in reports.
 
-The method 'to_md()' can be used for more flexible reporting.
+The method `to_md()` can be used for more flexible reporting.
 
-    my_daf.to_md() 
+    my_daf.to_md()
 
         parameters:
             max_rows:       int     = 0,         # limit the maximum number of row by keeping leading and trailing rows.
@@ -439,7 +441,7 @@ The method 'to_md()' can be used for more flexible reporting.
     my_daf = Daf(cols=list_of_colnames, keyfield=fieldname, dtypes=dtype_dict)
     
 Note that although dtypes may be defined, conversion of types can be an expensive
-operation and so it is done explicitly, using the `apply_dtypes()' method.    
+operation and so it is done explicitly, using the `apply_dtypes()` method.    
     
 #### create empty daf with only keyfield specified.
     
@@ -505,14 +507,14 @@ For fast lookups of rows and columns, dictionaries are used to look up the row a
     
 #### return list of row keyfield values, if keyfield is defined.
 
-    my_daf.keys()    
+    my_daf.keys()
     
 ### Indexing: inspecting values in a daf array
 
 Daffodil offers easy-to-used indexing of rows, columns, individual cells or any ranges.
-if retmode == 'val', then it will generally return the simplest type possible, such as cell contents, a list or daf 
-otherwise, if retmode == 'obj', then a full daf object is returned. If you desired a list or dict, then it is 
-convenient to just use the .to_list() or .to_dict() methods.
+if `retmode == 'val'`, then it will generally return the simplest type possible, such as cell contents, a list or daf 
+otherwise, if `retmode == 'obj'`, then a full daf object is returned. If you desired a list or dict, then it is 
+convenient to just use the `.to_list()` or `.to_dict()` methods.
 
 if retmode is 'val':
 - if only one cell is selected, return a single value.
@@ -521,31 +523,38 @@ if retmode is 'val':
 - if multiple columns are specified, they will be returned in the original orientation in a consistent daf instance copied from the original, and with the data specified.
 
 Please note: operations on columns is relatively inefficient. Try to avoid working on one column at a time.
-Instead, use .apply() or .reduce() and handle any manipulations without dropping columns, and select them with the cols parameter at that time.
+Instead, use .apply() or .reduce() and handle any manipulations without dropping columns, and select them with 
+the cols parameter at that time.
 
-      `my_daf[2, 3]`     -- select cell at row 2, col 3 and return value.
-      `my_daf[2]`        -- select row 2, including all columns, return a list.
-      `my_daf[2, :]`     -- same as above
-      `my_daf[-1, :]`    -- select the last row
-      `my_daf[:5]`       -- select first 5 rows; like `head()` in other dataframe packages.
-      `my_daf[:-5]`      -- select last 5 rows; like `tail()` in other dataframe packages.
-      `my_daf[:, 3]`     -- select only column 3, including all rows. Return a list.
-      `my_daf[:, 'C']`   -- select only column named 'C', including all rows, return a list.
-      `my_daf[2:4]`      -- select rows 2 and 3, including all columns, return as daf.
-      `my_daf[2:4, :]`   -- same as above
-      `my_daf[:, 3:5]`   -- select columns 3 and 4, including all rows, return as daf.
-      `my_daf[:, range(2,6)]`   -- select columns 2,3,4,5, including all rows, return as daf.
-      `my_daf[[2,4,6]]`  -- return rows with indices 2,4,6 as daf array.
-      `my_daf[range(2,6)]`  -- return rows with indices 2,3,4,5 as daf array.
-      `my_daf[:, [1,3,5]]` -- return columns with indices 1,3,5 as daf array.
-      `my_daf[['row5','row6','row7']]` -- return rows with keyfield values 'row5','row6','row7'
-      `my_daf[:, ['col1', 'col3', 'col5']]` -- return columns with column names 'col1', 'col3', 'col5'
-      `my_daf[('row5','row49'), :]]` -- return rows with keyfield values 'row5' through 'row49' inclusive (note: column idx is required)
-      `my_daf[('row5',), :]]` -- return rows with keyfield values 'row5' through the end (note: column idx is required)
-      `my_daf[(,'row49'), :]]` -- return rows with keyfield values from the first row through 'row49' inclusive (note: column idx is required)
-      `my_daf[:, ('col5', 'col23')]]` -- return columns with column names from 'col5', through 'col23' inclusive
-      `my_daf[:, (, 'col23')]]` -- return columns with column names from the first column through 'col23' inclusive
-      `my_daf[:, ('col23',)]]` -- return columns with column names from 'col23', through the end
+|  Expression                               | Operation                                                                 |
+|:------------------------------------------|:--------------------------------------------------------------------------|
+|`my_daf[2, 3]`                             | select cell at row 2, col 3 and return a daf array with one value         |
+|`my_daf[2, 3].to_value()`                  | select cell at row 2, col 3 and return a the value                        |
+|`my_daf[2]`                                | select row 2, including all columns, return a daf array with one column   |
+|`my_daf[2, :]`                             | same as above                                                             |
+|`my_daf[2].to_list()`                      | select row 2, including all columns, return a list                        |
+|`my_daf[-1, :]`                            | select the last row                                                       |
+|`my_daf[:5]`                               | select first 5 rows; like `head()` in other dataframe packages.           |
+|`my_daf[:-5]`                              | select last 5 rows; like `tail()` in other dataframe packages.            |
+|`my_daf[:, 3]`                             | select only column 3, including all rows. use .to_list() to return a list |
+|`my_daf[:, 'C']`                           | return only column named 'C', including all rows.                         |
+|`my_daf[2:4]`                              | return rows 2 and 3, including all columns as daf array                   | 
+|`my_daf[2:4, :]`                           | same as above                                                             |
+|`my_daf[:, 3:5]`                           | return columns 3 and 4, including all rows as daf array                   |
+|`my_daf[:, range(2,6)]`                    | return columns 2,3,4,5, including all rows as daf array                   |
+|`my_daf[[2,4,6]]`                          | return rows with indices 2,4,6 as daf array.                              |
+|`my_daf[range(2,6)]`                       | return rows with indices 2,3,4,5 as daf array.                            |
+|`my_daf[[range(1,10), range(46,50)]]`      | return rows with indices in list of ranges provided                       |
+|`my_daf[:, [1,3,5]]`                       | return columns with indices 1,3,5 as daf array.                           |
+|`my_daf[:, [range(1,10), range(46,50)]]`   | return columns with indices in list of ranges provided                    |
+|`my_daf[['row5','row6','row7']]`           | return rows with keyfield values 'row5','row6','row7'                     |
+|`my_daf[:, ['col1', 'col3', 'col5']]`      | return columns with column names 'col1', 'col3', 'col5'                   |
+|`my_daf[('row5','row49'), :]]`             | return rows with keyfield values 'row5' through 'row49' inclusive (note: column idx ':' is required)  |
+|`my_daf[('row5',), :]]`                    | return rows with keyfield values 'row5' through the end (note: column idx ':' is required)   |
+|`my_daf[(,'row49'), :]]`                   | return rows with keyfield values from the first row through 'row49' inclusive (note: column idx is required)
+|`my_daf[:, ('col5', 'col23')]]`            | return columns with column names from 'col5', through 'col23' inclusive   |
+|`my_daf[:, (, 'col23')]]`                  | return columns with column names from the first column through 'col23' inclusive  |
+|`my_daf[:, ('col23',)]]`                   | return columns with column names from 'col23', through the end            |
 
 
 Please note that if you want to index rows by a keyfield or index columns using column names that are integers, 
@@ -553,29 +562,34 @@ then you must use method calls. The square-bracket indexing will assume any inte
 The integer values shown in the examples below do not index the array directly, but choose the row or columns by name.
 To choose by row keys (krows), then keyfield must be set. To choose by column keys (kcols), cols must be set.
 
-    `my_daf.select_krows(krows = 123)`  -- return daf with one row with integer 123 in keyfield column.
-    `my_daf.select_krows(krows = [123, 456])`  -- return daf with two rows selected by with integers in the keyfield column.
-    `my_daf.select_krows(krows = [123, 456], inverse=True)`   -- return daf dropping two rows selected by with integers in the keyfield column.
-    `my_daf.select_krows(krows = (123, ), inverse=True)`   -- drop all rows starting with row named 123 to the end.
-    `my_daf.select_krows(krows = (, 123), inverse=True)`   -- drop all rows from the first through row named 123.
-     
-    `my_daf.select_kcols(kcols = 123)`  -- return daf of column named 123 (integer), placed in col 0
-    `my_daf.select_kcols(kcols = 123).to_list()`  -- return list of column named 123 (integer).
-    `my_daf.select_kcols(kcols = 123).to_list(unique=True)`  -- return list with one column with integer 123 colname, and remove duplicates.
-    `my_daf.select_kcols(kcols = 123, inverse=True)`   -- drop column with name 123
-    `my_daf.select_kcols(kcols = 123, inverse=True, flip=True)`   -- drop column with name 123 and transpose columns to rows.
+|  Expression                               | Operation                                                                     |
+|:------------------------------------------|:------------------------------------------------------------------------------|
+|`my_daf.select_records_daf(123)`           | return daf with one row with integer 123 in keyfield column.                  |
+|`my_daf.select_krows(krows = 123)`         | same as above.                                                                |
+|`my_daf.select_krows(krows = [123, 456])`  | return daf with two rows selected by with integers in the keyfield column.    |
+|`my_daf.select_krows(krows = [123, 456], inverse=True)`    | return daf dropping two rows selected by with integers in the keyfield column.  |
+|`my_daf.select_krows(krows = (123, ), inverse=True)`       | drop all rows starting with row named 123 to the end.         |
+|`my_daf.select_krows(krows = (, 123), inverse=True)`       | drop all rows from the first through row named 123.           |
+|          ------                                           |          ------                                               |
+|`my_daf.select_kcols(kcols = 123)`                         | return daf of column named 123 (integer), placed in col 0     |
+|`my_daf.select_kcols(kcols = 123).to_list()`               | return list of column named 123 (integer).                    |
+|`my_daf.select_kcols(kcols = 123).to_list(unique=True)`    | return list with one column with integer 123 colname, and remove duplicates.  |
+|`my_daf.select_kcols(kcols = 123, inverse=True)`           | drop column with name 123                                     |
+|`my_daf.select_kcols(kcols = 123, inverse=True, flip=True)`    |drop column with name 123 and transpose columns to rows.   |
 
 There are also similar methods for selecting rows and cols by indexes. Selecting rows using select_irows(rows_spec) is the same as my_daf[row_spec],
 except the parameter inverse is available to drop rows rather than keeping them.
 
-    my_daf.select_irows(irows=10)                  -- select single row 10. Same as my_daf[10].
-    my_daf.select_irows(irows=10, inverse=True)    -- drop single row 10. Same as my_daf[10].
-    my_daf.select_irows(irows=[1,2,3,45])          -- select rows 1,2,3, and 45 using indices. Same as my_daf[[1,2,3,45]].
-    my_daf.select_irows(irows=slice(20,,2))        -- select rows starting at row 20 through the end and skip every other row. Same as my_daf[20::2]
-
-    my_daf.select_icols(icols=slice(4,10))   -- select columns 4 thorugh 9 (inclusive). Same as my_daf[:, 4:10]
-    my_daf.select_icols(icols=slice(4,10), flip=True)   -- select columns 4 thorugh 9 (inclusive) and transpose columns to rows.
-    my_daf.select_icols(flip=True)   -- select all columns and transpose columns to rows.
+|  Expression                                               | Operation                                                                     |
+|:----------------------------------------------------------|:------------------------------------------------------------------------------|
+|`my_daf.select_irows(irows=10)`                            | select single row 10. Same as `my_daf[10]`.                                   |
+|`my_daf.select_irows(irows=10, inverse=True)`              | drop single row 10. Same as `my_daf[10]`.                                     |
+|`my_daf.select_irows(irows=[1,2,3,45])`                    | select rows 1,2,3, and 45 using indices. Same as `my_daf[[1,2,3,45]]`.        |
+|`my_daf.select_irows(irows=slice(20,,2))`                  | select rows starting at row 20 through the end and skip every other row. Same as `my_daf[20::2]`  |
+|          ------                                           |          ------                                                   |
+|`my_daf.select_icols(icols=slice(4,10))`                   | select columns 4 thorugh 9 (inclusive). Same as `my_daf[:, 4:10]`             |
+|`my_daf.select_icols(icols=slice(4,10), flip=True)`        | select columns 4 thorugh 9 (inclusive) and transpose columns to rows.         |
+|`my_daf.select_icols(flip=True)`                           | select all columns and transpose columns to rows.                             |         
           
 ### Indexing: setting values in a daf:
 Similar indexing is used when setting values in the array. 
@@ -586,17 +600,19 @@ Similar indexing is used when setting values in the array.
 
 Here are some examples.
 
-     my_daf[irow] = list              -- assign the entire row at index irow to the list provided
-     my_daf[irow] = value             -- assign the entire row at index row to the single value provided.
-     my_daf[irow, icol] = value       -- set cell irow, icol to value, where irow, icol are integers.
-     my_daf[irow, start:end] = value  -- set a value in cells in row irow, from columns start to end.
-     my_daf[irow, start:end] = list   -- set values from a list in cells in row irow, from columns start to end.
-     my_daf[irow, range] = list       -- set values from a list in cells in row irow, from columns in range.
-     my_daf[:, icol] = list           -- assign the entire column at index icol to the list provided.
-     my_daf[start:end, icol] = list   -- assign a partial column at index icol to list provided.
-     my_daf[irow, colname] = value    -- set a value in cell irow, col, where colname is a string.
-     my_daf[:, colname] = list        -- assign the entire column colname to the list provided.
-     my_daf[start:end, colname] = list    -- assign a partial column colname to list provided from rows start to end.
+|  Expression                                               | Operation                                                                     |
+|:----------------------------------------------------------|:------------------------------------------------------------------------------|
+|`my_daf[irow] = list`                                      | assign the entire row at index irow to the list provided                      |
+|`my_daf[irow] = value`                                     | assign the entire row at index row to the single value provided.              |
+|`my_daf[irow, icol] = value`                               | set cell irow, icol to value, where irow, icol are integers.                  |
+|`my_daf[irow, start:end] = value`                          | set a value in cells in row irow, from columns start to end.                  |
+|`my_daf[irow, start:end] = list`                           | set values from a list in cells in row irow, from columns start to end.       |
+|`my_daf[irow, range] = list`                               | set values from a list in cells in row irow, from columns in range.           |
+|`my_daf[:, icol] = list`                                   | assign the entire column at index icol to the list provided.                  |
+|`my_daf[start:end, icol] = list`                           | assign a partial column at index icol to list provided.                       |
+|`my_daf[irow, colname] = value`                            | set a value in cell irow, col, where colname is a string.                     |
+|`my_daf[:, colname] = list`                                | assign the entire column colname to the list provided.                        |
+|`my_daf[start:end, colname] = list`                        | assign a partial column colname to list provided from rows start to end.      |
 
 
 ### appending and row/column manipulation    
@@ -614,7 +630,7 @@ with all types of appending.
     
 #### concatenate other_daf as additional rows.
 
-    my_daf.append(other_daf)    
+    my_daf.append(other_daf)   
 
 
 ### selecting and removing records by keys
@@ -690,7 +706,7 @@ or
 
 #### modify icol by index using list la, overwriting the contents. Append if icol > num cols.
 
-    my_daf[:, icol] = la    
+    my_daf[:, icol] = la   
 
     
 #### modify named column using list la, overwriting the contents
@@ -710,7 +726,7 @@ This operation is not efficient and should be avoided.
     
 #### return dict of sums of columns specified or those specified in dtypes as int or float if numeric_only is True.
 
-    sum_da = my_daf.sum(colnames_ls, numeric_only=False)                       
+    sum_da = my_daf.sum(colnames_ls, numeric_only=False)
 
 #### create cross-column lookup
 
@@ -729,8 +745,8 @@ sort by count if sort, from highest to lowest unless 'reverse'
 
 #### same as above but also selected by a second column
 
-    valuecounts_di = my_daf.valuecounts_for_colname_selectedby_colname
-    valuecounts_dodi = my_daf.valuecounts_for_colname_groupedby_colname
+    valuecounts_di = my_daf.valuecounts_for_colname_selectedby_colname(colname)
+    valuecounts_dodi = my_daf.valuecounts_for_colname_groupedby_colname(colname)
     
 #### group to dict of daf based on values in colname
 
@@ -760,26 +776,29 @@ here, the references are absolute unless you create a relative reference by rela
 #### Example usage:
 In this example, we have an 4 x 3 array and we will sum the rows and columns to the right and bottom col and row, respectively.
 
-            example_daf = Daf(cols=['A', 'B', 'C'], 
-                                lol=[ [1,  2,   0],
-                                      [4,  5,   0],
-                                      [7,  8,   0],
-                                      [0,  0,   0]])
-                                      
-            formulas_daf = Daf(cols=['A', 'B', 'C'], 
-                    lol=[['',                    '',                    "sum($d[$r,:$c])"],
-                         ['',                    '',                    "sum($d[$r,:$c])"],
-                         ['',                    '',                    "sum($d[$r,:$c])"],
-                         ["sum($d[:$r,$c])",     "sum($d[:$r,$c])",     "sum($d[:$r, $c])"]]
-                         )
-                         
-            example_daf.apply_formulas(formulas_daf)
-        
-            result       = Daf(cols=['A', 'B', 'C'], 
-                                lol=[ [1,  2,   3],
-                                      [4,  5,   9],
-                                      [7,  8,   15],
-                                      [12, 15,  27]])
+```
+    example_daf = Daf(cols=['A', 'B', 'C'], 
+                        lol=[ [1,  2,   0],
+                              [4,  5,   0],
+                              [7,  8,   0],
+                              [0,  0,   0]])
+                              
+    formulas_daf = Daf(cols=['A', 'B', 'C'], 
+            lol=[['',                    '',                    "sum($d[$r,:$c])"],
+                 ['',                    '',                    "sum($d[$r,:$c])"],
+                 ['',                    '',                    "sum($d[$r,:$c])"],
+                 ["sum($d[:$r,$c])",     "sum($d[:$r,$c])",     "sum($d[:$r, $c])"]]
+                 )
+                 
+    example_daf.apply_formulas(formulas_daf)
+
+    result       = Daf(cols=['A', 'B', 'C'], 
+                        lol=[ [1,  2,   3],
+                              [4,  5,   9],
+                              [7,  8,   15],
+                              [12, 15,  27]])
+                              
+```
     
 ## Comparison with Pandas, Numpy SQLite
 
@@ -813,44 +832,44 @@ https://github.com/raylutz/daffodil/blob/main/docs/daf_demo.md
 Below is a sample of equivalent functions between Pandas and Daffodil. Please note that Daffodil does not attempt to create column-oriented functions such as
 .add, .sub, .mul, .div, .mod, .pow, etc which are either available on row basis using Python apply() or reduce() or by porting the array to NumPy.
 
-|  Pandas     |   Daffodil    |Description     |
-|:------------|:------------|:---------------|
-|df = pd.DataFrame()                               |daf = Daf()                               |Create empty dataframe  |
-|df.index                                          |daf.keys()                                |row labels of the Dataframe that "stick" to the data  |
-|df.columns                                        |daf.columns()                             |list of column names      |
-|df.dtypes                                         |daf.dtypes                                |data types dictionary     |
-|df.select_dtypes()                                |cols = daf.calc_icols()                   |calculate the columns to be included based on data types.  |
-|df.to_numpy()                                     |daf.to_numpy(cols)                        |convert selected columns to NumPy array  |
-|df.shape                                          |daf.shape()                               |return (rows, cols) dimension  |
-|df.empty                                          |bool(daf)                                 |bool(daf) also will allow None to be detected  |
-|df.convert_dtypes()                               |daf.apply_dtypes()                        |convert columns to the datatypes specified in self.dtypes dict  |
-|df.head(n)                                        |daf[:n]                                   |return first n rows, default is 5             |
-|df.insert()                                       |daf.insert_icol(), .insert_col()          |insert a column at a specified location in the array  |
-| -- (not available)                               |daf.insert_irow()                         |insert a row at specified row location (not supported by Pandas)  |
-|df.concat()                                       |daf.append()                              |add one or many rows/cols   |
-| -- (deprecated)                                  |daf.append()                              |add one row    |
-|df[colname]                                       |daf[:, colname]                           |select one column   |
-|df.apply()  (not recommended)                     |daf.apply(), .manifest_apply()            |apply function to a row at a time.    |
-|df.map()                                          |daf.apply()                               |any arbitrary python function can be applied  |
-|df.agg()                                          |daf.reduce()                              |reduce array to a record using arbitrary function  |
-|df.transform()                                    |daf.apply(by='table')                     |transform a table using a function producing a table   |
-|df.groupby()                                      |daf.groupby(); groupby_cols(); groupby_cols_reduce; groupby_reduce()  |group rows by values in a column and poss. apply a reduction  |
-|df.value_counts()                                 |daf.value_counts()                        |reduce a column by counting values.  |
-|df.tail(n)                                        |daf[-n:]                                  |return last n rows  |
-|df.sort_values()                                  |daf.sort_by_colname()                     |Daf only sorts rows   |
-|df.transpose()                                    |daf.select_kcols(flip=True)               |Not recommended in Daffodil but free if columns are dropped   |
-|df.drop()                                         |daf.select_kcols(kcols=[colnames], inverse=True)   |Drop columns by name. Transpose is free in Daf if done during a drop  |
-|df[~df[keyfield].isin(list of keys)]              |daf.select_krows(krows=[list of keys], inverse=True)  |Drop rows by keys in the keyfield.   |
-|df.to_records()                                   |daf.to_lod(); .to_dod()                   |convert from array to records in list-of-dict (or dict-of-dict) format.  |
-|df.to_markdown()                                  |daf.to_md()                               |convert to markdown representation. default presentation in Daf  |
-|df.assign()                                       |daf[:, n] = new_col                       |assign new values to a column  |
-| -- (not available?)                              |daf[rowname or idx] = dict                |assign new values to a row and respect column names as dict keys  |
-|df[df[colname] > 5]                               |daf.select_where(lambda row: row[colname] > 5)  |select rows where the value in colname > 5   |
-|df.rename(renaming dict)                          |daf.rename_cols(); daf.set_cols(); daf.set_rowkeys()   |Daf allows renaming rows when keyfield=''  |
-|df.reset_index                                    |daf.set_keyfield(''); daf.set_rowkeys()   |similar in operation.   |
-|df.set_index                                      |daf.set_keyfield(keyfieldname)            |Daf can use an existing column for the keyfield or can set the rowkeys independently  |
-|df.truncate()                                     |daf[:n]; daf[n:]                          |Truncate before or after some index n.  |
-|df.replace()                                      |daf.find_replace(find_pat, replace_val)   |Replace values found in-place.   |
+|  Pandas                                           |   Daffodil                               |Description     |
+|:--------------------------------------------------|:-----------------------------------------|:---------------|
+|`df = pd.DataFrame()`                              |`daf = Daf()`                             |Create empty dataframe  |
+|`df.index`                                         |`daf.keys()`                              |row labels of the Dataframe that "stick" to the data  |
+|`df.columns`                                       |`daf.columns()`                           |list of column names      |
+|`df.dtypes`                                        |`daf.dtypes`                              |data types dictionary     |
+|`df.select_dtypes()`                               |`cols = daf.calc_icols()`                 |calculate the columns to be included based on data types.  |
+|`df.to_numpy()`                                    |`daf.to_numpy(cols)`                      |convert selected columns to NumPy array  |
+|`df.shape`                                         |`daf.shape()`                             |return (rows, cols) dimension  |
+|`df.empty`                                         |`bool(daf)`                               |`bool(daf)` also will allow None to be detected  |
+|`df.convert_dtypes()`                              |`daf.apply_dtypes()`                      |convert columns to the datatypes specified in self.dtypes dict  |
+|`df.head(n)`                                       |`daf[:n]`                                 |return first n rows, default is 5             |
+|`df.insert()`                                      |`daf.insert_icol(), .insert_col()`        |insert a column at a specified location in the array  |
+| -- (not available)                                |`daf.insert_irow()`                       |insert a row at specified row location (not supported by Pandas)  |
+|`df.concat()`                                      |`daf.append()`                            |add one or many rows/cols   |
+| -- (deprecated)                                   |`daf.append()`                            |add one row    |
+|`df[colname]`                                      |`daf[:, colname]`                         |select one column   |
+|`df.apply()`  (not recommended)                    |`daf.apply()`, `.manifest_apply()`        |apply function to a row at a time.    |
+|`df.map()`                                         |`daf.apply()`                             |any arbitrary python function can be applied  |
+|`df.agg()`                                         |`daf.reduce()`                            |reduce array to a record using arbitrary function  |
+|`df.transform()`                                   |`daf.apply(by='table')`                   |transform a table using a function producing a table   |
+|`df.groupby()`                                     |`daf.groupby(); groupby_cols(); groupby_cols_reduce; groupby_reduce()`  |group rows by values in a column and poss. apply a reduction  |
+|`df.value_counts()`                                |`daf.value_counts()`                      |reduce a column by counting values.  |
+|`df.tail(n)`                                       |`daf[-n:]`                                |return last n rows  |
+|`df.sort_values()`                                 |`daf.sort_by_colname()`                   |Daf only sorts rows   |
+|`df.transpose()`                                   |`daf.select_kcols(flip=True)`             |Not recommended in Daffodil but free if columns are dropped   |
+|`df.drop()`                                        |`daf.select_kcols(kcols=[colnames], inverse=True)`         |Drop columns by name. Transpose is free in Daf if done during a drop  |
+|`df[~df[keyfield].isin(list of keys)]`             |`daf.select_krows(krows=[list of keys], inverse=True)`     |Drop rows by keys in the keyfield.   |
+|`df.to_records()`                                  |`daf.to_lod(); .to_dod()`                  |convert from array to records in list-of-dict (or dict-of-dict) format.  |
+|`df.to_markdown()`                                 |`daf.to_md()`                              |convert to markdown representation. default presentation in Daf  |
+|`df.assign()`                                      |`daf[:, n] = new_col`                      |assign new values to a column  |
+| -- (not available?)                               |`daf[rowname or idx] = dict`               |assign new values to a row and respect column names as dict keys  |
+|`df[df[colname] > 5]`                              |`daf.select_where(lambda row: row[colname] > 5)`           |select rows where the value in colname > 5   |
+|`df.rename(renaming dict)`                         |`daf.rename_cols(); daf.set_cols(); daf.set_rowkeys()`     |Daf allows renaming rows when keyfield=''  |
+|`df.reset_index`                                   |`daf.set_keyfield(''); daf.set_rowkeys()`  |similar in operation.   |
+|`df.set_index`                                     |`daf.set_keyfield(keyfieldname)`           |Daf can use an existing column for the keyfield or can set the rowkeys independently  |
+|`df.truncate()`                                    |`daf[:n]; daf[n:]`                         |Truncate before or after some index n.  |
+|`df.replace()`                                     |`daf.find_replace(find_pat, replace_val)`  |Replace values found in-place.   |
 
 
 

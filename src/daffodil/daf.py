@@ -289,6 +289,8 @@ r"""
             Improved Daf.from_lod() by using columns in dtypes dict if provided instead of relying only on first record of lod.
             
             Added indexing with range and T_lor (list of range) types, for both column and row indexing.
+            Added __contains__ method to allow " if key in my_daf: " to test if a given key exists. Requires kd exists.
+            revised .sum_da() based on feedback from user group.
             
     TODO
         offer dropping unexpected columns when doing concat/append ??
@@ -564,7 +566,7 @@ class Daf:
                 cols = utils._sanitize_cols(cols=cols)
                 self._cols_to_hd(cols)
                 if len(cols) != len(self.hd):                
-                    breakpoint() #temp assertion error
+                    breakpoint() #perm assertion error
                     pass
                     raise AttributeError ("AttributeError: cols not unique")
                 
@@ -681,6 +683,14 @@ class Daf:
     def __repr__(self) -> str:
         return "\n"+self.md_daf_table_snippet()
     
+    
+    def __contains__(self, key) -> bool:
+
+        if not self.kd:
+            raise KeyError("The dictionary 'kd' is not initialized.")
+        
+        return key in self.kd
+        
 
     #===========================
     # size and shape
@@ -1706,9 +1716,10 @@ class Daf:
     #==== Pandas
     #@classmethod
     from_pandas_df = daf_pandas._from_pandas_df
+    from_pandas_df = from_pandas_df                 # fool linter.
                 
     to_pandas_df = daf_pandas._to_pandas_df
-
+    to_pandas_df = to_pandas_df                     # fool linter.
         
             
     #==== Numpy
@@ -2438,6 +2449,7 @@ class Daf:
                         self.lol[irow][icol] = value[source_idx]
                     except Exception:
                         breakpoint() #perm ok
+                        pass # size of column being does not match number of rows.
                     
             # elif isinstance(value, dict):
                 # # this is the same as cols=0 bc dict updates the corresponding cols.
@@ -2877,12 +2889,12 @@ class Daf:
         # return selected_daf
         
         
-    def select_records_daf(self, keys_ls: Union[T_ls, Iterable], inverse:bool=False) -> 'Daf':
+    def select_records_daf(self, keys_ls: Union[T_ls, Iterable], inverse:bool=False, silent_error: bool=False) -> 'Daf':
         """ Select multiple records from daf using the keys and return as a single daf.
             If inverse is true, select records that are not included in the keys.
             
         """
-        return self.select_krows(krows=keys_ls, inverse=inverse)
+        return self.select_krows(krows=keys_ls, inverse=inverse, silent_error=silent_error)
           
         
     def irow_la(self, irow: int) -> T_la:
@@ -3244,6 +3256,9 @@ class Daf:
         """ given a list of colnames, cols, remove them from daf array
             alters the daf and creates a copy of all data.
             
+            Note, this is a inefficient process that should be avoided. specify columns 
+                    to be included in operation instead.
+            
             Note: could provide an option to not create a copy, and use splicing.
             
             test exists in test_daf.py
@@ -3482,7 +3497,7 @@ class Daf:
         """ insert column col_la at icol, shifting other column data. 
             use default if la not long enough
             If icol==-1, insert column at right end.
-            Note: use set_keyfield() if this column will become the keyfield.
+            Note: use set_keyfield() if this column is to be the keyfield.
             unit tests
         """
         
@@ -3560,9 +3575,9 @@ class Daf:
 
     def insert_col(
             self, 
-            colname:    str, 
-            col_la:     Optional[T_la]=None, 
-            icol:       int=-1, 
+            colname:    str,                    # name of the col
+            col_la:     Optional[T_la]=None,    # column to insert
+            icol:       int=-1,                 # insert at end by default
             default:    Any='',
             ):
             
@@ -3811,7 +3826,7 @@ class Daf:
             return
         
         if self.shape() != formulas_daf.shape():
-            breakpoint() #temp assertion error
+            breakpoint() #perm assertion error
             
             raise RuntimeError("apply_formulas requires data arrays of the same shape.")
         
@@ -3842,7 +3857,7 @@ class Daf:
                         new_value = eval(cell_formula)
                     except Exception as err:
                         print(f"Error in formula for cell [{irow},{icol}]: '{cell_formula}': '{err}'")
-                        breakpoint() #temp assertion error
+                        breakpoint() #perm assertion error
                         raise
                     
                     if new_value != self.lol[irow][icol]:
@@ -4654,22 +4669,10 @@ class Daf:
                     logs.sts(f"## Group {group_num}: {colname}={colval}\n\n{this_daf}\n\n", 3)
 
         return result_dodaf
-        
-        
             
         
     #===================================
     # apply / reduce convenience methods
-
-    # def daf_sum(
-            # self, 
-            # by: str = 'row', 
-            # cols: Optional[T_la]=None,
-            # **kwargs: Any,
-            # ) -> T_da:
-            
-        # return self.reduce(func=Daf.sum_da, by=by, cols=cols, **kwargs)
-    
 
     def daf_sum2(
             self, 
@@ -4819,6 +4822,7 @@ class Daf:
                     print(f"err = {err}")
                     breakpoint() #perm: investigate why reduction function not working
                     pass
+                    
                 # def count_values_da(row_da: T_da, reduction_da: T_da, cols_iter: Iterable, omit_nulls: bool=False) -> T_dodi:
                 # def sum_da         (row_da: T_da, reduction_da: T_da, cols_iter: Iterable, astype: Optional[Type]=None, diagnose:bool=False
 
@@ -4864,13 +4868,18 @@ class Daf:
 
         for col in cols_iter:
             
+            value = row_da[col]
             # if value == nan_indicator:        # this makes the loop take 10x longer (2162) (1044% of original)
             # if isinstance(value, str):        # this makes the loop take 42% longer (294)
             # if isinstance(value, str) and value == '':  # same (294)
             # if value is None or isinstance(value, str) and not value:     (350) vs 207 = 69% longer
             # if value == '':                     # this makes the loop take 10x longer (2105) (1044% of original)
             # if isinstance(value, str) and not value:    # this makes the loop take 50% longer (305)
-                # continue
+            if isinstance(value, str):          # this makes the loop take 50% longer (305)
+                                                # but is needed to disallow concatenating strings.
+                continue
+            # if isinstance(value, (int, float, np.int32, np.int64)):
+                # (indent)
             
             # the try/except below is the most time efficient way to handle this while still
             # allowing for astype and nan values. (212 ms for 1000x1000 array)
@@ -4928,15 +4937,22 @@ class Daf:
                     
                     reduction_da[col] += value
             
-                except Exception:
+                except ValueError:
                     continue
+                except Exception:
+                    breakpoint() #perm
+                    pass # unexpected exception
                     
             else:
                 try:
                     reduction_da[col] += row_da[col]
                 
+                #except Exception:
+                except ValueError:
+                    continue
                 except Exception:
-                        continue
+                    breakpoint() #perm
+                    pass # unexpected exception
 
 
                 
