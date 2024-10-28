@@ -4877,9 +4877,9 @@ class Daf:
             # if value is None or isinstance(value, str) and not value:     (350) vs 207 = 69% longer
             # if value == '':                     # this makes the loop take 10x longer (2105) (1044% of original)
             # if isinstance(value, str) and not value:    # this makes the loop take 50% longer (305)
-            if isinstance(value, str):          # this makes the loop take 50% longer (305)
+            # if isinstance(value, str):          # this makes the loop take 50% longer (305)
                                                 # but is needed to disallow concatenating strings.
-                continue
+                # continue
             # if isinstance(value, (int, float, np.int32, np.int64)):
                 # (indent)
             
@@ -4947,10 +4947,15 @@ class Daf:
                     
             else:
                 try:
-                    reduction_da[col] += row_da[col]
+                    # note that the "+ 0" in the following expression is important so that
+                    # string operands will cause 'TypeError: can only concatenate str (not "int") to str'
+                    # This will only invoke the exception when encountering non-numeric data, and does
+                    # not require an initial check
+                
+                    reduction_da[col] = reduction_da[col] + row_da[col] + 0
                 
                 #except Exception:
-                except ValueError:
+                except (ValueError, TypeError):
                     continue
                 except Exception:
                     breakpoint() #perm
@@ -4973,7 +4978,7 @@ class Daf:
         """
 
         diagnose = diagnose
-        nan_indicator = ''
+        # nan_indicator = ''
 
         # for col, value in row_da.items():       # doing it this way requires a check for existence in each loop.
             # if col not in cols:                 # this check is not needed in the version below.
@@ -4982,11 +4987,11 @@ class Daf:
         for col in cols:
             
             value = row_da[col]
-            if value == nan_indicator:        # this makes the loop take 10x longer (2162) (1044% of original)
+            #if value == nan_indicator:        # this makes the loop take 10x longer (2162) (1044% of original)
             # if isinstance(value, str):        # this makes the loop take 42% longer (294)
             # if isinstance(value, str) and value == '':  # same (294)
             # if value is None or isinstance(value, str) and not value:     (350) vs 207 = 69% longer
-            # if value == '':                     # this makes the loop take 10x longer (2105) (1044% of original)
+            if value == '':                     # this makes the loop take 10x longer (2105) (1044% of original)
             # if isinstance(value, str) and not value:    # this makes the loop take 50% longer (305)
                 continue
             

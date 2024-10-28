@@ -183,7 +183,7 @@ Here we use an unadorned basic pre-canned Pandas function to construct the dataf
 [1000 rows x 1000 columns]
 ```
 
-sizeof_di['df']=13,988,692 bytes
+sizeof_di['df']=13,988,644 bytes
 
 
 ## Create Pandas csv_df from Daf thru csv
@@ -347,7 +347,7 @@ use Daf.from_lod_to_cols to create a table with first colunm key names, and seco
 |     klod |             54,092,746 |
 |      daf |             36,119,226 |
 |     kdaf |             36,233,971 |
-|       df |             13,988,692 |
+|       df |             13,988,644 |
 |   csv_df |             25,988,692 |
 |      kdf |             74,031,064 |
 |    hdnpa |              4,054,216 |
@@ -643,22 +643,22 @@ Notes:
 
 |             Attribute              |  daf  | pandas | numpy  | sqlite |  lod  |
 | ---------------------------------: | :---: | :----: | :----: | :----: | :---: |
-|                           from_lod |  112  | 4,347  |  67.8  |  621   |       |
-|                       to_pandas_df | 4,674 |        | 0.054  |        | 4,347 |
-|              to_pandas_df_thru_csv |  581  |        |        |        |       |
-|                     from_pandas_df | 17.5  |        | 0.0080 |        |       |
-|                           to_numpy |  111  | 0.0080 |        |        | 67.8  |
-|                         from_numpy | 13.2  | 0.054  |        |        |       |
-|                     increment cell | 0.15  | 0.071  |        |        |       |
-|                        insert_irow | 0.11  |  11.2  |        |        |       |
-|                        insert_icol |  1.7  |  1.8   |        |        |       |
-|                           sum cols |  174  |  4.9   |  3.2   | 2,264  |  124  |
-|               sample_daf.daf_sum() |  273  |        |        |        |       |
-|              sample_daf.daf_sum2() | 1,969 |        |        |        |       |
-|              sample_daf.daf_sum3() |  265  |        |        |        |       |
-|                             sum_np | 59.3  |        |        |        |       |
-|                          transpose | 1,835 |  0.15  | 0.0029 |        |       |
-|                       keyed lookup | 0.081 |  0.58  |        |  5.1   | 0.065 |
+|                           from_lod |  117  | 4,557  |  67.7  |  621   |       |
+|                       to_pandas_df | 5,238 |        | 0.028  |        | 4,557 |
+|              to_pandas_df_thru_csv |  513  |        |        |        |       |
+|                     from_pandas_df | 14.9  |        | 0.0041 |        |       |
+|                           to_numpy | 51.6  | 0.0041 |        |        | 67.7  |
+|                         from_numpy |  7.8  | 0.028  |        |        |       |
+|                     increment cell | 0.096 | 0.041  |        |        |       |
+|                        insert_irow | 0.084 |  7.3   |        |        |       |
+|                        insert_icol |  1.4  |  1.7   |        |        |       |
+|                           sum cols |  179  |  5.1   |  2.5   | 2,253  |  127  |
+|               sample_daf.daf_sum() |  259  |        |        |        |       |
+|              sample_daf.daf_sum2() | 1,923 |        |        |        |       |
+|              sample_daf.daf_sum3() |  254  |        |        |        |       |
+|                             sum_np | 60.4  |        |        |        |       |
+|                          transpose | 1,839 |  0.15  | 0.0031 |        |       |
+|                       keyed lookup | 0.082 |  0.64  |        |  5.6   | 0.072 |
 |                              ===== | ===== | =====  | =====  | =====  | ===== |
 |       Size of 1000x1000 array (MB) | 34.4  |  13.3  |  3.9   |  4.9   | 51.5  |
 | Size of keyed 1000x1000 array (MB) | 34.6  |  70.6  |   --   |  4.9   | 51.6  |
