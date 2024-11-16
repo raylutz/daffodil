@@ -293,6 +293,7 @@ r"""
             revised .sum_da() based on feedback from user group.
             Improve formatting of README.md to include tables of examples.
             improve daf_benchmarks.py to use objsize instead of pympler to evaluate memory use.
+            Corrected set_keyfield in daffodil to do nothing if daf is empty.
             
     TODO
         offer dropping unexpected columns when doing concat/append ??
@@ -981,15 +982,24 @@ class Daf:
         return list(self.kd.keys())
         
 
-    def set_keyfield(self, keyfield: Union[str, T_ta, T_la]=''):
+    def set_keyfield(self, keyfield: Union[str, T_ta, T_la]='', silent_error: bool=True):
         """ set the indexing keyfield to a new column
             if keyfield == '', then reset the keyfield and reset the kd.
-            if keyfield not in columns, then KeyError
+            if keyfield not in columns, 
+                then KeyError, if not silent_error
+                else set it anyway.
+            Otherwise, set key field
             keyfield can be a tuple or list of colnames.
+            
+            if self is empty do nothing.
         """
+        if not self:
+            return self
+        
         if keyfield:
             if not self._is_keyfield_valid(keyfield):
-                raise KeyError
+                if not silent_error:
+                    raise KeyError
             self.keyfield = keyfield
             self._rebuild_kd()
         else:
@@ -4951,7 +4961,7 @@ class Daf:
                     # string operands will cause 'TypeError: can only concatenate str (not "int") to str'
                     # This will only invoke the exception when encountering non-numeric data, and does
                     # not require an initial check
-                
+                    
                     reduction_da[col] = reduction_da[col] + row_da[col] + 0
                 
                 #except Exception:
