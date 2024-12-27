@@ -248,8 +248,9 @@ best performance.
 If `from_str` is True (the default), only non-`str` columns are converted. Otherwise, columns specified as `str` will 
 also be scanned to ensure that they are expressed as `str` types.
 
-If `unflatten` is True (the default), columns with `list` or `dict` types will be unflattened from JSON if possible to create 
-accurate internal object types. (Tuples are not directly supported due to the use of JSON and will be imported as lists).
+If `unflatten` is True (the default), columns with `list` or `dict` types will be unflattened from PYON or JSON to create 
+accurate internal object types. Use PYON to be able to create sets, tuples and dicts with non-string keys. These are not
+directly supported in JSON.
 
 If the `.apply_dtypes()` method is called with a `dtypes` argument, then if the Daf object does not have any dtypes defined, 
 the `dtypes` parameter will be used to initiallize the internal `dtypes` attribute and 
@@ -267,8 +268,12 @@ are needed, and improve performance, and the operation of conversion of types is
 
 ### `.flatten()`
 
-Prior to writing a file, if the Daf array has any `list` or `dict` objects, then the `.flatten()` method should be used prior to
-writing it. Also, this converts `bool` data to `1` and `0` to avoid the overhead of `True` and `False` in the `.csv` file. 
+PYON is Python Object Notation, like JSON, but uses single quotes when writing but can read either single or double
+quotes, and can represent any core python object, such as lists, dicts, sets, and tuples. It also can handle non-string keys
+(None, integers and tuples, for example) in dicts. All objects found are converted to PYON when written automatially. To save space
+in the .csv file, use 0 an 1 to represent booleans.  See https://github.com/raylutz/README.md for more information on PYON.
+
+It is no longer necessary to manually flatten  `list` or `dict` objects using the `.flatten()` method.
 
     my_daf.flatten().to_csv('filename.csv')
     
