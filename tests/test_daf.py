@@ -403,7 +403,7 @@ class TestDaf(unittest.TestCase):
         # Test trying to set keyfield to a nonexistent column
         daf = Daf(lol=[[1, 'a'], [2, 'b']], cols=['ID', 'Value'])
         with self.assertRaises(KeyError):
-            daf.set_keyfield('nonexistent_column')
+            daf.set_keyfield('nonexistent_column', silent_error=False)
 
     # # row_idx_of (DEPRECATED)
     # def test_row_idx_of_existing_key(self):
@@ -4049,13 +4049,19 @@ class TestDafFlattenMethod(unittest.TestCase):
         self.assertEqual(result.lol, [[1, '[2, 3]'], [4, '[5, 6]']])
 
     def test_flatten_columns_with_dicts_to_flatten(self):
+        
+        use_pyon = True
+        
         instance = Daf(
             lol=[[1, {'a': 2}], [3, {'b': 4}]],
             dtypes={'col1': int, 'col2': dict},
             hd={'col1': 0, 'col2': 1}
         )
         result = instance.flatten()
-        self.assertEqual(result.lol, [[1, '{"a": 2}'], [3, '{"b": 4}']])
+        if use_pyon:
+            self.assertEqual(result.lol, [[1, "{'a': 2}"], [3, "{'b': 4}"]])
+        else:
+            self.assertEqual(result.lol, [[1, '{"a": 2}'], [3, '{"b": 4}']])
 
     def test_flatten_bool_columns_to_int(self):
         instance = Daf(
@@ -4076,18 +4082,31 @@ class TestDafFlattenMethod(unittest.TestCase):
         self.assertEqual(result.lol, [[1, 1], [1, 0]])
 
     def test_flatten_mixed_columns(self):
+        
+        use_pyon = True
+        
         instance = Daf(
             lol=[[1, [2, 3], {'a': 4}, True], [4, [5, 6], {'b': 7}, False]],
             dtypes={'col1': int, 'col2': list, 'col3': dict, 'col4': bool},
             hd={'col1': 0, 'col2': 1, 'col3': 2, 'col4': 3}
         )
         result = instance.flatten()
-        self.assertEqual(result.lol, [
-            [1, '[2, 3]', '{"a": 4}', 1],
-            [4, '[5, 6]', '{"b": 7}', 0]
-        ])
+        
+        if use_pyon:
+            self.assertEqual(result.lol, [
+                [1, '[2, 3]', "{'a': 4}", 1],
+                [4, '[5, 6]', "{'b': 7}", 0]
+            ])
+        else:
+            self.assertEqual(result.lol, [
+                [1, '[2, 3]', '{"a": 4}', 1],
+                [4, '[5, 6]', '{"b": 7}', 0]
+            ])
 
     def test_flatten_mixed_columns_missing_first_dtype(self):
+        
+        use_pyon = True
+        
         instance = Daf(
             lol=[[1, [2, 3], {'a': 4}, True], [4, [5, 6], {'b': 7}, False]],
             cols=['col1', 'col2', 'col3', 'col4'],
@@ -4096,10 +4115,16 @@ class TestDafFlattenMethod(unittest.TestCase):
         )
         
         result = instance.flatten()
-        self.assertEqual(result.lol, [
-            [1, '[2, 3]', '{"a": 4}', 1],
-            [4, '[5, 6]', '{"b": 7}', 0]
-        ])
+        if use_pyon:
+            self.assertEqual(result.lol, [
+                [1, '[2, 3]', "{'a': 4}", 1],
+                [4, '[5, 6]', "{'b': 7}", 0]
+            ])
+        else:
+            self.assertEqual(result.lol, [
+                [1, '[2, 3]', '{"a": 4}', 1],
+                [4, '[5, 6]', '{"b": 7}', 0]
+            ])
 
     # def test_flatten_no_hd_raises_runtime_error(self):
         # instance = Daf(

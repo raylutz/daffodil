@@ -108,7 +108,7 @@ daf:
 |   23 |   39 |   77 |    9 |   21 | ... |      0 |     63 |     22 |     81 |     97 |
 |   86 |    9 |   27 |    2 |   40 | ... |     86 |     34 |     61 |     77 |     52 |
 
-\[1000 rows x 1000 cols; keyfield=''; 0 keys ] (Daf)
+\[1,000 rows x 1,000 cols; keyfield=''; 0 keys ] (Daf)
 
 
 sizeof_di['daf']=36,119,226 bytes
@@ -141,7 +141,7 @@ kdaf:
 |    998 |   98 |   76 |   29 |   51 | ... |     55 |     59 |     30 |      3 |     47 |
 |    999 |   52 |   59 |   80 |   13 | ... |     58 |     33 |     33 |     90 |     89 |
 
-\[1000 rows x 1001 cols; keyfield='rowkey'; 1000 keys ] (Daf)
+\[1,000 rows x 1,001 cols; keyfield='rowkey'; 1,000 keys ] (Daf)
 
 
 sizeof_di['kdaf']=36,233,971 bytes
@@ -167,23 +167,23 @@ Here we use an unadorned basic pre-canned Pandas function to construct the dataf
 
 
 
-```     Col0  Col1  Col2  Col3  Col4  Col5  Col6  Col7  Col8  ...  Col991  Col992  Col993  Col994  Col995  Col996  Col997  Col998  Col999
-0      51    92    14    71    60    20    82    86    74  ...      12      83      24      67       9      66      17      99      85
-1      33     7    39    82    41    40     5    51    25  ...      32      40       7      10      85      50      87      40      16
-2      75    45    31    78    79    53    85    91    19  ...       3       3      19       9      23      98      25      36      84
-3      53    20    73    37    45     3    59    56    44  ...      82      15      65      39      16      33      15      59      65
-4      65    89    12    55    30    33    38    66     7  ...      54      95       4      35      48      57      38      79      96
-..    ...   ...   ...   ...   ...   ...   ...   ...   ...  ...     ...     ...     ...     ...     ...     ...     ...     ...     ...
-995    47    57    85    63    23    69     1    88    15  ...      65      18      80      70      27      71      55      97      56
-996    71    48    29    19    43    52    13     3    34  ...      22      45      39      17      70      76      80      64       8
-997    37     4    96    39    82    47    53    83    49  ...      77       4      26      86      21      17      31      32      20
-998    23    39    77     9    21    61     2    43    55  ...      71      86      76      16       0      63      22      81      97
-999    86     9    27     2    40     3    66    51    94  ...      85       7       9       5      86      34      61      77      52
+```     Col0  Col1  Col2  Col3  Col4  Col5  Col6  Col7  Col8  Col9  Col10  Col11  Col12  ...  Col987  Col988  Col989  Col990  Col991  Col992  Col993  Col994  Col995  Col996  Col997  Col998  Col999
+0      51    92    14    71    60    20    82    86    74    74     87     99     23  ...      89      43      24      16      12      83      24      67       9      66      17      99      85
+1      33     7    39    82    41    40     5    51    25    63     97     58     55  ...      31      10      44      88      32      40       7      10      85      50      87      40      16
+2      75    45    31    78    79    53    85    91    19    32     73     39     31  ...      69      55      82      57       3       3      19       9      23      98      25      36      84
+3      53    20    73    37    45     3    59    56    44    19     16     70      3  ...      95      33      44      60      82      15      65      39      16      33      15      59      65
+4      65    89    12    55    30    33    38    66     7    86     77     54     26  ...      24      54      45      31      54      95       4      35      48      57      38      79      96
+..    ...   ...   ...   ...   ...   ...   ...   ...   ...   ...    ...    ...    ...  ...     ...     ...     ...     ...     ...     ...     ...     ...     ...     ...     ...     ...     ...
+995    47    57    85    63    23    69     1    88    15    50     95     29     92  ...      65      71      35      44      65      18      80      70      27      71      55      97      56
+996    71    48    29    19    43    52    13     3    34    40      3     38     81  ...      73      68      21      18      22      45      39      17      70      76      80      64       8
+997    37     4    96    39    82    47    53    83    49    64     72     12     19  ...      94      50      59       9      77       4      26      86      21      17      31      32      20
+998    23    39    77     9    21    61     2    43    55    59      3     92      1  ...      45      13       3      19      71      86      76      16       0      63      22      81      97
+999    86     9    27     2    40     3    66    51    94    90     23     29     41  ...      67      98      37      60      85       7       9       5      86      34      61      77      52
 
 [1000 rows x 1000 columns]
 ```
 
-sizeof_di['df']=13,988,644 bytes
+sizeof_di['df']=14,021,640 bytes
 
 
 ## Create Pandas csv_df from Daf thru csv
@@ -205,23 +205,23 @@ Create a Pandas DataFrame by convering Daf through a csv buffer.
 
 
 
-```     Col0  Col1  Col2  Col3  Col4  Col5  Col6  Col7  Col8  ...  Col991  Col992  Col993  Col994  Col995  Col996  Col997  Col998  Col999
-0      51    92    14    71    60    20    82    86    74  ...      12      83      24      67       9      66      17      99      85
-1      33     7    39    82    41    40     5    51    25  ...      32      40       7      10      85      50      87      40      16
-2      75    45    31    78    79    53    85    91    19  ...       3       3      19       9      23      98      25      36      84
-3      53    20    73    37    45     3    59    56    44  ...      82      15      65      39      16      33      15      59      65
-4      65    89    12    55    30    33    38    66     7  ...      54      95       4      35      48      57      38      79      96
-..    ...   ...   ...   ...   ...   ...   ...   ...   ...  ...     ...     ...     ...     ...     ...     ...     ...     ...     ...
-995    47    57    85    63    23    69     1    88    15  ...      65      18      80      70      27      71      55      97      56
-996    71    48    29    19    43    52    13     3    34  ...      22      45      39      17      70      76      80      64       8
-997    37     4    96    39    82    47    53    83    49  ...      77       4      26      86      21      17      31      32      20
-998    23    39    77     9    21    61     2    43    55  ...      71      86      76      16       0      63      22      81      97
-999    86     9    27     2    40     3    66    51    94  ...      85       7       9       5      86      34      61      77      52
+```     Col0  Col1  Col2  Col3  Col4  Col5  Col6  Col7  Col8  Col9  Col10  Col11  Col12  ...  Col987  Col988  Col989  Col990  Col991  Col992  Col993  Col994  Col995  Col996  Col997  Col998  Col999
+0      51    92    14    71    60    20    82    86    74    74     87     99     23  ...      89      43      24      16      12      83      24      67       9      66      17      99      85
+1      33     7    39    82    41    40     5    51    25    63     97     58     55  ...      31      10      44      88      32      40       7      10      85      50      87      40      16
+2      75    45    31    78    79    53    85    91    19    32     73     39     31  ...      69      55      82      57       3       3      19       9      23      98      25      36      84
+3      53    20    73    37    45     3    59    56    44    19     16     70      3  ...      95      33      44      60      82      15      65      39      16      33      15      59      65
+4      65    89    12    55    30    33    38    66     7    86     77     54     26  ...      24      54      45      31      54      95       4      35      48      57      38      79      96
+..    ...   ...   ...   ...   ...   ...   ...   ...   ...   ...    ...    ...    ...  ...     ...     ...     ...     ...     ...     ...     ...     ...     ...     ...     ...     ...     ...
+995    47    57    85    63    23    69     1    88    15    50     95     29     92  ...      65      71      35      44      65      18      80      70      27      71      55      97      56
+996    71    48    29    19    43    52    13     3    34    40      3     38     81  ...      73      68      21      18      22      45      39      17      70      76      80      64       8
+997    37     4    96    39    82    47    53    83    49    64     72     12     19  ...      94      50      59       9      77       4      26      86      21      17      31      32      20
+998    23    39    77     9    21    61     2    43    55    59      3     92      1  ...      45      13       3      19      71      86      76      16       0      63      22      81      97
+999    86     9    27     2    40     3    66    51    94    90     23     29     41  ...      67      98      37      60      85       7       9       5      86      34      61      77      52
 
 [1000 rows x 1000 columns]
 ```
 
-sizeof_di['csv_df']=25,988,692 bytes
+sizeof_di['csv_df']=26,021,688 bytes
 
 
 ## Create keyed Pandas df
@@ -248,24 +248,24 @@ Create a keyed Pandas df based on the sample_klod generated.
 
 
 
-```        Col0  Col1  Col2  Col3  Col4  Col5  Col6  Col7  Col8  ...  Col991  Col992  Col993  Col994  Col995  Col996  Col997  Col998  Col999
-rowkey                                                        ...                                                                        
-0         26    56    78    29    56    83    63    16    79  ...      67      65      17      57      62      74      69      75      20
-1         46    72    39    48     3    13    65    92    83  ...      55      69      58      53      29      68      90      43       2
-2         27     4    19    82    87    85    15    49     6  ...      98      59       8      83      17      31      28      13      79
-3         18     2    49    30     1    74    39    78    17  ...      36      65      99      47       3      83      12      97      13
-4         84    69     9    18    18    47    60    57    48  ...      84      21      23      63      53       2      19      34      41
-...      ...   ...   ...   ...   ...   ...   ...   ...   ...  ...     ...     ...     ...     ...     ...     ...     ...     ...     ...
-995       11    75    33    98     9    21    84    42    75  ...      63      86      52       4      85      15      13       5      28
-996       73     2    59    13    29     5    24     1    30  ...      46      10      96      75      29      24      63      71      27
-997       81    74    63    79    90    19    43    73    73  ...      74      16      67      81       3      41      33      74      62
-998       98    76    29    51    99    49    99    56    12  ...      51      83       3      16      55      59      30       3      47
-999       52    59    80    13    36    26    74    71     2  ...      20      63       1      25      58      33      33      90      89
+```        Col0  Col1  Col2  Col3  Col4  Col5  Col6  Col7  Col8  Col9  Col10  Col11  Col12  ...  Col987  Col988  Col989  Col990  Col991  Col992  Col993  Col994  Col995  Col996  Col997  Col998  Col999
+rowkey                                                                                   ...                                                                                                        
+0         26    56    78    29    56    83    63    16    79    65     14     75     19  ...      40      11      20      40      67      65      17      57      62      74      69      75      20
+1         46    72    39    48     3    13    65    92    83    73      5     38     39  ...      36      77       6       3      55      69      58      53      29      68      90      43       2
+2         27     4    19    82    87    85    15    49     6    41     59      1     78  ...      15      77       6      40      98      59       8      83      17      31      28      13      79
+3         18     2    49    30     1    74    39    78    17     2     13     50      3  ...      43      32      27      77      36      65      99      47       3      83      12      97      13
+4         84    69     9    18    18    47    60    57    48     9     41     94     96  ...      43      88      74      90      84      21      23      63      53       2      19      34      41
+...      ...   ...   ...   ...   ...   ...   ...   ...   ...   ...    ...    ...    ...  ...     ...     ...     ...     ...     ...     ...     ...     ...     ...     ...     ...     ...     ...
+995       11    75    33    98     9    21    84    42    75     3     54     67     96  ...      86      69      58      63      63      86      52       4      85      15      13       5      28
+996       73     2    59    13    29     5    24     1    30    98     34     32      9  ...      92      30      92      42      46      10      96      75      29      24      63      71      27
+997       81    74    63    79    90    19    43    73    73    19     57     15     27  ...      83       6      23      72      74      16      67      81       3      41      33      74      62
+998       98    76    29    51    99    49    99    56    12    86     49     53     89  ...      47      89      24      86      51      83       3      16      55      59      30       3      47
+999       52    59    80    13    36    26    74    71     2    69     87     13      5  ...      21       9      41      35      20      63       1      25      58      33      33      90      89
 
 [1000 rows x 1000 columns]
 ```
 
-- sizeof_di['kdf']=74,031,064 bytes
+- sizeof_di['kdf']=69,891,743 bytes
 
 
 ## create hdnpa from lod
@@ -318,7 +318,7 @@ Converting to a sqlite table is surprisingly fast as it beats creating a Pandas 
     The space taken in memory is hard to calculate and the method we used to calculate it would produce 0.
 
 ```python
-    lod_to_sqlite_table(sample_klod, table_name='tempdata1')
+    daf_sql.lod_to_sqlite_table(sample_klod, table_name='tempdata1')
 
     datatable1 = 'tempdata1'
     datatable2 = 'tempdata2'
@@ -347,9 +347,9 @@ use Daf.from_lod_to_cols to create a table with first colunm key names, and seco
 |     klod |             54,092,746 |
 |      daf |             36,119,226 |
 |     kdaf |             36,233,971 |
-|       df |             13,988,644 |
-|   csv_df |             25,988,692 |
-|      kdf |             74,031,064 |
+|       df |             14,021,640 |
+|   csv_df |             26,021,688 |
+|      kdf |             69,891,743 |
 |    hdnpa |              4,054,216 |
 |     lont |             36,048,856 |
 |    hdlot |             36,102,944 |
@@ -371,6 +371,7 @@ import sys
 import os
 sys.path.append(os.path.join(os.path.dirname(sys.path[0]), 'src'))
 from daffodil.daf import Daf
+from daffodil.lib import daf_sql
 import gc
 gc.disable()
 
@@ -420,7 +421,7 @@ gc.disable()
     report_daf['to_numpy', 'lod']           = ms
     print(f"lod_to_numpy()                  {ms:.4f} ms")
 
-    report_daf['from_lod', 'sqlite']        = ms = timeit.timeit('lod_to_sqlite_table(sample_klod, table_name=datatable2)', setup=setup_code, globals=globals(), number=loops) * 1000 / (loops)
+    report_daf['from_lod', 'sqlite']        = ms = timeit.timeit('daf_sql.lod_to_sqlite_table(sample_klod, table_name=datatable2)', setup=setup_code, globals=globals(), number=loops) * 1000 / (loops)
     gc.enable()
     print(f"lod_to_sqlite_table()           {ms:.4f} ms")
 
@@ -527,7 +528,7 @@ gc.disable()
     gc.enable()
     print(f"hdnpa_dotsum_cols()             {ms:.4f} ms")
 
-    report_daf['sum cols', 'sqlite']        = ms = timeit.timeit('sum_columns_in_sqlite_table(table_name=datatable1)', setup=setup_code, globals=globals(), number=loops) * 1000 / (loops)
+    report_daf['sum cols', 'sqlite']        = ms = timeit.timeit('daf_sql.sum_columns_in_sqlite_table(table_name=datatable1)', setup=setup_code, globals=globals(), number=loops) * 1000 / (loops)
     gc.enable()
     print(f"sqlite_sum_cols()               {ms:.4f} ms")
 
@@ -564,7 +565,7 @@ gc.disable()
     gc.enable()
     print(f"klod_row_lookup()               {ms:.4f} ms")
 
-    report_daf['keyed lookup', 'sqlite']    = ms = timeit.timeit('sqlite_selectrow(table_name=datatable1)', setup=setup_code, globals=globals(), number=keyed_lookup_loops) * 1000 / (keyed_lookup_loops)
+    report_daf['keyed lookup', 'sqlite']    = ms = timeit.timeit('daf_sql.sqlite_selectrow(table_name=datatable1)', setup=setup_code, globals=globals(), number=keyed_lookup_loops) * 1000 / (keyed_lookup_loops)
     gc.enable()
     print(f"sqlite_row_lookup()             {ms:.4f} ms")
 
@@ -643,24 +644,24 @@ Notes:
 
 |             Attribute              |  daf  | pandas | numpy  | sqlite |  lod  |
 | ---------------------------------: | :---: | :----: | :----: | :----: | :---: |
-|                           from_lod |  117  | 4,557  |  67.7  |  621   |       |
-|                       to_pandas_df | 5,238 |        | 0.028  |        | 4,557 |
-|              to_pandas_df_thru_csv |  513  |        |        |        |       |
-|                     from_pandas_df | 14.9  |        | 0.0041 |        |       |
-|                           to_numpy | 51.6  | 0.0041 |        |        | 67.7  |
-|                         from_numpy |  7.8  | 0.028  |        |        |       |
-|                     increment cell | 0.096 | 0.041  |        |        |       |
-|                        insert_irow | 0.084 |  7.3   |        |        |       |
-|                        insert_icol |  1.4  |  1.7   |        |        |       |
-|                           sum cols |  179  |  5.1   |  2.5   | 2,253  |  127  |
-|               sample_daf.daf_sum() |  259  |        |        |        |       |
-|              sample_daf.daf_sum2() | 1,923 |        |        |        |       |
-|              sample_daf.daf_sum3() |  254  |        |        |        |       |
-|                             sum_np | 60.4  |        |        |        |       |
-|                          transpose | 1,839 |  0.15  | 0.0031 |        |       |
-|                       keyed lookup | 0.082 |  0.64  |        |  5.6   | 0.072 |
+|                           from_lod |  174  | 6,704  |  67.7  |  768   |       |
+|                       to_pandas_df | 6,215 |        | 0.052  |        | 6,704 |
+|              to_pandas_df_thru_csv |  300  |        |        |        |       |
+|                     from_pandas_df | 12.8  |        | 0.0048 |        |       |
+|                           to_numpy | 69.0  | 0.0048 |        |        | 67.7  |
+|                         from_numpy |  8.3  | 0.052  |        |        |       |
+|                     increment cell | 0.15  | 0.068  |        |        |       |
+|                        insert_irow | 0.12  |  8.1   |        |        |       |
+|                        insert_icol |  1.4  |  1.8   |        |        |       |
+|                           sum cols |  224  |  3.7   |  3.0   | 4,486  |  253  |
+|               sample_daf.daf_sum() |  376  |        |        |        |       |
+|              sample_daf.daf_sum2() | 2,989 |        |        |        |       |
+|              sample_daf.daf_sum3() |  356  |        |        |        |       |
+|                             sum_np | 70.2  |        |        |        |       |
+|                          transpose | 2,776 |  0.21  | 0.0023 |        |       |
+|                       keyed lookup | 0.084 |  0.39  |        |  8.9   | 0.11  |
 |                              ===== | ===== | =====  | =====  | =====  | ===== |
-|       Size of 1000x1000 array (MB) | 34.4  |  13.3  |  3.9   |  4.9   | 51.5  |
-| Size of keyed 1000x1000 array (MB) | 34.6  |  70.6  |   --   |  4.9   | 51.6  |
+|       Size of 1000x1000 array (MB) | 34.4  |  13.4  |  3.9   |  4.9   | 51.5  |
+| Size of keyed 1000x1000 array (MB) | 34.6  |  66.7  |   --   |  4.9   | 51.6  |
 
 

@@ -265,8 +265,8 @@ To use this with Pandas, it is necessary to first build the array using another 
     #import os
     import datetime
     import platform
-    from pympler import asizeof
-    
+    #from pympler import asizeof
+    import objsize    
     
     def get_one_file_infodict(dirpath: str, filename: str, timespec='seconds') -> dict:
         path = os.path.join(dirpath, filename)
@@ -341,8 +341,8 @@ To use this with Pandas, it is necessary to first build the array using another 
             
                             
                             
-        md_report += f"- daf size in memory: {asizeof.asizeof(os_system_file_list_daf):,} bytes\n"                    
-        md_report += f"- pandas df size in memory: {asizeof.asizeof(os_system_file_list_daf.to_pandas_df()):,} bytes\n"
+        md_report += f"- daf size in memory: {objsize.get_deep_size(os_system_file_list_daf):,} bytes\n"                    
+        md_report += f"- pandas df size in memory: {objsize.get_deep_size(os_system_file_list_daf.to_pandas_df()):,} bytes\n"
 
     md_report += md_code_seg("Limit this list to just the files") + "\n"
     """ Now what we will do is first limit the listing only to files.

@@ -565,8 +565,8 @@ To use this with Pandas, it is necessary to first build the array using another 
     #import os
     import datetime
     import platform
-    from pympler import asizeof
-    
+    #from pympler import asizeof
+    import objsize    
     
     def get_one_file_infodict(dirpath: str, filename: str, timespec='seconds') -> dict:
         path = os.path.join(dirpath, filename)
@@ -641,8 +641,8 @@ To use this with Pandas, it is necessary to first build the array using another 
             
                             
                             
-        md_report += f"- daf size in memory: {asizeof.asizeof(os_system_file_list_daf):,} bytes\n"                    
-        md_report += f"- pandas df size in memory: {asizeof.asizeof(os_system_file_list_daf.to_pandas_df()):,} bytes\n"
+        md_report += f"- daf size in memory: {objsize.get_deep_size(os_system_file_list_daf):,} bytes\n"                    
+        md_report += f"- pandas df size in memory: {objsize.get_deep_size(os_system_file_list_daf.to_pandas_df()):,} bytes\n"
 ```
 
 
@@ -680,10 +680,10 @@ Contents of C:\Windows\System32:
 | \zh-TW\windows.ui.xaml.dll.mui                                  |  11776 | 2023-12-13T18:14:00 | False  |
 | \zh-TW\WWAHost.exe.mui                                          |  11264 | 2023-12-13T18:14:04 | False  |
 | \zipcontainer.dll                                               |  79872 | 2019-12-07T01:08:33 | False  |
-| \zipfldr.dll                                                    | 285696 | 2024-04-24T05:28:01 | False  |
+| \zipfldr.dll                                                    | 302592 | 2024-07-10T04:23:40 | False  |
 | \ztrace_maps.dll                                                |  30720 | 2019-12-07T01:08:28 | False  |
 
-\[8813 rows x 4 cols; keyfield=''; 0 keys ] (Daf)
+\[8,827 rows x 4 cols; keyfield=''; 0 keys ] (Daf)
 
 
 
@@ -720,15 +720,15 @@ Contents of C:\Windows\System32 (in raw text format):
 | \zh-TW\windows.ui.xaml.dll.mui                                  |  11776 | 2023-12-13T18:14:00 | False  |
 | \zh-TW\WWAHost.exe.mui                                          |  11264 | 2023-12-13T18:14:04 | False  |
 | \zipcontainer.dll                                               |  79872 | 2019-12-07T01:08:33 | False  |
-| \zipfldr.dll                                                    | 285696 | 2024-04-24T05:28:01 | False  |
+| \zipfldr.dll                                                    | 302592 | 2024-07-10T04:23:40 | False  |
 | \ztrace_maps.dll                                                |  30720 | 2019-12-07T01:08:28 | False  |
 
-\[8813 rows x 4 cols; keyfield=''; 0 keys ] (Daf)
+\[8,827 rows x 4 cols; keyfield=''; 0 keys ] (Daf)
 
 ```
 
-- daf size in memory: 2,407,952 bytes
-- pandas df size in memory: 2,878,976 bytes
+- daf size in memory: 2,312,434 bytes
+- pandas df size in memory: 3,105,732 bytes
 
 ## Limit this list to just the files
 
@@ -783,10 +783,10 @@ Files only in C:\Windows\System32:
 | \zh-TW\windows.ui.xaml.dll.mui                                  |  11776 | 2023-12-13T18:14:00 | False  |
 | \zh-TW\WWAHost.exe.mui                                          |  11264 | 2023-12-13T18:14:04 | False  |
 | \zipcontainer.dll                                               |  79872 | 2019-12-07T01:08:33 | False  |
-| \zipfldr.dll                                                    | 285696 | 2024-04-24T05:28:01 | False  |
+| \zipfldr.dll                                                    | 302592 | 2024-07-10T04:23:40 | False  |
 | \ztrace_maps.dll                                                |  30720 | 2019-12-07T01:08:28 | False  |
 
-\[8690 rows x 4 cols; keyfield=''; 0 keys ] (Daf)
+\[8,704 rows x 4 cols; keyfield=''; 0 keys ] (Daf)
 
 
 

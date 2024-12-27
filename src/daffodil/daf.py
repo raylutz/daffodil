@@ -276,7 +276,7 @@ r"""
             Add annotate_daf(self, other_daf: 'Daf', my_to_other_dict: T_ds) to effectively join two tables.
             Fix value_counts_daf() by adding .to_list for total.
             
-    v0.5.5  (pending)
+    v0.5.5  (2024-12-27)
             add daf_crm.py as demonstration.
                 add op_import() 
             add get_csv_column_names() as refactoring in daf_utils for reading csv.
@@ -304,15 +304,24 @@ r"""
                 - Compatible with more Python data types.
                 - Still easy to convert to JSON.
             Copied function create_index_at_cursor() for sql tables in daf_benchmarks.py
+            Added daf_sql.py mainly to support benchmarks at this point.
+            This will be the last release before sql enhancements.
             
+    v0.6.0  (pending)
+
     TODO
+        Plan:
+            create base class for core operations.
+            use this to create daf_sql class to handle sql functionality.
+            extend daffodil methods to handle sql tables with similar syntax.
+    
         offer dropping unexpected columns when doing concat/append ??
             keys mismatch: daf: (['ballot_id', 'style_num', 'precinct', 'contest', 'option', 'has_indication', 'num_marks', 'num_votes', 'pixel_metric_value', 'sm_pmv', 'writein_name', 'overvotes', 'undervotes', 'ssidx', 'delta_y', 'ev_coord_str', 'ev_precinct_id', 'target_pixels', 'gray_eval', 'is_bmd', 'wipmv', 'p', 'x', 'y', 'w', 'h', 'b', 'bmd_str'])
             other_instance:     (['ballot_id', 'style_num', 'precinct', 'contest', 'option', 'has_indication', 'num_marks', 'num_votes', 'pixel_metric_value', 'sm_pmv', 'writein_name', 'overvotes', 'undervotes', 'ssidx', 'delta_y', 'ev_coord_str', 'ev_precinct_id', 'target_pixels', 'gray_eval', 'is_bmd', 'wipmv', 'p', 'x', 'y', 'w', 'h'])
             > daf.py(2003)concat()
     
-            It will probably be better to keep a value of the num cols and not calculate every time.
-            add use of pickledjson to express contents of individual cells when not jsonable.
+            No: It will probably be better to keep a value of the num cols and not calculate every time. (not worth it)
+            No: add use of pickledjson to express contents of individual cells when not jsonable. (Use Pyon)
             tests: need to add
                 __str__ and __repr__
                 
@@ -467,8 +476,8 @@ r"""
 """       
     
     
-#VERSION  = 'v0.5.4'
-#VERSDATE = '2024-07-02'  
+#VERSION  = 'v0.5.5'
+#VERSDATE = '2024-12-27'  
 
 import os
 import sys
@@ -4180,7 +4189,7 @@ class Daf:
                 transformed_row_da = func(row_da, **kwargs)
                 self.lol[idx] = list(transformed_row_da.values())
 
-        if by == 'row_klist':
+        elif by == 'row_klist':
 
             for idx, row_klist in enumerate(self.iter_klist()):
                 if rowkeys_list_or_dict and self.keyfield and row_klist[self.keyfield] not in rowkeys_list_or_dict:
@@ -4190,6 +4199,8 @@ class Daf:
                 func(row_klist, **kwargs)
                 
         else:
+            breakpoint()
+            pass
             raise NotImplementedError
             
         # Rebuild the internal data structure (if needed)
@@ -4895,14 +4906,14 @@ class Daf:
     
             for row_da in self:
                 try:
-                    reduction_da = func(row_da, reduction_da, cols_iter=cols_iter, **kwargs)
+                    reduction_da = func(row_da, reduction_da, cols=cols_iter, **kwargs)
                 except Exception as err:
                     print(f"err = {err}")
                     breakpoint() #perm: investigate why reduction function not working
                     pass
                     
-                # def count_values_da(row_da: T_da, reduction_da: T_da, cols_iter: Iterable, omit_nulls: bool=False) -> T_dodi:
-                # def sum_da         (row_da: T_da, reduction_da: T_da, cols_iter: Iterable, astype: Optional[Type]=None, diagnose:bool=False
+                # def count_values_da(row_da: T_da, reduction_da: T_da, cols: Iterable, omit_nulls: bool=False) -> T_dodi:
+                # def sum_da         (row_da: T_da, reduction_da: T_da, cols: Iterable, astype: Optional[Type]=None, diagnose:bool=False
 
             # normalize the result so it contains all columns
             result_da = {key: reduction_da.get(key,'') for key in self.hd.keys()}
@@ -4931,15 +4942,15 @@ class Daf:
                     indirect_da = indirect_val
                 try:
                     
-                    reduction_da = func(indirect_da, reduction_da, cols_iter=cols, is_sparse=True, **kwargs)
+                    reduction_da = func(indirect_da, reduction_da, cols=cols, is_sparse=True, **kwargs)
                     
                 except Exception as err:
                     print(f"err = {err}")
                     breakpoint() #perm: investigate why reduction function not working
                     pass
                     
-                # def count_values_da(row_da: T_da, reduction_da: T_da, cols_iter: Iterable, omit_nulls: bool=False) -> T_dodi:
-                # def sum_da         (row_da: T_da, reduction_da: T_da, cols_iter: Iterable, astype: Optional[Type]=None, diagnose:bool=False
+                # def count_values_da(row_da: T_da, reduction_da: T_da, cols: Iterable, omit_nulls: bool=False) -> T_dodi:
+                # def sum_da         (row_da: T_da, reduction_da: T_da, cols: Iterable, astype: Optional[Type]=None, diagnose:bool=False
 
             # # normalize the result so it contains all columns
             # result_da = {key: reduction_da.get(key,'') for key in self.hd.keys()}
@@ -4957,7 +4968,7 @@ class Daf:
     def sum_da( row_da:         T_da,                       # the current row from the daf array.
                 reduction_da:   T_da,                       # an accumulated result. Must be initialized for all columns in cols.
                 *,
-                cols_iter:      Optional[Iterable]=None,    # defines the active columns. Can be a list, keys(), range, or slice
+                cols:           Optional[Iterable]=None,    # defines the active columns. Can be a list, keys(), range, or slice
                 astype:         Optional[Type]=None,        # a type like int, float, str to cast the value if it is not that type. Optional.
                 is_sparse:      bool=False,
                 diagnose:       bool=False
@@ -4967,7 +4978,7 @@ class Daf:
             will safely skip data that can't be summed.
             First three args should be provided by position only to avoid naming issues among different reductions.
         """
-        # def sum_da         (row_da: T_da, reduction_da: T_da, cols_iter: Iterable, astype: Optional[Type]=None, diagnose:bool=False
+        # def sum_da         (row_da: T_da, reduction_da: T_da, cols: Iterable, astype: Optional[Type]=None, diagnose:bool=False
 
         diagnose = diagnose
         #nan_indicator = ''
@@ -4976,11 +4987,11 @@ class Daf:
             # if col not in cols:                 # this check is not needed in the version below.
                 # continue                        # 251 vs 207.
 
-        if cols_iter is None or is_sparse:
+        if cols is None or is_sparse:
             # iterate by cols in row_da
             for col, val in row_da.items():
                 
-                if cols_iter and not col in cols_iter:
+                if cols and not col in cols:
                     continue
                 
                 try:
@@ -5001,7 +5012,7 @@ class Daf:
             return reduction_da
             
         else:
-            for col in cols_iter:
+            for col in cols:
                 
                 value = row_da.get(col, 0)
                 # if value == nan_indicator:        # this makes the loop take 10x longer (2162) (1044% of original)
@@ -5613,7 +5624,7 @@ class Daf:
     def count_values_da(
             row_da: T_da, 
             reduction_da: T_da, 
-            cols_iter: Iterable, 
+            cols: Iterable, 
             *, 
             omit_nulls: bool=False,
             
@@ -5652,7 +5663,7 @@ class Daf:
             
         result_dodi = reduction_da
         
-        for col in cols_iter:
+        for col in cols:
 
             val = row_da[col]
             
