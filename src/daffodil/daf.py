@@ -294,6 +294,16 @@ r"""
             Improve formatting of README.md to include tables of examples.
             improve daf_benchmarks.py to use objsize instead of pympler to evaluate memory use.
             Corrected set_keyfield in daffodil to do nothing if daf is empty.
+            Added 'sparse_rows' to reduction 'by' type using an indirect_col.
+            Improve daf_sum() to support indirect_col.
+            Revised apply_in_place to support by='row_klist'. Func will modify row_klist and that will modify the array.
+                Changed name of keyword parameter in apply_in_place() from keylist to rowkeys to avoid confusion.
+            added astype parameter for to_list() and to_value()
+            Introduced standardization around PYON instead of JSON:
+                - Easier to convert esp. during serialization using csv.writer().
+                - Compatible with more Python data types.
+                - Still easy to convert to JSON.
+            Copied function create_index_at_cursor() for sql tables in daf_benchmarks.py
             
     TODO
         offer dropping unexpected columns when doing concat/append ??
@@ -846,7 +856,7 @@ class Daf:
             
             
         # start with all cols.
-        selected_cols = self.hd.keys()
+        selected_cols = self.hd.keys()  # change to columns()
         if not selected_cols:
             return []
             
@@ -973,6 +983,8 @@ class Daf:
             may return a list of str or int or list of tuple of (str or int).
         
             test exists in test_daf.py
+            
+            can also just use daf.kd   <-- to get a dict with keys, useful for "in" operation.
             
         """
         
@@ -1102,6 +1114,8 @@ class Daf:
             Otherwise, simply set my_daf.dtypes = dtypes dict, and then 
             apply_dtypes() when reading files and 
             flatten() when writing.
+            
+            @@TODO May want to provide a simpler function that sets a type to a set of columns.
         """
             
         if not self.hd:
@@ -1132,10 +1146,11 @@ class Daf:
             ) -> 'Daf':
         """ convert columns of daf array to the datatypes specified in self.dtypes or in passed parameter.
                 dtypes can be a dict where each column may have a different type, or it can be a single type.
-            columns must be defined.
-            Will unflatten from json to list or dict types if possible when unflatten is True
-            if from_str is True, assumes that data starts as str, such as when read from csv
-                This is commonly used when csv is first read to convert all types in the array.
+                dtypes may provide desired new types for only some of the columns.
+            columns (self.hd) must be defined.
+            unflatten: unflatten from pyon or json to list or dict types
+            if from_str is True, (default) assumes that data starts as str, such as when read from csv
+                If the csv is first read, data is all delivered as str.
                 Columns specified as str type are not converted.
             
             Note, this converts types in place, and does not create a new array.
@@ -1179,17 +1194,23 @@ class Daf:
         return self
         
         
-    def flatten(self, convert_bool_to_int=True):
+    def flatten(self, convert_bool_to_int=True, use_pyon: bool = True):
         """ convert any columns specified in dtypes as either list or dict, and
-            flatten using JSON encoding. Modifies the array in place. Will not 
-            flatten arbitrary objects, functions or methods.
+            flatten using PYON or JSON encoding. Modifies the array in place. If use_pyon, will 
+            flatten arbitrary nested objects, functions or methods.
+            
+            Note, if using pyon encoding, there is no need to flatten prior to writing the csv data, 
+                as it is converted using csv.writer using the __repr__ method for the object.
             
             if desired type is bool, it will convert to int, if convert_bool_to_int is True
             
-            This should be envoked just prior to saving the data to a csv file.
+            This should be envoked just prior to saving the data to a csv file if use_pyon = False.
+            Otherwise, there is no need to flatten the data, it will happen automatically.
             
             Historical Reference: https://legacy.python.org/workshops/1994-11/FlattenPython.html
         """
+        
+        use_pyon = True
 
         if not self.lol or not self.lol[0] or not self.dtypes:
             # this can sometimes happen, no worries.
@@ -1219,7 +1240,10 @@ class Daf:
                 
                 for irow in range(len(self.lol)):
                 
-                    self.lol[irow][icol] = utils.json_encode(self.lol[irow][icol])
+                    if use_pyon:
+                        self.lol[irow][icol] = f"{self.lol[irow][icol]}"
+                    else:    
+                        self.lol[irow][icol] = utils.json_encode(self.lol[irow][icol])
                     
             if convert_bool_to_int and desired_type == bool:
                 # this should be rare!
@@ -1701,6 +1725,13 @@ class Daf:
             The buffer can be saved to a local file or uploaded to a storage service like s3.
             
             Use .flatten() before calling this and use JSON encoding for any objects that are not str, int, float, or bool.
+            
+            However, this function will automatically flatten any nested objects, according to __repr__ for that object.
+                This differs from pure JSON format because:
+                    1. it uses single-quotes instead of double quotes around strings.
+                    2. it allows non-str keys in dicts.
+                    3. it encodes True/False as 'True'/'False' instead of 'true'/'false'
+            
         """
     
         if line_terminator is None:
@@ -2060,7 +2091,17 @@ class Daf:
             
         # fields must match exactly!
         if self.hd != other_instance.hd:
-            print(f"keys mismatch: daf: ({list(self.hd.keys())}) \nother_instance: ({list(other_instance.hd.keys())})")
+            _, missing_list, extra_list, _ = utils.compare_lists(
+                work_list   = self.hd, 
+                ref_list    = other_instance.hd, 
+                req_list    = None,
+                )
+            
+            print(f"{logs.prog_loc()} keys mismatch: this_instance ({self.name}):\n({list(self.hd.keys())}) \n"
+                  f"other_instance:\n({list(other_instance.hd.keys())})\n"
+                  f"missing_list:\n{missing_list}\n"
+                  f"extra_list:\n{extra_list}\n"
+                  )
             breakpoint() #perm -- assertion break
             raise KeyError
         
@@ -2915,7 +2956,12 @@ class Daf:
         return self.lol[irow]
         
 
-    def to_value(self, irow: int=0, icol: int=0, default:Any='') -> Any:
+    def to_value(self, 
+        irow:       int=0, 
+        icol:       int=0, 
+        default:    Any='', 
+        astype:     Optional[Union[Callable, str]]=None,
+        ) -> Any:
         """ return a single value from an array,
             at default location 0,0 or as specified.
         """
@@ -2923,17 +2969,18 @@ class Daf:
         num_rows, num_cols = self.shape()
 
         if num_rows >= 1 and num_cols >= 1:
-            return self.lol[irow][icol]
+            return utils.astype_value(self.lol[irow][icol], astype)
 
         return default
         
 
     def to_list(self, 
-        irow: Optional[int]=None,   # select a row 
-        icol: Optional[int]=None,   # or column.
-        unique=False,               # reduce to unique values
-        flatten=False,              # if items is the list are lists, combine them into one list.
-        omit_nulls=False,           # omit items that are empty strings (nulls).
+        irow:       Optional[int]=None,   # select a row 
+        icol:       Optional[int]=None,   # or column.
+        unique:     bool=False,           # reduce to unique values
+        flatten:    bool=False,           # if items is the list are lists, combine them into one list.
+        omit_nulls: bool=False,           # omit items that are empty strings (nulls).
+        astype:     Optional[Union[Callable, str]]=None,
         ) -> list:
         """ return data from a daf array as a list
             defaults to the most obvious list if irow and icol not specified.
@@ -2981,7 +3028,7 @@ class Daf:
         if omit_nulls and '' in result_la:
             result_la = [val for val in result_la if val != '']
             
-        return result_la
+        return utils.astype_la(result_la, astype)
 
 
     def to_lota(self, 
@@ -4096,40 +4143,57 @@ class Daf:
         
     def apply_in_place(
             self, 
-            func:       Callable[[T_da], T_da], 
+            func:       Callable[[Union[T_da, KeyedList]], Union[T_da, None]], 
             by:         str='row', 
-            keylist:    Optional[Union[T_la, T_lota]]=None,                   # list of keys of rows to include.
+            rowkeys:    Optional[Union[T_la, T_lota]]=None,  # list of rowkeys to include.
+                        # the above changed from keylist to avoid confusion with KeyedList
             **kwargs:   Any,
             ):
         """
-        Apply a function to each 'row', 'col', or 'table' in the daf.
+        Apply a function to each 'row', 'row_klist', 'col', or 'table' in the daf.
 
         Args:
             func (Callable): The function to apply to each 'row' 
-            It should take a row dictionary and any additional parameters.
-            # by (str): either 'row', 'col' or 'table'
-            #     if by == 'table', function should create a new Daf instance.
-            keylist: list of keys of rows to include.
-            **kwargs: Additional parameters to pass to the function.
+                                It should take a row dictionary (or KeyedList) and any additional parameters.
+            by (str):       either 'row', 'row_klist', 'col' or 'table'
+                                if by == 'row_klist' then the function should modify the KeyedList of that row
+                                                        which will mutate the row in the table.
+                                if by == 'table', function should create a new Daf instance.
+            rowkeys:        list of keys of rows to include (keyfield must be defined).
+            **kwargs:       Additional keyword parameters to pass to the function.
 
         Modifies self in-place.
         """
-        if keylist is None:
-            keylist = []
+        if rowkeys is None:
+            rowkeys = []
+        # here we create a dict if the rowkeys to search are numerous.
+        rowkeys_list_or_dict = rowkeys if (not rowkeys or 
+                                        isinstance(rowkeys, dict) 
+                                        or len(rowkeys) < 30
+                                    ) else dict.fromkeys(rowkeys)
         
         if by == 'row':
-            keylist_or_dict = keylist if not keylist or len(keylist) < 30 else dict.fromkeys(keylist)
 
             for idx, row_da in enumerate(self):
-                if self.keyfield and keylist_or_dict and self.keyfield not in keylist_or_dict:
+                if rowkeys_list_or_dict and self.keyfield and row_da[self.keyfield] not in rowkeys_list_or_dict:
                     continue
                 transformed_row_da = func(row_da, **kwargs)
                 self.lol[idx] = list(transformed_row_da.values())
+
+        if by == 'row_klist':
+
+            for idx, row_klist in enumerate(self.iter_klist()):
+                if rowkeys_list_or_dict and self.keyfield and row_klist[self.keyfield] not in rowkeys_list_or_dict:
+                    continue
+                    
+                # func should return nothing and instead mutate row_klist, which will mutate the row in the array.    
+                func(row_klist, **kwargs)
                 
         else:
             raise NotImplementedError
             
         # Rebuild the internal data structure (if needed)
+        # note, this should not be necessary. apply_in_place should not modify the keyfield column.
         self._rebuild_kd()
         
         
@@ -4771,21 +4835,23 @@ class Daf:
         
     def daf_sum(
             self, 
-            by: str = 'row', 
-            cols: Optional[Iterable]=None,
-            **kwargs: Any,
+            by:             str = 'row',                    # row|col|table|sparse_row
+            cols:           Optional[Iterable] = None,
+            indirect_col:   str = '',                       # indirect_col is required for lol array.           
+            **kwargs:       Any,
             ) -> T_da:
             
-        return self.reduce(func=Daf.sum_da, by=by, cols=cols, **kwargs)
+        return self.reduce(func=Daf.sum_da, by=by, cols=cols, indirect_col=indirect_col, **kwargs)
     
 
     def reduce(
             self, 
-            func: Callable[[T_da, T_da], Union[T_da, T_la]], 
-            by: str='row', 
-            cols: Optional[Iterable]=None,                  # columns included in the reduce operation.
-            initial_da: Optional[T_da]=None,
-            **kwargs: Any,
+            func:           Callable[[T_da, T_da], Union[T_da, T_la]], 
+            by:             str = 'row',                                # row|col|table|sparse_row
+            cols:           Optional[Iterable]=None,                    # columns included in the reduce operation.
+            initial_da:     Optional[T_da]=None,
+            indirect_col:   str = '',                                   # indirect_col is required for lol array.
+            **kwargs:       Any,
             ) -> Union[T_da, T_la]:
         """
         Apply a function to each 'row', 'col', or 'table' and accumulate to a single T_da
@@ -4829,7 +4895,7 @@ class Daf:
     
             for row_da in self:
                 try:
-                    reduction_da = func(row_da, reduction_da, cols_iter, **kwargs)
+                    reduction_da = func(row_da, reduction_da, cols_iter=cols_iter, **kwargs)
                 except Exception as err:
                     print(f"err = {err}")
                     breakpoint() #perm: investigate why reduction function not working
@@ -4851,21 +4917,53 @@ class Daf:
                 reduction_la = func(col_la, reduction_la, **kwargs)
             return reduction_la
 
+        elif by == 'sparse_row':
+            if not indirect_col:
+                raise ValueError("indirect_col must be specified for 'sparse_row' reduction and lol array.")
+
+            reduction_da = initial_da or {}
+            
+            for row_da in self:
+                indirect_val = row_da[indirect_col]
+                if isinstance(indirect_val, str):
+                    indirect_da = utils.safe_convert_json_to_obj(indirect_val)
+                else:
+                    indirect_da = indirect_val
+                try:
+                    
+                    reduction_da = func(indirect_da, reduction_da, cols_iter=cols, is_sparse=True, **kwargs)
+                    
+                except Exception as err:
+                    print(f"err = {err}")
+                    breakpoint() #perm: investigate why reduction function not working
+                    pass
+                    
+                # def count_values_da(row_da: T_da, reduction_da: T_da, cols_iter: Iterable, omit_nulls: bool=False) -> T_dodi:
+                # def sum_da         (row_da: T_da, reduction_da: T_da, cols_iter: Iterable, astype: Optional[Type]=None, diagnose:bool=False
+
+            # # normalize the result so it contains all columns
+            # result_da = {key: reduction_da.get(key,'') for key in self.hd.keys()}
+                
+            return reduction_da    
+                
+
+
         else:
             raise NotImplementedError
         return [] # for mypy only.
         
         
     @staticmethod
-    def sum_da( row_da: T_da,                   # the current row from the daf array.
-                reduction_da: T_da,             # an accumulated result. Must be initialized for all columns in cols.
-                cols_iter: Iterable,            # defines the active columns. Can be a list, keys(), range, or slice
+    def sum_da( row_da:         T_da,                       # the current row from the daf array.
+                reduction_da:   T_da,                       # an accumulated result. Must be initialized for all columns in cols.
                 *,
-                astype: Optional[Type]=None,    # a type like int, float, str to cast the value if it is not that type. Optional.
-                diagnose:bool=False
-                ) -> T_da:     # result_da
+                cols_iter:      Optional[Iterable]=None,    # defines the active columns. Can be a list, keys(), range, or slice
+                astype:         Optional[Type]=None,        # a type like int, float, str to cast the value if it is not that type. Optional.
+                is_sparse:      bool=False,
+                diagnose:       bool=False
+                ) -> T_da:  # result_da
         """ 
-            sum values in row and accum dicts per colunms provided. 
+            numeric sum of values in row and accum dicts per colunms provided. 
             will safely skip data that can't be summed.
             First three args should be provided by position only to avoid naming issues among different reductions.
         """
@@ -4878,91 +4976,20 @@ class Daf:
             # if col not in cols:                 # this check is not needed in the version below.
                 # continue                        # 251 vs 207.
 
-        for col in cols_iter:
-            
-            value = row_da[col]
-            # if value == nan_indicator:        # this makes the loop take 10x longer (2162) (1044% of original)
-            # if isinstance(value, str):        # this makes the loop take 42% longer (294)
-            # if isinstance(value, str) and value == '':  # same (294)
-            # if value is None or isinstance(value, str) and not value:     (350) vs 207 = 69% longer
-            # if value == '':                     # this makes the loop take 10x longer (2105) (1044% of original)
-            # if isinstance(value, str) and not value:    # this makes the loop take 50% longer (305)
-            # if isinstance(value, str):          # this makes the loop take 50% longer (305)
-                                                # but is needed to disallow concatenating strings.
-                # continue
-            # if isinstance(value, (int, float, np.int32, np.int64)):
-                # (indent)
-            
-            # the try/except below is the most time efficient way to handle this while still
-            # allowing for astype and nan values. (212 ms for 1000x1000 array)
-            # Please note that the cols value is determined
-            # prior to entering the function and must contain an iterable, even if all columns
-            # are specified.
-            
-            # writing this loop the other way around, by going through all columns and skipping those not
-            # mentioned in cols is also very inefficient.
+        if cols_iter is None or is_sparse:
+            # iterate by cols in row_da
+            for col, val in row_da.items():
                 
-            # 213 for the version below, which seems like it should be fastest.
-            # but it is slightly less advantageous because initial assignment is inside the try/except block.
-            
-            # try:
-                # if astype:
-                    # value = row_da[col]
-                    # if astype==int and isinstance(value, (str, float, bool)):
-                        # value = int(float(value))
-                    # elif astype==float and isinstance(value, (str, int, bool)):    
-                        # value = float(value)
-                    # elif astype==str and isinstance(value, (float, int, bool)):
-                        # value = str(value)
-                    # accum_da[col] += value
-                # else:
-                    # accum_da[col] += row_da[col]
-            # except Exception:
-                # continue
-
-            # this one measured at 230
-            # value = row_da[col]
-            # try:
-                # if astype:
-                    # if astype==int and isinstance(value, (str, float, bool)):
-                        # value = int(float(value))
-                    # elif astype==float and isinstance(value, (str, int, bool)):    
-                        # value = float(value)
-                    # elif astype==str and isinstance(value, (float, int, bool)):
-                        # value = str(value)
-                        
-                # accum_da[col] += value
-                
-            # except Exception:
-                # continue
-
-            # this one measured at 209 with all cols and no astype.
-            if astype:
-                value = row_da[col]
-                try:
-                    if astype==int and isinstance(value, (str, float, bool)):
-                        value = int(float(value or 0))
-                    elif astype==float and isinstance(value, (str, int, bool)):    
-                        value = float(value or 0)
-                    elif astype==str and isinstance(value, (float, int, bool)):
-                        value = str(value)
-                    
-                    reduction_da[col] += value
-            
-                except ValueError:
+                if cols_iter and not col in cols_iter:
                     continue
-                except Exception:
-                    breakpoint() #perm
-                    pass # unexpected exception
-                    
-            else:
+                
                 try:
                     # note that the "+ 0" in the following expression is important so that
                     # string operands will cause 'TypeError: can only concatenate str (not "int") to str'
                     # This will only invoke the exception when encountering non-numeric data, and does
                     # not require an initial check
                     
-                    reduction_da[col] = reduction_da[col] + row_da[col] + 0
+                    reduction_da[col] = reduction_da.get(col, 0) + val + 0
                 
                 #except Exception:
                 except (ValueError, TypeError):
@@ -4970,10 +4997,106 @@ class Daf:
                 except Exception:
                     breakpoint() #perm
                     pass # unexpected exception
-
-
+                    
+            return reduction_da
+            
+        else:
+            for col in cols_iter:
                 
-        return reduction_da
+                value = row_da.get(col, 0)
+                # if value == nan_indicator:        # this makes the loop take 10x longer (2162) (1044% of original)
+                # if isinstance(value, str):        # this makes the loop take 42% longer (294)
+                # if isinstance(value, str) and value == '':  # same (294)
+                # if value is None or isinstance(value, str) and not value:     (350) vs 207 = 69% longer
+                # if value == '':                     # this makes the loop take 10x longer (2105) (1044% of original)
+                # if isinstance(value, str) and not value:    # this makes the loop take 50% longer (305)
+                # if isinstance(value, str):          # this makes the loop take 50% longer (305)
+                                                    # but is needed to disallow concatenating strings.
+                    # continue
+                # if isinstance(value, (int, float, np.int32, np.int64)):
+                    # (indent)
+                
+                # the try/except below is the most time efficient way to handle this while still
+                # allowing for astype and nan values. (212 ms for 1000x1000 array)
+                # Please note that the cols value is determined
+                # prior to entering the function and must contain an iterable, even if all columns
+                # are specified.
+                
+                # writing this loop the other way around, by going through all columns and skipping those not
+                # mentioned in cols is also very inefficient.
+                    
+                # 213 for the version below, which seems like it should be fastest.
+                # but it is slightly less advantageous because initial assignment is inside the try/except block.
+                
+                # try:
+                    # if astype:
+                        # value = row_da[col]
+                        # if astype==int and isinstance(value, (str, float, bool)):
+                            # value = int(float(value))
+                        # elif astype==float and isinstance(value, (str, int, bool)):    
+                            # value = float(value)
+                        # elif astype==str and isinstance(value, (float, int, bool)):
+                            # value = str(value)
+                        # accum_da[col] += value
+                    # else:
+                        # accum_da[col] += row_da[col]
+                # except Exception:
+                    # continue
+
+                # this one measured at 230
+                # value = row_da[col]
+                # try:
+                    # if astype:
+                        # if astype==int and isinstance(value, (str, float, bool)):
+                            # value = int(float(value))
+                        # elif astype==float and isinstance(value, (str, int, bool)):    
+                            # value = float(value)
+                        # elif astype==str and isinstance(value, (float, int, bool)):
+                            # value = str(value)
+                            
+                    # accum_da[col] += value
+                    
+                # except Exception:
+                    # continue
+
+                # this one measured at 209 with all cols and no astype.
+                if astype:
+                    #value = row_da.get(col, 0)
+                    try:
+                        if astype==int and isinstance(value, (str, float, bool)):
+                            value = int(float(value or 0))
+                        elif astype==float and isinstance(value, (str, int, bool)):    
+                            value = float(value or 0)
+                        elif astype==str and isinstance(value, (float, int, bool)):
+                            value = str(value)
+                        
+                        reduction_da[col] += value
+                
+                    except ValueError:
+                        continue
+                    except Exception:
+                        breakpoint() #perm
+                        pass # unexpected exception
+                        
+                else:
+                    try:
+                        # note that the "+ 0" in the following expression is important so that
+                        # string operands will cause 'TypeError: can only concatenate str (not "int") to str'
+                        # This will only invoke the exception when encountering non-numeric data, and does
+                        # not require an initial check
+                        
+                        reduction_da[col] = reduction_da.get(col, 0) + value + 0
+                    
+                    #except Exception:
+                    except (ValueError, TypeError):
+                        continue
+                    except Exception:
+                        breakpoint() #perm
+                        pass # unexpected exception
+
+
+                    
+            return reduction_da
 
         
     @staticmethod
@@ -6023,7 +6146,7 @@ class Daf:
             )
         if include_summary:
             # this is okay with change to tuple keys.
-            mdstr += f"\n\[{len(self.lol)} rows x {self.num_cols()} cols; keyfield='{self.keyfield}'; {len(self.kd)} keys ] ({self.name or type(self).__name__})\n"
+            mdstr += f"\n\[{len(self.lol):,} rows x {self.num_cols():,} cols; keyfield='{self.keyfield}'; {len(self.kd):,} keys ] ({self.name or type(self).__name__})\n"
         return mdstr
         
 

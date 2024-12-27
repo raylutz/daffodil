@@ -369,7 +369,12 @@ def lod_to_sqlite_table(lod, table_name='tempdata', db_file_path=None, key_col='
     
     # Create an index on the key_col column
     if key_col:
-        cursor.execute(f"CREATE INDEX IF NOT EXISTS {table_name}_rowkey_idx ON {table_name}({key_col})")
+        sql_utils.create_index_at_cursor(
+                cursor          = cursor,  
+                index_colname   = key_col, 
+                table_name      = table_name,
+                diagnose        = True)
+
 
     # Insert data from the list of dictionaries into the table using parameterized queries
     for entry in lod:
@@ -381,6 +386,32 @@ def lod_to_sqlite_table(lod, table_name='tempdata', db_file_path=None, key_col='
     # Commit changes and close the database connection
     conn.commit()
     conn.close()
+
+def create_index_at_cursor(cursor, index_colname: str, table_name: str, diagnose: bool=False):
+
+    # creating the index at the end is more efficient.
+    logs.sts(f"creating index for '{index_colname}' on '{table_name}'", 3, enable=diagnose)
+
+    index_sqlcol = sql_escape_str(index_colname)
+    sql_tablename = sql_escape_str(table_name)
+    
+    try:
+        cursor.execute(f"CREATE INDEX IF NOT EXISTS idx_{index_sqlcol} ON {sql_tablename}({index_sqlcol})")
+    except sqlite3.OperationalError as err:
+        if "already exists" in str(err):
+            logs.sts("index already exists, don't need to add it again.", 3)
+        else:
+            logs.sts(f"Unexpected Error: {err}.", 3)
+            logs.error_beep()
+            breakpoint() #perm
+            pass
+    except Exception as err:        
+        logs.sts(f"Unexpected Error: {err}.", 3)
+        logs.error_beep()
+        breakpoint() #perm
+        pass
+
+    logs.sts(f"{logs.prog_loc()} Added index of col '{index_colname}' successfully.", 3, enable=diagnose)
 
 def sum_columns_in_sqlite_table(table_name='tempdata', db_file_path=None):
 
@@ -497,7 +528,7 @@ def safe_sizeof(obj: Any) -> int:
     except Exception as err:
         print(f"Encountering exception in objsize.get_deep_size() function: {err}")
         size = 0
-        breakpoint()
+        breakpoint() #perm
         
         pass
     return size

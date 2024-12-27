@@ -18,7 +18,7 @@ import xlsx2csv     # type: ignore
 #import numpy as np
 
 
-from typing import List, Dict, Any, Tuple, Optional, Union, cast, Type, Iterable #, Callable
+from typing import List, Dict, Any, Tuple, Optional, Union, cast, Type, Iterable, Callable
 
 def fake_function(a: Optional[List[Dict[str, Tuple[int,Union[Any, str, Iterable]]]]] = None) -> Optional[int]:
     return None or cast(int, 0)       # pragma: no cover
@@ -546,23 +546,26 @@ def convert_type_value(val: any, desired_type: type, unflatten: bool=True):
 def unflatten_val(val: str) -> Union[str, list, dict]:
     """ convert a str into python object.
     
-        allows correct JSON or python objects stringified with f"{obj}"
+        allows correct JSON or PYON objects stringified with f"{obj}"
     
     """
 
-
     val = val.strip()
-    
-    if val and isinstance(val, str) and val[0] in ('[', '{', '('):
-        obj_val = json_decode(val)  # this returns '' on failure
-        
-    if obj_val == '':
+
+    if (val and isinstance(val, str) and 
+            (val.startswith('[') and val.endswith(']') or 
+             val.startswith('{') and val.endswith('}') or
+             val.startswith('(') and val.endswith(')'))
+        ):
         obj_val = safe_eval(val)
+
+        if obj_val is None:  
+            obj_val = json_decode(val)  # this returns '' on failure
         
-    if obj_val == '':
-        return val
+        if obj_val:
+            return obj_val
         
-    return obj_val
+    return val
     
     
 def safe_eval(value: str) -> Optional[Any]:
@@ -590,7 +593,7 @@ def safe_convert_json_to_obj(json_str: str, json_name: str='') -> Any:
 
     # convert directly from JSON to object, except deal with single quotes or None's if found.
     # THIS IS FOR HUMAN_ENTERED JSON WHICH MAY HAVE HUMAN-ERRORS.
-    # Do not use this for known-good json.
+    # Do not use this for known-good JSON or PYON
 
     try:
         result_obj    = json.loads(json_str or "{}")
@@ -1735,9 +1738,9 @@ def precheck_csv_cols(csv_buff, expected_cols: T_ls) -> Tuple[T_ls, T_ls]:
         
 
 def compare_lists(
-        work_list: list, 
-        ref_list: list, 
-        req_list: Optional[list]=None,
+        work_list: Union[list, dict], 
+        ref_list: Union[list, dict], 
+        req_list: Optional[Union[list, dict]]=None,
         # maintain_order: bool=True,
         ) -> Tuple[list, list, list, list]: #matching_list, missing_list, extra_list, missing_req_list
         
@@ -1761,8 +1764,19 @@ def compare_lists(
             # first assume the items are hashable.
             # this will raise TypeError: unhashable type if they are not hashable.
             
-            ref_dict            = dict.fromkeys(ref_list)   # returns dictionary with specified keys and values are all None.
-            work_dict           = dict.fromkeys(work_list)
+            if isinstance(ref_list, list):
+                ref_dict            = dict.fromkeys(ref_list)   # returns dictionary with specified keys and values are all None.
+            elif isinstance(ref_list, dict):
+                ref_dict            = ref_list
+                
+            if isinstance(work_list, list):
+                work_dict           = dict.fromkeys(work_list)
+            elif isinstance(work_list, dict):
+                work_dict           = work_list
+                
+            if not isinstance(ref_dict, dict) or not isinstance(work_dict, dict):
+                breakpoint() # logic error
+                pass
             
             matching_list       = [val for val in work_list if val in ref_dict]
             missing_list        = [val for val in ref_list if val not in work_dict]
@@ -1796,5 +1810,49 @@ def compare_lists(
     return matching_list, missing_list, extra_list, missing_req_list
        
     
+def astype_la(la: T_la, astype: Optional[Union[Callable, str]]=None) -> T_la:
+    """ fix the type according to astype spec if it is not None 
+            this function current duplicated in daf_utils
+    """        
+
+    if astype is not None:
+        if callable(astype): 
+            return [astype(val) for val in la]
+        elif isinstance(astype, str):
+            if astype == 'int':
+                return [int(val) for val in la]
+            elif astype == 'str':
+                return [str(val) for val in la]
+            elif astype == 'float':
+                return [float(val) for val in la]
+            elif astype == 'bool':
+                return [bool(val) for val in la]
+            else:
+                raise ValueError (f"astype not supported: {astype}")
+        raise ValueError (f"astype not supported: {astype}")
+    return la
+
+def astype_value(val: Any, astype: Optional[Union[Callable, str]]=None) -> Any:
+    """ fix the type according to astype spec if it is not None 
+            this function current duplicated in daf_utils
+    """        
+
+    if astype is not None:
+        if callable(astype): 
+            return astype(val)
+        elif isinstance(astype, str):
+            if astype == 'int':
+                return int(val)
+            elif astype == 'str':
+                return str(val)
+            elif astype == 'float':
+                return float(val)
+            elif astype == 'bool':
+                return bool(val)
+            else:
+                raise ValueError (f"astype not supported: {astype}")
+        raise ValueError (f"astype not supported: {astype}")
+    return val
+            
             
         

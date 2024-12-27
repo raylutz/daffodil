@@ -1,6 +1,8 @@
 # keyedlist.py
 
-from typing import List, Dict, Any, Optional, Union, Iterator #, Tuple
+from typing import List, Dict, Any, Optional, Union, Iterator, Callable #, Tuple, Type
+
+T_la = List[Any]
 
 import json
 
@@ -165,7 +167,18 @@ class KeyedList:
         raise ValueError("Must provide either a dict, keys and values, hd and list, or KeyedList")
     
     def __getitem__(self, key):
-        return self._values[self.hd[key]]
+        """
+            indexing can use a scalar key or a list of keys, which returns a list.
+        """
+        
+        if isinstance(key, list):
+            return [self._values[self.hd[onekey]] for onekey in key if onekey in self.hd]
+            
+        elif isinstance(key, (str, int)):
+            return self._values[self.hd[key]]
+
+        else:
+            raise ValueError
     
     def __setitem__(self, key, value):
         if key not in self.hd:
@@ -201,21 +214,23 @@ class KeyedList:
     def values(self, new_values) -> None:
         if isinstance(new_values, list):
             self._values = new_values
+            
+
+    def values(self, astype: Optional[Union[Callable, str]]=None) -> List[Any]:
         
-
-
-    def values(self) -> List[Any]:
-        return self._values
+        return astype_la(self._values, astype)        
     
     def items(self):
         return ((key, self._values[idx]) for key, idx in self.hd.items())
-    
+
+
     def get(self, key, default=None):
         try:
             return self._values[self.hd[key]]
         except Exception:
             return default
-    
+
+
     def update(self, other):
         # this could allow direct updating.
         for key, value in other.items():
@@ -257,7 +272,28 @@ class KeyedList:
             return cls(hd=obj_dict.get("hd", {}), values=obj_dict.get("values", []))
         else:
             raise ValueError("Invalid JSON string for KeyedList")
-        
+
+def astype_la(la: T_la, astype: Optional[Union[Callable, str]]=None) -> T_la:
+    """ fix the type according to astype spec if it is not None 
+            this function current duplicated in daf_utils
+    """        
+
+    if astype is not None:
+        if callable(astype): 
+            return [astype(val) for val in la]
+        elif isinstance(astype, str):
+            if astype == 'int':
+                return [int(val) for val in la]
+            elif astype == 'str':
+                return [str(val) for val in la]
+            elif astype == 'float':
+                return [float(val) for val in la]
+            elif astype == 'bool':
+                return [bool(val) for val in la]
+            else:
+                raise ValueError (f"astype not supported: {astype}")
+        raise ValueError (f"astype not supported: {astype}")
+    return la
         
         
 class KeyedListEncoder(json.JSONEncoder):
@@ -265,4 +301,6 @@ class KeyedListEncoder(json.JSONEncoder):
         if isinstance(obj, KeyedList):
             return {"__KeyedList__": True, "hd": obj.hd, "values": obj._values}
         return super().default(obj)
-        
+
+
+    
