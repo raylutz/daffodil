@@ -166,7 +166,7 @@ def pandas_dtype_dict_to_python(pandas_dtype_dict: Any) -> Optional[Any]:
     """
     python_dtype_dict = {}
     for colname, pandas_dtype in pandas_dtype_dict.items():
-        if pandas_dtype == np.object_ or pandas_dtype == str:
+        if pandas_dtype == np.object_ or pandas_dtype is str:
             python_dtype_dict[colname] = str
         elif pandas_dtype in (np.int64, np.int32):
             python_dtype_dict[colname] = int

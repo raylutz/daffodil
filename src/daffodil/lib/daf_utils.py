@@ -24,9 +24,9 @@ def fake_function(a: Optional[List[Dict[str, Tuple[int,Union[Any, str, Iterable]
     return None or cast(int, 0)       # pragma: no cover
 
 
-from daffodil.lib.daf_types import T_lola, T_loda, T_dtype_dict, T_da, T_ds, T_hdlola, T_la, T_loti, T_ls, T_doda, T_buff, T_li, T_lr
+from daffodil.lib.daf_types import T_lola, T_loda, T_dtype_dict, T_da, T_ds, T_hdlola, \
+                                    T_la, T_loti, T_ls, T_doda, T_buff, T_li, T_lr # , T_ts, T_dota
                     
-
 def is_linux() -> bool: 
     return platform.system() == 'Linux'
     
@@ -77,14 +77,14 @@ def set_type_la(la: T_la, dtypes_worklist: List[Tuple[int, Type]]) -> T_la:
                     if value in ('False', 'True'):
                         la[idx] = int(eval(value))
                 
-        elif desired_type == float:
+        elif desired_type is float:
             try:
                 la[idx] = float(value)
             except ValueError:
                 if value in ('False', 'True'):
                     la[idx] = float(eval(value))
             
-        elif desired_type == str:    
+        elif desired_type is str:    
             la[idx] = str(value)
     
     return la
@@ -496,10 +496,10 @@ def convert_type_value(val: any, desired_type: type, unflatten: bool=True):
         For list and dict type, if str and JSON, convert to list or dict type if unflatten is True.
     """    
             
-    if desired_type != bool and (val in ('', None) or val != val):   # null string means None or NAN
+    if desired_type is not bool and (val in ('', None) or val != val):   # null string means None or NAN
         new_val = ''
 
-    elif desired_type == int:
+    elif desired_type is int:
         if val in ('0', '0.0', 'False', 'FALSE'):
             new_val = 0
         elif val in ('1', '1.0', 'True', 'TRUE'):
@@ -510,20 +510,20 @@ def convert_type_value(val: any, desired_type: type, unflatten: bool=True):
             except ValueError:
                 new_val = ''
             
-    elif desired_type == float:
+    elif desired_type is float:
         try:
             new_val = float(val)
         except ValueError:
             new_val = ''
                 
-    elif desired_type == bool:
+    elif desired_type is bool:
         # null string means None or NAN
         new_val = 0 if val in ('0', '', None, False, 'False') or val != val else 1
             
     elif desired_type in (list, dict) and isinstance(val, str) and unflatten:
         new_val = unflatten_val(val)
 
-    elif desired_type == str:
+    elif desired_type is str:
         if isinstance(val, str):
             new_val = val
         elif isinstance(val, bool):
@@ -531,7 +531,7 @@ def convert_type_value(val: any, desired_type: type, unflatten: bool=True):
         else:    
             new_val = f"{val}"
         
-    elif desired_type == list and isinstance(val, list) or desired_type == dict and isinstance(val, dict):
+    elif desired_type is list and isinstance(val, list) or desired_type is dict and isinstance(val, dict):
         # no conversion required.
         new_val = val
 
@@ -1261,12 +1261,14 @@ def sts(string: str, verboselevel: int=0, end: str='\n', enable: bool=True) -> s
     
     verbose_level = 3
 
-    if string is None or not enable: return ''
+    if string is None or not enable: 
+        return ''
 
     log_str = f"{get_datetime_str()}: {string}"
 
     if verboselevel >= verbose_level:
         print(log_str, end=end, flush=True)
+        
     return string+end
 
 
@@ -1855,4 +1857,32 @@ def astype_value(val: Any, astype: Optional[Union[Callable, str]]=None) -> Any:
     return val
             
             
-        
+def combine_records(record1: dict, record2: dict, suffixes: tuple = ("_x", "_y")) -> dict:
+    """
+    Combine two records into a single record, resolving column name conflicts with suffixes.
+
+    Args:
+        record1 (dict): The first record.
+        record2 (dict): The second record.
+        suffixes (tuple): Suffixes to apply to overlapping column names.
+
+    Returns:
+        dict: Combined record.
+    """
+    combined = {}
+
+    # Add fields from record1 with appropriate suffix if there's a conflict
+    for col, value in record1.items():
+        if col in record2:
+            combined[f"{col}{suffixes[0]}"] = value  # Apply suffix[0] for record1 conflicts
+        else:
+            combined[col] = value
+
+    # Add fields from record2 with appropriate suffix if there's a conflict
+    for col, value in record2.items():
+        if col in record1:
+            combined[f"{col}{suffixes[1]}"] = value  # Apply suffix[1] for record2 conflicts
+        else:
+            combined[col] = value
+
+    return combined

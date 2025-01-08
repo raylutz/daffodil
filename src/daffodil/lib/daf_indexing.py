@@ -1,4 +1,6 @@
 # daf_indexing.py
+
+# noqa
 """
 
 # Daf -- Python Daffodil dataframes
@@ -10,6 +12,8 @@ This file handles indexing with square brackets[] as functions that operate on
 a daf instance.
 
 Indexing is fairly simple in concept, but it has a number of forms and subtle nuances.
+
+THIS FILE IS NO LONGER ACTIVE. INDEXING HAS BEEN SIMPLIFIED AND MOVED TO daf.py, AS IT IS PART OF THE MAIN Daf CLASS.
 
 General Form:   my_daf[row, col]
 
@@ -115,6 +119,8 @@ import daffodil.lib.daf_utils as utils
 # import Daf.daf_md    as md
 import daffodil.lib.daf_indexing as indexing  # self import so internal references to indexing will work.
 from daffodil.daf import Daf
+
+Daf = Daf   # fool linter
 
 from typing import List, Dict, Any, Tuple, Optional, Union, cast, Type, Callable  #
 
@@ -915,7 +921,7 @@ def _set_by_parse_doda(self, parse_doda: T_doda, value: Any) -> 'Daf':
                     for source_icol, dest_icol in enumerate(dest_col_li):
                         self.lol[dest_irow][dest_icol] = value.lol[source_irow][source_icol]
             else:
-                import pdb;
+                import pdb
                 pdb.set_trace()  # temp
                 pass
 

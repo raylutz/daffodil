@@ -307,7 +307,8 @@ r"""
             Added daf_sql.py mainly to support benchmarks at this point.
             This will be the last release before sql enhancements.
             
-    v0.6.0  (pending)
+    v0.5.6  (pending)
+            Added from_lot() class method. Perhaps these can be unified in main init function by examining type of the data passed.
 
     TODO
         Plan:
@@ -732,8 +733,8 @@ class Daf:
             return 0
         _, result = utils.min_max_cols_lol(self.lol, limit=10)
         return result
-
-
+        
+        
     def __len__(self):
         """ Return the number of rows in the Daf instance.
         """
@@ -758,7 +759,8 @@ class Daf:
         """
         # test exists in test_daf.py
         
-        if not len(self): return (0, 0)
+        if not len(self): 
+            return (0, 0)
         
         return (self.num_rows(), self.num_cols()) 
         
@@ -1188,7 +1190,7 @@ class Daf:
             else:
                 desired_type = self.dtypes              # only one type is defined.
                 
-            if (    desired_type == str and from_str or 
+            if (    desired_type is str and from_str or 
                     desired_type in [list, dict] and not unflatten
                 ):
                 continue
@@ -1254,7 +1256,7 @@ class Daf:
                     else:    
                         self.lol[irow][icol] = utils.json_encode(self.lol[irow][icol])
                     
-            if convert_bool_to_int and desired_type == bool:
+            if convert_bool_to_int and desired_type is bool:
                 # this should be rare!
                 
                 icol = self.hd[col]
@@ -1392,9 +1394,10 @@ class Daf:
     @classmethod
     def from_lod(
             cls,
-            records_lod:    T_loda,                         # List[List[Any]] to initialize the lol data array.
-            keyfield:       Union[str, int, T_ta, T_la]='', # set a new keyfield or set no keyfield.
-            dtypes:         Optional[T_dtype_dict]=None     # set the data types for each column.
+            records_lod:    T_loda,                             # List[List[Any]] to initialize the lol data array.
+            keyfield:       Union[str, int, T_ta, T_la] = '',   # set a new keyfield or set no keyfield.
+            dtypes:         Optional[T_dtype_dict]      = None, # set the data types for each column.
+            name:           str                         = '',   # Optional name of the daffodil instance.
             ) -> 'Daf':
         """ Create Daf instance from loda type, adopting dict keys as column names
             Generally, all dicts in records_lod should be the same OR the first one must have all keys
@@ -1418,9 +1421,59 @@ class Daf:
         
         # is this better than just appending dicts?
         
-        lol = [list(utils.set_cols_da(record_da, cols).values()) for record_da in records_lod if record_da and isinstance(record_da, dict)]
+        lol = [list(utils.set_cols_da(record_da, cols).values()) 
+                for record_da in records_lod if record_da and isinstance(record_da, dict)]
         
         return cls(cols=cols, lol=lol, keyfield=keyfield, dtypes=dtypes)
+
+
+    # ==== Python lot (list of tuples)
+    @classmethod
+    def from_lot(
+            cls,
+            records_lot:    T_lota,                             # List of tuples to initialize the lol data array.
+            cols:           Optional[T_ls]              = None, # Optional column names to use.
+            dtypes:         Optional[T_dtype_dict]      = None, # Optional dtype_dict describing the desired type of each column.
+                                                                #   also used to define column names if provided and cols not provided.
+            keyfield:       Union[str, int, T_ta, T_la] = '',   # A field of the columns to be used as a key.
+            name:           str                         = '',   # Optional name of the daffodil instance.
+            ) -> 'Daf':
+        """
+        Create Daf instance from LOT (list of tuples), adopting given column names or generating default ones.
+
+        Args:
+            records_lot (List[Tuple[Any, ...]]):                    The LOT data.
+            columns (Optional[List[str]]):                          Column names for the tuples. If None, default names will be generated.
+            keyfield (Union[str, int, Tuple[Any, ...], List[Any]]): Keyfield for the Daf instance.
+            dtypes (Optional[Dict[str, type]]):                     Data types for each column.
+
+        Returns:
+            Daf: A new Daf instance with data populated from lot.
+
+        Example:
+            records_lot = [(1, 'Alice', 30), (2, 'Bob', 25)]
+            columns = ['id', 'name', 'age']
+            my_daf = Daf.from_lot(records_lot, cols=cols)
+        """
+        if not records_lot:
+            return cls(keyfield=keyfield, dtypes=dtypes)
+
+        if cols is None:
+            # Generate default column names if none are provided
+            cols = [f'col_{i}' for i in range(len(records_lot[0]))]
+
+        if dtypes is None:
+            dtypes = {}
+
+        # Check for mismatch between column names and tuple length
+        if any(len(row) != len(cols) for row in records_lot):
+            raise ValueError("Each tuple in records_lot must have the same number of elements as the columns.")
+
+        # Convert LOT to LOL (list of lists) for Daf
+        lol = [list(row) for row in records_lot]
+
+        return cls(cols=cols, lol=lol, keyfield=keyfield, dtypes=dtypes, name=name)
+
         
         
     def to_lod(self) -> T_loda:
@@ -1660,6 +1713,38 @@ class Daf:
         return my_daf
     
     #==== CSV
+    @classmethod
+    def from_csv_file(
+            cls,
+            filepath: str,                          # The CSV filename
+            keyfield: str='',                       # field to use as unique key, if not ''
+            dtypes: Optional[T_dtype_dict]=None,    # dictionary of types to apply if set.
+            noheader: bool=False,                   # if True, do not try to initialize columns in header dict.
+            user_format: bool=False,                # if True, preprocess the file and omit comment lines.
+            sep: str=',',                           # field separator.
+            unflatten: bool=True,                   # unflatten fields that are defined as dict or list.
+            include_cols: Optional[T_ls]=None,      # include only the columns specified. noheader must be false.
+            ) -> 'Daf':
+    
+        try:
+            with open(filepath) as f:
+                csv_buff = f.read()
+        except Exception as err:
+            print(f"Error reading the file: {err}")
+            return None
+
+        return Daf.from_csv_buff(
+            csv_buff    = csv_buff,                 # The CSV data as bytes or string.
+            keyfield    = keyfield,                 # field to use as unique key, if not ''
+            dtypes      = dtypes,                   # dictionary of types to apply if set.
+            noheader    = noheader,                 # if True, do not try to initialize columns in header dict.
+            user_format = user_format,              # if True, preprocess the file and omit comment lines.
+            sep         = sep,                      # field separator.
+            unflatten   = unflatten,                # unflatten fields that are defined as dict or list.
+            include_cols    = include_cols,         # include only the columns specified. noheader must be false.
+            )
+ 
+    
     @classmethod
     def from_csv_buff(
             cls,
@@ -1987,7 +2072,7 @@ class Daf:
         keyfield_dtype = dtypes.get(daf_dict.get('keyfield', ''), str)
 
         kd = daf_dict.get('kd', {})
-        if keyfield_dtype != str:
+        if keyfield_dtype is not str:
             kd = {keyfield_dtype(k): v for k, v in kd.items()}
         
         return cls(lol=daf_dict.get('lol', []),
@@ -2822,19 +2907,30 @@ class Daf:
             icols_range = range(slice_spec.start or 0, slice_spec.stop or self.num_cols(), slice_spec.step or 1)
             
             if not flip:
-                col_sliced_lol = [[row[icol] for icol in icols_range]
-                                        for row in self.lol]
+                try:
+                    col_sliced_lol = [[row[icol] for icol in icols_range]
+                                            for row in self.lol]
+                except Exception:
+                    breakpoint()
+                    pass
+                    
                 if orig_cols:
                     sliced_cols = [orig_cols[icol] for icol in icols_range]
             else: # flip
                 col_sliced_lol = [[row[icol] for row in self.lol]
                                         for icol in icols_range]
                 
-        elif isinstance(icols, (list, range)) and icols and utils.is_list_of_type(icols, int):
-            # list of integers:
+        elif icols and (isinstance(icols, list) and utils.is_list_of_type(icols, int) or
+                        isinstance(icols, range)):
+            # list of integers or range
             if not flip:
-                col_sliced_lol = [[row[icol] for icol in icols]
-                                        for row in self.lol]
+                try:
+                    col_sliced_lol = [[row[icol] for icol in icols]
+                                            for row in self.lol]
+                except IndexError:
+                    logs.sts("Columns specified don't exist, array may have uneven rows.", 3)
+                    raise
+                    
                 if orig_cols:                        
                     sliced_cols = [orig_cols[icol] for icol in icols]
                 
@@ -4991,7 +5087,7 @@ class Daf:
             # iterate by cols in row_da
             for col, val in row_da.items():
                 
-                if cols and not col in cols:
+                if cols and col not in cols:
                     continue
                 
                 try:
@@ -5074,11 +5170,11 @@ class Daf:
                 if astype:
                     #value = row_da.get(col, 0)
                     try:
-                        if astype==int and isinstance(value, (str, float, bool)):
+                        if astype is int and isinstance(value, (str, float, bool)):
                             value = int(float(value or 0))
-                        elif astype==float and isinstance(value, (str, int, bool)):    
+                        elif astype is float and isinstance(value, (str, int, bool)):    
                             value = float(value or 0)
-                        elif astype==str and isinstance(value, (float, int, bool)):
+                        elif astype is str and isinstance(value, (float, int, bool)):
                             value = str(value)
                         
                         reduction_da[col] += value
@@ -5185,11 +5281,11 @@ class Daf:
             # this one measured at 209 with all cols and no astype.
             if astype:
                 try:
-                    if astype==int and isinstance(value, (str, float, bool)):
+                    if astype is int and isinstance(value, (str, float, bool)):
                         value = int(float(value))
-                    elif astype==float and isinstance(value, (str, int, bool)):    
+                    elif astype is float and isinstance(value, (str, int, bool)):    
                         value = float(value)
-                    elif astype==str and isinstance(value, (float, int, bool)):
+                    elif astype is str and isinstance(value, (float, int, bool)):
                         value = str(value)
                     
                     accum_da[col] += value
@@ -5285,11 +5381,11 @@ class Daf:
             if astype:
                 # value = row_da[col]
                 try:
-                    if astype==int and isinstance(value, (str, float, bool)):
+                    if astype is int and isinstance(value, (str, float, bool)):
                         value = int(float(value))
-                    elif astype==float and isinstance(value, (str, int, bool)):    
+                    elif astype is float and isinstance(value, (str, int, bool)):    
                         value = float(value)
-                    elif astype==str and isinstance(value, (float, int, bool)):
+                    elif astype is str and isinstance(value, (float, int, bool)):
                         value = str(value)
                     
                     accum_da[col] += value
@@ -5355,6 +5451,7 @@ class Daf:
     
         """ given two cols that already exist, apply regex select to col1 to create col2
             regex should include parens that enclose the desired portion of col1.
+            col2 defaults to col1 if not provided, but you must use keyword regex.
         """
         
         # from utilities import utils
@@ -6024,8 +6121,245 @@ class Daf:
         
         return Daf(lol=new_lol, name=self.name, keyfield=new_keyfield, cols=new_cols, use_copy=True)        
 
+    def derive_join_translator(
+        self,
+        other_daf: 'Daf',                       # The other Daf instance to join with
+        shared_fields: Optional[T_ls] = None,   # Columns shared between tables that do not require renaming
+                                                # keyfields do not need to be added here.
+        ) -> 'Daf':  # Translator Daf
+        """
+        Derive a Daf translator for resolving column conflicts between two tables.
+
+        Args:
+            other_daf (Daf): The other Daf instance to join with.
+            shared_fields (Optional[T_ls]): Columns shared between tables that do not require renaming.
+
+        Returns:
+            Daf: Translator table with resolved column names and source mapping.
+
+        Example:
+            Source Daf objects:
+
+            `my_daf`:
+            | id |  name   |  status  |
+            | -: | ------: | -------: |
+            |  1 |   Alice |   active |
+            |  2 |     Bob | inactive |
+            |  3 | Charlie |   active |
+
+            \[3 rows x 3 cols; keyfield='id'; 3 keys ] (Daf)
+
+            `other_daf`:
+            | id |   address   | salary |
+            | -: | ----------: | -----: |
+            |  1 | 123 Main St |  50000 |
+            |  3 |  456 Elm St |  70000 |
+            |  4 |  789 Oak St |  60000 |
+
+            \[3 rows x 3 cols; keyfield='id'; 3 keys ] (Daf)
+
+            Code:
+            ```python
+            translator_daf = my_daf.derive_join_translator(other_daf, shared_fields=["id"])
+            ```
+
+            Resulting Translator Daf:
+            | resolved_colname | source_index | source_name | source_colname |
+            | ----------------: | -----------: | ----------: | -------------: |
+            | id                | 0           | self        | id             |
+            | name              | 0           | self        | name           |
+            | status            | 0           | self        | status         |
+            | id_other          | 1           | other       | id             |
+            | address           | 1           | other       | address        |
+            | salary            | 1           | other       | salary         |
+
+            \[6 rows x 4 cols; keyfield='resolved_colname'; 6 keys ] (Daf)
+        """
+        if shared_fields is None:
+            shared_fields = []
+            
+        if self.keyfield and self.keyfield not in shared_fields:
+            shared_fields.append(self.keyfield)
+            
+        if other_daf.keyfield and other_daf.keyfield not in shared_fields:
+            shared_fields.append(other_daf.keyfield)
+        
+        if shared_fields and isinstance(shared_fields, list) and len(shared_fields) > 9:
+            shared_fields = dict.fromkeys(shared_fields) 
+
+        # Get column names and names from both Dafs  (list of KeyViews of Any)
+        colnames_lokva = [self.hd.keys(), other_daf.hd.keys()]
+        
+        # Assign suffixes for source tables based on table names or default
+        source_suffixes = [
+            f"_{self.name}"         if self.name else "_0", 
+            f"_{other_daf.name}"    if other_daf.name else "_1",
+            ]
+            
+        source_names = [
+            self.name if self.name else "daf1", 
+            other_daf.name if other_daf.name else "daf2",
+            ]
+
+        # Identify columns that are common but not shared fields
+        common_colnames = [col for col in colnames_lokva[0] if col in colnames_lokva[1] and col not in shared_fields]
+        
+        # set.intersection(*[set(colnames_lists[0]) for cols in colnames_lists[1]]) - shared_fields
+
+        # Define the Daf structure first
+        translator_daf = Daf(cols=["resolved_colname", "source_index", "source_name", "source_colname", "is_keyfield"])
+
+        # Populate the Daf by appending rows directly
+        for idx, (colnames_kva, source_suffix) in enumerate(zip(colnames_lokva, source_suffixes)):
+            for col in colnames_kva:
+                if col in shared_fields and idx:
+                    continue
+                resolved_colname = (
+                    f"{col}{source_suffix}" if col in common_colnames and col else col
+                )
+                translator_daf.append([
+                    resolved_colname,  # resolved_colname
+                    idx,               # source_index
+                    source_names[idx], # source_name
+                    col,               # source_colname
+                    bool(col == self.keyfield or col == other_daf.keyfield),   # is_keyfield
+                ])
+
+        # Set the keyfield for the resulting Daf
+        translator_daf.set_keyfield("resolved_colname")
+        return translator_daf
 
 
+    def join(
+        self,
+        other_daf: 'Daf',
+        how: str = 'inner',
+        shared_fields: Optional[T_ls] = None,
+        custom_translator_daf: Optional['Daf'] = None,
+        diagnose: bool = False
+    ) -> 'Daf':
+        """
+        Perform a join operation between two Daf instances using their keyfields.
+
+        Args:
+            other_daf (Daf): The other Daf instance to join with.
+            how (str): Type of join - 'inner', 'left', 'right', 'outer'. Default is 'inner'.
+            shared_fields (Optional[List[str]]): Fields to ignore in conflict resolution (e.g., keyfields).
+            custom_translator_daf (Optional[Daf]): Custom translator Daf for resolving column mappings.
+            diagnose (bool): Enable diagnostic logging.
+
+        Returns:
+            Daf: A new Daf instance containing the result of the join.
+        """
+        if how not in {"inner", "left", "right", "outer"}:
+            raise ValueError(f"Unsupported join type: {how}")
+
+        if not self.keyfield or not other_daf.keyfield:
+            raise ValueError("Both Daf instances must have a keyfield defined for a join operation.")
+
+        if diagnose:
+            logs.sts(f"{logs.prog_loc()} Initiating join:\nself:\n{self}\nother_daf:\n{other_daf}", 3)
+
+        # Derive or use custom translator Daf
+        if custom_translator_daf:
+            translator_daf = custom_translator_daf
+        else:
+            translator_daf = self.derive_join_translator(other_daf, shared_fields)
+
+        if diagnose:
+            logs.sts(f"{logs.prog_loc()} Translator Daf:\n{translator_daf}", 3)
+
+        # Prepare the resulting Daf
+        result_daf = Daf(cols=translator_daf[:, "resolved_colname"].to_list())
+        keyfield = self.keyfield
+
+        # Helper function to fetch a record by key
+        def fetch_record(daf, key):
+            return daf.select_record(key, silent_error=True)
+
+        # Track matched keys for outer joins
+        matched_keys = set()
+
+        # Perform the join
+        for row_da in self:
+            key = row_da[keyfield]
+            other_row_da = fetch_record(other_daf, key)
+
+            if other_row_da:
+                matched_keys.add(key)
+                combined_record = Daf.join_records(
+                    [row_da, other_row_da], translator_daf
+                )
+                result_daf.append(combined_record)
+            elif how in {"left", "outer"}:
+                combined_record = Daf.join_records(
+                    [row_da, None], translator_daf
+                )
+                result_daf.append(combined_record)
+
+        if how in {"right", "outer"}:
+            unmatched_keys = [
+                key for key in other_daf.kd if key not in matched_keys
+            ]
+            for key in unmatched_keys:
+                other_row_da = fetch_record(other_daf, key)
+                combined_record = Daf.join_records(
+                    [None, other_row_da], translator_daf
+                )
+                result_daf.append(combined_record)
+
+        # Set the keyfield in the resulting Daf
+        result_daf.set_keyfield(keyfield)
+
+        if diagnose:
+            logs.sts(f"{logs.prog_loc()} Resulting Daf:\n{result_daf}", 3)
+
+        return result_daf
+        
+
+    @staticmethod
+    def join_records(
+        records: List[Optional[T_da]],  # List of dictionaries representing the source records
+        translator_daf: 'Daf'          # Translator Daf mapping resolved columns to source
+    ) -> T_da:
+        """
+        Combine multiple records using a join translator Daf.
+
+        Args:
+            records (List[Optional[T_da]]): List of source records, indexed by source_index.
+            translator_daf (Daf): Translator Daf with resolved column mapping.
+
+        Returns:
+            T_da: Combined record as a dictionary.
+        """
+        combined_record = {}
+
+        # Iterate through the translator Daf
+        for translator_row in translator_daf:
+            resolved_col = translator_row["resolved_colname"]
+            source_index = translator_row["source_index"]
+            source_colname = translator_row["source_colname"]
+            is_keyfield = translator_row.get("is_keyfield", False)
+
+            # Handle keyfield explicitly
+            if is_keyfield:
+                # Take the keyfield from the first non-None record
+                for record in records:
+                    if record and source_colname in record:
+                        combined_record[resolved_col] = record[source_colname]
+                        break
+                else:
+                    combined_record[resolved_col] = None
+                continue
+
+            # Handle all other columns
+            if records[source_index] is not None:
+                combined_record[resolved_col] = records[source_index].get(source_colname, None)
+            else:
+                combined_record[resolved_col] = None
+
+        return combined_record
+            
     #===============================
     # wide to narrow and narrow to wide conversion
     
@@ -6192,9 +6526,6 @@ class Daf:
             # mdstr += f"\n\[{len(self.lol)} rows x {len(self.hd)} cols; keyfield={self.keyfield}; {len(self.kd)} keys ] ({type(self).__name__})\n"
         return mdstr
 
-
-
-
     def daf_to_lol_summary(self, max_rows: int=10, max_cols: int=10, disp_cols:Optional[T_ls]=None) -> T_lola:
     
         # from utilities import utils
@@ -6307,11 +6638,11 @@ class DafIterator:
         if self._index < len(self.this_daf.lol):
             row = self.this_daf.lol[self._index]
             self._index += 1
-            if self.rtype == dict:
+            if self.rtype is dict:
                 return dict(zip(self.this_daf.hd.keys(), row))
             elif self.rtype == KeyedList:
                 return KeyedList(self.this_daf.hd, row)
-            elif self.rtype == list:
+            elif self.rtype is list:
                 return row
             
             else:

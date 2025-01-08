@@ -3811,12 +3811,12 @@ class TestDaf(unittest.TestCase):
         # Test case with mixed types of keys and values
         d1 = {'a': 1, 2: 'b', 'c': True}
         d2 = {'a': 1, 'b': 2, 'c': True}
-        assert utils.is_d1_in_d2(d1, d2) == False
+        assert not utils.is_d1_in_d2(d1, d2)
 
         # Test case where d1 has additional fields not present in d2
         d1 = {'a': 1, 'b': 2, 'd': 4}
         d2 = {'a': 1, 'b': 2}
-        assert utils.is_d1_in_d2(d1, d2) == False
+        assert not utils.is_d1_in_d2(d1, d2)
 
 
     def test_set_lol_with_new_lol(self):
@@ -4334,6 +4334,323 @@ class TestAlterDaf(unittest.TestCase):
         
         self.assertEqual(result_daf.lol, self.biabif_daf.lol)
         self.assertEqual(result_daf.hd, self.biabif_daf.hd)
+
+
+
+class TestJoinRecords(unittest.TestCase):
+
+    def setUp(self):
+        # Sample join_translator_daf
+        self.translator_daf = Daf(
+            lol=[
+                ["id",      0, "table1", "id",      True],
+                ["name",    0, "table1", "name",    False],
+                ["status",  0, "table1", "status",  False],
+                ["address", 1, "table2", "address", False],
+                ["salary",  1, "table2", "salary",  False],
+            ],
+            cols=["resolved_colname", "source_index", "source_name", "source_colname", 'is_keyfield'],
+            keyfield="resolved_colname"
+        )
+
+    def test_both_records_present(self):
+        records = [{"id": 1, "name": "Alice", "status": "active"},
+                   {"id": 1, "address": "123 Main St", "salary": 50000}]
+
+        result = Daf.join_records(records, self.translator_daf)
+        expected = {
+            "id": 1,
+            "name": "Alice",
+            "status": "active",
+            "address": "123 Main St",
+            "salary": 50000
+        }
+        self.assertEqual(result, expected)
+
+    def test_record1_only(self):
+        records = [{"id": 1, "name": "Alice", "status": "active"}, None]
+
+        result = Daf.join_records(records, self.translator_daf)
+        expected = {
+            "id": 1,
+            "name": "Alice",
+            "status": "active",
+            "address": None,
+            "salary": None
+        }
+        self.assertEqual(result, expected)
+
+    def test_record2_only(self):
+        records = [None, {"id": 1, "address": "123 Main St", "salary": 50000}]
+
+        result = Daf.join_records(records, self.translator_daf)
+        expected = {
+            "id": 1,
+            "name": None,
+            "status": None,
+            "address": "123 Main St",
+            "salary": 50000
+        }
+        self.assertEqual(result, expected)
+
+    def test_empty_records(self):
+        records = [{}, {}]
+
+        result = Daf.join_records(records, self.translator_daf)
+        expected = {
+            "id": None,
+            "name": None,
+            "status": None,
+            "address": None,
+            "salary": None
+        }
+        self.assertEqual(result, expected)
+
+    def test_partial_records(self):
+        records = [ {"id": 1, "name": "Alice"},
+                    {"id": 1, "address": "123 Main St"}]
+
+        result = Daf.join_records(records, self.translator_daf)
+        expected = {
+            "id": 1,
+            "name": "Alice",
+            "status": None,
+            "address": "123 Main St",
+            "salary": None
+        }
+        self.assertEqual(result, expected)
+
+
+
+class TestDeriveJoinTranslator(unittest.TestCase):
+    def setUp(self):
+        # Set up the primary Daf instance and other Daf instance for testing
+        self.daf1 = Daf.from_lod(
+            [
+                {"id": 1, "name": "Alice", "status": "active",  'style':11},
+                {"id": 2, "name": "Bob",  "status": "inactive", 'style':12}
+            ],
+            #cols=["id", "name", "status"],     # derived from lod
+            keyfield="id"
+        )
+        self.daf2 = Daf.from_lod(
+            [
+                {"id": 1, "address": "123 Main St", "salary": 50000, 'style':21},
+                {"id": 3, "address": "456 Elm St",  "salary": 70000, 'style':22}
+            ],
+            #cols=["id", "address", "salary"],
+            keyfield="id"
+        )
+
+    def test_basic_case(self):
+        result = self.daf1.derive_join_translator(self.daf2)
+        expected = Daf(
+            lol=[
+                ["id",      0,      "daf1", "id",      True], 
+                ["name",    0,      "daf1", "name",    False],
+                ["status",  0,      "daf1", "status",  False],
+                ['style_0', 0,      'daf1', 'style',   False],
+                ["address", 1,      "daf2", "address", False],
+                ["salary",  1,      "daf2", "salary",  False],
+                ['style_1', 1,      'daf2', 'style',   False],
+            ],
+            cols=["resolved_colname", "source_index", "source_name", "source_colname", "is_keyfield"],
+            keyfield="resolved_colname"
+        )
+        self.assertEqual(result.lol, expected.lol)
+
+    def test_shared_fields(self):
+        result = self.daf1.derive_join_translator(self.daf2, shared_fields=["id"])
+        expected = Daf(
+            lol=[
+                ["id",      0,      "daf1", "id",      True], 
+                ["name",    0,      "daf1", "name",    False],
+                ["status",  0,      "daf1", "status",  False],
+                ['style_0', 0,      'daf1', 'style',   False],
+                ["address", 1,      "daf2", "address", False],
+                ["salary",  1,      "daf2", "salary",  False],
+                ['style_1', 1,      'daf2', 'style',   False],
+            ],
+            cols=["resolved_colname", "source_index", "source_name", "source_colname", "is_keyfield"],
+            keyfield="resolved_colname"
+        )
+        self.assertEqual(result.lol, expected.lol)
+
+    def test_shared_fields2(self):
+        result = self.daf1.derive_join_translator(self.daf2, shared_fields=["style"])
+        expected = Daf(
+            lol=[
+                ["id",      0,      "daf1", "id",       True],          # Shared field resolved without suffix
+                ["name",    0,      "daf1", "name",     False],
+                ["status",  0,      "daf1", "status",   False],
+                ['style',   0,      'daf1', 'style',    False],
+                ["address", 1,      "daf2", "address",  False],
+                ["salary",  1,      "daf2", "salary",   False],
+            ],
+            cols=["resolved_colname", "source_index", "source_name", "source_colname", "is_keyfield"],
+            keyfield="resolved_colname"
+        )
+        self.assertEqual(result.lol, expected.lol)
+
+    def test_custom_source_names(self):
+        self.daf1.name = "table1"
+        self.daf2.name = "table2"
+        result = self.daf1.derive_join_translator(self.daf2)
+        expected = Daf(
+            lol=[
+                ["id",              0,      "table1",   "id",       True], 
+                ["name",            0,      "table1",   "name",     False],
+                ["status",          0,      "table1",   "status",   False],
+                ['style_table1',    0,      'table1',   'style',    False],
+                ["address",         1,      "table2",   "address",  False],
+                ["salary",          1,      "table2",   "salary",   False],
+                ['style_table2',    1,      'table2',   'style',    False],
+            ],
+            cols=["resolved_colname", "source_index", "source_name", "source_colname", "is_keyfield"],
+            keyfield="resolved_colname"
+        )
+        self.assertEqual(result.lol, expected.lol)
+
+    def test_empty_columns(self):
+        self.daf1.name = ""
+        self.daf2.name = ""
+        empty_daf = Daf(cols=['id'], keyfield='id')
+        result = self.daf1.derive_join_translator(empty_daf)
+        expected = Daf(
+            lol=[
+                ["id",      0,      "daf1", "id",       True], 
+                ["name",    0,      "daf1", "name",     False],
+                ["status",  0,      "daf1", "status",   False],
+                ['style',   0,      'daf1', 'style',    False],
+            ],
+            cols=["resolved_colname", "source_index", "source_name", "source_colname", "is_keyfield"],
+            keyfield="resolved_colname"
+        )
+        self.assertEqual(result.lol, expected.lol)
+
+    def test_empty_shared_fields(self):
+        result = self.daf1.derive_join_translator(self.daf2, shared_fields=[])
+        expected = Daf(
+            lol=[
+                ["id",      0,      "daf1", "id",       True], 
+                ["name",    0,      "daf1", "name",     False],
+                ["status",  0,      "daf1", "status",   False],
+                ['style_0', 0,      'daf1', 'style',    False],
+                ["address", 1,      "daf2", "address",  False],
+                ["salary",  1,      "daf2", "salary",   False],
+                ['style_1', 1,      'daf2', 'style',    False],
+            ],
+            cols=["resolved_colname", "source_index", "source_name", "source_colname", "is_keyfield"],
+            keyfield="resolved_colname"
+        )
+        self.assertEqual(result.lol, expected.lol)
+
+class TestDafJoin(unittest.TestCase):
+
+    def setUp(self):
+        self.daf1 = Daf.from_lod(
+            [
+                {"id": 1, "name": "Alice", "status": "active"},
+                {"id": 2, "name": "Bob", "status": "inactive"},
+                {"id": 3, "name": "Charlie", "status": "active"}
+            ],
+            keyfield="id"
+        )
+
+        self.daf2 = Daf.from_lod(
+            [
+                {"id": 1, "address": "123 Main St", "salary": 50000},
+                {"id": 3, "address": "456 Elm St", "salary": 70000},
+                {"id": 4, "address": "789 Oak St", "salary": 60000}
+            ],
+            keyfield="id"
+        )
+
+    def test_inner_join(self):
+        result = self.daf1.join(self.daf2, how="inner")
+        expected = Daf.from_lod(
+            [
+                {"id": 1, "name": "Alice", "status": "active", "address": "123 Main St", "salary": 50000},
+                {"id": 3, "name": "Charlie", "status": "active", "address": "456 Elm St", "salary": 70000}
+            ],
+            keyfield="id"
+        )
+        self.assertEqual(result.lol, expected.lol)
+
+    def test_left_join(self):
+        result = self.daf1.join(self.daf2, how="left")
+        expected = Daf.from_lod(
+            [
+                {"id": 1, "name": "Alice", "status": "active", "address": "123 Main St", "salary": 50000},
+                {"id": 2, "name": "Bob", "status": "inactive", "address": None, "salary": None},
+                {"id": 3, "name": "Charlie", "status": "active", "address": "456 Elm St", "salary": 70000}
+            ],
+            keyfield="id"
+        )
+        self.assertEqual(result.lol, expected.lol)
+
+    def test_right_join(self):
+        result = self.daf1.join(self.daf2, how="right")
+        expected = Daf.from_lod(
+            [
+                {"id": 1, "name": "Alice", "status": "active", "address": "123 Main St", "salary": 50000},
+                {"id": 3, "name": "Charlie", "status": "active", "address": "456 Elm St", "salary": 70000},
+                {"id": 4, "name": None, "status": None, "address": "789 Oak St", "salary": 60000}
+            ],
+            keyfield="id"
+        )
+        self.assertEqual(result.lol, expected.lol)
+
+    def test_outer_join(self):
+        result = self.daf1.join(self.daf2, how="outer")
+        expected = Daf.from_lod(
+            [
+                {"id": 1, "name": "Alice", "status": "active", "address": "123 Main St", "salary": 50000},
+                {"id": 2, "name": "Bob", "status": "inactive", "address": None, "salary": None},
+                {"id": 3, "name": "Charlie", "status": "active", "address": "456 Elm St", "salary": 70000},
+                {"id": 4, "name": None, "status": None, "address": "789 Oak St", "salary": 60000}
+            ],
+            keyfield="id"
+        )
+        self.assertEqual(result.lol, expected.lol)
+
+    def test_shared_fields(self):
+        result = self.daf1.join(self.daf2, how="inner", shared_fields=["status"])
+        expected = Daf.from_lod(
+            [
+                {"id": 1, "name": "Alice", "status": "active", "address": "123 Main St", "salary": 50000},
+                {"id": 3, "name": "Charlie", "status": "active", "address": "456 Elm St", "salary": 70000}
+            ],
+            keyfield="id"
+        )
+        self.assertEqual(result.lol, expected.lol)
+
+    def test_custom_translator(self):
+        custom_translator = Daf.from_lod(
+            [
+                {"resolved_colname": "id", "source_index": 0, "source_colname": "id"},
+                {"resolved_colname": "full_name", "source_index": 0, "source_colname": "name"},
+                {"resolved_colname": "residential_address", "source_index": 1, "source_colname": "address"},
+                {"resolved_colname": "monthly_salary", "source_index": 1, "source_colname": "salary"}
+            ],
+        )
+        result = self.daf1.join(self.daf2, how="inner", custom_translator_daf=custom_translator)
+        expected = Daf.from_lod(
+            [
+                {"id": 1, "full_name": "Alice", "residential_address": "123 Main St", "monthly_salary": 50000},
+                {"id": 3, "full_name": "Charlie", "residential_address": "456 Elm St", "monthly_salary": 70000}
+            ],
+            keyfield="id"
+        )
+        self.assertEqual(result.lol, expected.lol)
+
+    def test_empty_tables(self):
+        empty_daf = Daf(lol=[], keyfield="id")
+        result = self.daf1.join(empty_daf, how="inner")
+        self.assertEqual(result.lol, [])
+
+        result = empty_daf.join(self.daf2, how="inner")
+        self.assertEqual(result.lol, [])
 
 
 if __name__ == '__main__':

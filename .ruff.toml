@@ -1,0 +1,18 @@
+# Ruff Configuration
+
+# Specify which rules to check. E: Errors, F: Formatting
+lint.select = ["E", "F"]
+
+# Rules to ignore (comment each for clarity)
+lint.ignore = [
+    "W291",  # Ignore trailing whitespace
+    "W292",  # Ignore missing newline at end of file
+    "W293",  # Ignore blank lines with whitespace
+    "E402",  # Ignore module-level import not at top of file
+    "E501",  # Ignore line length checks
+    "E401",  # [*] Multiple imports on one line
+    "E712",  # Avoid equality comparisons to `False`
+]
+
+# Disable auto-fixing to prevent unintended changes
+fix = false

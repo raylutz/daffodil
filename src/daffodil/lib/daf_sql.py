@@ -121,12 +121,13 @@ def sum_columns_in_sqlite_table(table_name='tempdata', db_file_path=None):
     cursor = conn.cursor()
 
     # Get the column names from the table
+    #esc_column_names = sql_utils.get_escaped_columns(cursor, table_name)
     cursor.execute(f"PRAGMA table_info({table_name})")
     column_info = cursor.fetchall()
-    column_names = [col[1] for col in column_info]
+    esc_column_names = [col[1] for col in column_info]
 
     # Create a SQL query to calculate the sum for each column
-    sum_queries = [f"SUM({col}) AS {col}" for col in column_names]
+    sum_queries = [f"SUM({col}) AS {col}" for col in esc_column_names]
     query = f"SELECT {', '.join(sum_queries)} FROM {table_name}"
 
     # Execute the query and fetch the result
@@ -139,7 +140,7 @@ def sum_columns_in_sqlite_table(table_name='tempdata', db_file_path=None):
     # Convert the result into a dictionary
     if result:
         # Since column aliases are not supported, we need to manually alias the columns in the result
-        sum_dict = dict(zip(column_names, result))
+        sum_dict = dict(zip(esc_column_names, result))
         return sum_dict
     else:
         return None

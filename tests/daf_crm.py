@@ -94,13 +94,13 @@ The following fields are a starter set. These were found to be very commonly use
 	delete all records selected (after confirmation).
 
 ### Link:
-	enter info to link to googledocs
-	 
+    enter info to link to googledocs
+
 ### Template:
     edit email template to use with email blast
-        
+
 ### Blast:
-	use template selected or default and send emails to all records selected.
+    use template selected or default and send emails to all records selected.
 
 ### Import:
     enter file name -- add records from import file.
@@ -112,7 +112,6 @@ The following fields are a starter set. These were found to be very commonly use
 
 ### Help:
 	provide longer help.
-
 
 ### Internal State:
 	current data table.
