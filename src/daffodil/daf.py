@@ -309,6 +309,8 @@ r"""
             
     v0.5.6  (pending)
             Added from_lot() class method. Perhaps these can be unified in main init function by examining type of the data passed.
+            Added join() method, including unit tests.
+            Added from_pdf() class method, used to parse PDF files with table structure across multiple pages.
 
     TODO
         Plan:
@@ -500,6 +502,7 @@ from daffodil.lib.daf_types import T_ls, T_lola, T_di, T_hllola, T_loda, T_da, T
 import daffodil.lib.daf_utils    as utils
 import daffodil.lib.daf_md       as md
 import daffodil.lib.daf_pandas   as daf_pandas
+import daffodil.lib.daf_pdf      as daf_pdf
 
 from daffodil.keyedlist import KeyedList
 
@@ -1849,6 +1852,10 @@ class Daf:
     
         return utils.write_buff_to_fp(buff, file_path, fmt=fmt)
 
+    #==== PDF to Daf
+    
+    from_pdf = daf_pdf._from_pdf
+    from_pdf = from_pdf                             # fool linter.
     
     #==== Pandas
     #@classmethod
