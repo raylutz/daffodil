@@ -189,6 +189,8 @@ When adopting a file that may have a column that is tainted, it will be best to 
 The convenience method `my_daf.add_idx()` can be used to add a column with indices that can be used as a keyfield.
 
 Only one keyfield is supported, but additional keying can be built by the users by creating dicts of any column or set of columns.
+
+Joins require a common keyfield among daf arrays being joined.
     
 ## Column vs. Row Operations
 Daffodil is a row-oriented package. Other popular packages, like Pandas, Polars, etc, are column oriented because it can be very 
@@ -803,7 +805,38 @@ In this example, we have an 4 x 3 array and we will sum the rows and columns to 
                               [7,  8,   15],
                               [12, 15,  27]])
                               
-```
+## Join Overview
+The `join` method in Daf enables combining data from two tables (Daf instances) based on a shared keyfield. 
+This functionality is inspired by SQL joins, supporting `inner`, `left`, `right`, and `outer` join types, 
+but with additional flexibility for customization.
+
+### Join Types
+- **Inner Join**: Includes only rows with matching keys in both tables.
+- **Left Join**: Includes all rows from the left table and matching rows from the right table. Missing values in the right table are filled with `None`.
+- **Right Join**: Includes all rows from the right table and matching rows from the left table. Missing values in the left table are filled with `None`.
+- **Outer Join**: Includes all rows from both tables, filling missing values with `None`.
+
+### Daf Join API
+#### Usage
+```python
+result_daf = daf1.join(
+    other_daf=daf2,          # The other Daf instance
+    how="inner",             # Join type: 'inner', 'left', 'right', 'outer'
+    shared_fields=["id"],    # Optional: List of fields to exclude from conflict resolution
+    custom_translator_daf=None,  # Optional: Custom mapping for column resolution
+    diagnose=True            # Enable diagnostics for debugging
+)```
+
+#### Operation
+Daf instances joined must have keyfields defined and they must have values that can be used to join the records.
+
+If there are any fields that exist with the same names between the two tables, then they are suffixed with the
+name of the source tables, or _0 and _1 if no names are defined.
+
+If fields are shared between the two tables and should not be differentiated, then those can be listed as 'shared fields'
+and they will occur only once in the joined table.
+
+Using 'join' with memory-based tables will create a new table instance. If used with SQL tables, then it creates a view.
     
 ## Comparison with Pandas, Numpy SQLite
 
@@ -875,6 +908,7 @@ Below is a sample of equivalent functions between Pandas and Daffodil. Please no
 |`df.set_index`                                     |`daf.set_keyfield(keyfieldname)`           |Daf can use an existing column for the keyfield or can set the rowkeys independently  |
 |`df.truncate()`                                    |`daf[:n]; daf[n:]`                         |Truncate before or after some index n.  |
 |`df.replace()`                                     |`daf.find_replace(find_pat, replace_val)`  |Replace values found in-place.   |
+|`df.merge()`                                       |`daf.join(other_daf, how, shared_cols)`    |Join two tables using inner, outer, right, left  |
 
 
 
