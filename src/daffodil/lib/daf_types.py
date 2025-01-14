@@ -1,6 +1,6 @@
 # daf_types.py
 
-from typing import List, Dict, Any, Tuple, Type, Optional, Union, Set #, TYPE_CHECKING, Callable, cast
+from typing import List, Dict, Any, Tuple, Type, Optional, Union, Set, KeysView #, TYPE_CHECKING, Callable, cast
 
 import pandas as pd                 # type: ignore
 import numpy  as np                 # type: ignore
@@ -64,6 +64,8 @@ T_dododsi = Dict[str, T_dodsi]
 T_dolsi = Dict[str, T_lsi]
 T_dodododa = Dict[str, T_dododa]
 T_dododi = Dict[str,T_dodi]
+
+T_kva = KeysView[Union[str, int, tuple]]  # KeysView for keys that can be str, int, or tuple
 
 T_lods = List[T_ds]
 T_loda = List[T_da]             # lod is 12x larger than df, but is faster for appends. 3x larger than hdlola

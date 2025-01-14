@@ -311,6 +311,14 @@ r"""
             Added from_lot() class method. Perhaps these can be unified in main init function by examining type of the data passed.
             Added join() method, including unit tests.
             Added from_pdf() class method, used to parse PDF files with table structure across multiple pages.
+            Added name argument to from_lod()
+            Added name argument to from_csv_buff()
+            using raw docstring format to avoid complaints of escape characters in derive_join_translator.
+            Added 'tag_other' boolean parameter to tag all other column names during join, to support chained joins.
+            Simplified translator_daf table so it is easier to produce by hand and use across many tables being joined.
+            Added name argument for join() method, to provide the name of the resulting joined instance.
+            Improve unit tests for derive_join_translator
+            
 
     TODO
         Plan:
@@ -497,7 +505,7 @@ import collections      # to provide collections.abc.Iterable type.
 sys.path.append(os.path.dirname(os.path.dirname(os.path.realpath(__file__))))
 
 from daffodil.lib.daf_types import T_ls, T_lola, T_di, T_hllola, T_loda, T_da, T_li, T_dtype_dict, \
-                            T_dola, T_dodi, T_la, T_lota, T_doda, T_buff, T_ds, T_lb, T_rli, T_ta, T_lor
+                            T_dola, T_dodi, T_la, T_lota, T_doda, T_buff, T_ds, T_lb, T_rli, T_ta, T_lor, T_kva
                      
 import daffodil.lib.daf_utils    as utils
 import daffodil.lib.daf_md       as md
@@ -1266,7 +1274,7 @@ class Daf:
                 
                 for irow in range(len(self.lol)):
                 
-                    self.lol[irow][icol] = 1 if self.lol[irow][icol] else 0
+                    self.lol[irow][icol] = int(bool(self.lol[irow][icol]))
 
         return self
 
@@ -1427,7 +1435,7 @@ class Daf:
         lol = [list(utils.set_cols_da(record_da, cols).values()) 
                 for record_da in records_lod if record_da and isinstance(record_da, dict)]
         
-        return cls(cols=cols, lol=lol, keyfield=keyfield, dtypes=dtypes)
+        return cls(cols=cols, lol=lol, keyfield=keyfield, dtypes=dtypes, name=name)
 
 
     # ==== Python lot (list of tuples)
@@ -1727,7 +1735,25 @@ class Daf:
             sep: str=',',                           # field separator.
             unflatten: bool=True,                   # unflatten fields that are defined as dict or list.
             include_cols: Optional[T_ls]=None,      # include only the columns specified. noheader must be false.
-            ) -> 'Daf':
+            name: str = '',                         # name attribute of the Daf array created.
+            ) -> 'Daf':                             # New daf instance
+                
+        """ Read a csv file directly into a daf array in memory, per arguments. 
+        
+            Args:
+                filepath: str,                          # The CSV filename
+                keyfield: str='',                       # field to use as unique key, if not ''
+                dtypes: Optional[T_dtype_dict]=None,    # dictionary of types to apply if set.
+                noheader: bool=False,                   # if True, do not try to initialize columns in header dict.
+                user_format: bool=False,                # if True, preprocess the file and omit comment lines.
+                sep: str=',',                           # field separator.
+                unflatten: bool=True,                   # unflatten fields that are defined as dict or list.
+                include_cols: Optional[T_ls]=None,      # include only the columns specified. noheader must be false.
+                name: str = '',                         # name attribute of the Daf array created.
+            Returns
+                New daf instance
+        
+        """
     
         try:
             with open(filepath) as f:
@@ -1745,6 +1771,7 @@ class Daf:
             sep         = sep,                      # field separator.
             unflatten   = unflatten,                # unflatten fields that are defined as dict or list.
             include_cols    = include_cols,         # include only the columns specified. noheader must be false.
+            name        = name,                     # name attribute of the Daf array created.
             )
  
     
@@ -1759,6 +1786,7 @@ class Daf:
             sep: str=',',                           # field separator.
             unflatten: bool=True,                   # unflatten fields that are defined as dict or list.
             include_cols: Optional[T_ls]=None,      # include only the columns specified. noheader must be false.
+            name: str = '',                         # name attribute of the Daf array created.
             ) -> 'Daf':
         """
         Convert CSV data in a buffer (bytes or string) to a daf object
@@ -1768,12 +1796,15 @@ class Daf:
             types can be created as the csv is scanned rather than scanning again.
 
         Args:
-            buff (Union[bytes, str]): 
-            keyfield: field to use as unique key, if not ''
-            dtypes: dictionary of types to apply if set.
-            noheader: do not initialize columns from the first (non-comment) line.
-            user_format (bool): Whether to preprocess the CSV data (remove comments and blank lines).
-            sep (str): The separator used in the CSV data.
+            csv_buff: Union[bytes, str],            # The CSV data as bytes or string.
+            keyfield: str='',                       # field to use as unique key, if not ''
+            dtypes: Optional[T_dtype_dict]=None,    # dictionary of types to apply if set.
+            noheader: bool=False,                   # if True, do not try to initialize columns in header dict.
+            user_format: bool=False,                # if True, preprocess the file and omit comment lines.
+            sep: str=',',                           # field separator.
+            unflatten: bool=True,                   # unflatten fields that are defined as dict or list.
+            include_cols: Optional[T_ls]=None,      # include only the columns specified. noheader must be false.
+            name: str = '',                         # name attribute of the Daf array created.
 
         Returns:
             hllola: A tuple containing a header list and a list of lists representing the CSV data.
@@ -1787,7 +1818,7 @@ class Daf:
         
         #breakpoint()
         
-        my_daf = cls(lol=data_lol, cols=cols, keyfield=keyfield, dtypes=dtypes)
+        my_daf = cls(lol=data_lol, cols=cols, keyfield=keyfield, dtypes=dtypes, name=name)
         
         # the following will act nicely if there is no dtypes defined.
         my_daf.apply_dtypes(unflatten=unflatten)
@@ -5562,7 +5593,7 @@ class Daf:
             self,                       # daf to alter
             alter_specs_daf: 'Daf',     # daf containing cols: colname, replace_regex
             ) -> 'Daf':
-        """ 
+        r""" 
             Given daf array, use alter_specs_daf to alter the array with individual replace_regex specs.
             
             alter_specs_daf should be preselected to retain only those specs (rows) that apply using "spec_name"
@@ -6130,16 +6161,20 @@ class Daf:
 
     def derive_join_translator(
         self,
-        other_daf: 'Daf',                       # The other Daf instance to join with
-        shared_fields: Optional[T_ls] = None,   # Columns shared between tables that do not require renaming
-                                                # keyfields do not need to be added here.
+        other_daf: 'Daf',                               # The other Daf instance to join with
+        shared_fields: Optional[T_ls] = None,           # Columns shared between tables that do not require renaming
+                                                        # keyfields do not need to be added here.
+        tag_other: bool = False,                        # if True, and col not in shared_fields, add suffix tag to other_daf cols
+                                                
         ) -> 'Daf':  # Translator Daf
-        """
+        r"""
         Derive a Daf translator for resolving column conflicts between two tables.
 
         Args:
-            other_daf (Daf): The other Daf instance to join with.
-            shared_fields (Optional[T_ls]): Columns shared between tables that do not require renaming.
+            other_daf: 'Daf',                               # The other Daf instance to join with
+            shared_fields: Optional[T_ls] = None,           # Columns shared between tables that do not require renaming
+                                                            # keyfields do not need to be added here.
+            tag_other: bool = False,                        # if True, and col not in shared_fields, add suffix tag to other_daf cols
 
         Returns:
             Daf: Translator table with resolved column names and source mapping.
@@ -6171,41 +6206,107 @@ class Daf:
             ```
 
             Resulting Translator Daf:
-            | resolved_colname | source_index | source_name | source_colname |
-            | ----------------: | -----------: | ----------: | -------------: |
-            | id                | 0           | self        | id             |
-            | name              | 0           | self        | name           |
-            | status            | 0           | self        | status         |
-            | id_other          | 1           | other       | id             |
-            | address           | 1           | other       | address        |
-            | salary            | 1           | other       | salary         |
+            | resolved_colname  | source_name | source_colname | is_keyfield |
+            | ----------------: | ----------: | -------------: | ----------: |
+            | id                | self        | id             | True        |
+            | name              | self        | name           | False       |
+            | status            | self        | status         | False       |
+            | id_other          | other       | id             | False       |
+            | address           | other       | address        | False       |
+            | salary            | other       | salary         | False       |
 
             \[6 rows x 4 cols; keyfield='resolved_colname'; 6 keys ] (Daf)
+            
+        Template for hand-generated custom translator:
+
+        custom_translator = Daf(
+            cols = ["resolved_colname",     "source_name", "source_colname", 'is_keyfield'],
+            lol  = [
+                    ["id",                  'daf1',        "id",                True],
+                    ["full_name",           'daf1',        "name",              False],
+                    ["residential_address", 'daf2',        "address",           False],
+                    ["monthly_salary",      'daf2',        "salary",            False],
+            ],
+            keyfield = 'resolved_colname'
+        )
+        
+            
+            
         """
+        
+        translator_daf = Daf.derive_join_translator_func(
+            self_keyfield       = self.keyfield,
+            other_keyfield      = other_daf.keyfield,
+            self_cols           = self.hd.keys(),
+            other_cols          = other_daf.hd.keys(),
+            self_name           = self.name,
+            other_name          = other_daf.name,
+            shared_fields       = shared_fields,
+            tag_other           = tag_other,
+            )
+        return translator_daf
+    
+    
+    @classmethod
+    def derive_join_translator_func(
+        cls,
+        self_keyfield:      str,                        # pass self.keyfield (daf)          or esc_my_index_col (sql)
+        other_keyfield:     str,                        # pass other_daf.keyfield (daf)     or esc_other_index_col (sql)
+        self_cols:          Union[list, dict, T_kva],   # pass self.kd.keys() (daf)         or esc_sql_cols (sql)
+        other_cols:         Union[list, dict, T_kva],   # pass other_daf.kd.keys() (daf)    or esc_sql_other_cols (sql)
+        self_name:          str = '',                   # pass self.name (daf)              or esc_sql_table_name (sql)
+        other_name:         str = '',                   # pass other_daf.name (daf)         or esc_sql_other_table_name (sql)
+        shared_fields:      Optional[T_ls] = None,      # Columns shared between tables that do not require renaming (esc if sql)
+        tag_other:          bool = False,               # if True, and col not in shared_fields, add suffix tag to other_cols
+        
+        ) -> 'Daf':  # Translator Daf
+        """
+        Derive a Daf translator for resolving column conflicts between two tables.
+        This classmethod version is suitable for use by sql join.
+
+        Args:
+            self_keyfield:      str,                        # pass self.keyfield (daf)          or esc_my_index_col (sql)
+            other_keyfield:     str,                        # pass other_daf.keyfield (daf)     or esc_other_index_col (sql)
+            self_cols:          Union[list, dict, T_kva],   # pass self.kd.keys() (daf)         or esc_sql_cols (sql)
+            other_cols:         Union[list, dict, T_kva],   # pass other_daf.kd.keys() (daf)    or esc_sql_other_cols (sql)
+            self_name:          str = '',                   # pass self.name (daf)              or esc_sql_table_name (sql)
+            other_name:         str = '',                   # pass other_daf.name (daf)         or esc_sql_other_table_name (sql)
+            shared_fields:      Optional[T_ls] = None,      # Columns shared between tables that do not require renaming (esc if sql)
+            tag_other:          bool = False,               # if True, and col not in shared_fields, add suffix tag to other_cols
+
+        Returns:
+            Daf: Translator table with resolved column names and source mapping.
+
+        Example:
+            Source Daf objects:
+        """
+        
+        
         if shared_fields is None:
             shared_fields = []
             
-        if self.keyfield and self.keyfield not in shared_fields:
-            shared_fields.append(self.keyfield)
+        if self_keyfield and self_keyfield not in shared_fields:
+            shared_fields.append(self_keyfield)
             
-        if other_daf.keyfield and other_daf.keyfield not in shared_fields:
-            shared_fields.append(other_daf.keyfield)
+        if other_keyfield and other_keyfield not in shared_fields:
+            shared_fields.append(other_keyfield)
         
-        if shared_fields and isinstance(shared_fields, list) and len(shared_fields) > 9:
-            shared_fields = dict.fromkeys(shared_fields) 
+        shared_fields   = utils.to_dn_if_list(shared_fields)
+        self_cols       = utils.to_dn_if_list(self_cols)
+        other_cols      = utils.to_dn_if_list(other_cols)
 
         # Get column names and names from both Dafs  (list of KeyViews of Any)
-        colnames_lokva = [self.hd.keys(), other_daf.hd.keys()]
+        colnames_lokva = [self_cols, other_cols]
         
         # Assign suffixes for source tables based on table names or default
         source_suffixes = [
-            f"_{self.name}"         if self.name else "_0", 
-            f"_{other_daf.name}"    if other_daf.name else "_1",
+            f"_{self_name}"         if self_name else "_daf1", 
+            f"_{other_name}"        if other_name else "_daf2",
             ]
             
         source_names = [
-            self.name if self.name else "daf1", 
-            other_daf.name if other_daf.name else "daf2",
+            self_name if self_name else "daf1", 
+            other_name if other_name else "daf2",
             ]
 
         # Identify columns that are common but not shared fields
@@ -6214,7 +6315,7 @@ class Daf:
         # set.intersection(*[set(colnames_lists[0]) for cols in colnames_lists[1]]) - shared_fields
 
         # Define the Daf structure first
-        translator_daf = Daf(cols=["resolved_colname", "source_index", "source_name", "source_colname", "is_keyfield"])
+        translator_daf = Daf(cols=["resolved_colname", "source_name", "source_colname", "is_keyfield"])
 
         # Populate the Daf by appending rows directly
         for idx, (colnames_kva, source_suffix) in enumerate(zip(colnames_lokva, source_suffixes)):
@@ -6222,14 +6323,14 @@ class Daf:
                 if col in shared_fields and idx:
                     continue
                 resolved_colname = (
-                    f"{col}{source_suffix}" if col in common_colnames and col else col
+                    f"{col}{source_suffix}" if idx and tag_other or (col and col in common_colnames) else col
                 )
                 translator_daf.append([
-                    resolved_colname,  # resolved_colname
-                    idx,               # source_index
-                    source_names[idx], # source_name
-                    col,               # source_colname
-                    bool(col == self.keyfield or col == other_daf.keyfield),   # is_keyfield
+                    resolved_colname,   # resolved_colname
+                    #idx,               # source_index
+                    source_names[idx],  # source_name
+                    col,                # source_colname
+                    bool(col == self_keyfield or col == other_keyfield),   # is_keyfield
                 ])
 
         # Set the keyfield for the resulting Daf
@@ -6239,21 +6340,25 @@ class Daf:
 
     def join(
         self,
-        other_daf: 'Daf',
-        how: str = 'inner',
-        shared_fields: Optional[T_ls] = None,
-        custom_translator_daf: Optional['Daf'] = None,
-        diagnose: bool = False
+        other_daf: 'Daf',                                   # The other Daf instance to join with.
+        how: str = 'inner',                                 # Type of join - 'inner', 'left', 'right', 'outer'. Default is 'inner'.
+        shared_fields: Optional[T_ls] = None,               # List of fields to ignore in conflict resolution (shared fields)
+        tag_other: bool = False,                            # if not a shared field or keyfield, suffix all other_daf fields with _{name}
+        custom_translator_daf: Optional['Daf'] = None,      # provide a custom translater to provide all naming details.
+        diagnose: bool = False,                             # Enable diagnostic logging.
+        name: str='',                                       # name for the joined instance.
     ) -> 'Daf':
         """
         Perform a join operation between two Daf instances using their keyfields.
 
         Args:
-            other_daf (Daf): The other Daf instance to join with.
-            how (str): Type of join - 'inner', 'left', 'right', 'outer'. Default is 'inner'.
-            shared_fields (Optional[List[str]]): Fields to ignore in conflict resolution (e.g., keyfields).
-            custom_translator_daf (Optional[Daf]): Custom translator Daf for resolving column mappings.
-            diagnose (bool): Enable diagnostic logging.
+            other_daf: 'Daf',                                   # The other Daf instance to join with.
+            how: str = 'inner',                                 # Type of join - 'inner', 'left', 'right', 'outer'. Default is 'inner'.
+            shared_fields: Optional[T_ls] = None,               # List of fields to ignore in conflict resolution (shared fields)
+            tag_other: bool = False,                            # if not a shared field or keyfield, suffix all other_daf fields with _{name}
+            custom_translator_daf: Optional['Daf'] = None,      # provide a custom translater to provide all naming details.
+            diagnose: bool = False,                             # Enable diagnostic logging.
+            name: str='',                                       # name for the joined instance.
 
         Returns:
             Daf: A new Daf instance containing the result of the join.
@@ -6271,16 +6376,27 @@ class Daf:
         if custom_translator_daf:
             translator_daf = custom_translator_daf
         else:
-            translator_daf = self.derive_join_translator(other_daf, shared_fields)
+            translator_daf = self.derive_join_translator(other_daf, shared_fields=shared_fields, tag_other=tag_other)
 
         if diagnose:
             logs.sts(f"{logs.prog_loc()} Translator Daf:\n{translator_daf}", 3)
+            
+        join_names_ls = [self.name, other_daf.name]
+                
+        # we allow the translator to contain records for more than two dafs that may be joined in a chain opeation.
+        try:
+            eff_translator_daf = translator_daf.select_where(lambda row: bool(row.get('source_name') in join_names_ls))
+        except Exception:
+            breakpoint() # perm okay
+            pass
+        
+        resolved_colnames = eff_translator_daf[:, "resolved_colname"].to_list()
 
         # Prepare the resulting Daf
-        result_daf = Daf(cols=translator_daf[:, "resolved_colname"].to_list())
-        keyfield = self.keyfield
+        result_daf = Daf(cols=resolved_colnames, name=name)
+        keyfield = self.keyfield    # will be set at the end.
 
-        # Helper function to fetch a record by key
+        # Helper function to fetch a record by key, with silent error
         def fetch_record(daf, key):
             return daf.select_record(key, silent_error=True)
 
@@ -6295,12 +6411,16 @@ class Daf:
             if other_row_da:
                 matched_keys.add(key)
                 combined_record = Daf.join_records(
-                    [row_da, other_row_da], translator_daf
+                    [row_da, other_row_da], 
+                    translator_daf,
+                    join_names_ls,
                 )
                 result_daf.append(combined_record)
             elif how in {"left", "outer"}:
                 combined_record = Daf.join_records(
-                    [row_da, None], translator_daf
+                    [row_da, None], 
+                    translator_daf,
+                    join_names_ls,
                 )
                 result_daf.append(combined_record)
 
@@ -6311,7 +6431,9 @@ class Daf:
             for key in unmatched_keys:
                 other_row_da = fetch_record(other_daf, key)
                 combined_record = Daf.join_records(
-                    [None, other_row_da], translator_daf
+                    [None, other_row_da], 
+                    translator_daf,
+                    join_names_ls,
                 )
                 result_daf.append(combined_record)
 
@@ -6327,30 +6449,49 @@ class Daf:
     @staticmethod
     def join_records(
         records: List[Optional[T_da]],  # List of dictionaries representing the source records
-        translator_daf: 'Daf'          # Translator Daf mapping resolved columns to source
+                                        # only two records are supported here.
+                                        # sometimes either one can be None if a corresponding record is not available.
+                                        
+        translator_daf: 'Daf',          # Translator Daf mapping resolved columns to source
+        
+        join_names_ls: Optional[T_ls]=None ,  # names of the two Daf arrays supplying the records.
+                                        #  required only if there are more than two source_names specified in the translator.
+                                        # this is used when a single translator is used for chained joins.
+
     ) -> T_da:
         """
-        Combine multiple records using a join translator Daf.
+        Combine multiple records using a join translator Daf. This works on one record from each array to be joined.
 
         Args:
             records (List[Optional[T_da]]): List of source records, indexed by source_index.
             translator_daf (Daf): Translator Daf with resolved column mapping.
+            join_names_ls: names of the two Daf arrays supplying the records 
+                            required only if there are more than two source_names specified in the translator.
+
 
         Returns:
             T_da: Combined record as a dictionary.
         """
         combined_record = {}
+        
+        if not join_names_ls:
+            join_names_ls = translator_daf[:, 'source_name'].to_list(unique=True)
+            if len(join_names_ls) > 2 or not join_names_ls:
+                raise ValueError ("join_names_ls must be specified as translator_daf has more than two source_names")
 
         # Iterate through the translator Daf
         for translator_row in translator_daf:
-            resolved_col = translator_row["resolved_colname"]
-            source_index = translator_row["source_index"]
-            source_colname = translator_row["source_colname"]
-            is_keyfield = translator_row.get("is_keyfield", False)
+            source_name     = translator_row["source_name"]
+            if join_names_ls and source_name not in join_names_ls:
+                continue
+            source_index    = join_names_ls.index(source_name)
+            resolved_col    = translator_row["resolved_colname"]
+            source_colname  = translator_row["source_colname"]
+            is_keyfield     = translator_row.get("is_keyfield", False)
 
             # Handle keyfield explicitly
             if is_keyfield:
-                # Take the keyfield from the first non-None record
+                # Take the keyfield value from the first non-None record
                 for record in records:
                     if record and source_colname in record:
                         combined_record[resolved_col] = record[source_colname]
@@ -6498,7 +6639,7 @@ class Daf:
             )
         if include_summary:
             # this is okay with change to tuple keys.
-            mdstr += f"\n\[{len(self.lol):,} rows x {self.num_cols():,} cols; keyfield='{self.keyfield}'; {len(self.kd):,} keys ] ({self.name or type(self).__name__})\n"
+            mdstr += f"\n\\[{len(self.lol):,} rows x {self.num_cols():,} cols; keyfield='{self.keyfield}'; {len(self.kd):,} keys ] ({self.name or type(self).__name__})\n"
         return mdstr
         
 

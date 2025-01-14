@@ -25,7 +25,7 @@ def fake_function(a: Optional[List[Dict[str, Tuple[int,Union[Any, str, Iterable]
 
 
 from daffodil.lib.daf_types import T_lola, T_loda, T_dtype_dict, T_da, T_ds, T_hdlola, \
-                                    T_la, T_loti, T_ls, T_doda, T_buff, T_li, T_lr # , T_ts, T_dota
+                                    T_la, T_loti, T_ls, T_doda, T_buff, T_li, T_lr, T_dn, T_kva # , T_ts, T_dota
                     
 def is_linux() -> bool: 
     return platform.system() == 'Linux'
@@ -527,7 +527,7 @@ def convert_type_value(val: any, desired_type: type, unflatten: bool=True):
         if isinstance(val, str):
             new_val = val
         elif isinstance(val, bool):
-            new_val = 1 if val else 0
+            new_val = int(val)
         else:    
             new_val = f"{val}"
         
@@ -1886,3 +1886,12 @@ def combine_records(record1: dict, record2: dict, suffixes: tuple = ("_x", "_y")
             combined[col] = value
 
     return combined
+    
+
+def to_dn_if_list(obj: Union[list, T_dn, T_kva, dict, range]):
+    """ if obj is a list, create a more efficient T_dn object for rapid lookups. """
+    
+    if obj and isinstance(obj, list) and len(obj) > 9:
+        return dict.fromkeys(obj) 
+    return obj
+
