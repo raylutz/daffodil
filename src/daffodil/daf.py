@@ -318,7 +318,11 @@ r"""
             Simplified translator_daf table so it is easier to produce by hand and use across many tables being joined.
             Added name argument for join() method, to provide the name of the resulting joined instance.
             Improve unit tests for derive_join_translator
-            
+            Added 25 tests for various indexing modes. 
+                corrected parsing of tuple of strings for krows and kcols.
+            Added name argument for clone_empty() method.
+            Added omit_other_cols parameter for 'derive_join_translator' method. 
+                this can probably displace the "shared_fields" parameter.
 
     TODO
         Plan:
@@ -457,8 +461,6 @@ r"""
                 split_dups_list
                 clean_numeric_str
                 is_numeric
-            daf_indexing
-                many cases
             daf_md
                 not tested at all.
                 
@@ -1371,7 +1373,7 @@ class Daf:
     #===========================
     # initializers
     
-    def clone_empty(self, lol: Optional[T_lola]=None, cols: Optional[T_ls]=None) -> 'Daf':
+    def clone_empty(self, lol: Optional[T_lola]=None, cols: Optional[T_ls]=None, name:str='') -> 'Daf':
         """ Create Daf instance from self, adopting dict keys as column names
             adopts keyfield but does not adopt kd.
             test exists in test_daf.py
@@ -1382,7 +1384,7 @@ class Daf:
             
         new_cols = cols if cols else self.columns()
         
-        new_daf = Daf(cols=new_cols, lol=lol, keyfield=self.keyfield, dtypes=copy.copy(self.dtypes))
+        new_daf = Daf(cols=new_cols, lol=lol, keyfield=self.keyfield, dtypes=copy.copy(self.dtypes), name=name)
         
         return new_daf
         
@@ -2432,6 +2434,8 @@ class Daf:
                                         Union[slice, int, str, T_li, T_ls, range, T_lor, Tuple[str, str]]]],
             ) -> Any:
 
+        
+
         if isinstance(slice_spec, tuple) and len(slice_spec) == 2:
             # Handle parsing slices for  both rows and columns
             row_spec, col_spec = slice_spec
@@ -2445,10 +2449,15 @@ class Daf:
         if row_spec == slice(None, None, None):    
             row_spec = None
             
-        if isinstance(row_spec, (int, slice, range)) or utils.is_list_of_type(row_spec, (int, range)):
+        if (isinstance(row_spec, (int, slice, range)) or 
+                utils.is_list_of_type(row_spec, (int, range))
+            ):
             sel_rows_daf = self.select_irows(irows=row_spec)
             
-        elif isinstance(row_spec, str) or utils.is_list_of_type(row_spec, str):
+        elif (isinstance(row_spec, str) or 
+                utils.is_list_of_type(row_spec, str) or
+                utils.is_tuple_of_type_len(row_spec, str, 2)
+            ):
             sel_rows_daf = self.select_krows(krows=row_spec)
 
         else:
@@ -2457,10 +2466,15 @@ class Daf:
         if col_spec is None:
             ret_daf = sel_rows_daf
         else:
-            if isinstance(col_spec, (int, slice, range)) or  utils.is_list_of_type(col_spec, (int, range)):
+            if (isinstance(col_spec, (int, slice, range)) or  
+                    utils.is_list_of_type(col_spec, (int, range))
+                ):
                 ret_daf = sel_rows_daf.select_icols(icols=col_spec)
                 
-            elif isinstance(col_spec, str) or utils.is_list_of_type(col_spec, str):
+            elif (isinstance(col_spec, str) or 
+                    utils.is_list_of_type(col_spec, str) or
+                    utils.is_tuple_of_type_len(col_spec, str, 2)
+                ):
                 ret_daf = sel_rows_daf.select_kcols(kcols=col_spec)
             else:
                 ret_daf = sel_rows_daf
@@ -2486,7 +2500,10 @@ class Daf:
             row_spec = None
             irows = list(range(len(self)))
             
-        if isinstance(row_spec, (str, tuple)) or utils.is_list_of_type(row_spec, str):
+        if (isinstance(row_spec, (str, tuple)) or 
+                utils.is_list_of_type(row_spec, str) or
+                utils.is_tuple_of_type_len(row_spec, str, 2)):
+
             irows = self.krows_to_irows(krows = row_spec)
             
         elif isinstance(row_spec, (int, slice, range)) or utils.is_list_of_type(row_spec, (int, range)):
@@ -2793,7 +2810,7 @@ class Daf:
                     # raise KeyError
          
         elif isinstance(gkeys, tuple):         
-            
+
             # key_range will return a slice.
             start_idx = 0    
             if gkeys:
@@ -2926,6 +2943,7 @@ class Daf:
                 If flip=True, then colnames=[], dtypes={} and keyfield='' (inactive)
                 
         """
+        
         orig_cols = list(self.hd.keys())    # may be an empty list if colnames not defined.
         orig_dtypes = self.dtypes or {}
         sliced_cols = []
@@ -5782,7 +5800,7 @@ class Daf:
             
                 value_counts_dodi = my_daf.reduce(count_values_da, value_counts_dodi, cols_of_interest, omit_nulls=True)
                 
-            results in (something like this):
+            results in (something, like, this):
             
                 value_counts_dodi = {'gender': {'Male': 2435, 'Female': 2489}, 'location':{'north': 2433, 'south': 345}}
             
@@ -6164,6 +6182,7 @@ class Daf:
         other_daf: 'Daf',                               # The other Daf instance to join with
         shared_fields: Optional[T_ls] = None,           # Columns shared between tables that do not require renaming
                                                         # keyfields do not need to be added here.
+        omit_other_cols: Optional[T_ls]=None,           # cols to omit from other (use instead of shared fields)
         tag_other: bool = False,                        # if True, and col not in shared_fields, add suffix tag to other_daf cols
                                                 
         ) -> 'Daf':  # Translator Daf
@@ -6234,7 +6253,7 @@ class Daf:
             
         """
         
-        translator_daf = Daf.derive_join_translator_func(
+        translator_daf = Daf.derive_join_translator_daf(
             self_keyfield       = self.keyfield,
             other_keyfield      = other_daf.keyfield,
             self_cols           = self.hd.keys(),
@@ -6242,13 +6261,14 @@ class Daf:
             self_name           = self.name,
             other_name          = other_daf.name,
             shared_fields       = shared_fields,
+            omit_other_cols     = omit_other_cols,
             tag_other           = tag_other,
             )
         return translator_daf
     
     
     @classmethod
-    def derive_join_translator_func(
+    def derive_join_translator_daf(
         cls,
         self_keyfield:      str,                        # pass self.keyfield (daf)          or esc_my_index_col (sql)
         other_keyfield:     str,                        # pass other_daf.keyfield (daf)     or esc_other_index_col (sql)
@@ -6256,7 +6276,9 @@ class Daf:
         other_cols:         Union[list, dict, T_kva],   # pass other_daf.kd.keys() (daf)    or esc_sql_other_cols (sql)
         self_name:          str = '',                   # pass self.name (daf)              or esc_sql_table_name (sql)
         other_name:         str = '',                   # pass other_daf.name (daf)         or esc_sql_other_table_name (sql)
-        shared_fields:      Optional[T_ls] = None,      # Columns shared between tables that do not require renaming (esc if sql)
+        shared_fields:      Optional[T_ls] = None,      # Columns shared between tables that do not require renaming (esc if sql) 
+                                                        # use omit_other_cols instead of shared_fields due to better name.
+        omit_other_cols:    Optional[T_ls]=None,        # cols to omit from other (esc if sql)
         tag_other:          bool = False,               # if True, and col not in shared_fields, add suffix tag to other_cols
         
         ) -> 'Daf':  # Translator Daf
@@ -6310,7 +6332,8 @@ class Daf:
             ]
 
         # Identify columns that are common but not shared fields
-        common_colnames = [col for col in colnames_lokva[0] if col in colnames_lokva[1] and col not in shared_fields]
+        common_colnames = [col for col in colnames_lokva[0] 
+                                if col in colnames_lokva[1] and col not in shared_fields and col not in omit_other_cols]
         
         # set.intersection(*[set(colnames_lists[0]) for cols in colnames_lists[1]]) - shared_fields
 
@@ -6320,11 +6343,15 @@ class Daf:
         # Populate the Daf by appending rows directly
         for idx, (colnames_kva, source_suffix) in enumerate(zip(colnames_lokva, source_suffixes)):
             for col in colnames_kva:
-                if col in shared_fields and idx:
+                if idx and (col in shared_fields or col in omit_other_cols):
                     continue
-                resolved_colname = (
-                    f"{col}{source_suffix}" if idx and tag_other or (col and col in common_colnames) else col
-                )
+                    
+                if (idx and tag_other or 
+                        col and col in common_colnames):    
+                    resolved_colname = f"{col}{source_suffix}"
+                else:
+                    resolved_colname = col
+
                 translator_daf.append([
                     resolved_colname,   # resolved_colname
                     #idx,               # source_index

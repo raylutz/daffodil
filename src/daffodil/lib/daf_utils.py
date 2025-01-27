@@ -1532,6 +1532,15 @@ def is_list_of_type(test_item: Any, of_type: Union[Type, Tuple[Type, ...]]) -> b
         return True
         
 
+def is_tuple_of_type_len(test_item: Any, of_type: Union[Type, Tuple[Type, ...]], length: int):
+    # test if test_item is a T_tuple(of_type) with length.
+    #
+    # example: is_tuple_of_type_len((str, str), of_type: str, length: 2)
+    
+    return isinstance(test_item, tuple) and len(test_item) == length and all(isinstance(item, of_type) for item in test_item)
+
+        
+
 def len_slice(slice_obj: slice, tot_len: int=0):
     """ Calculate the length of the slice, including step 
     

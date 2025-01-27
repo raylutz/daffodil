@@ -569,6 +569,8 @@ then you must use method calls. The square-bracket indexing will assume any inte
 The integer values shown in the examples below do not index the array directly, but choose the row or columns by name.
 To choose by row keys (krows), then keyfield must be set. To choose by column keys (kcols), cols must be set.
 
+The attribute `keyfield` will be propagated to a returned daf instance if the original `keyfield` column still exists in the selected column set.
+
 |  Expression                               | Operation                                                                     |
 |:------------------------------------------|:------------------------------------------------------------------------------|
 |`my_daf.select_records_daf(123)`           | return daf with one row with integer 123 in keyfield column.                  |
