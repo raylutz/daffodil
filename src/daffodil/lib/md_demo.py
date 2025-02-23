@@ -115,7 +115,7 @@ def md_code_seg(
             print(message)
         return message
         
-    code_segment = match.group(1)
+    code_segment = match.group(1)   # type: ignore
     
     # if label == 'Select a record by the key:':
         # breakpoint() #temp
@@ -126,8 +126,8 @@ def md_code_seg(
     match = re.search(pattern2, code_segment, re.DOTALL)
     if bool(match):
         # pull out the extracted comment text and remove it from code_segment.
-        first_comment = match[1].strip()
-        code_segment = match[2]
+        first_comment = match[1].strip()    # type: ignore
+        code_segment = match[2]             # type: ignore
 
     # look for a last comment block in triple quotes
     last_comment = ''
@@ -135,8 +135,8 @@ def md_code_seg(
     match = re.search(pattern3, code_segment, re.DOTALL)
     if bool(match):
         # pull out the extracted comment text and remove it from code_segment.
-        code_segment = match[1]
-        last_comment = match[2].strip()
+        code_segment = match[1]             # type: ignore
+        last_comment = match[2].strip()     # type: ignore
     
     # remove comment lines starting with ##
     code_segment = '\n'.join([line for line in re.split(r'\n', code_segment) if not re.match(r'^\s*##', line)])

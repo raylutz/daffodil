@@ -1288,7 +1288,70 @@ class TestDaf(unittest.TestCase):
         self.assertEqual(daf1.dtypes, {'col1': int, 'col2': str})
         self.assertEqual(daf1._iter_index, 0)
         
+    def test_concat_modifying_other_daf(self):
+        """Ensure that modifying the source Daf instance after concat does not affect self."""
+        cols = ['col1', 'col2']
+        lol1 = [[1, 'a'], [2, 'b']]
+        lol2 = [[3, 'c'], [4, 'd']]
+        
+        daf1 = Daf(cols=cols, lol=lol1, keyfield='', dtypes={'col1': int, 'col2': str})
+        daf2 = Daf(cols=cols, lol=lol2, keyfield='', dtypes={'col1': int, 'col2': str})
+        
+        daf1.concat(daf2)
+        
+        # Modify daf2 after concat
+        daf2.lol.append([5, 'e'])
 
+        # Ensure daf1 remains unchanged
+        self.assertEqual(daf1.lol, [[1, 'a'], [2, 'b'], [3, 'c'], [4, 'd']])
+        self.assertNotEqual(daf1.lol, daf2.lol)
+
+    def test_concat_self_has_header_but_empty_lol(self):
+        """Test concat when self has headers but an empty lol."""
+        cols = ['col1', 'col2']
+        hd = {'col1': 0, 'col2': 1}
+        lol1 = []
+        lol2 = [[3, 'c'], [4, 'd']]
+        
+        daf1 = Daf(cols=cols, lol=lol1, keyfield='', dtypes={'col1': int, 'col2': str})
+        daf2 = Daf(cols=cols, lol=lol2, keyfield='', dtypes={'col1': int, 'col2': str})
+
+        daf1.concat(daf2)
+
+        self.assertEqual(daf1.hd, hd)
+        self.assertEqual(daf1.lol, [[3, 'c'], [4, 'd']])
+
+    def test_concat_other_instance_empty(self):
+        """Ensure concat does nothing when other_instance has an empty lol."""
+        cols = ['col1', 'col2']
+        hd = {'col1': 0, 'col2': 1}
+        lol1 = [[1, 'a'], [2, 'b']]
+        lol2 = []
+
+        daf1 = Daf(cols=cols, lol=lol1, keyfield='', dtypes={'col1': int, 'col2': str})
+        daf2 = Daf(cols=cols, lol=lol2, keyfield='', dtypes={'col1': int, 'col2': str})
+
+        daf1.concat(daf2)
+
+        self.assertEqual(daf1.hd, hd)
+        self.assertEqual(daf1.lol, [[1, 'a'], [2, 'b']])  # Should remain unchanged
+
+    def test_concat_column_order_mismatch(self):
+        """Test concat when columns exist but are in different order."""
+        cols1 = ['col1', 'col2']
+        cols2 = ['col2', 'col1']
+        # hd1 = {'col1': 0, 'col2': 1}
+        # hd2 = {'col2': 0, 'col1': 1}
+        
+        lol1 = [[1, 'a'], [2, 'b']]
+        lol2 = [['c', 3], ['d', 4]]  # Columns are swapped
+
+        daf1 = Daf(cols=cols1, lol=lol1, keyfield='', dtypes={'col1': int, 'col2': str})
+        daf2 = Daf(cols=cols2, lol=lol2, keyfield='', dtypes={'col1': int, 'col2': str})
+
+        with self.assertRaises(KeyError):
+            daf1.concat(daf2)  # Should fail due to different column order
+        
     # remove_key
     def test_remove_key_existing_key(self):
         cols = ['col1', 'col2']

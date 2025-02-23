@@ -18,7 +18,7 @@ import xlsx2csv     # type: ignore
 #import numpy as np
 
 
-from typing import List, Dict, Any, Tuple, Optional, Union, cast, Type, Iterable, Callable
+from typing import List, Dict, Any, Tuple, Optional, Union, cast, Type, Iterable, Callable, Iterator
 
 def fake_function(a: Optional[List[Dict[str, Tuple[int,Union[Any, str, Iterable]]]]] = None) -> Optional[int]:
     return None or cast(int, 0)       # pragma: no cover
@@ -1357,7 +1357,7 @@ def prog_loc() -> str:
     
     
 def buff_csv_to_lol(
-        buff: Union[bytes, str], 
+        buff: Union[bytes, str, Iterator[str]],  # Now accepts iterators for streaming, 
         user_format: bool=False, 
         sep=',', 
         include_cols: Optional[T_ls]=None, 
@@ -1367,8 +1367,10 @@ def buff_csv_to_lol(
     """
     Convert CSV data in a buffer (bytes or string) to a lol data type.
 
+    Supports streaming by allowing `buff` to be an iterator instead of a full buffer.
+
     Args:
-        buff (Union[bytes, str]): The CSV data as bytes or string.
+        buff (Union[bytes, str, Iterator[str]]): The CSV data as bytes, string, or iterator.
         user_format (bool): Whether to preprocess the CSV data (remove comments and blank lines).
         sep (str): The separator used in the CSV data.
 
@@ -1379,18 +1381,22 @@ def buff_csv_to_lol(
     if sep is None:
         sep = ','
         
+    # Convert bytes to a stream without loading everything into memory
     if isinstance(buff, bytes):
-        buff = buff.decode("utf-8")
+        buff = io.TextIOWrapper(io.BytesIO(buff), encoding="utf-8")
         
-    if not raw:
-        # @@TODO grab the first few lines and get the header section.
-        pass
-        
+    # Convert string input to an iterable (StringIO)
+    if isinstance(buff, str):
+        buff = io.StringIO(buff)  # Convert to file-like object
+
+    # Ensure we process line-by-line (fix double StringIO issue)
+    if not hasattr(buff, 'read'):  # If it's not a file-like object, wrap it
+        buff = io.StringIO("\n".join(buff))
+
     if user_format:
         buff = preprocess_csv_buff(buff)  # remove comments, blank lines
         
-    sio = io.StringIO(buff)
-    csv_reader = csv.reader(sio, delimiter=sep, quoting=csv.QUOTE_MINIMAL)
+    csv_reader = csv.reader(buff, delimiter=sep, quoting=csv.QUOTE_MINIMAL)
 
     data_lol = [row for row in csv_reader]
 
@@ -1461,7 +1467,13 @@ def is_comment_line(line: str) -> bool:
     return bool(not line or bool(re.search(r'^"?#', line)) or bool(re.search(r'^,+$', line)))
     
 
-def write_buff_to_fp(buff: T_buff, file_path: str, fmt='.csv', rtype='.csv', local_mirror: bool=False, if_unmodified: bool=False) -> str: # file_path
+def write_buff_to_fp(buff: T_buff, 
+            file_path:      str, 
+            fmt:            str='.csv', 
+            rtype:          str='.csv', 
+            local_mirror:   bool=False, 
+            if_unmodified:  bool=False,
+           ) -> str: # file_path
 
     if buff:
         #--- write buffer based on path
@@ -1904,3 +1916,18 @@ def to_dn_if_list(obj: Union[list, T_dn, T_kva, dict, range]):
         return dict.fromkeys(obj) 
     return obj
 
+
+def unexcelstringify(astr):
+    """ excel spreadsheets sometimes stringify content using ="n" syntax.
+        This function removes the stringify characters
+    """
+    if astr:
+    
+        match = re.search(r'^="([^"]*)"', astr)
+        
+        if match:
+            return match[1]     # type: ignore
+        
+    return astr
+
+    

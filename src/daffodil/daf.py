@@ -307,7 +307,7 @@ r"""
             Added daf_sql.py mainly to support benchmarks at this point.
             This will be the last release before sql enhancements.
             
-    v0.5.6  (pending)
+    v0.5.6  (2025-02-22)
             Added from_lot() class method. Perhaps these can be unified in main init function by examining type of the data passed.
             Added join() method, including unit tests.
             Added from_pdf() class method, used to parse PDF files with table structure across multiple pages.
@@ -323,6 +323,18 @@ r"""
             Added name argument for clone_empty() method.
             Added omit_other_cols parameter for 'derive_join_translator' method. 
                 this can probably displace the "shared_fields" parameter.
+                Fixed omit_other_cols so it could be properly omitted.
+            concat (which is called by append if a daf array is appended) was not using deep copy when 
+                copying in the frame, and this became a real mess. Added copy with deep to concat.
+            Added from_csv() which will load csv to Daf from local files, s3 path or http/s path.
+                improved operation of streaming from file to avoid buffer recopying.
+            from_csv_buff() still exists for those times when a buffer or file-like object already exists.
+            Added .attrs dictionary to core dataframe instance definition to allow for descriptors to be 
+                provided to users of the dataframe, esp. between when the daf array is defined and built 
+                and when it is used and modified. 
+            
+    v0.5.7  (pending)
+
 
     TODO
         Plan:
@@ -489,8 +501,8 @@ r"""
 """       
     
     
-#VERSION  = 'v0.5.5'
-#VERSDATE = '2024-12-27'  
+#VERSION  = 'v0.5.6'
+#VERSDATE = '2025-02-22'  
 
 import os
 import sys
@@ -589,6 +601,15 @@ class Daf:
         
         # Initialize iterator variables        
         self._iter_index = 0
+
+        # Initialize metadata storage.
+        # These attributes can be set for any instance. They are not automatically propagated 
+        #   when copying or slicing. The metadata must be explicitly propagated:
+        #       new_daf.attrs = daf.attrs.copy()
+        # This can be used for providing information about a dataframe, such as
+        #   the 'first_data_colidx' to keep track of the metadata columns vs. data columns.
+        
+        self.attrs = {}             # Dictionary for storing instance-wide metadata
 
         if not cols:
             if dtypes and isinstance(dtypes, dict):
@@ -780,14 +801,16 @@ class Daf:
         
     #===========================
     # copying convenience function to mimic pandas syntax.
-    
 
-    def copy(self, deep: bool=False) -> 'Daf':
-    
+    def copy(self, deep: bool = False) -> 'Daf':
+        """Creates a copy of the Daf instance, ensuring `attrs` is copied correctly."""
         if deep:
-            return copy.deepcopy(self)
-        return copy.copy(self)
-        
+            new_instance = copy.deepcopy(self)  # Fully independent copy
+        else:
+            new_instance = copy.copy(self)  # Shallow copy           
+            new_instance.attrs = self.attrs.copy()  # Ensure metadata is copied but not linked
+            
+        return new_instance        
 
     #===========================
     # column names
@@ -1136,8 +1159,10 @@ class Daf:
             Useful if most columns are the same type and there are only a few exceptions.
             
             Otherwise, simply set my_daf.dtypes = dtypes dict, and then 
-            apply_dtypes() when reading files and 
-            flatten() when writing.
+            apply_dtypes() when reading files.
+            writing files will generally automatically flatten.
+            
+            This function does NOT apply the types.            
             
             @@TODO May want to provide a simpler function that sets a type to a set of columns.
         """
@@ -1374,11 +1399,19 @@ class Daf:
     # initializers
     
     def clone_empty(self, lol: Optional[T_lola]=None, cols: Optional[T_ls]=None, name:str='') -> 'Daf':
-        """ Create Daf instance from self, adopting dict keys as column names
-            adopts keyfield but does not adopt kd.
-            test exists in test_daf.py
-            if lol is provided, it is used in the new Daf.
-         """
+        """
+        Create a new empty Daf instance from self, adopting column names but not data.
+        
+        - Adopts `keyfield` but does not adopt `kd` or `attrs` (metadata is not propagated).
+        - If `lol` is provided as an argument, it is used in the new Daf.
+        - This method creates a fresh instance with the same structure but no metadata.
+        
+        If metadata needs to be propagated, it must be done manually:
+            new_daf.attrs = daf.attrs.copy()
+        
+        Returns:
+            A new `Daf` instance with the same column structure but no data (or using passed data lol).
+        """
         if self is None:
             return Daf()
             
@@ -1386,6 +1419,9 @@ class Daf:
         
         new_daf = Daf(cols=new_cols, lol=lol, keyfield=self.keyfield, dtypes=copy.copy(self.dtypes), name=name)
         
+        # Ensure metadata attributes are deeply copied
+        new_daf.attrs = copy.deepcopy(self.attrs)
+
         return new_daf
         
         
@@ -1727,6 +1763,117 @@ class Daf:
     
     #==== CSV
     @classmethod
+    def from_csv(cls, source: str, **kwargs):
+        """
+        Load a CSV file from a local file, URL, or S3 path into a Daf array.
+
+        - Supports streaming for large files.
+        - `requests` and `boto3` are only imported if needed.
+        
+        - All data is imported as str types. use apply_dtypes() to convert data types.
+        - Does not set the keyfield, 
+
+        Args:
+            source (str): File path, URL (http/https), or S3 path (s3://bucket/key).
+            **kwargs: Additional arguments passed to from_csv_buff().
+
+        Returns:
+            Daf: A Daf array loaded from the CSV.
+        """
+        if source.startswith(('http://', 'https://')):  # Handle HTTP(S) URLs
+            try:
+                import requests  # Import only if needed
+                response = requests.get(source, stream=True)
+                response.raise_for_status()
+                data_stream = (line.decode("utf-8") for line in response.iter_lines() if line)
+            except ImportError:
+                raise RuntimeError("Missing `requests` module. Install it via `pip install requests`.")
+            except requests.RequestException as e:
+                raise RuntimeError(f"Failed to download CSV from {source}: {e}")
+
+        elif source.startswith("s3://"):  # Handle S3 Paths with streaming
+            try:
+                import boto3  # Import only if needed
+                s3 = boto3.client("s3")
+                bucket, key = source[5:].split("/", 1)  # Extract bucket and key
+                obj = s3.get_object(Bucket=bucket, Key=key)
+                data_stream = (line.decode("utf-8") for line in obj["Body"].iter_lines() if line)
+            except ImportError:
+                raise RuntimeError("Missing `boto3` module. Install it via `pip install boto3`.")
+            except Exception as e:
+                raise RuntimeError(f"Failed to read CSV from S3: {e}")
+
+        else:  # Assume local file with streaming
+            try:
+                data_stream = open(source, "r", encoding="utf-8")
+            except Exception as e:
+                raise RuntimeError(f"Failed to read local file: {e}")
+
+        return cls.from_csv_buff(csv_buff=data_stream, **kwargs)
+
+    # STILL ACTIVE -- use when we know the source is a buffer.
+    @classmethod
+    def from_csv_buff(
+            cls,
+            csv_buff: Union[bytes, str, Iterator[str]], # Can now accept iterators directly
+            keyfield: str='',                           # field to use as unique key, if not ''
+            dtypes: Optional[T_dtype_dict]=None,        # dictionary of types to apply if set.
+            noheader: bool=False,                       # if True, do not try to initialize columns in header dict.
+            user_format: bool=False,                    # if True, preprocess the file and omit comment lines.
+            sep: str=',',                               # field separator.
+            unflatten: bool=True,                       # unflatten fields that are defined as dict or list.
+            include_cols: Optional[T_ls]=None,          # include only the columns specified. noheader must be false.
+            name: str = '',                             # name attribute of the Daf array created.
+            ) -> 'Daf':
+        """
+        Convert CSV data in a buffer (string, bytes, or iterator) to a daf object
+        
+        Note: probably just use from_csv() and then apply_dtypes(), remove 'unflatten',
+            however, in the future of a more optimized conversion is written, then python
+            types can be created as the csv is scanned rather than scanning again.
+
+        - Fully supports streaming CSVs (does not require full file in memory).
+        - Directly reads data into a list of lists (LoL) from an iterator.
+        
+        Args:
+            csv_buff: Union[bytes, str, Iterator[str]], # Can now accept iterators directly
+            keyfield: str='',                           # field to use as unique key, if not ''
+            dtypes: Optional[T_dtype_dict]=None,        # dictionary of types to apply if set.
+            noheader: bool=False,                       # if True, do not try to initialize columns in header dict.
+            user_format: bool=False,                    # if True, preprocess the file and omit comment lines.
+            sep: str=',',                               # field separator.
+            unflatten: bool=True,                       # unflatten fields that are defined as dict or list.
+            include_cols: Optional[T_ls]=None,          # include only the columns specified. noheader must be false.
+            name: str = '',                             # name attribute of the Daf array created.
+
+        Returns:
+            Daf: The loaded Daf array.
+        """
+        
+        # in the case of bytes, this will set up a conversion of the stream.
+        # Converts bytes into a file-like object without reading everything at once.
+        if isinstance(csv_buff, bytes):
+            csv_buff = io.TextIOWrapper(io.BytesIO(csv_buff), encoding="utf-8")
+
+        # the following will be able to stream from the source and convert directly to lol.
+        data_lol = utils.buff_csv_to_lol(csv_buff, user_format=user_format, sep=sep, include_cols=include_cols, dtypes=dtypes)
+        
+        cols = []
+        if not noheader:
+            cols = data_lol.pop(0)        # return the first item and shorten the list.
+        
+        #breakpoint()
+        
+        my_daf = cls(lol=data_lol, cols=cols, keyfield=keyfield, dtypes=dtypes, name=name)
+        
+        # the following will act nicely if there is no dtypes defined.
+        my_daf.apply_dtypes(unflatten=unflatten)
+   
+        return my_daf
+    
+
+    # DEPRECATED
+    @classmethod
     def from_csv_file(
             cls,
             filepath: str,                          # The CSV filename
@@ -1776,72 +1923,26 @@ class Daf:
             name        = name,                     # name attribute of the Daf array created.
             )
  
-    
-    @classmethod
-    def from_csv_buff(
-            cls,
-            csv_buff: Union[bytes, str],            # The CSV data as bytes or string.
-            keyfield: str='',                       # field to use as unique key, if not ''
-            dtypes: Optional[T_dtype_dict]=None,    # dictionary of types to apply if set.
-            noheader: bool=False,                   # if True, do not try to initialize columns in header dict.
-            user_format: bool=False,                # if True, preprocess the file and omit comment lines.
-            sep: str=',',                           # field separator.
-            unflatten: bool=True,                   # unflatten fields that are defined as dict or list.
-            include_cols: Optional[T_ls]=None,      # include only the columns specified. noheader must be false.
-            name: str = '',                         # name attribute of the Daf array created.
-            ) -> 'Daf':
-        """
-        Convert CSV data in a buffer (bytes or string) to a daf object
-        
-        Note: probably just use from_csv() and then apply_dtypes(), remove 'unflatten',
-            however, in the future of a more optimized conversion is written, then python
-            types can be created as the csv is scanned rather than scanning again.
-
-        Args:
-            csv_buff: Union[bytes, str],            # The CSV data as bytes or string.
-            keyfield: str='',                       # field to use as unique key, if not ''
-            dtypes: Optional[T_dtype_dict]=None,    # dictionary of types to apply if set.
-            noheader: bool=False,                   # if True, do not try to initialize columns in header dict.
-            user_format: bool=False,                # if True, preprocess the file and omit comment lines.
-            sep: str=',',                           # field separator.
-            unflatten: bool=True,                   # unflatten fields that are defined as dict or list.
-            include_cols: Optional[T_ls]=None,      # include only the columns specified. noheader must be false.
-            name: str = '',                         # name attribute of the Daf array created.
-
-        Returns:
-            hllola: A tuple containing a header list and a list of lists representing the CSV data.
-        """
-        
-        data_lol = utils.buff_csv_to_lol(csv_buff, user_format=user_format, sep=sep, include_cols=include_cols, dtypes=dtypes)
-        
-        cols = []
-        if not noheader:
-            cols = data_lol.pop(0)        # return the first item and shorten the list.
-        
-        #breakpoint()
-        
-        my_daf = cls(lol=data_lol, cols=cols, keyfield=keyfield, dtypes=dtypes, name=name)
-        
-        # the following will act nicely if there is no dtypes defined.
-        my_daf.apply_dtypes(unflatten=unflatten)
-   
-        return my_daf
-    
-
 
     def to_csv_file(
             self,
-            file_path: str='',
-            line_terminator: Optional[str]=None,
-            include_header: bool=True,
+            file_path:          str='',
+            line_terminator:    Optional[str]=None,
+            include_header:     bool=True,
+            #append_if_exists:   bool=False,
             ) -> str:
+             
+        # append_mode = False
+        # if append_if_exists and os.path.exists(file_path):
+            # include_header = False
+            # append_mode = True
 
         buff = self.to_csv_buff(
                 line_terminator=line_terminator,
                 include_header=include_header,
                 )
 
-        type(self).buff_to_file(buff, file_path=file_path, fmt='.csv')
+        type(self).buff_to_file(buff, file_path=file_path, fmt='.csv') #, append=append_mode)
         
         return file_path
 
@@ -1947,21 +2048,6 @@ class Daf:
     
         import numpy as np
         return np.array(self.lol)
-        
-    # DEPRECATED
-    @classmethod
-    def from_hllola(cls, hllol: T_hllola, keyfield: str='', dtypes: Optional[T_dtype_dict]=None) -> 'Daf':
-        """ Create Daf instance from hllola type.
-            This is used for all DB. loading.
-            test exists in test_daf.py
-            
-            DEPRECATED
-        """
-        
-        hl, lol = hllol
-        
-        return cls(lol=lol, cols=hl, keyfield=keyfield, dtypes=dtypes)
-        
         
     #==== Googlesheets
     
@@ -2198,58 +2284,58 @@ class Daf:
         
 
     def concat(self, other_instance: 'Daf'):
-        """ concatenate records from passed daf cls to self daf 
-            This directly modifies self
-            if keyfield is '', then insert without respect to the key value
-            otherwise, allow only one record per key.
-            columns must be equal.
-            test exists in test_daf.py
+        """Concatenate records from the passed Daf instance into self.
+        
+        This directly modifies self.
+        - If keyfield is '', insert without respecting the key value.
+        - Otherwise, allow only one record per key.
+        - Columns must be equal.
+        - Test exists in test_daf.py.
         """
         
         if not other_instance:
             return 
-            
+        
         diagnose = False
 
-        if diagnose:      # pragma: no cover
+        if diagnose:  # pragma: no cover
             print(f"self=\n{self}\ndaf=\n{other_instance}")
-            
+        
         if not self.lol and not self.hd:
-            
-            self.hd         = other_instance.hd
-            self.lol        = other_instance.lol
-            self.kd         = other_instance.kd
-            self.keyfield   = other_instance.keyfield
-            self._rebuild_kd()   # only if the keyfield is set.
+            self.hd = copy.deepcopy(other_instance.hd)
+            self.lol = copy.deepcopy(other_instance.lol)
+            self.kd = copy.deepcopy(other_instance.kd)
+            self.keyfield = other_instance.keyfield
+            self._rebuild_kd()  # Only if the keyfield is set.
             return self
-            
-        # fields must match exactly!
+        
+        # Fields must match exactly!
         if self.hd != other_instance.hd:
             _, missing_list, extra_list, _ = utils.compare_lists(
-                work_list   = self.hd, 
-                ref_list    = other_instance.hd, 
-                req_list    = None,
-                )
+                work_list=self.hd, 
+                ref_list=other_instance.hd, 
+                req_list=None,
+            )
             
-            print(f"{logs.prog_loc()} keys mismatch: this_instance ({self.name}):\n({list(self.hd.keys())}) \n"
+            logs.sts(f"{logs.prog_loc()} keys mismatch: this_instance ({self.name}):\n({list(self.hd.keys())}) \n"
                   f"other_instance:\n({list(other_instance.hd.keys())})\n"
                   f"missing_list:\n{missing_list}\n"
-                  f"extra_list:\n{extra_list}\n"
-                  )
-            breakpoint() #perm -- assertion break
+                  f"extra_list:\n{extra_list}\n", 3
+            )
+            # breakpoint()  # Permanent assertion break
+            # pass
             raise KeyError
         
-        # simply append the rows from daf.lol to the end of self.lol
-        for idx in range(len(other_instance.lol)):
-            rec_la = other_instance.lol[idx]
-            self.lol.append(rec_la)
-        self._rebuild_kd()   # only if the keyfield is set.
+        # Append deep-copied rows to avoid referencing issues
+        for rec_la in other_instance.lol:
+            self.lol.append(copy.deepcopy(rec_la))
+        
+        self._rebuild_kd()  # Only if the keyfield is set.
 
         if diagnose:  # pragma: no cover
             print(f"result=\n{self}")
-            
-        return self
-                
+        
+        return self                
 
     def extend(self, records_lod: T_loda):
         """ append lod of records into daf 
@@ -2425,8 +2511,7 @@ class Daf:
         
         
     #===========================
-    # indexing -- these methods have substantial complexity and are provided
-    #               in the companion file indexing.py
+    # indexing
 
     def __getitem__(self,
             slice_spec:   Union[slice, int, str, T_li, T_ls, range, T_lor,
@@ -2967,7 +3052,7 @@ class Daf:
                     col_sliced_lol = [[row[icol] for icol in icols_range]
                                             for row in self.lol]
                 except Exception:
-                    breakpoint()
+                    breakpoint()    # perm. This should not ever occur.
                     pass
                     
                 if orig_cols:
@@ -4351,7 +4436,7 @@ class Daf:
                 func(row_klist, **kwargs)
                 
         else:
-            breakpoint()
+            breakpoint()    # perm
             pass
             raise NotImplementedError
             
@@ -6307,6 +6392,9 @@ class Daf:
         if shared_fields is None:
             shared_fields = []
             
+        if omit_other_cols is None:
+            omit_other_cols = []
+            
         if self_keyfield and self_keyfield not in shared_fields:
             shared_fields.append(self_keyfield)
             
@@ -6781,23 +6869,39 @@ class Daf:
             value_counts_daf.append({colname: ' **Total** ', 'counts': sum(value_counts_daf[:,'counts'].to_list())})
             
         return value_counts_daf
+        
 
+    # DEPRECATED
+    @classmethod
+    def from_hllola(cls, hllol: T_hllola, keyfield: str='', dtypes: Optional[T_dtype_dict]=None) -> 'Daf':
+        """ Create Daf instance from hllola type.
+            This is used for all DB. loading.
+            test exists in test_daf.py
+            
+            DEPRECATED
+        """
+        
+        hl, lol = hllol
+        
+        return cls(lol=lol, cols=hl, keyfield=keyfield, dtypes=dtypes)
+        
+        
 # ALIASES
 # these must not be established until after the class is fully defined.
-Pydf = Daf
-Pydf.pydf_to_lol_summary    = Daf.daf_to_lol_summary
-Pydf.split_pydf_into_ranges  = Daf.split_daf_into_ranges
-Pydf.select_records_pydf     = Daf.select_records_daf
-Pydf.pydf_sum                = Daf.daf_sum
-Pydf.pydf_valuecount         = Daf.daf_valuecount
-Pydf.groupsum_pydf           = Daf.groupsum_daf
-Pydf.gen_stats_pydf          = Daf.gen_stats_daf
-Pydf.value_counts_pydf       = Daf.value_counts_daf
+# Pydf = Daf
+# Pydf.pydf_to_lol_summary     = Daf.daf_to_lol_summary
+# Pydf.split_pydf_into_ranges  = Daf.split_daf_into_ranges
+# Pydf.select_records_pydf     = Daf.select_records_daf
+# Pydf.pydf_sum                = Daf.daf_sum
+# Pydf.pydf_valuecount         = Daf.daf_valuecount
+# Pydf.groupsum_pydf           = Daf.groupsum_daf
+# Pydf.gen_stats_pydf          = Daf.gen_stats_daf
+# Pydf.value_counts_pydf       = Daf.value_counts_daf
 
-Daf.groupsum                 = Daf.groupsum_daf
-Daf.value_counts             = Daf.valuecounts_for_colname
+# Daf.groupsum                 = Daf.groupsum_daf
+# Daf.value_counts             = Daf.valuecounts_for_colname
 
-Pydf.md_pydf_table = Pydf.to_md            
+# Pydf.md_pydf_table = Pydf.to_md            
 
 
 class DafIterator:
@@ -6825,3 +6929,5 @@ class DafIterator:
         else:
             self._index = 0
             raise StopIteration
+            
+            
