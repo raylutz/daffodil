@@ -1,6 +1,6 @@
 # daf_md.py -- markdown generation
 
-# copyright (c) 2024 Ray Lutz
+# copyright (c) 2025 Ray Lutz
 
 import re
 #import copy

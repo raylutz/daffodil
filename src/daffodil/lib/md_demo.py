@@ -124,7 +124,7 @@ def md_code_seg(
     first_comment = ''
     pattern2 = r'^[\n\s]*f?(?:"""|\'\'\')(.*?)(?:"""|\'\'\')(.*)$'
     match = re.search(pattern2, code_segment, re.DOTALL)
-    if bool(match):
+    if match:
         # pull out the extracted comment text and remove it from code_segment.
         first_comment = match[1].strip()    # type: ignore
         code_segment = match[2]             # type: ignore
@@ -133,7 +133,7 @@ def md_code_seg(
     last_comment = ''
     pattern3 = r'^(.*?)f?(?:"""|\'\'\')(.*?)(?:"""|\'\'\')[\s\n]*$'
     match = re.search(pattern3, code_segment, re.DOTALL)
-    if bool(match):
+    if match:
         # pull out the extracted comment text and remove it from code_segment.
         code_segment = match[1]             # type: ignore
         last_comment = match[2].strip()     # type: ignore

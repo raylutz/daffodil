@@ -11,7 +11,7 @@ The Daffodil class provides a lightweight, simple and fast alternative to provid
 r"""
     MIT License
 
-    Copyright (c) 2024 Ray Lutz
+    Copyright (c) 2025 Ray Lutz
 
     Permission is hereby granted, free of charge, to any person obtaining a copy
     of this software and associated documentation files (the "Software"), to deal
@@ -182,7 +182,7 @@ r"""
                 Went back to setup.py and setuptools, but reorganized files into daffodil/src folder which will be included in the distro.
                 To use --editable mode for local development, must set PYTHONPATH to refer to the daffodil/src folder.
                 In that folder is daffodil/daf.py and daffodil/lib/daf_(name).py 
-                To import supporting py files from lib, must use import daffodil.lib.daf_utils as utils, for example.
+                To import supporting py files from lib, must use import daffodil.lib.daf_utils as daf_utils, for example.
                 
     v0.4.3  (2024-05-02)
             Went back to pyproject.toml approach. Eliminated setup.py.
@@ -281,7 +281,7 @@ r"""
                 add op_import() 
             add get_csv_column_names() as refactoring in daf_utils for reading csv.
             precheck_csv_cols()
-            compare_lists() -- imported from utils
+            compare_lists() -- imported from daf_utils
             Introduce ops_daf for running operations, can also use in audit-engine.
                 operation descriptions taken from docstring.
             added 'default_type' to apply_dtypes for any cols not specified in passed dtypes.
@@ -331,12 +331,20 @@ r"""
             from_csv_buff() still exists for those times when a buffer or file-like object already exists.
             Added .attrs dictionary to core dataframe instance definition to allow for descriptors to be 
                 provided to users of the dataframe, esp. between when the daf array is defined and built 
-                and when it is used and modified. 
+                and when it is used and modified.
+            Improve file closure by using context manager in from_csv() for local file usage.
+            Deprecated use of utils instead of daf_utils.
             
     v0.5.7  (pending)
 
 
     TODO
+        Consider conversion to_dnpa() which would convert specified columns to individual numpy arrays in dict, where keys are col names.
+        Consider method adjust_cols(select_cols, drop_cols, add_cols_dtypes, default_val) which would make a single pass through the
+            table to select (keep), drop, or add columns. This can improve performance by avoiding creating a new
+            table and potentially nearly doubling the data. Strategy will be to apply() in place so the table does 
+            not grow in size, and this mimics the behavior in SQL tables.
+    
         Plan:
             create base class for core operations.
             use this to create daf_sql class to handle sql functionality.
@@ -515,13 +523,14 @@ import time
 #import numpy as np
 #from typing_extensions import deprecated       # can't get this to import correctly
 import collections      # to provide collections.abc.Iterable type.
+from pathlib import Path
     
 sys.path.append(os.path.dirname(os.path.dirname(os.path.realpath(__file__))))
 
 from daffodil.lib.daf_types import T_ls, T_lola, T_di, T_hllola, T_loda, T_da, T_li, T_dtype_dict, \
                             T_dola, T_dodi, T_la, T_lota, T_doda, T_buff, T_ds, T_lb, T_rli, T_ta, T_lor, T_kva
                      
-import daffodil.lib.daf_utils    as utils
+import daffodil.lib.daf_utils    as daf_utils
 import daffodil.lib.daf_md       as md
 import daffodil.lib.daf_pandas   as daf_pandas
 import daffodil.lib.daf_pdf      as daf_pdf
@@ -537,7 +546,7 @@ T_Pydf = Type['Daf']
 T_Daf = Type['Daf']
 T_dodaf = Dict[str, T_Daf]
 
-logs = utils                # alias
+logs = daf_utils                # alias
 
 
 class Daf:
@@ -620,7 +629,7 @@ class Daf:
             # cols will be sanitized only if necessary.
             self._cols_to_hd(cols)
             if len(cols) != len(self.hd):
-                cols = utils._sanitize_cols(cols=cols)
+                cols = daf_utils._sanitize_cols(cols=cols)
                 self._cols_to_hd(cols)
                 if len(cols) != len(self.hd):                
                     breakpoint() #perm assertion error
@@ -633,7 +642,7 @@ class Daf:
             # # setting dtypes may be better done manually if required.
             # if self.num_cols():
 
-                # self.lol = utils.apply_dtypes_to_hdlol((self.hd, self.lol), effective_dtypes, from_str=False)[1]
+                # self.lol = daf_utils.apply_dtypes_to_hdlol((self.hd, self.lol), effective_dtypes, from_str=False)[1]
             
         # rebuild kd if possible, only if keyfield is defined.
         self._rebuild_kd()
@@ -765,7 +774,7 @@ class Daf:
     
         if not self.lol:
             return 0
-        _, result = utils.min_max_cols_lol(self.lol, limit=10)
+        _, result = daf_utils.min_max_cols_lol(self.lol, limit=10)
         return result
         
         
@@ -955,11 +964,11 @@ class Daf:
         # if not self:
             # return
         
-        # # from utilities import utils
+        # # from utilities import daf_utils
 
         # for key in defined_cols:
         
-            # record_da = utils.set_cols_da(da, defined_cols)
+            # record_da = daf_utils.set_cols_da(da, defined_cols)
             
             # self.update_record_irow(irow, record_da)
             
@@ -993,10 +1002,10 @@ class Daf:
         num_cols = self.num_cols() or len(self.hd)
         
         if new_cols is None:
-            new_cols = utils._generate_spreadsheet_column_names_list(num_cols)
+            new_cols = daf_utils._generate_spreadsheet_column_names_list(num_cols)
             
         elif sanitize_cols:
-            new_cols = utils._sanitize_cols(new_cols, unnamed_prefix=unnamed_prefix)
+            new_cols = daf_utils._sanitize_cols(new_cols, unnamed_prefix=unnamed_prefix)
         
         if num_cols and len(new_cols) < num_cols:
             raise AttributeError("Length of new_cols not the same as existing cols")
@@ -1087,7 +1096,7 @@ class Daf:
     def _build_kd(col_idx: Union[int, T_li], lol: T_lola) -> T_di:
         """ build key dictionary from col_idx col of lol """        
         if isinstance(col_idx, int):
-            key_col = utils.select_col_of_lol_by_col_idx(lol, col_idx)
+            key_col = daf_utils.select_col_of_lol_by_col_idx(lol, col_idx)
 
             # see https://github.com/raylutz/daffodil/issues/6
             kd = Daf._build_hd(key_col)
@@ -1172,7 +1181,7 @@ class Daf:
         
         dtypes = {}
         
-        col_to_typ_dict = utils.invert_dol_to_dict(typ_to_cols_dict)
+        col_to_typ_dict = daf_utils.invert_dol_to_dict(typ_to_cols_dict)
         
         for colname in self.hd:
             
@@ -1238,7 +1247,7 @@ class Daf:
             
             for irow in range(len(self.lol)):
             
-                self.lol[irow][icol] = utils.convert_type_value(self.lol[irow][icol], desired_type) # unflatten=True
+                self.lol[irow][icol] = daf_utils.convert_type_value(self.lol[irow][icol], desired_type) # unflatten=True
                         
         return self
         
@@ -1292,7 +1301,7 @@ class Daf:
                     if use_pyon:
                         self.lol[irow][icol] = f"{self.lol[irow][icol]}"
                     else:    
-                        self.lol[irow][icol] = utils.json_encode(self.lol[irow][icol])
+                        self.lol[irow][icol] = daf_utils.json_encode(self.lol[irow][icol])
                     
             if convert_bool_to_int and desired_type is bool:
                 # this should be rare!
@@ -1317,9 +1326,9 @@ class Daf:
         # if not self:
             # return    
             
-        # # from utilities import utils
+        # # from utilities import daf_utils
 
-        # self.hd, self.lol = utils.unflatten_hdlol_by_cols((self.hd, self.lol), cols)    
+        # self.hd, self.lol = daf_utils.unflatten_hdlol_by_cols((self.hd, self.lol), cols)    
             
         # return self
 
@@ -1346,13 +1355,13 @@ class Daf:
         # if not self:
             # return self
         
-        # # from utilities import utils
+        # # from utilities import daf_utils
 
         # for irow, da in enumerate(self):
             # record_da = copy.deepcopy(da)
             # for col in cols:
                 # if col in da:
-                    # record_da[col] = utils.json_encode(record_da[col])        
+                    # record_da[col] = daf_utils.json_encode(record_da[col])        
             # self.update_record_irow(irow, record_da)        
             
         # return self
@@ -1470,7 +1479,7 @@ class Daf:
         
         # is this better than just appending dicts?
         
-        lol = [list(utils.set_cols_da(record_da, cols).values()) 
+        lol = [list(daf_utils.set_cols_da(record_da, cols).values()) 
                 for record_da in records_lod if record_da and isinstance(record_da, dict)]
         
         return cls(cols=cols, lol=lol, keyfield=keyfield, dtypes=dtypes, name=name)
@@ -1576,7 +1585,7 @@ class Daf:
             not required in the dod.
             
         """
-        return cls.from_lod(utils.dod_to_lod(dod, keyfield=keyfield), keyfield=keyfield, dtypes=dtypes)
+        return cls.from_lod(daf_utils.dod_to_lod(dod, keyfield=keyfield), keyfield=keyfield, dtypes=dtypes)
     
     
     def to_dod(
@@ -1602,7 +1611,7 @@ class Daf:
             If remove_keyfield=True (default) dod2 will be produced, else dod1.
                         
         """
-        return utils.lod_to_dod(self.to_lod(), keyfield=self.keyfield, remove_keyfield=remove_keyfield)
+        return daf_utils.lod_to_dod(self.to_lod(), keyfield=self.keyfield, remove_keyfield=remove_keyfield)
     
 
     # ==== cols_dol
@@ -1748,7 +1757,7 @@ class Daf:
         
         # from utilities import xlsx_utils
 
-        csv_buff = utils.xlsx_to_csv(excel_buff)
+        csv_buff = daf_utils.xlsx_to_csv(excel_buff)
         
         my_daf  = cls.from_csv_buff(
                         csv_buff, 
@@ -1763,7 +1772,7 @@ class Daf:
     
     #==== CSV
     @classmethod
-    def from_csv(cls, source: str, **kwargs):
+    def from_csv(cls, source: str | Path, **kwargs):
         """
         Load a CSV file from a local file, URL, or S3 path into a Daf array.
 
@@ -1780,6 +1789,9 @@ class Daf:
         Returns:
             Daf: A Daf array loaded from the CSV.
         """
+        if isinstance(source, Path):  # Convert Path object to string
+            source = str(source)
+
         if source.startswith(('http://', 'https://')):  # Handle HTTP(S) URLs
             try:
                 import requests  # Import only if needed
@@ -1805,11 +1817,14 @@ class Daf:
 
         else:  # Assume local file with streaming
             try:
-                data_stream = open(source, "r", encoding="utf-8")
+                with open(source, "r", encoding="utf-8") as f:  # Use `with` to ensure closure
+                    return cls.from_csv_buff(csv_buff=f, **kwargs)
             except Exception as e:
                 raise RuntimeError(f"Failed to read local file: {e}")
 
-        return cls.from_csv_buff(csv_buff=data_stream, **kwargs)
+        new_daf = cls.from_csv_buff(csv_buff=data_stream, **kwargs)
+        
+        return new_daf
 
     # STILL ACTIVE -- use when we know the source is a buffer.
     @classmethod
@@ -1856,13 +1871,11 @@ class Daf:
             csv_buff = io.TextIOWrapper(io.BytesIO(csv_buff), encoding="utf-8")
 
         # the following will be able to stream from the source and convert directly to lol.
-        data_lol = utils.buff_csv_to_lol(csv_buff, user_format=user_format, sep=sep, include_cols=include_cols, dtypes=dtypes)
+        data_lol = daf_utils.buff_csv_to_lol(csv_buff, user_format=user_format, sep=sep, include_cols=include_cols, dtypes=dtypes)
         
         cols = []
         if not noheader:
             cols = data_lol.pop(0)        # return the first item and shorten the list.
-        
-        #breakpoint()
         
         my_daf = cls(lol=data_lol, cols=cols, keyfield=keyfield, dtypes=dtypes, name=name)
         
@@ -1926,16 +1939,14 @@ class Daf:
 
     def to_csv_file(
             self,
-            file_path:          str='',
+            file_path:          str | Path = '',
             line_terminator:    Optional[str]=None,
             include_header:     bool=True,
             #append_if_exists:   bool=False,
             ) -> str:
              
-        # append_mode = False
-        # if append_if_exists and os.path.exists(file_path):
-            # include_header = False
-            # append_mode = True
+        if isinstance(file_path, Path):  # Convert Path object to string
+            file_path = str(file_path)
 
         buff = self.to_csv_buff(
                 line_terminator=line_terminator,
@@ -1982,9 +1993,9 @@ class Daf:
 
 
     @staticmethod
-    def buff_to_file(buff: T_buff, file_path: str, fmt:str='.csv'):
+    def buff_to_file(buff: T_buff, file_path: str | Path, fmt:str='.csv'):
     
-        return utils.write_buff_to_fp(buff, file_path, fmt=fmt)
+        return daf_utils.write_buff_to_fp(buff, file_path, fmt=fmt)
 
     #==== PDF to Daf
     
@@ -2096,7 +2107,7 @@ class Daf:
         #num_rows = len(lol)
         num_cols = 0 if not lol else len(lol[0])
         
-        cols = utils._generate_spreadsheet_column_names_list(num_cols)
+        cols = daf_utils._generate_spreadsheet_column_names_list(num_cols)
 
         gs_daf = cls(cols=cols, lol=lol)
         
@@ -2311,7 +2322,7 @@ class Daf:
         
         # Fields must match exactly!
         if self.hd != other_instance.hd:
-            _, missing_list, extra_list, _ = utils.compare_lists(
+            _, missing_list, extra_list, _ = daf_utils.compare_lists(
                 work_list=self.hd, 
                 ref_list=other_instance.hd, 
                 req_list=None,
@@ -2535,13 +2546,13 @@ class Daf:
             row_spec = None
             
         if (isinstance(row_spec, (int, slice, range)) or 
-                utils.is_list_of_type(row_spec, (int, range))
+                daf_utils.is_list_of_type(row_spec, (int, range))
             ):
             sel_rows_daf = self.select_irows(irows=row_spec)
             
         elif (isinstance(row_spec, str) or 
-                utils.is_list_of_type(row_spec, str) or
-                utils.is_tuple_of_type_len(row_spec, str, 2)
+                daf_utils.is_list_of_type(row_spec, str) or
+                daf_utils.is_tuple_of_type_len(row_spec, str, 2)
             ):
             sel_rows_daf = self.select_krows(krows=row_spec)
 
@@ -2552,13 +2563,13 @@ class Daf:
             ret_daf = sel_rows_daf
         else:
             if (isinstance(col_spec, (int, slice, range)) or  
-                    utils.is_list_of_type(col_spec, (int, range))
+                    daf_utils.is_list_of_type(col_spec, (int, range))
                 ):
                 ret_daf = sel_rows_daf.select_icols(icols=col_spec)
                 
             elif (isinstance(col_spec, str) or 
-                    utils.is_list_of_type(col_spec, str) or
-                    utils.is_tuple_of_type_len(col_spec, str, 2)
+                    daf_utils.is_list_of_type(col_spec, str) or
+                    daf_utils.is_tuple_of_type_len(col_spec, str, 2)
                 ):
                 ret_daf = sel_rows_daf.select_kcols(kcols=col_spec)
             else:
@@ -2586,18 +2597,18 @@ class Daf:
             irows = list(range(len(self)))
             
         if (isinstance(row_spec, (str, tuple)) or 
-                utils.is_list_of_type(row_spec, str) or
-                utils.is_tuple_of_type_len(row_spec, str, 2)):
+                daf_utils.is_list_of_type(row_spec, str) or
+                daf_utils.is_tuple_of_type_len(row_spec, str, 2)):
 
             irows = self.krows_to_irows(krows = row_spec)
             
-        elif isinstance(row_spec, (int, slice, range)) or utils.is_list_of_type(row_spec, (int, range)):
+        elif isinstance(row_spec, (int, slice, range)) or daf_utils.is_list_of_type(row_spec, (int, range)):
             irows = row_spec
             
-        if col_spec and isinstance(col_spec, (str, tuple)) or utils.is_list_of_type(col_spec, str):
+        if col_spec and isinstance(col_spec, (str, tuple)) or daf_utils.is_list_of_type(col_spec, str):
             icols = self.kcols_to_icols(kcols = col_spec)
             
-        elif isinstance(col_spec, (int, slice, range)) or utils.is_list_of_type(col_spec, (int, range)):
+        elif isinstance(col_spec, (int, slice, range)) or daf_utils.is_list_of_type(col_spec, (int, range)):
             icols = col_spec
         else:
             icols = None
@@ -2660,8 +2671,8 @@ class Daf:
         tot_num_cols = self.num_cols()    
         tot_num_rows = self.num_rows()    
         
-        num_irows = utils.len_rowcol_spec(irows, tot_num_rows)
-        num_icols = utils.len_rowcol_spec(icols, tot_num_cols)
+        num_irows = daf_utils.len_rowcol_spec(irows, tot_num_rows)
+        num_icols = daf_utils.len_rowcol_spec(icols, tot_num_cols)
         
         if num_irows == 1 and isinstance(irows, int):
             irows = [irows]
@@ -2669,9 +2680,9 @@ class Daf:
             icols = [icols]
             
         if isinstance(irows, slice):
-            irows = utils.slice_to_range(irows, len(self))
+            irows = daf_utils.slice_to_range(irows, len(self))
         if isinstance(icols, slice):
-            icols = utils.slice_to_range(icols, self.num_cols())
+            icols = daf_utils.slice_to_range(icols, self.num_cols())
             
         # special case when cols not specified.    
         if num_irows == 1 and num_icols == 0:
@@ -2911,7 +2922,7 @@ class Daf:
         if inverse:
             if isinstance(idxs, slice):
                 slice_obj = idxs
-                this_range = utils.slice_to_range(slice_obj, len(gkeys))
+                this_range = daf_utils.slice_to_range(slice_obj, len(gkeys))
                 idxs = [idx for idx in range(len(keydict)) if idx not in this_range]
             else:
                 idxs = [idx for idx in range(len(keydict)) if idx not in idxs]
@@ -2971,7 +2982,7 @@ class Daf:
         
         elif irows and isinstance(irows, list):
         
-            if utils.is_list_of_type(irows, int):                
+            if daf_utils.is_list_of_type(irows, int):                
                 if not invert:
                     row_sliced_lol = [self.lol[i] for i in irows]
                 else:
@@ -2981,7 +2992,7 @@ class Daf:
                         irows_iter = irows
                     row_sliced_lol = [self.lol[i] for i in range(len(self.lol)) if i not in irows_iter]
             
-            elif utils.is_list_of_type(irows, range):
+            elif daf_utils.is_list_of_type(irows, range):
                 rows_lor = irows    # just a name change
                 if not invert:
                     row_sliced_lol = [self.lol[i] for irange in rows_lor for i in irange]
@@ -3061,7 +3072,7 @@ class Daf:
                 col_sliced_lol = [[row[icol] for row in self.lol]
                                         for icol in icols_range]
                 
-        elif icols and (isinstance(icols, list) and utils.is_list_of_type(icols, int) or
+        elif icols and (isinstance(icols, list) and daf_utils.is_list_of_type(icols, int) or
                         isinstance(icols, range)):
             # list of integers or range
             if not flip:
@@ -3080,7 +3091,7 @@ class Daf:
                                         for icol in icols]
                                     
         # this part needs to be tested!                                    
-        elif isinstance(icols, list) and icols and utils.is_list_of_type(icols, range):
+        elif isinstance(icols, list) and icols and daf_utils.is_list_of_type(icols, range):
             # list of ranges:
             cols_lor = icols # name change only.
             if not flip:
@@ -3164,7 +3175,7 @@ class Daf:
             TODO Update to return KeyedList as an option.
         """
         if not self.hd:
-            cols = utils._generate_spreadsheet_column_names_list(num_cols=self.num_cols())
+            cols = daf_utils._generate_spreadsheet_column_names_list(num_cols=self.num_cols())
             self.set_cols(cols)
         
         if include_cols:
@@ -3215,7 +3226,7 @@ class Daf:
         num_rows, num_cols = self.shape()
 
         if num_rows >= 1 and num_cols >= 1:
-            return utils.astype_value(self.lol[irow][icol], astype)
+            return daf_utils.astype_value(self.lol[irow][icol], astype)
 
         return default
         
@@ -3274,7 +3285,7 @@ class Daf:
         if omit_nulls and '' in result_la:
             result_la = [val for val in result_la if val != '']
             
-        return utils.astype_la(result_la, astype)
+        return daf_utils.astype_la(result_la, astype)
 
 
     def to_lota(self, 
@@ -3333,7 +3344,7 @@ class Daf:
             if self.hd: 
                 return self._basic_get_record(irow, include_cols)
                 
-            colnames = utils._generate_spreadsheet_column_names_list(num_cols=len(self.lol[irow]))
+            colnames = daf_utils._generate_spreadsheet_column_names_list(num_cols=len(self.lol[irow]))
             return dict(zip(colnames, self.lol[irow]))
             
         elif rtype == 'list':
@@ -3369,9 +3380,9 @@ class Daf:
             test exists in test_daf.py
         """
 
-        # from utilities import utils
+        # from utilities import daf_utils
 
-        result_lol = [list(d2.values()) for d2 in self if inverse ^ utils.is_d1_in_d2(d1=selector_da, d2=d2)]
+        result_lol = [list(d2.values()) for d2 in self if inverse ^ daf_utils.is_d1_in_d2(d1=selector_da, d2=d2)]
     
         if expectmax != -1 and len(result_lol) > expectmax:
             raise LookupError
@@ -3394,7 +3405,7 @@ class Daf:
         # test exists in test_daf.py
 
         for d2 in self:
-            if inverse ^ utils.is_d1_in_d2(d1=selector_da, d2=d2):
+            if inverse ^ daf_utils.is_d1_in_d2(d1=selector_da, d2=d2):
                 return d2
 
         return {}
@@ -3786,9 +3797,9 @@ class Daf:
             DEPRECATE?
             
         """
-        # from utilities import utils
+        # from utilities import daf_utils
 
-        self.lol = utils.assign_col_in_lol_at_icol(icol, col_la, lol=self.lol, default=default)
+        self.lol = daf_utils.assign_col_in_lol_at_icol(icol, col_la, lol=self.lol, default=default)
         
         
         
@@ -3806,9 +3817,9 @@ class Daf:
             unit tests
         """
         
-        # from utilities import utils
+        # from utilities import daf_utils
 
-        self.lol = utils.insert_col_in_lol_at_icol(icol, col_la, lol=self.lol, default=default)
+        self.lol = daf_utils.insert_col_in_lol_at_icol(icol, col_la, lol=self.lol, default=default)
         
         if colname:
             if not self.hd:
@@ -3829,7 +3840,7 @@ class Daf:
             
         """
         
-        # from utilities import utils
+        # from utilities import daf_utils
         
         if isinstance(row, list):
         
@@ -3841,7 +3852,7 @@ class Daf:
             # create normalize list
             row_la = [row_da.get(col, '') for col in self.hd] 
         
-        self.lol = utils.insert_row_in_lol_at_irow(irow=irow, row_la=row_la, lol=self.lol, default=default)
+        self.lol = daf_utils.insert_row_in_lol_at_irow(irow=irow, row_la=row_la, lol=self.lol, default=default)
         
         self._rebuild_kd()
 
@@ -4012,10 +4023,10 @@ class Daf:
         """ given a daf, split it evenly by rows into a list of dafs.
             size of some dafs may be less than the max but not over.
         """
-        # from utilities import utils
+        # from utilities import daf_utils
         
-        chunk_sizes_list = utils.calc_chunk_sizes(num_items=len(self), max_chunk_size=max_chunk_size)
-        chunk_ranges = utils.convert_sizes_to_idx_ranges(chunk_sizes_list)
+        chunk_sizes_list = daf_utils.calc_chunk_sizes(num_items=len(self), max_chunk_size=max_chunk_size)
+        chunk_ranges = daf_utils.convert_sizes_to_idx_ranges(chunk_sizes_list)
         chunks_lodaf = self.split_daf_into_ranges(chunk_ranges)
         return chunks_lodaf
 
@@ -4045,7 +4056,7 @@ class Daf:
             breakpoint() #perm # assertion break
             pass
             
-        self.lol = utils.sort_lol_by_col(self.lol, colidx, reverse=reverse, length_priority=length_priority)
+        self.lol = daf_utils.sort_lol_by_col(self.lol, colidx, reverse=reverse, length_priority=length_priority)
         self._rebuild_kd()
         return self
         
@@ -4074,7 +4085,7 @@ class Daf:
             breakpoint() #perm # assertion break
             pass
             
-        self.lol = utils.sort_lol_by_cols(self.lol, colidxs, reverse=reverse, length_priority=length_priority)
+        self.lol = daf_utils.sort_lol_by_cols(self.lol, colidxs, reverse=reverse, length_priority=length_priority)
         self._rebuild_kd()
         return self
         
@@ -4773,12 +4784,12 @@ class Daf:
         # breakpoint() #temp
         
         if diagnose:  # pragma: no cover
-            utils.sts(f"Starting groupby_cols() of {len(self):,} records.", 3)
+            daf_utils.sts(f"Starting groupby_cols() of {len(self):,} records.", 3)
             
         grouped_tdodaf = self.groupby_cols(groupby_colnames)
         
         if diagnose:  # pragma: no cover
-            utils.sts(f"Total of {len(grouped_tdodaf):,} groups. Reduction starting.", 3)
+            daf_utils.sts(f"Total of {len(grouped_tdodaf):,} groups. Reduction starting.", 3)
         
         result_daf = Daf(cols=groupby_colnames + reduce_cols)
                 
@@ -4798,7 +4809,7 @@ class Daf:
             result_daf.append(reduction_da)
 
         if diagnose:  # pragma: no cover
-            utils.sts(f"Reduction completed: {len(result_daf):,} records.", 3)
+            daf_utils.sts(f"Reduction completed: {len(result_daf):,} records.", 3)
 
         return result_daf
     
@@ -5174,7 +5185,7 @@ class Daf:
             for row_da in self:
                 indirect_val = row_da[indirect_col]
                 if isinstance(indirect_val, str):
-                    indirect_da = utils.safe_convert_json_to_obj(indirect_val)
+                    indirect_da = daf_utils.safe_convert_json_to_obj(indirect_val)
                 else:
                     indirect_da = indirect_val
                 try:
@@ -5595,10 +5606,10 @@ class Daf:
             col2 defaults to col1 if not provided, but you must use keyword regex.
         """
         
-        # from utilities import utils
+        # from utilities import daf_utils
     
         def set_row_col2_from_col1_using_regex_select(row_da: T_da, col1: str, col2: str, regex: str) -> T_da:
-            row_da[col2] = utils.safe_regex_select(regex, row_da[col1])
+            row_da[col2] = daf_utils.safe_regex_select(regex, row_da[col1])
             return row_da
             
         if not col2:
@@ -5619,11 +5630,11 @@ class Daf:
         
         """
         
-        # from utilities import utils
+        # from utilities import daf_utils
     
         def set_row_col2_from_col_using_regex_replace(row_da: T_da, col: str, col2: str, replace_regex: str) -> T_da:
             if col in row_da:
-                row_da[col2] = utils.safe_regex_replace(regex=replace_regex, s=row_da[col])
+                row_da[col2] = daf_utils.safe_regex_replace(regex=replace_regex, s=row_da[col])
             return row_da
             
         if not col2:
@@ -5989,7 +6000,7 @@ class Daf:
                     else:
                         sums_d[colname] += float(la[colidx])
 
-        sums_d = utils.set_dict_dtypes(sums_d, dtypes=self.dtypes)
+        sums_d = daf_utils.set_dict_dtypes(sums_d, dtypes=self.dtypes)
         
         return sums_d
         
@@ -6065,7 +6076,7 @@ class Daf:
                 valuecounts_di[val] += 1
 
         if omit_nulls:
-            utils.safe_del_key(valuecounts_di, '') 
+            daf_utils.safe_del_key(valuecounts_di, '') 
                 
         if sort:
             valuecounts_di = dict(sorted(valuecounts_di.items(), key=lambda x: x[1], reverse=reverse))
@@ -6220,14 +6231,14 @@ class Daf:
 
         info_dod = {}
 
-        # from utilities import utils
+        # from utilities import daf_utils
 
         for col_def_ta in col_def_lot:
             col_name, col_dtype, col_format, col_profile = col_def_ta
             
             col_data_la = self[:, col_name].to_list()
             
-            info_dod[col_name] = utils.list_stats(col_data_la, profile=col_profile)
+            info_dod[col_name] = daf_utils.list_stats(col_data_la, profile=col_profile)
             
         return info_dod
 
@@ -6249,16 +6260,16 @@ class Daf:
         """
 
         if not new_cols:
-            new_cols = ['key'] + utils._generate_spreadsheet_column_names_list(num_cols=len(self.lol))
+            new_cols = ['key'] + daf_utils._generate_spreadsheet_column_names_list(num_cols=len(self.lol))
 
         # transpose the array
         new_lol = [list(row) for row in zip(*self.lol)]
         
         if include_header:
             # add a new first column which will be the old column names row.
-            # from utilities import utils
+            # from utilities import daf_utils
             
-            new_lol = utils.insert_col_in_lol_at_icol(icol=0, col_la=self.columns(), lol=new_lol)
+            new_lol = daf_utils.insert_col_in_lol_at_icol(icol=0, col_la=self.columns(), lol=new_lol)
         
         return Daf(lol=new_lol, name=self.name, keyfield=new_keyfield, cols=new_cols, use_copy=True)        
 
@@ -6401,9 +6412,9 @@ class Daf:
         if other_keyfield and other_keyfield not in shared_fields:
             shared_fields.append(other_keyfield)
         
-        shared_fields   = utils.to_dn_if_list(shared_fields)
-        self_cols       = utils.to_dn_if_list(self_cols)
-        other_cols      = utils.to_dn_if_list(other_cols)
+        shared_fields   = daf_utils.to_dn_if_list(shared_fields)
+        self_cols       = daf_utils.to_dn_if_list(self_cols)
+        other_cols      = daf_utils.to_dn_if_list(other_cols)
 
         # Get column names and names from both Dafs  (list of KeyViews of Any)
         colnames_lokva = [self_cols, other_cols]
@@ -6477,6 +6488,12 @@ class Daf:
 
         Returns:
             Daf: A new Daf instance containing the result of the join.
+            
+        notes:
+            1. both dataframes must have keyfield defined. The keyfield will be the field that is used for the join.
+            2. dataframes can be named, otherwise, the names default to 'daf1' and 'daf2'
+            3. a single join translater can be used for joins of multiple dataframes. In that case, name all dataframes.
+            
         """
         if how not in {"inner", "left", "right", "outer"}:
             raise ValueError(f"Unsupported join type: {how}")
@@ -6496,7 +6513,7 @@ class Daf:
         if diagnose:
             logs.sts(f"{logs.prog_loc()} Translator Daf:\n{translator_daf}", 3)
             
-        join_names_ls = [self.name, other_daf.name]
+        join_names_ls = [self.name or 'daf1', other_daf.name or 'daf2']
                 
         # we allow the translator to contain records for more than two dafs that may be joined in a chain opeation.
         try:
@@ -6689,7 +6706,7 @@ class Daf:
             index_cols_da = {col: row_da[col] for col in id_cols}
             if not wide_row_da:
                 wide_row_da = index_cols_da.copy()
-            elif not utils.is_d1_in_d2(index_cols_da, wide_row_da):
+            elif not daf_utils.is_d1_in_d2(index_cols_da, wide_row_da):
                 wide_daf.append(wide_row_da)
                 wide_row_da = index_cols_da.copy()
 
@@ -6791,7 +6808,7 @@ class Daf:
 
     def daf_to_lol_summary(self, max_rows: int=10, max_cols: int=10, disp_cols:Optional[T_ls]=None) -> T_lola:
     
-        # from utilities import utils
+        # from utilities import daf_utils
 
         # first build a basic summary by adding colnames, if they exist.
         if disp_cols:
@@ -6812,7 +6829,7 @@ class Daf:
 
         if max_rows and num_rows <= max_rows:
             # Get all the rows, but potentially limit columns
-            result_lol = utils.reduce_lol_cols(result_lol, max_cols=max_cols)
+            result_lol = daf_utils.reduce_lol_cols(result_lol, max_cols=max_cols)
         
         else:
             # Get the first and last portion of rows
@@ -6822,7 +6839,7 @@ class Daf:
             divider_lol = [['...'] * num_cols]
             
             result_lol  = [colnames_ls] + first_lol + divider_lol + last_lol
-            result_lol  = utils.reduce_lol_cols(result_lol, max_cols=max_cols)
+            result_lol  = daf_utils.reduce_lol_cols(result_lol, max_cols=max_cols)
 
         return result_lol
         
@@ -6861,7 +6878,7 @@ class Daf:
         value_counts_di   = self.valuecounts_for_colname(colname=colname, sort=sort, reverse=reverse)
         
         if omit_nulls:
-            utils.safe_del_key(value_counts_di, '') 
+            daf_utils.safe_del_key(value_counts_di, '') 
 
         value_counts_daf = Daf.from_lod_to_cols([value_counts_di], cols=[colname, 'counts'])
 

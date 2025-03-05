@@ -1356,7 +1356,7 @@ def prog_loc() -> str:
     return f"[{filename}:{linenumber}]"
     
     
-def buff_csv_to_lol(
+def buff_csv_to_lol_old(
         buff: Union[bytes, str, Iterator[str]],  # Now accepts iterators for streaming, 
         user_format: bool=False, 
         sep=',', 
@@ -1399,6 +1399,103 @@ def buff_csv_to_lol(
     csv_reader = csv.reader(buff, delimiter=sep, quoting=csv.QUOTE_MINIMAL)
 
     data_lol = [row for row in csv_reader]
+
+    return data_lol
+
+
+def buff_csv_to_lol(
+    buff: Union[bytes, str, Iterator[str]],  # Supports iterators for streaming
+    user_format: bool = False,
+    sep: str = ',',
+    include_cols: Optional[list] = None,
+    dtypes: Optional[dict] = None,
+    raw: bool = False,
+) -> list:  # Returns full LoL stored in memory
+    """
+    Convert CSV data in a buffer (bytes, string, or iterator) to a list of lists (LoL).
+
+    - Converts `buff` to a file-like object before processing.
+    - Ensures `csv.reader` receives a **consistent input type**.
+
+    Args:
+        buff (Union[bytes, str, Iterator[str]]): CSV data as bytes, string, or stream.
+        user_format (bool): Whether to preprocess the CSV (remove comments, blank lines).
+        sep (str): CSV field separator.
+
+    Returns:
+        list: Full CSV stored in memory as a list of lists (LoL).
+    """
+    
+    batch_size = 10000
+    diagnose = False
+
+    if sep is None:
+        sep = ','
+
+    # Case 1: buff is bytes.
+    if isinstance(buff, bytes):
+        buff = io.TextIOWrapper(io.BytesIO(buff), encoding='utf-8')
+
+    # Case 2: buff is a string.
+    elif isinstance(buff, str):
+        buff = io.StringIO(buff)
+
+    # Case 3: buff is a file-like object that supports seek.
+    elif hasattr(buff, 'seek'):
+        try:
+            # If available, use peek to inspect a few characters/bytes.
+            if hasattr(buff, 'peek'):
+                peeked = buff.peek(10)
+            else:
+                chunk = buff.read(10)
+                buff.seek(0)
+                peeked = chunk
+            # If the peeked data is bytes, wrap the stream.
+            if isinstance(peeked, bytes):
+                buff = io.TextIOWrapper(buff, encoding='utf-8')
+            else:
+                buff.seek(0)
+        except Exception as e:
+            raise RuntimeError("Error while peeking file-like object: " + str(e))
+
+    # Case 4: buff is an iterator (non-seekable).
+    elif isinstance(buff, Iterator):
+        try:
+            # Consume one item to determine its type.
+            first_item = next(buff)
+        except StopIteration:
+            return []  # Empty input
+
+        # If the first item is bytes, create a generator that decodes on the fly.
+        if isinstance(first_item, bytes):
+            def byte_line_generator():
+                yield first_item.decode('utf-8')
+                for line in buff:
+                    yield line.decode('utf-8')
+            buff = byte_line_generator()
+        else:
+            # Otherwise, create a generator that yields the first item, then the rest.
+            def text_line_generator():
+                yield first_item
+                yield from buff
+            buff = text_line_generator()
+    else:
+        raise ValueError("Unsupported type for buff")
+
+    if user_format:
+        buff = preprocess_csv_buff(buff)
+
+    # Use csv.reader to process the CSV stream.
+    csv_reader = csv.reader(buff, delimiter=sep, quoting=csv.QUOTE_MINIMAL)
+
+    if diagnose:
+        data_lol = []
+        for i, row in enumerate(csv_reader):
+            data_lol.append(row)
+            if i % batch_size == 0:
+                print(f"Processed {i} rows...")  # Progress tracking
+    else:
+        data_lol = list(csv_reader)
 
     return data_lol
 
