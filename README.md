@@ -6,12 +6,16 @@ The Python Daffodil (DAtaFrames For Optimized Data Inspection and Logical proces
 lightweight, simple and flexible 2-d dataframes built on 
 python data types, including a list-of-list array as the core datatype. Daffodil is similar to other data frame
 packages, such as Pandas, Numpy, Polars, Swift, Vaex, Dask, PyArrow, SQLite, PySpark, etc. but is simpler and may be faster 
-because it does not have conversion overhead.
+because it does not have conversion overhead. Daffodil excels in row-based appends and apply operations, complex embedded types, etc.
 
 STATUS: Daffodil is largely operating quite well, but there are still design tradeoffs that are being investigated.
 Some of the methods of the class and assumptions that can be made about the state of the data may change slightly
 as these design tradeoffs are being evaluated and the final initial design resolved. Please see GitHub issues to
 weigh in on the design.
+
+Also planning extensions to support treating SQL tables as daffodil data tables, improved support for AI and ML
+embeddings, rapid conversion of specified cols to dict-of-numpy array .to_dnpa() which is a lightweight pandas-like form
+that supports column-oriented array operations.
 
 ## Data Model
 The Daffodil data model is really very simple. The core array is a list-of-lists (lol), optionally with one or two associated
