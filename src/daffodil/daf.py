@@ -307,7 +307,7 @@ r"""
             Added daf_sql.py mainly to support benchmarks at this point.
             This will be the last release before sql enhancements.
             
-    v0.5.6  (2025-02-22)
+    v0.5.6  (2025-03-04)
             Added from_lot() class method. Perhaps these can be unified in main init function by examining type of the data passed.
             Added join() method, including unit tests.
             Added from_pdf() class method, used to parse PDF files with table structure across multiple pages.
@@ -510,7 +510,7 @@ r"""
     
     
 #VERSION  = 'v0.5.6'
-#VERSDATE = '2025-02-22'  
+#VERSDATE = '2025-03-04'  
 
 import os
 import sys
