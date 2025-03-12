@@ -24,7 +24,7 @@ def fake_function(a: Optional[List[Dict[str, Tuple[int,Union[Any, str, Iterable]
     return None or cast(int, 0)       # pragma: no cover
 
 
-from daffodil.lib.daf_types import T_lola, T_loda, T_dtype_dict, T_da, T_ds, T_hdlola, \
+from daffodil.lib.daf_types import T_lola, T_loda, T_dtype_dict, T_da, T_ds, \
                                     T_la, T_loti, T_ls, T_doda, T_buff, T_li, T_lr, T_dn, T_kva # , T_ts, T_dota
                     
 def is_linux() -> bool: 
@@ -115,30 +115,30 @@ def select_col_of_lol_by_col_idx(lol: T_lola, col_idx: int) -> T_la:
     return result_la
     
 
-def unflatten_hdlol_by_cols(hdlol: T_hdlola, cols: T_ls) -> T_hdlola:
-    """ 
-        given a lod and list of cols, 
-        convert cols named to either list or dict if col exists and it appears to be 
-            stringified using f"{}" functionality.
+# def unflatten_hdlol_by_cols(hdlol: T_hdlola, cols: T_ls) -> T_hdlola:
+    # """ 
+        # given a lod and list of cols, 
+        # convert cols named to either list or dict if col exists and it appears to be 
+            # stringified using f"{}" functionality.
             
-    """
+    # """
 
-    if not hdlol or not hdlol[0] or not hdlol[1]:
-        return hdlol
+    # if not hdlol or not hdlol[0] or not hdlol[1]:
+        # return hdlol
         
-    cols_da, lol = hdlol  
+    # cols_da, lol = hdlol  
         
-    for col in cols:
-        if col in cols_da:
-            col_idx = cols_da[col]
-            for la in lol:
-                val = la[col_idx]
-                if val and isinstance(val, str) and (val[0], val[-1]) in [('[', ']'), ('{', '}'), ('(', ')')]:
-                    la[col_idx] = safe_eval(val)
-                else:
-                    la[col_idx] = val
+    # for col in cols:
+        # if col in cols_da:
+            # col_idx = cols_da[col]
+            # for la in lol:
+                # val = la[col_idx]
+                # if val and isinstance(val, str) and (val[0], val[-1]) in [('[', ']'), ('{', '}'), ('(', ')')]:
+                    # la[col_idx] = safe_eval(val)
+                # else:
+                    # la[col_idx] = val
                     
-    return (cols_da, lol)            
+    # return (cols_da, lol)            
 
 
 class NpEncoder(json.JSONEncoder):

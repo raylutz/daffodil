@@ -89,11 +89,12 @@ T_lololi = List[T_loli]             # tl, br, corners for each side
 T_lodoli = List[T_doli]             # snapgrid for one sheet.
 T_dolodoli = Dict[str, T_lodoli]    # style snapgrid
 
-T_hdlola = Tuple[T_di, T_lola]   # header dict + lol is equivalent to lod but 1/3 the size of lod
-T_hdlota = Tuple[T_di, T_lota]
-T_hllola = Tuple[T_ls, T_lola]  # header list + lol allows duplicates in the header.
+#T_hdlola = Tuple[T_di, T_lola]   # deprecated. use Daf. header dict + lol is equivalent to lod but 1/3 the size of lod
+#T_hdlota = Tuple[T_di, T_lota]   # deprecated. use Daf. 
+#T_hllola = Tuple[T_ls, T_lola]   # deprecated. use Daf. header list + lol allows duplicates in the header.
 T_npa   = np.ndarray
-T_hdnpa =  Tuple[T_di, T_npa]    # header dict + npa is equivalent to lod but 3% the size of lod, but requires same dtype throughout.
+#T_hdnpa =  Tuple[T_di, T_npa]    # deprecated. use Daf. header dict + npa is equivalent to lod but 3% the size of lod, but requires same dtype throughout.
+T_donpa = Dict[str, T_npa]       # useful representation of columns in Daf array to allow for numpy operations.
 
 T_dtype_dict = Dict[str, Type]
 T_dtype = Union[Type, Dict[str, Type]]

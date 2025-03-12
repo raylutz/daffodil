@@ -42,8 +42,8 @@ See README file at this location: https://github.com/raylutz/daffodil/blob/main/
 import os
 import sys
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.realpath(__file__)))))
-from daffodil.lib.daf_types import T_df, T_dtype_dict #T_ls, T_li, T_doda, T_lb
-                            # T_lola, T_da, T_di, T_hllola, T_loda, T_dola, T_dodi, T_la, T_lota, T_buff, T_df, T_ds, 
+from daffodil.lib.daf_types import T_df, T_dtype_dict, T_ls #, T_li, T_doda, T_lb
+                            # T_lola, T_da, T_di, T_loda, T_dola, T_dodi, T_la, T_lota, T_buff, T_ds, 
                      
 import numpy as np
 import csv
@@ -103,16 +103,20 @@ def _from_pandas_df(
         )
         
 
-def _to_pandas_df(self, use_csv: bool=False) -> Any:
+def _to_pandas_df(self, use_csv: bool=False, columns: Optional[T_ls]=None) -> Any:
 
     import pandas as pd     # type: ignore
 
     if not use_csv:
-        columns = self.columns()
-        # return pd.DataFrame(self.lol, columns=columns, dtypes=self.dtypes)
-        # above results in NotImplementedError: compound dtypes are not implemented in the DataFrame constructor
+        
+        if columns is None:
+            columns = self.columns()
+            # return pd.DataFrame(self.lol, columns=columns, dtypes=self.dtypes)
+            # above results in NotImplementedError: compound dtypes are not implemented in the DataFrame constructor
 
-        return pd.DataFrame(self.lol, columns=columns)
+            return pd.DataFrame(self.lol, columns=columns)
+        else:
+            return pd.DataFrame(self[:, columns], columns=columns)
         
     # it seems this may work faster if we first convert the data to a csv_buff internally,
     # and then convert that to a df.

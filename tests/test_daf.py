@@ -630,32 +630,32 @@ class TestDaf(unittest.TestCase):
         self.assertEqual(daf._iter_index, 0)
 
 
-    def test_from_hllola(self):
-        header_list = ['col1', 'col2']
-        data_list = [[1, 'a'], [2, 'b'], [3, 'c']]
-        hllola = (header_list, data_list)
-        keyfield = 'col1'
-        dtypes = {'col1': int, 'col2': str}
+    # def test_from_hllola(self):
+        # header_list = ['col1', 'col2']
+        # data_list = [[1, 'a'], [2, 'b'], [3, 'c']]
+        # hllola = (header_list, data_list)
+        # keyfield = 'col1'
+        # dtypes = {'col1': int, 'col2': str}
 
-        daf = Daf.from_hllola(hllola, keyfield=keyfield, dtypes=dtypes)
+        # daf = Daf.from_hllola(hllola, keyfield=keyfield, dtypes=dtypes)
 
-        self.assertEqual(daf.name, '')
-        self.assertEqual(daf.keyfield, keyfield)
-        self.assertEqual(daf.hd, {'col1': 0, 'col2': 1})
-        self.assertEqual(daf.lol, [[1, 'a'], [2, 'b'], [3, 'c']])
-        self.assertEqual(daf.kd, {1: 0, 2: 1, 3: 2})
-        self.assertEqual(daf.dtypes, dtypes)
-        self.assertEqual(daf._iter_index, 0)
+        # self.assertEqual(daf.name, '')
+        # self.assertEqual(daf.keyfield, keyfield)
+        # self.assertEqual(daf.hd, {'col1': 0, 'col2': 1})
+        # self.assertEqual(daf.lol, [[1, 'a'], [2, 'b'], [3, 'c']])
+        # self.assertEqual(daf.kd, {1: 0, 2: 1, 3: 2})
+        # self.assertEqual(daf.dtypes, dtypes)
+        # self.assertEqual(daf._iter_index, 0)
 
-    def test_to_hllola(self):
-        cols    = ['col1', 'col2']
-        lol     = [[1, 'a'], [2, 'b'], [3, 'c']]
-        daf    = Daf(cols=cols, lol=lol)
+    # def test_to_hllola(self):
+        # cols    = ['col1', 'col2']
+        # lol     = [[1, 'a'], [2, 'b'], [3, 'c']]
+        # daf    = Daf(cols=cols, lol=lol)
 
-        expected_hllola = (['col1', 'col2'], [[1, 'a'], [2, 'b'], [3, 'c']])
-        actual_hllola = daf.to_hllola()
+        # expected_hllola = (['col1', 'col2'], [[1, 'a'], [2, 'b'], [3, 'c']])
+        # actual_hllola = daf.to_hllola()
 
-        self.assertEqual(actual_hllola, expected_hllola)
+        # self.assertEqual(actual_hllola, expected_hllola)
 
 
     # from_dod

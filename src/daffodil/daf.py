@@ -339,7 +339,7 @@ r"""
 
 
     TODO
-        Consider conversion to_dnpa() which would convert specified columns to individual numpy arrays in dict, where keys are col names.
+        Consider conversion .to_donpa() which would convert specified columns to individual numpy arrays in dict, where keys are col names.
         Consider method adjust_cols(select_cols, drop_cols, add_cols_dtypes, default_val) which would make a single pass through the
             table to select (keep), drop, or add columns. This can improve performance by avoiding creating a new
             table and potentially nearly doubling the data. Strategy will be to apply() in place so the table does 
@@ -438,7 +438,6 @@ r"""
                     empty case
                 select_col_of_lol_by_col_idx()
                     col_idx out of range.
-                unflatten_hdlol_by_cols 
                 json_encode  --> now 'to_json()'
                 make_strbool <-- remove? yes, remove.
                 test_strbool >-- remove? yes, remove.
@@ -527,8 +526,9 @@ from pathlib import Path
     
 sys.path.append(os.path.dirname(os.path.dirname(os.path.realpath(__file__))))
 
-from daffodil.lib.daf_types import T_ls, T_lola, T_di, T_hllola, T_loda, T_da, T_li, T_dtype_dict, \
-                            T_dola, T_dodi, T_la, T_lota, T_doda, T_buff, T_ds, T_lb, T_rli, T_ta, T_lor, T_kva
+from daffodil.lib.daf_types import T_ls, T_lola, T_di, T_loda, T_da, T_li, T_dtype_dict, \
+                            T_dola, T_dodi, T_la, T_lota, T_doda, T_buff, T_ds, T_lb, T_rli, \
+                            T_ta, T_lor, T_kva, T_donpa, T_npa  #, T_hllola
                      
 import daffodil.lib.daf_utils    as daf_utils
 import daffodil.lib.daf_md       as md
@@ -2037,7 +2037,7 @@ class Daf:
         return cls(cols=cols, lol=lol, keyfield=keyfield, name=name)
     
 
-    def to_numpy(self) -> Any:
+    def to_numpy(self) -> T_npa:
         """ 
         Convert the core array of a Daf object to numpy.
         Note: does not convert any column names if they exist.
@@ -2059,6 +2059,22 @@ class Daf:
     
         import numpy as np
         return np.array(self.lol)
+        
+    def to_donpa(self, colnames: Optional[T_ls]=None, default=0) -> T_donpa:
+        """
+        Convert specified columns of daf array to dict of numpy arrays, T_donpa.
+        Resulting dict acts like a pandas array, but is the simpler donpa data type.
+        
+        Column arrays can be manipulated using array functionality, such as my_npa = 1 - my_donpa['col1'] / my_donpa['col1']
+        """
+        
+        if colnames is None:
+            colnames = self.columns()
+        
+        import numpy as np
+        return {col: np.array(self[:, col].to_list(default=default)) for col in colnames}
+        
+        
         
     #==== Googlesheets
     
@@ -2224,14 +2240,14 @@ class Daf:
     #===========================
     # convert to other format
     
-    #@deprecated("use Daf instead")
-    def to_hllola(self) -> T_hllola:
-        """ Create hllola from daf 
-            test exists in test_daf.py
+    # #@deprecated("use Daf instead")
+    # def to_hllola(self) -> T_hllola:
+        # """ Create hllola from daf 
+            # test exists in test_daf.py
             
-            DEPRECATED
-        """    
-        return (list(self.hd.keys()), self.lol)
+            # DEPRECATED
+        # """    
+        # return (list(self.hd.keys()), self.lol)
         
     #===========================
     # append
@@ -3237,6 +3253,7 @@ class Daf:
         unique:     bool=False,           # reduce to unique values
         flatten:    bool=False,           # if items is the list are lists, combine them into one list.
         omit_nulls: bool=False,           # omit items that are empty strings (nulls).
+        default:    Optional[Any]=None,   # use this value instead if value is None or '' or NAN
         astype:     Optional[Union[Callable, str]]=None,
         ) -> list:
         """ return data from a daf array as a list
@@ -3285,6 +3302,15 @@ class Daf:
         if omit_nulls and '' in result_la:
             result_la = [val for val in result_la if val != '']
             
+        if default is not None and ('' in result_la or None in result_la):
+            filtered_result_la = []
+            for val in result_la:
+                if val is None or val == '' or val != val:
+                    filtered_result_la.append(default)
+                else:     
+                    filtered_result_la.append(val)
+            result_la = filtered_result_la
+                    
         return daf_utils.astype_la(result_la, astype)
 
 
@@ -4671,16 +4697,14 @@ class Daf:
         
         result_dodaf: Dict[Tuple[str, ...], 'Daf'] = {}
         
-        for da in self:
-            fieldval_tuple = tuple(da[colname] for colname in colnames)
+        for kla in self.iter_klist():
+            fieldval_tuple = tuple(kla[colname] for colname in colnames)
             if fieldval_tuple not in result_dodaf:
                 result_dodaf[fieldval_tuple] = this_daf = self.clone_empty()
-            
             else:
                 this_daf = result_dodaf[fieldval_tuple]
                 
-            this_daf.record_append(da)
-            result_dodaf[fieldval_tuple] = this_daf
+            this_daf.record_append(kla)
     
         return result_dodaf
 
@@ -6873,6 +6897,7 @@ class Daf:
             column names are [colname, 'counts'] in the result. These can be changed later if they are not 
             output when used with multiple columns may be useful but only if they have the same set of values.
             provides a total line if "include_sum" is true.
+            does not set the keyfield
         """
             
         value_counts_di   = self.valuecounts_for_colname(colname=colname, sort=sort, reverse=reverse)
@@ -6888,19 +6913,19 @@ class Daf:
         return value_counts_daf
         
 
-    # DEPRECATED
-    @classmethod
-    def from_hllola(cls, hllol: T_hllola, keyfield: str='', dtypes: Optional[T_dtype_dict]=None) -> 'Daf':
-        """ Create Daf instance from hllola type.
-            This is used for all DB. loading.
-            test exists in test_daf.py
+    # # DEPRECATED
+    # @classmethod
+    # def from_hllola(cls, hllol: T_hllola, keyfield: str='', dtypes: Optional[T_dtype_dict]=None) -> 'Daf':
+        # """ Create Daf instance from hllola type.
+            # This is used for all DB. loading.
+            # test exists in test_daf.py
             
-            DEPRECATED
-        """
+            # DEPRECATED
+        # """
         
-        hl, lol = hllol
+        # hl, lol = hllol
         
-        return cls(lol=lol, cols=hl, keyfield=keyfield, dtypes=dtypes)
+        # return cls(lol=lol, cols=hl, keyfield=keyfield, dtypes=dtypes)
         
         
 # ALIASES
