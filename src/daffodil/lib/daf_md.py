@@ -12,7 +12,8 @@ from string import Template
 
 import os
 import sys
-sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.realpath(__file__)))))
+# no longer need the following due to using pytest
+# sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.realpath(__file__)))))
 from daffodil.lib.daf_types import T_ls, T_lola, T_da, T_li #, T_doda, T_df, T_lf, T_loda, T_loloda, T_lodolodi, T_ts, T_ds, T_dola 
 import daffodil.lib.daf_utils as utils
 

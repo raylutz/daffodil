@@ -41,7 +41,8 @@ See README file at this location: https://github.com/raylutz/daffodil/blob/main/
 """
 import os
 import sys
-sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.realpath(__file__)))))
+# no longer need the following due to using pytest
+#sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.realpath(__file__)))))
 from daffodil.lib.daf_types import T_df, T_dtype_dict, T_ls #, T_li, T_doda, T_lb
                             # T_lola, T_da, T_di, T_loda, T_dola, T_dodi, T_la, T_lota, T_buff, T_ds, 
                      
@@ -49,14 +50,15 @@ import numpy as np
 import csv
 import io
 import pandas as pd
+# import daffodil.lib.daf_utils    as daf_utils
 
 
 from typing import List, Dict, Any, Tuple, Optional, Union, cast, Type, Callable #
 def fake_function(a: Optional[List[Dict[str, Tuple[int,Union[Any, str, Type, Callable ]]]]] = None) -> Optional[int]:
     return None or cast(int, 0)   # pragma: no cover
 
-
-
+# define a sentinel object to express a missing item where None is a valid value.
+from .daf_utils import _MISSING
 
 #==== Pandas
 @classmethod
@@ -103,35 +105,69 @@ def _from_pandas_df(
         )
         
 
-def _to_pandas_df(self, use_csv: bool=False, columns: Optional[T_ls]=None) -> Any:
+def _to_pandas_df(
+        self, 
+        columns: Optional[T_ls]=None,
+        *,
+        use_csv: bool=False, 
+        use_donpa: bool=False, 
+        default: Any = _MISSING,
+        ) -> Any:
+    """
+    Convert the Daffodil table to a Pandas DataFrame.
 
-    import pandas as pd     # type: ignore
+    Parameters:
+        use_csv:
+            If True, the conversion uses an internal CSV buffer as an intermediate format.
+            This can be significantly faster for large or wide tables.
+            If False (default), conversion uses the in-memory row list directly.
 
-    if not use_csv:
-        
+        columns:
+            Optional list of column names to include in the resulting DataFrame.
+            If None, all columns are included in the order defined by the Daffodil table.
+
+        default:
+            If specified, replaces all instances of '' (empty string) and None with this value
+            prior to DataFrame construction. This is typically used to ensure consistent numeric
+            types in Pandas columns or to prepare for downstream analysis.
+
+            Examples:
+                - default=0        → replace '' and None with 0
+                - default=np.nan   → replace '' and None with NaN
+                - default='-'      → use a placeholder string
+                - default=None     → replace '' with None
+
+            If default is not provided, no replacement is performed.
+
+    Notes:
+    - Daffodil uses '' (empty string) as the standard representation for unset or missing values,
+      which is ideal for display and printing. These will appear as strings in the resulting DataFrame.
+    - Pandas treats '' as a valid string, not a missing value, which can cause columns to be inferred
+      as 'object' type even if most values are numeric.
+    - This method avoids implicit type coercion: string values like '123' remain strings,
+      even if they look numeric. It is up to the caller to post-process columns if explicit type
+      conversion is desired.
+    """
+    
+    # Convert to DataFrame (via direct or CSV-based path)
+    if use_donpa:
+        donpa = self.to_donpa(columns, default=default)
+        df = pd.DataFrame(donpa)
+    elif use_csv:
+        csv_buff = self.to_csv_buff()
+        sio = io.StringIO(csv_buff)
+        df = pd.read_csv(sio, na_filter=False, index_col=False)
+    else:
         if columns is None:
-            columns = self.columns()
-            # return pd.DataFrame(self.lol, columns=columns, dtypes=self.dtypes)
-            # above results in NotImplementedError: compound dtypes are not implemented in the DataFrame constructor
-
-            return pd.DataFrame(self.lol, columns=columns)
+            df = pd.DataFrame(self.lol, columns=self.columns())
         else:
-            return pd.DataFrame(self[:, columns], columns=columns)
+            df = pd.DataFrame(self[:, columns], columns=columns)
         
-    # it seems this may work faster if we first convert the data to a csv_buff internally,
-    # and then convert that to a df.
 
-    csv_buff = self.to_csv_buff()
-    sio = io.StringIO(csv_buff)            
-    df  = pd.read_csv(sio, 
-        na_filter=False, 
-        index_col=False, 
-        #dtype=self.dtypes,
-        #sep=sep,
-        usecols=None,
-        #comment='#', 
-        #skip_blank_lines=True
-        )
+    # Replace '' and None with default if requested. default can be None.
+    if default is not None:
+        df = df.replace({'': default, None: default})
+
     return df
     
 

@@ -8,6 +8,8 @@ import numpy as np
 import pandas as pd
 #from io import BytesIO
 from pathlib import Path
+import math
+import pytest
 
 import sys
 # sys.path.append(os.path.join(os.path.dirname(sys.path[0]), 'src'))
@@ -17,8 +19,9 @@ import sys
 src_path = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
 
 # Append the path only if it's not already in sys.path
-if src_path not in sys.path:
-    sys.path.append(src_path)
+# no longer need the following due to using pytest
+# if src_path not in sys.path:
+    # sys.path.append(src_path)
 
 from daffodil.daf import Daf
 from daffodil.keyedlist import KeyedList
@@ -3365,11 +3368,6 @@ class TestDaf(unittest.TestCase):
         expected_val = {'A':4, 'B':5, 'C':6}
         self.assertEqual(result, expected_val)
 
-
-
-
-
-
     # test transpose
     def test_transpose(self):
         self.daf_instance = Daf(lol=[[1, 2, 3, 4], [4, 5, 6, 7], [7, 8, 9, 10]], cols=['A', 'B', 'C', 'D'], keyfield='A')
@@ -4719,6 +4717,73 @@ class TestDafJoin(unittest.TestCase):
 
         result = empty_daf.join(self.daf2, how="inner")
         self.assertEqual(result.lol, [])
+
+
+# --- Pytest-specific tests (cleaner, no class inheritance) ---
+
+# to_list() in general
+
+@pytest.fixture
+def simple_daf():
+    return Daf(
+        lol=[['a', '', None, 'a', float('nan')], ['b', 'b', '', 'c', None]],
+        cols=['col1', 'col2', 'col3', 'col4', 'col5']
+    )
+
+def test_to_list_unique(simple_daf):
+    assert simple_daf[:, 0].to_list(unique=True) == ['a', 'b']
+
+def test_to_list_flatten_nested_rows():
+    daf = Daf(lol=[[[1, 2], [3]], [[4], [5]]], cols=['A', 'B'])
+    # Explicitly select each row to flatten
+    result = daf.to_list(irow=0, flatten=True) + daf.to_list(irow=1, flatten=True)
+    assert result == [1, 2, 3, 4, 5]
+
+def test_to_list_flatten_single_nested_row():
+    daf = Daf(lol=[[[1, 2], [3, 4]]], cols=['X', 'Y'])
+    assert daf.to_list(flatten=True) == [1, 2, 3, 4]
+
+def test_to_list_flatten_single_nested_column():
+    daf = Daf(lol=[[[1, 2]], [[3, 4]], [[5]]], cols=['Z'])
+    assert daf.to_list(flatten=True) == [1, 2, 3, 4, 5]
+
+def test_to_list_flatten_mixed_nested_and_scalars():
+    daf = Daf(lol=[[1, [2, 3]], [[4], 5]], cols=['A', 'B'])
+    # Flatten first row and second row
+    result = daf.to_list(irow=0, flatten=True) + daf.to_list(irow=1, flatten=True)
+    assert result == [1, 2, 3, 4, 5]
+
+def test_to_list_flatten_column_view_with_lists():
+    daf = Daf(lol=[[[1, 2]], [[3, 4]]], cols=['X'])
+    assert daf[:, 0].to_list(flatten=True) == [1, 2, 3, 4]
+
+def test_to_list_flatten_column_with_scalars():
+    daf = Daf(lol=[[1], [2], [3]], cols=['Z'])
+    assert daf[:, 0].to_list(flatten=True) == [1, 2, 3]
+
+def test_to_list_flatten_empty_table():
+    daf = Daf(lol=[], cols=[])
+    assert daf.to_list(flatten=True) == []
+    
+def test_to_list_omit_nulls(simple_daf):
+    result = simple_daf[0].to_list(omit_nulls=True)
+    assert '' not in result
+
+def test_to_list_default_only(simple_daf):
+    assert simple_daf[0].to_list(default=0) == ['a', 0, 0, 'a', 0]
+
+def test_to_list_default_and_omit_nulls(simple_daf):
+    result = simple_daf[0].to_list(default=0, omit_nulls=True)
+    assert result == ['a', 0, 'a', 0]
+
+def test_to_list_default_replaces_nan(simple_daf):
+    result = simple_daf[0].to_list(default='x')
+    assert result[4] == 'x'
+
+def test_to_list_astype_str(simple_daf):
+    result = simple_daf[1].to_list(astype=str)
+    assert all(isinstance(x, str) for x in result)
+
 
 
 if __name__ == '__main__':

@@ -9,7 +9,8 @@ import re
 import sqlite3
 import functools
     
-sys.path.append(os.path.dirname(os.path.dirname(os.path.realpath(__file__))))
+# no longer need the following due to using pytest
+# sys.path.append(os.path.dirname(os.path.dirname(os.path.realpath(__file__))))
 
 # from daffodil.lib.daf_types import \  # T_dola, T_dodi, T_la, T_lota, T_doda, T_buff, T_ds, T_lb, T_rli, T_ta, T_lor
                               # # T_ls, T_lola, T_di, T_hllola, T_loda, T_da, T_li, T_dtype_dict, 
@@ -25,20 +26,58 @@ logs = utils                # alias
 
 
 @functools.lru_cache()
-def sql_escape_str(colname: str) -> str:
-    """ Encode the original non-compliant characters using double underscores and hex values. 
-        this is a reversible encoding. Running this twice will not hurt.
-        
-        1. escapes any illegal characters as __HH where HH is the hex value.
-        2. escapes the first character of any names with leading numerics.
-        3. escapes the first character of any reserved words.
-        
-    """
-    new_colname = re.sub(r'[^0-9A-Za-z_]', lambda x: f'__{ord(x.group()):X}', colname)
-    if bool(re.search(r'^\d', new_colname)) or (new_colname.upper() in ['GROUP', 'NAME', 'VALUE']):
-        new_colname = f"__{ord(new_colname[0]):X}" + new_colname[1:]
+def sql_unesc_str(escaped_name: str) -> str:
+    """Unquote a SQL identifier and unescape embedded double quotes."""
+    escaped_name = escaped_name.strip()
+    if escaped_name.startswith('"') and escaped_name.endswith('"'):
+        return escaped_name[1:-1].replace('""', '"')
+    return escaped_name
 
-    return new_colname
+decode_colname_from_sqlcol = sql_unesc_str
+
+
+# A minimal list of reserved SQL words; you can expand this
+_RESERVED_SQL_WORDS_SET = {
+    'select', 'from', 'where', 'group', 'order', 'by', 'user', 'value', 'insert',
+    'update', 'delete', 'table', 'name', 'join', 'limit'
+}
+
+# the following regex identifies identifiers (column names, table names) that are safe and can be unquoted.
+_IDENTIFIER_RE = re.compile(r'^[a-z_][a-z0-9_]*$', flags=re.ASCII)
+
+@functools.lru_cache()
+def sql_escape_str(name: str) -> str:
+    """Escape SQL identifier with minimal quoting:
+    - Return as-is if safe
+    - Quote if it contains uppercase, digits first, symbols, or is a reserved word
+    Safely quote a SQL identifier if needed (idempotent and reversible).
+    """
+
+    name = sql_unesc_str(name).strip()  # Normalize quoting and whitespace
+    
+    if _IDENTIFIER_RE.match(name) and name.lower() not in _RESERVED_SQL_WORDS_SET:
+        return name  # Safe: unquoted
+        
+    new_name = f'"{name.replace(chr(34), chr(34) * 2)}"'  # Quote + escape any embedded quotes
+    
+    return new_name
+
+# DEPRECATED APPROACH
+# @functools.lru_cache()
+# def sql_escape_str(colname: str) -> str:
+    # """ Encode the original non-compliant characters using double underscores and hex values. 
+        # this is a reversible encoding. Running this twice will not hurt.
+        
+        # 1. escapes any illegal characters as __HH where HH is the hex value.
+        # 2. escapes the first character of any names with leading numerics.
+        # 3. escapes the first character of any reserved words.
+        
+    # """
+    # new_colname = re.sub(r'[^0-9A-Za-z_]', lambda x: f'__{ord(x.group()):X}', colname)
+    # if bool(re.search(r'^\d', new_colname)) or (new_colname.upper() in ['GROUP', 'NAME', 'VALUE']):
+        # new_colname = f"__{ord(new_colname[0]):X}" + new_colname[1:]
+
+    # return new_colname
     
 
 def lod_to_sqlite_table(lod, table_name='tempdata', db_file_path=None, key_col='rowkey'):

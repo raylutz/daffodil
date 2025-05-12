@@ -336,6 +336,15 @@ r"""
             Deprecated use of utils instead of daf_utils.
             
     v0.5.7  (pending)
+            Change SQL identifier escaping from character escaping to quoting.
+                Note, this is a breaking change if prior SQL tables are encountered.
+            Move to using pytest. Removed some sys.path.append() statements as a result.
+            Improve default handling in to_donpa() to allow None to be the default by using a sentinel _MISSING
+            Improved .to_list() default handling to allow None as the default, by using sentinel _MISSING.
+            Improved .to_pandas_df() default handling
+            Added option use_donpa to .to_pandas_df() to improve convertion to pandas df by first converting columns to numpy vectors.
+            Added tests for .to_list() including various options.
+            
 
 
     TODO
@@ -524,7 +533,8 @@ import time
 import collections      # to provide collections.abc.Iterable type.
 from pathlib import Path
     
-sys.path.append(os.path.dirname(os.path.dirname(os.path.realpath(__file__))))
+# no longer need the following due to using pytest
+# sys.path.append(os.path.dirname(os.path.dirname(os.path.realpath(__file__))))
 
 from daffodil.lib.daf_types import T_ls, T_lola, T_di, T_loda, T_da, T_li, T_dtype_dict, \
                             T_dola, T_dodi, T_la, T_lota, T_doda, T_buff, T_ds, T_lb, T_rli, \
@@ -547,6 +557,9 @@ T_Daf = Type['Daf']
 T_dodaf = Dict[str, T_Daf]
 
 logs = daf_utils                # alias
+
+# define a sentinel object to express a missing item where None is a valid value.
+from daffodil.lib.daf_utils import _MISSING
 
 
 class Daf:
@@ -2060,20 +2073,34 @@ class Daf:
         import numpy as np
         return np.array(self.lol)
         
-    def to_donpa(self, colnames: Optional[T_ls]=None, default=0) -> T_donpa:
+    def to_donpa(self, colnames: Optional[T_ls]=None, default: Any = _MISSING) -> T_donpa:
         """
-        Convert specified columns of daf array to dict of numpy arrays, T_donpa.
-        Resulting dict acts like a pandas array, but is the simpler donpa data type.
-        
-        Column arrays can be manipulated using array functionality, such as my_npa = 1 - my_donpa['col1'] / my_donpa['col1']
-        """
-        
+        Convert specified columns of the Daffodil table to a dict of NumPy arrays (donpa).
+
+        Parameters:
+            colnames:
+                List of column names to include. If None, include all columns.
+            default:
+                Optional replacement for missing values ('' or None).
+                If specified, all missing values in the selected columns will be replaced
+                with this value before conversion to NumPy arrays.
+
+        Returns:
+            Dict[str, np.ndarray], where each array corresponds to a 1D column vector.
+
+        Notes:
+            - Column arrays can be used directly in vector operations:
+                e.g., `my_donpa['D_pct'] = my_donpa['D_votes'] / my_donpa['RV_total']`
+            - This structure is conceptually similar to a Pandas DataFrame, but lighter-weight and faster
+              for numeric computations or export.
+        """        
         if colnames is None:
             colnames = self.columns()
         
         import numpy as np
-        return {col: np.array(self[:, col].to_list(default=default)) for col in colnames}
+        donpa = {col: np.array(self[:, col].to_list(default=default)) for col in colnames}
         
+        return donpa
         
         
     #==== Googlesheets
@@ -3253,7 +3280,7 @@ class Daf:
         unique:     bool=False,           # reduce to unique values
         flatten:    bool=False,           # if items is the list are lists, combine them into one list.
         omit_nulls: bool=False,           # omit items that are empty strings (nulls).
-        default:    Optional[Any]=None,   # use this value instead if value is None or '' or NAN
+        default:    Any = _MISSING,       # use this value instead if value is None or '' or NAN (default can be None)
         astype:     Optional[Union[Callable, str]]=None,
         ) -> list:
         """ return data from a daf array as a list
@@ -3263,6 +3290,9 @@ class Daf:
             otherwise, choose irow or icol specified.
                 if irow, specified, ignore icol.
                 if irow=None and icol specified, then use icol.
+            Note:
+                If neither irow nor icol is specified, and the table has more than one row and more than one column,
+                then the result is an empty list. Use irow or icol explicitly to avoid ambiguity.
         """
     
         num_rows, num_cols = self.shape()
@@ -3302,10 +3332,10 @@ class Daf:
         if omit_nulls and '' in result_la:
             result_la = [val for val in result_la if val != '']
             
-        if default is not None and ('' in result_la or None in result_la):
+        if default is not _MISSING and ('' in result_la or None in result_la):
             filtered_result_la = []
             for val in result_la:
-                if val is None or val == '' or val != val:
+                if val is None or val == '' or val != val:  # val != val catches NaN
                     filtered_result_la.append(default)
                 else:     
                     filtered_result_la.append(val)

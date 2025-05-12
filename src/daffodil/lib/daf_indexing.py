@@ -110,7 +110,8 @@ See README file at this location: https://github.com/raylutz/Daf/blob/main/READM
 import sys
 from pathlib import Path
 
-sys.path.append(str(Path(__file__).resolve().parents[2]))
+# no longer need the following due to using pytest
+# sys.path.append(str(Path(__file__).resolve().parents[2]))
 
 from daffodil.lib.daf_types import T_ls, T_li, T_doda, T_lb
 # T_lola, T_da, T_di, T_hllola, T_loda, T_dtype_dict, T_dola, T_dodi, T_la, T_lota, T_buff, T_df, T_ds,

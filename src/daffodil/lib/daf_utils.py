@@ -31,6 +31,9 @@ def is_linux() -> bool:
     return platform.system() == 'Linux'
     
 
+# define a sentinel object to express a missing item where None is a valid value.
+_MISSING = object()
+
 # def apply_dtypes_to_hdlol(hdlol: T_hdlola, dtypes: T_dtype_dict, from_str: bool=True) -> T_hdlola:
     # # do we need this any more? Use my_daf.apply_types()
 
