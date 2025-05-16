@@ -874,58 +874,58 @@ class TestDaf(unittest.TestCase):
         self.assertEqual(daf.lol, [[1, 'John', 30]])
         
         
-    # test_daf_to_pandas
-    def test_daf_to_pandas(self):
-        # Create a Daf object with sample data
-        daf = Daf(
-            lol=[
-                [1, 'John', 30, True, 3.5],
-                [2, 'Alice', 25, False, 4.2],
-                [3, 'Bob', 35, True, 2.8]
-            ],
-            cols=['ID', 'Name', 'Age', 'IsAdult', 'Grade']
-        )
+    # # test_daf_to_pandas
+    # def test_daf_to_pandas(self):
+        # # Create a Daf object with sample data
+        # daf = Daf(
+            # lol=[
+                # [1, 'John', 30, True, 3.5],
+                # [2, 'Alice', 25, False, 4.2],
+                # [3, 'Bob', 35, True, 2.8]
+            # ],
+            # cols=['ID', 'Name', 'Age', 'IsAdult', 'Grade']
+        # )
 
-        # Convert Daf to Pandas DataFrame
-        df = daf.to_pandas_df()
+        # # Convert Daf to Pandas DataFrame
+        # df = daf.to_pandas_df()
 
-        # Expected DataFrame
-        expected_df = pd.DataFrame({
-            'ID': [1, 2, 3],
-            'Name': ['John', 'Alice', 'Bob'],
-            'Age': [30, 25, 35],
-            'IsAdult': [True, False, True],
-            'Grade': [3.5, 4.2, 2.8]
-        })
+        # # Expected DataFrame
+        # expected_df = pd.DataFrame({
+            # 'ID': [1, 2, 3],
+            # 'Name': ['John', 'Alice', 'Bob'],
+            # 'Age': [30, 25, 35],
+            # 'IsAdult': [True, False, True],
+            # 'Grade': [3.5, 4.2, 2.8]
+        # })
 
-        # Assert that the generated DataFrame is equal to the expected DataFrame
-        pd.testing.assert_frame_equal(df, expected_df)
+        # # Assert that the generated DataFrame is equal to the expected DataFrame
+        # pd.testing.assert_frame_equal(df, expected_df)
 
-    def test_daf_to_pandas_using_csv(self):
-        # Create a Daf object with sample data
-        daf = Daf(
-            lol=[
-                [1, 'John', 30, True, 3.5],
-                [2, 'Alice', 25, False, 4.2],
-                [3, 'Bob', 35, True, 2.8]
-            ],
-            cols=['ID', 'Name', 'Age', 'IsAdult', 'Grade']
-        )
+    # def test_daf_to_pandas_using_csv(self):
+        # # Create a Daf object with sample data
+        # daf = Daf(
+            # lol=[
+                # [1, 'John', 30, True, 3.5],
+                # [2, 'Alice', 25, False, 4.2],
+                # [3, 'Bob', 35, True, 2.8]
+            # ],
+            # cols=['ID', 'Name', 'Age', 'IsAdult', 'Grade']
+        # )
 
-        # Convert Daf to Pandas DataFrame
-        df = daf.to_pandas_df(use_csv=True)
+        # # Convert Daf to Pandas DataFrame
+        # df = daf.to_pandas_df(use_csv=True)
 
-        # Expected DataFrame
-        expected_df = pd.DataFrame({
-            'ID': [1, 2, 3],
-            'Name': ['John', 'Alice', 'Bob'],
-            'Age': [30, 25, 35],
-            'IsAdult': [True, False, True],
-            'Grade': [3.5, 4.2, 2.8]
-        })
+        # # Expected DataFrame
+        # expected_df = pd.DataFrame({
+            # 'ID': [1, 2, 3],
+            # 'Name': ['John', 'Alice', 'Bob'],
+            # 'Age': [30, 25, 35],
+            # 'IsAdult': [True, False, True],
+            # 'Grade': [3.5, 4.2, 2.8]
+        # })
 
-        # Assert that the generated DataFrame is equal to the expected DataFrame
-        pd.testing.assert_frame_equal(df, expected_df)
+        # # Assert that the generated DataFrame is equal to the expected DataFrame
+        # pd.testing.assert_frame_equal(df, expected_df)
 
     # from numpy
     def test_from_numpy_all_integers(self):
@@ -4784,6 +4784,60 @@ def test_to_list_astype_str(simple_daf):
     result = simple_daf[1].to_list(astype=str)
     assert all(isinstance(x, str) for x in result)
 
+# to_pandas_df()
+
+def test_daf_to_pandas_default():
+    daf = Daf(
+        lol=[[1, 'John', 30], [2, 'Alice', 25], [3, 'Bob', 35]],
+        cols=['ID', 'Name', 'Age']
+    )
+    df = daf.to_pandas_df()
+    expected = pd.DataFrame({'ID': [1, 2, 3], 'Name': ['John', 'Alice', 'Bob'], 'Age': [30, 25, 35]})
+    pd.testing.assert_frame_equal(df, expected)
+
+def test_daf_to_pandas_csv():
+    daf = Daf(
+        lol=[[1, 'X'], [2, 'Y']],
+        cols=['A', 'B']
+    )
+    df = daf.to_pandas_df(use_csv=True)
+    expected = pd.DataFrame({'A': [1, 2], 'B': ['X', 'Y']})
+    pd.testing.assert_frame_equal(df, expected)
+
+def test_daf_to_pandas_donpa():
+    daf = Daf(
+        lol=[[1, 10.5], [2, 20.5], [3, 30.0]],
+        cols=['ID', 'Score'],
+        dtypes={'ID': int, 'Score': float}
+    )
+    df = daf.to_pandas_df(use_donpa=True)
+    expected = pd.DataFrame({'ID': [1, 2, 3], 'Score': [10.5, 20.5, 30.0]})
+    pd.testing.assert_frame_equal(df, expected, check_dtype=False)
+
+def test_daf_to_pandas_with_defaulting():
+    daf = Daf(
+        lol=[[1, '', 10], [2, None, 20], [3, 'OK', 30]],
+        cols=['ID', 'Comment', 'Value']
+    )
+    # Only apply default to 'Value' column
+    df = daf.to_pandas_df(default=0, defaulting_cols=['Value'])
+    expected = pd.DataFrame({'ID': [1, 2, 3], 'Comment': ['', None, 'OK'], 'Value': [10, 20, 30]})
+    pd.testing.assert_frame_equal(df, expected)
+
+def test_daf_to_pandas_defaulting_all_cols():
+    daf = Daf(
+        lol=[[1, '', 0], [2, None, 1], [3, '', 2]],
+        cols=['ID', 'Note', 'Code']
+    )
+    df = daf.to_pandas_df(default='n/a')
+    expected = pd.DataFrame({'ID': [1, 2, 3], 'Note': ['n/a', 'n/a', 'n/a'], 'Code': [0, 1, 2]})
+    pd.testing.assert_frame_equal(df, expected)
+
+def test_daf_to_pandas_with_integer_columns():
+    daf = Daf(lol=[[1, 2], [3, 4]], cols=[0, 1])
+    df = daf.to_pandas_df()
+    expected = pd.DataFrame({0: [1, 3], 1: [2, 4]})
+    pd.testing.assert_frame_equal(df, expected)
 
 
 if __name__ == '__main__':

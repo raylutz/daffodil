@@ -538,7 +538,7 @@ from pathlib import Path
 
 from daffodil.lib.daf_types import T_ls, T_lola, T_di, T_loda, T_da, T_li, T_dtype_dict, \
                             T_dola, T_dodi, T_la, T_lota, T_doda, T_buff, T_ds, T_lb, T_rli, \
-                            T_ta, T_lor, T_kva, T_donpa, T_npa  #, T_hllola
+                            T_ta, T_lor, T_kva, T_donpa, T_npa, T_lsi  #, T_hllola
                      
 import daffodil.lib.daf_utils    as daf_utils
 import daffodil.lib.daf_md       as md
@@ -4061,7 +4061,62 @@ class Daf:
                     row_la[i] = replace_val
         
     
+    def replace_in_columns(
+        self,
+        cols: Optional[T_lsi],
+        find_values: Optional[List[Any]] = None,
+        replacement: Any = _MISSING
+    ) -> 'Daf':
+        """
+        Replace all values in `find_values` with `replacement` for the specified columns.
 
+        Parameters:
+            cols:
+                A list of column names (str) or indices (int).
+                If None, all columns will be included.
+            find_values:
+                A list of values to search for (e.g., ['', None]).
+            replacement:
+                The value to substitute in place of any matched item.
+
+        Behavior:
+            - Column identifiers may be strings (header names) or integers (column indices).
+            - If headers exist, string names are looked up via self.hd.
+            - If cols is None, all columns [0..num_cols-1] will be modified.
+            - Modifies self in place and returns self.
+
+        Raises:
+            KeyError if a string column name is not found in the header.
+            TypeError if a column identifier is not str or int.
+        """
+        
+        if find_values is None:
+            return self
+        
+        if cols is None:
+            # process the entire array
+            target_indices = list(range(self.num_cols()))
+        else:
+            target_indices = []
+            for col in cols:
+                if isinstance(col, int):
+                    target_indices.append(col)
+                elif isinstance(col, str):
+                    if col in self.hd:
+                        target_indices.append(self.hd[col])
+                    else:
+                        raise KeyError(f"Column name '{col}' not found in header.")
+                else:
+                    raise TypeError(f"Column specifier must be str or int, got {type(col).__name__}")
+
+        for row in self.lol:
+            for col_idx in target_indices:
+                if row[col_idx] in find_values:
+                    row[col_idx] = replacement
+
+        return self
+        
+        
     #=========================
     # split and grouping
     
@@ -5059,6 +5114,51 @@ class Daf:
 
         return result_dodaf
             
+
+    def apply_colwise(
+        self,
+        target_col: Union[str, int],
+        func: Callable[[T_da], Any],
+        *,
+        default: Any = 0,
+    ) -> "Daf":
+        """
+        Apply a function to each row and store the result in target_col.
+
+        - If target_col doesn't exist, it is inserted with default values.
+        - If func raises an exception, default is used instead.
+        - `func` receives a row dict (T_da) and can access any number of fields.
+
+        Returns the modified Daf object (in-place).
+        
+        # Example:
+        # Compute RV_partisanship = REP / (REP + DEM), and default to 0 on error
+
+            my_daf.apply_colwise(
+                target_col="RV_partisanship",
+                func=lambda row: row["REP"] / (row["REP"] + row["DEM"]),
+                default=0.0
+            )
+
+        # Behavior:
+        # - If 'RV_partisanship' doesn't exist, it's inserted and initialized to 0.0
+        # - If REP or DEM are missing or invalid in a row, that row's value stays 0.0
+        # - Otherwise, the row gets REP / (REP + DEM)        
+        """
+
+        if target_col not in self.columns():
+            self.insert_col(target_col, default)
+
+        def row_op(row: T_da) -> T_da:
+            try:
+                row[target_col] = func(row)
+            except Exception:
+                row[target_col] = default
+                
+            return row
+
+        return self.apply_in_place(row_op)
+
         
     #===================================
     # apply / reduce convenience methods

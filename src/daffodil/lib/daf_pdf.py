@@ -41,6 +41,7 @@ a daf instance 'self'.
 See README file at this location: https://github.com/raylutz/daffodil/blob/main/README.md
 """
 import os
+import re
 import sys
 # no longer need the following due to using pytest
 # sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.realpath(__file__)))))
@@ -61,31 +62,93 @@ def fake_function(a: Optional[List[Dict[str, Tuple[int,Union[Any, str, Type, Cal
 @classmethod
 def _from_pdf(cls, filename, skip_to_header: int=0, skip_to_table: int=1):
 
-    my_daf = None
+    my_daf   = None
+    precinct = ''
+    category = ''
+    type     = ''
+    state    = 'looking'
+    diagnose = False
 
     # Open the PDF file
     with pdfplumber.open(filename) as pdf:
-        for page in pdf.pages:
+        for page_number,page in enumerate(pdf.pages):
+            print(f"Processing page {page_number}")
             # Extract all text from the page
             raw_text = page.extract_text()
             lines = raw_text.splitlines()
             
             # Skip the header (assumes the header is the first 4 lines)
             table_lines = lines[skip_to_table:]  # Adjust this based on actual header size
+            
+            top_line = lines[0]
+            match   = re.search(r'County: ([\w\s]+) ELECTION PARTICIPATION DEMOGRAPHICS', top_line)
+            if match:
+                county = match[1]
 
-            header = lines[skip_to_header].split()  # Adjust this based on actual header size
+            header = lines[skip_to_header]
+            
+            
+            header = header.replace('65 & OVER', '65_&_OVER')
+            header = header.replace('AGE UNKNOWN', 'AGE_UNKNOWN')
+
+            header_ls = header.split()  # Adjust this based on actual header size
+            
+            header_ls = ['County', 'Precinct', 'Category', 'Type', 'Value']
             
             if not my_daf:
-                my_daf = cls(cols=header)
+                my_daf = cls(cols=header_ls)
             
+            state = 'looking'
             # Process the tabular lines
             for line_str in table_lines:
                 
-                clean_line_str = line_str.replace(',', '')  # remove commas 
+                #=================================================
+                # line parser -- should be provided by a function??
+                
+                
+                clean_line_str = line_str.replace(',', '')  # remove commas
+                for (compound_word, safe_word) in [ ('REGISTERED',  'RV'), 
+                                                    ('Democrat',    'DEM'), 
+                                                    ('No Party',    'NP'),
+                                                    ('Other',       'OTH'),
+                                                    ('Republican',  'REP'),
+                                                    ('TOTAL VOTED', 'AV'), 
+                                                    ('ABSENTEE',    'MB')]:
+                    if compound_word in clean_line_str:
+                        clean_line_str = clean_line_str.replace(compound_word, safe_word)
+                
+                if diagnose:
+                    print(f"line: {clean_line_str}")
                 
                 # Split the line into columns based on spacing
                 line_la = clean_line_str.split()  # You may need to refine this based on column alignment
                 
-                my_daf.append(line_la)
+                if len(line_la) < 5 and line_la[0] != 'Page':
+                    precinct = ' '.join(line_la)
+                    if diagnose:
+                        print(f"precinct: {precinct}")
+                    continue
+                
+                if state == 'looking':
+                    category = line_la[0]
+                    if category in ['DEM', 'NP', 'OTH', 'REP', 'Total']:
+                        state = 'gathering'
+                        line_la.pop(0)          # pop category so type is consistently first.
+                        if diagnose:
+                            print(f"gathering {category}")
+                    else:
+                        continue
+                        
+                if state == 'gathering':
+                    if line_la[0] == 'TURNOUT':
+                        state = 'looking'
+                        continue
+                    value = line_la[-1]
+                    type  = line_la[0]
+                    table_la = [county, precinct, category, type, value]
+                        
+                    if diagnose:
+                        print(f"table_la: {table_la}")    
+                    my_daf.append(table_la)
                 
     return my_daf
