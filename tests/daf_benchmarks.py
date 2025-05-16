@@ -837,10 +837,7 @@ Notes:
 
     sep = os.sep
     
-    if sep == '/':
-        md_path = '../docs/daf_benchmarks.md'
-    else:
-        md_path = '..\\docs\\daf_benchmarks.md'
+    md_path = 'docs/daf_benchmarks.md'
     
     with open(md_path, 'w') as file:
         file.write(md_report)

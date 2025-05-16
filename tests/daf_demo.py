@@ -480,11 +480,7 @@ We find in this case that sum_np is not as efficient as just summing the rows di
     
     sep = os.sep
     
-    if sep == '/':
-        md_path = '../docs/daf_demo.md'
-    else:
-        md_path = r'..\docs\daf_demo.md'
-    
+    md_path = 'docs/daf_demo.md'
 
     with open(md_path, 'w') as file:
         file.write(md_report)

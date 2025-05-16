@@ -335,7 +335,7 @@ r"""
             Improve file closure by using context manager in from_csv() for local file usage.
             Deprecated use of utils instead of daf_utils.
             
-    v0.5.7  (pending)
+    v0.5.7  (2025-05-16)
             Change SQL identifier escaping from character escaping to quoting.
                 Note, this is a breaking change if prior SQL tables are encountered.
             Move to using pytest. Removed some sys.path.append() statements as a result.
@@ -344,7 +344,15 @@ r"""
             Improved .to_pandas_df() default handling
             Added option use_donpa to .to_pandas_df() to improve convertion to pandas df by first converting columns to numpy vectors.
             Added tests for .to_list() including various options.
+            Added .replace_in_columns() to Replace all values in `find_values` with `replacement` for the specified columns.
+            Added .apply_colwise() Apply a function to each row and store the result in target_col
+            Improved .to_pandas_df() 
+                to provide an option to convert first to donpa (dict of numpy array)
+                to handle conversion of '' or None to a default such as NA or 0.
+                improved tests.
+            Improved from_pdf() to support complex conversion scenarios.
             
+    v0.5.8  (pending)
 
 
     TODO
@@ -497,11 +505,10 @@ r"""
 r"""
     To update the package:
         1. run all tests and demos to verify validity of the version.
-            in tests:
-                python test_daf.py
-                python test_keyedlist.py
-                python daf_demo.py
-                python daf_benchmarks.py
+            pytest will run all tests.
+            demos
+                python tests/daf_demo.py
+                python tests/daf_benchmarks.py
         2. Increment version number in pyproject.toml
         3. Remove prior release
                 rm -r dist
@@ -517,8 +524,8 @@ r"""
 """       
     
     
-#VERSION  = 'v0.5.6'
-#VERSDATE = '2025-03-04'  
+#VERSION  = 'v0.5.7'
+#VERSDATE = '2025-05-16'  
 
 import os
 import sys

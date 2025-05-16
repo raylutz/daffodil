@@ -651,6 +651,7 @@ To use this with Pandas, it is necessary to first build the array using another 
 Contents of C:\Windows\System32:
 |                            filepath                             |  size  | modified_timestamp  | is_dir |
 | :-------------------------------------------------------------- | -----: | :------------------ | :----- |
+| \%userprofile%\OneDrive                                         |      0 | 2025-01-11T20:07:57 | True   |
 | \07409496-a423-4a3e-b620-2cfb01a9318d_HyperV-ComputeNetwork.dll |  12304 | 2019-12-07T03:19:14 | False  |
 | \1028\VsGraphicsResources.dll                                   |  77216 | 2022-10-06T17:05:12 | False  |
 | \1028\vsjitdebuggerui.dll                                       |  18848 | 2022-06-01T02:06:34 | False  |
@@ -665,7 +666,6 @@ Contents of C:\Windows\System32:
 | \1040\VsGraphicsResources.dll                                   |  77216 | 2022-10-06T17:05:12 | False  |
 | \1040\vsjitdebuggerui.dll                                       |  23968 | 2022-06-01T02:05:36 | False  |
 | \1041\VsGraphicsResources.dll                                   |  77216 | 2022-10-06T17:05:12 | False  |
-| \1041\vsjitdebuggerui.dll                                       |  20368 | 2022-06-01T02:06:34 | False  |
 | ...                                                             |    ... | ...                 | ...    |
 | \zh-TW\comctl32.dll.mui                                         |   5120 | 2019-12-07T01:09:02 | False  |
 | \zh-TW\comdlg32.dll.mui                                         |  45056 | 2023-12-13T18:14:08 | False  |
@@ -680,10 +680,10 @@ Contents of C:\Windows\System32:
 | \zh-TW\windows.ui.xaml.dll.mui                                  |  11776 | 2023-12-13T18:14:00 | False  |
 | \zh-TW\WWAHost.exe.mui                                          |  11264 | 2023-12-13T18:14:04 | False  |
 | \zipcontainer.dll                                               |  79872 | 2019-12-07T01:08:33 | False  |
-| \zipfldr.dll                                                    | 302592 | 2024-07-10T04:23:40 | False  |
+| \zipfldr.dll                                                    | 309248 | 2025-05-15T16:32:56 | False  |
 | \ztrace_maps.dll                                                |  30720 | 2019-12-07T01:08:28 | False  |
 
-\[8,827 rows x 4 cols; keyfield=''; 0 keys ] (Daf)
+\[8,824 rows x 4 cols; keyfield=''; 0 keys ] (Daf)
 
 
 
@@ -691,6 +691,7 @@ Contents of C:\Windows\System32 (in raw text format):
 ```
 |                            filepath                             |  size  | modified_timestamp  | is_dir |
 | :-------------------------------------------------------------- | -----: | :------------------ | :----- |
+| \%userprofile%\OneDrive                                         |      0 | 2025-01-11T20:07:57 | True   |
 | \07409496-a423-4a3e-b620-2cfb01a9318d_HyperV-ComputeNetwork.dll |  12304 | 2019-12-07T03:19:14 | False  |
 | \1028\VsGraphicsResources.dll                                   |  77216 | 2022-10-06T17:05:12 | False  |
 | \1028\vsjitdebuggerui.dll                                       |  18848 | 2022-06-01T02:06:34 | False  |
@@ -705,7 +706,6 @@ Contents of C:\Windows\System32 (in raw text format):
 | \1040\VsGraphicsResources.dll                                   |  77216 | 2022-10-06T17:05:12 | False  |
 | \1040\vsjitdebuggerui.dll                                       |  23968 | 2022-06-01T02:05:36 | False  |
 | \1041\VsGraphicsResources.dll                                   |  77216 | 2022-10-06T17:05:12 | False  |
-| \1041\vsjitdebuggerui.dll                                       |  20368 | 2022-06-01T02:06:34 | False  |
 | ...                                                             |    ... | ...                 | ...    |
 | \zh-TW\comctl32.dll.mui                                         |   5120 | 2019-12-07T01:09:02 | False  |
 | \zh-TW\comdlg32.dll.mui                                         |  45056 | 2023-12-13T18:14:08 | False  |
@@ -720,15 +720,15 @@ Contents of C:\Windows\System32 (in raw text format):
 | \zh-TW\windows.ui.xaml.dll.mui                                  |  11776 | 2023-12-13T18:14:00 | False  |
 | \zh-TW\WWAHost.exe.mui                                          |  11264 | 2023-12-13T18:14:04 | False  |
 | \zipcontainer.dll                                               |  79872 | 2019-12-07T01:08:33 | False  |
-| \zipfldr.dll                                                    | 302592 | 2024-07-10T04:23:40 | False  |
+| \zipfldr.dll                                                    | 309248 | 2025-05-15T16:32:56 | False  |
 | \ztrace_maps.dll                                                |  30720 | 2019-12-07T01:08:28 | False  |
 
-\[8,827 rows x 4 cols; keyfield=''; 0 keys ] (Daf)
+\[8,824 rows x 4 cols; keyfield=''; 0 keys ] (Daf)
 
 ```
 
-- daf size in memory: 2,312,434 bytes
-- pandas df size in memory: 3,105,732 bytes
+- daf size in memory: 2,311,778 bytes
+- pandas df size in memory: 3,104,699 bytes
 
 ## Limit this list to just the files
 
@@ -783,10 +783,10 @@ Files only in C:\Windows\System32:
 | \zh-TW\windows.ui.xaml.dll.mui                                  |  11776 | 2023-12-13T18:14:00 | False  |
 | \zh-TW\WWAHost.exe.mui                                          |  11264 | 2023-12-13T18:14:04 | False  |
 | \zipcontainer.dll                                               |  79872 | 2019-12-07T01:08:33 | False  |
-| \zipfldr.dll                                                    | 302592 | 2024-07-10T04:23:40 | False  |
+| \zipfldr.dll                                                    | 309248 | 2025-05-15T16:32:56 | False  |
 | \ztrace_maps.dll                                                |  30720 | 2019-12-07T01:08:28 | False  |
 
-\[8,704 rows x 4 cols; keyfield=''; 0 keys ] (Daf)
+\[8,701 rows x 4 cols; keyfield=''; 0 keys ] (Daf)
 
 
 
