@@ -33,3 +33,6 @@ Homepage = "https://github.com/raylutz/daffodil"
 [tool.setuptools.packages.find]
 where = ["src"]
 namespaces = false 
+
+[tool.setuptools]
+license-files = []

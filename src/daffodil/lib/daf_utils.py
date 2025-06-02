@@ -553,7 +553,7 @@ def unflatten_val(val: str) -> Union[str, list, dict]:
     
     """
 
-    val = val.strip()
+    val = val.strip(" '\"")     # strip all spaces and quotes.
 
     if (val and isinstance(val, str) and 
             (val.startswith('[') and val.endswith(']') or 
@@ -565,7 +565,8 @@ def unflatten_val(val: str) -> Union[str, list, dict]:
         if obj_val is None:  
             obj_val = json_decode(val)  # this returns '' on failure
         
-        if obj_val:
+        # this line is pretty important ot allow conversion of zero-length objects as the correct type.
+        if obj_val or obj_val in [[], {}, ()]:
             return obj_val
         
     return val

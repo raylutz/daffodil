@@ -353,7 +353,8 @@ r"""
             Improved from_pdf() to support complex conversion scenarios.
             
     v0.5.8  (pending)
-
+            Correct flattening operation so that strings like '[]' are converted to []. Same for dict and tuple.
+            Cleaned up a number of imports due to pyflakes linting
 
     TODO
         Consider conversion .to_donpa() which would convert specified columns to individual numpy arrays in dict, where keys are col names.
@@ -512,10 +513,14 @@ r"""
         2. Increment version number in pyproject.toml
         3. Remove prior release
                 rm -r dist
-        3. build the release
+        4. Upgrade tools
+                pip install --upgrade build setuptools wheel twine
+        5. build the release
                 pip install --upgrade build
                 python -m build
-        4. Upload it
+        6. check distribution        
+                twine check dist/*
+        7. Upload it
                 twine upload dist/*
             You will need pypi security token    
                 
@@ -527,8 +532,8 @@ r"""
 #VERSION  = 'v0.5.7'
 #VERSDATE = '2025-05-16'  
 
-import os
-import sys
+# import os
+# import sys
 import io
 import csv
 import copy
@@ -1266,7 +1271,7 @@ class Daf:
             icol = self.hd[col]
             
             for irow in range(len(self.lol)):
-            
+                
                 self.lol[irow][icol] = daf_utils.convert_type_value(self.lol[irow][icol], desired_type) # unflatten=True
                         
         return self

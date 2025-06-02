@@ -40,9 +40,9 @@ a daf instance 'self'.
 """
 See README file at this location: https://github.com/raylutz/daffodil/blob/main/README.md
 """
-import os
 import re
-import sys
+# import os
+# import sys
 # no longer need the following due to using pytest
 # sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.realpath(__file__)))))
 

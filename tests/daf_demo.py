@@ -478,7 +478,7 @@ We find in this case that sum_np is not as efficient as just summing the rows di
 
     print(md_report)
     
-    sep = os.sep
+    # sep = os.sep      -- Can use / for windows too.
     
     md_path = 'docs/daf_demo.md'
 

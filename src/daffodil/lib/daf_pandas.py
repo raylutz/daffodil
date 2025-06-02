@@ -39,8 +39,8 @@ a daf instance 'self'.
 """
 See README file at this location: https://github.com/raylutz/daffodil/blob/main/README.md
 """
-import os
-import sys
+# import os
+# import sys
 # no longer need the following due to using pytest
 #sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.realpath(__file__)))))
 from daffodil.lib.daf_types import T_df, T_dtype_dict, T_ls #, T_li, T_doda, T_lb

@@ -835,7 +835,7 @@ Notes:
 
     print ("\n\n" + md_report)
 
-    sep = os.sep
+    # sep = os.sep      - Can use / for windows too.
     
     md_path = 'docs/daf_benchmarks.md'
     
