@@ -27,11 +27,19 @@ logs = utils                # alias
 
 @functools.lru_cache()
 def sql_unesc_str(escaped_name: str) -> str:
-    """Unquote a SQL identifier and unescape embedded double quotes."""
+    """ Unquote a SQL identifier and unescape embedded double quotes.
+    
+        Respect any changes to sql_utils.py and daf_sql.py
+    """
     escaped_name = escaped_name.strip()
-    if escaped_name.startswith('"') and escaped_name.endswith('"'):
-        return escaped_name[1:-1].replace('""', '"')
-    return escaped_name
+    
+    # unencode unusual characters if any are found with double underscores.
+    unesc_name = re.sub(r'__([0-9A-Fa-f]{2})', lambda x: chr(int(x.group(1), 16)), escaped_name)
+    
+    if unesc_name.startswith('"') and unesc_name.endswith('"'):
+        return unesc_name[1:-1].replace('""', '"')
+        
+    return unesc_name
 
 decode_colname_from_sqlcol = sql_unesc_str
 
@@ -45,12 +53,19 @@ _RESERVED_SQL_WORDS_SET = {
 # the following regex identifies identifiers (column names, table names) that are safe and can be unquoted.
 _IDENTIFIER_RE = re.compile(r'^[a-z_][a-z0-9_]*$', flags=re.ASCII)
 
+
 @functools.lru_cache()
-def sql_escape_str(name: str) -> str:
-    """Escape SQL identifier with minimal quoting:
-    - Return as-is if safe
-    - Quote if it contains uppercase, digits first, symbols, or is a reserved word
-    Safely quote a SQL identifier if needed (idempotent and reversible).
+def sql_escape_str(name: str, quoting_ok: bool=True) -> str:
+    
+    """ Escape SQL identifier with minimal quoting:
+        - Return as-is if safe
+        - Quote if 'quote_ok' is True and it contains uppercase, digits first, symbols, or is a reserved word
+            Safely quote a SQL identifier if needed (idempotent and reversible).
+        - If not quote_ok, then encode individual characters using double underscore + hex value.
+        
+        Note: If constructing an INDEX name from a table name will require quoting_ok=False
+    
+        Respect any changes to sql_utils.py and daf_sql.py
     """
 
     name = sql_unesc_str(name).strip()  # Normalize quoting and whitespace
@@ -58,27 +73,26 @@ def sql_escape_str(name: str) -> str:
     if _IDENTIFIER_RE.match(name) and name.lower() not in _RESERVED_SQL_WORDS_SET:
         return name  # Safe: unquoted
         
-    new_name = f'"{name.replace(chr(34), chr(34) * 2)}"'  # Quote + escape any embedded quotes
-    
-    return new_name
-
-# DEPRECATED APPROACH
-# @functools.lru_cache()
-# def sql_escape_str(colname: str) -> str:
-    # """ Encode the original non-compliant characters using double underscores and hex values. 
-        # this is a reversible encoding. Running this twice will not hurt.
+    if quoting_ok:
         
-        # 1. escapes any illegal characters as __HH where HH is the hex value.
+        new_name = f'"{name.replace(chr(34), chr(34) * 2)}"'  # Quote + escape any embedded quotes
+    
+    else:
+        # THIS VERSION ENCODES INDIVIDUAL CHARS RATHER THAN QUOTING
+        """ Encode the original non-compliant characters using double underscores and hex values. 
+            this is a reversible encoding. Running this twice will not hurt.
+        """
+        # 1. escape any illegal characters as __HH where HH is the hex value.
+        new_name = re.sub(r'[^0-9A-Za-z_]', lambda x: f'__{ord(x.group()):X}', name)
+        
         # 2. escapes the first character of any names with leading numerics.
         # 3. escapes the first character of any reserved words.
         
-    # """
-    # new_colname = re.sub(r'[^0-9A-Za-z_]', lambda x: f'__{ord(x.group()):X}', colname)
-    # if bool(re.search(r'^\d', new_colname)) or (new_colname.upper() in ['GROUP', 'NAME', 'VALUE']):
-        # new_colname = f"__{ord(new_colname[0]):X}" + new_colname[1:]
+        if re.search(r'^\d', new_name) or (new_name.lower() in _RESERVED_SQL_WORDS_SET):
+            new_name = f"__{ord(new_name[0]):02X}" + new_name[1:]
 
-    # return new_colname
-    
+    return new_name
+   
 
 def lod_to_sqlite_table(lod, table_name='tempdata', db_file_path=None, key_col='rowkey'):
 
@@ -124,31 +138,96 @@ def lod_to_sqlite_table(lod, table_name='tempdata', db_file_path=None, key_col='
     conn.commit()
     conn.close()
 
-def create_index_at_cursor(cursor, index_colname: str, table_name: str, diagnose: bool=False):
+# def create_index_at_cursor(cursor, index_colname: str, table_name: str, diagnose: bool=False):
+
+    # # creating the index at the end is more efficient.
+    # logs.sts(f"{logs.prog_loc()} creating index for '{index_colname}' on '{table_name}'", 3, enable=diagnose)
+
+    # index_sqlcol = sql_escape_str(index_colname)
+    # sql_tablename = sql_escape_str(table_name)
+    
+    # try:
+        # cursor.execute(f"CREATE INDEX IF NOT EXISTS idx_{index_sqlcol} ON {sql_tablename}({index_sqlcol})")
+    # except sqlite3.OperationalError as err:
+        # if "already exists" in str(err):
+            # logs.sts(f"{logs.prog_loc()} index already exists, don't need to add it again.", 3)
+        # else:
+            # logs.sts(f"Unexpected Error: {err}.", 3)
+            # logs.error_beep()
+            # breakpoint() #perm
+            # pass
+    # except Exception as err:        
+        # logs.sts(f"Unexpected Error: {err}.", 3)
+        # logs.error_beep()
+        # breakpoint() #perm
+        # pass
+
+    # logs.sts(f"{logs.prog_loc()} Added index of col '{index_colname}' successfully.", 3, enable=diagnose)
+
+def create_index_at_cursor(
+        cursor, 
+        index_colname:  str, 
+        table_name:     str, 
+        unique:         bool=False, 
+        drop_first:     bool=False, 
+        diagnose:       bool=False,
+        ) -> bool:                      # success
+    """
+    Create an index on a specified column in a SQLite table with an optional UNIQUE constraint.
+    
+    Note: If an index already exists without being unique, this will not replace the index with a unique one.
+
+    Args:
+        cursor (sqlite3.Cursor): SQLite cursor to execute the query.
+        index_colname (str): The column name to index.
+        table_name (str): The table name to create the index on.
+        unique (bool): Whether to create a UNIQUE index (default: False).
+        drop_first (bool): Whether to drop an existing index first (default: False).
+        diagnose (bool): Whether to enable diagnostic logging (default: False).
+
+    Returns:
+        bool: True if the index was successfully created or already exists, False otherwise.
+        
+    Respect any changes both to daf_sql.py and sql_utils.py
+    """
 
     # creating the index at the end is more efficient.
     logs.sts(f"{logs.prog_loc()} creating index for '{index_colname}' on '{table_name}'", 3, enable=diagnose)
 
     index_sqlcol = sql_escape_str(index_colname)
-    sql_tablename = sql_escape_str(table_name)
+    quoted_tablename = sql_escape_str(table_name)
+    sqlesc_tablename = sql_escape_str(table_name, quoting_ok = False)
+    sqlesc_index_col = sql_escape_str(index_colname, quoting_ok = False)
+    index_name   = f"idx_{sqlesc_tablename}_{sqlesc_index_col}"
+    
+    unique_str = 'UNIQUE' if unique else ''
     
     try:
-        cursor.execute(f"CREATE INDEX IF NOT EXISTS idx_{index_sqlcol} ON {sql_tablename}({index_sqlcol})")
+        if drop_first:
+            logs.sts(f"{logs.prog_loc()} dropping existing index '{index_name}'", 3, enable=diagnose)
+            cursor.execute(f"DROP INDEX IF EXISTS {index_name}")
+    
+        cursor.execute(f"CREATE {unique_str} INDEX IF NOT EXISTS {index_name} ON {quoted_tablename}({index_sqlcol})")
+        cursor.connection.commit()  # Explicit commit after creating the index
+
+        logs.sts(f"{logs.prog_loc()} Added index of col '{index_colname}' successfully.", 3, enable=diagnose)
+        return True
+
     except sqlite3.OperationalError as err:
         if "already exists" in str(err):
             logs.sts(f"{logs.prog_loc()} index already exists, don't need to add it again.", 3)
+            return True
         else:
-            logs.sts(f"Unexpected Error: {err}.", 3)
-            logs.error_beep()
-            breakpoint() #perm
-            pass
+            logs.sts(f"Unexpected OperationalError: {err}.", 3)
     except Exception as err:        
         logs.sts(f"Unexpected Error: {err}.", 3)
-        logs.error_beep()
-        breakpoint() #perm
-        pass
 
-    logs.sts(f"{logs.prog_loc()} Added index of col '{index_colname}' successfully.", 3, enable=diagnose)
+    logs.error_beep()
+    breakpoint() #perm
+    pass
+        
+    return False
+
 
 def sum_columns_in_sqlite_table(table_name='tempdata', db_file_path=None):
 

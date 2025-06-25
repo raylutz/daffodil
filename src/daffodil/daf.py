@@ -355,6 +355,7 @@ r"""
     v0.5.8  (pending)
             Correct flattening operation so that strings like '[]' are converted to []. Same for dict and tuple.
             Cleaned up a number of imports due to pyflakes linting
+            Fixed creation of index name in sql_utils and daf_sql due to change in name escaping.
 
     TODO
         Consider conversion .to_donpa() which would convert specified columns to individual numpy arrays in dict, where keys are col names.
@@ -1709,10 +1710,10 @@ class Daf:
     @classmethod
     def from_lod_to_cols(
             cls,
-            lod: T_loda, 
-            cols:Optional[List]=None, 
-            keyfield: str='', 
-            dtypes: Optional[T_dtype_dict]=None
+            lod:        T_loda, 
+            cols:       Optional[List]=None, 
+            keyfield:   str='', 
+            dtypes:     Optional[T_dtype_dict]=None
             ) -> 'Daf':
             
         r""" Create Daf instance from a list of dictionaries to be placed in columns
@@ -3167,7 +3168,7 @@ class Daf:
             else: # flip
                 col_sliced_lol = [[row[icol] for row in self.lol]
                                         for icol in range(self.num_cols())]
-                sliced_cols = []
+                sliced_cols = []    # perflint-reviewed (use-tuple-over-list)
     
         # fix up the dtypes and reset the keyfield if it is no longer in the daf.
         if sliced_cols:
@@ -3327,10 +3328,10 @@ class Daf:
         elif icol and num_cols:
             result_la = self.icol(icol)
         else:
-            result_la = []
+            result_la = []      # perflint-reviewed (use-tuple-over-list)
             
         if flatten:
-            new_list = []
+            new_list = []       # perflint-reviewed (use-tuple-over-list)
             for sublist in result_la:
                 if isinstance(sublist, list):
                     new_list += sublist
@@ -3677,9 +3678,9 @@ class Daf:
         """
         
         if not cols:
-            cols = []
+            cols = []                       # perflint-reviewed (use-tuple-over-list)
         if not exclude_cols:
-            exclude_cols = []
+            exclude_cols = []               # perflint-reviewed (use-tuple-over-list)
             
         desired_cols = self.calc_cols( 
             include_cols=cols,
@@ -3842,7 +3843,7 @@ class Daf:
         # see https://github.com/raylutz/daffodil/issues/7
         for colname, val in record.items():
             if colname in self.hd:
-                self.lol[irow][self.hd[colname]] = record[colname]
+                self.lol[irow][self.hd[colname]] = record[colname]          # perflint-reviewed (loop-invariant-statement)
             # icol = self.hd.get(colname, -1)
             # if icol >= 0:
                 # self.lol[irow][icol] = record_da[colname]
@@ -3976,7 +3977,7 @@ class Daf:
         if not colname:
             return
         if not col_la:
-            col_la = []
+            col_la = []             # perflint-reviewed (use-tuple-over-list)
 
         # see https://github.com/raylutz/daffodil/issues/7
         if colname in self.hd:
@@ -4284,11 +4285,11 @@ class Daf:
             lol_changed = False
             loop_count += 1
             if loop_count > loop_limit:
-                raise RuntimeError("apply_formulas is resulting in excessive evaluation loops.")
+                raise RuntimeError("apply_formulas is resulting in excessive evaluation loops.")      # perflint-reviewed (loop-invariant-statement)
             
             for irow in range(len(self.lol)):
                 for icol in range(self.num_cols()):
-                    cell_formula = parsed_formulas_daf.lol[irow][icol]
+                    cell_formula = parsed_formulas_daf.lol[irow][icol]          # perflint-reviewed (loop-invariant-statement)
                     if not cell_formula:
                         # no formula provided -- do nothing
                         continue
@@ -4324,7 +4325,7 @@ class Daf:
                     
                 proposed_formula = proposed_formula.replace('$d', 'self')    
                 proposed_formula = proposed_formula.replace('$c', str(icol))    
-                proposed_formula = proposed_formula.replace('$r', str(irow))    
+                proposed_formula = proposed_formula.replace('$r', str(irow))    # perflint-reviewed (loop-invariant-statement)
                       
                 parsed_formulas[irow,icol] = proposed_formula
                 
@@ -4489,11 +4490,12 @@ class Daf:
 
         if by == 'row':
             if keylist is None:
-                keylist = []
+                keylist = []                        # perflint-reviewed
         
             keylist_or_dict = keylist if not keylist or len(keylist) < 30 else dict.fromkeys(keylist)
+            
             for row in self:
-                if self.keyfield and keylist_or_dict and self.keyfield not in keylist_or_dict:
+                if self.keyfield and keylist_or_dict and row[self.keyfield] not in keylist_or_dict:
                     continue
                 transformed_row = func(row, **kwargs)
                 result_daf.append(transformed_row)          # Will not append an empty row.
@@ -4795,7 +4797,7 @@ class Daf:
         result_dodaf: Dict[Tuple[str, ...], 'Daf'] = {}
         
         for kla in self.iter_klist():
-            fieldval_tuple = tuple(kla[colname] for colname in colnames)
+            fieldval_tuple = tuple(kla[colname] for colname in colnames)        # perflint-reviewed (loop-invariant-statement)
             if fieldval_tuple not in result_dodaf:
                 result_dodaf[fieldval_tuple] = this_daf = self.clone_empty()
             else:
@@ -5307,7 +5309,7 @@ class Daf:
             if cols is None:
                 cols_iter = self.hd.keys()
             elif isinstance(cols, str):
-                cols_iter = [cols]
+                cols_iter = [cols]                              # perflint-reviewed (use-tuple-over-list)
             # elif isinstance(cols, list) and len(cols) > 10:    
                 # cols_iter = dict.fromkeys(cols)
             else:
@@ -5335,7 +5337,7 @@ class Daf:
             return result_da    
                 
         elif by == 'col':
-            reduction_la = []
+            reduction_la = []                   # perflint-reviewed (use-tuple-over-list)
             num_cols = self.num_cols()
             for icol in range(num_cols):
                 col_la = self.icol(icol)
@@ -5853,7 +5855,7 @@ class Daf:
             return self     # do nothing.
             
         if isinstance(setting_lod, dict):
-            setting_lod = [setting_lod]
+            setting_lod = [setting_lod]                 # perflint-reviewed (use-tuple-over-list)
             
         try:    
             setting_daf = Daf.from_lod(setting_lod)
@@ -6024,7 +6026,7 @@ class Daf:
         if keys is None:
             keys_list = []
         elif not isinstance(keys, list):
-            keys_list = [keys]
+            keys_list = [keys]                      # perflint-reviewed (use-tuple-over-list)
         else:
             keys_list = keys
         
@@ -6162,9 +6164,9 @@ class Daf:
             for la in self.lol:
                 if la[colidx]:
                     if numeric_only:
-                        sums_d[colname] += Daf._safe_tofloat(la[colidx])
+                        sums_d[colname] += Daf._safe_tofloat(la[colidx])    # perflint-reviewed
                     else:
-                        sums_d[colname] += float(la[colidx])
+                        sums_d[colname] += float(la[colidx])        # perflint-reviewed
 
         sums_d = daf_utils.set_dict_dtypes(sums_d, dtypes=self.dtypes)
         
@@ -6386,8 +6388,12 @@ class Daf:
                 valuecounts_di[val] += 1
 
         if sort:
-            for group, valuecounts_di in valuecounts_dodi.items():
-                valuecounts_dodi[group] = dict(sorted(valuecounts_di.items(), key=lambda x: x[1], reverse=reverse))
+            # for group, valuecounts_di in valuecounts_dodi.items():
+                # valuecounts_dodi[group] = dict(sorted(valuecounts_di.items(), key=lambda x: x[1], reverse=reverse))
+
+            valuecounts_dodi = {group: dict(sorted(valuecounts_di.items(), key=lambda x: x[1], reverse=reverse))
+                                    for group, valuecounts_di in valuecounts_dodi.items()}
+                
 
         return valuecounts_dodi
 
@@ -6402,9 +6408,9 @@ class Daf:
         for col_def_ta in col_def_lot:
             col_name, col_dtype, col_format, col_profile = col_def_ta
             
-            col_data_la = self[:, col_name].to_list()
+            col_data_la = self[:, col_name].to_list()                                       # perflint-reviewed (loop-invariant-statement)
             
-            info_dod[col_name] = daf_utils.list_stats(col_data_la, profile=col_profile)
+            info_dod[col_name] = daf_utils.list_stats(col_data_la, profile=col_profile)     # perflint-reviewed (loop-invariant-statement)
             
         return info_dod
 
@@ -6607,11 +6613,13 @@ class Daf:
 
         # Populate the Daf by appending rows directly
         for idx, (colnames_kva, source_suffix) in enumerate(zip(colnames_lokva, source_suffixes)):
+            source_name = source_names[idx]
+            tag_with_suffix = idx and tag_other
             for col in colnames_kva:
                 if idx and (col in shared_fields or col in omit_other_cols):
                     continue
                     
-                if (idx and tag_other or 
+                if (tag_with_suffix or 
                         col and col in common_colnames):    
                     resolved_colname = f"{col}{source_suffix}"
                 else:
@@ -6620,7 +6628,7 @@ class Daf:
                 translator_daf.append([
                     resolved_colname,   # resolved_colname
                     #idx,               # source_index
-                    source_names[idx],  # source_name
+                    source_name,        # source_name
                     col,                # source_colname
                     bool(col == self_keyfield or col == other_keyfield),   # is_keyfield
                 ])
@@ -6661,7 +6669,7 @@ class Daf:
             3. a single join translater can be used for joins of multiple dataframes. In that case, name all dataframes.
             
         """
-        if how not in {"inner", "left", "right", "outer"}:
+        if how not in ("inner", "left", "right", "outer"):
             raise ValueError(f"Unsupported join type: {how}")
 
         if not self.keyfield or not other_daf.keyfield:
@@ -6714,7 +6722,7 @@ class Daf:
                     join_names_ls,
                 )
                 result_daf.append(combined_record)
-            elif how in {"left", "outer"}:
+            elif how in ("left", "outer"):
                 combined_record = Daf.join_records(
                     [row_da, None], 
                     translator_daf,
@@ -6722,7 +6730,7 @@ class Daf:
                 )
                 result_daf.append(combined_record)
 
-        if how in {"right", "outer"}:
+        if how in ("right", "outer"):
             unmatched_keys = [
                 key for key in other_daf.kd if key not in matched_keys
             ]

@@ -1496,7 +1496,7 @@ def buff_csv_to_lol(
         data_lol = []
         for i, row in enumerate(csv_reader):
             data_lol.append(row)
-            if i % batch_size == 0:
+            if i and i % batch_size == 0:
                 print(f"Processed {i} rows...")  # Progress tracking
     else:
         data_lol = list(csv_reader)
