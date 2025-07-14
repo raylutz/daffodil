@@ -356,15 +356,16 @@ r"""
             Correct flattening operation so that strings like '[]' are converted to []. Same for dict and tuple.
             Cleaned up a number of imports due to pyflakes linting
             Fixed creation of index name in sql_utils and daf_sql due to change in name escaping.
+            Fixed edge case in select_irows() if self.lol is empty.
 
     TODO
-        Consider conversion .to_donpa() which would convert specified columns to individual numpy arrays in dict, where keys are col names.
+        (DONE) Consider conversion .to_donpa() which would convert specified columns to individual numpy arrays in dict, where keys are col names.
         Consider method adjust_cols(select_cols, drop_cols, add_cols_dtypes, default_val) which would make a single pass through the
             table to select (keep), drop, or add columns. This can improve performance by avoiding creating a new
             table and potentially nearly doubling the data. Strategy will be to apply() in place so the table does 
             not grow in size, and this mimics the behavior in SQL tables.
     
-        Plan:
+        SQL extension Plan:
             create base class for core operations.
             use this to create daf_sql class to handle sql functionality.
             extend daffodil methods to handle sql tables with similar syntax.
@@ -2530,6 +2531,8 @@ class Daf:
             This directly modifies daf
         """
         # test exists in test_daf.py
+        if not self.keyfield:
+            raise KeyError ("remove_key() requires keyfield is set.")
         
         return self.select_krows(krows=keyval, inverse=True, silent_error=silent_error)
 
@@ -2553,6 +2556,8 @@ class Daf:
             This directly modifies daf
             test exists in test_daf.py
         """
+        if not self.keyfield:
+            raise KeyError ("remove_keylist() requires keyfield is set.")
 
         return self.select_krows(krows=keylist, inverse=True, silent_error=silent_error)
 
@@ -2991,6 +2996,9 @@ class Daf:
             inverse:        bool=False,
             silent_error:   bool=False,
             ) -> 'Daf':
+                
+        if not self.keyfield:
+            raise KeyError ("remove_key() requires keyfield is set.")
     
         irows = self.krows_to_irows( 
             krows = krows,
@@ -3009,6 +3017,9 @@ class Daf:
             silent_error:   bool=False,
             ) -> 'Daf':
     
+        if not self.hd:
+            raise KeyError ("remove_key() requires keyfield is set.")
+
         icols = self.kcols_to_icols( 
             kcols = kcols,
             inverse = inverse,
@@ -3029,10 +3040,17 @@ class Daf:
         """
         row_sliced_lol = self.lol
         
+        if not self.lol:
+            return self.clone_empty()
+        
         if isinstance(irows, int):
             if not invert:
                 # simple single row selection
-                row_sliced_lol = [self.lol[irows]]
+                try:
+                    row_sliced_lol = [self.lol[irows]]
+                except Exception:
+                    breakpoint() # perm
+                    pass
             else:
                 row_sliced_lol.pop(irows)
         
@@ -3211,7 +3229,7 @@ class Daf:
         if not self.keyfield and not self.kd:
             logs.sts(f"{logs.prog_loc()} LOGIC ERROR. No keyfield and no kd is defined, required for select_record():\n{self}")
             #breakpoint()    # temp
-            raise RuntimeError ("No keyfield and no kd is defined, required for select_record()")
+            raise KeyError ("No keyfield and no kd is defined, required for select_record()")
             
         if key in self.kd:
             return self._basic_get_record(self.kd[key])
@@ -3258,8 +3276,12 @@ class Daf:
     def select_records_daf(self, keys_ls: Union[T_ls, Iterable], inverse:bool=False, silent_error: bool=False) -> 'Daf':
         """ Select multiple records from daf using the keys and return as a single daf.
             If inverse is true, select records that are not included in the keys.
-            
+        
+            This function requires that a keyfield exists, otherwise raises an error.
         """
+        if not self.keyfield:
+            raise KeyError ("select_records_daf() requires that keyfield is set.")
+        
         return self.select_krows(krows=keys_ls, inverse=inverse, silent_error=silent_error)
           
         
@@ -3588,6 +3610,8 @@ class Daf:
         """ alias for col_to_la()
             can also use column ranges and then transpose()
             test exists in test_daf.py
+            
+            Can use my_daf[:, colname].to_list(unique=unique, omit_nulls=omit_nulls)
         """
         return self.col_to_la(colname, unique, omit_nulls=omit_nulls, silent_error=silent_error)
 
