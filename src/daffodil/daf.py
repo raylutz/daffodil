@@ -352,11 +352,13 @@ r"""
                 improved tests.
             Improved from_pdf() to support complex conversion scenarios.
             
-    v0.5.8  (pending)
+    v0.5.8  (2025-07-17)
             Correct flattening operation so that strings like '[]' are converted to []. Same for dict and tuple.
             Cleaned up a number of imports due to pyflakes linting
             Fixed creation of index name in sql_utils and daf_sql due to change in name escaping.
             Fixed edge case in select_irows() if self.lol is empty.
+            
+    v0.5.9  (pending)
 
     TODO
         (DONE) Consider conversion .to_donpa() which would convert specified columns to individual numpy arrays in dict, where keys are col names.
@@ -531,7 +533,7 @@ r"""
 """       
     
     
-#VERSION  = 'v0.5.7'
+#VERSION  = 'v0.5.8'
 #VERSDATE = '2025-05-16'  
 
 # import os
