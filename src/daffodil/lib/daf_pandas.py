@@ -125,6 +125,8 @@ def _to_pandas_df(
         default:
             If provided, replaces all '' and None with this value.
             Requires that defaulting_cols be provided to indicate which columns to clean.
+            NOTE: Mutates the provided daffodil array. Copy it prior to calling if the array
+                    will be further used.
 
         defaulting_cols:
             Columns to which default should apply. Ignored if default is not provided.
@@ -149,6 +151,13 @@ def _to_pandas_df(
     - This method avoids implicit type coercion: string values like '123' remain strings,
       even if they look numeric. It is up to the caller to post-process columns if explicit type
       conversion is desired.
+
+    Mutation Warning:
+    - If `default` is provided (and `use_csv` is False), this method will mutate the Daffodil
+      table in place by replacing '' and None in the specified columns. This matches Daffodil’s
+      general mutability model, but callers should not rely on the Daf instance being unchanged
+      after conversion. If you need to preserve the original table, make a copy first.
+      
     """
 
     selected_cols = cols if cols is not None else self.columns()
