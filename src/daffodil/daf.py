@@ -360,6 +360,7 @@ r"""
             
     v0.5.9  (pending)
             Add 'attrs' as argument to creation of the array instance.
+            Improve initialization of disp_cols so it can be None, List or tuple and emitted as [] if not provided.
 
     TODO
         (DONE) Consider conversion .to_donpa() which would convert specified columns to individual numpy arrays in dict, where keys are col names.
@@ -624,7 +625,6 @@ class Daf:
         else:
             self.hd         = {}
 
-
         if use_copy:
             self.lol        = copy.deepcopy(lol)
         else:
@@ -634,6 +634,13 @@ class Daf:
             self.kd         = kd
         else:
             self.kd         = {}
+
+        if disp_cols is None:
+            self.disp_cols  = []
+        elif isinstance(disp_cols, (list, tuple)):
+            self.disp_cols  = list(disp_cols)
+        else:
+            raise TypeError("disp_cols must be a list/tuple or None")
 
         self.dtypes         = dtypes            # col types used for conversion from csv str values.
 
