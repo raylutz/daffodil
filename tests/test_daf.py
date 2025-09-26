@@ -23,7 +23,7 @@ src_path = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
 # if src_path not in sys.path:
     # sys.path.append(src_path)
 
-from daffodil.daf import Daf
+from daffodil.daf import Daf, KeysDisabledError
 from daffodil.keyedlist import KeyedList
 from daffodil.lib import daf_utils as utils
 
@@ -363,9 +363,8 @@ class TestDaf(unittest.TestCase):
         lol = [[1, 'a'], [2, 'b'], [3, 'c']]
         daf = Daf(cols=cols, lol=lol, keyfield='', dtypes={'col1': int, 'col2': str})
 
-        result = daf.keys()
-
-        self.assertEqual(result, [])
+        with self.assertRaises(KeysDisabledError):
+            result = daf.keys()
 
     def test_keys_with_keyfield(self):
         cols = ['col1', 'col2']
@@ -376,14 +375,15 @@ class TestDaf(unittest.TestCase):
 
         self.assertEqual(result, [1, 2, 3])
 
-    def test_keys_empty_daf(self):
-        cols = []
+    def test_keys_empty_daf_keyfield_defined(self):
+        cols = ['col1', 'col2']
         lol = []
         daf = Daf(cols=cols, lol=lol, keyfield='col1', dtypes={})
 
         result = daf.keys()
 
-        self.assertEqual(result, [])  
+        self.assertEqual(result, [])
+
 
     # set_keyfield
     def test_set_keyfield_existing_column(self):
@@ -1380,15 +1380,16 @@ class TestDaf(unittest.TestCase):
         daf = Daf(cols=cols, lol=lol, keyfield='', dtypes={'col1': int, 'col2': str})
 
         keyval = 4
-        new_daf = daf.remove_key(keyval, silent_error=True)
+        with self.assertRaises(KeysDisabledError):
+            new_daf = daf.remove_key(keyval, silent_error=True)
 
-        self.assertEqual(new_daf.name, '')
-        self.assertEqual(new_daf.keyfield, '')
-        self.assertEqual(new_daf.hd, hd)
-        self.assertEqual(new_daf.lol, [[1, 'a'], [2, 'b'], [3, 'c']])
-        self.assertEqual(new_daf.kd, {})
-        self.assertEqual(new_daf.dtypes, {'col1': int, 'col2': str})
-        self.assertEqual(new_daf._iter_index, 0)
+        # self.assertEqual(new_daf.name, '')
+        # self.assertEqual(new_daf.keyfield, '')
+        # self.assertEqual(new_daf.hd, hd)
+        # self.assertEqual(new_daf.lol, [[1, 'a'], [2, 'b'], [3, 'c']])
+        # self.assertEqual(new_daf.kd, {})
+        # self.assertEqual(new_daf.dtypes, {'col1': int, 'col2': str})
+        # self.assertEqual(new_daf._iter_index, 0)
 
     def test_remove_key_nonexistent_key_silent_error(self):
         cols = ['col1', 'col2']
@@ -1494,7 +1495,7 @@ class TestDaf(unittest.TestCase):
 
         key = 'col1'
 
-        with self.assertRaises(RuntimeError):
+        with self.assertRaises(KeysDisabledError):
             daf.select_record(key)
 
     # iloc / irow
@@ -4283,8 +4284,8 @@ class TestDafJsonMethods(unittest.TestCase):
             'kd': {'1': 0, '4': 1},     # Note json dict must use str keys
             'dtypes': {'col1': 'int', 'col2': 'int', 'col3': 'int'},
             'keyfield': 'col1',
-            '_retmode': 'val',
-            '_itermode': 'keyedlist',
+            #'_retmode': 'val',                 # removed in 0.5.8
+            #'_itermode': 'keyedlist',          # removed in 0.5.8
         }
         self.assertEqual(json.loads(json_str), expected_dict)
 
@@ -4296,8 +4297,8 @@ class TestDafJsonMethods(unittest.TestCase):
             'kd': {1: 0, 4: 1},     # will create str keys
             'dtypes': {'col1': 'int', 'col2': 'int', 'col3': 'int'},
             'keyfield': 'col1',
-            '_retmode': 'val',
-            '_itermode': 'keyedlist',
+            #'_retmode': 'val',                 # removed in 0.5.8
+            #'_itermode': 'keyedlist',          # removed in 0.5.8
         })
         instance = Daf.from_json(json_str)
         self.assertEqual(instance.name, 'TestDaf')
@@ -4306,8 +4307,8 @@ class TestDafJsonMethods(unittest.TestCase):
         self.assertEqual(instance.kd, {1: 0, 4: 1})     # but conversion must create ints
         self.assertEqual(instance.dtypes, {'col1': int, 'col2': int, 'col3': int})
         self.assertEqual(instance.keyfield, 'col1')
-        self.assertEqual(instance._retmode, 'val')
-        self.assertEqual(instance._itermode, 'keyedlist')
+        #self.assertEqual(instance._retmode, 'val')             # removed in 0.5.8
+        #self.assertEqual(instance._itermode, 'keyedlist')      # removed in 0.5.8
 
     def test_to_json_and_from_json(self):
         original_instance = Daf(
@@ -4328,8 +4329,8 @@ class TestDafJsonMethods(unittest.TestCase):
         self.assertEqual(original_instance.kd, new_instance.kd)
         self.assertEqual(original_instance.dtypes, new_instance.dtypes)
         self.assertEqual(original_instance.keyfield, new_instance.keyfield)
-        self.assertEqual(original_instance._retmode, new_instance._retmode)
-        self.assertEqual(original_instance._itermode, new_instance._itermode)
+        #self.assertEqual(original_instance._retmode, new_instance._retmode)        # removed in 0.5.8
+        #self.assertEqual(original_instance._itermode, new_instance._itermode)      # removed in 0.5.8
 
 
 

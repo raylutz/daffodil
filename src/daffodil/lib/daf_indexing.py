@@ -119,7 +119,7 @@ from daffodil.lib.daf_types import T_ls, T_li, T_doda, T_lb
 import daffodil.lib.daf_utils as utils
 # import Daf.daf_md    as md
 import daffodil.lib.daf_indexing as indexing  # self import so internal references to indexing will work.
-from daffodil.daf import Daf
+from daffodil.daf import Daf, KeysDisabledError
 
 Daf = Daf   # fool linter
 
@@ -236,7 +236,7 @@ def _get_item1(self,
     elif isinstance(slice_spec, str):
         # Handle indexing a single row using keyfield
         if not self.keyfield:
-            raise RuntimeError("Use of string row spec requires keyfield defined.")
+            raise KeysDisabledError("Key lookups are disabled (keyfield is unset).")
         irow = self.kd.get(slice_spec, -1)
         if irow < 0:
             raise RuntimeError("Row spec not a valid row key.")
@@ -436,7 +436,7 @@ def _row_indices_from_rowlist(self, rowlist) -> T_li:  # row_indices
     first_item = rowlist[0]
     if isinstance(first_item, str):
         if not self.keyfield:
-            raise RuntimeError("keyfield must be defined to use str row keys")
+            raise KeysDisabledError("Key lookups are disabled (keyfield is unset).")
         row_indices = [self.kd.get(rowkey, -1) for rowkey in rowlist]
     elif isinstance(first_item, int):
         row_indices = rowlist

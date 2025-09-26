@@ -351,28 +351,40 @@ r"""
                 to handle conversion of '' or None to a default such as NA or 0.
                 improved tests.
             Improved from_pdf() to support complex conversion scenarios.
+            RELEASED AS v0.5.7
             
     v0.5.8  (2025-07-17)
             Correct flattening operation so that strings like '[]' are converted to []. Same for dict and tuple.
             Cleaned up a number of imports due to pyflakes linting
             Fixed creation of index name in sql_utils and daf_sql due to change in name escaping.
             Fixed edge case in select_irows() if self.lol is empty.
+            RELEASED AS v0.5.8
             
-    v0.5.9  (pending)
-            Add 'attrs' as argument to creation of the array instance.
+    v0.5.9  (2025-09-22)
+            Add 'attrs' as argument to creation of the array instance. This mimics Pandas usage.
             Improve initialization of disp_cols so it can be None, List or tuple and emitted as [] if not provided.
+            Added .to_donpa() which would convert specified columns to dict of numpy arrays of each col, where dict keys are col names.
+            This creates a simple pandas-like object where NumPy column operators can be easily applied.
+            Improved .to_json() and .from_json() to handle disp_cols and attrs. Fixed tests.
+            Added use of KeysDisabledError whenever a function attempts to lookup a row when keyfield is not set.
+                In contrast, if keyfield is set and key not found, then KeyError if silent_error False.
+                Fixed unit tests.
+
+    v0.5.10 (pending)
+    
 
     TODO
-        (DONE) Consider conversion .to_donpa() which would convert specified columns to individual numpy arrays in dict, where keys are col names.
-        Consider method adjust_cols(select_cols, drop_cols, add_cols_dtypes, default_val) which would make a single pass through the
-            table to select (keep), drop, or add columns. This can improve performance by avoiding creating a new
-            table and potentially nearly doubling the data. Strategy will be to apply() in place so the table does 
-            not grow in size, and this mimics the behavior in SQL tables.
+        Add ability to provide active tables with column sorting in HTML output derived from MD table spec.
     
         SQL extension Plan:
             create base class for core operations.
             use this to create daf_sql class to handle sql functionality.
             extend daffodil methods to handle sql tables with similar syntax.
+    
+        Consider method adjust_cols(select_cols, drop_cols, add_cols_dtypes, default_val) which would make a single pass through the
+            table to select (keep), drop, or add columns. This can improve performance by avoiding creating a new
+            table and potentially nearly doubling the data. Strategy will be to apply() in place so the table does 
+            not grow in size, and this mimics the behavior in SQL tables.
     
         offer dropping unexpected columns when doing concat/append ??
             keys mismatch: daf: (['ballot_id', 'style_num', 'precinct', 'contest', 'option', 'has_indication', 'num_marks', 'num_votes', 'pixel_metric_value', 'sm_pmv', 'writein_name', 'overvotes', 'undervotes', 'ssidx', 'delta_y', 'ev_coord_str', 'ev_precinct_id', 'target_pixels', 'gray_eval', 'is_bmd', 'wipmv', 'p', 'x', 'y', 'w', 'h', 'b', 'bmd_str'])
@@ -535,8 +547,8 @@ r"""
 """
 
 
-#VERSION  = 'v0.5.8'
-#VERSDATE = '2025-05-16'
+#VERSION  = 'v0.5.9'
+#VERSDATE = '2025-09-22'
 
 # import os
 # import sys
@@ -579,6 +591,11 @@ logs = daf_utils                # alias
 # define a sentinel object to express a missing item where None is a valid value.
 from daffodil.lib.daf_utils import _MISSING
 
+class DaffodilError(Exception):
+    """Base exception for Daffodil."""
+
+class KeysDisabledError(DaffodilError, LookupError):
+    """Row-key lookups are unavailable because keyfield is unset/disabled."""
 
 class Daf:
     RETMODE_OBJ  = 'obj'
@@ -1077,6 +1094,7 @@ class Daf:
     def keys(self) -> Union[T_la, T_lota]:
         """ return list of keys from kd of keyfield
             may return a list of str or int or list of tuple of (str or int).
+            raises KeysDisabledError if keyfield is not set to an existing column
 
             test exists in test_daf.py
 
@@ -1090,7 +1108,7 @@ class Daf:
         """
 
         if not self.keyfield:
-            return []
+            raise KeysDisabledError("Key lookups are disabled (keyfield is unset).")
 
         return list(self.kd.keys())
 
@@ -1187,7 +1205,8 @@ class Daf:
         # # for the following, see https://github.com/raylutz/daffodil/issues/7
 
         # if not self.keyfield or not self.kd:
-            # return -1
+            # raise KeysDisabledError("Key lookups are disabled (keyfield is unset).")
+
         # return self.kd.get(rowkey, -1)
 
 
@@ -2562,60 +2581,28 @@ class Daf:
     #=========================
     # remove records per keyfield; drop cols
 
-    def remove_key(self, keyval: Optional[Union[str, int, T_la, T_ta]], silent_error=False) -> None:
+    def remove_key(self, keyval: Optional[Union[str, int, T_la, T_ta]], silent_error=False) -> 'Daf':
         """ remove record from daf using keyfield
-            This directly modifies daf
+            This mutates daf array. Make a copy if the original is needed.
+            silent error will not produce KeyError if keyfield exist but the key is not found
+            if keyfield is not defined, then KeysDisabledError always
         """
         # test exists in test_daf.py
         if not self.keyfield:
-            raise KeyError ("remove_key() requires keyfield is set.")
+            raise KeysDisabledError("Key lookups are disabled (keyfield is unset).")
 
         return self.select_krows(krows=keyval, inverse=True, silent_error=silent_error)
 
-        # if not self.keyfield:
-            # return self
 
-        # try:
-            # key_idx = self.kd[keyval]   #will raise KeyError if key not exists.
-        # except KeyError:
-            # if silent_error:
-                # return self
-            # raise
-
-        # self.lol.pop(key_idx)
-        # self._rebuild_kd()
-        # return self
-
-
-    def remove_keylist(self, keylist: T_ls, silent_error=False):
+    def remove_keylist(self, keylist: T_ls, silent_error=False) -> 'Daf':
         """ remove records from daf using keyfields
             This directly modifies daf
             test exists in test_daf.py
         """
         if not self.keyfield:
-            raise KeyError ("remove_keylist() requires keyfield is set.")
+            raise KeysDisabledError("Key lookups are disabled (keyfield is unset).")
 
         return self.select_krows(krows=keylist, inverse=True, silent_error=silent_error)
-
-        # # get the indexes of rows to be deleted.
-        # idx_li: T_li = []
-        # for keyval in keylist:
-            # try:
-                # idx = self.kd[keyval]
-            # except KeyError:
-                # if silent_error: continue
-                # raise
-            # idx_li.append(idx)
-
-        # # delete records from the end so the indexes are valid after each deletion.
-        # reverse_sorted_idx_li = sorted(idx_li, reverse=True)
-
-        # for idx in reverse_sorted_idx_li:
-            # self.lol.pop(idx)
-
-        # self._rebuild_kd()
-
-        # return self
 
 
     #===========================
@@ -2901,12 +2888,15 @@ class Daf:
         provides the indexes of the row for each value in that column. Lookups using
         this method are very fast but there is overhead to reading the column and
         creating the dictionary. Therefore, set keyfield to '' to disable row key lookups.
+        
+        raises KeysDisabledError if keyfield is not set.
         """
         if not self.keyfield or not self.kd:
-            if inverse:
-                return range(len(self))
-            else:
-                return []
+            KeysDisabledError("Key lookups are disabled (keyfield is unset).")
+            # if inverse:
+                # return range(len(self))
+            # else:
+                # return []
 
         return type(self).gkeys_to_idxs(
                     keydict         = self.kd,
@@ -3034,7 +3024,7 @@ class Daf:
             ) -> 'Daf':
 
         if not self.keyfield:
-            raise KeyError ("remove_key() requires keyfield is set.")
+            raise KeysDisabledError("Key lookups are disabled (keyfield is unset).")
 
         irows = self.krows_to_irows(
             krows = krows,
@@ -3263,9 +3253,7 @@ class Daf:
             return {}
 
         if not self.keyfield and not self.kd:
-            logs.sts(f"{logs.prog_loc()} LOGIC ERROR. No keyfield and no kd is defined, required for select_record():\n{self}")
-            #breakpoint()    # temp
-            raise KeyError ("No keyfield and no kd is defined, required for select_record()")
+            raise KeysDisabledError("Key lookups are disabled (keyfield is unset and kd not defined).")
 
         if key in self.kd:
             return self._basic_get_record(self.kd[key])
@@ -3313,10 +3301,10 @@ class Daf:
         """ Select multiple records from daf using the keys and return as a single daf.
             If inverse is true, select records that are not included in the keys.
 
-            This function requires that a keyfield exists, otherwise raises an error.
+            This function requires that a keyfield exists, otherwise raises KeysDisabledError.
         """
         if not self.keyfield:
-            raise KeyError ("select_records_daf() requires that keyfield is set.")
+            raise KeysDisabledError("Key lookups are disabled (keyfield is unset).")
 
         return self.select_krows(krows=keys_ls, inverse=inverse, silent_error=silent_error)
 
@@ -3811,7 +3799,7 @@ class Daf:
         """
 
         if not self.keyfield:
-            raise RuntimeError("No keyfield estabished for daf.")
+            raise KeysDisabledError("Key lookups are disabled (keyfield is unset).")
 
         keyfield = self.keyfield
         if isinstance(keyfield, str):
@@ -6710,6 +6698,8 @@ class Daf:
     ) -> 'Daf':
         """
         Perform a join operation between two Daf instances using their keyfields.
+        
+        raises KeysDisabledError if either instance is missing a keyfield.
 
         Args:
             other_daf: 'Daf',                                   # The other Daf instance to join with.
@@ -6733,7 +6723,7 @@ class Daf:
             raise ValueError(f"Unsupported join type: {how}")
 
         if not self.keyfield or not other_daf.keyfield:
-            raise ValueError("Both Daf instances must have a keyfield defined for a join operation.")
+            raise KeysDisabledError("Both Daf instances must have a keyfield defined for a join operation.")
 
         if diagnose:
             logs.sts(f"{logs.prog_loc()} Initiating join:\nself:\n{self}\nother_daf:\n{other_daf}", 3)
@@ -6976,16 +6966,17 @@ class Daf:
 
     def to_md(
             self,
-            max_rows:       int     = 0,         # limit the maximum number of row by keeping leading and trailing rows.
-            max_cols:       int     = 0,         # limit the maximum number of cols by keeping leading and trailing cols.
+            max_rows:       int     = 0,         # limit number of rows by keeping leading and trailing rows and omitting middle rows.
+            max_cols:       int     = 0,         # limit number of cols by keeping leading and trailing cols and omitting middle cols.
             just:           str     = '',        # provide the justification for each column, using <, ^, > meaning left, center, right justified.
             shorten_text:   bool    = True,      # if the text in any field is more than the max_text_len, then shorten by keeping the ends and redacting the center text.
             max_text_len:   int     = 80,        # see above.
             smart_fmt:      bool    = False,     # if columns are numeric, then limit the number of figures right of the decimal to "smart" numbers.
-            include_summary: bool   = False,     # include a one-line summary after the table.
+            include_summary: bool   = False,     # include a one-line summary after the table, describing shape, keyfield, name
             disp_cols:      Optional[T_ls]=None, # use these column names instead of those defined in daf.
             header:         Optional[T_ls]=None, # use this header instead.
             ) -> str:
+                
         """ provide an full md table given a daf representation """
 
         daf_lol = self.daf_to_lol_summary(max_rows=max_rows, max_cols=max_cols, disp_cols=disp_cols)
@@ -7004,8 +6995,8 @@ class Daf:
 
             )
         if include_summary:
-            # this is okay with change to tuple keys.
-            mdstr += f"\n\\[{len(self.lol):,} rows x {self.num_cols():,} cols; keyfield='{self.keyfield}'; {len(self.kd):,} keys ] ({self.name or type(self).__name__})\n"
+            # (compatible with tuple keys.)
+            mdstr += f"\n\\[{self.num_rows():,} rows x {self.num_cols():,} cols; keyfield='{self.keyfield}'; {len(self.kd):,} keys ] ({self.name or type(self).__name__})\n"
         return mdstr
 
 
