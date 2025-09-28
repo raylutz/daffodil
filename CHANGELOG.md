@@ -31,9 +31,11 @@ _No published tag yet._
 ### Added
 - `CHANGELOG.md` added to repo; moved log from `daf.py` to this file and reformatted to md.
 - `ROADMAP.md` added to repo; moved TODO plans from `daf.py` to that file and reformatted to md. 
+- `manifest.in` added to repo to force inclusion of these documents into the distribution.
 
 ### Fixed
 - Neglected to bump `pyproject.toml` version in 0.5.9.
+- Removed change log and roadmap todos from `daf.py`
 
 ---
 
