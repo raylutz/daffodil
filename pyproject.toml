@@ -4,12 +4,12 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "daffodil"
-version = "0.5.8"
+version = "0.5.10"
 authors = [
     {name = "Ray Lutz", email = "raylutz@cognisys.com"},
 ]
 description = "Daffodil provides lightweight and fast 2-D dataframes"
-readme = "README.md"
+readme = { file = "README.md", content-type = "text/markdown" }
 requires-python = ">=3.6"
 
 license = {text = "MIT"}
@@ -29,10 +29,14 @@ numpy = ['numpy']
 
 [project.urls]
 Homepage = "https://github.com/raylutz/daffodil"
+Repository = "https://github.com/raylutz/daffodil"
+Issues = "https://github.com/raylutz/daffodil/issues"
+Changelog = "https://github.com/raylutz/daffodil/blob/main/CHANGELOG.md"
+Roadmap = "https://github.com/raylutz/daffodil/blob/main/ROADMAP.md"
 
 [tool.setuptools.packages.find]
 where = ["src"]
 namespaces = false 
 
 [tool.setuptools]
-license-files = []
+license-files = ["LICENSE*"]
