@@ -19,15 +19,14 @@ all prior releases. Plans for future moved to ROADMAP.md.
 
 ---
 
-## [0.5.11] - pending
-- No published tag yet.
+## [0.5.11] - 2026-02-02
 
 ### Added
 - Added optional schema class support for declarative column definitions using Python type annotations.
 - Added default_record() method to create new records initialized from schema defaults.
 - Added text to README.md to explain the new schema approach.
 - Added decorator approach to schemaclass and placed in a separate file schemaclass.py with schemaclass_README.md in `/lib`
-- Added method .attach_schema(self, schema: type) to allow schema to be attached after reading the file.
+- Added method .attach_schema(self, schema: type) to allow schema to be attached after reading the file. 
 
 ### Changed
 - daf.keys() now has optional parameter 'silent_error' which defaults to True.
