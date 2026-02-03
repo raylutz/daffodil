@@ -17,7 +17,6 @@ import platform
 import xlsx2csv     # type: ignore
 #import numpy as np
 
-
 from typing import List, Dict, Any, Tuple, Optional, Union, cast, Type, Iterable, Callable, Iterator
 
 def fake_function(a: Optional[List[Dict[str, Tuple[int,Union[Any, str, Iterable]]]]] = None) -> Optional[int]:
@@ -60,6 +59,9 @@ _MISSING = object()
 def set_type_la(la: T_la, dtypes_worklist: List[Tuple[int, Type]]) -> T_la:
     """ set the types of each item in place based on a list of types without making a copy,
         and only working on those fields that may need work.
+        
+        Note: dtypes_worklist must contain only origin types. This is established when
+            dtypes_dict is initialized.
     """
     
     for idx, desired_type in dtypes_worklist:
@@ -497,8 +499,12 @@ def set_dict_dtypes(
 def convert_type_value(val: any, desired_type: type, unflatten: bool=True):
     """ given a single value, and a desired type, convert it if possible.
         For list and dict type, if str and JSON, convert to list or dict type if unflatten is True.
-    """    
-            
+        At this point, desired type must be the origin of any type definitions, such as int, str, float, list, dict, set, tuple.
+        
+        If there is no value, value retured is ''
+        If type is bool, value is 0 or 1 (integers), but source can be '0', '1', '', None, True, False
+    """  
+
     if desired_type is not bool and (val in ('', None) or val != val):   # null string means None or NAN
         new_val = ''
 
@@ -521,7 +527,7 @@ def convert_type_value(val: any, desired_type: type, unflatten: bool=True):
                 
     elif desired_type is bool:
         # null string means None or NAN
-        new_val = 0 if val in ('0', '', None, False, 'False') or val != val else 1
+        new_val = 0 if val in ('0', '', None, False, 'False', 'FALSE') or val != val else 1
             
     elif desired_type in (list, dict) and isinstance(val, str) and unflatten:
         new_val = unflatten_val(val)
@@ -534,7 +540,8 @@ def convert_type_value(val: any, desired_type: type, unflatten: bool=True):
         else:    
             new_val = f"{val}"
         
-    elif desired_type is list and isinstance(val, list) or desired_type is dict and isinstance(val, dict):
+    elif desired_type is list and isinstance(val, list) or \
+         desired_type is dict and isinstance(val, dict):
         # no conversion required.
         new_val = val
 
@@ -1934,27 +1941,34 @@ def compare_lists(
     return matching_list, missing_list, extra_list, missing_req_list
        
     
-def astype_la(la: T_la, astype: Optional[Union[Callable, str]]=None) -> T_la:
+def astype_la(la: T_la, astype: Optional[Union[Callable, str, type]]=None) -> T_la:
     """ fix the type according to astype spec if it is not None 
             this function current duplicated in daf_utils
     """        
 
-    if astype is not None:
-        if callable(astype): 
-            return [astype(val) for val in la]
-        elif isinstance(astype, str):
-            if astype == 'int':
-                return [int(val) for val in la]
-            elif astype == 'str':
-                return [str(val) for val in la]
-            elif astype == 'float':
-                return [float(val) for val in la]
-            elif astype == 'bool':
-                return [bool(val) for val in la]
-            else:
-                raise ValueError (f"astype not supported: {astype}")
-        raise ValueError (f"astype not supported: {astype}")
-    return la
+    if astype is None:
+        return la
+        
+    if callable(astype) and not isinstance(astype, type): 
+        return [astype(val) for val in la]
+        
+    # Type provided (e.g., int, str, float, bool)
+    if isinstance(astype, type):
+        return [astype(val) for val in la]
+
+    if isinstance(astype, str):
+        if astype == 'int':
+            return [int(val) for val in la]
+        elif astype == 'str':
+            return [str(val) for val in la]
+        elif astype == 'float':
+            return [float(val) for val in la]
+        elif astype == 'bool':
+            return [bool(val) for val in la]
+        else:
+            raise ValueError (f"astype not supported: {astype}")
+            
+    raise ValueError (f"astype not supported: {astype}")
 
 def astype_value(val: Any, astype: Optional[Union[Callable, str]]=None) -> Any:
     """ fix the type according to astype spec if it is not None 

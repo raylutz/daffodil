@@ -39,4 +39,4 @@ where = ["src"]
 namespaces = false 
 
 [tool.setuptools]
-license-files = ["LICENSE*"]
+license-files = []

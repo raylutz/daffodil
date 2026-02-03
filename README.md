@@ -164,6 +164,45 @@ then the column names are defined from dtypes dict, and the datatypes are simult
 can be optionally used to define datatypes for each column, which is similar behavior to other dataframe packages, but this
 is optional. Any cell can be any data type. the `dtypes` dict is useful when reading data from csv files because the
 default type is `str`.
+
+### Schema-based column definition (optional)
+
+In addition to defining column names via cols or dtypes, a Daffodil instance may optionally be initialized with a schema class. 
+A schema class uses standard Python type-annotation syntax to declare column names, their intended types, and default values 
+in a single, readable location.
+
+Example:
+
+    class BallotSchema:
+        __keyfield__ = "ballot_id"
+        ballot_id: str = ""
+        contest: str = ""
+        page: int = 0
+
+
+Passing this class to the constructor:
+
+    daf = Daf(schema=BallotSchema)
+
+has the following effects:
+
+- Column names are defined from the annotated attribute names.
+- The dtypes dictionary is automatically derived from the annotations.
+- Default values are remembered and can be used to create new records.
+- if __keyfield__ is specified, then self.keyfield will be set to this value by the constructor, if keyfield is not otherwise specified.
+ 
+
+The schema is used only as a declarative source of column metadata. It does not impose validation or restrict what values 
+may be stored in the table unless additional checking is explicitly enabled by the user.
+
+When a schema is attached, a default record can be created using:
+
+    record = daf.default_record()
+
+which returns a new dictionary populated with the schema’s default values.
+
+Schema usage is entirely optional. Explicit dtypes or cols arguments continue to work as before, and if both a 
+schema and dtypes are provided, the explicitly supplied dtypes take precedence.
     
 ## Row keyfield   
     
@@ -232,17 +271,28 @@ list, can be summed with the sum() operator.
 
 ### data typing and conversion
         
-Since we are using Python data objects, each cell in the array can have a different data type. However, it is useful to 
-convert data when it is first read from a csv file to make sure it is handled correctly. CSV files, by default, provide
-character data and therefore, without conversion, will provide `str` data. 
-        
-Data which is missing is provided as null strings, which will be ignored in apply or reduce operations. When converted to 
-other forms, such as a NumPy array, these values will be expressed as missing data using NAN or other indicators. 
-Daffodil uses null strings because they will print correctly when viewed, rather than seeing the distracting NAN indicators.
+Daffodil stores data as native Python objects, and each cell in the array may hold a value of any type. As a result, 
+data typing is flexible by design and not enforced unless explicitly requested.
 
-Data type conversion is mainly an issue when converting from/to .csv file formats. In many cases, type conversions of the entire
-file may be avoided, so it is handled explicitly. `dtypes` is a dictionary where each column can have a Python type expressed, such as
-`str`, `int`, `float`, `dict`, `list`. 
+Type conversion is most relevant when reading data from CSV files. CSV input is inherently text-based, so values are 
+initially read as str unless converted. In many workflows, converting the entire dataset eagerly is unnecessary or 
+undesirable, so Daffodil allows type conversion to be applied explicitly and selectively.
+
+Missing data in CSV input is represented internally as null strings. These values are ignored in apply and reduce 
+operations. When data is converted to other representations, such as NumPy arrays, missing values may be expressed 
+using NaN or other sentinel values. Null strings are used internally because they display cleanly when printed, 
+avoiding the visual clutter associated with NaN.
+
+Column type hints may be provided using the optional dtypes dictionary, which maps column names to Python types (for 
+example, str, int, float, dict, or list). These types are advisory and are primarily used to guide conversion from 
+string values when reading CSV data. Type conversion is applied only when explicitly requested, preserving lazy evaluation 
+and minimizing unnecessary data transformation.
+
+As an alternative to specifying dtypes directly, a schema class may be provided when constructing a Daffodil instance. 
+When used, the schema defines column names, intended types, and default values in a single location using standard Python 
+type-annotation syntax. The dtypes dictionary is derived automatically from the schema annotations, and conversion behavior 
+remains unchanged.
+
 
 ### `.apply_dtypes(dtypes, unflatten, from_str)`
 

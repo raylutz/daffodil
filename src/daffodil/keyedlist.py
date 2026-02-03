@@ -216,7 +216,7 @@ class KeyedList:
             self._values = new_values
             
 
-    def values(self, astype: Optional[Union[Callable, str]]=None) -> List[Any]:
+    def values(self, astype: Optional[Union[Callable, str, type]]=None) -> List[Any]:
         
         return astype_la(self._values, astype)        
     
@@ -273,27 +273,35 @@ class KeyedList:
         else:
             raise ValueError("Invalid JSON string for KeyedList")
 
-def astype_la(la: T_la, astype: Optional[Union[Callable, str]]=None) -> T_la:
+def astype_la(la: T_la, astype: Optional[Union[Callable, str, type]]=None) -> T_la:
     """ fix the type according to astype spec if it is not None 
             this function current duplicated in daf_utils
     """        
 
-    if astype is not None:
-        if callable(astype): 
-            return [astype(val) for val in la]
-        elif isinstance(astype, str):
-            if astype == 'int':
-                return [int(val) for val in la]
-            elif astype == 'str':
-                return [str(val) for val in la]
-            elif astype == 'float':
-                return [float(val) for val in la]
-            elif astype == 'bool':
-                return [bool(val) for val in la]
-            else:
-                raise ValueError (f"astype not supported: {astype}")
-        raise ValueError (f"astype not supported: {astype}")
-    return la
+    if astype is None:
+        return la
+        
+    if callable(astype) and not isinstance(astype, type): 
+        return [astype(val) for val in la]
+        
+    # Type provided (e.g., int, str, float, bool)
+    if isinstance(astype, type):
+        return [astype(val) for val in la]
+
+    if isinstance(astype, str):
+        if astype == 'int':
+            return [int(val) for val in la]
+        elif astype == 'str':
+            return [str(val) for val in la]
+        elif astype == 'float':
+            return [float(val) for val in la]
+        elif astype == 'bool':
+            return [bool(val) for val in la]
+        else:
+            raise ValueError (f"astype not supported: {astype}")
+            
+    raise ValueError (f"astype not supported: {astype}")
+
         
         
 class KeyedListEncoder(json.JSONEncoder):

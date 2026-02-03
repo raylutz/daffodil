@@ -15,8 +15,8 @@
             not grow in size, and this mimics the behavior in SQL tables.
     
         offer dropping unexpected columns when doing concat/append ??
-            keys mismatch: daf: (['ballot_id', 'style_num', 'precinct', 'contest', 'option', 'has_indication', 'num_marks', 'num_votes', 'pixel_metric_value', 'sm_pmv', 'writein_name', 'overvotes', 'undervotes', 'ssidx', 'delta_y', 'ev_coord_str', 'ev_precinct_id', 'target_pixels', 'gray_eval', 'is_bmd', 'wipmv', 'p', 'x', 'y', 'w', 'h', 'b', 'bmd_str'])
-            other_instance:     (['ballot_id', 'style_num', 'precinct', 'contest', 'option', 'has_indication', 'num_marks', 'num_votes', 'pixel_metric_value', 'sm_pmv', 'writein_name', 'overvotes', 'undervotes', 'ssidx', 'delta_y', 'ev_coord_str', 'ev_precinct_id', 'target_pixels', 'gray_eval', 'is_bmd', 'wipmv', 'p', 'x', 'y', 'w', 'h'])
+            keys mismatch: daf: (['ballot_id', 'style_num', 'precinct', 'contest', 'option', 'has_indication', 'num_marks', 'num_votes', 'pmv', 'sm_pmv', 'writein_name', 'overvotes', 'undervotes', 'ssidx', 'delta_y', 'ev_coord_str', 'ev_precinct_id', 'target_pixels', 'gray_eval', 'is_bmd', 'wi_pmv', 'p', 'x', 'y', 'w', 'h', 'b', 'bmd_str'])
+            other_instance:     (['ballot_id', 'style_num', 'precinct', 'contest', 'option', 'has_indication', 'num_marks', 'num_votes', 'pmv', 'sm_pmv', 'writein_name', 'overvotes', 'undervotes', 'ssidx', 'delta_y', 'ev_coord_str', 'ev_precinct_id', 'target_pixels', 'gray_eval', 'is_bmd', 'wi_pmv', 'p', 'x', 'y', 'w', 'h'])
             > daf.py(2003)concat()
     
             No: It will probably be better to keep a value of the num cols and not calculate every time. (not worth it)

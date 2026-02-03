@@ -364,7 +364,10 @@ class TestDaf(unittest.TestCase):
         daf = Daf(cols=cols, lol=lol, keyfield='', dtypes={'col1': int, 'col2': str})
 
         with self.assertRaises(KeysDisabledError):
-            result = daf.keys()
+            _ = daf.keys(silent_error=False)
+            
+        result = daf.keys(silent_error=True)
+        self.assertEqual(result, [])
 
     def test_keys_with_keyfield(self):
         cols = ['col1', 'col2']
@@ -1375,13 +1378,14 @@ class TestDaf(unittest.TestCase):
 
     def test_remove_key_keyfield_notdefined(self):
         cols = ['col1', 'col2']
-        hd = {'col1': 0, 'col2': 1}
+        #hd = {'col1': 0, 'col2': 1}
         lol = [[1, 'a'], [2, 'b'], [3, 'c']]
         daf = Daf(cols=cols, lol=lol, keyfield='', dtypes={'col1': int, 'col2': str})
 
         keyval = 4
         with self.assertRaises(KeysDisabledError):
-            new_daf = daf.remove_key(keyval, silent_error=True)
+            _ = daf.remove_key(keyval, silent_error=True)
+            
 
         # self.assertEqual(new_daf.name, '')
         # self.assertEqual(new_daf.keyfield, '')

@@ -11,7 +11,7 @@ The Daffodil class provides a lightweight, simple and fast alternative to provid
 r"""
     MIT License
 
-    Copyright (c) 2025 Ray Lutz
+    Copyright (c) 2026 Ray Lutz
 
     Permission is hereby granted, free of charge, to any person obtaining a copy
     of this software and associated documentation files (the "Software"), to deal
@@ -50,13 +50,14 @@ r"""
         3. Increment version number in pyproject.toml
         4. Create GitHub release.
         5. Remove prior release
-                rm -r dist
+                rm -r dist; rm -r build; rm -r *.egg-info
         6. Upgrade tools
+                python.exe -m pip install --upgrade pip
                 pip install --upgrade build setuptools wheel twine
-        7. build the release
                 pip install --upgrade build
+        7. build the release
                 python -m build
-        8. Check that documentation md files exist in release
+        8. Check that documentation md files exist in release (only in linux)
                 tar -tzf dist/daffodil-*.tar.gz | grep -E 'CHANGELOG\.md|ROADMAP\.md|LICENSE'
         8. check distribution        
                 twine check dist/*
@@ -134,6 +135,7 @@ class Daf:
             cols:       Optional[T_ls]          = None,     # Optional column names to use.
             dtypes:     Optional[T_dtype_dict]  = None,     # Optional dtype_dict describing the desired type of each column.
                                                             #   also used to define column names if provided and cols not provided.
+            schema:     Optional[type]          = None,     # Optional schema class used to define columns and defaults.
             keyfield:   Union[str, int, T_ta, T_la]  = '',  # A field of the columns to be used as a key.
                                                             # can be set even if columns not set yet.
                                                             # can be tuple or list of colnames, and then they are used as tuple keys.
@@ -145,19 +147,29 @@ class Daf:
             itermode:   str                     = 'dict',   # default itermode, either 'dict' or 'keyedlist'
             attrs:      Optional[T_da]          = None,     # arbitrary additional attributes.
         ):
+            
+        self.name           = name              # str - arbitrary name for this daffodil array
+        self.schema         = schema            # Optional schema class used to define columns and defaults.
+        self.dtypes         = dtypes            # col types used for conversion from csv str values.
+
+        if keyfield is None:                    # not specified
+            if schema is not None:
+                keyfield = getattr(schema, "__keyfield__", "")
+            else:
+                keyfield = ''
+        self.keyfield       = keyfield          # str - field of array to assign to the kd dict.
+
         if lol is None:
             lol = []
         if dtypes is None:
-            dtypes = {}
+            dtypes = self._get_dtypes_from_schema(schema)
+            
         if cols is None:
             cols = []
         if attrs and isinstance(attrs, dict):
             self.attrs = attrs
         else:
             self.attrs = {}
-
-        self.name           = name              # str - arbitrary name for this daffodil array
-        self.keyfield       = keyfield          # str - field of array to assign to the kd dict.
 
         if hd and isinstance(hd, dict):
             self.hd         = hd                # header dict, use to index columns
@@ -180,8 +192,6 @@ class Daf:
             self.disp_cols  = list(disp_cols)
         else:
             raise TypeError("disp_cols must be a list/tuple or None")
-
-        self.dtypes         = dtypes            # col types used for conversion from csv str values.
 
         self.md_max_rows    = 10    # default number of rows when used with __repr__ and __str__
         self.md_max_cols    = 10    # default number of cols when used with __repr__ and __str__
@@ -225,7 +235,7 @@ class Daf:
 
         # rebuild kd if possible, only if keyfield is defined.
         self._rebuild_kd()
-
+        
 
     #===========================
     # basic attributes and methods
@@ -613,10 +623,10 @@ class Daf:
     #===========================
     # keyfield
 
-    def keys(self) -> Union[T_la, T_lota]:
+    def keys(self, silent_error: bool=True) -> Union[T_la, T_lota]:
         """ return list of keys from kd of keyfield
             may return a list of str or int or list of tuple of (str or int).
-            raises KeysDisabledError if keyfield is not set to an existing column
+            raises KeysDisabledError if keyfield is not set to an existing column and silent_error is False. 
 
             test exists in test_daf.py
 
@@ -630,7 +640,10 @@ class Daf:
         """
 
         if not self.keyfield:
-            raise KeysDisabledError("Key lookups are disabled (keyfield is unset).")
+            if silent_error:
+                return []
+            else:
+                raise KeysDisabledError("Key lookups are disabled (keyfield is unset).")
 
         return list(self.kd.keys())
 
@@ -787,10 +800,13 @@ class Daf:
             unflatten:      bool=True,
             from_str:       bool=True,
             default_type:   Type=str,
+            silent_error:   bool=False,
             ) -> 'Daf':
         """ convert columns of daf array to the datatypes specified in self.dtypes or in passed parameter.
                 dtypes can be a dict where each column may have a different type, or it can be a single type.
                 dtypes may provide desired new types for only some of the columns.
+                types in dtypes must be origin types, like bool, str, int, float, list, dict, tuple, set,
+                    and not type annotations such as List[str] etc.
             columns (self.hd) must be defined.
             unflatten: unflatten from pyon or json to list or dict types
             if from_str is True, (default) assumes that data starts as str, such as when read from csv
@@ -798,15 +814,28 @@ class Daf:
                 Columns specified as str type are not converted.
 
             Note, this converts types in place, and does not create a new array.
+
+            if no dtypes is passed and self.dtypes is not defined, do nothing.
         """
 
         if dtypes:
             self.dtypes = dtypes
 
-        if not self.hd and self.dtypes:
+        if not self.dtypes:
+            return self
+
+        # this adopts the hd from dtypes if not already defined.
+        if not self.hd and self.dtypes and isinstance(self.dtypes, dict):
             self._cols_to_hd(dtypes.keys())
             # currently will not overwrite existing cols.
             # (i.e. pass partial dtypes will alter only those cols)
+
+        if not silent_error and \
+            isinstance(self.dtypes, dict) and self.hd and \
+            set(self.dtypes) != set(self.hd):
+                raise ValueError(
+                    f"dtypes mismatch. check the schema:\ndtypes={sorted(self.dtypes)}, \n  cols={sorted(self.hd)}"
+                )
 
         if not self.lol or not self.lol[0]:
             # this can sometimes happen, no worries.
@@ -836,7 +865,6 @@ class Daf:
                 self.lol[irow][icol] = daf_utils.convert_type_value(self.lol[irow][icol], desired_type) # unflatten=True
 
         return self
-
 
     def flatten(self, convert_bool_to_int=True, use_pyon: bool = True):
         """ convert any columns specified in dtypes as either list or dict, and
@@ -991,6 +1019,46 @@ class Daf:
             return 0.0
 
     #===========================
+    # schema support
+    
+    def attach_schema(self, schema: type) -> None:
+        """
+        Attach a schema to this Daf instance without modifying data.
+
+        The schema is remembered for future use and may provide dtypes,
+        defaults, and optional metadata such as __keyfield__.
+
+        No column reconciliation, type conversion, or validation is performed.
+        """
+
+        # basic validation
+        if not getattr(schema, "__is_schemaclass__", False):
+            raise TypeError("schema must be a @schemaclass")
+
+        # remember schema
+        self.schema = schema
+
+        # derive dtypes declaratively (do not apply)
+        self.dtypes = self._get_dtypes_from_schema(schema)
+
+        # adopt keyfield if not already set
+        if not self.keyfield and hasattr(schema, "__keyfield__"):
+            self.keyfield = schema.__keyfield__
+            if self.hd:
+                self._rebuild_kd()
+
+
+    def _get_dtypes_from_schema(self, schema) -> T_dtype_dict:
+        if schema is None:
+            return {}
+
+        return schema.get_dtypes_dict(use_origins = True)
+
+
+
+
+
+    #===========================
     # initializers
 
     def clone_empty(self, lol: Optional[T_lola]=None, cols: Optional[T_ls]=None, name:str='') -> 'Daf':
@@ -1030,7 +1098,29 @@ class Daf:
 
         return self
 
+    def default_record(self) -> T_da:
+        """
+            Return a new record dict initialized from the attached schema defaults.
 
+            The schema is used only as a source of column names and defaults.
+            No type conversion or validation is performed.
+        """
+        if not self.schema:
+            raise AttributeError("schema must be defined. No schema attached to this Daf instance")
+
+        default_da = self._get_default_record()
+        return default_da
+        
+        
+    def _get_default_record(self) -> T_da:
+        cls = self.schema
+        rec: T_da = {}
+
+        for name in cls.__annotations__:
+            rec[name] = getattr(cls, name)
+
+        return rec    
+    
     #===========================
     # convert from / to other data or files.
 
@@ -2862,7 +2952,7 @@ class Daf:
         flatten:    bool=False,           # if items is the list are lists, combine them into one list.
         omit_nulls: bool=False,           # omit items that are empty strings (nulls).
         default:    Any = _MISSING,       # use this value instead if value is None or '' or NAN (default can be None)
-        astype:     Optional[Union[Callable, str]]=None,
+        astype:     Optional[Union[Callable, str, type]]=None,
         ) -> list:
         """ return data from a daf array as a list
             defaults to the most obvious list if irow and icol not specified.
@@ -2922,7 +3012,7 @@ class Daf:
                     filtered_result_la.append(val)
             result_la = filtered_result_la
 
-        return daf_utils.astype_la(result_la, astype)
+        return daf_utils.astype_la(result_la, astype)   # returns result_la if astype is None.
 
 
     def to_lota(self,
@@ -3012,7 +3102,7 @@ class Daf:
             inverse:        bool=False,
             keyfield:       Union[str, int, T_ta]='',
             ) -> 'Daf':
-        """ Selects rows in daf which match the fields specified in d
+        """ Selects rows in daf which match the fields specified in selector_da
             and return new daf, with keyfield set according to 'keyfield' argument.
             test exists in test_daf.py
         """
@@ -3071,11 +3161,10 @@ class Daf:
     def select_where_idxs(self, where: Callable) -> T_li:
         """
         Select rows in Daf based on the provided where condition
-        variable 'row' is the current row being evaluated
-        and return list of indexes.
+        return list of indexes.
 
         # Example Usage
-            result_daf = original_daf.select_where("int(row['colname']) > 5")
+            result_daf = original_daf.select_where(lambda row: int(row['colname']) > 5)
 
         Could use .to_index() approach instead?
 
@@ -3728,7 +3817,7 @@ class Daf:
     #=========================
     #   sort
 
-    def sort_by_colname(self, colname:str, reverse: bool=False, length_priority: bool=False) -> 'Daf':
+    def sort_by_colname(self, colname:str, *, reverse: bool=False, length_priority: bool=False) -> 'Daf':
         """ sort the data by a given colname, using length priority if specified.
             sorts in place. Make a copy if you need the original order.
             Note, this will place an empty field before fields with contents, which differs from spreadsheet operation.

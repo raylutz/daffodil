@@ -20,10 +20,25 @@ all prior releases. Plans for future moved to ROADMAP.md.
 ---
 
 ## [0.5.11] - pending
-_No published tag yet._
+- No published tag yet.
 
 ### Added
-- (pending notes)
+- Added optional schema class support for declarative column definitions using Python type annotations.
+- Added default_record() method to create new records initialized from schema defaults.
+- Added text to README.md to explain the new schema approach.
+- Added decorator approach to schemaclass and placed in a separate file schemaclass.py with schemaclass_README.md in `/lib`
+- Added method .attach_schema(self, schema: type) to allow schema to be attached after reading the file.
+
+### Changed
+- daf.keys() now has optional parameter 'silent_error' which defaults to True.
+   - If True and there is no keyfield set, do not produce KeysDisabledError and instead return []
+   - If False, raise KeysDisabledError
+- added compatibility for astype_la() to use type values like int,str,float,bool as well as `int`,`str`, etc.
+- apply_dtypes() now enforces exact match by default
+   - Use silent_error=True to allow mismatches.
+   
+### Fixed
+- (add entries here)
 
 ---
 ## [0.5.10] - 2025-09-28
