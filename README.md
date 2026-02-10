@@ -882,7 +882,7 @@ result_daf = daf1.join(
     custom_translator_daf=None,  # Optional: Custom mapping for column resolution
     diagnose=True            # Enable diagnostics for debugging
 )```
-
+```
 #### Operation
 Daf instances joined must have keyfields defined and they must have values that can be used to join the records.
 
