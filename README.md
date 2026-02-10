@@ -860,7 +860,7 @@ In this example, we have an 4 x 3 array and we will sum the rows and columns to 
                               [4,  5,   9],
                               [7,  8,   15],
                               [12, 15,  27]])
-                              
+```                              
 ## Join Overview
 The `join` method in Daf enables combining data from two tables (Daf instances) based on a shared keyfield. 
 This functionality is inspired by SQL joins, supporting `inner`, `left`, `right`, and `outer` join types, 
