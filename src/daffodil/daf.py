@@ -816,6 +816,10 @@ class Daf:
             Note, this converts types in place, and does not create a new array.
 
             if no dtypes is passed and self.dtypes is not defined, do nothing.
+
+            Unless silent_error is True, will check for columns consistency against the dtypes.
+            Note: dtypes can be a SUPERSET of the columns. I.e. a single dtypes definition can be
+                    used for a number of tables that differ only in which columns are included.
         """
 
         if dtypes:
@@ -830,13 +834,19 @@ class Daf:
             # currently will not overwrite existing cols.
             # (i.e. pass partial dtypes will alter only those cols)
 
-        if not silent_error and \
-            isinstance(self.dtypes, dict) and self.hd and \
-            set(self.dtypes) != set(self.hd):
-                raise ValueError(
-                    f"dtypes mismatch. check the schema:\ndtypes={sorted(self.dtypes)}, \n  cols={sorted(self.hd)}"
-                )
-
+        if (
+            not silent_error
+            and isinstance(self.dtypes, dict)
+            and self.hd
+            and not set(self.hd).issubset(self.dtypes)
+            ):
+            missing = sorted(set(self.hd) - set(self.dtypes))
+            raise ValueError(
+                "dtypes mismatch. check the schema:\n"
+                f"missing dtypes for cols={missing}\n"
+                f"dtypes keys={sorted(self.dtypes)},\n"
+                f"cols={sorted(self.hd)}"
+            )
         if not self.lol or not self.lol[0]:
             # this can sometimes happen, no worries.
             return self
@@ -1882,6 +1892,9 @@ class Daf:
         #   v.__name__          -- the type’s name as a string
         #   else str(v)         -- if the type is already a string, for example.
         
+        if self.dtypes is None:
+            self.dtypes = {}
+
         dtypes_str = {
             k: (v.__name__ if isinstance(v, type) else str(v))
                 for k, v in self.dtypes.items()
@@ -2912,6 +2925,7 @@ class Daf:
     def select_records_daf(self, keys_ls: Union[T_ls, Iterable], inverse:bool=False, silent_error: bool=False) -> 'Daf':
         """ Select multiple records from daf using the keys and return as a single daf.
             If inverse is true, select records that are not included in the keys.
+            silent_error = True: do not raise an error if any keys are not found.
 
             This function requires that a keyfield exists, otherwise raises KeysDisabledError.
         """
@@ -4089,6 +4103,8 @@ class Daf:
     def annotate_daf(self, other_daf: 'Daf', my_to_other_dict: T_ds) -> 'Daf':
         """
             Adopt fields from other_daf for fields in self using my_to_other_dict map.
+
+            Note: should be changed to allow other_daf to contain a subset of records that need to be annotated.
         """
 
         my_keyfield = self.keyfield
@@ -6606,8 +6622,21 @@ class Daf:
 
             )
         if include_summary:
-            # (compatible with tuple keys.)
-            mdstr += f"\n\\[{self.num_rows():,} rows x {self.num_cols():,} cols; keyfield='{self.keyfield}'; {len(self.kd):,} keys ] ({self.name or type(self).__name__})\n"
+            parts = []
+            parts.append(f"rows={self.num_rows()}")
+            parts.append(f"cols={self.num_cols()}")
+            parts.append(f"keyfield='{self.keyfield or ''}'")
+            parts.append(f"name='{self.name or ''}'")
+
+            schema = self.attrs.get('schema')
+            if schema:
+                parts.append(f"schema='{schema}'")
+
+            mdstr += "\n%% daf " + "; ".join(parts) + "\n"
+
+        # if include_summary:
+        #     # (compatible with tuple keys.)
+        #     mdstr += f"\n\\[{self.num_rows():,} rows x {self.num_cols():,} cols; keyfield='{self.keyfield}'; {len(self.kd):,} keys ] ({self.name or type(self).__name__})\n"
         return mdstr
 
 

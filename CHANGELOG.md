@@ -19,6 +19,22 @@ all prior releases. Plans for future moved to ROADMAP.md.
 
 ---
 
+## [0.5.12] - (pending)
+### Added
+- .from_md() method added to allow round-trip of daffodil arrays through markdown representation.
+   - changed footer syntax so it does not need markdown escaping, uses standard syntax for easy parsing.
+   - footer contains, rows, cols, keyfield, name, schema
+   - will detect abbreviated markdown table output and raise an error.
+
+### Changed
+- (add entries here)
+
+### Fixed
+- Corrected .apply_dtypes() so it would allow that not all columns defined by the schema exist, if columns are already defined.
+    However, dtypes must include all columns that do exist.
+
+---
+
 ## [0.5.11] - 2026-02-02
 
 ### Added
