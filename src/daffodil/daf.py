@@ -656,6 +656,7 @@ class Daf:
                 else set it anyway.
             Otherwise, set key field
             keyfield can be a tuple or list of colnames.
+            If provided, then the row keys are constructed as tuples of those fields.
 
             if self is empty do nothing.
         """
@@ -882,12 +883,14 @@ class Daf:
             flatten arbitrary nested objects, functions or methods.
 
             Note, if using pyon encoding, there is no need to flatten prior to writing the csv data,
-                as it is converted using csv.writer using the __repr__ method for the object.
+                as it is converted using csv.writer using the __repr__ method for the object. This
+                normally works but you should use int's for bools in your data so the data will
+                not explode into True and False strings, but remain 1 and 0.
 
             if desired type is bool, it will convert to int, if convert_bool_to_int is True
 
             This should be envoked just prior to saving the data to a csv file if use_pyon = False.
-            Otherwise, there is no need to flatten the data, it will happen automatically.
+            --> Otherwise, there is no need to flatten the data, it will happen automatically.
 
             Historical Reference: https://legacy.python.org/workshops/1994-11/FlattenPython.html
         """
@@ -938,6 +941,7 @@ class Daf:
 
         return self
 
+    # Unflatten has moved to .apply_dtypes()
 
     # def unflatten_cols(self, cols: T_ls):
         # """
@@ -1558,6 +1562,10 @@ class Daf:
 
         # the following will be able to stream from the source and convert directly to lol.
         data_lol = daf_utils.buff_csv_to_lol(csv_buff, user_format=user_format, sep=sep, include_cols=include_cols, dtypes=dtypes)
+
+        # Remove trailing empty list rows sometimes caused by trailing newlines
+        while data_lol and data_lol[-1] == []:
+            data_lol.pop()
 
         cols = []
         if not noheader:

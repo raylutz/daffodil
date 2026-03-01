@@ -32,6 +32,7 @@ all prior releases. Plans for future moved to ROADMAP.md.
 ### Fixed
 - Corrected .apply_dtypes() so it would allow that not all columns defined by the schema exist, if columns are already defined.
     However, dtypes must include all columns that do exist.
+- Added removal of empty list items when read from csv if there are blank lines at the end of the file. Edge case.
 
 ---
 
