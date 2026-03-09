@@ -356,6 +356,10 @@ For example, to sum all the values in a specific column, converting to a list wi
 operator to correctly sum the values. Caution: if the values must be numeric types.
 
     total = sum(my_daf[:, 'this_column'].to_list())
+
+But it is  better to use .col method because it does not first create a new daf.
+
+    total = sum(my_daf.col('this_column'))
     
 Note: for performance, use `reduce()` and process all columns at the same time if multiple columns are to be
 summed, for example, as this is much more peformant and is scalable to multiple `.csv` files.
@@ -779,6 +783,10 @@ or
 or
 
     col_list = my_daf[:, colname].to_list()                   # if the colname is a string
+
+or better
+
+    col_list = my_daf.col(colname)
     
 #### return a column from daf by col idx as a list 
 

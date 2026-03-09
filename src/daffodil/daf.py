@@ -1779,7 +1779,7 @@ class Daf:
             colnames = self.columns()
 
         import numpy as np
-        donpa = {col: np.array(self[:, col].to_list(default=default)) for col in colnames}
+        donpa = {col: np.array(self.col(col, default=default)) for col in colnames}
 
         return donpa
 
@@ -3263,17 +3263,31 @@ class Daf:
         return true_daf, false_daf
 
 
-    def col(self, colname: str, unique: bool=False, omit_nulls: bool=False, silent_error:bool=False) -> list:
+    def col(self, 
+            colname:        str,
+            *,
+            unique:         bool=False, 
+            omit_nulls:     bool=False, 
+            silent_error:   bool=False,
+            astype:         Optional[Union[Callable, str, type]]=None,
+            ) -> list:
         """ alias for col_to_la()
             can also use column ranges and then transpose()
             test exists in test_daf.py
 
             Can use my_daf[:, colname].to_list(unique=unique, omit_nulls=omit_nulls)
         """
-        return self.col_to_la(colname, unique, omit_nulls=omit_nulls, silent_error=silent_error)
+        return self.col_to_la(colname, unique=unique, omit_nulls=omit_nulls, silent_error=silent_error)
 
 
-    def col_to_la(self, colname: str, unique: bool=False, omit_nulls: bool=False, silent_error:bool=False) -> list:
+    def col_to_la(self, 
+            colname:        str, 
+            *, 
+            unique:         bool=False, 
+            omit_nulls:     bool=False, 
+            silent_error:   bool=False,     # no error if column not found.
+            astype:         Optional[Union[Callable, str, type]]=None,
+            ) -> list:
         """ pull out out a column from daf by colname as a list of any
             does not modify daf. Using unique requires that the
             values in the column are hashable.
@@ -3289,6 +3303,8 @@ class Daf:
 
         icol = self.hd[colname]
         result_la = self.icol_to_la(icol, unique=unique, omit_nulls=omit_nulls)
+
+        result_la = daf_utils.astype_la(result_la, astype)
 
         return result_la
 
@@ -6091,7 +6107,7 @@ class Daf:
         for col_def_ta in col_def_lot:
             col_name, col_dtype, col_format, col_profile = col_def_ta
 
-            col_data_la = self[:, col_name].to_list()                                       # perflint-reviewed (loop-invariant-statement)
+            col_data_la = self.col(col_name)                                       # perflint-reviewed (loop-invariant-statement)
 
             info_dod[col_name] = daf_utils.list_stats(col_data_la, profile=col_profile)     # perflint-reviewed (loop-invariant-statement)
 
@@ -6381,7 +6397,7 @@ class Daf:
             breakpoint() # perm okay
             pass
 
-        resolved_colnames = eff_translator_daf[:, "resolved_colname"].to_list()
+        resolved_colnames = eff_translator_daf.col("resolved_colname")
 
         # Prepare the resulting Daf
         result_daf = Daf(cols=resolved_colnames, name=name)
@@ -6466,7 +6482,7 @@ class Daf:
         combined_record = {}
 
         if not join_names_ls:
-            join_names_ls = translator_daf[:, 'source_name'].to_list(unique=True)
+            join_names_ls = translator_daf.col('source_name', unique=True)
             if len(join_names_ls) > 2 or not join_names_ls:
                 raise ValueError ("join_names_ls must be specified as translator_daf has more than two source_names")
 
@@ -6757,7 +6773,7 @@ class Daf:
         value_counts_daf = Daf.from_lod_to_cols([value_counts_di], cols=[colname, 'counts'])
 
         if include_total:
-            value_counts_daf.append({colname: ' **Total** ', 'counts': sum(value_counts_daf[:,'counts'].to_list())})
+            value_counts_daf.append({colname: ' **Total** ', 'counts': sum(value_counts_daf.col('counts'))})
 
         return value_counts_daf
 

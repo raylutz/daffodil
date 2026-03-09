@@ -25,9 +25,10 @@ all prior releases. Plans for future moved to ROADMAP.md.
    - changed footer syntax so it does not need markdown escaping, uses standard syntax for easy parsing.
    - footer contains, rows, cols, keyfield, name, schema
    - will detect abbreviated markdown table output and raise an error.
+- added 'astype' parameter to .col_to_la() operator.
 
 ### Changed
-- (add entries here)
+- Changed some uses of [:, col_name].to_list() to .col(col_name)
 
 ### Fixed
 - Corrected .apply_dtypes() so it would allow that not all columns defined by the schema exist, if columns are already defined.

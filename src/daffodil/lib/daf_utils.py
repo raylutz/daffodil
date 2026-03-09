@@ -1941,9 +1941,15 @@ def compare_lists(
     return matching_list, missing_list, extra_list, missing_req_list
        
     
-def astype_la(la: T_la, astype: Optional[Union[Callable, str, type]]=None) -> T_la:
+def astype_la(
+        la: T_la,
+        astype: Optional[Union[Callable, str, type]]=None,
+        ) -> T_la:
+
     """ fix the type according to astype spec if it is not None 
             this function current duplicated in daf_utils
+
+        NOTE: returns a new list if modified.
     """        
 
     if astype is None:
@@ -1971,6 +1977,7 @@ def astype_la(la: T_la, astype: Optional[Union[Callable, str, type]]=None) -> T_
     raise ValueError (f"astype not supported: {astype}")
 
 def astype_value(val: Any, astype: Optional[Union[Callable, str]]=None) -> Any:
+
     """ fix the type according to astype spec if it is not None 
             this function current duplicated in daf_utils
     """        
