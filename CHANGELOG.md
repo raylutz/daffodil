@@ -26,6 +26,7 @@ all prior releases. Plans for future moved to ROADMAP.md.
    - footer contains, rows, cols, keyfield, name, schema
    - will detect abbreviated markdown table output and raise an error.
 - added 'astype' parameter to .col_to_la() operator.
+- Added schemaclass record_from() method, used like: da = schema.BifSchema.record_from(other_da)
 
 ### Changed
 - Changed some uses of [:, col_name].to_list() to .col(col_name)

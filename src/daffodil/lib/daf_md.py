@@ -1,6 +1,6 @@
 # daf_md.py -- markdown generation
 
-# copyright (c) 2025 Ray Lutz
+# copyright (c) 2025, 2026 Ray Lutz
 
 import re
 #import copy
@@ -14,12 +14,11 @@ from string import Template
 # import sys
 # no longer need the following due to using pytest
 # sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.realpath(__file__)))))
-from daffodil.lib.daf_types import T_ls, T_lola, T_da, T_li #, T_doda, T_df, T_lf, T_loda, T_loloda, T_lodolodi, T_ts, T_ds, T_dola 
+from daffodil.lib.daf_types import T_ls, T_lola, T_da, T_li # noqa: F401
+            #, T_doda, T_df, T_lf, T_loda, T_loloda, T_lodolodi, T_ts, T_ds, T_dola 
 import daffodil.lib.daf_utils as utils
 
-from typing import List, Dict, Any, Tuple, Optional, Union #, cast
-def fake_function(a: Optional[List[Dict[str, Union[int, Tuple[int, Any]]]]] = None) -> Optional[int]:
-    return None   # pragma: no cover
+from typing import List, Dict, Any, Tuple, Optional, Union, cast  # noqa: F401
 
 
 # Translation dictionaries for table alignment

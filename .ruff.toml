@@ -12,6 +12,7 @@ lint.ignore = [
     "E501",  # Ignore line length checks
     "E401",  # [*] Multiple imports on one line
     "E712",  # Avoid equality comparisons to `False`
+    "F541",  # Ignore f-string without placeholders.
 ]
 
 # Disable auto-fixing to prevent unintended changes

@@ -1,6 +1,7 @@
 # daf_indexing.py
 
 # noqa
+# ruff: noqa
 """
 
 # Daf -- Python Daffodil dataframes

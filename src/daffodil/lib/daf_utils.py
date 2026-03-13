@@ -1,6 +1,6 @@
 # daf_utils.py
 
-# copyright (c) 2024 Ray Lutz
+# copyright (c) 2024, 2025, 2026 Ray Lutz
 
 import io
 import os
@@ -17,10 +17,7 @@ import platform
 import xlsx2csv     # type: ignore
 #import numpy as np
 
-from typing import List, Dict, Any, Tuple, Optional, Union, cast, Type, Iterable, Callable, Iterator
-
-def fake_function(a: Optional[List[Dict[str, Tuple[int,Union[Any, str, Iterable]]]]] = None) -> Optional[int]:
-    return None or cast(int, 0)       # pragma: no cover
+from typing import List, Dict, Any, Tuple, Optional, Union, cast, Type, Iterable, Callable, Iterator # noqa: F401
 
 
 from daffodil.lib.daf_types import T_lola, T_loda, T_dtype_dict, T_da, T_ds, \
@@ -612,8 +609,6 @@ def safe_convert_json_to_obj(json_str: str, json_name: str='') -> Any:
     except json.decoder.JSONDecodeError:
         pass
 
-    #logs.sts(f"{logs.prog_loc()} WARN: Single quotes found in {json_name}: '{json_str}' ", 3)       
-        
     json_str      = re.sub(r"'", r'"', json_str)
     json_str      = re.sub(r'None', r'null', json_str)
         
@@ -1281,6 +1276,35 @@ def sts(string: str, verboselevel: int=0, end: str='\n', enable: bool=True) -> s
         print(log_str, end=end, flush=True)
         
     return string+end
+
+
+def caller_loc() -> str:
+    import inspect
+    frame = inspect.currentframe()
+    if frame is None:
+        return ""
+
+    try:
+        caller = frame.f_back.f_back  # skip this function + validator
+        if caller is None:
+            return ""
+
+        frameinfo = inspect.getframeinfo(caller)
+        rel_path = os.path.relpath(
+            frameinfo.filename,
+            os.getcwd()
+        ).replace("\\", "/")
+
+        return f"{rel_path}:{frameinfo.lineno}"
+    finally:
+        del frame
+
+
+def stsloc(text: str, verboselevel: int=0, end: str='\n', enable: bool=True, color='yellow') -> str:
+
+    loctext = f"{caller_loc()} {text}"
+
+    return sts(text=loctext, verboselevel=verboselevel, end=end, enable=enable, color=color)
 
 
 def get_datetime_str() -> str:

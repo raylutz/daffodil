@@ -1,6 +1,6 @@
 # daf_types.py
 
-from typing import List, Dict, Any, Tuple, Type, Optional, Union, Set, KeysView #, TYPE_CHECKING, Callable, cast
+from typing import List, Dict, Any, Tuple, Type, Optional, Union, Set, KeysView, TYPE_CHECKING, Callable, cast    # noqa: F401
 
 import pandas as pd                 # type: ignore
 import numpy  as np                 # type: ignore

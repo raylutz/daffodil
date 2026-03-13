@@ -91,7 +91,7 @@ from pathlib import Path
 
 from daffodil.lib.daf_types import T_ls, T_lola, T_di, T_loda, T_da, T_li, T_dtype_dict, \
                             T_dola, T_dodi, T_la, T_lota, T_doda, T_buff, T_ds, T_lb, T_rli, \
-                            T_ta, T_lor, T_kva, T_donpa, T_npa, T_lsi  #, T_hllola
+                            T_ta, T_lor, T_kva, T_donpa, T_npa, T_lsi  # noqa: F401
 
 import daffodil.lib.daf_utils    as daf_utils
 import daffodil.lib.daf_md       as md
@@ -100,10 +100,7 @@ import daffodil.lib.daf_pdf      as daf_pdf
 
 from daffodil.keyedlist import KeyedList
 
-
-from typing import List, Dict, Any, Tuple, Optional, Union, cast, Type, Callable, Iterable, Iterator #
-def fake_function(a: Optional[List[Dict[str, Tuple[int,Union[Any, str]]]]] = None) -> Optional[int]:
-    return None or cast(int, 0)       # pragma: no cover
+from typing import List, Dict, Any, Tuple, Optional, Union, cast, Type, Callable, Iterable, Iterator # noqa: F401
 
 T_Pydf = Type['Daf']
 T_Daf = Type['Daf']
@@ -3274,6 +3271,7 @@ class Daf:
         """ alias for col_to_la()
             can also use column ranges and then transpose()
             test exists in test_daf.py
+            silent_error: if colname not found, return []
 
             Can use my_daf[:, colname].to_list(unique=unique, omit_nulls=omit_nulls)
         """

@@ -39,11 +39,9 @@ a daf instance 'self'.
 """
 See README file at this location: https://github.com/raylutz/daffodil/blob/main/README.md
 """
-# import os
-# import sys
-# no longer need the following due to using pytest
-#sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.realpath(__file__)))))
-from daffodil.lib.daf_types import T_df, T_dtype_dict, T_ls #, T_li, T_doda, T_lb
+
+from daffodil.lib.daf_types import T_df, T_dtype_dict, T_ls # noqa: F401
+                            #, T_li, T_doda, T_lb
                             # T_lola, T_da, T_di, T_loda, T_dola, T_dodi, T_la, T_lota, T_buff, T_ds, 
                      
 import numpy as np
@@ -52,10 +50,7 @@ import io
 import pandas as pd
 # import daffodil.lib.daf_utils    as daf_utils
 
-
-from typing import List, Dict, Any, Tuple, Optional, Union, cast, Type, Callable #
-def fake_function(a: Optional[List[Dict[str, Tuple[int,Union[Any, str, Type, Callable ]]]]] = None) -> Optional[int]:
-    return None or cast(int, 0)   # pragma: no cover
+from typing import List, Dict, Any, Tuple, Optional, Union, cast, Type, Callable # noqa: F401
 
 # define a sentinel object to express a missing item where None is a valid value.
 from .daf_utils import _MISSING
