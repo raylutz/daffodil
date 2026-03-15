@@ -2696,8 +2696,14 @@ class Daf:
         """
         row_sliced_lol = self.lol
 
-        if not self.lol:
+        if not self.lol or not irows and not invert:
             return self.clone_empty()
+
+        if not irows:
+            if invert:
+                return self.copy(deep=True)
+            else:
+                return self.clone_empty()
 
         if isinstance(irows, int):
             if not invert:
@@ -3157,20 +3163,27 @@ class Daf:
         return {}
 
 
-    def select_where(self, where: Callable) -> 'Daf':
+    def select_where(self, where: Callable, indirect_col: Optional[str]=None) -> 'Daf':
         """
         Select rows in Daf based on the provided where condition
-        if provided as a string, the variable 'row' is the current row being evaluated.
-        if a callable function, then it is passed the row.
-
+        
         # Example Usage
 
             result_daf = original_daf.select_where(lambda row: bool(int(row['colname']) > 5))
 
+        if indirect_col is set to a column that exists in the daf array, then any 
+            column references will be first tried in the non-indirect columns and if not found,
+            then the indirect column will be attempted.
+
         """
         # unit test exists.
 
-        result_lol = [list(row.values()) for row in self if where(row)]
+        result_lol: T_lola = []
+
+        for row_da in self:
+            row = _IndirectRowView(row_da, indirect_col)
+            if where(row):
+                result_lol.append(list(row_da.values()))
 
         daf = Daf(cols=self.columns(), lol=result_lol, keyfield=self.keyfield, dtypes=self.dtypes)
 
@@ -3229,10 +3242,12 @@ class Daf:
         return unique_daf, dups_daf
 
 
-
-
-
-    def split_where(self, where: Callable) -> Tuple['Daf', 'Daf']:
+    def split_where(
+            self, 
+            where: Callable,
+            *,
+            indirect_col: Optional[str] = None,
+            ) -> Tuple['Daf', 'Daf']:
         """
         Select rows in Daf based on the provided where condition,
         and split into two Daf objects, for True and False.
@@ -3248,14 +3263,27 @@ class Daf:
         true_lol = []
         false_lol = []
 
-        for klist in self.iter_klist():
-            if where(klist):
-                true_lol.append(klist._values)
-            else:
-                false_lol.append(klist._values)
+        if indirect_col:
 
-        true_daf = Daf(cols=self.columns(), lol=true_lol, keyfield=self.keyfield, dtypes=self.dtypes)
-        false_daf = Daf(cols=self.columns(), lol=false_lol, keyfield=self.keyfield, dtypes=self.dtypes)
+            for klist in self.iter_klist():
+
+                row = _IndirectRowView(klist, indirect_col)
+
+                if where(row):
+                    true_lol.append(klist._values)
+                else:
+                    false_lol.append(klist._values)
+
+        else:    
+
+            for klist in self.iter_klist():
+                if where(klist):
+                    true_lol.append(klist._values)
+                else:
+                    false_lol.append(klist._values)
+
+            true_daf = Daf(cols=self.columns(), lol=true_lol, keyfield=self.keyfield, dtypes=self.dtypes)
+            false_daf = Daf(cols=self.columns(), lol=false_lol, keyfield=self.keyfield, dtypes=self.dtypes)
 
         return true_daf, false_daf
 
@@ -3267,6 +3295,7 @@ class Daf:
             omit_nulls:     bool=False, 
             silent_error:   bool=False,
             astype:         Optional[Union[Callable, str, type]]=None,
+            indirect_col:   Optional[str]=None,
             ) -> list:
         """ alias for col_to_la()
             can also use column ranges and then transpose()
@@ -3275,7 +3304,13 @@ class Daf:
 
             Can use my_daf[:, colname].to_list(unique=unique, omit_nulls=omit_nulls)
         """
-        return self.col_to_la(colname, unique=unique, omit_nulls=omit_nulls, silent_error=silent_error)
+        return self.col_to_la(colname, 
+                unique          = unique, 
+                omit_nulls      = omit_nulls, 
+                silent_error    = silent_error,
+                astype          = astype,
+                indirect_col    = indirect_col,
+                )
 
 
     def col_to_la(self, 
@@ -3285,7 +3320,8 @@ class Daf:
             omit_nulls:     bool=False, 
             silent_error:   bool=False,     # no error if column not found.
             astype:         Optional[Union[Callable, str, type]]=None,
-            ) -> list:
+            indirect_col:   Optional[str]=None,
+        ) -> list:
         """ pull out out a column from daf by colname as a list of any
             does not modify daf. Using unique requires that the
             values in the column are hashable.
@@ -3294,15 +3330,31 @@ class Daf:
 
         if not colname:
             raise RuntimeError("colname is required.")
-        if colname not in self.hd:
+
+        # normal column    
+        if colname in self.hd:
+            icol = self.hd[colname]
+            result_la = self.icol_to_la(icol, unique=unique, omit_nulls=omit_nulls)
+            result_la = daf_utils.astype_la(result_la, astype)
+
+        elif indirect_col and indirect_col in self.hd:
+            result_la = []
+
+            for row_da in self:
+                val = daf_utils.get_indirect_val(row_da, indirect_col, colname, default='')
+
+                if omit_nulls and val == '':
+                    continue
+
+                val = daf_utils.astype_value(val, astype)
+                result_la.append(val)
+            if unique:
+                result_la = list(dict.fromkeys(result_la))
+
+        else:
             if silent_error:
                 return []
             raise RuntimeError(f"colname {colname} not defined in this daf. Use silent_error to return [] in this case.")
-
-        icol = self.hd[colname]
-        result_la = self.icol_to_la(icol, unique=unique, omit_nulls=omit_nulls)
-
-        result_la = daf_utils.astype_la(result_la, astype)
 
         return result_la
 
@@ -5048,11 +5100,12 @@ class Daf:
             reduction_da = initial_da or {}
 
             for row_da in self:
-                indirect_val = row_da[indirect_col]
-                if isinstance(indirect_val, str):
-                    indirect_da = daf_utils.safe_convert_json_to_obj(indirect_val)
-                else:
-                    indirect_da = indirect_val
+                indirect_da = daf_utils.get_indirect_da(row_da, indirect_col)
+                # indirect_val = row_da[indirect_col]
+                # if isinstance(indirect_val, str):
+                #     indirect_da = daf_utils.safe_convert_json_to_obj(indirect_val)
+                # else:
+                #     indirect_da = indirect_val
                 try:
 
                     reduction_da = func(indirect_da, reduction_da, cols=cols, is_sparse=True, **kwargs)
@@ -6835,4 +6888,110 @@ class DafIterator:
             self._index = 0
             raise StopIteration
 
+
+
+class _IndirectRowView:
+    """
+    Row adapter that exposes keys from an indirect column as if they were normal columns.
+
+    Lookup order:
+        1. explicit row fields
+        2. keys inside the indirect column dict
+        3. return '' (Daf null sentinel) if not found
+
+    Allows concise rows (values stored in an indirect column) to behave
+    like explicit rows for operations such as select_where() and split_where().
+
+    No copying occurs; the wrapper holds references to the original row
+    (dict or KeyedList) and the indirect dict.
+    """
+
+    def __init__(self, row, indirect_col=None):
+        self.row = row
+        self.indirect = (
+            daf_utils.get_indirect_da(row, indirect_col)
+            if indirect_col else None
+        )
+
+    def __getitem__(self, key):
+
+        if key in self.row:
+            return self.row[key]
+
+        if self.indirect and key in self.indirect:
+            return self.indirect[key]
+
+        return ''
+
+    def get(self, key, default=''):
+
+        if key in self.row:
+            return self.row.get(key, default)
+
+        if self.indirect:
+            return self.indirect.get(key, default)
+
+        return default
+
+
+def unpack_indirect(
+        self,
+        *,
+        indirect_col: str,
+        cols: list[str],
+        default: Any,
+        silent_error: bool = False,
+        ) -> 'Daf':
+    """
+    Return a new Daf with selected columns flattened from an indirect column.
+
+    indirect_col : str  Name of the column containing the indirect dictionary.
+
+    cols : list[str]        Columns to include in the new Daf. 
+                            Either - a normal column in the Daf or a key inside the indirect column dictionary
+
+    silent_error : bool, default False  If False, raise KeyError if cols not found.
+                            else create the col Daffodil null sentinel ''.
+
+    Returns a new Daf containing only the specified columns, with indirect fields
+                            flattened into normal columns.
+
+    Does not apply or adopt dtypes. Does not set keyfield.
+    Ideally, caller should unflatten indirect_col prior to calling, but if not, it will
+        be incrementally unflattened.
+
+    Example
+    -------
+
+            flat_daf = daf.flatten_indirect(
+                indirect_col="concise_pmvs",
+                cols=["ballot_id", nso_pmv_col]
+                )
+    """
+
+    if indirect_col not in self.hd:
+        raise RuntimeError(f"{indirect_col} not found in Daf")
+
+    new_daf = Daf(cols = cols)
+
+    for row_da in self:
+
+        indirect_da = daf_utils.get_indirect_da(row_da, indirect_col)
+
+        new_row_da = {}
+
+        for col in cols:
+            if col in row_da:
+                new_row_da[col] = row_da[col]
+            elif indirect_da and col in indirect_da:
+                new_row_da[col] = indirect_da[col]
+
+            elif silent_error:
+                new_row_da[col] = default 
+            else:
+                raise KeyError(f"Column '{col}' not found in row or indirect column '{indirect_col}'")
+
+        new_daf.append(new_row_da)
+
+    return new_daf
 

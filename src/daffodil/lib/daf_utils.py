@@ -1967,62 +1967,45 @@ def compare_lists(
     
 def astype_la(
         la: T_la,
-        astype: Optional[Union[Callable, str, type]]=None,
+        astype: Optional[Union[Callable, str, type]] = None
         ) -> T_la:
-
-    """ fix the type according to astype spec if it is not None 
-            this function current duplicated in daf_utils
-
-        NOTE: returns a new list if modified.
-    """        
 
     if astype is None:
         return la
-        
-    if callable(astype) and not isinstance(astype, type): 
-        return [astype(val) for val in la]
-        
-    # Type provided (e.g., int, str, float, bool)
+
+    return [astype_value(val, astype) for val in la]
+
+
+def astype_value(
+        val: Any,
+        astype: Optional[Union[Callable, str, type]] = None
+        ) -> Any:
+
+    if astype is None:
+        return val
+
+    # preserve Daffodil null sentinel
+    if val == '':
+        return ''
+
+    if callable(astype):
+        return astype(val)
+
     if isinstance(astype, type):
-        return [astype(val) for val in la]
+        return astype(val)
 
     if isinstance(astype, str):
         if astype == 'int':
-            return [int(val) for val in la]
-        elif astype == 'str':
-            return [str(val) for val in la]
-        elif astype == 'float':
-            return [float(val) for val in la]
-        elif astype == 'bool':
-            return [bool(val) for val in la]
-        else:
-            raise ValueError (f"astype not supported: {astype}")
-            
-    raise ValueError (f"astype not supported: {astype}")
+            return int(val)
+        if astype == 'str':
+            return str(val)
+        if astype == 'float':
+            return float(val)
+        if astype == 'bool':
+            return bool(val)
 
-def astype_value(val: Any, astype: Optional[Union[Callable, str]]=None) -> Any:
-
-    """ fix the type according to astype spec if it is not None 
-            this function current duplicated in daf_utils
-    """        
-
-    if astype is not None:
-        if callable(astype): 
-            return astype(val)
-        elif isinstance(astype, str):
-            if astype == 'int':
-                return int(val)
-            elif astype == 'str':
-                return str(val)
-            elif astype == 'float':
-                return float(val)
-            elif astype == 'bool':
-                return bool(val)
-            else:
-                raise ValueError (f"astype not supported: {astype}")
-        raise ValueError (f"astype not supported: {astype}")
-    return val
-            
+    raise ValueError(f"astype not supported: {astype}")
+    
             
 def combine_records(record1: dict, record2: dict, suffixes: tuple = ("_x", "_y")) -> dict:
     """
@@ -2076,4 +2059,19 @@ def unexcelstringify(astr):
         
     return astr
 
+def get_indirect_da(row_da: T_da, indirect_col: str) -> T_da:
+
+    da = row_da.get(indirect_col, {})
+
+    if isinstance(da, str):
+        return safe_convert_json_to_obj(da)
+
+    return da
+
     
+def get_indirect_val(row_da: T_da, indirect_col: str, col: str, default: Any = 0):
+
+    da = get_indirect_da(row_da, indirect_col)
+
+    return da.get(col, default)
+

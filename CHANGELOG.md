@@ -27,14 +27,18 @@ all prior releases. Plans for future moved to ROADMAP.md.
    - will detect abbreviated markdown table output and raise an error.
 - added 'astype' parameter to .col_to_la() operator.
 - Added schemaclass record_from() method, used like: da = schema.BifSchema.record_from(other_da)
+- Added indirect_col to .col() and .col_to_la()
+- Added indirect_col to select_where() split_where()
 
 ### Changed
 - Changed some uses of [:, col_name].to_list() to .col(col_name)
+
 
 ### Fixed
 - Corrected .apply_dtypes() so it would allow that not all columns defined by the schema exist, if columns are already defined.
     However, dtypes must include all columns that do exist.
 - Added removal of empty list items when read from csv if there are blank lines at the end of the file. Edge case.
+- Fix edge case selecting rows by empty list or iterator.
 
 ---
 
