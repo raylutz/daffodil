@@ -696,7 +696,7 @@ def _parse_itemidx(self, slice_spec: Union[slice, int, str, T_li, T_ls, T_lb], r
             icol = self.hd[slice_spec]
             parse_doda[row_or_col]['li'] = [icol]
         else:
-            irow = self.kd[slice_spec]
+            irow = self._kd[slice_spec]
             parse_doda[row_or_col]['li'] = [irow]
 
     elif isinstance(slice_spec, list) and slice_spec:
@@ -712,7 +712,7 @@ def _parse_itemidx(self, slice_spec: Union[slice, int, str, T_li, T_ls, T_lb], r
                 parse_doda[row_or_col]['li'] = icol_li
             else:
                 rowkeys_ls = slice_spec
-                icol_li = [self.kd.get(rowkey, -1) for rowkey in rowkeys_ls]
+                icol_li = [self._kd.get(rowkey, -1) for rowkey in rowkeys_ls]
                 parse_doda[row_or_col]['li'] = icol_li
 
         elif isinstance(first_item, bool):

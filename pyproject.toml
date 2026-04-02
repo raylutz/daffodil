@@ -26,6 +26,8 @@ dependencies = [
 
 [project.optional-dependencies]
 numpy = ['numpy']
+pandas = ["pandas"]
+pdf = ["pdfplumber"]
 
 [project.urls]
 Homepage = "https://github.com/raylutz/daffodil"
@@ -40,3 +42,9 @@ namespaces = false
 
 [tool.setuptools]
 license-files = []
+
+[dependency-groups]
+dev = [
+    "pytest>=8.0",
+    "daffodil[numpy,pandas,pdf]",
+]

@@ -1,5 +1,5 @@
 # test_daf
-# copyright (c) 2024 Ray Lutz
+# copyright (c) 2024, 2025, 2026 Ray Lutz
 
 import os
 import json
@@ -38,15 +38,15 @@ class TestDaf(unittest.TestCase):
         self.assertEqual(mydaf.keyfield, '')
         self.assertEqual(mydaf.hd, {})
         self.assertEqual(mydaf.lol, [])
-        self.assertEqual(mydaf.kd, {})
-        self.assertEqual(mydaf.dtypes, {})
+        self.assertEqual(mydaf._kd, {})
+        self.assertEqual(mydaf.dtypes, None)
         self.assertEqual(mydaf._iter_index, 0)
 
     def test_init_custom_values(self):
         cols = ['col1', 'col2']
         hd = {'col1': 0, 'col2': 1}
         lol = [[1, 2], [3, 4]]
-        kd = {1: 0, 3: 1}
+        # kd = {1: 0, 3: 1}
         dtypes = {'col1': int, 'col2': str}
         expected_lol = [[1, '2'], [3, '4']]
         daf = Daf(cols=cols, lol=lol, dtypes=dtypes, name='TestDaf', keyfield='col1').apply_dtypes(from_str=False)
@@ -54,7 +54,7 @@ class TestDaf(unittest.TestCase):
         self.assertEqual(daf.keyfield, 'col1')
         self.assertEqual(daf.hd, hd)
         self.assertEqual(daf.lol, expected_lol)
-        self.assertEqual(daf.kd, kd)
+        self.assertEqual(daf._kd, {})
         self.assertEqual(daf.dtypes, dtypes)
         self.assertEqual(daf._iter_index, 0)
 
@@ -62,7 +62,7 @@ class TestDaf(unittest.TestCase):
         #cols = ['col1', 'col2']
         hd = {'col1': 0, 'col2': 1}
         lol = [[1, 2], [3, 4]]
-        kd = {1: 0, 3: 1}
+        # kd = {1: 0, 3: 1}
         dtypes = {'col1': int, 'col2': str}
         expected_lol = [[1, '2'], [3, '4']]
         daf = Daf(lol=lol, dtypes=dtypes, name='TestDaf', keyfield='col1').apply_dtypes(from_str=False)
@@ -70,7 +70,7 @@ class TestDaf(unittest.TestCase):
         self.assertEqual(daf.keyfield, 'col1')
         self.assertEqual(daf.hd, hd)
         self.assertEqual(daf.lol, expected_lol)
-        self.assertEqual(daf.kd, kd)
+        self.assertEqual(daf._kd, {})
         self.assertEqual(daf.dtypes, dtypes)
         self.assertEqual(daf._iter_index, 0)
 
@@ -411,28 +411,6 @@ class TestDaf(unittest.TestCase):
         with self.assertRaises(KeyError):
             daf.set_keyfield('nonexistent_column', silent_error=False)
 
-    # # row_idx_of (DEPRECATED)
-    # def test_row_idx_of_existing_key(self):
-        # # Test getting row index of an existing key
-        # daf = Daf(lol=[['1', 'a'], ['2', 'b']], cols=['ID', 'Value'], keyfield='ID')
-        # self.assertEqual(daf.row_idx_of('1'), 0)
-    
-    # def test_row_idx_of_nonexistent_key(self):
-        # # Test getting row index of a nonexistent key
-        # daf = Daf(lol=[['1', 'a'], ['2', 'b']], cols=['ID', 'Value'], keyfield='ID')
-        # self.assertEqual(daf.row_idx_of('3'), -1)
-    
-    # def test_row_idx_of_no_keyfield(self):
-        # # Test getting row index when no keyfield is defined
-        # daf = Daf(lol=[['1', 'a'], ['2', 'b']], cols=['ID', 'Value'])
-        # self.assertEqual(daf.row_idx_of('1'), -1)
-    
-    # def test_row_idx_of_no_kd(self):
-        # # Test getting row index when kd is not available
-        # daf = Daf(lol=[['1', 'a'], ['2', 'b']], cols=['ID', 'Value'], keyfield='ID')
-        # daf.kd = None
-        # self.assertEqual(daf.row_idx_of('1'), -1)
-
 
     # get_existing_keys
     def test_get_existing_keys_with_existing_keys(self):
@@ -585,7 +563,7 @@ class TestDaf(unittest.TestCase):
         self.assertEqual(daf.keyfield, keyfield)
         self.assertEqual(daf.hd, {'col1': 0, 'col2': 1})
         self.assertEqual(daf.lol, [[1, 2], [11, 12], [21, 22]])
-        self.assertEqual(daf.kd, {1: 0, 11: 1, 21: 2})
+        self.assertEqual(daf._kd, {})
         self.assertEqual(daf.dtypes, dtypes)
         self.assertEqual(daf._iter_index, 0)
 
@@ -600,7 +578,7 @@ class TestDaf(unittest.TestCase):
         self.assertEqual(daf.keyfield, keyfield)
         self.assertEqual(daf.hd, {'col1': 0, 'col2': 1})
         self.assertEqual(daf.lol, [])
-        self.assertEqual(daf.kd, {})
+        self.assertEqual(daf._kd, {})
         self.assertEqual(daf.dtypes, dtypes)
         self.assertEqual(daf._iter_index, 0)
 
@@ -615,7 +593,7 @@ class TestDaf(unittest.TestCase):
         self.assertEqual(daf.keyfield, keyfield)
         self.assertEqual(daf.hd, {})
         self.assertEqual(daf.lol, [])
-        self.assertEqual(daf.kd, {})
+        self.assertEqual(daf._kd, {})
         self.assertEqual(daf.dtypes, dtypes)
         self.assertEqual(daf._iter_index, 0)
 
@@ -631,37 +609,9 @@ class TestDaf(unittest.TestCase):
         self.assertEqual(daf.keyfield, '')
         self.assertEqual(daf.hd, {})
         self.assertEqual(daf.lol, [])
-        self.assertEqual(daf.kd, {})
+        self.assertEqual(daf._kd, {})
         self.assertEqual(daf.dtypes, dtypes)
         self.assertEqual(daf._iter_index, 0)
-
-
-    # def test_from_hllola(self):
-        # header_list = ['col1', 'col2']
-        # data_list = [[1, 'a'], [2, 'b'], [3, 'c']]
-        # hllola = (header_list, data_list)
-        # keyfield = 'col1'
-        # dtypes = {'col1': int, 'col2': str}
-
-        # daf = Daf.from_hllola(hllola, keyfield=keyfield, dtypes=dtypes)
-
-        # self.assertEqual(daf.name, '')
-        # self.assertEqual(daf.keyfield, keyfield)
-        # self.assertEqual(daf.hd, {'col1': 0, 'col2': 1})
-        # self.assertEqual(daf.lol, [[1, 'a'], [2, 'b'], [3, 'c']])
-        # self.assertEqual(daf.kd, {1: 0, 2: 1, 3: 2})
-        # self.assertEqual(daf.dtypes, dtypes)
-        # self.assertEqual(daf._iter_index, 0)
-
-    # def test_to_hllola(self):
-        # cols    = ['col1', 'col2']
-        # lol     = [[1, 'a'], [2, 'b'], [3, 'c']]
-        # daf    = Daf(cols=cols, lol=lol)
-
-        # expected_hllola = (['col1', 'col2'], [[1, 'a'], [2, 'b'], [3, 'c']])
-        # actual_hllola = daf.to_hllola()
-
-        # self.assertEqual(actual_hllola, expected_hllola)
 
 
     # from_dod
@@ -1066,8 +1016,8 @@ class TestDaf(unittest.TestCase):
         self.assertEqual(daf.keyfield, '')
         self.assertEqual(daf.hd, {'col1': 0, 'col2': 1})
         self.assertEqual(daf.lol, [[1, 'b']])
-        self.assertEqual(daf.kd, {})
-        self.assertEqual(daf.dtypes, {})
+        self.assertEqual(daf._kd, {})
+        self.assertEqual(daf.dtypes, None)
         self.assertEqual(daf._iter_index, 0)
 
     def test_append_list_without_keyfield_but_cols(self):
@@ -1080,8 +1030,8 @@ class TestDaf(unittest.TestCase):
         self.assertEqual(daf.keyfield, '')
         self.assertEqual(daf.hd, {'col1': 0, 'col2': 1})
         self.assertEqual(daf.lol, [[1, 'b']])
-        self.assertEqual(daf.kd, {})
-        self.assertEqual(daf.dtypes, {})
+        self.assertEqual(daf._kd, {})
+        self.assertEqual(daf.dtypes, None)
         self.assertEqual(daf._iter_index, 0)
 
     def test_append_list_without_keyfield_no_cols(self):
@@ -1094,8 +1044,8 @@ class TestDaf(unittest.TestCase):
         self.assertEqual(daf.keyfield, '')
         self.assertEqual(daf.hd, {})
         self.assertEqual(daf.lol, [[1, 'b']])
-        self.assertEqual(daf.kd, {})
-        self.assertEqual(daf.dtypes, {})
+        self.assertEqual(daf._kd, {})
+        self.assertEqual(daf.dtypes, None)
         self.assertEqual(daf._iter_index, 0)
 
     def test_append_with_keyfield(self):
@@ -1120,7 +1070,7 @@ class TestDaf(unittest.TestCase):
         self.assertEqual(daf.keyfield, 'col1')
         self.assertEqual(daf.columns(), cols)
         self.assertEqual(daf.lol, [[1, 'a'], [2, 'b'], [3, 'd']])
-        self.assertEqual(daf.kd, {1: 0, 2: 1, 3: 2})
+        self.assertEqual(daf._kd, {1: 0, 2: 1, 3: 2})   # <-- not invalidated.
         self.assertEqual(daf.dtypes, dtypes)
         self.assertEqual(daf._iter_index, 0)
 
@@ -1135,8 +1085,8 @@ class TestDaf(unittest.TestCase):
         self.assertEqual(daf.keyfield, '')
         self.assertEqual(daf.hd, {'col1': 0, 'col2': 1})
         self.assertEqual(daf.lol, [[1, 'b'], [2, 'c']])
-        self.assertEqual(daf.kd, {})
-        self.assertEqual(daf.dtypes, {})
+        self.assertEqual(daf._kd, {})
+        self.assertEqual(daf.dtypes, None)
         self.assertEqual(daf._iter_index, 0)
 
     def test_extend_using_append_without_keyfield(self):
@@ -1150,8 +1100,8 @@ class TestDaf(unittest.TestCase):
         self.assertEqual(daf.keyfield, '')
         self.assertEqual(daf.columns(), cols)
         self.assertEqual(daf.lol, [[1, 'b'], [2, 'c']])
-        self.assertEqual(daf.kd, {})
-        self.assertEqual(daf.dtypes, {})
+        self.assertEqual(daf._kd, {})
+        self.assertEqual(daf.dtypes, None)
         self.assertEqual(daf._iter_index, 0)
 
     def test_extend_with_keyfield(self):
@@ -1168,7 +1118,7 @@ class TestDaf(unittest.TestCase):
         self.assertEqual(daf.keyfield, 'col1')
         self.assertEqual(daf.columns(), cols)
         self.assertEqual(daf.lol, [[1, 'a'], [2, 'b'], [3, 'c'], [4, 'd']])
-        self.assertEqual(daf.kd, {1: 0, 2: 1, 3: 2, 4: 3})
+        self.assertEqual(daf._kd, {})
         self.assertEqual(daf.dtypes, dtypes)
         self.assertEqual(daf._iter_index, 0)
         
@@ -1188,7 +1138,7 @@ class TestDaf(unittest.TestCase):
         self.assertEqual(daf.keyfield, 'col1')
         self.assertEqual(daf.hd, hd)
         self.assertEqual(daf.lol, [[1, 'a'], [2, 'b'], [3, 'c'], [4, 'd']])
-        self.assertEqual(daf.kd, {1: 0, 2: 1, 3: 2, 4: 3})
+        self.assertEqual(daf._kd, {})
         self.assertEqual(daf.dtypes, dtypes)
         self.assertEqual(daf._iter_index, 0)
         
@@ -1210,7 +1160,7 @@ class TestDaf(unittest.TestCase):
         self.assertEqual(daf1.keyfield, '')
         self.assertEqual(daf1.hd, hd)
         self.assertEqual(daf1.lol, [['1', 'a'], ['2', 'b'], ['x', 'y'], ['z', 'w']])
-        self.assertEqual(daf1.kd, {})
+        self.assertEqual(daf1._kd, {})
         self.assertEqual(daf1.dtypes, {'col1': str, 'col2': str})
         self.assertEqual(daf1._iter_index, 0)
 
@@ -1231,8 +1181,8 @@ class TestDaf(unittest.TestCase):
         self.assertEqual(daf1.keyfield, '')
         self.assertEqual(daf1.hd, hd)
         self.assertEqual(daf1.lol, [['x', 'y'], ['z', 'w']])
-        self.assertEqual(daf1.kd, {})
-        self.assertEqual(daf1.dtypes, {})
+        self.assertEqual(daf1._kd, {})
+        self.assertEqual(daf1.dtypes, None)
         self.assertEqual(daf1._iter_index, 0)
 
     def test_concat_using_append_without_keyfield(self):
@@ -1254,7 +1204,7 @@ class TestDaf(unittest.TestCase):
         self.assertEqual(daf1.keyfield, '')
         self.assertEqual(daf1.hd, hd)
         self.assertEqual(daf1.lol, [['1', 'a'], ['2', 'b'], ['x', 'y'], ['z', 'w']])
-        self.assertEqual(daf1.kd, {})
+        self.assertEqual(daf1._kd, {})
         self.assertEqual(daf1.dtypes, {'col1': str, 'col2': str})
         self.assertEqual(daf1._iter_index, 0)
 
@@ -1272,7 +1222,7 @@ class TestDaf(unittest.TestCase):
         self.assertEqual(daf1.keyfield, 'col1')
         self.assertEqual(daf1.hd, hd)
         self.assertEqual(daf1.lol, [[1, 'a'], [2, 'b'], [3, 'c'], [4, 'd']])
-        self.assertEqual(daf1.kd, {1: 0, 2: 1, 3: 2, 4: 3})
+        self.assertEqual(daf1._kd, {})
         self.assertEqual(daf1.dtypes, {'col1': int, 'col2': str})
         self.assertEqual(daf1._iter_index, 0)
 
@@ -1290,7 +1240,7 @@ class TestDaf(unittest.TestCase):
         self.assertEqual(daf1.keyfield, 'col1')
         self.assertEqual(daf1.hd, hd)
         self.assertEqual(daf1.lol, [[1, 'a'], [2, 'b'], [3, 'c'], [4, 'd']])
-        self.assertEqual(daf1.kd, {1: 0, 2: 1, 3: 2, 4: 3})
+        self.assertEqual(daf1._kd, {})
         self.assertEqual(daf1.dtypes, {'col1': int, 'col2': str})
         self.assertEqual(daf1._iter_index, 0)
         
@@ -1372,7 +1322,7 @@ class TestDaf(unittest.TestCase):
         self.assertEqual(new_daf.keyfield, 'col1')
         self.assertEqual(new_daf.hd, hd)
         self.assertEqual(new_daf.lol, [[1, 'a'], [3, 'c']])
-        self.assertEqual(new_daf.kd, {1: 0, 3: 1})
+        self.assertEqual(new_daf._kd, {})
         self.assertEqual(new_daf.dtypes, {'col1': int, 'col2': str})
         self.assertEqual(new_daf._iter_index, 0)
 
@@ -1387,14 +1337,6 @@ class TestDaf(unittest.TestCase):
             _ = daf.remove_key(keyval, silent_error=True)
             
 
-        # self.assertEqual(new_daf.name, '')
-        # self.assertEqual(new_daf.keyfield, '')
-        # self.assertEqual(new_daf.hd, hd)
-        # self.assertEqual(new_daf.lol, [[1, 'a'], [2, 'b'], [3, 'c']])
-        # self.assertEqual(new_daf.kd, {})
-        # self.assertEqual(new_daf.dtypes, {'col1': int, 'col2': str})
-        # self.assertEqual(new_daf._iter_index, 0)
-
     def test_remove_key_nonexistent_key_silent_error(self):
         cols = ['col1', 'col2']
         hd = {'col1': 0, 'col2': 1}
@@ -1408,7 +1350,7 @@ class TestDaf(unittest.TestCase):
         self.assertEqual(new_daf.keyfield, 'col1')
         self.assertEqual(new_daf.hd, hd)
         self.assertEqual(new_daf.lol, [[1, 'a'], [2, 'b'], [3, 'c']])
-        self.assertEqual(new_daf.kd, {1: 0, 2: 1, 3: 2})
+        self.assertEqual(new_daf._kd, {})
         self.assertEqual(new_daf.dtypes, {'col1': int, 'col2': str})
         self.assertEqual(new_daf._iter_index, 0)
 
@@ -1441,7 +1383,7 @@ class TestDaf(unittest.TestCase):
         self.assertEqual(new_daf.keyfield, 'col1')
         self.assertEqual(new_daf.hd, hd)
         self.assertEqual(new_daf.lol, [[1, 'a'], [3, 'c']])
-        self.assertEqual(new_daf.kd, {1: 0, 3: 1})
+        self.assertEqual(new_daf._kd, {})
         self.assertEqual(new_daf.dtypes, {'col1': int, 'col2': str})
 
     def test_remove_keylist_nonexistent_keys_silent_error(self):
@@ -1457,7 +1399,7 @@ class TestDaf(unittest.TestCase):
         self.assertEqual(new_daf.keyfield, 'col1')
         self.assertEqual(new_daf.hd, hd)
         self.assertEqual(new_daf.lol, [[1, 'a'], [2, 'b'], [3, 'c']])
-        self.assertEqual(new_daf.kd, {1: 0, 2: 1, 3: 2})
+        self.assertEqual(new_daf._kd, {})
         self.assertEqual(new_daf.dtypes, {'col1': int, 'col2': str})
         self.assertEqual(new_daf._iter_index, 0)
 
@@ -1606,14 +1548,14 @@ class TestDaf(unittest.TestCase):
 
         expected_hd = {'col1': 0, 'col2': 1}
         expected_lol = [[2, 'b'], [4, 'b']]
-        expected_kd = {2: 0, 4: 1}
+        #expected_kd = {2: 0, 4: 1}
         expected_dtypes = {'col1': int, 'col2': str}
 
         self.assertEqual(result_daf.name, '')
         self.assertEqual(result_daf.keyfield, 'col1')
         self.assertEqual(result_daf.hd, expected_hd)
         self.assertEqual(result_daf.lol, expected_lol)
-        self.assertEqual(result_daf.kd, expected_kd)
+        #self.assertEqual(result_daf.kd, expected_kd)
         self.assertEqual(result_daf.dtypes, expected_dtypes)
         self.assertEqual(result_daf._iter_index, 0)
 
@@ -1634,7 +1576,7 @@ class TestDaf(unittest.TestCase):
         self.assertEqual(result_daf.keyfield, 'col1')
         self.assertEqual(result_daf.hd, expected_hd)
         self.assertEqual(result_daf.lol, expected_lol)
-        self.assertEqual(result_daf.kd, expected_kd)
+        self.assertEqual(result_daf._kd, expected_kd)
         self.assertEqual(result_daf.dtypes, expected_dtypes)
         self.assertEqual(result_daf._iter_index, 0)
 
@@ -1942,8 +1884,8 @@ class TestDaf(unittest.TestCase):
         self.assertEqual(result.keyfield, '')
         self.assertEqual(result.hd, {})
         self.assertEqual(result.lol, [])
-        self.assertEqual(result.kd, {})
-        self.assertEqual(result.dtypes, {})
+        self.assertEqual(result._kd, {})
+        self.assertEqual(result.dtypes, None)
         self.assertEqual(result._iter_index, 0)
 
     def test_clone_empty_from_nonempty_instance(self):
@@ -1956,7 +1898,7 @@ class TestDaf(unittest.TestCase):
         self.assertEqual(result.keyfield, old_instance.keyfield)
         self.assertEqual(result.hd, old_instance.hd)
         self.assertEqual(result.lol, [])
-        self.assertEqual(result.kd, {})
+        self.assertEqual(result._kd, {})
         self.assertEqual(result.dtypes, old_instance.dtypes)
         self.assertEqual(result._iter_index, 0)
 
@@ -1968,8 +1910,8 @@ class TestDaf(unittest.TestCase):
         self.assertEqual(result.keyfield, '')
         self.assertEqual(result.hd, {})
         self.assertEqual(result.lol, [])
-        self.assertEqual(result.kd, {})
-        self.assertEqual(result.dtypes, {})
+        self.assertEqual(result._kd, {})
+        self.assertEqual(result.dtypes, None)
         self.assertEqual(result._iter_index, 0)
 
     # to_lod
@@ -2005,7 +1947,7 @@ class TestDaf(unittest.TestCase):
         self.assertEqual(result.keyfield, 'col1')
         self.assertEqual(result.hd,     {})
         self.assertEqual(result.lol,    [])
-        self.assertEqual(result.kd,     {})
+        self.assertEqual(result._kd,    {})
         self.assertEqual(result.dtypes,  {})
 
     def test_select_records_nonempty_daf(self):
@@ -2031,16 +1973,17 @@ class TestDaf(unittest.TestCase):
         dtypes={'col1': int, 'col2': str}
         daf = Daf(cols=cols, lol=lol, keyfield='col1', dtypes=dtypes)
 
-        # empty keys changed to select all records.
+        # empty keys changed to select all records. <== NO LONGER TRUE, (it was silly). (added inverse)
         keys_ls = []
-        result = daf.select_records_daf(keys_ls)
+        result = daf.select_records_daf(keys_ls, inverse=True)
 
         self.assertEqual(result.name, '')
         self.assertEqual(result.keyfield, 'col1')
         self.assertEqual(result.hd, {'col1': 0, 'col2': 1})
         self.assertEqual(result.lol, [[1, 'a'], [2, 'b'], [3, 'c']])
-        self.assertEqual(result.kd, {1:0, 2:1, 3:2})
+        #self.assertEqual(result._kd, {1:0, 2:1, 3:2})
         self.assertEqual(result.dtypes, dtypes)
+
 
     def test_select_records_daf_without_inverse(self):
         # Initialize test data
@@ -2121,7 +2064,7 @@ class TestDaf(unittest.TestCase):
         daf = Daf(cols=cols, lol=lol, keyfield='col1', dtypes={'col1': int, 'col2': str})
 
         record_da = {'col2': 'x'}
-        with self.assertRaises(RuntimeError):
+        with self.assertRaises(KeyError):
             daf.assign_record(record_da)
 
     def test_assign_record_fields_not_equal_to_columns(self):
@@ -2130,8 +2073,11 @@ class TestDaf(unittest.TestCase):
         daf = Daf(cols=cols, lol=lol, keyfield='col1', dtypes={'col1': int, 'col2': str})
 
         record_da = {'col1': 4, 'col2': 'd', 'col3': 'extra'}
-        with self.assertRaises(RuntimeError):
-            daf.assign_record(record_da)
+
+        daf.append(record_da)
+
+        expected_lol = [[1, 'a'], [2, 'b'], [3, 'c'], [4, 'd']]
+        self.assertEqual(daf.lol, expected_lol)
 
     # assign_record_irow
     def test_assign_record_irow_empty_daf(self):
@@ -3541,6 +3487,7 @@ class TestDaf(unittest.TestCase):
         expected_data = Daf(cols=['col1', 'col2'], lol=[[2, 5]])
         self.assertEqual(result_daf, expected_data)
 
+
     # select_where_idxs
     def test_select_where_idxs_basic_condition(self):
         # Test a basic condition where col1 values are greater than 2
@@ -3919,16 +3866,22 @@ class TestDaf(unittest.TestCase):
         # Create a Daf instance for testing
         self.cols = ['ID', 'Name', 'Age']
         self.lol = [[1, 'John', 30], [2, 'Alice', 25], [3, 'Bob', 35]]
-        self.daf = Daf(cols=self.cols, lol=self.lol)
+        self.daf = Daf(cols=self.cols, lol=self.lol, keyfield='ID')
 
         # Define a new list-of-lists (lol)
         new_lol = [[4, 'David', 40], [5, 'Eve', 28]]
 
-        # Call the set_lol method with the new lol
+        # Call the set_lol method with the new lol, flags kd as invalid
         self.daf.set_lol(new_lol)
 
-        # Check if kd is recalculated
-        self.assertIsNotNone(self.daf.kd)
+        # Check if kd is not recalculated
+        self.assertEqual(self.daf._kd, {})
+
+        self.daf.select_record(5)   # this prompts building kd.
+
+        # Check if kd is not recalculated
+        self.assertEqual(self.daf._kd, {4:0, 5:1})
+
         
 
     # wide to narrow
@@ -4273,7 +4226,7 @@ class TestDafJsonMethods(unittest.TestCase):
         instance = Daf(
             lol=[[1, 2, 3], [4, 5, 6]],
             hd={'col1': 0, 'col2': 1, 'col3': 2},
-            kd={1: 0, 4: 1},
+            # kd={1: 0, 4: 1},
             dtypes={'col1': int, 'col2': int, 'col3': int},
             keyfield='col1',
             name='TestDaf',
@@ -4285,7 +4238,7 @@ class TestDafJsonMethods(unittest.TestCase):
             'name': 'TestDaf',
             'lol': [[1, 2, 3], [4, 5, 6]],
             'hd': {'col1': 0, 'col2': 1, 'col3': 2},
-            'kd': {'1': 0, '4': 1},     # Note json dict must use str keys
+            # 'kd': {'1': 0, '4': 1},     # Note json dict must use str keys
             'dtypes': {'col1': 'int', 'col2': 'int', 'col3': 'int'},
             'keyfield': 'col1',
             #'_retmode': 'val',                 # removed in 0.5.8
@@ -4298,19 +4251,24 @@ class TestDafJsonMethods(unittest.TestCase):
             'name': 'TestDaf',
             'lol': [[1, 2, 3], [4, 5, 6]],
             'hd': {'col1': 0, 'col2': 1, 'col3': 2},
-            'kd': {1: 0, 4: 1},     # will create str keys
+            # 'kd': {1: 0, 4: 1},     # will create str keys
             'dtypes': {'col1': 'int', 'col2': 'int', 'col3': 'int'},
             'keyfield': 'col1',
             #'_retmode': 'val',                 # removed in 0.5.8
             #'_itermode': 'keyedlist',          # removed in 0.5.8
         })
         instance = Daf.from_json(json_str)
+        instance.apply_dtypes()
+        val = instance.select_record(1)['col2']     # test can lookup using integer
+        # the above search will cause the _kd to be built.
+
         self.assertEqual(instance.name, 'TestDaf')
         self.assertEqual(instance.lol, [[1, 2, 3], [4, 5, 6]])
         self.assertEqual(instance.hd, {'col1': 0, 'col2': 1, 'col3': 2})
-        self.assertEqual(instance.kd, {1: 0, 4: 1})     # but conversion must create ints
+        self.assertEqual(instance._kd, {1: 0, 4: 1})     # but conversion must create ints
         self.assertEqual(instance.dtypes, {'col1': int, 'col2': int, 'col3': int})
         self.assertEqual(instance.keyfield, 'col1')
+        self.assertEqual(val, 2)
         #self.assertEqual(instance._retmode, 'val')             # removed in 0.5.8
         #self.assertEqual(instance._itermode, 'keyedlist')      # removed in 0.5.8
 
@@ -4318,7 +4276,7 @@ class TestDafJsonMethods(unittest.TestCase):
         original_instance = Daf(
             lol=[[1, 2, 3], [4, 5, 6]],
             hd={'col1': 0, 'col2': 1, 'col3': 2},
-            kd={'key1': 0},
+            # kd={'key1': 0},                                    # dynamically generated.
             dtypes={'col1': int, 'col2': int, 'col3': int},
             keyfield='col1',
             name='TestDaf',
@@ -4330,7 +4288,6 @@ class TestDafJsonMethods(unittest.TestCase):
         self.assertEqual(original_instance.name, new_instance.name)
         self.assertEqual(original_instance.lol, new_instance.lol)
         self.assertEqual(original_instance.hd, new_instance.hd)
-        self.assertEqual(original_instance.kd, new_instance.kd)
         self.assertEqual(original_instance.dtypes, new_instance.dtypes)
         self.assertEqual(original_instance.keyfield, new_instance.keyfield)
         #self.assertEqual(original_instance._retmode, new_instance._retmode)        # removed in 0.5.8
@@ -4814,7 +4771,8 @@ def test_daf_to_pandas_donpa():
         lol=[[1, 10.5], [2, 20.5], [3, 30.0]],
         cols=['ID', 'Score'],
         dtypes={'ID': int, 'Score': float}
-    )
+    ).apply_dtypes()
+
     df = daf.to_pandas_df(use_donpa=True)
     expected = pd.DataFrame({'ID': [1, 2, 3], 'Score': [10.5, 20.5, 30.0]})
     pd.testing.assert_frame_equal(df, expected, check_dtype=False)
@@ -4843,6 +4801,154 @@ def test_daf_to_pandas_with_integer_columns():
     df = daf.to_pandas_df()
     expected = pd.DataFrame({0: [1, 3], 1: [2, 4]})
     pd.testing.assert_frame_equal(df, expected)
+
+
+
+import pytest
+
+
+def test_group_where_basic_grouping():
+    daf = Daf(lol=[
+        [1, 'A'],
+        [2, 'B'],
+        [3, 'A'],
+    ], cols=['id', 'grp'])
+
+    dodaf = daf.group_where(lambda r: r['grp'])
+
+    assert set(dodaf.keys()) == {'A', 'B'}
+    assert len(dodaf['A']) == 2
+    assert len(dodaf['B']) == 1
+
+
+def test_group_where_none_skips():
+    daf = Daf(lol=[
+        [1, 10],
+        [2, 20],
+        [3, 30],
+    ], cols=['id', 'val'])
+
+    dodaf = daf.group_where(lambda r: None if r['val'] < 25 else 'high')
+
+    assert set(dodaf.keys()) == {'high'}
+    assert len(dodaf['high']) == 1
+    assert dodaf['high'][0, 'id'].to_value() == 3
+
+
+def test_group_where_fanout():
+    daf = Daf(lol=[
+        [1, ['A', 'B']],
+        [2, ['B']],
+        [3, []],
+    ], cols=['id', 'groups'])
+
+    dodaf = daf.group_where(lambda r: r['groups'])
+
+    assert set(dodaf.keys()) == {'A', 'B'}
+    assert len(dodaf['A']) == 1
+    assert len(dodaf['B']) == 2
+
+
+def test_group_where_scalar_vs_iterable():
+    daf = Daf(lol=[
+        [1, 'A'],
+        [2, ['A', 'B']],
+    ], cols=['id', 'grp'])
+
+    dodaf = daf.group_where(lambda r: r['grp'])
+
+    assert set(dodaf.keys()) == {'A', 'B'}
+    assert len(dodaf['A']) == 2
+    assert len(dodaf['B']) == 1
+
+
+def test_group_where_empty_iterable_skips():
+    daf = Daf(lol=[
+        [1, []],
+        [2, ['A']],
+    ], cols=['id', 'grp'])
+
+    dodaf = daf.group_where(lambda r: r['grp'])
+
+    assert set(dodaf.keys()) == {'A'}
+    assert len(dodaf['A']) == 1
+
+
+def test_group_where_reference_semantics():
+    daf = Daf(lol=[
+        [1, 'A'],
+        [2, 'A'],
+    ], cols=['id', 'grp'])
+
+    dodaf = daf.group_where(lambda r: r['grp'])
+
+    sub = dodaf['A']
+
+    # mutate via sub-daf row
+    sub[0, 'id'] = 100
+
+    # original should reflect change (no copy)
+    assert daf[0, 'id'].to_value() == 100
+
+
+def test_group_where_indirect_col():
+    daf = Daf(lol=[
+        [1, {'x': 'A'}],
+        [2, {'x': 'B'}],
+        [3, {}],
+    ], cols=['id', 'meta'])
+
+    dodaf = daf.group_where(lambda r: r['x'], indirect_col='meta')
+
+    assert set(dodaf.keys()) == {'A', 'B', ''}
+    assert len(dodaf['A']) == 1
+    assert len(dodaf['B']) == 1
+    assert len(dodaf['']) == 1
+
+
+def test_group_where_name_assignment():
+    daf = Daf(lol=[
+        [1, 'A'],
+        [2, 'B'],
+    ], cols=['id', 'grp'])
+
+    dodaf = daf.group_where(lambda r: r['grp'])
+
+    for key, sub in dodaf.items():
+        assert sub.name == str(key)
+
+
+def test_group_where_keyfield_lazy_kd():
+    daf = Daf(lol=[
+        [1, 'A'],
+        [2, 'A'],
+    ], cols=['id', 'grp'], kd=None)
+
+    daf.keyfield = 'id'
+
+    dodaf = daf.group_where(lambda r: r['grp'])
+
+    sub = dodaf['A']
+
+    # kd should not be built yet
+    assert sub._kd == {}
+
+    # accessing keys should build it
+    keys = sub.keys()
+    assert set(keys) == {1, 2}
+
+
+def test_group_where_multiple_keys_per_row():
+    daf = Daf(lol=[
+        [1, ['A', 'B', 'A']],  # duplicate keys allowed
+    ], cols=['id', 'grp'])
+
+    dodaf = daf.group_where(lambda r: r['grp'])
+
+    # no dedupe: A appears twice
+    assert len(dodaf['A']) == 2
+    assert len(dodaf['B']) == 1
+
 
 
 if __name__ == '__main__':

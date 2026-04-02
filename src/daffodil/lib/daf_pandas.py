@@ -71,7 +71,7 @@ def _from_pandas_df(
     """
     import pandas as pd     # type: ignore
     
-    python_dtypes = pandas_dtype_to_python(df)
+    python_dtypes = dtypes_dict_from_dataframe(df)
 
     if isinstance(df, pd.Series) or not use_csv:
 
@@ -91,7 +91,7 @@ def _from_pandas_df(
     except TypeError:   # pragma: no cover
         # this uses the old version of the lineterminator with an underscore. 
         csv_buff = df.to_csv(None, index=False, quoting=csv.QUOTE_MINIMAL, line_terminator= '\r\n')
-        
+
     return cls.from_csv_buff(
         csv_buff=csv_buff,
         keyfield=keyfield,
@@ -180,58 +180,41 @@ def _to_pandas_df(
     return df
         
 
-def pandas_dtype_to_python(df: T_df) -> Optional[Any]:
-    """
-    Translate a Pandas data type to its equivalent Python data type.
-
-    Args:
-        pandas_dtype (Any): The Pandas data type to translate.
-
-    Returns:
-        Optional[Type]: The equivalent Python data type.
-    """
-
-
-    if isinstance(df, pd.Series):
-        # For Series, it is necessary to examine each element
-        series_dtypes = dtypes_dict_from_series(df)
-        python_dtypes = pandas_dtype_dict_to_python(series_dtypes)
-        
-    else:
-        python_dtypes = pandas_dtype_dict_to_python(df.dtypes.to_dict())
-        
-    return python_dtypes
-
-
 def pandas_dtype_dict_to_python(pandas_dtype_dict: Any) -> Optional[Any]:
-    """
-    Translate a Pandas data type to its equivalent Python data type.
+    import pandas as pd
+    import numpy as np
 
-    Args:
-        pandas_dtype (Any): The Pandas data type to translate.
-
-    Returns:
-        Optional[Type]: The equivalent Python data type.
-    """
     python_dtype_dict = {}
+
     for colname, pandas_dtype in pandas_dtype_dict.items():
-        if pandas_dtype == np.object_ or pandas_dtype is str:
+
+        if (
+            isinstance(pandas_dtype, pd.StringDtype)
+            or pandas_dtype == np.object_
+            or pandas_dtype is str
+            or pd.api.types.is_string_dtype(pandas_dtype)
+        ):
             python_dtype_dict[colname] = str
-        elif pandas_dtype in (np.int64, np.int32):
+
+        elif pd.api.types.is_integer_dtype(pandas_dtype):
             python_dtype_dict[colname] = int
-        elif pandas_dtype == np.float64:
+
+        elif pd.api.types.is_float_dtype(pandas_dtype):
             python_dtype_dict[colname] = float
-        elif pandas_dtype == np.bool_:
+
+        elif pd.api.types.is_bool_dtype(pandas_dtype):
             python_dtype_dict[colname] = bool
-        elif pandas_dtype == np.datetime64:
+
+        elif pd.api.types.is_datetime64_any_dtype(pandas_dtype):
             python_dtype_dict[colname] = pd.Timestamp
-        elif pandas_dtype == np.timedelta64:
+
+        elif pd.api.types.is_timedelta64_dtype(pandas_dtype):
             python_dtype_dict[colname] = pd.Timedelta
+
         else:
             print(f"Unknown Pandas dtype for column '{colname}': {pandas_dtype}")
-            breakpoint() #perm
-            pass
-            
+            breakpoint()
+
     return python_dtype_dict
 
 
@@ -245,11 +228,13 @@ def python_dtype_to_pandas(python_type: Type) -> Optional[Any]:
     Returns:
         Optional[Any]: The equivalent Pandas data type.
     """
+    import pandas as pd
+
     dtype_mapping = {
-        str: "object",
-        int: "int64",
+        str: pd.StringDtype(),              # modern pandas string
+        int: "int64",                       # or "Int64" if you want nullable
         float: "float64",
-        bool: "bool",
+        bool: "bool",                       # or "boolean" for nullable
         pd.Timestamp: "datetime64[ns]",
         pd.Timedelta: "timedelta64[ns]",
         pd.Categorical: "category",
@@ -258,22 +243,79 @@ def python_dtype_to_pandas(python_type: Type) -> Optional[Any]:
     return dtype_mapping.get(python_type, None)
     
 
-def dtypes_dict_from_series(series: pd.Series) -> Dict[str, type]:
-    """
-    Construct a dictionary mapping column names to their respective data types from a Pandas Series.
+def dtypes_dict_from_dataframe(df: pd.DataFrame) -> Dict[str, type]:
+    import pandas as pd
 
-    Args:
-        series (pd.Series): The Pandas Series.
+    # --- Series case (single column) ---
+    if isinstance(df, pd.Series):
+        dtypes_dict = {
+            df.name if df.name is not None else "col":
+            pandas_dtype_to_python_type(df.dtype)
+        }
+        return dtypes_dict
 
-    Returns:
-        Dict[str, type]: A dictionary mapping column names to their respective data types.
-    """
-    
+    # --- DataFrame case ---
     dtypes_dict = {}
-    for column_name in series.index:
-        dtype = series.dtype
-        dtype_name = np.dtype(dtype).name  # Get the name of the NumPy dtype
-        dtype_type = type(series[column_name])
-        dtypes_dict[column_name] = dtype_type if dtype_name == 'object' else dtype_type.__base__
+    for colname, dtype in df.dtypes.items():
+        dtypes_dict[colname] = pandas_dtype_to_python_type(dtype)
+
     return dtypes_dict
-    
+
+
+def pandas_dtype_to_python_type(dtype: Any) -> type:
+    import pandas as pd
+    import numpy as np
+
+    # --- already Python types ---
+    if dtype is str or dtype is int or dtype is float or dtype is bool:
+        return dtype
+
+    # --- string aliases ---
+    if isinstance(dtype, str):
+        d = dtype.lower()
+        if d in ("object", "string"):
+            return str
+        elif d.startswith("int"):
+            return int
+        elif d.startswith("float"):
+            return float
+        elif d in ("bool", "boolean"):
+            return bool
+        elif "datetime" in d:
+            return pd.Timestamp
+        elif "timedelta" in d:
+            return pd.Timedelta
+        else:
+            return str
+
+    # --- numpy / pandas numeric + datetime handling ---
+    try:
+        if np.issubdtype(dtype, np.integer):
+            return int
+        elif np.issubdtype(dtype, np.floating):
+            return float
+        elif np.issubdtype(dtype, np.bool_):
+            return bool
+        elif np.issubdtype(dtype, np.datetime64):
+            return pd.Timestamp
+        elif np.issubdtype(dtype, np.timedelta64):
+            return pd.Timedelta
+    except TypeError:
+        pass
+
+    # --- pandas extension dtypes ---
+    if pd.api.types.is_string_dtype(dtype):
+        return str
+    elif pd.api.types.is_integer_dtype(dtype):
+        return int
+    elif pd.api.types.is_float_dtype(dtype):
+        return float
+    elif pd.api.types.is_bool_dtype(dtype):
+        return bool
+    elif pd.api.types.is_datetime64_any_dtype(dtype):
+        return pd.Timestamp
+    elif pd.api.types.is_timedelta64_dtype(dtype):
+        return pd.Timedelta
+
+    # --- fallback ---
+    return str

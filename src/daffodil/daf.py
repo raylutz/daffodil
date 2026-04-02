@@ -83,7 +83,6 @@ import json
 import time
 #import numpy as np
 #from typing_extensions import deprecated       # can't get this to import correctly
-import collections      # to provide collections.abc.Iterable type.
 from pathlib import Path
 
 # no longer need the following due to using pytest
@@ -101,8 +100,9 @@ import daffodil.lib.daf_pdf      as daf_pdf
 from daffodil.keyedlist import KeyedList
 
 from typing import List, Dict, Any, Tuple, Optional, Union, cast, Type, Callable, Iterable, Iterator # noqa: F401
+from collections.abc import Iterable as IterableABC
 
-T_Pydf = Type['Daf']
+
 T_Daf = Type['Daf']
 T_dodaf = Dict[str, T_Daf]
 
@@ -179,9 +179,9 @@ class Daf:
             self.lol        = lol
 
         if kd and isinstance(kd, dict):
-            self.kd         = kd
+            self._kd         = kd
         else:
-            self.kd         = {}
+            self._kd         = {}                # indicates kd not built.
 
         if disp_cols is None:
             self.disp_cols  = []
@@ -231,7 +231,9 @@ class Daf:
                 # self.lol = daf_utils.apply_dtypes_to_hdlol((self.hd, self.lol), effective_dtypes, from_str=False)[1]
 
         # rebuild kd if possible, only if keyfield is defined.
-        self._rebuild_kd()
+        # Now using lazy kd building. Leave as {} if not manually defined.
+        # self._rebuild_kd()
+        self._invalidate_kd()    # use lazy kd rebuilding
         
 
     #===========================
@@ -338,10 +340,18 @@ class Daf:
 
     def __contains__(self, key) -> bool:
 
-        if not self.kd:
+        """ Check if a daf array contains a key in kd.
+
+            if keyfield is initialized, then rebuild the kd if invalidated.
+            else, kd could be manually initiallized, do not rebuild.
+        """
+
+        self._rebuild_kd_if_invalidated()
+
+        if not self._kd:
             raise KeyError("The dictionary 'kd' is not initialized.")
 
-        return key in self.kd
+        return key in self._kd
 
 
     #===========================
@@ -423,7 +433,10 @@ class Daf:
         # TODO: Consider building this so that any duplicates that are
         # encountered will not overwrite the prior key
 
+        # this is also used to build kd
+
         return dict(zip(keys, range(len(keys))))
+
 
     def columns(self):
         """ Return the column names
@@ -570,11 +583,11 @@ class Daf:
 
         self.hd         = {from_to_dict.get(col, col):idx for idx, col in enumerate(self.hd.keys())}
         self.dtypes     = {from_to_dict.get(col, col):typ for col, typ in self.dtypes.items()}
+        self._invalidate_kd()
         self.keyfield   = ''
-            # self.keyfield = from_to_dict.get(self.keyfield, self.keyfield)
-            # # no need to rebuild the kd, it should be the same.
 
         return self
+
 
     def set_cols(self, new_cols: Optional[T_ls]=None, sanitize_cols: bool=True, unnamed_prefix: str='col'):
         """ set the column names of the daf using an ordered list.
@@ -599,6 +612,7 @@ class Daf:
         if self.keyfield and isinstance(self.keyfield, str) and self.hd:
             # if column names are already defined (hd) then we need to repair the keyfield.
             # will only be done if keyfield is a simple string or integer column name.
+
             try:
                 keyfield_idx = self.hd.get[self.keyfield]
                 self.keyfield = new_cols[keyfield_idx]
@@ -606,6 +620,8 @@ class Daf:
                 self.keyfield = ''
         else:
             self.keyfield = ''
+
+        self._invalidate_kd()
 
         # set new cols to the hd
         self._cols_to_hd(new_cols)
@@ -620,56 +636,109 @@ class Daf:
     #===========================
     # keyfield
 
-    def keys(self, silent_error: bool=True) -> Union[T_la, T_lota]:
-        """ return list of keys from kd of keyfield
-            may return a list of str or int or list of tuple of (str or int).
+    def keys(self, 
+            *,
+            silent_error: bool=True, 
+            astype: str = 'list',           # 'list' | 'view'
+            ) -> Union[T_la, T_lota]:
+
+        """ return keys from _kd of keyfield as list or KeysView.
+
+            may be a list|view of str or int or list|view of tuple of (str or int).
             raises KeysDisabledError if keyfield is not set to an existing column and silent_error is False. 
 
+            users MUST NOT access _kd directly.
+
             test exists in test_daf.py
-
-            can also just use daf.kd   <-- to get a dict with keys, useful for "in" operation.
-
-            Note: Does not return 'dict_keys' as is the case with a dictionary, it returns a list.
-            @@TODO: reconsider this design element. Leaving them as dict_keys can be more easily
-                    searched for containment. For now, if the user wants the dict_keys type, they
-                    can use: my_keys = my_daf.kd.keys()
 
         """
 
         if not self.keyfield:
             if silent_error:
-                return []
+                return [] if astype == 'list' else ().keys()  # empty KeysView
             else:
                 raise KeysDisabledError("Key lookups are disabled (keyfield is unset).")
 
-        return list(self.kd.keys())
+        self._rebuild_kd_if_invalidated()
+
+        if astype == 'list':
+            return list(self._kd.keys())
+
+        elif astype == 'view':
+            return self._kd.keys()   # safe: kd is now valid
+
+        else:
+            raise ValueError("astype must be 'list' or 'view'")
 
 
-    def set_keyfield(self, keyfield: Union[str, T_ta, T_la]='', silent_error: bool=True):
+    def set_keyfield(
+            self, 
+            keyfield: Union[str, T_ta, T_la]='', 
+            *,
+            silent_error: bool=True,
+            force_kd_rebuild: bool=False,
+            ):
         """ set the indexing keyfield to a new column
-            if keyfield == '', then reset the keyfield and reset the kd.
+            if keyfield == '', then reset the keyfield and invalidate the kd.
             if keyfield not in columns,
                 then KeyError, if not silent_error
                 else set it anyway.
-            Otherwise, set key field
+            Otherwise, set keyfield
             keyfield can be a tuple or list of colnames.
             If provided, then the row keys are constructed as tuples of those fields.
+
+            set_keyfield sets the keyfield attribute but does not force rebuild of
+                the _kd dictionary unless 'force_kd_rebuild' is True.
 
             if self is empty do nothing.
         """
         if not self:
             return self
 
-        if keyfield:
-            if not self._is_keyfield_valid(keyfield):
-                if not silent_error:
-                    raise KeyError
-            self.keyfield = keyfield
-            self._rebuild_kd()
-        else:
+        if not keyfield:
             self.keyfield = ''
-            self.kd = {}
+            self._kd = {}
 
+        if not self._is_keyfield_valid(keyfield):
+            if not silent_error:
+                raise KeyError
+        self.keyfield = keyfield
+        self._invalidate_kd()    # use lazy kd rebuilding
+
+        if force_kd_rebuild:
+            self._rebuild_kd()
+
+        return self
+
+
+    def _invalidate_kd(self) -> None:
+        """ Mark kd as invalid for future lookups.
+
+            Any time row deletions or additions are performed,
+            kd must be rebuilt before using it. Instead of constantly
+            maintaining it with every append, for example. 
+
+            Instead, we mark the kd as invalid and then prior to
+            using it if keyfield is set, then rebuild it at that time.
+
+            This lazy kd rebuilding is an important performance and 
+            usability improvement. There is no need to worry about
+            setting the keyfield or disabling it during appends to
+            a new Daf array for example. Can now just set the keyfield
+            and not worry that time will be wasted during appends in
+            a loop.
+
+        """
+        if self.keyfield:
+            self._kd = {}
+        return self
+
+
+    def _rebuild_kd_if_invalidated(self):
+        """ if kd is invalidated, it is set to {}. rebuild it if keyfield exists. """
+
+        if not self._kd:
+            self._rebuild_kd()
         return self
 
 
@@ -681,10 +750,10 @@ class Daf:
         if self._is_keyfield_valid():
             if isinstance(self.keyfield, (str, int)):
                 col_idx = self.hd[self.keyfield]
-                self.kd = type(self)._build_kd(col_idx, self.lol)
+                self._kd = type(self)._build_kd(col_idx, self.lol)
             else:
                 col_idx_list = [self.hd[key_tup] for key_tup in self.keyfield]
-                self.kd = type(self)._build_kd(col_idx_list, self.lol)
+                self._kd = type(self)._build_kd(col_idx_list, self.lol)
         return self
 
 
@@ -730,25 +799,14 @@ class Daf:
 
 
 
-    # def row_idx_of(self, rowkey: str) -> int:
-        # """ return row_idx of key provided or -1 if not able to do it.
-        # """
-        # # unit tested
-
-        # # for the following, see https://github.com/raylutz/daffodil/issues/7
-
-        # if not self.keyfield or not self.kd:
-            # raise KeysDisabledError("Key lookups are disabled (keyfield is unset).")
-
-        # return self.kd.get(rowkey, -1)
-
-
     def get_existing_keys(self, keylist: T_ls) -> T_ls:
         """ check the keylist against the keys defined in a daf instance.
         """
         # unit tested
 
-        return [key for key in keylist if key in self.kd]
+        self. _rebuild_kd_if_invalidated()
+
+        return [key for key in keylist if key in self._kd]
 
 
 
@@ -1056,7 +1114,8 @@ class Daf:
         if not self.keyfield and hasattr(schema, "__keyfield__"):
             self.keyfield = schema.__keyfield__
             if self.hd:
-                self._rebuild_kd()
+                self._invalidate_kd()    # use lazy kd rebuilding
+                # self._rebuild_kd()
 
 
     def _get_dtypes_from_schema(self, schema) -> T_dtype_dict:
@@ -1091,6 +1150,7 @@ class Daf:
 
         new_cols = cols if cols else self.columns()
 
+        # the initialization below automatically invalidates kd for lazy rebuilding.
         new_daf = Daf(cols=new_cols, lol=lol, keyfield=self.keyfield, dtypes=copy.copy(self.dtypes), name=name)
 
         # Ensure metadata attributes are deeply copied
@@ -1105,9 +1165,10 @@ class Daf:
         """
 
         self.lol = new_lol
-        self._rebuild_kd()
+        self._invalidate_kd() # use lazy kd building.
 
         return self
+
 
     def default_record(self) -> T_da:
         """
@@ -1115,6 +1176,9 @@ class Daf:
 
             The schema is used only as a source of column names and defaults.
             No type conversion or validation is performed.
+
+            TODO should allow return of KeyedList type.
+
         """
         if not self.schema:
             raise AttributeError("schema must be defined. No schema attached to this Daf instance")
@@ -1169,6 +1233,7 @@ class Daf:
         lol = [list(daf_utils.set_cols_da(record_da, cols).values())
                 for record_da in records_lod if record_da and isinstance(record_da, dict)]
 
+        # following invalidates kd for lazy rebuilding.
         return cls(cols=cols, lol=lol, keyfield=keyfield, dtypes=dtypes, name=name)
 
 
@@ -1217,6 +1282,7 @@ class Daf:
         # Convert LOT to LOL (list of lists) for Daf
         lol = [list(row) for row in records_lot]
 
+        # following invalidates kd for lazy rebuilding.
         return cls(cols=cols, lol=lol, keyfield=keyfield, dtypes=dtypes, name=name)
 
 
@@ -1231,6 +1297,7 @@ class Daf:
 
         cols = self.columns()
         result_lod = [dict(zip(cols, la)) for la in self.lol]
+
         return result_lod
 
 
@@ -1272,6 +1339,7 @@ class Daf:
             not required in the dod.
 
         """
+        # following invalidates kd for lazy rebuilding.
         return cls.from_lod(daf_utils.dod_to_lod(dod, keyfield=keyfield), keyfield=keyfield, dtypes=dtypes)
 
 
@@ -1324,6 +1392,7 @@ class Daf:
             dtypes = {}
 
         if not cols_dol:
+            # following invalidates kd for lazy rebuilding.
             return cls(keyfield=keyfield, dtypes=dtypes)
 
         cols = list(cols_dol.keys())
@@ -1335,6 +1404,7 @@ class Daf:
                 row.append(cols_dol[col][irow])
             lol.append(row)
 
+        # following invalidates kd for lazy rebuilding.
         return cls(cols=cols, lol=lol, keyfield=keyfield, dtypes=dtypes)
 
 
@@ -1414,10 +1484,12 @@ class Daf:
             cols = []
 
         if not lod:
+            # following invalidates kd for lazy rebuilding.
             return cls(keyfield=keyfield, dtypes=dtypes, cols=cols)
 
         # the following will adopt the dictionary keys as cols.
         # note that dtypes applies to the columns in this orientation.
+        # following invalidates kd for lazy rebuilding.
         rows_daf = cls.from_lod(lod, dtypes=dtypes)
 
         # this transposes the entire dataframe, including the column names, which become the first column
@@ -1446,6 +1518,7 @@ class Daf:
 
         csv_buff = daf_utils.xlsx_to_csv(excel_buff)
 
+        # following invalidates kd for lazy rebuilding.
         my_daf  = cls.from_csv_buff(
                         csv_buff,
                         keyfield    = keyfield,         # field to use as unique key, if not ''
@@ -1509,6 +1582,7 @@ class Daf:
             except Exception as e:
                 raise RuntimeError(f"Failed to read local file: {e}")
 
+        # following invalidates kd for lazy rebuilding.
         new_daf = cls.from_csv_buff(csv_buff=data_stream, **kwargs)
 
         return new_daf
@@ -1568,6 +1642,7 @@ class Daf:
         if not noheader:
             cols = data_lol.pop(0)        # return the first item and shorten the list.
 
+        # following invalidates kd for lazy rebuilding.
         my_daf = cls(lol=data_lol, cols=cols, keyfield=keyfield, dtypes=dtypes, name=name)
 
         # the following will act nicely if there is no dtypes defined.
@@ -1615,6 +1690,7 @@ class Daf:
             print(f"Error reading the file: {err}")
             return None
 
+        # following invalidates kd for lazy rebuilding.
         return Daf.from_csv_buff(
             csv_buff    = csv_buff,                 # The CSV data as bytes or string.
             keyfield    = keyfield,                 # field to use as unique key, if not ''
@@ -1725,6 +1801,7 @@ class Daf:
         else:
             lol = npa.tolist()
 
+        # following invalidates kd for lazy rebuilding.
         return cls(cols=cols, lol=lol, keyfield=keyfield, name=name)
 
 
@@ -1909,7 +1986,6 @@ class Daf:
             'name':         self.name,
             'lol':          self.lol,
             'hd':           self.hd,
-            'kd':           self.kd,
             'dtypes':       dtypes_str,
             'keyfield':     self.keyfield,
             'attrs':        self.attrs,
@@ -1943,19 +2019,22 @@ class Daf:
                     for k, v in daf_dict.get('dtypes', {}).items()
                 }
 
-        # if keyfield is not str type, it must be converted bc JSON converts all keys to str.
-        keyfield_dtype = dtypes.get(daf_dict.get('keyfield', ''), str)
+        # probably don't need to worry about this with dynamic kd generation.
 
-        kd = daf_dict.get('kd', {})
-        if kd and keyfield_dtype is not str:
-            try:
-                kd = {keyfield_dtype(k): v for k, v in kd.items()}
-            except (ValueError, TypeError):
-                raise ValueError(f"Failed to convert kd keys to {keyfield_dtype}")
+        # # if keyfield is not str type, it must be converted bc JSON converts all keys to str.
+        # keyfield_dtype = dtypes.get(daf_dict.get('keyfield', ''), str)
 
+        # if keyfield_dtype is not str:
+        #     breakpoint() # perm
+        #     pass  # how to fix this??
+        #     try:
+        #         kd = {keyfield_dtype(k): v for k, v in kd.items()}
+        #     except (ValueError, TypeError):
+        #         raise ValueError(f"Failed to convert kd keys to {keyfield_dtype}")
+
+        # following invalidates kd for lazy rebuilding.
         return cls(lol          = daf_dict.get('lol', []),
                     hd          = daf_dict.get('hd', {}),
-                    kd          = kd,
                     dtypes      = dtypes,
                     keyfield    = daf_dict.get('keyfield', ''),
                     name        = daf_dict.get('name', ''),
@@ -2006,7 +2085,7 @@ class Daf:
                     # columns are defined, and keyfield might also be defined
                     # create a dict.
                     da = dict(zip(self.hd.keys(), data_item))
-                    self.record_append(da)  # <-- this takes care of respecing the row kd.
+                    self.record_append(da)  # <-- this takes care of respecing the row kd (invalidating)
                 else:
                     # no columns defined, therefore just append to lol.
                     self.lol.append(data_item)
@@ -2015,11 +2094,7 @@ class Daf:
             # hd matches.
             if self.hd == data_item.hd:
                 self.lol.append(data_item.values())
-                if self.kd and self.keyfield:
-                    keyval = self._get_keyval(data_item)
-
-                    self.kd[keyval] = len(self.kd)
-
+                self._invalidate_kd()
 
             else:
                 da = data_item.to_dict()
@@ -2057,9 +2132,9 @@ class Daf:
         if not self.lol and not self.hd:
             self.hd = copy.deepcopy(other_instance.hd)
             self.lol = copy.deepcopy(other_instance.lol)
-            self.kd = copy.deepcopy(other_instance.kd)
             self.keyfield = other_instance.keyfield
-            self._rebuild_kd()  # Only if the keyfield is set.
+            self._invalidate_kd()    # use lazy kd rebuilding
+
             return self
 
         # Fields must match exactly!
@@ -2070,20 +2145,20 @@ class Daf:
                 req_list=None,
             )
 
-            logs.sts(f"{logs.prog_loc()} keys mismatch: this_instance ({self.name}):\n({list(self.hd.keys())}) \n"
+            error_str = (f"columns mismatch: this_instance ({self.name}):\n({list(self.hd.keys())}) \n"
                   f"other_instance:\n({list(other_instance.hd.keys())})\n"
                   f"missing_list:\n{missing_list}\n"
-                  f"extra_list:\n{extra_list}\n", 3
-            )
+                  f"extra_list:\n{extra_list}\n")
             # breakpoint()  # Permanent assertion break
             # pass
-            raise KeyError
+            raise KeyError(error_str)
 
         # Append deep-copied rows to avoid referencing issues
         for rec_la in other_instance.lol:
             self.lol.append(copy.deepcopy(rec_la))
 
-        self._rebuild_kd()  # Only if the keyfield is set.
+        #self._rebuild_kd()  # Only if the keyfield is set.
+        self._invalidate_kd()    # use lazy kd rebuilding
 
         if diagnose:  # pragma: no cover
             print(f"result=\n{self}")
@@ -2099,6 +2174,7 @@ class Daf:
          """
 
         if not records_lod or len(records_lod) == 1 and not records_lod[0]:
+            # edge case of one record which is empty.
             return self
 
         if not self.lol and not self.hd:
@@ -2108,7 +2184,7 @@ class Daf:
 
             self.hd = {col_name: index for index, col_name in enumerate(records_lod[0].keys())}
             self.lol = [list(record_da.values()) for record_da in records_lod]
-            self._rebuild_kd()   # only if the keyfield is set.
+            self._invalidate_kd() # use lazy kd building.
             return self
 
         for record_da in records_lod:
@@ -2120,6 +2196,8 @@ class Daf:
             # the following will either append or insert
             # depending on the keyvalue.
             self.record_append(record_da)
+
+        self._invalidate_kd() # use lazy kd building.
 
         return self
 
@@ -2144,8 +2222,6 @@ class Daf:
 
         if not self.lol and not self.hd:
             # new daf, adopt structure of da or keyedlist.
-            # but there is only one header and data is lol
-            # this makes daffodil arrays about 2/3 smaller.
 
             if isinstance(record, KeyedList):
                 # for keyedlist, simply adopt the hd and the list as first row.
@@ -2156,7 +2232,8 @@ class Daf:
                 self.hd = type(self)._build_hd(record.keys())
                 self.lol = [list(record.values())]
 
-            self._rebuild_kd()   # functions only if the keyfield is set.
+            self._invalidate_kd()    # use lazy kd rebuilding
+            # self._rebuild_kd()   # functions only if the keyfield is set.
             return self
 
         # check if fields match exactly.
@@ -2183,12 +2260,11 @@ class Daf:
         if self.keyfield:
             keyval = self._get_keyval(record)
 
+            self._rebuild_kd_if_invalidated()
+
             # the following, see https://github.com/raylutz/daffodil/issues/7
-            if keyval in self.kd:
-                self.lol[self.kd[keyval]] = rec_la
-            # idx = self.kd.get(keyval, -1)
-            # if idx >= 0:
-                # self.lol[idx] = rec_la
+            if keyval in self._kd:
+                self.lol[self._kd[keyval]] = rec_la
             else:
                 self._basic_append_la(rec_la, keyval)
         else:
@@ -2200,10 +2276,10 @@ class Daf:
 
     def _basic_append_la(self, rec_la: T_la, keyval: str):
         """ basic append to the end of the array without any checks
-            including appending to kd and la to lol
+            invalidates kd for lazy rebuilding.
         """
-        self.kd[keyval] = len(self.lol)
         self.lol.append(rec_la)
+        self._invalidate_kd()           # support lazy kd generation.
 
         return self
 
@@ -2420,7 +2496,7 @@ class Daf:
 
             if isinstance(value, dict):
                 self.assign_record_irow(irow, record=value)
-            elif isinstance(value, (list, collections.abc.Iterable)) and len(value) == 1:
+            elif isinstance(value, (list, IterableABC)) and len(value) == 1:
                 # frequently, we will have a list generated from a selection of a column, and it it has only one value
                 # it needs to be entered in the array location, but not as a list.
                 # place a list with only one item in a cell can't be done this way:
@@ -2433,7 +2509,7 @@ class Daf:
 
         elif num_irows > 1 and num_icols == 0:
 
-            if isinstance(value, (list, collections.abc.Iterable)):
+            if isinstance(value, (list, IterableABC)):
                 for irow in irows:
                     self.lol[irow] = value
             elif isinstance(value, dict):
@@ -2454,7 +2530,7 @@ class Daf:
             if irows is None:
                 irows = range(len(self.lol))
 
-            if isinstance(value, (list, collections.abc.Iterable)):
+            if isinstance(value, (list, IterableABC)):
                 for source_idx, irow in enumerate(irows):
 
                     try:
@@ -2480,7 +2556,7 @@ class Daf:
             if irows is None:
                 irows = range(len(self.lol))
 
-            if isinstance(value, (list, collections.abc.Iterable)):
+            if isinstance(value, (list, IterableABC)):
                 for irow in irows:
                     for source_col, icol in enumerate(icols):
                         try:
@@ -2521,7 +2597,7 @@ class Daf:
         
         raises KeysDisabledError if keyfield is not set.
         """
-        if not self.keyfield or not self.kd:
+        if not self.keyfield or not self._kd:
             KeysDisabledError("Key lookups are disabled (keyfield is unset).")
             # if inverse:
                 # return range(len(self))
@@ -2529,7 +2605,7 @@ class Daf:
                 # return []
 
         return type(self).gkeys_to_idxs(
-                    keydict         = self.kd,
+                    keydict         = self._kd,
                     gkeys           = krows,
                     inverse         = inverse,
                     silent_error    = silent_error,
@@ -2593,7 +2669,7 @@ class Daf:
                     # logs.sts(f"{logs.prog_loc()} Cannot find key '{gkey}' in {axis} in dataframe '{name}'", 3)
                     raise
 
-        elif isinstance(gkeys, (list, collections.abc.Iterable)):     # can be list of integer or strings (or anything hashable)
+        elif isinstance(gkeys, (list, IterableABC)):     # can be list of integer or strings (or anything hashable)
             idxs = []
             for gkey in gkeys:
                 # For the following, see https://github.com/raylutz/daffodil/issues/6
@@ -2601,8 +2677,8 @@ class Daf:
                     idxs.append(keydict[gkey])
                 except KeyError:
                     if not silent_error:
-                        logs.sts(f"{logs.prog_loc()} Cannot find key '{gkey}' in {axis} in dataframe '{name}'", 3)
-                        #breakpoint()
+                        # logs.sts(f"{logs.prog_loc()} Cannot find key '{gkey}' in {axis} in dataframe '{name}'", 3)
+                        # breakpoint()
                         raise
 
 
@@ -2653,8 +2729,10 @@ class Daf:
             silent_error:   bool=False,
             ) -> 'Daf':
 
+        self._rebuild_kd_if_invalidated()
+
         if not self.keyfield:
-            raise KeysDisabledError("Key lookups are disabled (keyfield is unset).")
+            raise KeysDisabledError("select_krows requires keyfield is set.")
 
         irows = self.krows_to_irows(
             krows = krows,
@@ -2674,7 +2752,7 @@ class Daf:
             ) -> 'Daf':
 
         if not self.hd:
-            raise KeyError ("remove_key() requires keyfield is set.")
+            raise KeysDisabledError("select_kcols requires hd.")
 
         icols = self.kcols_to_icols(
             kcols = kcols,
@@ -2696,10 +2774,12 @@ class Daf:
         """
         row_sliced_lol = self.lol
 
-        if not self.lol or not irows and not invert:
+        no_rows_specified = bool(not isinstance(irows, int) and not irows)
+
+        if not self.lol or no_rows_specified and not invert:
             return self.clone_empty()
 
-        if not irows:
+        if no_rows_specified:
             if invert:
                 return self.copy(deep=True)
             else:
@@ -2735,7 +2815,7 @@ class Daf:
                 else:
                     row_sliced_lol = [self.lol[i] for i in range(len(self.lol)) if not any(i in r for r in rows_lor)]
 
-        elif irows and isinstance(irows, (range, collections.abc.Iterable)):
+        elif irows and isinstance(irows, (range, IterableABC)):
             if not invert:
                 row_sliced_lol = [self.lol[i] for i in irows]
             else:
@@ -2888,11 +2968,13 @@ class Daf:
         if not self:
             return {}
 
-        if not self.keyfield and not self.kd:
+        self._rebuild_kd_if_invalidated()
+
+        if not self.keyfield and not self._kd:
             raise KeysDisabledError("Key lookups are disabled (keyfield is unset and kd not defined).")
 
-        if key in self.kd:
-            return self._basic_get_record(self.kd[key])
+        if key in self._kd:
+            return self._basic_get_record(self._kd[key])
 
         if silent_error:
             return {}
@@ -2938,10 +3020,14 @@ class Daf:
             If inverse is true, select records that are not included in the keys.
             silent_error = True: do not raise an error if any keys are not found.
 
-            This function requires that a keyfield exists, otherwise raises KeysDisabledError.
+            This function requires that a keyfield or manual kd exists, otherwise raises KeysDisabledError.
         """
-        if not self.keyfield:
-            raise KeysDisabledError("Key lookups are disabled (keyfield is unset).")
+        # rudamentary special cases:
+        if not keys_ls:
+            if inverse:
+                return self.clone_empty(lol=self.lol)
+            else:
+                return self.clone_empty()
 
         return self.select_krows(krows=keys_ls, inverse=inverse, silent_error=silent_error)
 
@@ -3143,6 +3229,7 @@ class Daf:
 
         new_keyfield = keyfield or self.keyfield
 
+        # following invalidates kd for future lazy rebuild.
         daf = Daf(cols=self.columns(), lol=result_lol, keyfield=new_keyfield, dtypes=self.dtypes)
 
         return daf
@@ -3180,10 +3267,18 @@ class Daf:
 
         result_lol: T_lola = []
 
-        for row_da in self:
-            row = _IndirectRowView(row_da, indirect_col)
-            if where(row):
-                result_lol.append(list(row_da.values()))
+        # --- fast path: no indirect ---
+        if not indirect_col:
+            for row_kl in self.iter_klist():
+                if where(row_kl):
+                    result_lol.append(row_kl.values())
+
+        # --- indirect path ---
+        else:
+            for row_kl in self.iter_klist():
+                row = _IndirectRowView(row_kl, indirect_col)
+                if where(row):
+                    result_lol.append(row_kl.values())
 
         daf = Daf(cols=self.columns(), lol=result_lol, keyfield=self.keyfield, dtypes=self.dtypes)
 
@@ -3219,23 +3314,25 @@ class Daf:
         """
         num_rows_orig = self.num_rows()
 
+        # the following does NOT rebuild the kd
         self.set_keyfield(keyfield=keyfield)
 
-        num_rows_after_set_keyfield = self.num_rows()
+        self._rebuild_kd_if_invalidated()
 
-        if num_rows_orig == num_rows_after_set_keyfield:
+        num_uniquely_keyed_rows = len(self._kd())
+
+        if num_rows_orig == num_uniquely_keyed_rows:
             return self, Daf()
 
         # key irows of records that are unique
-        unique_irows = self.kd.values()
+        unique_irows = self._kd.values()
 
         # unset the keyfield
-        self.set_keyfield(keyfield='')
+        self._invalidate_kd()
 
         # remove duplicated rows and set the keyfield to form unique_daf
         unique_daf = self.select_irows(irows=unique_irows, invert=False)
-        unique_daf.set_keyfield(keyfield=keyfield)
-
+    
         # all the other records are duplicates.
         dups_daf   = self.select_irows(irows=unique_irows, invert=True)
 
@@ -3296,6 +3393,7 @@ class Daf:
             silent_error:   bool=False,
             astype:         Optional[Union[Callable, str, type]]=None,
             indirect_col:   Optional[str]=None,
+            default:        Optional[Any]='',
             ) -> list:
         """ alias for col_to_la()
             can also use column ranges and then transpose()
@@ -3310,6 +3408,7 @@ class Daf:
                 silent_error    = silent_error,
                 astype          = astype,
                 indirect_col    = indirect_col,
+                default         = default,
                 )
 
 
@@ -3321,6 +3420,7 @@ class Daf:
             silent_error:   bool=False,     # no error if column not found.
             astype:         Optional[Union[Callable, str, type]]=None,
             indirect_col:   Optional[str]=None,
+            default:        Optional[Any]='',
         ) -> list:
         """ pull out out a column from daf by colname as a list of any
             does not modify daf. Using unique requires that the
@@ -3341,10 +3441,14 @@ class Daf:
             result_la = []
 
             for row_da in self:
-                val = daf_utils.get_indirect_val(row_da, indirect_col, colname, default='')
+                val = daf_utils.get_indirect_val(row_da, indirect_col, colname, default=default)
 
                 if omit_nulls and val == '':
                     continue
+
+                # this added for numpy compatibility.
+                if val == '' and default != '':
+                    val = default
 
                 val = daf_utils.astype_value(val, astype)
                 result_la.append(val)
@@ -3393,6 +3497,8 @@ class Daf:
 
             Note: could provide an option to not create a copy, and use splicing.
 
+            MUTATES IN PLACE, AVOID.
+
             test exists in test_daf.py
         """
 
@@ -3412,6 +3518,12 @@ class Daf:
 
         new_dtypes = {col: typ for idx, (col, typ) in enumerate(self.dtypes.items()) if idx not in keep_idxs_li}
         self.dtypes = new_dtypes
+
+        if self.keyfield in exclude_cols:
+            self._invalidate_kd()
+
+        return self
+
 
 
     def select_cols(self,
@@ -3445,7 +3557,10 @@ class Daf:
 
         old_cols = self.columns()
         new_cols = [old_cols[idx] for idx in range(len(old_cols)) if idx in selected_cols_li]
-        dtypes   = {col: typ for col, typ in self.dtypes.items() if col in new_cols}
+        if self.dtypes:
+            dtypes   = {col: typ for col, typ in self.dtypes.items() if col in new_cols}
+        else:
+            dtypes = None
 
         new_keyfield = self.keyfield \
             if self.keyfield and isinstance(self.keyfield, str) and self.keyfield in new_cols else ''
@@ -3500,33 +3615,20 @@ class Daf:
         if not self.keyfield:
             raise KeysDisabledError("Key lookups are disabled (keyfield is unset).")
 
-        keyfield = self.keyfield
-        if isinstance(keyfield, str):
-            if keyfield not in record:
-                raise RuntimeError(f"No keyfield '{keyfield}' in dict.")
-        elif isinstance(keyfield, T_ta):
-            if not all(keytup in record for keytup in keyfield):
-                raise RuntimeError(f"Not all keyfields '{keyfield}' in dict.")
-
-        if self and list(record.keys()) != list(self.hd.keys()):
-            raise RuntimeError("record fields not equal to daf columns")
+        # test if valid keyfield, produce an error if not.
+        self._is_keyfield_valid()
 
         keyval = self._get_keyval(record)
 
-        # for the following, see https://github.com/raylutz/daffodil/issues/7
-        if keyval in self.kd:
-            # assign the record, normalize the fields.
-            self.lol[self.kd[keyval]] = [record.get(col, '') for col in self.hd]
-        else:
-            # otherwise add it.
-            self.append(record)
+        self._rebuild_kd_if_invalidated()
 
-        # row_idx = self.kd.get(keyval, -1)
-        # if row_idx < 0 or row_idx >= len(self.lol):
-            # self.append(record_da)
-        # else:
-            # #normal_record_da = Daf.normalize_record_da(record_da, cols=self.columns(), dtypes=self.dtypes)
-            # self.lol[row_idx] = [record_da.get(col, '') for col in self.hd]
+        # for the following, see https://github.com/raylutz/daffodil/issues/7
+        if keyval in self._kd:
+            # assign the record, normalize the fields.
+            self.lol[self._kd[keyval]] = [record.get(col, '') for col in self.hd]
+        else:
+            # otherwise add it, and invalidate kd.
+            self.append(record)
 
 
     def assign_record_irow(self, irow: int=-1, record: Optional[T_da]=None):
@@ -3561,10 +3663,15 @@ class Daf:
         if record is None or not self.lol or not self.hd or not self.keyfield or not keylist:
             return
 
-        for key in keylist:
-            if key in self.kd:
-                self.update_record_irow(self.kd[key], record)
+        self._rebuild_kd_if_invalidated()
 
+        for key in keylist:
+            if key in self._kd:
+                self.update_record_irow(self._kd[key], record)
+
+        # no need to invalidate kd because key is unchanged by definition.
+
+        return self
 
 
     def update_record_irow(self, irow: int=-1, record: Optional[T_da]=None):
@@ -3670,7 +3777,9 @@ class Daf:
 
         self.lol = daf_utils.insert_row_in_lol_at_irow(irow=irow, row_la=row_la, lol=self.lol, default=default)
 
-        self._rebuild_kd()
+        self._invalidate_kd()    # use lazy kd rebuilding
+        #self._rebuild_kd()
+        return self
 
 
     def assign_col(self, colname: str, la: Optional[T_la]=None, default: Any=''):
@@ -3693,17 +3802,10 @@ class Daf:
                 #icol: int=-1,
                 default = default,
                 )
+        if self.keyfield == colname:
+            self._invalidate_kd()    # use lazy kd rebuilding
 
         return self
-
-    # def set_col(self, colname: str, val: Any):
-        # """ modify col by colname using val """
-
-        # if not colname or colname not in self.hd:
-            # return
-        # icol = self.hd[colname]
-        # self.set_icol(icol, val)
-
 
     def insert_col(
             self,
@@ -3731,17 +3833,8 @@ class Daf:
             # column already exists. ignore icol, overwrite data.
             self.assign_col(colname, col_la, default)
 
-        # colname_icol = self.hd.get(colname, -1)
-        # if colname_icol >= 0:
-            # # column already exists. ignore icol, overwrite data.
-            # self.assign_col(colname, col_la, default)
-            # return
         else:
             self.insert_icol(icol=icol, col_la=col_la, colname=colname, default=default) #, keyfield=keyfield)
-
-        # hl = list(self.hd.keys())
-        # hl.insert(icol, colname)
-        # self.hd = {k: idx for idx, k in enumerate(hl)}
 
         return self
 
@@ -3820,6 +3913,8 @@ class Daf:
                 if bool(re.search(find_pat, str(value))):
                     row_la[i] = replace_val
 
+        self._invalidate_kd()
+
 
     def replace_in_columns(
         self,
@@ -3873,6 +3968,10 @@ class Daf:
             for col_idx in target_indices:
                 if row[col_idx] in find_values:
                     row[col_idx] = replacement
+
+        if self.keyfield:
+            if not isinstance(self.keyfield, str) or self.keyfield in cols:
+                self._invalidate_kd()
 
         return self
 
@@ -3928,7 +4027,7 @@ class Daf:
             pass
 
         self.lol = daf_utils.sort_lol_by_col(self.lol, colidx, reverse=reverse, length_priority=length_priority)
-        self._rebuild_kd()
+        self._invalidate_kd()    # use lazy kd rebuilding
         return self
 
 
@@ -3957,7 +4056,8 @@ class Daf:
             pass
 
         self.lol = daf_utils.sort_lol_by_cols(self.lol, colidxs, reverse=reverse, length_priority=length_priority)
-        self._rebuild_kd()
+        #self._rebuild_kd()
+        self._invalidate_kd()    # use lazy kd rebuilding
         return self
 
 
@@ -4056,7 +4156,9 @@ class Daf:
 
         self.retmode = prior_retmode
 
-        self._rebuild_kd()
+        #self._rebuild_kd()
+        self._invalidate_kd()
+
 
     def _parse_formulas(self) -> 'Daf':
 
@@ -4185,9 +4287,13 @@ class Daf:
         if not my_keyfield:
             raise KeyError("annotate_daf: self must have keyfield defined")
 
+        self._rebuild_kd_if_invalidated()
+
         other_keyfield = other_daf.keyfield
         if not other_keyfield:
             raise KeyError("annotate_daf: other daf array must have keyfield defined")
+
+        other_daf._rebuild_kd_if_invalidated()
 
         for my_rec_klist in self.iter_klist():
 
@@ -4197,6 +4303,8 @@ class Daf:
 
             for my_field, other_field in my_to_other_dict.items():
                 my_rec_klist[my_field] = other_rec[other_field]
+
+        # keys still valid
 
         return self
 
@@ -4243,6 +4351,8 @@ class Daf:
 
             keylist_or_dict = keylist if not keylist or len(keylist) < 30 else dict.fromkeys(keylist)
 
+            self._rebuild_kd_if_invalidated()
+
             for row in self:
                 if self.keyfield and keylist_or_dict and row[self.keyfield] not in keylist_or_dict:
                     continue
@@ -4262,7 +4372,8 @@ class Daf:
             raise NotImplementedError
 
         # Rebuild the internal data structure (if needed)
-        result_daf._rebuild_kd()
+        # result_daf._rebuild_kd()
+        result_daf._invalidate_kd()   # use lazy rebuilding of kd.
 
         return result_daf
 
@@ -4305,6 +4416,8 @@ class Daf:
 
         if by == 'row':
 
+            self._rebuild_kd_if_invalidated()
+
             for idx, row_da in enumerate(self):
                 if rowkeys_list_or_dict and self.keyfield and row_da[self.keyfield] not in rowkeys_list_or_dict:
                     continue
@@ -4327,7 +4440,8 @@ class Daf:
 
         # Rebuild the internal data structure (if needed)
         # note, this should not be necessary. apply_in_place should not modify the keyfield column.
-        self._rebuild_kd()
+        self._invalidate_kd()   # use lazy rebuilding of kd.
+        # self._rebuild_kd()
 
 
     # def reduce(
@@ -4502,6 +4616,7 @@ class Daf:
             colnames: Optional[T_ls]=None,
             omit_nulls: bool=False,         # do not group to values in column that are null ('')
             ) -> Union[Dict[str, 'Daf'], Dict[Tuple[str, ...], 'Daf']]:
+
         """ given a daf, break into a number of daf's based on one colname or list of colnames specified.
             For each discrete value in colname(s), create a daf table with all cols,
             including colname, and return in a dodaf (dict of daf) structure.
@@ -4535,6 +4650,7 @@ class Daf:
 
 
     def groupby_cols(self, colnames: T_ls) -> Dict[Tuple[str, ...], 'Daf']:
+
         """ given a daf, break into a number of daf's based on colnames specified.
             For each discrete value in colname, create a daf table with all cols,
             including colnames, and return in a dodaf (dict of daf) structure,
@@ -4555,6 +4671,85 @@ class Daf:
             this_daf.record_append(kla)
 
         return result_dodaf
+
+
+    def group_where(
+            self,
+            where: Callable[[Any], Any],
+            *,
+            indirect_col: Optional[str] = None,
+        ) -> Dict[Any, 'Daf']:
+
+        """ Group rows by where(row), supporting fanout.
+
+            where(row) -> None | key | iterable[key]
+            Returns dodaf with rows appended by reference (no copy)
+                to the appropriate daf based on the key.
+            For example, the function where can return a list of tuples
+                which are then used as keys to the dodaf output, and the
+                row in question is appended to those daf arrays by reference
+                (no copying).
+
+        """
+
+        # --- helpers ---
+
+        def _is_iterable(val: Any) -> bool:
+            return isinstance(val, IterableABC) and not isinstance(val, (str, bytes))
+
+        # --- iterator selection ---
+
+        if indirect_col:
+            # reuse existing indirect semantics via wrapper
+            def _iter_rows():
+                for row_kl in self.iter_klist():
+                    yield _IndirectRowView(row_kl, indirect_col)
+            row_iter = _iter_rows()
+        else:
+            # prefer KeyedList iteration for zero-copy
+            row_iter = self.iter_klist()
+
+        # --- grouping ---
+
+        dodaf: Dict[Any, 'Daf'] = {}
+
+        for row in row_iter:
+
+            keys = where(row)
+
+            if keys is None:
+                continue
+
+            if not _is_iterable(keys):
+                keys = [keys]
+            else:
+                # if iterable but empty, skip early
+                # (avoid constructing list unless needed)
+                try:
+                    iterator = iter(keys)
+                    first = next(iterator)
+                except StopIteration:
+                    continue
+                # reconstruct iterable including first element
+                keys = (k for k in (first, *iterator))
+
+            for key in keys:
+
+                sub_daf = dodaf.get(key)
+                if sub_daf is None:
+                    sub_daf = self.clone_empty(name=str(key))
+                    dodaf[key] = sub_daf
+
+                # append original KeyedList row (no copy)
+                # if indirect view was used, unwrap to underlying row
+                if isinstance(row, _IndirectRowView):
+                    sub_daf.record_append(row.row)
+                else:
+                    sub_daf.record_append(row)
+
+
+        return dodaf
+
 
 
     def groupby_cols_reduce(
@@ -5696,6 +5891,9 @@ class Daf:
 
         self[:, col] = list(map(func, self[:, col], **kwargs))
 
+        if col == self.keyfield or not isinstance(self.keyfield, str):
+            self._invalidate_kd()
+
     # for example:
     #   my_daf.apply_to_col(col='colname', func=lambda x: re.sub(r'^\D+', '', x))
 
@@ -6193,7 +6391,9 @@ class Daf:
 
             new_lol = daf_utils.insert_col_in_lol_at_icol(icol=0, col_la=self.columns(), lol=new_lol)
 
+        # following invalidates kd for lazy rebuilding.
         return Daf(lol=new_lol, name=self.name, keyfield=new_keyfield, cols=new_cols, use_copy=True)
+
 
     def derive_join_translator(
         self,
@@ -6290,8 +6490,8 @@ class Daf:
         cls,
         self_keyfield:      str,                        # pass self.keyfield (daf)          or esc_my_index_col (sql)
         other_keyfield:     str,                        # pass other_daf.keyfield (daf)     or esc_other_index_col (sql)
-        self_cols:          Union[list, dict, T_kva],   # pass self.kd.keys() (daf)         or esc_sql_cols (sql)
-        other_cols:         Union[list, dict, T_kva],   # pass other_daf.kd.keys() (daf)    or esc_sql_other_cols (sql)
+        self_cols:          Union[list, dict, T_kva],   # pass self.columns() (daf)         or esc_sql_cols (sql)
+        other_cols:         Union[list, dict, T_kva],   # pass other_daf.columns() (daf)    or esc_sql_other_cols (sql)
         self_name:          str = '',                   # pass self.name (daf)              or esc_sql_table_name (sql)
         other_name:         str = '',                   # pass other_daf.name (daf)         or esc_sql_other_table_name (sql)
         shared_fields:      Optional[T_ls] = None,      # Columns shared between tables that do not require renaming (esc if sql)
@@ -6307,8 +6507,8 @@ class Daf:
         Args:
             self_keyfield:      str,                        # pass self.keyfield (daf)          or esc_my_index_col (sql)
             other_keyfield:     str,                        # pass other_daf.keyfield (daf)     or esc_other_index_col (sql)
-            self_cols:          Union[list, dict, T_kva],   # pass self.kd.keys() (daf)         or esc_sql_cols (sql)
-            other_cols:         Union[list, dict, T_kva],   # pass other_daf.kd.keys() (daf)    or esc_sql_other_cols (sql)
+            self_cols:          Union[list, dict, T_kva],   # pass self.columns() (daf)         or esc_sql_cols (sql)
+            other_cols:         Union[list, dict, T_kva],   # pass other_daf.columns() (daf)    or esc_sql_other_cols (sql)
             self_name:          str = '',                   # pass self.name (daf)              or esc_sql_table_name (sql)
             other_name:         str = '',                   # pass other_daf.name (daf)         or esc_sql_other_table_name (sql)
             shared_fields:      Optional[T_ls] = None,      # Columns shared between tables that do not require renaming (esc if sql)
@@ -6427,6 +6627,9 @@ class Daf:
         if not self.keyfield or not other_daf.keyfield:
             raise KeysDisabledError("Both Daf instances must have a keyfield defined for a join operation.")
 
+        self._rebuild_kd_if_invalidated()
+        other_daf._rebuild_kd_if_invalidated()
+
         if diagnose:
             logs.sts(f"{logs.prog_loc()} Initiating join:\nself:\n{self}\nother_daf:\n{other_daf}", 3)
 
@@ -6451,8 +6654,8 @@ class Daf:
         resolved_colnames = eff_translator_daf.col("resolved_colname")
 
         # Prepare the resulting Daf
-        result_daf = Daf(cols=resolved_colnames, name=name)
-        keyfield = self.keyfield    # will be set at the end.
+        result_daf = Daf(cols=resolved_colnames, name=name, keyfield=self.keyfield)
+        keyfield = self.keyfield    # okay to set now with lazy kd generation.
 
         # Helper function to fetch a record by key, with silent error
         def fetch_record(daf, key):
@@ -6484,7 +6687,7 @@ class Daf:
 
         if how in ("right", "outer"):
             unmatched_keys = [
-                key for key in other_daf.kd if key not in matched_keys
+                key for key in other_daf._kd if key not in matched_keys
             ]
             for key in unmatched_keys:
                 other_row_da = fetch_record(other_daf, key)
@@ -6494,9 +6697,6 @@ class Daf:
                     join_names_ls,
                 )
                 result_daf.append(combined_record)
-
-        # Set the keyfield in the resulting Daf
-        result_daf.set_keyfield(keyfield)
 
         if diagnose:
             logs.sts(f"{logs.prog_loc()} Resulting Daf:\n{result_daf}", 3)
@@ -6516,7 +6716,8 @@ class Daf:
                                         #  required only if there are more than two source_names specified in the translator.
                                         # this is used when a single translator is used for chained joins.
 
-    ) -> T_da:
+        ) -> T_da:
+
         """
         Combine multiple records using a join translator Daf. This works on one record from each array to be joined.
 
@@ -6711,7 +6912,7 @@ class Daf:
 
         # if include_summary:
         #     # (compatible with tuple keys.)
-        #     mdstr += f"\n\\[{self.num_rows():,} rows x {self.num_cols():,} cols; keyfield='{self.keyfield}'; {len(self.kd):,} keys ] ({self.name or type(self).__name__})\n"
+        #     mdstr += f"\n\\[{self.num_rows():,} rows x {self.num_cols():,} cols; keyfield='{self.keyfield}'; {len(self._kd):,} keys ] ({self.name or type(self).__name__})\n"
         return mdstr
 
 
@@ -6743,7 +6944,7 @@ class Daf:
                 smart_fmt       = smart_fmt,
                 )
         # if include_summary:
-            # mdstr += f"\n\[{len(self.lol)} rows x {len(self.hd)} cols; keyfield={self.keyfield}; {len(self.kd)} keys ] ({type(self).__name__})\n"
+            # mdstr += f"\n\[{len(self.lol)} rows x {len(self.hd)} cols; keyfield={self.keyfield}; {len(self._kd)} keys ] ({type(self).__name__})\n"
         return mdstr
 
     def daf_to_lol_summary(self, max_rows: int=10, max_cols: int=10, disp_cols:Optional[T_ls]=None) -> T_lola:
@@ -6934,6 +7135,31 @@ class _IndirectRowView:
         return default
 
 
+    def keys(self):
+        if not self.indirect:
+            return self.row.keys()
+
+        return list(self.row.keys()) + [
+            k for k in self.indirect.keys() if k not in self.row
+            ]
+
+
+    def values(self):
+        if not self.indirect:
+            return self.row.values()
+
+        for key in self.keys():
+            yield self[key]
+
+
+    def items(self):
+        if not self.indirect:
+            return self.row.items()
+
+        for key in self.keys():
+            yield (key, self[key])
+
+
 def unpack_indirect(
         self,
         *,
@@ -6994,4 +7220,6 @@ def unpack_indirect(
         new_daf.append(new_row_da)
 
     return new_daf
+
+
 

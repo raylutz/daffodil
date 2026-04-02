@@ -505,7 +505,7 @@ def convert_type_value(val: any, desired_type: type, unflatten: bool=True):
     if desired_type is not bool and (val in ('', None) or val != val):   # null string means None or NAN
         new_val = ''
 
-    elif desired_type is int:
+    elif desired_type == int:                       # intentionally use == here to allow any type of int.
         if val in ('0', '0.0', 'False', 'FALSE'):
             new_val = 0
         elif val in ('1', '1.0', 'True', 'TRUE'):

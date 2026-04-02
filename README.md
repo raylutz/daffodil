@@ -18,8 +18,7 @@ embeddings, rapid conversion of specified cols to dict-of-numpy array .to_dnpa()
 that supports column-oriented array operations.
 
 ## Data Model
-The Daffodil data model is really very simple. The core array is a list-of-lists (lol), optionally with one or two associated
-dictionaries, one for the column names and one for row keys.
+The Daffodil data model is really very simple. The core array is a list-of-lists (lol), optionally with one or two associated dictionaries, one for the column names and one for row keys.
 
 ![image](https://github.com/raylutz/daffodil/assets/14955977/fa33237c-2075-4bbe-81e1-a6c1e324f46a)
 
@@ -32,19 +31,12 @@ insertions and other operations that column-oriented packages like Pandas handle
 Selecting, inserting, appending rows does not make a copy of the data but uses references the way 
 Python normally does, leveraging the inherent power of Python without replacing it.
 
-Daffodil offers row-based apply and reduce functions, including support for chunked large data sets that can be described 
-by a Daffodil table which operates as a manifest to chunks, and useful for delegations for parallel processing, 
-where each delegation can handle a number of chunks.
+Daffodil offers row-based apply and reduce functions, including support for chunked large data sets that can be described by a Daffodil table which operates as a manifest to chunks, and useful for delegations for parallel processing, where each delegation can handle a number of chunks.
 
-Daffodil is a very simple 'bare metal' class that is well suited for those situations where pure number crunching is not 
-the main objective. But it is also very compatible with other dataframe packages and can provide great way 
+Daffodil is a very simple 'bare metal' class that is well suited for those situations where pure number crunching is not the main objective. But it is also very compatible with other dataframe packages and can provide great way 
 to build and clean the data before providing the data to other packages for number crunching.
 
-Tabular data is commonly built
-record-by-record, while popular analysis and manipulation tools are oriented to work on data columns once
-it is fully assembled. If only a very few data operations are performed (say < 30) on columns (such as a sums, stdev, etc.)
-then it is frequently more performant to leave it in row format rather than reforming it into columns and enduring
-the delays of porting and converting the data to those other packages.
+Tabular data is commonly built record-by-record, while popular analysis and manipulation tools are oriented to work on data columns once it is fully assembled. If only a very few data operations are performed (say < 30) on columns (such as a sums, stdev, etc.) then it is frequently more performant to leave it in row format rather than reforming it into columns and enduring the delays of porting and converting the data to those other packages.
 
 Spreadsheet-like operations are also provided, which are useful for processing the entire array with the same formula template,
 and can avoid glue code for many transformations. Python equations in the formula pane operate on the data
@@ -65,8 +57,7 @@ structure. But it also provides a simple UI to make it easy to select rows, colu
 For numerical operations such as sums, max, min, stdev, etc., Daffodil is not as performant as Pandas or NumPy 
 when the data is uniform within columns or the entire array. Daffodil does not offer additional array operations like
 C = A + B, where A and B are both large arrays with the same shape producing array C, which is the sum 
-of each cell in the same grid location. This type of functionality, as well as matrix operations is already available in NumPy, and 
-NumPy can fill that role.
+of each cell in the same grid location. This type of functionality, as well as matrix operations is already available in NumPy, and NumPy can fill that role.
 
 Appending rows in Pandas is slow because each column is stored as a 
 separate NumPy array, and appending a row involves creating a new array for each column with the added row. 
@@ -94,9 +85,11 @@ If Pandas is not used, start up time is improved dramatically. This can be very 
 is billed or in embedded systems that want to utilize tables but can't suffer the overhead.
 If conversions to or from Pandas is not required, then that package is not needed.
 
-Daffodil record lookups by key are extremely fast because they use the Python dictionary for looking up rows. It is about 10x faster than
-Pandas in this regard. It will be hard to beat this, as long as the data table can fit in memory. And with any string data, Daffodil tables
-are smaller than Pandas tables.
+Daffodil record lookups by key are extremely fast because they use the Python dictionary for looking up rows. It is about 10x faster than 
+Pandas in this regard. It will be hard to beat this, as long as the data table can fit in memory. And with any string data, Daffodil tables are smaller than Pandas tables.
+Any column (or set of columns) can be used as the keyfield. The lookup dictionary kd is lazily built only when needed, and
+is marked as invalid otherwise. This results in reducing overhead and complexity during appends as the kd is not built until
+the first selection is performed which needs to use it.
 
 ## Memory Footprint
 
@@ -128,18 +121,11 @@ recommennded. Avoid explicitly dropping columns and simply provide a list of col
 Similar to Pandas and other dataframe concepts, Daffodil has a separate set of column names that can be optionally
 used to name the columns. This is organized internally as a Python dictionary (hd -- header dict) for fast column lookups by name.
 Column names must be hashable and unique, and other than that, there are no firm restrictions.  
-(However, to use the interface with SQLite, avoid using the double underscore "__" in the names, which is used to allow arbitrary names in SQLite.)
+(However, to use the interface with SQLite, avoid using the double underscore "\__" in the names, which is used to allow arbitrary names in SQLite.)
 
     
 When reading CSV files, the header is normally taken from the first (non-comment) line. If "user_format" is 
 specified on reading csv files, the csv data will be pre-processed and "comment" lines starting with # are removed.
-
-<!--
-Daffodil supports CSVJ, which is a mix of CSV with JSON metadata in comment fields in the first few lines of the file, 
-to provide data type, formatting, and other information. Using CSVJ speeds importing CSV data into a Daffodil instance 
-because the data can be converted to the appropriate type as it is read, and therefore avoids a second pass to convert 
-data from str type, which is the default. This also may unflatten objects. (CSVJ not supported yet).
--->
 
 In some cases, you may be working with CSV files without a header line providing of column names. This is common
 in xlsx spreadsheets which have column names set by position. Setting noheader=True avoids 
@@ -208,14 +194,17 @@ schema and dtypes are provided, the explicitly supplied dtypes take precedence.
     
 In many cases, one of the columns can be used as a unique key for locating records. If such a column exists, it 
 can be adopted as the primary index of the table by specifying that column name as the `keyfield`. When this is done,
-then the `kd` (key dictionary) is built and maintained from that column. 
+then the `kd` (key dictionary) is built and maintained from that column only when needed for selecting rows using the 
+keyfield, joins, etc.
 Creating a key index does not remove that field from the data array. `kd` is an additional structure created internally.
 
 If keyfield is set, then that column must be a hashable type and must have unique values. Searches of row entries use 
 dictionary lookups, which are highly optimized for speed by Python.
 
 The kd can also be set without the existence of a column to adopt from the array. This is useful particularly when 
-transposing the dataframe so that the column names can be adopted as the row keys, and vice versa.
+transposing the dataframe so that the column names can be adopted as the row keys, and vice versa, or at other times
+when a separate set of row keys are needed. In these cases, the kd is initialized from the calling parameter, and
+then the keyfield is set to '' (empty string).
 
 Unlike the keyfield oriented lookup functionality, row indices do not stick to the rows and are always with respect to the frame. 
 This is similar behavior to the Polars package and differs from Pandas, which has an index that sticks with each row, and is more
@@ -224,7 +213,7 @@ like the kd approach used by Daffodil.
 When adopting a file that may have a column that is tainted, it will be best to follow the following steps:
 1. Set `keyfield=''` to turn off the key indexing functionality.
 2. Read in the data, and it will not be limited by the keyfield definition.
-3. Use method `my_daf.set_keyfield(keyfield_name)` to set the keyfield to the column `keyfield_name` and build the lookup dictionary.
+3. Use method `my_daf.set_keyfield(keyfield_name, force_kd_rebuild=True)` to set the keyfield to the column `keyfield_name` and build the lookup dictionary. This will omit any repeated keys.
 4. Check that they are all unique by comparing the number of keys vs. the number of records.
 5. if the lengths are different, remove, delete, or otherwise deal with records with duplicate keys so the keys are unique.
 6. And then use `.set_keyfield(keyfield)` again.
@@ -239,16 +228,16 @@ Joins require a common keyfield among daf arrays being joined.
 Daffodil is a row-oriented package. Other popular packages, like Pandas, Polars, etc, are column oriented because it can be very 
 beneficial for calculations that can be performed on a column basis.
 
-Thus, in Daffodil, it is easy to manipulate rows (appending, inserting, deleting, etc) while it is relatively much more difficult to manipulate
-columns.  Rows are very easy to handle because the list-of-list underlying structure
-re-uses any lists selected in any selection operation. A new Daffodil instance which might include be a subset of the rows in the original 
-does not consume much additional space because the contents of those rows is not copied. Instead, Python
-copies only the _references_ to the rows. If only a few rows are used from the original, the the remaining rows will 
+Thus, in Daffodil, it is easy to manipulate rows (appending, inserting, deleting, etc) while it is relatively much more difficult to manipulate columns.  
+Rows are very easy to handle because the list-of-list underlying structure re-uses any lists selected in any selection operation. 
+A new Daffodil instance which might include be a subset of the rows in the original 
+does not consume much additional space because the contents of those rows is not copied. 
+Instead, Python copies only the _references_ to the rows. If only a few rows are used from the original, the the remaining rows will 
 be garbage collected by the normal Python mechanisms.  The rows that are still active are the same rows that existed in the original array without copying.
 
 This use-without-copying pattern means that Daffodil can perform quite well when compared with other packages when doing this type of manipulation, both in terms of space and also time.
 
-In contrast, operations that add, drop, or insert columns are relatively slow, 
+In contrast, operations that add, drop, or insert columns are slower, 
 but it turns out that actually these operations are not normally that 
 necessary. Reducing the number of columns only is important in a few cases:
 
@@ -263,18 +252,18 @@ Nevertheless, these operations are provided. When selecting/dropping columns, a 
 Other column operations such as statistics are not as performant as column-based packages but in those cases when
 many operations are required, the appropriate portion of the array can be ported to NumPy, Pandas, or any other dataframe package.
 
-Also, rows can be conceptually treated as if they are columns, because the structure of a Daffodil array is transposition symmetrical. Simply
-place column data in each row and name the row with the column name. To sum values in a column, then the values in each row, which is a 
-list, can be summed with the sum() operator.
+Also, rows can be conceptually treated as if they are columns, because the structure of a Daffodil array is transposition symmetrical. 
+Simply place column data in each row and name the row with the column name. 
+To sum values in a column, then the values in each row, which is a list, can be summed with the sum() operator.
 
 ## Datatypes and conversion
 
-### data typing and conversion
+### Data Typing and Conversion
         
 Daffodil stores data as native Python objects, and each cell in the array may hold a value of any type. As a result, 
 data typing is flexible by design and not enforced unless explicitly requested.
 
-Type conversion is most relevant when reading data from CSV files. CSV input is inherently text-based, so values are 
+Type conversion is most relevant when reading data, for example, from CSV files. CSV input is inherently text-based, so values are 
 initially read as str unless converted. In many workflows, converting the entire dataset eagerly is unnecessary or 
 undesirable, so Daffodil allows type conversion to be applied explicitly and selectively.
 
@@ -302,11 +291,12 @@ and a new array is not created. Thus, if only a limited number of columns is con
 best performance.
 
 If `from_str` is True (the default), only non-`str` columns are converted. Otherwise, columns specified as `str` will 
-also be scanned to ensure that they are expressed as `str` types.
+also be scanned to ensure that they are expressed as `str` types. 
 
 If `unflatten` is True (the default), columns with `list` or `dict` types will be unflattened from PYON or JSON to create 
 accurate internal object types. Use PYON to be able to create sets, tuples and dicts with non-string keys. These are not
-directly supported in JSON.
+directly supported in JSON. PYON is the default stringified format for any object, such as dict or list, and is performed
+when CSV files are created without any explicit handling.
 
 If the `.apply_dtypes()` method is called with a `dtypes` argument, then if the Daf object does not have any dtypes defined, 
 the `dtypes` parameter will be used to initiallize the internal `dtypes` attribute and 
@@ -322,14 +312,17 @@ which will convert all non-`str` types and unflatten JSON encoded `dict` and `li
 The explicit nature of the `.apply_dtypes()` method makes it feasible to avoid any conversion if say only `str` formatted columns
 are needed, and improve performance, and the operation of conversion of types is easy to understand.
 
+If a schema is attached to the daffodil instance, then dtypes will be determined from the schema.
+
 ### `.flatten()`
 
 PYON is Python Object Notation, like JSON, but uses single quotes when writing but can read either single or double
 quotes, and can represent any core python object, such as lists, dicts, sets, and tuples. It also can handle non-string keys
 (None, integers and tuples, for example) in dicts. All objects found are converted to PYON when written automatially. To save space
-in the .csv file, use 0 an 1 to represent booleans.  See https://github.com/raylutz/README.md for more information on PYON.
+in the .csv file, use 0 an 1 to represent booleans.  See https://github.com/raylutz/pyon/blob/main/README.md for more information on PYON.
 
-It is no longer necessary to manually flatten  `list` or `dict` objects using the `.flatten()` method.
+It is no longer necessary to manually flatten  `list` or `dict` objects using the `.flatten()` method, as long as booleans
+are already specified as integers (0, 1) and '' are used instead of None.
 
     my_daf.flatten().to_csv('filename.csv')
     
@@ -337,11 +330,16 @@ or alternatively:
 
     my_daf.to_csv('filename.csv', flatten=True)
     
-### `.to_list()`, `.to_dict()`, `.to_value()`
+### `.to_list()`, `.to_dict()`, `.to_value()`, and `.to_klist()`
 
 When selecting a single row or column in a Daf array, it will be returned normally as another Daf object.
 However, you can use `.to_list()` to convert it to a single list of values, or `.to_dict()` to get a dictionary,
 with keys set as the column names. If a single cell is selected, use .to_value() to obtain that single value.
+
+Note: if a single column is selected using indexing, such as col_daf = my_daf[:, 5], then the result is a single 
+column in a daffodil array. If the operator .to_list() is then used, the column will then be converted to a list, 
+which scans the array twice. Instead, consider using the my_daf.col(5, astype=list) to select the column, either by index or
+by name and it will be returned as a list type without creating the intervening col_daf object.
 
 ### `.retmode`
 
@@ -527,12 +525,11 @@ Structural reconstruction is based on the table itself; the footer supplies meta
     my_daf = Daf(cols=list_of_colnames, keyfield=fieldname, dtypes=dtype_dict)
     
 Note that although dtypes may be defined, conversion of types can be an expensive
-operation and so it is done explicitly, using the `apply_dtypes()` method.    
-    
-#### create empty daf with only keyfield specified.
-    
-    my_daf = Daf(keyfield=fieldname)
+operation and so it is done explicitly, using the `apply_dtypes()` method.
 
+Note that specifying the keyfield requires named columns. But the kd (key dict) is not created
+until it is needed in a select or index operation.
+    
 #### create an empty daf object with same cols and keyfield.
     
     new_daf = old_daf.clone_empty()
@@ -586,6 +583,8 @@ unlike the column names, is included in the array. Again, it is most convenient 
 and must be hashable. To estabish a column for indexing, the 'keyfield' is set to the column name.
 
 For fast lookups of rows and columns, dictionaries are used to look up the row and column indices.
+the row key dictionary kd is built only when needed even if a keyfield is specified. If no selections
+are performed, then kd will remain invalidated.
 
 #### return column names defined
 
@@ -593,7 +592,10 @@ For fast lookups of rows and columns, dictionaries are used to look up the row a
     
 #### return list of row keyfield values, if keyfield is defined.
 
-    my_daf.keys()
+    my_daf.keys(astype='list'|'view')
+
+Note: keys will be returned as KeyView type if 'view' is specified for astype parameter. In this case, containment
+test are much faster, and there is no conversion to a list.
     
 ### Indexing: inspecting values in a daf array
 
@@ -732,7 +734,7 @@ or
     record_list = my_daf[keyvalue].to_list()
    
 Note that this syntax differs from Pandas, which normally references a column if square brackets are used with no other
-syntax.
+syntax, but it is similar to syntax used by R.
 
 #### select multiple records using the keyfield and return a daf.
 
@@ -999,7 +1001,7 @@ Below is a sample of equivalent functions between Pandas and Daffodil. Please no
 
 ## Conclusion and Summary
 
-The general conclusion is that it generally beneficial to use Daffodil instead of lod or pandas df for
+It generally beneficial to use Daffodil instead of lod or pandas df for
 general-purpose table manipulation, but when number crunching is needed, prepare the data with Daffodil 
 and convert directly to Numpy or Pandas. 
 

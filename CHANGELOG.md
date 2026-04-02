@@ -29,9 +29,17 @@ all prior releases. Plans for future moved to ROADMAP.md.
 - Added schemaclass record_from() method, used like: da = schema.BifSchema.record_from(other_da)
 - Added indirect_col to .col() and .col_to_la()
 - Added indirect_col to select_where() split_where()
+- Added group_where() method to allow arbitrary grouping including fanout grouping.
+   - Added tests for group_where()
 
 ### Changed
 - Changed some uses of [:, col_name].to_list() to .col(col_name)
+- Implemented lazy kd generation rather than respecting it. {} indicates invalidated.
+- .kd no longer should be accessed by user code. Changed variable to .\_kd.
+- .keys() now has astype parameter which can be 'list' or 'view' to give access to keys and 
+    allowing fast containment tests.
+- modified README to reflect dynamic building of kd. This should ease use while still being backward compatible.
+    however, any direct use of .kd is now banned. Use .keys() to access the keys either as list or view.
 
 
 ### Fixed
@@ -39,6 +47,13 @@ all prior releases. Plans for future moved to ROADMAP.md.
     However, dtypes must include all columns that do exist.
 - Added removal of empty list items when read from csv if there are blank lines at the end of the file. Edge case.
 - Fix edge case selecting rows by empty list or iterator.
+- Fixed edge case of single integer row specified as 0 due to using 'if not' construction.
+- Fixed pyproject.toml to include dependencies required for testing.
+   - to test, use `uv run --group dev pytest -s`
+- Fixed a number of datatype conversion issues in to_pandas() and from_pandas()
+- Went back to desired_type == int instead of is int, because == will include int, int64 etc.
+   - Included a comment but use an noqa override for ruff linter.
+
 
 ---
 
