@@ -118,11 +118,11 @@ def schemaclass(cls: type[T]) -> type[T]:
         """
 
         rec: T_da = cls.default_record()
-        dtypes: Dict[str, type] = cls.schema_dtypes
+        dtypes = cls.get_dtypes_dict(use_origins=True)
 
-        for k in rec:
+        for k, dtype in dtypes.items():
             if k in src:
-                rec[k] = daf_utils.convert_type_value(src[k], dtypes[k])
+                rec[k] = daf_utils.convert_type_value(src[k], dtype)
 
         return rec
 
