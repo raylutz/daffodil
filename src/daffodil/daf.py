@@ -144,7 +144,32 @@ class Daf:
             itermode:   str                     = 'dict',   # default itermode, either 'dict' or 'keyedlist'
             attrs:      Optional[T_da]          = None,     # arbitrary additional attributes.
         ):
-            
+        """
+        Initialize a Daf instance.
+
+        Creates a row-oriented 2D data structure with optional column metadata,
+        key indexing, and iteration configuration.
+
+        Args:
+            lol: Initial data as list-of-lists (rows).
+            hd: Header dictionary mapping column name to index.
+            kd: Optional keyed dictionary for lookup when no keyfield is set.
+            cols: Optional list of column names.
+            dtypes: Optional mapping of column names to Python types.
+            schema: Optional schema class defining columns and defaults.
+            keyfield: Column(s) used as key. May be a single column, or tuple/list of columns.
+            name: Optional name of the Daf instance.
+            use_copy: If True, deep copy the input data.
+            disp_cols: Optional list of columns used for display.
+
+            retmode: Default return mode ('obj', etc.).
+            itermode: Default iterator mode ('dict' or 'keyedlist').
+            attrs: Optional dictionary of additional attributes.
+
+        Notes:
+            Column structure may be derived from `hd`, `cols`, `dtypes`, or `schema`.
+        """
+
         self.name           = name              # str - arbitrary name for this daffodil array
         self.schema         = schema            # Optional schema class used to define columns and defaults.
         self.dtypes         = dtypes            # col types used for conversion from csv str values.
@@ -241,10 +266,24 @@ class Daf:
 
     @property
     def retmode(self):
+        """
+        Get the current return mode.
+
+        Returns:
+            str: Current return mode.
+        """
         return self._retmode
 
     @retmode.setter
     def retmode(self, new_retmode):
+        """
+        Set the return mode.
+
+        Args:
+            new_retmode: New return mode to apply.
+                RETMODE_OBJ: return a daffodil object (default)
+                RETMODE_VAL: return a value from that cell in the array or a list of values.
+        """
         if new_retmode in [self.RETMODE_OBJ, self.RETMODE_VAL]:
             self._retmode = new_retmode
         else:
@@ -252,17 +291,39 @@ class Daf:
 
     @property
     def itermode(self):
+        """
+        Get the current iterator mode.
+
+        Returns:
+            str: Current iterator mode.
+        """
         return self._itermode
 
     @itermode.setter
     def itermode(self, new_itermode):
+        """
+        Set the iterator mode.
+
+        Args:
+            new_itermode: New iterator mode ('dict' or 'keyedlist').
+        """
+
         if new_itermode in [self.ITERMODE_DICT, self.ITERMODE_KEYEDLIST]:
             self._itermode = new_itermode
         else:
             raise ValueError("Invalid itermode")
 
     def __iter__(self) -> Iterator[Union[Dict[str, Any], KeyedList]]:
+        """
+        Return an iterator over rows.
+
+        Iteration behavior depends on the current `itermode`.
+
+        Returns:
+            Iterator: Iterator yielding rows as dicts or KeyedList objects.
+        """
         return self._default_iterator()
+
 
     def _default_iterator(self) -> Iterator[Union[Dict[str, Any], KeyedList]]:
         if self._itermode == self.ITERMODE_DICT:
@@ -272,14 +333,36 @@ class Daf:
         else:
             raise ValueError(f"Invalid iteration mode: {self._itermode}")
 
+
     def iter_dict(self) -> Iterator[Dict[str, Any]]:
+        """
+        Iterate over rows as dictionaries.
+
+        Returns:
+            Iterator[Dict[str, Any]]: Rows as dictionaries.
+        """
         return DafIterator(self, dict)
 
+
     def iter_klist(self) -> Iterator[KeyedList]:
+        """
+        Iterate over rows as KeyedList objects.
+
+        Returns:
+            Iterator[KeyedList]: Rows as KeyedList instances.
+        """
         return DafIterator(self, KeyedList)
 
+
     def iter_list(self) -> Iterator[list]:
+        """
+        Iterate over rows as raw lists.
+
+        Returns:
+            Iterator[list]: Rows as lists.
+        """
         return DafIterator(self, list)
+
 
     # def __next__(self) -> Union[Dict[str, int], KeyedList]:
         # if self._iter_index < len(self.lol):
@@ -298,19 +381,29 @@ class Daf:
             # raise StopIteration
 
     def __bool__(self):
-        """ test daf for existance and not empty
-            test exists in test_daf.py
-
-            if self is a single value, test the value.  # not implemented.
-
         """
-        # if len(self.lol) == 1 and self.lol[0] == 1:
-            # return bool(self.lol[0][0])
+        Evaluate truthiness of the Daf instance.
+
+        Returns:
+            bool: True if the Daf contains data, False otherwise.
+
+        Notes:
+            Intended to check existence and non-emptiness.
+        """
 
         return bool(self.num_cols())
 
 
     def __format__(self, format_spec):
+        """
+        Format a value from Daf instance.
+
+        Args:
+            format_spec: Format specification.
+
+        Returns:
+            str: Formatted representation.
+        """
         # Assuming the current object is a single cell when called in formatting
         # If a format_spec is provided, use it; otherwise, use __str__
         if format_spec:
@@ -322,8 +415,15 @@ class Daf:
 
 
     def __eq__(self, other):
-        # test exists in test_daf.py
+        """
+        Compare this Daf instance with another.
 
+        Args:
+            other: Object to compare against.
+
+        Returns:
+            bool: True if equal, False otherwise.
+        """
         if not isinstance(other, Daf):
             return False
 
@@ -331,18 +431,37 @@ class Daf:
 
 
     def __str__(self) -> str:
+        """
+        Return a human-readable string representation.
+
+        Returns:
+            str: String representation.
+        """        
         return self.md_daf_table_snippet()
 
 
     def __repr__(self) -> str:
+        """
+        Return a developer-oriented representation.
+
+        Returns:
+            str: Representation string.
+        """
         return "\n"+self.md_daf_table_snippet()
 
 
     def __contains__(self, key) -> bool:
+        """
+        Check if a key exists in the Daf.
 
-        """ Check if a daf array contains a key in kd.
+        Args:
+            key: Key to test.
 
-            if keyfield is initialized, then rebuild the kd if invalidated.
+        Returns:
+            bool: True if key exists.
+
+        Notes:
+            If keyfield is set, the internal _kd may be rebuilt if invalidated.
             else, kd could be manually initiallized, do not rebuild.
         """
 
@@ -361,10 +480,16 @@ class Daf:
 
 
     def num_cols(self) -> int:
-        """ return 0 if self.lol is empty.
-            return the max length of the first up to 10 rows otherwise.
+        """
+        Estimate the number of columns.
 
-            this only works well if the array has rows that are all the same length.
+        Returns:
+            int: Number of columns.
+
+        Notes:
+            Uses up to the first 10 rows. Assumes rows have consistent length.
+            Returns 0 if no data.
+            This only works well if the array has rows that are all the same length.
         """
         # unit tested
 
@@ -375,13 +500,23 @@ class Daf:
 
 
     def __len__(self):
-        """ Return the number of rows in the Daf instance.
+        """
+        Return number of rows.
+
+        Returns:
+            int: Number of rows in the Daf.
         """
         return self.num_rows()
 
 
     def num_rows(self):
+        """
+        Return number of rows.
 
+        Returns:
+            int: Number of rows in the Daf.
+        """
+ 
         if not self.lol:
             return 0
 
@@ -389,12 +524,24 @@ class Daf:
 
 
     def len(self):
+        """
+        Return number of rows.
+
+        Returns:
+            int: Number of rows in the Daf.
+        """
         return self.num_rows()
 
 
     def shape(self):
-        """ return the number of rows and cols in the daf data array
-            number of columns is based on the first record
+        """
+        Return shape of the Daf.
+
+        Returns:
+            Tuple[int, int]: (number of rows, number of columns)
+
+        Notes:
+            Column count is based on the first (up to) 10 rows.
         """
         # test exists in test_daf.py
 
@@ -408,7 +555,18 @@ class Daf:
     # copying convenience function to mimic pandas syntax.
 
     def copy(self, deep: bool = False) -> 'Daf':
-        """Creates a copy of the Daf instance, ensuring `attrs` is copied correctly."""
+        """
+        Create a copy of the Daf.
+
+        Args:
+            deep: If True, perform a deep copy.
+
+        Returns:
+            Daf: Copied instance.
+
+        Notes:
+            Ensures `attrs` are copied correctly.
+        """
         if deep:
             new_instance = copy.deepcopy(self)  # Fully independent copy
         else:
@@ -421,6 +579,15 @@ class Daf:
     # column names
     @staticmethod
     def _build_hd(keys: Iterable):
+        """
+        Build header dictionary from keys (internal).
+
+        Args:
+            keys: Iterable of column names.
+
+        Returns:
+            Dict[str, int]: Mapping of column name to index.
+        """
         # it is necessary to rebuild hd whenever it the array or cols is changed.
         # this is equivalent to:
         #   {col: idx for idx, col in enumerate(keys)}
@@ -430,23 +597,27 @@ class Daf:
 
         # usage here: self.hd = type(self)._build_hd(keys)
 
-        # TODO: Consider building this so that any duplicates that are
-        # encountered will not overwrite the prior key
-
-        # this is also used to build kd
-
         return dict(zip(keys, range(len(keys))))
 
 
     def columns(self):
-        """ Return the column names
+        """
+        Return column names.
+
+        Returns:
+            List[str]: Column names.
         """
         # test exists in test_daf.py
         return list(self.hd.keys())
 
 
     def _cols_to_hd(self, cols: T_ls):
-        """ rebuild internal hd from cols provided """
+        """
+        Rebuild internal header dictionary from column list.
+
+        Args:
+            cols: List of column names.
+        """
         # see https://github.com/raylutz/daffodil/issues/6
         self.hd = type(self)._build_hd(cols)
         #self.hd = {col:idx for idx, col in enumerate(cols)}
@@ -454,6 +625,20 @@ class Daf:
 
     @staticmethod
     def isin(listlike1: Union[T_da, T_la], listlike2: Union[T_da, T_la]) -> T_lb:
+        """
+        Compute membership mask between two collections.
+
+        Args:
+            listlike1: Source collection.
+            listlike2: Values to test membership against.
+
+        Returns:
+            List[bool]: Boolean mask indicating membership.
+
+        Notes:
+            Commonly used for column or row selection and exclusion.
+        """
+
         """ creates a boolean mask (list of bools) for each item in list1 which is in list2
 
             this can be used particularly for omitting columns, like:
@@ -503,6 +688,22 @@ class Daf:
             include_types: Optional[List[Type]]=None,
             exclude_types: Optional[List[Type]]=None,
            ) -> Iterable:
+        """
+        Compute a set of columns for operations such as apply or reduce.
+
+        Args:
+            include_cols: Columns to include by name.
+            exclude_cols: Columns to exclude by name.
+            include_types: Include columns by type.
+            exclude_types: Exclude columns by type.
+
+        Returns:
+            Iterable: Selected column names.
+
+        Notes:
+            Do not include groupby columns when used with group operations.
+        """
+
         """ this method helps to calculate the columns to be specified for a apply or reduce operation.
             Can use any combination of listing columns to be included, or excluded by name,
                 or included by type.
@@ -575,10 +776,17 @@ class Daf:
 
 
     def rename_cols(self, from_to_dict: T_ds):
-        """ rename columns using the from_to_dict provided.
-            respects dtypes and rebuilds hd
-            clears keyfield, it must be reset
         """
+        Rename columns using a mapping.
+
+        Args:
+            from_to_dict: Mapping of old column names to new names.
+
+        Notes:
+            Rebuilds internal header and respects dtypes.
+            Clears keyfield; it must be reset after renaming.
+        """
+
         # unit tests exist
 
         self.hd         = {from_to_dict.get(col, col):idx for idx, col in enumerate(self.hd.keys())}
@@ -590,14 +798,19 @@ class Daf:
 
 
     def set_cols(self, new_cols: Optional[T_ls]=None, sanitize_cols: bool=True, unnamed_prefix: str='col'):
-        """ set the column names of the daf using an ordered list.
-
-            if new_cols is None, then we generate spreadsheet colnames like A, B, C... AA, AB, ...
-
-            if sanitize_cols is True (default) then check new_cols for any missing or duplicate names.
-                if missing, substitute with {unnamed_prefix}{col_idx}
-                if duplicated, substitute with prior_name_{col_idx}
         """
+        Set column names for the Daf.
+
+        Args:
+            new_cols: Ordered list of column names. If None, generates spreadsheet-style names.
+            sanitize_cols: If True, ensure names are valid and unique.
+            unnamed_prefix: Prefix used for generated column names.
+
+        Notes:
+            Missing or duplicate names are replaced with generated values.
+            if new_cols is None, then we generate spreadsheet colnames like A, B, C... AA, AB, ...
+        """
+
         num_cols = self.num_cols() or len(self.hd)
 
         if new_cols is None:
@@ -642,16 +855,21 @@ class Daf:
             astype: str = 'list',           # 'list' | 'view'
             ) -> Union[T_la, T_lota]:
 
-        """ return keys from _kd of keyfield as list or KeysView.
-
-            may be a list|view of str or int or list|view of tuple of (str or int).
-            raises KeysDisabledError if keyfield is not set to an existing column and silent_error is False. 
-
-            users MUST NOT access _kd directly.
-
-            test exists in test_daf.py
-
         """
+        Return row keys derived from the keyfield or separately provided kd.
+
+        Args:
+            silent_error: If False, raise error when keyfield is invalid.
+            astype: Output format ('list' or 'view').
+
+        Returns:
+            Union[List, KeysView]: Keys as list or view.
+
+        Notes:
+            Users should not access the internal `_kd` directly.
+        """
+
+        # test exists in test_daf.py
 
         if not self.keyfield:
             if silent_error:
@@ -678,6 +896,18 @@ class Daf:
             silent_error: bool=True,
             force_kd_rebuild: bool=False,
             ):
+        """
+        Set or reset the keyfield used for indexing. Index built lazily when needed.
+
+        Args:
+            keyfield: Column name(s) used as key. May be str, tuple, or list.
+            silent_error: If False, raise error for invalid keyfield.
+            force_kd_rebuild: If True, rebuild key dictionary immediately.
+
+        Notes:
+            If keyfield is empty, indexing is disabled and `_kd` is invalidated.
+            Keyfield changes do not automatically rebuild `_kd` unless forced.
+        """ 
         """ set the indexing keyfield to a new column
             if keyfield == '', then reset the keyfield and invalidate the kd.
             if keyfield not in columns,
@@ -712,6 +942,12 @@ class Daf:
 
 
     def _invalidate_kd(self) -> None:
+        """
+        Mark the key dictionary as invalid.
+
+        Notes:
+            Enables lazy rebuilding of `_kd` after data modifications.
+        """
         """ Mark kd as invalid for future lookups.
 
             Any time row deletions or additions are performed,
@@ -735,6 +971,13 @@ class Daf:
 
 
     def _rebuild_kd_if_invalidated(self):
+        """
+        Rebuild key dictionary if it has been invalidated.
+
+        Notes:
+            Internal use.
+            Only rebuilds when keyfield is set and `_kd` is empty.
+        """
         """ if kd is invalidated, it is set to {}. rebuild it if keyfield exists. """
 
         if not self._kd:
@@ -743,8 +986,12 @@ class Daf:
 
 
     def _rebuild_kd(self) -> None:
-        """ anytime deletions are performed, the kd must be rebuilt
-            if the keyfield is set.
+        """
+        Rebuild key dictionary from current data.
+
+        Notes:
+            Internal.
+            Required after deletions when keyfield is active.
         """
 
         if self._is_keyfield_valid():
@@ -759,7 +1006,21 @@ class Daf:
 
     @staticmethod
     def _build_kd(col_idx: Union[int, T_li], lol: T_lola) -> T_di:
-        """ build key dictionary from col_idx col of lol """
+        """
+        Build key dictionary from column index and data.
+
+        Args:
+            col_idx: Column index or indices used as key.
+            lol: Data array.
+
+        Returns:
+            Dict: Mapping of key values to row indices.
+
+        Note:
+            Internal.
+        """
+
+        # build key dictionary from col_idx col of lol 
         if isinstance(col_idx, int):
             key_col = daf_utils.select_col_of_lol_by_col_idx(lol, col_idx)
 
@@ -773,6 +1034,15 @@ class Daf:
 
 
     def _get_keyval(self, data_item):
+        """
+        Extract key value from a data item.
+
+        Returns:
+            Key value corresponding to current keyfield.
+
+        Note:
+            Internal
+        """
         if isinstance(self.keyfield, (str, int)):
             keyval = data_item[self.keyfield]
         elif isinstance(self.keyfield, (tuple, list)):
@@ -781,6 +1051,19 @@ class Daf:
 
 
     def _is_keyfield_valid(self, keyfield: str=''):
+        """
+        Validate keyfield against available columns.
+
+        Args:
+            keyfield: Optional keyfield override.
+
+        Returns:
+            bool: True if keyfield is valid.
+
+        Note:
+            Internal use.
+        """
+
         """
             evaluate self.keyfield or passed keyfield instead,
             to confirm that the key is composed of valid colnames,
@@ -800,6 +1083,15 @@ class Daf:
 
 
     def get_existing_keys(self, keylist: T_ls) -> T_ls:
+        """
+        Filter a list of keys to those present in the Daf.
+
+        Args:
+            keylist: List of keys to check.
+
+        Returns:
+            List: Keys that exist in the Daf.
+        """
         """ check the keylist against the keys defined in a daf instance.
         """
         # unit tested
@@ -817,6 +1109,20 @@ class Daf:
             default_type: Type = str,
             typ_to_cols_dict: Optional[Dict[Type, T_ls]] = None,
             ) -> 'Daf':
+
+        """
+        Define data types for columns using default and type-to-cols dols.
+
+        Args:
+            default_type: Default type applied to unspecified columns.
+            typ_to_cols_dict: Mapping of type to column names.
+
+        Returns:
+            Daf: Self.
+
+        Notes:
+            Does not apply type conversion. Use `apply_dtypes()` to convert data.
+        """    
 
         """ set dtypes from default and dol where the key of the dict is the type,
             and the list is the column names of that type.
@@ -858,6 +1164,25 @@ class Daf:
             default_type:   Type=str,
             silent_error:   bool=False,
             ) -> 'Daf':
+        """
+        Apply data type conversions to columns.
+
+        Args:
+            dtypes: Column-to-type mapping or single type. Can be a superset of the columns.
+            unflatten: Convert serialized structures back to Python objects.
+            from_str: Treat values as strings before conversion.
+            default_type: Default type for unspecified columns.
+            silent_error: If False, validate columns against dtypes.
+
+        Returns:
+            Daf: Self.
+
+        Notes:
+            Conversion is performed in-place.
+            Columns (self.hd) must be defined.
+            if no dtypes is passed and self.dtypes is not defined, do nothing.
+        """
+
         """ convert columns of daf array to the datatypes specified in self.dtypes or in passed parameter.
                 dtypes can be a dict where each column may have a different type, or it can be a single type.
                 dtypes may provide desired new types for only some of the columns.
@@ -933,6 +1258,19 @@ class Daf:
         return self
 
     def flatten(self, convert_bool_to_int=True, use_pyon: bool = True):
+        """
+        Flatten complex column types into serializable representations.
+
+        Args:
+            convert_bool_to_int: Convert bool values to integers.
+            use_pyon: Use PYON encoding instead of JSON.
+
+        Notes:
+            Modifies data in-place. Useful prior to CSV export.
+            Not required prior to CSV export if PYON is used, csv conversion 
+                will convert to PYON for any complext types.
+        """
+
         """ convert any columns specified in dtypes as either list or dict, and
             flatten using PYON or JSON encoding. Modifies the array in place. If use_pyon, will
             flatten arbitrary nested objects, functions or methods.
@@ -1066,7 +1404,18 @@ class Daf:
 
 
     def strip(self, chrs: str=' ') -> 'Daf':
+        """ 
+        Strip characters from string values in the array.
 
+        Args:
+            chrs: Characters to remove from both ends of strings.
+
+        Returns:
+            Daf: Self.
+
+        Notes:
+            Non-string values are ignored.
+        """
         """ remove leading or trailing characters in the string chrs from each str value in the array.
             modifies in-place.  Ignores non str values.
 
@@ -1082,6 +1431,18 @@ class Daf:
 
 
     def _safe_tofloat(val: Any) -> Union[float, str]:
+        """
+        Safely convert value to float.
+
+        Args:
+            val: Value to convert.
+
+        Returns:
+            Union[float, str]: Converted float or original value on failure.
+
+        Note:
+            Internal use.    
+        """
         try:
             return float(val)
         except ValueError:
@@ -1091,6 +1452,16 @@ class Daf:
     # schema support
     
     def attach_schema(self, schema: type) -> None:
+        """
+        Attach a schema to the Daf instance.
+
+        Args:
+            schema: Schema class.
+
+        Notes:
+            Does not modify data or perform validation.
+            Modifies dtypes property.
+        """
         """
         Attach a schema to this Daf instance without modifying data.
 
@@ -1119,6 +1490,15 @@ class Daf:
 
 
     def _get_dtypes_from_schema(self, schema) -> T_dtype_dict:
+        """
+        Extract dtype mapping from schema.
+
+        Args:
+            schema: Schema class.
+
+        Returns:
+            Dict: Column-to-type mapping.
+        """
         if schema is None:
             return {}
 
@@ -1132,6 +1512,20 @@ class Daf:
     # initializers
 
     def clone_empty(self, lol: Optional[T_lola]=None, cols: Optional[T_ls]=None, name:str='') -> 'Daf':
+        """
+        Create a new Daf with the same structure but no data.
+
+        Args:
+            lol: Optional data for new instance.
+            cols: Optional column override.
+            name: Optional name.
+
+        Returns:
+            Daf: New instance.
+
+        Notes:
+            Does not copy metadata such as attrs or kd. Adopts keyfield.
+        """
         """
         Create a new empty Daf instance from self, adopting column names but not data.
 
@@ -1160,6 +1554,18 @@ class Daf:
 
 
     def set_lol(self, new_lol: T_lola) -> 'Daf':
+        """
+        Replace internal data array.
+
+        Args:
+            new_lol: New list-of-lists data.
+
+        Returns:
+            Daf: Self.
+
+        Notes:
+            Rebuilds key dictionary if needed.
+        """
         """ set the lol with the value passed, leaving other settings,
             and recalculating kd if required (i.e. if keyfield is defined).
         """
@@ -1188,6 +1594,12 @@ class Daf:
         
         
     def _get_default_record(self) -> T_da:
+        """
+        Create a default record from schema.
+
+        Returns:
+            Dict: Record initialized with schema defaults.
+        """
         cls = self.schema
         rec: T_da = {}
 
@@ -1208,15 +1620,32 @@ class Daf:
             dtypes:         Optional[T_dtype_dict]      = None, # set the data types for each column.
             name:           str                         = '',   # Optional name of the daffodil instance.
             ) -> 'Daf':
+        """
+        Create Daf from list of dictionaries.
+
+        Args:
+            records_lod: List of dict records.
+            keyfield: Optional keyfield.
+            dtypes: Optional dtype mapping, used to establish columns if provided.
+            name: Optional name.
+
+        Returns:
+            Daf: New instance.
+
+        Note:
+            adopts dict keys as column names if dtypes not provided.
+        """
+
         """ Create Daf instance from loda type, adopting dict keys as column names
             Generally, all dicts in records_lod should be the same OR the first one must have all keys
                 and others can be missing keys.
             However, if dtypes is provided, it will be used to establish the columns.
 
-            test exists in test_daf.py
-
             my_daf = Daf.from_lod(sample_lod)
         """
+        # test exists in test_daf.py
+
+
         if dtypes is None:
             dtypes = {}
 
@@ -1248,6 +1677,19 @@ class Daf:
             keyfield:       Union[str, int, T_ta, T_la] = '',   # A field of the columns to be used as a key.
             name:           str                         = '',   # Optional name of the daffodil instance.
             ) -> 'Daf':
+        """
+        Create Daf from list of tuples.
+
+        Args:
+            records_lot: List of tuples.
+            cols: Column names.
+            dtypes: Column type mapping.
+            keyfield: Keyfield definition.
+            name: Optional name.
+
+        Returns:
+            Daf: New instance.
+        """
         """
         Create Daf instance from LOT (list of tuples), adopting given column names or generating default ones.
 
@@ -1288,9 +1730,13 @@ class Daf:
 
 
     def to_lod(self) -> T_loda:
-        """ Create lod from daf
-            test exists in test_daf.py
         """
+        Convert Daf to list of dictionaries.
+
+        Returns:
+            List[Dict]: Data as list of dicts.
+        """
+        # test exists in test_daf.py
 
         if not self:
             return []
@@ -1310,6 +1756,21 @@ class Daf:
                                             # this will set the preferred name. Defaults to 'rowkey'
             dtypes:         Optional[T_dtype_dict]=None     # optionally set the data types for each column.
             ) -> 'Daf':
+
+        """
+        Create Daf from dict-of-dicts structure.
+
+        Args:
+            dod: Nested dictionary.
+            keyfield: Name of key column.
+            dtypes: Optional dtype mapping.
+
+        Returns:
+            Daf: New instance.
+
+        Notes:
+            Adds keyfield column if not present.
+        """
 
         """ a dict of dict (dod) structure is very similar to a Daf table, but there is a slight difference.
             A dod structure will have a first key which indexes to a specific dict.
@@ -1347,6 +1808,16 @@ class Daf:
             self,
             remove_keyfield:    bool=True,      # by default, the keyfield column is removed.
             ) -> T_doda:
+        """
+        Convert Daf to dict-of-dicts structure.
+
+        Args:
+            remove_keyfield: If True, omit keyfield column.
+
+        Returns:
+            Dict: Nested dictionary representation.
+        """
+
         """ a dict of dict structure is very similar to a Daf table, but there is a slight difference.
             a Daf table always has the keys of the outer dict as items in each table.
             Thus dod1 = {'row_0': {'rowkey': 'row_0', 'data1': 1, 'data2': 2, ... },
@@ -1377,6 +1848,17 @@ class Daf:
             keyfield: str='',
             dtypes: Optional[T_dtype_dict]=None,
             ) -> 'Daf':
+        """
+        Create Daf from column-oriented dict of lists.
+
+        Args:
+            cols_dol: Mapping of column name to list of values.
+            keyfield: Optional keyfield.
+            dtypes: Optional dtype mapping.
+
+        Returns:
+            Daf: New instance.
+        """
         """ Create Daf instance from cols_dol type, adopting dict keys as column names
             and creating columns from each value (list)
 
@@ -1409,6 +1891,13 @@ class Daf:
 
 
     def to_cols_dol(self) -> dict:
+        """
+        Convert Daf to column-oriented dict of lists.
+
+        Returns:
+            Dict[str, List]: Column data.
+        """
+
         """ convert daf to dictionary of lists of values, where key is the
             column name, and the list are the values in that column.
         """
@@ -1423,10 +1912,13 @@ class Daf:
 
     def to_attrib_dict(self) -> dict:
         """
-        Convert Daf instance to a dictionary representation.
-        The dictionary has two keys: 'cols' and 'lol'.
+        Convert Daf to attribute dictionary representation.
 
-        DEPRECATED
+        Returns:
+            Dict: Dictionary with 'cols' and 'lol'.
+
+        Notes:
+            Deprecated.
 
         Example:
         {
@@ -1446,7 +1938,21 @@ class Daf:
             keyfield:   str='',
             dtypes:     Optional[T_dtype_dict]=None
             ) -> 'Daf':
+        """
+        Create Daf by transposing list-of-dicts into columns.
 
+        Args:
+            lod: List of dictionaries.
+            cols: Optional column names.
+            keyfield: Keyfield name.
+            dtypes: Optional dtype mapping.
+
+        Returns:
+            Daf: New instance.
+
+        Notes:
+            Useful for comparative reporting across multiple records.
+        """
         r""" Create Daf instance from a list of dictionaries to be placed in columns
             where each column shares the same keys in the first column of the array.
             This transposes the data from rows to columns and adds the new 'cols' header,
@@ -1511,7 +2017,19 @@ class Daf:
             user_format: bool=False,                # if True, preprocess the file and omit comment lines.
             unflatten: bool=True,                   # unflatten fields that are defined as dict or list.
             ) -> 'Daf':
-        """ read excel file from a buffer and convert to daf.
+        """
+        Create Daf from Excel buffer.
+
+        Args:
+            excel_buff: Binary Excel data.
+            keyfield: Optional keyfield.
+            dtypes: Optional dtype mapping.
+            noheader: If True, skip header parsing.
+            user_format: If True, preprocess input.
+            unflatten: Convert structured data types.
+
+        Returns:
+            Daf: New instance.
         """
 
         # from utilities import xlsx_utils
@@ -1533,6 +2051,21 @@ class Daf:
     #==== CSV
     @classmethod
     def from_csv(cls, source: str | Path, **kwargs):
+        """
+        Load CSV from file, URL, or S3.
+
+        Args:
+            source: Path, URL, or S3 location.
+            **kwargs: Passed to from_csv_buff.
+
+        Returns:
+            Daf: Loaded data.
+
+        Notes:
+            Data is initially loaded as strings.
+            use apply_dtypes() to convert data types.
+            Does not set the keyfield.
+        """
         """
         Load a CSV file from a local file, URL, or S3 path into a Daf array.
 
@@ -1602,6 +2135,24 @@ class Daf:
             name: str = '',                             # name attribute of the Daf array created.
             ) -> 'Daf':
         """
+        Create Daf from CSV buffer or iterator.
+
+        Args:
+            csv_buff: CSV data (bytes, str, or iterator).
+            keyfield: Optional keyfield.
+            dtypes: Optional dtype mapping.
+            noheader: Skip header parsing.
+            user_format: Preprocess input.
+            sep: Field separator.
+            unflatten: Convert structured types.
+            include_cols: Subset of columns.
+            name: Optional name.
+
+        Returns:
+            Daf: New instance.
+        """
+
+        """
         Convert CSV data in a buffer (string, bytes, or iterator) to a daf object
 
         Note: probably just use from_csv() and then apply_dtypes(), remove 'unflatten',
@@ -1665,7 +2216,23 @@ class Daf:
             include_cols: Optional[T_ls]=None,      # include only the columns specified. noheader must be false.
             name: str = '',                         # name attribute of the Daf array created.
             ) -> 'Daf':                             # New daf instance
+        """
+        Read CSV file into Daf.
 
+        Args:
+            filepath: File path.
+            keyfield: Optional keyfield.
+            dtypes: Optional dtype mapping.
+            noheader: Skip header parsing.
+            user_format: Preprocess input.
+            sep: Field separator.
+            unflatten: Convert structured types.
+            include_cols: Subset of columns.
+            name: Optional name.
+
+        Returns:
+            Daf: New instance.
+        """
         """ Read a csv file directly into a daf array in memory, per arguments.
 
             Args:
@@ -1711,7 +2278,17 @@ class Daf:
             include_header:     bool=True,
             #append_if_exists:   bool=False,
             ) -> str:
+        """
+        Write Daf to CSV file.
 
+        Args:
+            file_path: Output file path.
+            line_terminator: Line ending.
+            include_header: Include column names.
+
+        Returns:
+            str: Path written.
+        """
         if isinstance(file_path, Path):  # Convert Path object to string
             file_path = str(file_path)
 
@@ -1730,12 +2307,26 @@ class Daf:
             line_terminator: Optional[str]=None,
             include_header: bool=True,
             ) -> T_buff:
+        """
+        Write Daf to CSV buffer.
+
+        Args:
+            line_terminator: Line ending.
+            include_header: Include column names.
+
+        Returns:
+            Buffer: CSV data.
+
+        Notes:
+            Automatically flattens complex types using __repr__ (to PYON).
+        """
         """ this function writes the daf array to a csv buffer, including the header if include_header==True.
             The buffer can be saved to a local file or uploaded to a storage service like s3.
 
             Use .flatten() before calling this and use JSON encoding for any objects that are not str, int, float, or bool.
 
-            However, this function will automatically flatten any nested objects, according to __repr__ for that object.
+            However, this function will automatically flatten any nested objects to PYON, 
+                    according to __repr__ for that object.
                 This differs from pure JSON format because:
                     1. it uses single-quotes instead of double quotes around strings.
                     2. it allows non-str keys in dicts.
@@ -1761,7 +2352,14 @@ class Daf:
 
     @staticmethod
     def buff_to_file(buff: T_buff, file_path: str | Path, fmt:str='.csv'):
+        """
+        Write buffer to file.
 
+        Args:
+            buff: Data buffer.
+            file_path: Destination path.
+            fmt: File extension/format.
+        """
         return daf_utils.write_buff_to_fp(buff, file_path, fmt=fmt)
 
     #==== PDF to Daf
@@ -1781,6 +2379,21 @@ class Daf:
     #==== Numpy
     @classmethod
     def from_numpy(cls, npa: Any, keyfield:str='', cols:Optional[T_la]=None, name:str='') -> 'Daf':
+        """
+        Create a Daf instance from a NumPy array.
+
+        Args:
+            npa: NumPy array.
+            keyfield: Optional keyfield.
+            cols: Optional column names.
+            name: Optional name.
+
+        Returns:
+            Daf: New instance.
+
+        Notes:
+            Converts values to native Python types. NumPy type coercion may result in loss of original type information.
+        """
         """
         Convert a Numpy dataframe to daf object
         The resulting Python list will contain Python native types, not NumPy types.
@@ -1807,6 +2420,15 @@ class Daf:
 
     def to_numpy(self) -> T_npa:
         """
+        Convert Daf data to a NumPy array.
+
+        Returns:
+            numpy.ndarray: Array representation of data.
+
+        Notes:
+            Column names and keyfield indexing are not preserved.
+        """
+        """
         Convert the core array of a Daf object to numpy.
         Note: does not convert any column names if they exist.
         Keyfield lookups are lost, if they are defined.
@@ -1830,6 +2452,22 @@ class Daf:
 
     def to_donpa(self, colnames: Optional[T_ls]=None, default: Any = _MISSING) -> T_donpa:
         """
+        Convert selected columns to a dictionary of NumPy arrays (donpa).
+
+        Args:
+            colnames: Columns to include. If None, include all columns.
+            default: Replacement value for missing entries.
+
+        Returns:
+            Dict[str, numpy.ndarray]: Column arrays.
+
+        Notes:
+            - Column arrays can be used directly in vector operations:
+                e.g., `my_donpa['D_pct'] = my_donpa['D_votes'] / my_donpa['RV_total']`
+            - This structure is conceptually similar to a Pandas DataFrame, but lighter-weight and faster
+              for numeric computations or export.
+        """
+        """
         Convert specified columns of the Daffodil table to a dict of NumPy arrays (donpa).
 
         Parameters:
@@ -1843,11 +2481,6 @@ class Daf:
         Returns:
             Dict[str, np.ndarray], where each array corresponds to a 1D column vector.
 
-        Notes:
-            - Column arrays can be used directly in vector operations:
-                e.g., `my_donpa['D_pct'] = my_donpa['D_votes'] / my_donpa['RV_total']`
-            - This structure is conceptually similar to a Pandas DataFrame, but lighter-weight and faster
-              for numeric computations or export.
         """
         if colnames is None:
             colnames = self.columns()
@@ -1864,7 +2497,16 @@ class Daf:
     def from_googlesheet(cls, spreadsheet_id: str, sheetname: str = 'Sheet1') -> 'Daf':
         from googleapiclient.discovery import build
         from google.oauth2 import service_account
+        """
+        Create Daf from a Google Sheet.
 
+        Args:
+            spreadsheet_id: Google Sheets ID.
+            sheetname: Sheet name.
+
+        Returns:
+            Daf: New instance.
+        """
         """
         Read data from a Google Sheet specified by its ID.
         
@@ -1913,6 +2555,16 @@ class Daf:
 
 
     def to_googlesheet(self, spreadsheet_id: str, sheetname: str = 'Sheet1') -> 'Daf':
+        """
+        Export Daf data to a Google Sheet.
+
+        Args:
+            spreadsheet_id: Google Sheets ID.
+            sheetname: Sheet name.
+
+        Returns:
+            Daf: Self.
+        """
         """ export data from daf structure to googlesheet. """
         # NOT OPERATIONAL
 
@@ -1969,6 +2621,15 @@ class Daf:
     # that are types.
 
     def to_json(self, concise: bool=True) -> str:
+        """
+        Serialize Daf to JSON.
+
+        Args:
+            concise: If True, use compact representation.
+
+        Returns:
+            str: JSON string.
+        """
         # Convert data types to string representations, rather than type objects.
         #   isinstance(v, type) -- Checks if the value is a Python type object (int, float, str, etc.).
         #   v.__name__          -- the type’s name as a string
@@ -2011,6 +2672,15 @@ class Daf:
 
     @classmethod
     def from_json(cls, json_str: str) -> 'Daf':
+        """
+        Create Daf from JSON string.
+
+        Args:
+            json_str: JSON input.
+
+        Returns:
+            Daf: New instance.
+        """
         # Deserialize JSON string into a Daf object
         daf_dict = json.loads(json_str)
 
@@ -2018,19 +2688,6 @@ class Daf:
         dtypes = {k: cls.TYPE_MAP.get(v, v) 
                     for k, v in daf_dict.get('dtypes', {}).items()
                 }
-
-        # probably don't need to worry about this with dynamic kd generation.
-
-        # # if keyfield is not str type, it must be converted bc JSON converts all keys to str.
-        # keyfield_dtype = dtypes.get(daf_dict.get('keyfield', ''), str)
-
-        # if keyfield_dtype is not str:
-        #     breakpoint() # perm
-        #     pass  # how to fix this??
-        #     try:
-        #         kd = {keyfield_dtype(k): v for k, v in kd.items()}
-        #     except (ValueError, TypeError):
-        #         raise ValueError(f"Failed to convert kd keys to {keyfield_dtype}")
 
         # following invalidates kd for lazy rebuilding.
         return cls(lol          = daf_dict.get('lol', []),
@@ -2058,6 +2715,16 @@ class Daf:
     # append
 
     def append(self, data_item: Union[T_Daf, T_loda, T_da, T_la, KeyedList]):
+        """
+        Append data to the Daf.
+
+        Args:
+            data_item: Data to append (single record or collection).
+
+        Notes:
+            Supports dict, list, Daf, or list-of-records formats.
+        """
+
         """ general append method can handle appending one record as T_da or T_la, many records as T_loda or T_daf
             if the data item is None or empty, do not append.
         """
@@ -2112,6 +2779,16 @@ class Daf:
 
 
     def concat(self, other_instance: 'Daf'):
+        """
+        Concatenate another Daf into this one.
+
+        Args:
+            other_instance: Daf to append.
+
+        Notes:
+            Modifies the current instance. Columns must match.
+        """
+
         """Concatenate records from the passed Daf instance into self.
 
         This directly modifies self.
@@ -2166,6 +2843,17 @@ class Daf:
         return self
 
     def extend(self, records_lod: T_loda):
+        """
+        Append multiple records from list-of-dicts.
+
+        Args:
+            records_lod: Records to append.
+
+        Notes:
+            Modifies the current instance.
+            Will overwrite records with the same key, if keyfield is set.
+        """
+
         """ append lod of records into daf
             This directly modifies daf
             if keyfield is '', then insert without respect to the key value
@@ -2203,14 +2891,22 @@ class Daf:
 
 
     def record_append(self, record: Union[T_da, KeyedList]):
+        """
+        Append a single record.
+
+        Args:
+            record: Record as dict or KeyedList.
+
+        Notes:
+            Adopts structure if Daf is empty.
+        """
         """ perform append of one record into daf (T_da is Dict[str, Any])
             This directly modifies daf
             if keyfield is '', then insert without respect to the key value
             otherwise, allow only one record per key.
 
-            if the daf is empty, it will adopt the structure of record_da.
-            Each new append will add to the end of the daf.lol and will
-            update the kd.
+            if the daf is empty, it will adopt the structure of the record
+            Each new append will add to the end of the daf.lol.
 
             If the keys in the record_da have a different order, they will
             be reordered and then appended correctly.
@@ -2275,8 +2971,15 @@ class Daf:
 
 
     def _basic_append_la(self, rec_la: T_la, keyval: str):
-        """ basic append to the end of the array without any checks
-            invalidates kd for lazy rebuilding.
+        """
+        Append list record without validation.
+
+        Args:
+            rec_la: Record as list.
+            keyval: Key value.
+
+        Notes:
+            Invalidates key dictionary.
         """
         self.lol.append(rec_la)
         self._invalidate_kd()           # support lazy kd generation.
@@ -2288,11 +2991,21 @@ class Daf:
     # remove records per keyfield; drop cols
 
     def remove_key(self, keyval: Optional[Union[str, int, T_la, T_ta]], silent_error=False) -> 'Daf':
-        """ remove record from daf using keyfield
-            This mutates daf array. Make a copy if the original is needed.
-            silent error will not produce KeyError if keyfield exist but the key is not found
-            if keyfield is not defined, then KeysDisabledError always
         """
+        Remove a record by key.
+
+        Args:
+            keyval: Key to remove.
+            silent_error: Suppress errors if key not found.
+
+        Returns:
+            Daf: Self.
+
+        Note:
+            This mutates daf array. Make a copy if the original is needed.
+
+        """
+
         # test exists in test_daf.py
         if not self.keyfield:
             raise KeysDisabledError("Key lookups are disabled (keyfield is unset).")
@@ -2301,10 +3014,21 @@ class Daf:
 
 
     def remove_keylist(self, keylist: T_ls, silent_error=False) -> 'Daf':
-        """ remove records from daf using keyfields
-            This directly modifies daf
-            test exists in test_daf.py
         """
+        Remove multiple records by key list.
+
+        Args:
+            keylist: Keys to remove.
+            silent_error: Suppress errors.
+
+        Returns:
+            Daf: Self.
+
+        Note:
+            This mutates daf array. Make a copy if the original is needed.
+        """
+        # test exists in test_daf.py
+
         if not self.keyfield:
             raise KeysDisabledError("Key lookups are disabled (keyfield is unset).")
 
@@ -2319,7 +3043,15 @@ class Daf:
                                 Tuple[  Union[slice, int, str, T_li, T_ls, range, T_lor, Tuple[str, str]],
                                         Union[slice, int, str, T_li, T_ls, range, T_lor, Tuple[str, str]]]],
             ) -> Any:
+        """
+        Retrieve data using slicing or indexing.
 
+        Args:
+            slice_spec: Row/column selection specification.
+
+        Returns:
+            Any: Selected data as Daf or as value depending on retmode.
+        """
 
 
         if isinstance(slice_spec, tuple) and len(slice_spec) == 2:
@@ -2374,7 +3106,19 @@ class Daf:
                                         Union[slice, int, str, range, T_lor, T_li, T_ls, T_lb, Tuple[Any, Any]]]],
             value: Any,
             ) -> 'Daf':
+        """
+        Assign values using slicing or indexing.
 
+        Args:
+            slice_spec: Row/column selection.
+            value: Value to assign.
+
+        Returns:
+            Daf: Self.
+
+        Note:
+            Mutates Daf array in place.
+        """
         if isinstance(slice_spec, tuple) and len(slice_spec) == 2:
             # Handle parsing slices for  both rows and columns
             row_spec, col_spec = slice_spec
@@ -2407,6 +3151,15 @@ class Daf:
 
 
     def _adjust_return_val(self, retmode: str = ''):
+        """
+        Adjust return value based on retmode.
+
+        Args:
+            retmode: Return mode override.
+
+        Returns:
+            Any: Adjusted result.
+        """
         """
             There is currently defined two ways to return data from __getitem__ which
             is controlled by the _retmode property setting.
@@ -2445,7 +3198,21 @@ class Daf:
         return self
 
 
-    def set_irows_icols(self, irows: Union[slice, int, T_li, Iterable, None], icols: Union[slice, int, T_li, None], value) -> 'Daf':
+    def set_irows_icols(self, 
+            irows: Union[slice, int, T_li, Iterable, None], 
+            icols: Union[slice, int, T_li, None], 
+            value: Any) -> 'Daf':
+        """
+        Set values at specified row and column indices.
+
+        Args:
+            irows: Row indices.
+            icols: Column indices.
+            value: Value to assign.
+
+        Returns:
+            Daf: Self.
+        """
         """ set rows and cols in given daf.
 
             irows, icols: can be either a slice, int, or list of integers. These
@@ -2588,6 +3355,22 @@ class Daf:
             silent_error:   bool = False,
             ) -> Union[slice, int, T_li, range]:
         """
+        Convert key-based row selection to index-based selection.
+
+        Args:
+            krows: Key-based selection.
+            inverse: Invert selection.
+            silent_error: Suppress errors.
+
+        Returns:
+            Union[slice, int, List[int], range]: Row indices.
+
+        Note:
+            requires keyfield or manually initialized kd.
+            Internal use.
+
+        """
+        """
         If the keyfield is set, then the rows can be selected by providing a
         krows parameter that will index the rows by using values in the keyfield column.
         The keyfield column is read as a list and then converted to a dictionary that
@@ -2619,6 +3402,17 @@ class Daf:
             silent_error: bool=False,
             ) -> Union[slice, int, T_li, range, None]:
         """
+        Convert key-based column selection to index-based selection.
+
+        Args:
+            kcols: Column keys.
+            inverse: Invert selection.
+            silent_error: Suppress errors.
+
+        Returns:
+            Union[slice, int, List[int], range, None]: Column indices.
+        """
+        """
         If cols are defined is set, then the cols can be selected by providing a
         kcols parameter that will index the cols by using values in the header dict hd.
         This forces an attempt to use the spec as a column name even if it may look
@@ -2648,6 +3442,23 @@ class Daf:
             axis:       str='rowkeys',              # used for status messages only.
             name:       str='unspecified',          # used for status messages only.
             ) -> Union[slice, int, T_li, range, None]:
+        """
+        Convert general keys to indices using key dictionary.
+
+        Args:
+            keydict: Mapping of keys to indices.
+            gkeys: Keys to resolve.
+            inverse: Invert selection.
+            silent_error: Suppress errors.
+            axis: Axis label (for messaging).
+            name: Context label.
+
+        Returns:
+            Union[slice, int, List[int], range, None]: Indices.
+
+        Note:
+            Internal Use
+        """    
         """
         If keydict is defined, then the idxs can be selected by providing a
         gkeys parameter that will index the keydict, and return either a
@@ -2728,7 +3539,17 @@ class Daf:
             inverse:        bool=False,
             silent_error:   bool=False,
             ) -> 'Daf':
+        """
+        Select rows by key values.
 
+        Args:
+            krows: Key-based selection.
+            inverse: Invert selection.
+            silent_error: Suppress errors.
+
+        Returns:
+            Daf: New instance.
+        """
         self._rebuild_kd_if_invalidated()
 
         if not self.keyfield:
@@ -2750,7 +3571,18 @@ class Daf:
             flip:           bool=False,
             silent_error:   bool=False,
             ) -> 'Daf':
+        """
+        Select columns by key values.
 
+        Args:
+            kcols: Column selection.
+            inverse: Invert selection.
+            flip: Transpose result.
+            silent_error: Suppress errors.
+
+        Returns:
+            Daf: New instance.
+        """
         if not self.hd:
             raise KeysDisabledError("select_kcols requires hd.")
 
@@ -2763,6 +3595,19 @@ class Daf:
 
 
     def select_irows(self, irows: Union[slice, int, T_li, range, T_lor, Iterable, None], invert: bool=False) -> 'Daf':
+        """
+        Select rows by index.
+
+        Args:
+            irows: Row indices.
+            invert: Invert selection.
+
+        Returns:
+            Daf: New instance.
+
+        Notes:
+            Uses references to original data.
+        """
         """ select rows from daf and return a new instance.
             This is an efficient opeation. The array in the new instance
             uses references to selected rows in the original array.
@@ -2834,6 +3679,17 @@ class Daf:
 
 
     def select_icols(self, icols: Union[slice, int, T_li, range, T_lor, None], flip: bool=False) -> 'Daf':
+        """
+        Select columns by index.
+
+        Args:
+            icols: Column indices.
+            flip: Transpose result.
+
+        Returns:
+            Daf: New instance.
+        """
+
         """ select cols from daf and return a new instance.
             This is not an efficient operation and can normally be avoided except when:
                 reading/writing data, then columns may need to be dropped.
@@ -2955,6 +3811,16 @@ class Daf:
     #
 
     def select_record(self, key: Union[str, int, T_ta], silent_error: bool=True) -> T_da:
+        """
+        Select a single record by key.
+
+        Args:
+            key: Key value.
+            silent_error: Suppress errors.
+
+        Returns:
+            Dict: Record data.
+        """
         """ Select one record from daf using the key and return as a single T_da dict.
 
             returns {} if not self
@@ -2983,6 +3849,17 @@ class Daf:
 
 
     def _basic_get_record(self, irow: int, include_cols: Optional[T_ls]=None) -> T_da:
+        """
+        Retrieve a row as a dictionary.
+
+        Args:
+            irow: Row index.
+            include_cols: Optional subset of columns.
+
+        Returns:
+            Dict: Row data.
+        """
+
         """ return a record at irow as dict
             include only "include_cols" if it is defined
             note, this requires that hd is defined.
@@ -3016,6 +3893,21 @@ class Daf:
 
 
     def select_records_daf(self, keys_ls: Union[T_ls, Iterable], inverse:bool=False, silent_error: bool=False) -> 'Daf':
+        """
+        Select multiple records by keys.
+
+        Args:
+            keys_ls: Keys to select.
+            inverse: Invert selection.
+            silent_error: Suppress errors.
+
+        Returns:
+            Daf: New instance.
+
+        Notes:
+            Requires keyfield or manually initialized kd.
+        """
+
         """ Select multiple records from daf using the keys and return as a single daf.
             If inverse is true, select records that are not included in the keys.
             silent_error = True: do not raise an error if any keys are not found.
@@ -3033,7 +3925,18 @@ class Daf:
 
 
     def irow_la(self, irow: int) -> T_la:
-        """ return a row as a list.
+        """
+        Return row as list.
+
+        Args:
+            irow: Row index.
+
+        Returns:
+            List: Row data.
+
+        Note:
+            Does not create a new list. returns a reference to the existing list in lol.
+
         """
         return self.lol[irow]
 
@@ -3044,6 +3947,18 @@ class Daf:
         default:    Any='',
         astype:     Optional[Union[Callable, str]]=None,
         ) -> Any:
+        """
+        Return a single value.
+
+        Args:
+            irow: Row index.
+            icol: Column index.
+            default: Default if missing.
+            astype: Optional type conversion.
+
+        Returns:
+            Any: Value.
+        """
         """ return a single value from an array,
             at default location 0,0 or as specified.
         """
@@ -3065,6 +3980,21 @@ class Daf:
         default:    Any = _MISSING,       # use this value instead if value is None or '' or NAN (default can be None)
         astype:     Optional[Union[Callable, str, type]]=None,
         ) -> list:
+        """
+        Extract data as a list.
+
+        Args:
+            irow: Row selection.
+            icol: Column selection.
+            unique: Return unique values.
+            flatten: Flatten nested lists.
+            omit_nulls: Remove empty values.
+            default: Replacement value.
+            astype: Optional type conversion.
+
+        Returns:
+            list: Extracted values.
+        """
         """ return data from a daf array as a list
             defaults to the most obvious list if irow and icol not specified.
                 from irow 0, if num_rows is 1 and num_cols >= 1
@@ -3128,6 +4058,12 @@ class Daf:
 
     def to_lota(self,
         ) -> T_lota:
+        """
+        Convert data to list of tuples.
+
+        Returns:
+            List[Tuple]: Tuple representation.
+        """
         """ return data from a daf array as a list of tuple of any (List[Tuple[Any...]])
             This is convenient for creating compound keys
         """
@@ -3141,7 +4077,20 @@ class Daf:
 
 
 
-    def to_dict(self, irow: int=0, include_cols: Optional[T_ls]=None) -> T_da:
+    def to_dict(self, 
+            irow: int=0, 
+            include_cols: Optional[T_ls]=None,
+            ) -> T_da:
+        """
+        Return a row as dictionary.
+
+        Args:
+            irow: Row index.
+            include_cols: Optional columns.
+
+        Returns:
+            Dict: Row data.
+        """
         """ alias for iloc
             Note that this does not convert a column to a dict. Use to_list to convert a column.
             test exists in test_daf.py
@@ -3150,19 +4099,44 @@ class Daf:
 
 
     def to_klist(self, irow: int=0) -> KeyedList:
-        """ return a row as a klist
+        """
+        Return a row as KeyedList.
+
+        Args:
+            irow: Row index.
+
+        Returns:
+            KeyedList: Row representation.
         """
         return self.iloc(irow, rtype='klist')
 
 
     def irow(self, irow: int=0, include_cols: Optional[T_ls]=None) -> T_da:
-        """ alias for iloc
-            test exists in test_daf.py
+        """
+        Alias for iloc.
+
+        Args:
+            irow: Row index.
+            include_cols: Optional columns.
+
+        Returns:
+            Dict: Row data.
         """
         return self.iloc(irow, include_cols)
 
 
     def iloc(self, irow: int=0, include_cols: Optional[T_ls]=None, rtype: str='dict') -> Union[T_da, KeyedList]:
+        """
+        Select row by index.
+
+        Args:
+            irow: Row index.
+            include_cols: Optional columns.
+            rtype: Return type ('dict', 'klist', or 'list').
+
+        Returns:
+            Union[Dict, KeyedList]: Row data.
+        """
         """ Select one record from daf using the idx and return as a single T_da dict
             test exists in test_daf.py
 
@@ -3213,12 +4187,23 @@ class Daf:
             inverse:        bool=False,
             keyfield:       Union[str, int, T_ta]='',
             ) -> 'Daf':
-        """ Selects rows in daf which match the fields specified in selector_da
-            and return new daf, with keyfield set according to 'keyfield' argument.
-            test exists in test_daf.py
+        """
+        Select rows matching a dictionary of conditions.
+
+        Args:
+            selector_da: Field-value criteria.
+            expectmax: Maximum expected matches.
+            inverse: Invert selection.
+            keyfield: Keyfield for result.
+
+        Returns:
+            Daf: Filtered instance.
         """
 
-        # from utilities import daf_utils
+        """ Selects rows in daf which match the fields specified in selector_da
+            and return new daf, with keyfield set according to 'keyfield' argument.
+        """
+        # test exists in test_daf.py
 
         result_lol = [list(d2.values()) for d2 in self if inverse ^ daf_utils.is_d1_in_d2(d1=selector_da, d2=d2)]
 
@@ -3236,6 +4221,17 @@ class Daf:
 
 
     def select_first_row_by_dict(self, selector_da: T_da, inverse:bool=False) -> T_da:
+        """
+        Select first row matching criteria.
+
+        Args:
+            selector_da: Field-value criteria.
+            inverse: Invert selection.
+
+        Returns:
+            Dict: Matching row or empty dict.
+        """
+
         """ Selects the first row in daf which matches the fields specified in selector_da
             and returns that row. Else returns {}.
             Use inverse to find the first row that does not match.
@@ -3251,6 +4247,16 @@ class Daf:
 
 
     def select_where(self, where: Callable, indirect_col: Optional[str]=None) -> 'Daf':
+        """
+        Select rows using a predicate function.
+
+        Args:
+            where: Callable applied to each row.
+            indirect_col: Optional indirect column.
+
+        Returns:
+            Daf: Filtered instance.
+        """
         """
         Select rows in Daf based on the provided where condition
         
@@ -3287,6 +4293,16 @@ class Daf:
 
     def select_where_idxs(self, where: Callable) -> T_li:
         """
+        Return indices of rows matching predicate.
+
+        Args:
+            where: Callable applied to each row.
+
+        Returns:
+            List[int]: Matching row indices.
+        """
+
+        """
         Select rows in Daf based on the provided where condition
         return list of indexes.
 
@@ -3302,6 +4318,15 @@ class Daf:
 
 
     def remove_dups(self, keyfield: Union[str, T_ta, T_la]='') -> Tuple['Daf', 'Daf']:  # unique_daf, duplicates_daf
+        """
+        Split data into unique and duplicate records by keyfield.
+
+        Args:
+            keyfield: Keyfield to evaluate.
+
+        Returns:
+            Tuple[Daf, Daf]: (unique_records, duplicate_records)
+        """
         """
         If it is known that duplicates may exist in the array with respect to keyfield,
         remove records that have the same keyfield and return two daf arrays,
@@ -3345,6 +4370,16 @@ class Daf:
             *,
             indirect_col: Optional[str] = None,
             ) -> Tuple['Daf', 'Daf']:
+        """
+        Split rows into two Daf instances based on predicate.
+
+        Args:
+            where: Callable applied to each row.
+            indirect_col: Optional indirect column.
+
+        Returns:
+            Tuple[Daf, Daf]: (true_rows, false_rows)
+        """
         """
         Select rows in Daf based on the provided where condition,
         and split into two Daf objects, for True and False.
@@ -3395,6 +4430,22 @@ class Daf:
             indirect_col:   Optional[str]=None,
             default:        Optional[Any]='',
             ) -> list:
+        """
+        Retrieve column values as list.
+
+        Args:
+            colname: Column name.
+            unique: Return unique values.
+            omit_nulls: Remove empty values.
+            silent_error: Suppress errors.
+            astype: Optional type conversion.
+            indirect_col: Optional indirect column.
+            default: Default value.
+
+        Returns:
+            list: Column values.
+        """
+
         """ alias for col_to_la()
             can also use column ranges and then transpose()
             test exists in test_daf.py
@@ -4689,6 +5740,8 @@ class Daf:
                 which are then used as keys to the dodaf output, and the
                 row in question is appended to those daf arrays by reference
                 (no copying).
+
+            group_where()
 
         """
 
@@ -7028,39 +8081,6 @@ class Daf:
             value_counts_daf.append({colname: ' **Total** ', 'counts': sum(value_counts_daf.col('counts'))})
 
         return value_counts_daf
-
-
-    # # DEPRECATED
-    # @classmethod
-    # def from_hllola(cls, hllol: T_hllola, keyfield: str='', dtypes: Optional[T_dtype_dict]=None) -> 'Daf':
-        # """ Create Daf instance from hllola type.
-            # This is used for all DB. loading.
-            # test exists in test_daf.py
-
-            # DEPRECATED
-        # """
-
-        # hl, lol = hllol
-
-        # return cls(lol=lol, cols=hl, keyfield=keyfield, dtypes=dtypes)
-
-
-# ALIASES
-# these must not be established until after the class is fully defined.
-# Pydf = Daf
-# Pydf.pydf_to_lol_summary     = Daf.daf_to_lol_summary
-# Pydf.split_pydf_into_ranges  = Daf.split_daf_into_ranges
-# Pydf.select_records_pydf     = Daf.select_records_daf
-# Pydf.pydf_sum                = Daf.daf_sum
-# Pydf.pydf_valuecount         = Daf.daf_valuecount
-# Pydf.groupsum_pydf           = Daf.groupsum_daf
-# Pydf.gen_stats_pydf          = Daf.gen_stats_daf
-# Pydf.value_counts_pydf       = Daf.value_counts_daf
-
-# Daf.groupsum                 = Daf.groupsum_daf
-# Daf.value_counts             = Daf.valuecounts_for_colname
-
-# Pydf.md_pydf_table = Pydf.to_md
 
 
 class DafIterator:

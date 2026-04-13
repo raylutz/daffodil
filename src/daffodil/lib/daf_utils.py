@@ -505,7 +505,10 @@ def convert_type_value(val: any, desired_type: type, unflatten: bool=True):
     if desired_type is not bool and (val in ('', None) or val != val):   # null string means None or NAN
         new_val = ''
 
-    elif desired_type == int:                       # intentionally use == here to allow any type of int.
+    # intentionally use == here to allow any type of int.
+    # if use 'is' (as recommeneded by linter) it will exclude int32, int64 and other variants.
+
+    elif desired_type == int:                       # noqa: E721 
         if val in ('0', '0.0', 'False', 'FALSE'):
             new_val = 0
         elif val in ('1', '1.0', 'True', 'TRUE'):
