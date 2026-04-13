@@ -4344,7 +4344,7 @@ class Daf:
 
         self._rebuild_kd_if_invalidated()
 
-        num_uniquely_keyed_rows = len(self._kd())
+        num_uniquely_keyed_rows = len(self._kd)
 
         if num_rows_orig == num_uniquely_keyed_rows:
             return self, Daf()
