@@ -1048,7 +1048,7 @@ class TestDaf(unittest.TestCase):
         self.assertEqual(daf.dtypes, None)
         self.assertEqual(daf._iter_index, 0)
 
-    def test_append_with_keyfield(self):
+    def test_record_append_with_keyfield(self):
         cols = ['col1', 'col2']
         lol = [[1, 'a'], [2, 'b']]
         #kd = {1: 0, 2: 1}
@@ -1057,14 +1057,14 @@ class TestDaf(unittest.TestCase):
 
         record_da = {'col1': 3, 'col2': 'c'}
 
-        daf.append(record_da)
+        daf.record_append(record_da)
 
         self.assertEqual(daf.lol, [[1, 'a'], [2, 'b'], [3, 'c']])
 
         # append record with same keyfield will modify in place
         record_da = {'col1': 3, 'col2': 'd'}
 
-        daf.append(record_da)
+        daf.record_append(record_da)
 
         self.assertEqual(daf.name, '')
         self.assertEqual(daf.keyfield, 'col1')

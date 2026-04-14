@@ -994,7 +994,7 @@ class Daf:
 
     def _rebuild_kd_if_invalidated(self):
         """
-        Rebuild key dictionary if it has been invalidated if keyfield != ''
+        Rebuild key dictionary if it has been invalidated if keyfield is valid.
 
         Notes:
             Internal use.
@@ -1008,22 +1008,12 @@ class Daf:
 
     def _rebuild_kd(self) -> None:
         """
-        Rebuild key dictionary from current data if keyfield         """
-        _kd semantics:
-
-        - If keyfield != '':
-            _kd is a managed index derived from lol and keyfield.
-            It may be invalidated (set to {}) and rebuilt lazily.
-
-        - If keyfield == '':
-            _kd is unmanaged (external/adopted).
-            It is not maintained and may become stale after mutation.
-        """
-
+        Rebuild key dictionary from current data if keyfield is valid.
 
         Notes:
             Internal.
             Required after deletions when keyfield is active.
+            Checks the full validity of keyfield before applying.
         """
 
         if self._is_keyfield_valid():
@@ -1124,8 +1114,7 @@ class Daf:
         Returns:
             List: Keys that exist in the Daf.
         """
-        """ check the keylist against the keys defined in a daf instance.
-        """
+
         # unit tested
 
         self. _rebuild_kd_if_invalidated()
@@ -2772,7 +2761,7 @@ class Daf:
             logs.sts(f"{logs.prog_loc()} starting append.", 3)
 
         if isinstance(data_item, (dict, KeyedList)):
-            self.record_append(data_item)
+            self.record_append(data_item, respect_kd=False)
 
         elif isinstance(data_item, list):
             if isinstance(data_item[0], dict):
@@ -2784,7 +2773,7 @@ class Daf:
                     # columns are defined, and keyfield might also be defined
                     # create a dict.
                     da = dict(zip(self.hd.keys(), data_item))
-                    self.record_append(da)  # <-- this takes care of respecing the row kd (invalidating)
+                    self.record_append(da, respect_kd=False)  # <-- this takes care of respecing the row kd (invalidating)
                 else:
                     # no columns defined, therefore just append to lol.
                     self.lol.append(data_item)
@@ -2797,7 +2786,7 @@ class Daf:
 
             else:
                 da = data_item.to_dict()
-                self.record_append(da)  # <-- this takes care of respecing the row kd.
+                self.record_append(da, respect_kd=False)  # <-- this takes care of respecing the row kd.
 
         elif isinstance(data_item, Daf):  # type: ignore
             self.concat(data_item)
@@ -2915,7 +2904,7 @@ class Daf:
 
             # the following will either append or insert
             # depending on the keyvalue.
-            self.record_append(record_da)
+            self.record_append(record_da, respect_kd=False)
 
         self._invalidate_kd() # use lazy kd building.
 
@@ -5706,7 +5695,7 @@ class Daf:
                 result_dodaf[fieldval] = self.clone_empty()
 
             this_daf = result_dodaf[fieldval]
-            this_daf.record_append(da)
+            this_daf.record_append(da, respect_kd=False)
             result_dodaf[fieldval] = this_daf
 
         return result_dodaf
@@ -5731,7 +5720,7 @@ class Daf:
             else:
                 this_daf = result_dodaf[fieldval_tuple]
 
-            this_daf.record_append(kla)
+            this_daf.record_append(kla, respect_kd=False)
 
         return result_dodaf
 
@@ -5808,9 +5797,9 @@ class Daf:
                 # append original KeyedList row (no copy)
                 # if indirect view was used, unwrap to underlying row
                 if isinstance(row, _IndirectRowView):
-                    sub_daf.record_append(row.row)
+                    sub_daf.record_append(row.row, respect_kd=False)
                 else:
-                    sub_daf.record_append(row)
+                    sub_daf.record_append(row, respect_kd=False)
 
 
         return dodaf
