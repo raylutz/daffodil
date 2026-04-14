@@ -203,6 +203,17 @@ class Daf:
         else:
             self.lol        = lol
 
+        """
+        _kd semantics:
+
+        - If keyfield != '':
+            _kd is a managed index derived from lol and keyfield.
+            It may be invalidated (set to {}) and rebuilt lazily.
+
+        - If keyfield == '':
+            _kd is unmanaged (external/adopted).
+            It is not maintained and may become stale after mutation.
+        """
         if kd and isinstance(kd, dict):
             self._kd         = kd
         else:
@@ -907,9 +918,19 @@ class Daf:
         Notes:
             If keyfield is empty, indexing is disabled and `_kd` is invalidated.
             Keyfield changes do not automatically rebuild `_kd` unless forced.
+
+            _kd semantics:
+
+            - If keyfield != '':
+                _kd is a managed index derived from lol and keyfield.
+                It may be invalidated (set to {}) and rebuilt lazily.
+
+            - If keyfield == '':
+                _kd is unmanaged (external/adopted).
+                It is not maintained and may become stale after mutation.
         """ 
         """ set the indexing keyfield to a new column
-            if keyfield == '', then reset the keyfield and invalidate the kd.
+            if keyfield == '', then reset the keyfield.
             if keyfield not in columns,
                 then KeyError, if not silent_error
                 else set it anyway.
@@ -943,10 +964,11 @@ class Daf:
 
     def _invalidate_kd(self) -> None:
         """
-        Mark the key dictionary as invalid.
+        Mark the key dictionary as invalid if keyfield is set.
 
         Notes:
-            Enables lazy rebuilding of `_kd` after data modifications.
+            Enables lazy rebuilding of `_kd` after data modifications
+                if keyfield != ''.
         """
         """ Mark kd as invalid for future lookups.
 
@@ -972,13 +994,12 @@ class Daf:
 
     def _rebuild_kd_if_invalidated(self):
         """
-        Rebuild key dictionary if it has been invalidated.
+        Rebuild key dictionary if it has been invalidated if keyfield != ''
 
         Notes:
             Internal use.
             Only rebuilds when keyfield is set and `_kd` is empty.
         """
-        """ if kd is invalidated, it is set to {}. rebuild it if keyfield exists. """
 
         if not self._kd:
             self._rebuild_kd()
@@ -987,7 +1008,18 @@ class Daf:
 
     def _rebuild_kd(self) -> None:
         """
-        Rebuild key dictionary from current data.
+        Rebuild key dictionary from current data if keyfield         """
+        _kd semantics:
+
+        - If keyfield != '':
+            _kd is a managed index derived from lol and keyfield.
+            It may be invalidated (set to {}) and rebuilt lazily.
+
+        - If keyfield == '':
+            _kd is unmanaged (external/adopted).
+            It is not maintained and may become stale after mutation.
+        """
+
 
         Notes:
             Internal.
@@ -2890,26 +2922,20 @@ class Daf:
         return self
 
 
-    def record_append(self, record: Union[T_da, KeyedList]):
+    def record_append(self, record: Union[T_da, KeyedList], respect_kd=True):
         """
-        Append a single record.
+        Append a single record, optionally respecting the keyfield.
 
         Args:
             record: Record as dict or KeyedList.
 
         Notes:
             Adopts structure if Daf is empty.
-        """
-        """ perform append of one record into daf (T_da is Dict[str, Any])
-            This directly modifies daf
-            if keyfield is '', then insert without respect to the key value
-            otherwise, allow only one record per key.
-
-            if the daf is empty, it will adopt the structure of the record
-            Each new append will add to the end of the daf.lol.
-
             If the keys in the record_da have a different order, they will
-            be reordered and then appended correctly.
+                be reordered and then appended correctly.
+            if keyfield is '' or respect_keyfield is False, 
+                then insert without respect to the key value
+                otherwise, allow only one record per key and maintain kd.
         """
             # test exists in test_daf.py
 
@@ -2953,7 +2979,7 @@ class Daf:
         else:
             breakpoint() #perm
 
-        if self.keyfield:
+        if self.keyfield and respect_kd:
             keyval = self._get_keyval(record)
 
             self._rebuild_kd_if_invalidated()
@@ -2962,29 +2988,15 @@ class Daf:
             if keyval in self._kd:
                 self.lol[self._kd[keyval]] = rec_la
             else:
-                self._basic_append_la(rec_la, keyval)
+                self.lol.append(rec_la)
+                self._kd[keyval] = len(self.lol) - 1
         else:
-            # no keyfield is set, just append to the end.
+            # no keyfield is set, or not respect_kd, just append to the end.
             self.lol.append(rec_la)
+            self._invalidate_kd()    # use lazy kd rebuilding only if keyfield != ''
 
         return self
 
-
-    def _basic_append_la(self, rec_la: T_la, keyval: str):
-        """
-        Append list record without validation.
-
-        Args:
-            rec_la: Record as list.
-            keyval: Key value.
-
-        Notes:
-            Invalidates key dictionary.
-        """
-        self.lol.append(rec_la)
-        self._invalidate_kd()           # support lazy kd generation.
-
-        return self
 
 
     #=========================
