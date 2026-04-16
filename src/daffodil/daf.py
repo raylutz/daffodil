@@ -108,6 +108,9 @@ T_dodaf = Dict[str, T_Daf]
 
 logs = daf_utils                # alias
 
+# global
+_use_keyedindex_for_hd = False
+
 # define a sentinel object to express a missing item where None is a valid value.
 from daffodil.lib.daf_utils import _MISSING
 
@@ -2949,10 +2952,11 @@ class Daf:
 
         # check if fields match exactly.
         reorder = False
-        if isinstance(record, KeyedList):
-            if record.hd != self.hd:
-                reorder = True
-        elif list(self.hd.keys()) != list(record.keys()):
+        # if isinstance(record, KeyedList):
+        #     if record.hd != self.hd:
+        #         reorder = True
+        # el
+        if list(self.hd.keys()) != list(record.keys()):
             reorder = True
 
         if reorder:
@@ -2978,7 +2982,10 @@ class Daf:
                 self.lol[self._kd[keyval]] = rec_la
             else:
                 self.lol.append(rec_la)
-                self._kd[keyval] = len(self.lol) - 1
+                if isinstance(self._kd, dict):
+                    self._kd[keyval] = len(self.lol) - 1
+                else:
+                    self._kd.append(keyval)
         else:
             # no keyfield is set, or not respect_kd, just append to the end.
             self.lol.append(rec_la)
@@ -2986,6 +2993,45 @@ class Daf:
 
         return self
 
+
+
+    def _basic_append(self, row: Union[KeyedList, Dict[Any, Any], list]) -> 'Daf':
+        # --- list ---
+        if isinstance(row, list):
+            if self.hd:
+                assert len(row) == len(self.hd)
+            self.lol.append(row)
+            return self
+
+        # --- KeyedList ---
+        if isinstance(row, KeyedList):
+            if not self.hd:
+                if _use_keyedindex_for_hd:
+                    self.hd = row.hd                  # already KeyedIndex
+                else:
+                    # convert to dict (copy)
+                    self.hd = dict(zip(row.hd, range(len(row.hd))))
+            self.lol.append(row._values)
+            return self
+
+        # --- dict ---
+        if isinstance(row, dict):
+            if not self.hd:
+                keys = list(row.keys())
+
+                if _use_keyedindex_for_hd:
+                    self.hd = KeyedIndex(keys)
+                else:
+                    self.hd = dict(zip(keys, range(len(keys))))
+
+                self.lol.append(list(row.values()))
+                return self
+
+            # hd exists → align order
+            self.lol.append([row.get(col, '') for col in self.hd])
+            return self
+
+        raise TypeError("Unsupported row type for basic_append")
 
 
     #=========================
@@ -5695,7 +5741,7 @@ class Daf:
                 result_dodaf[fieldval] = self.clone_empty()
 
             this_daf = result_dodaf[fieldval]
-            this_daf.record_append(da, respect_kd=False)
+            this_daf._basic_append(da)
             result_dodaf[fieldval] = this_daf
 
         return result_dodaf
@@ -5791,15 +5837,15 @@ class Daf:
 
                 sub_daf = dodaf.get(key)
                 if sub_daf is None:
-                    sub_daf = self.clone_empty(name=str(key))
+                    sub_daf = Daf(name=str(key), keyfield=self.keyfield)
                     dodaf[key] = sub_daf
 
                 # append original KeyedList row (no copy)
                 # if indirect view was used, unwrap to underlying row
                 if isinstance(row, _IndirectRowView):
-                    sub_daf.record_append(row.row, respect_kd=False)
+                    sub_daf._basic_append(row.row)
                 else:
-                    sub_daf.record_append(row, respect_kd=False)
+                    sub_daf._basic_append(row)
 
 
         return dodaf

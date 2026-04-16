@@ -4887,6 +4887,7 @@ def test_group_where_reference_semantics():
     # mutate via sub-daf row
     sub[0, 'id'] = 100
 
+    assert sub[0, 'id'].to_value() == 100
     # original should reflect change (no copy)
     assert daf[0, 'id'].to_value() == 100
 
