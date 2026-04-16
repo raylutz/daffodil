@@ -31,7 +31,7 @@ all prior releases. Plans for future moved to ROADMAP.md.
 - Added indirect_col to select_where() split_where()
 - Added group_where() method to allow arbitrary grouping including fanout grouping.
    - Added tests for group_where()
-- Introduced KeyedIndex class for future porting to rust.
+- Introduced KeyedIndex class for future porting to rust. Also added tests.
 - Added \_basic_append() to streamline appends when it is known that the hd is compatible.
 
 ### Changed
