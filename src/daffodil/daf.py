@@ -81,7 +81,7 @@ import copy
 import re
 import json
 import time
-#import numpy as np
+import numpy as np
 #from typing_extensions import deprecated       # can't get this to import correctly
 from pathlib import Path
 
@@ -98,6 +98,7 @@ import daffodil.lib.daf_pandas   as daf_pandas
 import daffodil.lib.daf_pdf      as daf_pdf
 
 from daffodil.keyedlist import KeyedList
+from daffodil.keyedlist import KeyedIndex
 
 from typing import List, Dict, Any, Tuple, Optional, Union, cast, Type, Callable, Iterable, Iterator # noqa: F401
 from collections.abc import Iterable as IterableABC
@@ -107,6 +108,7 @@ T_Daf = Type['Daf']
 T_dodaf = Dict[str, T_Daf]
 
 logs = daf_utils                # alias
+NULL = ''                       # instead of var == '' use var is NULL
 
 # global
 _use_keyedindex_for_hd = False
@@ -181,7 +183,7 @@ class Daf:
             if schema is not None:
                 keyfield = getattr(schema, "__keyfield__", "")
             else:
-                keyfield = ''
+                keyfield = NULL
         self.keyfield       = keyfield          # str - field of array to assign to the kd dict.
 
         if lol is None:
@@ -3427,12 +3429,16 @@ class Daf:
         
         raises KeysDisabledError if keyfield is not set.
         """
-        if not self.keyfield or not self._kd:
+        if not self.keyfield and not self._kd:
+            # if keyfield is unset, kd may still be initialized manually.
+
             KeysDisabledError("Key lookups are disabled (keyfield is unset).")
             # if inverse:
                 # return range(len(self))
             # else:
                 # return []
+
+        self._rebuild_kd_if_invalidated()    # Only rebuilds when keyfield is set and `_kd` is empty.
 
         return type(self).gkeys_to_idxs(
                     keydict         = self._kd,
@@ -4088,13 +4094,13 @@ class Daf:
         if unique and result_la:
             result_la = list(dict.fromkeys(result_la))
 
-        if omit_nulls and '' in result_la:
-            result_la = [val for val in result_la if val != '']
+        if omit_nulls and any(val is NULL for val in result_la):
+            result_la = [val for val in result_la if val is not NULL]
 
-        if default is not _MISSING and ('' in result_la or None in result_la):
+        if default is not _MISSING and any(val is NULL or val is None for val in result_la):
             filtered_result_la = []
             for val in result_la:
-                if val is None or val == '' or val != val:  # val != val catches NaN
+                if val is None or val is NULL or val != val:  # val != val catches NaN
                     filtered_result_la.append(default)
                 else:
                     filtered_result_la.append(val)
@@ -4541,11 +4547,11 @@ class Daf:
             for row_da in self:
                 val = daf_utils.get_indirect_val(row_da, indirect_col, colname, default=default)
 
-                if omit_nulls and val == '':
+                if omit_nulls and val is NULL:
                     continue
 
                 # this added for numpy compatibility.
-                if val == '' and default != '':
+                if val is NULL and default is not NULL:
                     val = default
 
                 val = daf_utils.astype_value(val, astype)
@@ -4576,7 +4582,7 @@ class Daf:
             return []
 
         if omit_nulls:
-            result_la = [la[icol] for la in self.lol if la[icol]]
+            result_la = [la[icol] for la in self.lol if la[icol] is not NULL]
         else:
             result_la = [la[icol] for la in self.lol]
 
@@ -5734,7 +5740,7 @@ class Daf:
 
         for da in self:
             fieldval = da[colname]
-            if omit_nulls and fieldval=='':
+            if omit_nulls and fieldval is NULL:
                 continue
 
             if fieldval not in result_dodaf:
@@ -6057,7 +6063,7 @@ class Daf:
                     result_dododaf[col] = {}
 
                 fieldval = da[col]
-                if omit_nulls and fieldval=='':
+                if omit_nulls and fieldval is NULL:
                     continue
 
                 if fieldval not in result_dododaf[col]:
@@ -6696,7 +6702,10 @@ class Daf:
             # if isinstance(value, str) and value == '':  # same (294)
             # if value is None or isinstance(value, str) and not value:     (350) vs 207 = 69% longer
             # if value == '':                     # this makes the loop take 10x longer (2105) (1044% of original)
-            if isinstance(value, str) and not value:    # this makes the loop take 50% longer (305)
+            # if isinstance(value, str) and not value:    # this makes the loop take 50% longer (305)
+            #     continue
+
+            if value is NULL:                   # about 10% faster than above.
                 continue
 
             # the try/except below is the most time efficient way to handle this while still
@@ -7132,7 +7141,7 @@ class Daf:
 
             val = row_da[col]
 
-            if omit_nulls and isinstance(val, str) and not val:
+            if omit_nulls and val is NULL:
                 continue
 
             if val and isinstance(val, list):
@@ -7199,22 +7208,21 @@ class Daf:
         if colnames_ls is None:
             cleaned_colnames_is = self.hd.keys()
         elif not (numeric_only and self.dtypes):
-            cleaned_colnames_is = [col for col in colnames_ls if col in self.hd.keys()]
+            cleaned_colnames_is = {col:None for col in colnames_ls if col in self.hd.keys()}
         else:
-            cleaned_colnames_is = [col for col in colnames_ls if col in self.hd and self.dtypes.get(col) in [int, float]]
+            cleaned_colnames_is = {col:None for col in colnames_ls if col in self.hd and self.dtypes.get(col) in [int, float]}
 
         sums_d = dict.fromkeys(cleaned_colnames_is, 0.0)
 
-        for colname, colidx in self.hd.items():
-            if colname not in cleaned_colnames_is:
-                # sums_d[colname] = ''
-                continue
+        for colname in cleaned_colnames_is:
+            colidx = self.hd[colname]
             for la in self.lol:
-                if la[colidx]:
+                val = la[colidx]
+                if val:
                     if numeric_only:
-                        sums_d[colname] += Daf._safe_tofloat(la[colidx])    # perflint-reviewed
+                        sums_d[colname] += Daf._safe_tofloat(val)    # perflint-reviewed
                     else:
-                        sums_d[colname] += float(la[colidx])        # perflint-reviewed
+                        sums_d[colname] += float(val)        # perflint-reviewed
 
         sums_d = daf_utils.set_dict_dtypes(sums_d, dtypes=self.dtypes)
 
@@ -7483,7 +7491,19 @@ class Daf:
             new_cols = ['key'] + daf_utils._generate_spreadsheet_column_names_list(num_cols=len(self.lol))
 
         # transpose the array
-        new_lol = [list(row) for row in zip(*self.lol)]
+        # new_lol = [list(row) for row in zip(*self.lol)]
+
+        # the following leverages the use of the transposition operation in numpy 
+        # over an array of references to python objects. Faster and concise.
+
+        npao = np.array(self.lol, dtype=object)
+        npaoT = npao.T
+        new_lol = npaoT.tolist()
+
+        # instead of adding column for the header row, consider initializing kd from hd and hd from kd.
+
+        # hd, kd = self._kd, self.hd
+        # new_keyfield = ''
 
         if include_header:
             # add a new first column which will be the old column names row.
@@ -8244,7 +8264,7 @@ def unpack_indirect(
                             Either - a normal column in the Daf or a key inside the indirect column dictionary
 
     silent_error : bool, default False  If False, raise KeyError if cols not found.
-                            else create the col Daffodil null sentinel ''.
+                            else create the col Daffodil null sentinel NULL.
 
     Returns a new Daf containing only the specified columns, with indirect fields
                             flattened into normal columns.

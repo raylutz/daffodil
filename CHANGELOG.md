@@ -55,6 +55,9 @@ all prior releases. Plans for future moved to ROADMAP.md.
 - Fixed a number of datatype conversion issues in to_pandas() and from_pandas()
 - Went back to desired_type == int instead of is int, because == will include int, int64 etc.
    - Included a comment but use an noqa override for ruff linter.
+- Fixed error in indexing that required rebuilding kd and it was not done.
+- changed == '' to is NULL, with NULL defined as '' (performance improvement)
+- Use npao for transpose operation. (performance improvement)
 
 
 ---

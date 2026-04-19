@@ -344,6 +344,14 @@ def transpose_hdlol2(hdlol):
     
     return (header_di, transposed_lol)
     
+def transpose_using_npao(lol):
+    
+    npao = np.array(lol, dtype=object)
+    npaoT = npao.T
+    lolT = npaoT.tolist()
+    
+    return (lolT)
+    
 def safe_sizeof(obj: Any) -> int:
 
     try:
@@ -583,6 +591,7 @@ gc.disable()
                     'sample_daf.daf_sum3()',
                     'sum_np',
                     'transpose',
+                    'transpose_npao',
                     #'transpose_keyed',
                     'keyed lookup',
                     '=====',
@@ -737,6 +746,10 @@ gc.disable()
     gc.enable()
     print(f"daf.transpose()                 {ms:.4f} ms")
 
+    report_daf['transpose_npao', 'daf']    = ms = timeit.timeit('transpose_using_npao(sample_daf.lol)', setup=setup_code, globals=globals(), number=loops) * 1000 / (loops)
+    gc.enable()
+    print(f"daf.transpose_using_npao()      {ms:.4f} ms")
+
     print("\nTime for lookups:")
 
     #report_daf['keyed lookup', 'loops']    = 
@@ -837,7 +850,7 @@ Notes:
 
     # sep = os.sep      - Can use / for windows too.
     
-    md_path = 'docs/daf_benchmarks.md'
+    md_path = '../docs/daf_benchmarks.md'
     
     with open(md_path, 'w') as file:
         file.write(md_report)

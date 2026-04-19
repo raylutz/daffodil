@@ -15,7 +15,7 @@ import ast
 import platform
 
 import xlsx2csv     # type: ignore
-#import numpy as np
+import numpy as np
 
 from typing import List, Dict, Any, Tuple, Optional, Union, cast, Type, Iterable, Callable, Iterator # noqa: F401
 
@@ -29,6 +29,7 @@ def is_linux() -> bool:
 
 # define a sentinel object to express a missing item where None is a valid value.
 _MISSING = object()
+NULL = ''
 
 # def apply_dtypes_to_hdlol(hdlol: T_hdlola, dtypes: T_dtype_dict, from_str: bool=True) -> T_hdlola:
     # # do we need this any more? Use my_daf.apply_types()
@@ -65,7 +66,7 @@ def set_type_la(la: T_la, dtypes_worklist: List[Tuple[int, Type]]) -> T_la:
         value = la[idx]
         if isinstance(value, desired_type):
             continue
-        if isinstance(value, str) and not value:
+        if str is not NULL:
             # value is null str.
             # leave alone.
             continue
@@ -689,11 +690,11 @@ def list_stats_index(alist:T_la) -> T_da: # info_dict
     info_d: T_da = split_dups_list(alist)  # {'uniques_d':uniques_d, 'within_repd': within_reps_loti, 'prior_reps_loti':prior_reps_loti}
     
     info_d['num_all']           = len(alist)
-    info_d['uniques']           = [v for v in list(dict.fromkeys(alist)) if not(v is None or v == '' or v != v)]
+    info_d['uniques']           = [v for v in list(dict.fromkeys(alist)) if not(v is None or v is NULL or v != v)]
     info_d['num_uniques']       = len(info_d['uniques'])
     info_d['num_within_reps']   = len(info_d['within_reps_loti'])
-    info_d['num_missing']       = sum(1 for v in alist if v is None or v == '' or v != v)   # v != v checks for nan
-    info_d['non_missing']       = non_missing    = [v for v in alist if not(v is None or v == '' or v != v)]
+    info_d['num_missing']       = sum(1 for v in alist if v is None or v is NULL or v != v)   # v != v checks for nan
+    info_d['non_missing']       = non_missing    = [v for v in alist if not(v is None or v is NULL or v != v)]
     
     info_d['all_ints'] = is_list_allints(non_missing)
         
@@ -719,17 +720,17 @@ def list_stats_attrib(alist:T_la) -> T_da:
             'num_all': count of all values
             'uniques': list of all unique values
             'num_uniques': count of all unique values, including those that may also have repeated values later.
-            'num_missing': if any values are None, '', of nan.
+            'num_missing': if any values are None, NULL, or nan.
             'val_counts': dict of each value and the count of that value.
     
     """    
 
     info_d: T_da = {}
     info_d['num_all']       = len(alist)
-    info_d['uniques']       = uniques       = [v for v in list(dict.fromkeys(alist)) if not(v is None or v == '' or v != v)]
+    info_d['uniques']       = uniques       = [v for v in list(dict.fromkeys(alist)) if not(v is None or v is NULL or v != v)]
     info_d['num_uniques']   = len(uniques)
-    info_d['num_missing']   = sum(1 for v in alist if v is None or v == '' or v != v)   # v != v checks for nan
-    info_d['non_missing']   = non_missing   = [v for v in alist if not(v is None or v == '' or v != v)]
+    info_d['num_missing']   = sum(1 for v in alist if v is None or v is NULL or v != v)   # v != v checks for nan
+    info_d['non_missing']   = non_missing   = [v for v in alist if not(v is None or v is NULL or v != v)]
     info_d['all_ints']      = is_list_allints(non_missing)
         
     if info_d['all_ints']:
@@ -750,8 +751,8 @@ def list_stats_filepaths(alist:T_la) -> T_da:
 
     info_d: T_da = {}
     info_d['num_all']           = len(alist)
-    info_d['num_missing']       = sum(1 for v in alist if v is None or v == '' or v != v)   # v != v checks for nan
-    info_d['non_missing']       = [v for v in alist if not(v is None or v == '' or v != v)]
+    info_d['num_missing']       = sum(1 for v in alist if v is None or v is NULL or v != v)   # v != v checks for nan
+    info_d['non_missing']       = [v for v in alist if not(v is None or v is NULL or v != v)]
     
     return info_d
     
@@ -760,11 +761,11 @@ def list_stats_scalar(alist:T_la) -> T_da:
 
     info_d: T_da = {}
     info_d['num_all']           = len(alist)
-    info_d['uniques'] = uniques = [v for v in list(dict.fromkeys(alist)) if not(v is None or v == '' or v != v)]
+    info_d['uniques'] = uniques = [v for v in list(dict.fromkeys(alist)) if not(v is None or v is NULL or v != v)]
     info_d['num_uniques']       = len(uniques)
-    info_d['num_missing']       = sum(1 for v in alist if v is None or v == '' or v != v)   # v != v checks for nan
+    info_d['num_missing']       = sum(1 for v in alist if v is None or v is NULL or v != v)   # v != v checks for nan
     nonmissing                  = \
-    info_d['non_missing']       = [v for v in alist if not(v is None or v == '' or v != v)]
+    info_d['non_missing']       = [v for v in alist if not(v is None or v is NULL or v != v)]
 
     info_d['all_ints']          = is_list_allints(nonmissing)
         
@@ -1045,12 +1046,19 @@ def transpose_lol(lol: T_lola) -> T_lola:
     # all lines must have same number of columns or it raises RuntimeError
     # (ragged right not allowed)
 
-    transposed_lol = [list(i) for i in zip(*lol)]
+    npao = np.array(lol, dtype=object)
+    npaoT = npao.T
+    lolT = npaoT.tolist()
     
-    if lol and transposed_lol and max([len(lst) for lst in lol]) != len(transposed_lol):
-        raise RuntimeError (f"{prog_loc()} transpose_lol encountered ragged lol with record lengths: {[len(lst) for lst in lol]}")
+    return (lolT)
 
-    return transposed_lol
+
+    # transposed_lol = [list(i) for i in zip(*lol)]
+    
+    # if lol and transposed_lol and max([len(lst) for lst in lol]) != len(transposed_lol):
+    #     raise RuntimeError (f"{prog_loc()} transpose_lol encountered ragged lol with record lengths: {[len(lst) for lst in lol]}")
+
+    # return transposed_lol
 
 
 def safe_get_idx(lst: Optional[List[Any]], idx: int, default: Optional[Any]=None) -> Any:
@@ -1143,7 +1151,7 @@ def smart_fmt(val: Union[str, int, float, None]) -> str:
 
 def str2bool(value: Optional[Any]) -> bool:
     """Parses string to boolean value."""
-    if value is None or value == '':
+    if value is None or value is NULL:
         return False
     if isinstance(value, (bool, int)):
         return bool(value)
@@ -1988,8 +1996,8 @@ def astype_value(
         return val
 
     # preserve Daffodil null sentinel
-    if val == '':
-        return ''
+    if val is NULL:
+        return NULL
 
     if callable(astype):
         return astype(val)
