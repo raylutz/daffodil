@@ -17,8 +17,9 @@ import platform
 import xlsx2csv     # type: ignore
 import numpy as np
 
-from typing import List, Dict, Any, Tuple, Optional, Union, cast, Type, Iterable, Callable, Iterator # noqa: F401
-
+from typing import List, Dict, Any, Tuple, Optional, Union, cast, Type, Iterable, Callable, Iterator, TypeVar # noqa: F401
+T = TypeVar('T')
+from types import FrameType
 
 from daffodil.lib.daf_types import T_lola, T_loda, T_dtype_dict, T_da, T_ds, \
                                     T_la, T_loti, T_ls, T_doda, T_buff, T_li, T_lr, T_dn, T_kva # , T_ts, T_dota
@@ -310,12 +311,18 @@ def insert_col_in_lol_at_icol(icol: int=-1, col_la: Optional[T_la]=None, lol: Op
     return lol
     
     
-def insert_row_in_lol_at_irow(irow: int=-1, row_la: Optional[T_la]=None, lol: Optional[T_lola]=None, default: Any='') -> T_lola:
+def insert_row_in_lol_at_irow(irow: int=-1, row_la: T_la|None=None, lol: T_lola|None=None, default: Any='') -> T_lola:
     """ insert row in lol.
         if irow == -1 or irow > len(lol) then append to the bottom.
         use default value if row_la not long enough.
         
     """
+    if lol is None:
+        lol = []
+
+    if row_la is None:
+        row_la = []
+
     if not lol and row_la:
         return [row_la]
         
@@ -429,6 +436,7 @@ def safe_regex_replace(regex: Union[List[Union[str, bytes]], str, bytes], s: str
     """        
 
     regex_str = regex.decode('utf-8') if isinstance(regex, bytes) else regex
+    regex_str = cast(str, regex_str)
     regex_str = regex_str.strip('"')
     
     if isinstance(regex_str, str):
@@ -461,11 +469,11 @@ def safe_regex_replace(regex: Union[List[Union[str, bytes]], str, bytes], s: str
         
 
 def set_dict_dtypes(
-        da:             T_da,                       # dict in the daf array.
-        dtypes:         T_dtype_dict,               # dtypes of each item. May contain more than the items in da
-        #unflatten:      bool=True,                  # also unflatten any list or dict items.
-        # convert_cols:   Optional[Iterable]=None,    # specify which columns should be converted (non-str desired type)
-        # select_cols:    Optional[Iterable]=None,    # initialize the columns to be include in the result. 
+        da:             T_da,                           # dict in the daf array.
+        dtypes:         T_dtype_dict | None = None,     # dtypes of each item. May contain more than the items in da
+        #unflatten:      bool=True,                     # also unflatten any list or dict items.
+        # convert_cols:   Optional[Iterable]=None,      # specify which columns should be converted (non-str desired type)
+        # select_cols:    Optional[Iterable]=None,      # initialize the columns to be include in the result. 
         ) -> T_da:
     """ set the types in da according to dtype_dict or leave alone if not found in dtype_dict 
         dtype_dict can contain additional items that are not found in the dict da.
@@ -494,7 +502,7 @@ def set_dict_dtypes(
     return da
     
             
-def convert_type_value(val: any, desired_type: type, unflatten: bool=True):
+def convert_type_value(val: Any, desired_type: Type[T], unflatten: bool=True):
     """ given a single value, and a desired type, convert it if possible.
         For list and dict type, if str and JSON, convert to list or dict type if unflatten is True.
         At this point, desired type must be the origin of any type definitions, such as int, str, float, list, dict, set, tuple.
@@ -504,10 +512,10 @@ def convert_type_value(val: any, desired_type: type, unflatten: bool=True):
     """  
 
     if desired_type is not bool and (val in ('', None) or val != val):   # null string means None or NAN
-        new_val = ''
+        new_val: Any = ''
 
     # intentionally use == here to allow any type of int.
-    # if use 'is' (as recommeneded by linter) it will exclude int32, int64 and other variants.
+    # if use 'is' (as recommended by linter) it will exclude int32, int64 and other variants.
 
     elif desired_type == int:                       # noqa: E721 
         if val in ('0', '0.0', 'False', 'FALSE'):
@@ -792,7 +800,7 @@ def list_stats_scalar(alist:T_la) -> T_da:
 
 def list_stats_localidx(alist: T_la) -> T_da:
 
-    info_d = {}
+    info_d: Dict[str, Any] = {}
 
     # this test for integers does not allow any sort of float
     for val in alist:
@@ -1255,7 +1263,7 @@ def beep(freq: int=1080, ms: int=500):
             import os
             os.system('beep -f %s -l %s' % (freq, ms))
         else:
-            winsound.Beep(freq, ms)
+            winsound.Beep(freq, ms)     # type: ignore
             
     
 def error_beep():
@@ -1267,7 +1275,27 @@ def notice_beep(freq: int=1080):
     beep(freq=freq, ms=250)
 
 
-def sts(string: str, verboselevel: int=0, end: str='\n', enable: bool=True) -> str:
+RESET = "\033[0m"
+
+COLORS = {
+    "red":    "\033[31m",
+    "green":  "\033[32m",
+    "yellow": "\033[33m",
+    "blue":   "\033[34m",
+    "mag":    "\033[35m",
+    "cyan":   "\033[36m",
+    "bold":   "\033[1m",
+}
+
+def colorize(text: str, color: str) -> str:
+    if not color:
+        return text
+    prefix = COLORS.get(color, "")
+    return f"{prefix}{text}{RESET}"
+
+
+
+def sts(text: str, verboselevel: int=0, end: str='\n', enable: bool=True, color='yellow') -> str:
     """ Append string to logfile report.
         Also return the string so an interal version can be maintained
         for other reporting.
@@ -1278,15 +1306,20 @@ def sts(string: str, verboselevel: int=0, end: str='\n', enable: bool=True) -> s
     
     verbose_level = 3
 
-    if string is None or not enable: 
+    if text is None or not enable: 
         return ''
 
-    log_str = f"{get_datetime_str()}: {string}"
+    if color:
+        colorized_text = colorize(text, color)
+    else:
+        colorized_text = text
+
+    log_str = f"{get_datetime_str()}: {colorized_text}"
 
     if verboselevel >= verbose_level:
         print(log_str, end=end, flush=True)
         
-    return string+end
+    return text+end
 
 
 def caller_loc() -> str:
@@ -1296,7 +1329,7 @@ def caller_loc() -> str:
         return ""
 
     try:
-        caller = frame.f_back.f_back  # skip this function + validator
+        caller = cast(FrameType, cast(FrameType, frame.f_back).f_back) 
         if caller is None:
             return ""
 

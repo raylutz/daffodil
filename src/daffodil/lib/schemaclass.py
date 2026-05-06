@@ -21,6 +21,33 @@ T_da =  Dict[str, Any]
 
 T = TypeVar("T")
 
+class SchemaBase:
+    """
+    Static interface for schemaclasses so mypy can see attributes
+    injected by @schemaclass.
+    """
+
+    __annotations__: Dict[str, type]
+
+    @classmethod
+    def default_record(cls, **kwargs: Any) -> T_da: ...
+    
+    @classmethod
+    def record_from(cls, src: Union[T_da, KeyedList]) -> T_da: ...
+
+    @classmethod
+    def get_dtypes_dict(cls, *, use_origins: bool = False) -> Dict[str, type]: ...
+
+    @classmethod
+    def get_columns(cls) -> List[str]: ...
+
+    @staticmethod
+    def get_pandas_dtypes_from_schema(schema) -> Dict[str, Any]: ...
+
+    @classmethod
+    def validate_keys_debug(cls, da: T_da) -> None: ...
+    
+
 def schemaclass(cls: type[T]) -> type[T]:
     """
     Decorator marking a class as a Daffodil schema.

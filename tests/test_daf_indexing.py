@@ -100,7 +100,7 @@ class TestDaffodilIndexing(unittest.TestCase):
     def test_column_key_as_tuple(self):
         # Test slicing columns using tuple keys, e.g., `my_daf[:, ("B", "D")]`
         result = self.daf[:, ("B", "D")]
-        expected = Daf(lol=[[2, 4], [6, 8], [10, 12]], cols=["B", "D"], keyfield="")
+        expected = Daf(lol=[[2, 3, 4], [6, 7, 8], [10, 11, 12]], cols=["B", "C", "D"], keyfield="")
         self.assertEqual(result, expected)
 
     def test_keyfield_reset_on_subset(self):

@@ -1941,14 +1941,15 @@ class TestDaf(unittest.TestCase):
         daf = Daf(cols=cols, lol=lol, keyfield='col1', dtypes={})
 
         keys_ls = [1, 2, 3]
-        result = daf.select_records_daf(keys_ls)
+        with self.assertRaises(KeysDisabledError):
+            result = daf.select_records_daf(keys_ls)
 
-        self.assertEqual(result.name,   '')
-        self.assertEqual(result.keyfield, 'col1')
-        self.assertEqual(result.hd,     {})
-        self.assertEqual(result.lol,    [])
-        self.assertEqual(result._kd,    {})
-        self.assertEqual(result.dtypes,  {})
+        # self.assertEqual(result.name,   '')
+        # self.assertEqual(result.keyfield, 'col1')
+        # self.assertEqual(result.hd,     {})
+        # self.assertEqual(result.lol,    [])
+        # self.assertEqual(result._kd,    {})
+        # self.assertEqual(result.dtypes,  {})
 
     def test_select_records_nonempty_daf(self):
         cols    = ['col1', 'col2']
@@ -3089,6 +3090,7 @@ class TestDaf(unittest.TestCase):
         self.assertEqual(result, expected_result)
 
     def test_getitem_col_name_list(self):
+
         self.daf_instance = Daf(lol=[[1, 2, 3], [4, 5, 6], [7, 8, 9]], cols=['A', 'B', 'C'])
         result = self.daf_instance[:, ['A','C']]
         expected_result = Daf(lol=[[1, 3], [4, 6], [7, 9]], cols=['A', 'C'])
@@ -4698,7 +4700,7 @@ def test_to_list_unique(simple_daf):
 def test_to_list_flatten_nested_rows():
     daf = Daf(lol=[[[1, 2], [3]], [[4], [5]]], cols=['A', 'B'])
     # Explicitly select each row to flatten
-    result = daf.to_list(irow=0, flatten=True) + daf.to_list(irow=1, flatten=True)
+    result = daf[0].to_list(flatten=True) + daf[1].to_list(flatten=True)
     assert result == [1, 2, 3, 4, 5]
 
 def test_to_list_flatten_single_nested_row():
@@ -4712,7 +4714,7 @@ def test_to_list_flatten_single_nested_column():
 def test_to_list_flatten_mixed_nested_and_scalars():
     daf = Daf(lol=[[1, [2, 3]], [[4], 5]], cols=['A', 'B'])
     # Flatten first row and second row
-    result = daf.to_list(irow=0, flatten=True) + daf.to_list(irow=1, flatten=True)
+    result = daf[0].to_list(flatten=True) + daf[1].to_list(flatten=True)
     assert result == [1, 2, 3, 4, 5]
 
 def test_to_list_flatten_column_view_with_lists():

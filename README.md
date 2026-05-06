@@ -562,40 +562,33 @@ Converts the Daffodil array to a list of dictionaries. The lod data type is ~3x 
 
     lod = my_daf.to_lod()
 
-#### to_dict(irow=0)
-Converts a single row to a dictionary, defaulting to row 0. This is convenient if the array has been 
-reduced to a single row, and it can be used conveniently as a single dictionary.
+#### to_dict()
+Converts a single row to a dictionary, defaulting to row 0. This is convenient if the array has been reduced to a single row, and it can be used conveniently as a single dictionary.
 
-#### to_list(irow=None, icol=None, unique=False)
-Convert a single row or column to a list. If both irow and icol are None, then return either row 0
-or col 0 based on what is found in the array. Otherwise, return a single row or column based on 
-the irow or icol parameter.
+#### to_list(unique=False, flatten=False, astype=(type))
+Convert a single row or column to a list. Return either row 0
+or col 0 based on what is found in the array. Select to the desired row or col using indexing. Note: to select columns, it is faster to use .col(col_spec) as it does not create an intervening array.
     
-### columns and row indexing
-The base array in a Daffodil instance can be indexed with row and column index numbers, starting at 0.
-In addition, columns and rows can be named. Column names are generally established from the header
-line in the source csv file. Column and row names are optional. If column names exist, they must
-be unique, exist, and be hashable. For ease of use, and to separate them from numerical indices,
-they should be strings.
+### column and row indexing
+Indexing in Daffodil is designed to be expressive but predictable, using a two-dimensional selector similar to NumPy or pandas: daf[row_spec, col_spec]. If only one selector is provided, it is interpreted as a row selection (daf[row_spec]). Row and column selectors may be integers, slices, ranges, lists, or key-based selectors (strings or lists of strings when a keyfield is defined). Tuples of strings can be used to specify inclusive ranges by key; use None as a boundary to indicate the beginning or end (e.g., (None, 'r3') or ('r3', None)). An empty list ([]) selects nothing, while : or slice(None) selects all.
 
-Rows are also indexed numerically or optionally with a indexing column. This indexing column, 
-unlike the column names, is included in the array. Again, it is most convenient for it to be str type,
-and must be hashable. To estabish a column for indexing, the 'keyfield' is set to the column name.
+Selections operate differently on rows and columns due to the underlying list-of-lists storage model. Row selections return views (references to the original rows), so modifying the result will affect the source data. Column selections, however, produce new arrays (copies), since extracting columns requires constructing new row lists. Column selection follows the order of the selector (e.g., daf[:, [2, 1]] returns columns in that order), effectively allowing reordering as part of selection. Indexing always returns a Daf object; to extract values, chain with .to_value() (for single-cell arrays) or .to_list() (for one-dimensional arrays such as a single row or column).
 
-For fast lookups of rows and columns, dictionaries are used to look up the row and column indices.
-the row key dictionary kd is built only when needed even if a keyfield is specified. If no selections
-are performed, then kd will remain invalidated.
+The base array in a Daffodil instance can be indexed with row and column index numbers, starting at 0. In addition, columns and rows can be named. Column names are generally established from the header line in the source csv file. Column and row names are optional. If column names exist, they must be unique and be hashable. For ease of use, and to separate them from numerical indices, they should be strings.
+
+Rows are also indexed numerically or optionally with a indexing column. This indexing column, unlike the column names, is included in the array. Again, it is most convenient for it to be str type, and must be hashable. To estabish a column for indexing, the 'keyfield' is set to the column name.
+
+For fast lookups of rows and columns, dictionaries are used to look up the row and column indices. The row key dictionary kd is built only when needed even if a keyfield is specified. If no selections are performed, then kd will remain invalidated.
 
 #### return column names defined
 
-    my_daf.columns()
+    my_daf.columns() -- returns a list of column names derived from the header dict hd.
     
 #### return list of row keyfield values, if keyfield is defined.
 
     my_daf.keys(astype='list'|'view')
 
-Note: keys will be returned as KeyView type if 'view' is specified for astype parameter. In this case, containment
-test are much faster, and there is no conversion to a list.
+Note: keys will be returned as KeyView type if 'view' is specified for astype parameter. In this case, containment test are much faster, and there is no conversion to a list.
     
 ### Indexing: inspecting values in a daf array
 
@@ -609,6 +602,12 @@ if retmode is 'val':
 - If only one row is selected, return a list.
 - if only one col is selected, return a list.
 - if multiple columns are specified, they will be returned in the original orientation in a consistent daf instance copied from the original, and with the data specified.
+
+The default retmode is 'obj', and you can use functions
+
+    .to_value(), .to_list()
+
+to convert the selected portion as a value or list without changing ret_mode
 
 Please note: operations on columns is relatively inefficient. Try to avoid working on one column at a time.
 Instead, use .apply() or .reduce() and handle any manipulations without dropping columns, and select them with 
@@ -641,14 +640,14 @@ the cols parameter at that time.
 |`my_daf[('row5',), :]]`                    | return rows with keyfield values 'row5' through the end (note: column idx ':' is required)   |
 |`my_daf[(,'row49'), :]]`                   | return rows with keyfield values from the first row through 'row49' inclusive (note: column idx is required)
 |`my_daf[:, ('col5', 'col23')]]`            | return columns with column names from 'col5', through 'col23' inclusive   |
-|`my_daf[:, (, 'col23')]]`                  | return columns with column names from the first column through 'col23' inclusive  |
+|`my_daf[:, (None, 'col23')]]`                  | return columns with column names from the first column through 'col23' inclusive  |
 |`my_daf[:, ('col23',)]]`                   | return columns with column names from 'col23', through the end            |
+|`my_daf[:, ('col23', None)]]`              | return columns with column names from 'col23', through the end            |
 
 
-Please note that if you want to index rows by a keyfield or index columns using column names that are integers, 
-then you must use method calls. The square-bracket indexing will assume any integers are indices, not names.
-The integer values shown in the examples below do not index the array directly, but choose the row or columns by name.
-To choose by row keys (krows), then keyfield must be set. To choose by column keys (kcols), cols must be set.
+Please note that if you want to index rows by a keyfield or index columns using column names that are integers, then you must use method calls. The square-bracket indexing will assume any integers are indices, not names.
+
+The integer values shown in the examples below do not index the array directly, but choose the row or columns by name. To choose by row keys (krows), then keyfield must be set. To choose by column keys (kcols), cols must be set.
 
 The attribute `keyfield` will be propagated to a returned daf instance if the original `keyfield` column still exists in the selected column set.
 

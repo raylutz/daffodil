@@ -558,6 +558,12 @@ class Daf:
 
         Notes:
             Column count is based on the first (up to) 10 rows.
+
+        shape() is a method and not a property because it is work
+                to determine the shape. use num_rows() and num_cols()
+                instead.
+
+
         """
         # test exists in test_daf.py
 
@@ -1456,7 +1462,7 @@ class Daf:
         return self
 
 
-    def _safe_tofloat(val: Any) -> Union[float, str]:
+    def _safe_tofloat(val: Any) -> Union[float]:
         """
         Safely convert value to float.
 
@@ -3097,54 +3103,19 @@ class Daf:
 
         Args:
             slice_spec: Row/column selection specification.
+            empty row spec should return empty result.
 
         Returns:
             Any: Selected data as Daf or as value depending on retmode.
+
+
         """
+        irows, icols = self._parse_selectors(slice_spec)
 
-
-        if isinstance(slice_spec, tuple) and len(slice_spec) == 2:
-            # Handle parsing slices for  both rows and columns
-            row_spec, col_spec = slice_spec
+        if icols is None:
+            ret_daf = self.select_irows(irows=irows)
         else:
-            row_spec = slice_spec
-            col_spec = None
-
-        if col_spec == slice(None, None, None):
-            col_spec = None
-
-        if row_spec == slice(None, None, None):
-            row_spec = None
-
-        if (isinstance(row_spec, (int, slice, range)) or
-                daf_utils.is_list_of_type(row_spec, (int, range))
-            ):
-            sel_rows_daf = self.select_irows(irows=row_spec)
-
-        elif (isinstance(row_spec, str) or
-                daf_utils.is_list_of_type(row_spec, str) or
-                daf_utils.is_tuple_of_type_len(row_spec, str, 2)
-            ):
-            sel_rows_daf = self.select_krows(krows=row_spec)
-
-        else:
-            sel_rows_daf = self
-
-        if col_spec is None:
-            ret_daf = sel_rows_daf
-        else:
-            if (isinstance(col_spec, (int, slice, range)) or
-                    daf_utils.is_list_of_type(col_spec, (int, range))
-                ):
-                ret_daf = sel_rows_daf.select_icols(icols=col_spec)
-
-            elif (isinstance(col_spec, str) or
-                    daf_utils.is_list_of_type(col_spec, str) or
-                    daf_utils.is_tuple_of_type_len(col_spec, str, 2)
-                ):
-                ret_daf = sel_rows_daf.select_kcols(kcols=col_spec)
-            else:
-                ret_daf = sel_rows_daf
+            ret_daf = self.select_irows(irows=irows).select_icols(icols=icols)
 
         return ret_daf._adjust_return_val(self.retmode)
 
@@ -3168,35 +3139,106 @@ class Daf:
         Note:
             Mutates Daf array in place.
         """
+        irows, icols = self._parse_selectors(slice_spec)
+        return self.set_irows_icols(irows=irows, icols=icols, value=value)
+
+    def _parse_selectors(
+            self,
+            slice_spec: Union[
+                slice,
+                int,
+                str,
+                range,
+                T_li,
+                T_ls,
+                T_lb,
+                T_lor,
+                Tuple[
+                    Union[slice, int, str, range, T_lor, T_li, T_ls, T_lb, Tuple[Any, Any]],
+                    Union[slice, int, str, range, T_lor, T_li, T_ls, T_lb, Tuple[Any, Any]],
+                ],
+            ],
+        ) -> Tuple[
+            Union[int, slice, range, T_li],
+            Union[int, slice, range, T_li] | None,
+        ]:
+        """
+        Normalize and validate row/column selectors.
+
+        Args:
+            slice_spec: Indexing selector passed to __getitem__ / __setitem__.
+
+        Returns:
+            (irows, icols):
+                irows: selector for rows (int, slice, range, or list[int])
+                icols: selector for cols (same types) or None (means all columns)
+
+        Raises:
+            TypeError: on invalid selector usage (including None as selector)
+        """
+
+        # --- unpack ---
         if isinstance(slice_spec, tuple) and len(slice_spec) == 2:
-            # Handle parsing slices for  both rows and columns
             row_spec, col_spec = slice_spec
+            col_provided = True
         else:
             row_spec = slice_spec
             col_spec = None
+            col_provided = False
 
-        if row_spec == slice(None, None, None):
-            row_spec = None
-            irows = list(range(len(self)))
+        # --- reject None selectors ---
+        if row_spec is None:
+            raise TypeError("None is not a valid row selector")
 
-        if (isinstance(row_spec, (str, tuple)) or
-                daf_utils.is_list_of_type(row_spec, str) or
-                daf_utils.is_tuple_of_type_len(row_spec, str, 2)):
+        if col_provided and col_spec is None:
+            raise TypeError("None is not a valid column selector")
 
-            irows = self.krows_to_irows(krows = row_spec)
+        # --- ROWS ---
+        if row_spec == slice(None):
+            irows: Union[int, slice, range, T_li] = list(range(len(self)))
 
-        elif isinstance(row_spec, (int, slice, range)) or daf_utils.is_list_of_type(row_spec, (int, range)):
+        elif (
+            isinstance(row_spec, str)
+            or daf_utils.is_list_of_type(row_spec, str)
+            or isinstance(row_spec, tuple)   # <-- allow all tuples
+            or (isinstance(row_spec, list) and not row_spec)
+            # or daf_utils.is_tuple_of_type_len(row_spec, str, 2)
+
+        ):
+            irows = self.krows_to_irows(krows=row_spec)
+
+        elif (
+            isinstance(row_spec, (int, slice, range))
+            or daf_utils.is_list_of_type(row_spec, (int, range))
+        ):
             irows = row_spec
 
-        if col_spec and isinstance(col_spec, (str, tuple)) or daf_utils.is_list_of_type(col_spec, str):
-            icols = self.kcols_to_icols(kcols = col_spec)
-
-        elif isinstance(col_spec, (int, slice, range)) or daf_utils.is_list_of_type(col_spec, (int, range)):
-            icols = col_spec
         else:
-            icols = None
+            raise TypeError(f"Invalid row selector: {row_spec}")
 
-        return self.set_irows_icols(irows=irows, icols=icols, value=value)
+        # --- COLS ---
+        if not col_provided or col_spec == slice(None):
+            icols: Optional[Union[int, slice, range, T_li]] = None
+
+        elif (
+            isinstance(col_spec, str)
+            or daf_utils.is_list_of_type(col_spec, str)
+            or isinstance(col_spec, tuple)   # <-- allow all tuples
+            or (isinstance(col_spec, list) and not col_spec)
+            # or daf_utils.is_tuple_of_type_len(col_spec, str, 2)
+        ):
+            icols = self.kcols_to_icols(kcols=col_spec)
+
+        elif (
+            isinstance(col_spec, (int, slice, range))
+            or daf_utils.is_list_of_type(col_spec, (int, range))
+        ):
+            icols = col_spec
+
+        else:
+            raise TypeError(f"Invalid column selector: {col_spec}")
+
+        return irows, icols
 
 
     def _adjust_return_val(self, retmode: str = ''):
@@ -3518,8 +3560,17 @@ class Daf:
         slice, int, T_li, or None, which will index the range.
         """
 
+        # --- no key system ---
         if not keydict:
-            return []
+            raise KeysDisabledError("Key lookups are disabled (no kd)")
+
+        # --- invalid selector ---
+        if gkeys is None:
+            raise TypeError("None is not a valid key selector")
+
+        # --- empty selection ---
+        if isinstance(gkeys, (list,dict,tuple)) and not gkeys:
+            idxs = []
 
         elif isinstance(gkeys, (str, int)):
             idxs = []
@@ -3533,7 +3584,46 @@ class Daf:
                     # logs.sts(f"{logs.prog_loc()} Cannot find key '{gkey}' in {axis} in dataframe '{name}'", 3)
                     raise
 
-        elif isinstance(gkeys, (list, IterableABC)):     # can be list of integer or strings (or anything hashable)
+        elif isinstance(gkeys, tuple):
+
+            n = len(gkeys)
+
+            if n == 0:
+                raise TypeError("Empty tuple selector is invalid")
+
+            # --- (start,) → start to end ---
+            if n == 1:
+                start_key = gkeys[0]
+
+                if start_key is None:
+                    raise TypeError("Tuple (None,) is ambiguous")
+
+                start_idx = keydict[start_key]
+                stop_idx  = len(keydict)
+
+            # --- (start, stop) ---
+            elif n == 2:
+                start_key, stop_key = gkeys
+
+                # (None, stop) → beginning to stop
+                if start_key is None:
+                    start_idx = 0
+                else:
+                    start_idx = keydict[start_key]
+
+                # (start, None) → start to end
+                if stop_key is None:
+                    stop_idx = len(keydict)
+                else:
+                    stop_idx = keydict[stop_key] + 1   # inclusive
+
+            else:
+                raise TypeError("Tuple selector must have length 1 or 2")
+
+            idxs = slice(start_idx, stop_idx, 1)
+
+
+        elif isinstance(gkeys, IterableABC) and not isinstance(gkeys, (str, bytes, dict)):     # can be list of integer or strings (or anything hashable)
             idxs = []
             for gkey in gkeys:
                 # For the following, see https://github.com/raylutz/daffodil/issues/6
@@ -3562,27 +3652,14 @@ class Daf:
                 # elif not silent_error:
                     # raise KeyError
 
-        elif isinstance(gkeys, tuple):
-
-            # key_range will return a slice.
-            start_idx = 0
-            if gkeys:
-                start_idx = keydict.get(gkeys[0], 0)
-
-            stop_idx = len(keydict)
-            if len(gkeys) > 1:
-                stop_idx = keydict.get(gkeys[0], stop_idx - 1) + 1
-
-            idxs_slice = slice(start_idx, stop_idx, 1)
-            idxs = idxs_slice
 
         if inverse:
+            n = len(keydict)
             if isinstance(idxs, slice):
-                slice_obj = idxs
-                this_range = daf_utils.slice_to_range(slice_obj, len(gkeys))
-                idxs = [idx for idx in range(len(keydict)) if idx not in this_range]
+                this_range = daf_utils.slice_to_range(idxs, n)
+                idxs = [idx for idx in range(n) if idx not in this_range]
             else:
-                idxs = [idx for idx in range(len(keydict)) if idx not in idxs]
+                idxs = [idx for idx in range(n) if idx not in idxs]
 
         return idxs
 
@@ -3688,9 +3765,8 @@ class Daf:
                 # simple single row selection
                 try:
                     row_sliced_lol = [self.lol[irows]]
-                except Exception:
-                    breakpoint() # perm
-                    pass
+                except IndexError:
+                    raise
             else:
                 row_sliced_lol.pop(irows)
 
@@ -3698,7 +3774,10 @@ class Daf:
 
             if daf_utils.is_list_of_type(irows, int):
                 if not invert:
-                    row_sliced_lol = [self.lol[i] for i in irows]
+                    if len(irows) == len(self.lol):
+                        row_sliced_lol = self.lol
+                    else:
+                        row_sliced_lol = [self.lol[i] for i in irows]
                 else:
                     if len(irows) > 10:
                         irows_iter = dict.fromkeys(irows)
@@ -3783,6 +3862,9 @@ class Daf:
             slice_spec = icols
             icols_range = range(slice_spec.start or 0, slice_spec.stop or self.num_cols(), slice_spec.step or 1)
 
+            if not icols_range:
+                return Daf()
+
             if not flip:
                 try:
                     col_sliced_lol = [[row[icol] for icol in icols_range]
@@ -3797,12 +3879,18 @@ class Daf:
                 col_sliced_lol = [[row[icol] for row in self.lol]
                                         for icol in icols_range]
 
-        elif icols and (isinstance(icols, list) and daf_utils.is_list_of_type(icols, int) or
-                        isinstance(icols, range)):
+        elif (daf_utils.is_list_of_type(icols, int) or
+                isinstance(icols, list) and not icols or
+                isinstance(icols, range)):
             # list of integers or range
             if not flip:
                 try:
-                    col_sliced_lol = [[row[icol] for icol in icols]
+                    if (self.num_cols == len(icols)):
+                        col_sliced_lol = self.lol
+                    elif len(icols) == 0:
+                        col_sliced_lol = []
+                    else:
+                        col_sliced_lol = [[row[icol] for icol in icols]
                                             for row in self.lol]
                 except IndexError:
                     logs.sts("Columns specified don't exist, array may have uneven rows.", 3)
@@ -3841,7 +3929,7 @@ class Daf:
 
         # fix up the dtypes and reset the keyfield if it is no longer in the daf.
         if sliced_cols:
-            new_dtypes = {col:orig_dtypes[col] for col in orig_dtypes if col in sliced_cols}
+            new_dtypes = {col: orig_dtypes[col] for col in sliced_cols if col in orig_dtypes}
             if self.keyfield and isinstance(self.keyfield, str):
                 new_keyfield = self.keyfield if self.keyfield in sliced_cols else ''
             else:
@@ -3995,38 +4083,41 @@ class Daf:
 
 
     def to_value(self,
-        irow:       int=0,
-        icol:       int=0,
-        default:    Any='',
+        # irow:       int=0,
+        # icol:       int=0,
+        default:    Any = _MISSING,
         astype:     Optional[Union[Callable, str]]=None,
         ) -> Any:
         """
         Return a single value.
 
         Args:
-            irow: Row index.
-            icol: Column index.
+            # irow: Row index.
+            # icol: Column index.
             default: Default if missing.
             astype: Optional type conversion.
 
         Returns:
             Any: Value.
-        """
-        """ return a single value from an array,
+
+            returns a single value from an array,
             at default location 0,0 or as specified.
         """
 
         num_rows, num_cols = self.shape()
 
-        if num_rows >= 1 and num_cols >= 1:
-            return daf_utils.astype_value(self.lol[irow][icol], astype)
+        if num_rows == 1 and num_cols == 1:
+            return daf_utils.astype_value(self.lol[0][0], astype)
 
-        return default
+        if default is not _MISSING:
+            return default
+
+        raise ValueError(f"to_value() requires 1×1, got shape {self.shape()}")
 
 
     def to_list(self,
-        irow:       Optional[int]=None,   # select a row
-        icol:       Optional[int]=None,   # or column.
+        # irow:       Optional[int]=None,   # select a row
+        # icol:       Optional[int]=None,   # or column.
         unique:     bool=False,           # reduce to unique values
         flatten:    bool=False,           # if items is the list are lists, combine them into one list.
         omit_nulls: bool=False,           # omit items that are empty strings (nulls).
@@ -4037,8 +4128,8 @@ class Daf:
         Extract data as a list.
 
         Args:
-            irow: Row selection.
-            icol: Column selection.
+            # irow: Row selection.          (removed)
+            # icol: Column selection.       (removed)
             unique: Return unique values.
             flatten: Flatten nested lists.
             omit_nulls: Remove empty values.
@@ -4062,25 +4153,17 @@ class Daf:
 
         num_rows, num_cols = self.shape()
 
-        if irow is None and icol is None:
-            # no explicit irow or icol specified, this is the normal case
+        if num_rows == 1 and num_cols >= 1:
+            # single row, return as list.
+            result_la = self.lol[0]
 
-            if num_rows == 1 and num_cols >= 1:
-                # single row, return as list.
-                result_la = self.lol[0]
-
-            elif num_rows > 1 and num_cols == 1:
-                # single column result as a list.
-                result_la = self.icol(0)
-            else:
-                result_la = []
-
-        elif irow is not None and num_rows:
-            result_la = self.lol[irow]
-        elif icol and num_cols:
-            result_la = self.icol(icol)
+        elif num_rows > 1 and num_cols == 1:
+            # single column result as a list.
+            result_la = self.icol(0)
+        elif num_rows == num_cols == 0:
+            result_la = []
         else:
-            result_la = []      # perflint-reviewed (use-tuple-over-list)
+            raise ValueError("to_list() requires a 1D Daf (single row or single column)")
 
         if flatten:
             new_list = []       # perflint-reviewed (use-tuple-over-list)
@@ -4131,14 +4214,14 @@ class Daf:
 
 
     def to_dict(self, 
-            irow: int=0, 
-            include_cols: Optional[T_ls]=None,
+            # irow: int=0, 
+            # include_cols: Optional[T_ls]=None,
             ) -> T_da:
         """
         Return a row as dictionary.
 
         Args:
-            irow: Row index.
+            # irow: Row index.
             include_cols: Optional columns.
 
         Returns:
@@ -4148,7 +4231,10 @@ class Daf:
             Note that this does not convert a column to a dict. Use to_list to convert a column.
             test exists in test_daf.py
         """
-        return self.iloc(irow, include_cols)
+        if len(self) > 1:
+            raise ValueError("Ambiguous 2dim array.")
+
+        return self.iloc(irow=0, include_cols=None)
 
 
     def to_klist(self, irow: int=0) -> KeyedList:
@@ -4193,7 +4279,7 @@ class Daf:
         """ Select one record from daf using the idx and return as a single T_da dict
             test exists in test_daf.py
 
-            rtype can be 'dict', 'klist', or 'list'
+            rtype can be 'dict', 'klist', or 'list'  <-- should be astype
 
         """
         if irow < 0 or irow >= len(self.lol) or not self.lol or not self.lol[irow]:
@@ -7751,7 +7837,7 @@ class Daf:
         other_daf._rebuild_kd_if_invalidated()
 
         if diagnose:
-            logs.sts(f"{logs.prog_loc()} Initiating join:\nself:\n{self}\nother_daf:\n{other_daf}", 3)
+            logs.stsloc(f"Initiating join:\nself:\n{self}\nother_daf:\n{other_daf}", 3)
 
         # Derive or use custom translator Daf
         if custom_translator_daf:
@@ -7760,7 +7846,7 @@ class Daf:
             translator_daf = self.derive_join_translator(other_daf, shared_fields=shared_fields, tag_other=tag_other)
 
         if diagnose:
-            logs.sts(f"{logs.prog_loc()} Translator Daf:\n{translator_daf}", 3)
+            logs.stsloc(f"Translator Daf:\n{translator_daf}", 3)
 
         join_names_ls = [self.name or 'daf1', other_daf.name or 'daf2']
 
@@ -7775,7 +7861,7 @@ class Daf:
 
         # Prepare the resulting Daf
         result_daf = Daf(cols=resolved_colnames, name=name, keyfield=self.keyfield)
-        keyfield = self.keyfield    # okay to set now with lazy kd generation.
+        keyfield = self.keyfield   # okay to set now with lazy kd generation.
 
         # Helper function to fetch a record by key, with silent error
         def fetch_record(daf, key):
@@ -7826,13 +7912,13 @@ class Daf:
 
     @staticmethod
     def join_records(
-        records: List[Optional[T_da]],  # List of dictionaries representing the source records
+        records: List[T_da | KeyedList | None],  # List of dictionaries representing the source records
                                         # only two records are supported here.
                                         # sometimes either one can be None if a corresponding record is not available.
 
         translator_daf: 'Daf',          # Translator Daf mapping resolved columns to source
 
-        join_names_ls: Optional[T_ls]=None ,  # names of the two Daf arrays supplying the records.
+        join_names_ls: T_ls | None=None ,  # names of the two Daf arrays supplying the records.
                                         #  required only if there are more than two source_names specified in the translator.
                                         # this is used when a single translator is used for chained joins.
 
@@ -7880,8 +7966,11 @@ class Daf:
                 continue
 
             # Handle all other columns
-            if records[source_index] is not None:
-                combined_record[resolved_col] = records[source_index].get(source_colname, None)
+            rec_da = records[source_index]
+
+            if rec_da is not None:
+                rec_da = cast(T_da, rec_da)
+                combined_record[resolved_col] = rec_da.get(source_colname, None)
             else:
                 combined_record[resolved_col] = None
 
@@ -7948,7 +8037,7 @@ class Daf:
         """
         wide_daf = Daf()
 
-        wide_row_da = {}
+        wide_row_da: T_da = {}
         for row_da in self:
             index_cols_da = {col: row_da[col] for col in id_cols}
             if not wide_row_da:

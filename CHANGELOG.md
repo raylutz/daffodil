@@ -59,6 +59,32 @@ all prior releases. Plans for future moved to ROADMAP.md.
 - changed == '' to is NULL, with NULL defined as '' (performance improvement)
 - Use npao for transpose operation. (performance improvement)
 
+- created a large set of tests for indexing modes, which resulted in improvements for edge cases and some api/ui changes.
+   
+   1. Changed the parameters for .to_list() and .to_value() to use indexing and then chaining to those functions. not as performant but simpler interface. 
+
+   2. Fixed the README about using tuples of strings as inclusive ranges, as None is required as the first parameter to start at the beginning through the named item. 
+
+   3. Kept shape() as a method and not a property as it is somewhat costly to calculate. 
+
+   4. Improved parsing of indexing with a common section for both getitem and setitem. 
+
+   5. Fixed a number of edge cases when selections were no columns, no rows, etc. with rules for how these would be handled without needing to make every nonsensical change supported. 
+
+   6. disabled using kd and set keyfield='' if the keyfield column was dropped. 
+
+   7. narrowed the application of .to_value() to handle a single-value only, from location 0,0 in a rudimentary daf array. 
+
+   8. Return [] if .to_list() is used on an array with no columns or rows. 
+
+   9. Added SchemaBase in schemaclass.py to allow mypy to understand dynamically added methods when using the @schemaclass decorator. 
+
+   10. removed tests for using indices inside .to_list and .to_value. 
+
+   11. Fixed improper tests for tuple string ranges. 
+
+   12. Added test file 'test_daf_indexing2.py' with about 100 tests for indexing.
+
 
 ---
 
