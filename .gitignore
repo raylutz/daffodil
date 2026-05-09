@@ -76,3 +76,4 @@ docs/
 docs\\
 
 tests/.coverage
+coverage.json

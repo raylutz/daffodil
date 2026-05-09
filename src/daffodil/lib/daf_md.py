@@ -14,7 +14,7 @@ from string import Template
 # import sys
 # no longer need the following due to using pytest
 # sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.realpath(__file__)))))
-from daffodil.lib.daf_types import T_ls, T_lola, T_da, T_li # noqa: F401
+from daffodil.lib.daf_types import T_ls, T_lola, T_da, T_li, T_cs, T_ca, T_ma # noqa: F401
             #, T_doda, T_df, T_lf, T_loda, T_loloda, T_lodolodi, T_ts, T_ds, T_dola 
 import daffodil.lib.daf_utils as utils
 
@@ -176,20 +176,21 @@ def md_toc(headings_list: T_ls):
 # called by Daf.to_md()
 
 def md_lol_table(
-        records_lol:        T_lola, 
-        header:             Optional[T_ls]=None, 
+        records_lol:        T_lola,
+        *,
+        header:             T_cs | None = None, 
         includes_header:    bool=False, 
-        align:              Optional[List[Tuple[str, str]]]=None, 
+        #align:              List[Tuple[str, str]] | None = None, 
         just:               str='', 
         omit_header:        bool=False, 
         shorten_text:       bool=True, 
         max_text_len:       int=80, 
         smart_fmt:          bool=False,
         include_idx:        bool=False,
-        sum_col_idxs:       Optional[T_li]=None,
+        sum_col_idxs:       T_li | None = None,
         ):
     """
-    Generate a Doxygen-flavor Markdown table from records.
+    Generate a Markdown table from records.
     This could be called md_lol_table()
 
     records -- list of list of strings
@@ -206,6 +207,8 @@ def md_lol_table(
     """
     if not records_lol:
         return ''
+
+    # align: List[Tuple[str, str]] | None = None
 
     # reorient data into columns
     # would like to not shorten if shorten_text=False but not sure how to do it here.
@@ -239,14 +242,15 @@ def md_lol_table(
             header = ['idx'] + header
         just = '^' + just
 
-    return md_cols_lol_table(cols_lol, header=header, align=align, just=just, 
+    return md_cols_lol_table(cols_lol, header=header, just=just, 
                 omit_header=omit_header, shorten_text=shorten_text, max_text_len=max_text_len, smart_fmt=smart_fmt)
 
 
 def md_cols_lol_table(
-        cols_lol:       T_lola, 
+        cols_lol:       T_lola,
+        *,
         header:         Optional[T_ls] = None, 
-        align:          Optional[List[Tuple[str, str]]] = None, 
+        #align:          Optional[List[Tuple[str, str]]] = None, 
         just:           str='', 
         omit_header:    bool = False, 
         shorten_text:   bool = True,
@@ -262,6 +266,8 @@ def md_cols_lol_table(
         return ''
     if max_text_len is None:
         max_text_len = 80
+
+    align: Optional[List[Tuple[str, str]]] = None
         
     #mutated_cols_lol = copy.deepcopy(cols_lol)
     mutated_cols_lol = cols_lol

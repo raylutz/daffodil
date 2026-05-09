@@ -17,10 +17,9 @@ import functools
                      
 import daffodil.lib.daf_utils    as utils
 #from daffodil.keyedlist import KeyedList
+from collections.abc import Iterable, Iterator    # noqa: F401
 
-from typing import List, Dict, Any, Tuple, Optional, Union, cast, Type, Callable, Iterable, Iterator #
-def fake_function(a: Optional[List[Dict[str, Tuple[int,Union[Any, str, Callable, Iterable, Iterator, Type]]]]] = None) -> Optional[int]:
-    return None or cast(int, 0)       # pragma: no cover
+from typing import List, Dict, Any, Tuple, Optional, Union, cast, Type, Callable # noqa: F401
 
 logs = utils                # alias
 

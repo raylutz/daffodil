@@ -1,9 +1,9 @@
 # keyedlist.py
 
-from typing import List, Dict, Any, Optional, Union, Iterable, Iterator, \
+from typing import List, Dict, Any, Optional, Union, \
                     Callable, KeysView, Tuple
 
-from collections.abc import Hashable                    
+from collections.abc import Hashable, Iterable, Iterator                    
 
 TKey = Hashable
 T_la = List[Any]

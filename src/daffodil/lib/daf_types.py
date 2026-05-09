@@ -1,10 +1,14 @@
 # daf_types.py
 
-from typing import List, Dict, Any, Tuple, Type, Optional, Union, Set, KeysView, TYPE_CHECKING, Callable, cast    # noqa: F401
+from typing import List, Dict, Any, Tuple, Type, Optional, Union, Set, TYPE_CHECKING, Callable, cast    # noqa: F401
+from typing import TypeAlias  # noqa: F401  # Python 3.10+
+from collections.abc  import KeysView, Iterable   # noqa: F401
 
 import pandas as pd                 # type: ignore
 import numpy  as np                 # type: ignore
 import datetime
+
+from daffodil.keyedlist import KeyedList
 
 T_df   = pd.DataFrame
 
@@ -44,6 +48,20 @@ T_idodf = Dict[int, pd.DataFrame]
 T_lodf = List[pd.DataFrame]
 T_dododf = Dict[str, T_dodf]
 
+# Shorthand type aliases for KeysView
+T_kvs = KeysView[str]                     # KeysView for string keys
+T_kvi = KeysView[int]                     # KeysView for integer keys
+T_kva = KeysView[Union[str, int, tuple]]  # KeysView for keys that can be str, int, or tuple
+
+# containers -- used when iteration and containment are needed but not appending.
+T_cs = Union[T_ls, T_kvs, T_da]   # container of str, may be T_dn.
+T_ci = Union[T_li, T_kvi, Dict[int, Any]]
+T_ca = Union[T_la, T_kva, dict]
+
+# general mapping
+T_ma = Union[T_da, KeyedList]
+
+# do.. forms
 T_doda = Dict[str, T_da]
 T_dooda  = Dict[str, Optional[T_da]]
 T_idoda = Dict[int, T_da]
@@ -64,8 +82,6 @@ T_dododsi = Dict[str, T_dodsi]
 T_dolsi = Dict[str, T_lsi]
 T_dodododa = Dict[str, T_dododa]
 T_dododi = Dict[str,T_dodi]
-
-T_kva = KeysView[Union[str, int, tuple]]  # KeysView for keys that can be str, int, or tuple
 
 T_lods = List[T_ds]
 T_loda = List[T_da]             # lod is 12x larger than df, but is faster for appends. 3x larger than hdlola

@@ -5,7 +5,7 @@
 # 2024-10-26 -- changed safe_sizeof() to use objsize.get_deep_size() instead of pympler.asizeof.asizeof()
 
 import pandas as pd
-from typing import List, Dict, Optional, Any, Tuple
+from typing import List, Dict, Optional, Any, Tuple   # noqa: F401
 import timeit
 import numpy as np
 #from pympler import asizeof

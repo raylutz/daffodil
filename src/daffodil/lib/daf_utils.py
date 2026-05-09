@@ -17,12 +17,14 @@ import platform
 import xlsx2csv     # type: ignore
 import numpy as np
 
-from typing import List, Dict, Any, Tuple, Optional, Union, cast, Type, Iterable, Callable, Iterator, TypeVar # noqa: F401
+from typing import List, Dict, Any, Tuple, Optional, Union, cast, Type, Callable, TypeVar # noqa: F401
 T = TypeVar('T')
 from types import FrameType
+from collections.abc import Iterable, Iterator    # noqa: F401
 
 from daffodil.lib.daf_types import T_lola, T_loda, T_dtype_dict, T_da, T_ds, \
-                                    T_la, T_loti, T_ls, T_doda, T_buff, T_li, T_lr, T_dn, T_kva # , T_ts, T_dota
+                                    T_la, T_loti, T_ls, T_doda, T_buff, T_li, \
+                                    T_lr, T_dn, T_kva, T_cs, T_ca, T_ma # noqa: F401  # , T_ts, T_dota
                     
 def is_linux() -> bool: 
     return platform.system() == 'Linux'
@@ -250,9 +252,10 @@ def add_trailing_columns_csv(str_csv:str, num_rows:int = 3) -> str:
     return buff_out.getvalue()
 
 
-def is_d1_in_d2(d1: T_da, d2: T_da) -> bool:
+def is_d1_in_d2(d1: T_ma, d2: T_ma) -> bool:
     # true if all the fields in d1 are in d2.
     # d2 may have additional fields.
+
     return d1.items() <= d2.items()
 
     
@@ -1054,19 +1057,14 @@ def transpose_lol(lol: T_lola) -> T_lola:
     # all lines must have same number of columns or it raises RuntimeError
     # (ragged right not allowed)
 
+    # the following creates a numpy array of objects, transposes that, then converts back.
+    # this does not convert data in each cell of the numpy array.
+
     npao = np.array(lol, dtype=object)
     npaoT = npao.T
     lolT = npaoT.tolist()
     
     return (lolT)
-
-
-    # transposed_lol = [list(i) for i in zip(*lol)]
-    
-    # if lol and transposed_lol and max([len(lst) for lst in lol]) != len(transposed_lol):
-    #     raise RuntimeError (f"{prog_loc()} transpose_lol encountered ragged lol with record lengths: {[len(lst) for lst in lol]}")
-
-    # return transposed_lol
 
 
 def safe_get_idx(lst: Optional[List[Any]], idx: int, default: Optional[Any]=None) -> Any:
@@ -1803,7 +1801,7 @@ def _generate_spreadsheet_column_names_list(num_cols: int) -> T_ls:
     return [_calculate_single_column_name(i) for i in range(num_cols)]
 
 
-def _sanitize_cols(cols: T_ls, unnamed_prefix='Unnamed') -> list:
+def _sanitize_cols(cols: T_cs, unnamed_prefix='Unnamed') -> list:
     """ make sure there are no blanks and columns are unique.
         if missing, substitute with {unnamed_prefix}{col_idx}
         if duplicated, substitute with prior_name_{col_idx}
@@ -2082,11 +2080,15 @@ def combine_records(record1: dict, record2: dict, suffixes: tuple = ("_x", "_y")
     return combined
     
 
-def to_dn_if_list(obj: Union[list, T_dn, T_kva, dict, range]):
+def to_dn_if_list(obj: T_ca|None) -> T_ca:
     """ if obj is a list, create a more efficient T_dn object for rapid lookups. """
     
+    if obj is None:
+        return []
+
     if obj and isinstance(obj, list) and len(obj) > 9:
-        return dict.fromkeys(obj) 
+        return dict.fromkeys(obj)
+
     return obj
 
 

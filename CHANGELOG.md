@@ -85,6 +85,11 @@ all prior releases. Plans for future moved to ROADMAP.md.
 
    12. Added test file 'test_daf_indexing2.py' with about 100 tests for indexing.
 
+- Introduce T_cs, T_ca, T_ci, T_ma. Start phasing them in to avoid mypy errors.
+- use Iterable, Iterator, keysView from collections.abc
+- deprecate 'align' in md table functions.
+
+
 
 ---
 
