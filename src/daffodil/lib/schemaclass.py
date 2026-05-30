@@ -59,9 +59,25 @@ def schemaclass(cls: type[T]) -> type[T]:
     The class is not intended to be instantiated.
     """
 
+    # ---- allow inheritance ------------------------------------------------
+
+    merged_ann = {}
+
+    for base_cls in reversed(cls.__mro__):
+
+        if base_cls is SchemaBase:
+            continue
+
+        merged_ann.update(
+            getattr(base_cls, "__annotations__", {})
+        )
+
+    ann = merged_ann
+    
+    cls.__schema_annotations__ = merged_ann
+
     # ---- basic validation -------------------------------------------------
 
-    ann = getattr(cls, "__annotations__", None)
     if not isinstance(ann, dict) or not ann:
         raise TypeError(
             f"{cls.__name__} must define at least one annotated field"
@@ -108,7 +124,7 @@ def schemaclass(cls: type[T]) -> type[T]:
 
         rec: T_da = {}
         
-        for name in cls.__annotations__:
+        for name in cls.__schema_annotations__:
             if name in kwargs:
                 rec[name] = kwargs[name]
             else:
@@ -162,11 +178,11 @@ def schemaclass(cls: type[T]) -> type[T]:
         Types describe non-empty values only.
         """
         if not use_origins:
-            return dict(cls.__annotations__)
+            return dict(cls.__schema_annotations__)
             
         dtypes_dict = {
             name: (typing.get_origin(tp) or tp)
-                for name, tp in cls.__annotations__.items()
+                for name, tp in cls.__schema_annotations__.items()
             }
             
         return dtypes_dict
@@ -180,7 +196,7 @@ def schemaclass(cls: type[T]) -> type[T]:
         Types describe non-empty values only.
         """
 
-        columns_ls: List[str] = list(cls.__annotations__.keys())
+        columns_ls: List[str] = list(cls.__schema_annotations__.keys())
         return columns_ls
    
     
@@ -188,7 +204,7 @@ def schemaclass(cls: type[T]) -> type[T]:
     def get_pandas_dtypes_from_schema(schema):
         dtypes = {}
 
-        for name, tp in schema.__annotations__.items():
+        for name, tp in schema.__schema_annotations__.items():
             origin = typing.get_origin(tp) or tp
 
             if origin in (list, dict):
@@ -210,7 +226,7 @@ def schemaclass(cls: type[T]) -> type[T]:
         if not __debug__:
             return
 
-        invalid = [k for k in da if k not in cls.__annotations__]
+        invalid = [k for k in da if k not in cls.__schema_annotations__]
 
         assert not invalid, f"{cls.__name__}: invalid keys {invalid}"
 

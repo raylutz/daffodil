@@ -362,14 +362,13 @@ def md_cols_lol_table(
 #== from_md parsing.
 
 @classmethod
-def from_md(cls, md_str: str): # -> "Daf":
+def _from_md(cls, md_str: str): # -> "Daf":
     """
     Construct a Daf from a Markdown table.
 
     Grammar:
 
     - Table rows must start (after optional whitespace) and end with '|'
-    - A table exists if at least one such row exists
     - Header exists iff:
           len(table_lines) >= 2
           AND second row is a separator row
@@ -378,41 +377,37 @@ def from_md(cls, md_str: str): # -> "Daf":
           appearing after the table block
     - Footer is optional
     - Empty input → empty Daf
+
+    Notes:
+    - Only the first valid markdown table is parsed.
+    - Leading prose/comments/headings are allowed.
     """
 
     if not md_str:
         return cls()
 
-    # Normalize lines
     lines = [ln.rstrip() for ln in md_str.splitlines()]
-    lines = [ln for ln in lines if ln.strip()]
 
     if not lines:
         return cls()
 
-    # ---- Extract first contiguous table block ----
-    table_lines = []
-    table_start_idx = None
-    table_end_idx = None
-
-    for idx, ln in enumerate(lines):
-        stripped = ln.lstrip()
-        if stripped.startswith("|") and stripped.rstrip().endswith("|"):
-            if table_start_idx is None:
-                table_start_idx = idx
-            table_lines.append(stripped)
-            table_end_idx = idx
-        elif table_start_idx is not None:
-            break
-
-    # If no table found → return empty Daf (metadata may still apply)
     footer_meta = {}
 
+    table_lines, table_start_idx, table_end_idx = \
+        find_first_markdown_table(lines)
+
+    # ---- No table found ----
+
     if table_start_idx is None:
-        # No table block present — look for footer anyway
+
         for ln in lines:
-            if ln.strip().startswith("%% daf "):
-                footer_meta = _parse_daf_footer(ln.strip())
+
+            stripped = ln.strip()
+
+            if stripped.startswith("%% daf "):
+
+                footer_meta = _parse_daf_footer(stripped)
+
                 break
 
         return cls(
@@ -423,106 +418,250 @@ def from_md(cls, md_str: str): # -> "Daf":
             name=footer_meta.get("name"),
         )
 
-    # ---- Footer detection (after table block only) ----
+    # ---- Footer detection ----
+
     for ln in lines[table_end_idx + 1:]:
+
         stripped = ln.strip()
+
         if stripped.startswith("%% daf "):
+
             footer_meta = _parse_daf_footer(stripped)
+
             break
 
-    # ---- Header detection ----
-    def _is_separator_row(line: str) -> bool:
-        body = line.strip().strip("|").replace(" ", "")
-        return body and all(c in "-:" for c in body)
+    # ---- Local helpers ----
 
-    def _parse_row(line: str) -> list[str]:
+    def _is_separator_row(line: str) -> bool:
+
+        body = line.strip().strip("|").replace(" ", "")
+
+        return body and all(c in "-:|" for c in body)
+
+    def _parse_row(line: str) -> T_ls:
+
         parts = line.strip().split("|")[1:-1]
+
         return [cell.strip() for cell in parts]
 
+    # ---- Header detection ----
+
     header = None
+
     data_lines = table_lines
 
-    if len(table_lines) >= 2 and _is_separator_row(table_lines[1]):
-        header = _parse_row(table_lines[0])
+    if (
+        len(table_lines) >= 2
+        and _is_separator_row(table_lines[1])
+    ):
+
+        colnames_ls = _parse_row(table_lines[0])
+
         data_lines = table_lines[2:]
 
     # ---- Parse data rows ----
+
     lol = [_parse_row(ln) for ln in data_lines]
 
-    # Structural column count validation
-    if header:
-        expected_cols = len(header)
+    # ---- Structural validation ----
+
+    if colnames_ls:
+
+        expected_colnum = len(colnames_ls)
+
     elif lol:
-        expected_cols = len(lol[0])
+
+        expected_colnum = len(lol[0])
+
     else:
-        expected_cols = 0
+
+        expected_colnum = 0
 
     for row in lol:
-        if len(row) != expected_cols:
-            raise RuntimeError("Inconsistent column count in Markdown table.")
+
+        if expected_colnum and len(row) != expected_colnum:
+
+            raise RuntimeError(
+                "Inconsistent column count in Markdown table."
+            )
+
+    colnames_ls = normalize_colnames(colnames_ls)
 
     # ---- Metadata extraction ----
-    name = footer_meta.get("name")
-    schema = footer_meta.get("schema")
-    keyfield = footer_meta.get("keyfield")
 
+    name = footer_meta.get("name")
+
+    schema = footer_meta.get("schema")
+
+    keyfield = footer_meta.get("keyfield")
 
     new_daf = cls(
         lol=lol,
-        cols=header,
+        cols=colnames_ls,
         schema=schema,
         keyfield=keyfield,
         name=name,
-        )
+    )
+
+    # ---- Attach parsing metadata ----
+
+    new_daf.attrs.update({
+
+        'md_table_start_idx': table_start_idx,
+
+        'md_table_end_idx': table_end_idx,
+
+        'md_before_ls': lines[:table_start_idx],
+
+        'md_after_ls': lines[table_end_idx + 1:],
+
+    })
 
     # ---- Validation and Errors ----
 
-    # check for accidental abbreviated output
-
-    # first check size against footer.
-
     rows = int(footer_meta.get('rows', 0))
+
     cols = int(footer_meta.get('cols', 0))
 
     num_rows = new_daf.num_rows()
+
     num_cols = new_daf.num_cols()
 
-    if num_rows and num_cols and rows and cols:
+    if (
+        num_rows
+        and num_cols
+        and rows
+        and cols
+    ):
+
         if num_rows != rows or num_cols != cols:
+
             raise RuntimeError(
                 "Abbreviated Markdown table detected (row omission). "
                 "Use to_md(max_rows=0, max_cols=0, shorten_text=False)."
-            )    
-    else:
-        pass
-
-        # if num_rows >= 3:
-        #     center = num_rows // 2
-
-        #     for idx in range(center - 1, center + 2):
-        #         if 0 <= idx < num_rows:
-        #             row_vals = new_daf[idx].to_list()
-        #             if row_vals and all(val == "..." for val in row_vals):
-        #                 raise RuntimeError(
-        #                     "Abbreviated Markdown table detected (row omission). "
-        #                     "Use to_md(max_rows=0, max_cols=0, shorten_text=False)."
-        #                 )    
-
-        
-
-        # if num_cols >= 3:
-        #     center = num_cols // 2
-
-        #     for idx in range(center - 1, center + 2):
-        #         if 0 <= idx < num_cols:
-        #             col_vals = new_daf[:, idx].to_list()
-        #             if col_vals and all(val == "..." for val in col_vals):
-        #                 raise RuntimeError(
-        #                     "Abbreviated Markdown table detected (column omission). "
-        #                     "Use to_md(max_rows=0, max_cols=0, shorten_text=False)."
-        #                 )
+            )
 
     return new_daf
+
+
+def normalize_colnames(
+        colnames_ls: T_ls,
+        ) -> T_ls:
+
+    clean_colnames_ls = [
+            clean_header_cell(col)
+                for col in colnames_ls]
+
+    return clean_colnames_ls
+
+
+def clean_header_cell(
+        val: str,
+        ) -> str:
+
+    val = val.strip()
+
+    patterns_ls = [
+        r'^\*\*(.*?)\*\*$',   # **bold**
+        r'^__(.*?)__$',       # __bold__
+        r'^\*(.*?)\*$',       # *bold*
+        r'^_(.*?)_$',         # _italic_
+    ]
+
+    for pattern in patterns_ls:
+        new_val = re.sub(pattern, r'\1', val)
+        if new_val != val:
+            val = new_val
+            break
+
+    return val
+
+
+
+
+
+
+def find_first_markdown_table(
+        lines: T_ls,
+        ) -> tuple[T_ls | None, int | None, int | None]:
+    """
+    Find the first structurally-valid markdown table block.
+
+    Rules:
+    - rows must begin and end with '|'
+    - all rows in the block must have same column count
+
+    Notes:
+    - header row is NOT required
+    - separator row is NOT required
+    - first contiguous valid table block is returned
+
+    Returns:
+        (
+            table_lines,
+            start_idx,
+            end_idx,
+        )
+
+    If no valid table found:
+        (None, None, None)
+    """
+
+    def _looks_like_table_row(line: str) -> bool:
+
+        stripped = line.lstrip()
+
+        return (
+            stripped.startswith("|")
+            and stripped.rstrip().endswith("|")
+        )
+
+    def _parse_row(line: str) -> T_ls:
+
+        parts = line.strip().split("|")[1:-1]
+
+        return [cell.strip() for cell in parts]
+
+    num_lines = len(lines)
+
+    for start_idx in range(num_lines):
+
+        line = lines[start_idx]
+
+        if not _looks_like_table_row(line):
+            continue
+
+        first_row = _parse_row(line)
+
+        expected_cols = len(first_row)
+
+        table_lines = [line]
+
+        end_idx = start_idx
+
+        for idx in range(start_idx + 1, num_lines):
+
+            next_line = lines[idx]
+
+            if not _looks_like_table_row(next_line):
+                break
+
+            row = _parse_row(next_line)
+
+            if len(row) != expected_cols:
+                break
+
+            table_lines.append(next_line)
+
+            end_idx = idx
+
+        if table_lines:
+            return table_lines, start_idx, end_idx
+
+    return None, None, None
+
+
+
 
 
 def _parse_daf_footer(line: str) -> dict:

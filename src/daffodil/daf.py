@@ -82,7 +82,7 @@ import copy
 import re
 import json
 import time
-import numpy as np
+#import numpy as np         # moved to uses of numpy
 #from typing_extensions import deprecated       # can't get this to import correctly
 from pathlib import Path
 
@@ -97,6 +97,7 @@ import daffodil.lib.daf_utils    as daf_utils
 import daffodil.lib.daf_md       as md
 import daffodil.lib.daf_pandas   as daf_pandas
 import daffodil.lib.daf_pdf      as daf_pdf
+import daffodil.lib.daf_schema   as daf_schema
 
 from daffodil.keyedlist import KeyedList
 from daffodil.keyedlist import KeyedIndex
@@ -138,7 +139,8 @@ class Daf:
             cols:       T_cs|None           = None,     # Optional column names to use.
             dtypes:     T_dtype_dict|None   = None,     # Optional dtype_dict describing the desired type of each column.
                                                         #   also used to define column names if provided and cols not provided.
-            schema:     type|None           = None,     # Optional schema class used to define columns and defaults.
+            schema:     type | Daf |None    = None,     # Optional schema class used to define columns and defaults.
+                                                        # can also be a daffodil table specifying the schema.
             keyfield:   Union[str, int, T_ta, T_la]  = '',  # A field of the columns to be used as a key.
                                                             # can be set even if columns not set yet.
                                                             # can be tuple or list of colnames, and then they are used as tuple keys.
@@ -157,40 +159,41 @@ class Daf:
         key indexing, and iteration configuration.
 
         Args:
-            lol: Initial data as list-of-lists (rows).
-            hd: Header dictionary mapping column name to index.
-            kd: Optional keyed dictionary for lookup when no keyfield is set.
-            cols: Optional list of column names.
-            dtypes: Optional mapping of column names to Python types.
-            schema: Optional schema class defining columns and defaults.
-            keyfield: Column(s) used as key. May be a single column, or tuple/list of columns.
-            name: Optional name of the Daf instance.
-            use_copy: If True, deep copy the input data.
-            disp_cols: Optional list of columns used for display.
+            lol:        Initial data as list-of-lists (rows).
+            hd:         Header dictionary mapping column name to index.
+            kd:         Optional keyed dictionary for lookup when no keyfield is set.
+            cols:       Optional list of column names.
+            dtypes:     Optional mapping of column names to Python types.
+            schema:     Optional schema class defining columns and defaults or Daf array of more complex schema
+            keyfield:   Column(s) used as key. May be a single column, or tuple/list of columns.
+            name:       Optional name of the Daf instance.
+            use_copy:   If True, deep copy the input data.
+            disp_cols:  Optional list of columns used for display.
 
-            retmode: Default return mode ('obj', etc.).
-            itermode: Default iterator mode ('dict' or 'keyedlist').
-            attrs: Optional dictionary of additional attributes.
+            retmode:    Default return mode ('obj', etc.).
+            itermode:   Default iterator mode ('dict' or 'keyedlist').
+            attrs:      Optional dictionary of additional attributes.
 
         Notes:
             Column structure may be derived from `hd`, `cols`, `dtypes`, or `schema`.
         """
 
         self.name           = name              # str - arbitrary name for this daffodil array
-        self.schema         = schema            # Optional schema class used to define columns and defaults.
+        self.schema         = schema            # Optional schema class of schema daf used to define columns and defaults.
         self.dtypes         = dtypes            # col types used for conversion from csv str values.
 
         if keyfield is None:                    # not specified
-            if schema is not None:
-                keyfield = getattr(schema, "__keyfield__", "")
-            else:
-                keyfield = NULL
+            # if schema is not None:
+            #     keyfield = getattr(schema, "__keyfield__", "")
+            # else:
+            keyfield = NULL
         self.keyfield       = keyfield          # str - field of array to assign to the kd dict.
 
         if lol is None:
             lol = []
-        if dtypes is None:
-            dtypes = self._get_dtypes_from_schema(schema)
+
+        # if dtypes is None:
+        #     dtypes = self._get_dtypes_from_schema(schema)
             
         if cols is None:
             cols = []
@@ -276,6 +279,8 @@ class Daf:
         # Now using lazy kd building. Leave as {} if not manually defined.
         # self._rebuild_kd()
         self._invalidate_kd()    # use lazy kd rebuilding
+
+        self.apply_schema()
         
 
     #===========================
@@ -480,6 +485,8 @@ class Daf:
         Notes:
             If keyfield is set, the internal _kd may be rebuilt if invalidated.
             else, kd could be manually initiallized, do not rebuild.
+
+            usage:  if (key in my_daf)
         """
 
         self._rebuild_kd_if_invalidated()
@@ -577,12 +584,16 @@ class Daf:
     #===========================
     # copying convenience function to mimic pandas syntax.
 
-    def copy(self, deep: bool = False) -> Daf:
+    def copy(self, deep: bool = False, for_sorting: bool = False) -> Daf:
         """
         Create a copy of the Daf.
 
         Args:
             deep: If True, perform a deep copy.
+            for_sorting: If true and deep not also provided,
+                makes a shallow copy of lol an kd so the copied daf array
+                can be sorted and not impact the first array, although the
+                contents of the rows are still shared.
 
         Returns:
             Daf: Copied instance.
@@ -590,11 +601,18 @@ class Daf:
         Notes:
             Ensures `attrs` are copied correctly.
         """
+
         if deep:
-            new_instance = copy.deepcopy(self)  # Fully independent copy
-        else:
-            new_instance = copy.copy(self)  # Shallow copy
-            new_instance.attrs = copy.deepcopy(self.attrs)  # Ensure metadata is copied but not linked
+            return copy.deepcopy(self)  # Fully independent copy
+
+        new_instance = copy.copy(self)  # Shallow copy
+
+        new_instance.attrs = copy.deepcopy(self.attrs)  # Ensure metadata is copied but not linked
+
+        if for_sorting:
+            new_instance.lol = self.lol.copy()
+
+            new_instance._invalidate_kd()       
 
         return new_instance
 
@@ -1133,6 +1151,11 @@ class Daf:
 
         return [key for key in keylist if key in self._kd]
 
+    #===========================
+
+    apply_schema = daf_schema._apply_schema
+    default_record = daf_schema._default_record
+    attach_schema = daf_schema._attach_schema
 
 
     #===========================
@@ -1484,61 +1507,7 @@ class Daf:
     #===========================
     # schema support
     
-    def attach_schema(self, schema: type) -> None:
-        """
-        Attach a schema to the Daf instance.
-
-        Args:
-            schema: Schema class.
-
-        Notes:
-            Does not modify data or perform validation.
-            Modifies dtypes property.
-        """
-        """
-        Attach a schema to this Daf instance without modifying data.
-
-        The schema is remembered for future use and may provide dtypes,
-        defaults, and optional metadata such as __keyfield__.
-
-        No column reconciliation, type conversion, or validation is performed.
-        """
-
-        # basic validation
-        if not getattr(schema, "__is_schemaclass__", False):
-            raise TypeError("schema must be a @schemaclass")
-
-        # remember schema
-        self.schema = schema
-
-        # derive dtypes declaratively (do not apply)
-        self.dtypes = self._get_dtypes_from_schema(schema)
-
-        # adopt keyfield if not already set
-        if not self.keyfield and hasattr(schema, "__keyfield__"):
-            self.keyfield = schema.__keyfield__
-            if self.hd:
-                self._invalidate_kd()    # use lazy kd rebuilding
-                # self._rebuild_kd()
-
-
-    def _get_dtypes_from_schema(self, schema) -> T_dtype_dict:
-        """
-        Extract dtype mapping from schema.
-
-        Args:
-            schema: Schema class.
-
-        Returns:
-            Dict: Column-to-type mapping.
-        """
-        if schema is None:
-            return {}
-
-        return schema.get_dtypes_dict(use_origins = True)
-
-
-
+    default_record = daf_schema._default_record
 
 
     #===========================
@@ -1609,38 +1578,7 @@ class Daf:
         return self
 
 
-    def default_record(self) -> T_da:
-        """
-            Return a new record dict initialized from the attached schema defaults.
 
-            The schema is used only as a source of column names and defaults.
-            No type conversion or validation is performed.
-
-            TODO should allow return of KeyedList type.
-
-        """
-        if not self.schema:
-            raise AttributeError("schema must be defined. No schema attached to this Daf instance")
-
-        default_da = self._get_default_record()
-        return default_da
-        
-        
-    def _get_default_record(self) -> T_da:
-        """
-        Create a default record from schema.
-
-        Returns:
-            Dict: Record initialized with schema defaults.
-        """
-        cls = self.schema
-        rec: T_da = {}
-
-        for name in cls.__annotations__:
-            rec[name] = getattr(cls, name)
-
-        return rec    
-    
     #===========================
     # convert from / to other data or files.
 
@@ -2234,6 +2172,18 @@ class Daf:
 
         return my_daf
 
+    @classmethod
+    def from_dirlist(cls, dirpath: str|Path, schema: T_Daf | None):
+        """
+        Create daf from directory listing, using optional schema if specified.
+
+        If a schema is specified, then if fields exist with default names, then
+            they will initialized from the file system. This allows an array
+            to be built incrementally, while specifying all columns in advance.
+        """
+
+        ...
+
 
     # DEPRECATED
     @classmethod
@@ -2395,6 +2345,167 @@ class Daf:
         """
         return daf_utils.write_buff_to_fp(buff, file_path, fmt=fmt)
 
+    #==== Directory capture
+
+    @classmethod
+    def from_directory(
+            cls,
+            source: str | Path,
+            schema: type | None = None,
+            recursive: bool = True,
+            file_pat: str | None = None,
+        ):
+        """
+        Create a Daf from a local filesystem directory listing.
+
+        The resulting Daf is initialized using either:
+            - the supplied schema, or
+            - the default filesystem schema.
+
+        Standard fields automatically populated:
+
+            filepath
+            dirpath
+            basename
+            rootname
+            extension
+            size
+            mtime
+            ctime
+            is_dir
+
+        Notes:
+            - paths are normalized to use '/'
+            - rows are appended incrementally
+            - only local filesystem operation is currently supported
+            - enrichment beyond filesystem metadata should occur later
+            - can be extended to handle other filesystems like s3.
+        """
+
+        import os
+        import re
+        import time
+
+        from daffodil.lib.schemaclass import schemaclass, SchemaBase
+
+        start = time.time()
+
+        #=========================
+        # default schema
+        #=========================
+
+        if schema is None:
+
+            @schemaclass
+            class FilesystemSchema(SchemaBase):
+
+                filepath:      str = ''
+                dirpath:       str = ''
+                basename:      str = ''
+                rootname:      str = ''
+                extension:     str = ''
+
+                size:          int = 0
+
+                mtime:         float = 0.0
+                ctime:         float = 0.0
+
+                is_dir:        int = 0
+
+            schema = FilesystemSchema
+
+        #=========================
+        # initialize daf
+        #=========================
+
+        daf_obj = cls(schema=schema)
+
+        #=========================
+        # helper
+        #=========================
+
+        def normalize_path(path: str) -> str:
+
+            return path.replace('\\', '/')
+
+        #=========================
+        # traversal
+        #=========================
+
+        if recursive:
+
+            walker = os.walk(str(source))
+
+        else:
+
+            basename_ls = os.listdir(str(source))
+
+            walker = [
+                (
+                    str(source),
+                    [],
+                    basename_ls,
+                )
+            ]
+
+        #=========================
+        # process files
+        #=========================
+
+        for dirpath, _, basename_ls in walker:
+
+            dirpath = normalize_path(dirpath)
+
+            for basename in basename_ls:
+
+                if file_pat:
+
+                    if not re.search(file_pat, basename, flags=re.I):
+
+                        continue
+
+                filepath = normalize_path(
+                    os.path.join(dirpath, basename)
+                )
+
+                try:
+
+                    stat_result = os.stat(filepath)
+
+                except Exception:
+
+                    continue
+
+                rootname, extension = os.path.splitext(basename)
+
+                row_da = daf_obj.default_record()
+
+                row_da['filepath']  = filepath
+                row_da['dirpath']   = dirpath
+                row_da['basename']  = basename
+                row_da['rootname']  = rootname
+                row_da['extension'] = extension
+
+                row_da['size']      = stat_result.st_size
+
+                row_da['mtime']     = stat_result.st_mtime
+                row_da['ctime']     = stat_result.st_ctime
+
+                row_da['is_dir']    = 0
+
+                daf_obj.append(row_da)
+
+        print(
+            f"from_directory(): total time {time.time() - start:.4f}",
+            3,
+        )
+
+        return daf_obj
+
+    #==== md
+
+    from_md = md._from_md
+
     #==== PDF to Daf
 
     from_pdf = daf_pdf._from_pdf
@@ -2440,8 +2551,6 @@ class Daf:
         strings, numpy will cast all elements to a common data type, such as Unicode strings.
 
         """
-        # import numpy as np
-
         if npa.ndim == 1:
             lol = [npa.tolist()]
         else:
@@ -5198,7 +5307,8 @@ class Daf:
     def sort_by_colname(self, colname:str, *, reverse: bool=False, length_priority: bool=False) -> 'Daf':
         """ sort the data by a given colname, using length priority if specified.
             sorts in place. Make a copy if you need the original order.
-            Note, this will place an empty field before fields with contents, which differs from spreadsheet operation.
+            Note, this will place an empty field before fields with contents, 
+            which differs from spreadsheet operation.
 
             Length priority will allow proper sorting when values include embedded integers which are not left-padded.
 
@@ -7571,6 +7681,7 @@ class Daf:
         - Daf: A new Daf instance with transposed data and optional new keyfield.
 
         """
+        import numpy as np
 
         if not new_cols:
             new_cols = ['key'] + daf_utils._generate_spreadsheet_column_names_list(num_cols=len(self.lol))

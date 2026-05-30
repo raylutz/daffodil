@@ -88,7 +88,7 @@ all prior releases. Plans for future moved to ROADMAP.md.
 - Introduce T_cs, T_ca, T_ci, T_ma. Start phasing them in to avoid mypy errors.
 - use Iterable, Iterator, keysView from collections.abc
 - deprecate 'align' in md table functions.
-
+- Fixed edge case in keyedlist.py, when instanciating with KeyedList().
 
 
 ---

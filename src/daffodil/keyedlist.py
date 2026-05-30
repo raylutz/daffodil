@@ -493,7 +493,7 @@ class KeyedIndex:
             self._index = keys._index
             return
 
-        if isinstance(keys, KeyedList):
+        elif isinstance(keys, KeyedList):
             self._index = keys.keys()
             return
 
