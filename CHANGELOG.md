@@ -97,13 +97,23 @@ all prior releases. Plans for future moved to ROADMAP.md.
 - Fixed safe_regex_replace(): its own type hint allows `regex` to be passed as a list of patterns
    directly, but `.strip('"')` was called unconditionally before checking for list input, crashing with
    AttributeError on real list input. Fixed by checking the type first.
+- Fixed write_buff_to_fp(): `s3path` was only assigned inside the `if buff:` block, but the `else`
+   branch (taken when buff is falsy/empty) referenced it, raising UnboundLocalError.
+- Fixed write_buff_to_fp()'s s3 branch: was doing `from . import s3utils`, but daffodil.lib.s3utils does
+   not exist anywhere in this package (left over from the AuditEngine migration, where a much larger,
+   ~2,600-line, AE-internal-dependency-laden s3utils.py presumably did exist). Replaced with two new
+   minimal, self-contained daf_utils.py functions using plain boto3 (no AE-internal, pandas, or
+   smart_open dependencies, consistent with daffodil's existing avoidance of pandas/numpy elsewhere):
+   - `write_buff_to_s3path(s3path, buff, content_type)`: writes unconditionally, with a small retry
+      loop for transient ClientErrors and a post-write existence-polling loop (kept as a safety net for
+      occasional propagation delay, even though S3 PUTs are strongly consistent since Dec 2020).
+   - `does_s3path_exist(s3path)`: existence check via a HEAD request.
+   Also removed the `if_unmodified` parameter and the `write_buff_to_s3path_if_modified()` call it
+   gated: the ETag-based "only write if changed" / local-mirror caching behavior is an application-level
+   concern (e.g. AuditEngine's `DB.load_data()`/`store_data()` layer), not something daffodil core needs
+   to implement itself.
 
 ### Known issues found, not yet fixed (flagged for a future round)
-- write_buff_to_fp(): `s3path` is only assigned inside the `if buff:` block, but the `else` branch
-   (taken when buff is falsy/empty) references it, raising UnboundLocalError.
-- write_buff_to_fp()'s s3 branch does `from . import s3utils`, but daffodil.lib.s3utils does not exist
-   anywhere in this package (likely left over from the AuditEngine migration, where it presumably did
-   exist as a module with this name).
 - add_trailing_columns_csv() (used by xlsx_to_csv()'s default add_trailing_blank_cols=True path) samples
    the first `num_rows` (default 3) rows via repeated next(reader) calls to estimate max column count --
    raises an uncaught StopIteration if the CSV has fewer than num_rows rows total. The function's own

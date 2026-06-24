@@ -1528,12 +1528,83 @@ def is_comment_line(line: str) -> bool:
     return bool(not line or bool(re.search(r'^"?#', line)) or bool(re.search(r'^,+$', line)))
     
 
+def does_s3path_exist(s3path: str) -> bool:
+    """ Check whether an s3 object exists via a HEAD request (lighter than a full GET). """
+    import boto3
+    from botocore.exceptions import ClientError, EndpointConnectionError
+
+    s3dict = parse_s3path(s3path)
+    s3client = boto3.client('s3')
+    try:
+        for i in range(1, 11):
+            try:
+                s3client.head_object(Bucket=s3dict['bucket'], Key=s3dict['key'])
+                return True
+            except EndpointConnectionError:
+                time.sleep(i * 0.1)
+                continue
+            except ClientError as err:
+                code = err.response.get('Error', {}).get('Code', '')
+                if code in ('404', 'NoSuchKey', '403'):
+                    return False
+                continue  # transient error, retry
+    finally:
+        try:
+            s3client.close()
+        except AttributeError:
+            pass
+    return False
+
+
+def write_buff_to_s3path(s3path: str, buff: bytes, content_type: str = 'binary/octet-stream') -> int:
+    """ Write buff to s3://{bucket}/{key} via plain boto3, with a retry loop for transient
+        ClientErrors, and a post-write existence-polling loop (S3 PUTs are strongly consistent
+        since Dec 2020, but a brief propagation delay before the object is visible to subsequent
+        reads/lists has still occasionally been observed in practice, so this is kept as a
+        safety net rather than removed).
+        Always writes unconditionally (no ETag/if-modified check -- that kind of caching/
+        local-mirror logic belongs to the application layer that calls daffodil, not daffodil
+        core itself).
+    """
+    import boto3
+    from botocore.exceptions import ClientError
+
+    s3dict = parse_s3path(s3path)
+    bucket, key = s3dict['bucket'], s3dict['key']
+
+    delay = 0.5
+    max_delay = 5
+    last_err = None
+    while delay < max_delay:
+        try:
+            boto3.resource('s3').Object(bucket, key).put(Body=buff, ContentType=content_type)
+            break
+        except ClientError as err:
+            code = err.response.get('Error', {}).get('Code', '')
+            if code == 'NoSuchBucket':
+                raise
+            last_err = err
+            time.sleep(delay)
+            delay += 0.5
+    else:
+        raise TimeoutError(f"Failed to write to s3://{bucket}/{key} after retries: {last_err}")
+
+    if not does_s3path_exist(s3path):
+        for wait in range(1, 10):
+            time.sleep(wait)
+            if does_s3path_exist(s3path):
+                break
+        else:
+            raise RuntimeError(f"s3path {s3path} not found after write_buff_to_s3path; bucket may be misconfigured.")
+
+    return 1
+
+
 def write_buff_to_fp(buff: T_buff, 
             file_path:      str, 
             fmt:            str='.csv', 
             rtype:          str='.csv', 
             local_mirror:   bool=False, 
-            if_unmodified:  bool=False,
            ) -> str: # file_path
 
     if buff:
@@ -1543,18 +1614,13 @@ def write_buff_to_fp(buff: T_buff,
     
         if file_path.startswith('s3'):
             # make sure the encoding matches what might be saved using the fp.write function
-            from . import s3utils
-            
             if rtype not in ['binary', 'image']:
                 buff = cast(str, buff)
                 s3buff = buff.encode('utf-8')
             else: 
                 s3buff = cast(bytes, buff)    
                 
-            if if_unmodified:
-                num_written = s3utils.write_buff_to_s3path(file_path, s3buff, fmt) #, backup_flag=backup_flag)
-            else:
-                num_written = s3utils.write_buff_to_s3path_if_modified(file_path, s3buff, fmt) #, backup_flag=backup_flag)
+            num_written = write_buff_to_s3path(file_path, s3buff)
             
             if num_written:
                 sts(f"Saved {len(s3buff):,} bytes to {file_path}")
@@ -1580,6 +1646,7 @@ def write_buff_to_fp(buff: T_buff,
                                         
             sts(f"Saved {len(buff):,} bytes to {file_path}")
     else:
+        s3path = None
         sts(f"## Data item not written to {s3path or file_path}")
     return s3path or file_path
 
