@@ -13,6 +13,7 @@ lint.ignore = [
     "E401",  # [*] Multiple imports on one line
     "E712",  # Avoid equality comparisons to `False`
     "F541",  # Ignore f-string without placeholders.
+    "E713",  # Ignore correcting not value in list to value not in list.
 ]
 
 # Disable auto-fixing to prevent unintended changes

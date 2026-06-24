@@ -102,12 +102,15 @@ import daffodil.lib.daf_schema   as daf_schema
 from daffodil.keyedlist import KeyedList
 from daffodil.keyedlist import KeyedIndex
 
+import typing
 from typing import List, Dict, Any, Tuple, Optional, Union, cast, Type, Callable  # noqa: F401
 from collections.abc import Iterable, Collection, Sequence, Iterator              # noqa: F401
 
 
-T_Daf = Type['Daf']
-T_dodaf = Dict[str, T_Daf]
+#T_Daf = Type['Daf']
+T_daf = typing.ForwardRef('Daf')
+
+T_dodaf = Dict[str, T_daf]
 
 logs = daf_utils                # alias
 NULL = ''                       # instead of var == '' use var is NULL
@@ -1587,9 +1590,11 @@ class Daf:
     def from_lod(
             cls,
             records_lod:    T_loda,                             # List[List[Any]] to initialize the lol data array.
+            *,
             keyfield:       Union[str, int, T_ta, T_la] = '',   # set a new keyfield or set no keyfield.
-            dtypes:         Optional[T_dtype_dict]      = None, # set the data types for each column.
+            dtypes:         T_dtype_dict | None         = None, # set the data types for each column.
             name:           str                         = '',   # Optional name of the daffodil instance.
+            cols:           T_ls | None                 = None, # Optionally use cols to define column names
             ) -> 'Daf':
         """
         Create Daf from list of dictionaries.
@@ -1620,13 +1625,19 @@ class Daf:
         if dtypes is None:
             dtypes = {}
 
+        if cols is None:
+            cols = []
+
         if not records_lod:
             return cls(keyfield=keyfield, dtypes=dtypes)
 
-        if not dtypes:
-            cols = list(records_lod[0].keys())
-        else:
+        if cols:
+            pass
+            # cols = cols.
+        elif dtypes:
             cols = list(dtypes.keys())
+        else:
+            cols = list(records_lod[0].keys())
 
         # is this better than just appending dicts?
 
@@ -2173,7 +2184,7 @@ class Daf:
         return my_daf
 
     @classmethod
-    def from_dirlist(cls, dirpath: str|Path, schema: T_Daf | None):
+    def from_dirlist(cls, dirpath: str|Path, schema: T_daf | None):
         """
         Create daf from directory listing, using optional schema if specified.
 
@@ -2856,7 +2867,7 @@ class Daf:
     #===========================
     # append
 
-    def append(self, data_item: Union[T_Daf, T_loda, T_da, T_la, KeyedList]):
+    def append(self, data_item: Union[T_daf, T_loda, T_da, T_la, KeyedList]):
         """
         Append data to the Daf.
 
@@ -5615,7 +5626,7 @@ class Daf:
 
     def apply(
             self,
-            func:       Callable[[Union[T_da, T_Daf], Optional[T_la]], Union[T_da, T_Daf]],
+            func:       Callable[[Union[T_da, T_daf], Optional[T_la]], Union[T_da, T_daf]],
             by:         str='row',
             keylist:    Optional[Union[T_la, T_lota]]=None,     # list of keys of rows to include (DEPRECATE?)
             **kwargs:   Any,

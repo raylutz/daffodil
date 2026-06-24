@@ -1272,7 +1272,7 @@ DOC:
 LINENO: 2068
 
 SIGNATURE:
-    def append(self, data_item: Union[T_Daf, T_loda, T_da, T_la, KeyedList]):
+    def append(self, data_item: Union[T_daf, T_loda, T_da, T_la, KeyedList]):
 
 DOC:
 general append method can handle appending one record as T_da or T_la, many records as T_loda or T_daf
@@ -2435,7 +2435,7 @@ LINENO: 4323
 SIGNATURE:
     def apply(
             self,
-            func:       Callable[[Union[T_da, T_Daf], Optional[T_la]], Union[T_da, T_Daf]],
+            func:       Callable[[Union[T_da, T_daf], Optional[T_la]], Union[T_da, T_daf]],
             by:         str='row',
             keylist:    Optional[Union[T_la, T_lota]]=None,     # list of keys of rows to include (DEPRECATE?)
             **kwargs:   Any,

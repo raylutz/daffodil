@@ -90,6 +90,16 @@ all prior releases. Plans for future moved to ROADMAP.md.
 - deprecate 'align' in md table functions.
 - Fixed edge case in keyedlist.py, when instanciating with KeyedList().
 
+- Add option of using daffodil tables as schema instead of schemaclass.
+- Moved .attach_schema from daf to daf_schema.py
+- Added .apply_schema which is like apply dtypes.
+
+- .default_record now properly a method of daf rather than schema.
+- Added option to .sort() to do a shallow copy of lol and kd in so a copy can be independently sorted.
+- Added .from_directory to get a daf table of a directory of file system
+- Improved .from_md() with improved scanning for the first table in the passed block.
+- Added cleanup of colnames by removing md or wiki markup.
+- Added crud in schemaclass.py to allow inheritance.
 
 ---
 
