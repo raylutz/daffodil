@@ -23,7 +23,7 @@ from types import FrameType
 from collections.abc import Iterable, Iterator    # noqa: F401
 
 from daffodil.lib.daf_types import T_lola, T_loda, T_dtype_dict, T_da, T_ds, \
-                                    T_la, T_loti, T_ls, T_doda, T_buff, T_li, \
+                                    T_la, T_ls, T_doda, T_buff, T_li, \
                                     T_lr, T_dn, T_kva, T_cs, T_ca, T_ma # noqa: F401  # , T_ts, T_dota
                     
 def is_linux() -> bool: 
@@ -34,67 +34,6 @@ def is_linux() -> bool:
 _MISSING = object()
 NULL = ''
 
-# def apply_dtypes_to_hdlol(hdlol: T_hdlola, dtypes: T_dtype_dict, from_str: bool=True) -> T_hdlola:
-    # # do we need this any more? Use my_daf.apply_types()
-
-    # hd, lol = hdlol
-    
-    # if not lol or not lol[0] or not hd:
-        # return (hd, lol)
-
-    # # make a worklist of those fields that need to be checked.
-    # dtypes_worklist: List[Tuple[int, Type]] = []
-    # # create a list of types
-    # for idx, col in enumerate(hd.keys()):
-        # desired_type = dtypes.get(col, str)
-        # if desired_type == str and from_str:
-            # continue
-        # dtypes_worklist.append( (idx, desired_type ) )
-
-    # for la in lol:
-        # set_type_la(la, dtypes_worklist)
-        
-    # return (hd, lol)
-    
-
-def set_type_la(la: T_la, dtypes_worklist: List[Tuple[int, Type]]) -> T_la:
-    """ set the types of each item in place based on a list of types without making a copy,
-        and only working on those fields that may need work.
-        
-        Note: dtypes_worklist must contain only origin types. This is established when
-            dtypes_dict is initialized.
-    """
-    
-    for idx, desired_type in dtypes_worklist:
-        value = la[idx]
-        if isinstance(value, desired_type):
-            continue
-        if str is not NULL:
-            # value is null str.
-            # leave alone.
-            continue
-        if desired_type in (int, bool):
-            try:
-                la[idx] = int(value)
-            except ValueError:
-                try:
-                    la[idx] = int(float(value))
-                except ValueError:
-                    if value in ('False', 'True'):
-                        la[idx] = int(eval(value))
-                
-        elif desired_type is float:
-            try:
-                la[idx] = float(value)
-            except ValueError:
-                if value in ('False', 'True'):
-                    la[idx] = float(eval(value))
-            
-        elif desired_type is str:    
-            la[idx] = str(value)
-    
-    return la
-    
 
 def set_cols_da(da: T_da, cols: T_ls, default: Any='') -> T_da:
     """ Set keys in dictionary da to be exactly cols
@@ -159,6 +98,10 @@ class NpEncoder(json.JSONEncoder):
         elif isinstance(obj, np.ndarray):
             return obj.tolist()
         else:
+            # We have not yet seen a real case land here. If this fires, inspect
+            # `obj` (its type and value) to decide how it should actually be
+            # encoded before deciding on a fix.
+            breakpoint()  # temp -- investigate unrecognized type reaching NpEncoder.default()
             return super(NpEncoder, self).default(obj)
 
 
@@ -170,7 +113,17 @@ def json_encode(data_item: Any, indent: Optional[int]=None) -> str:
     
     if data_item is None:
         return ''
-    return json.dumps(data_item, cls=NpEncoder, default=str, indent=indent, ensure_ascii=False)    
+    try:
+        return json.dumps(data_item, cls=NpEncoder, indent=indent, ensure_ascii=False, allow_nan=False)
+    except ValueError:
+        # NaN/Infinity encountered. json.dumps does not route these through
+        # NpEncoder.default() since they are natively-serializable floats (or
+        # numpy floating subclasses of float); it raises ValueError here instead.
+        # We have not yet seen a real case of this -- if this fires, inspect
+        # data_item to decide how NaN/Infinity should actually be encoded
+        # (e.g. as the daffodil NULL sentinel) before deciding on a fix.
+        breakpoint()  # temp -- investigate NaN/Infinity encountered in json_encode input
+        return json.dumps(data_item, cls=NpEncoder, indent=indent, ensure_ascii=False)
 
 
 def make_strbool(val: Union[bool, str, int, None]) -> str:
@@ -638,18 +591,6 @@ def safe_convert_json_to_obj(json_str: str, json_name: str='') -> Any:
         #breakpoint() #perm
 
 
-def validate_json_with_error_details(json_str: str) -> Tuple[bool, str]:  # valid_flag, error_str
-
-    try:
-        json.loads(json_str)
-        return True, ''
-    except json.JSONDecodeError as e:
-        error_message = str(e)
-        line_number = error_message.split(" line ")[-1].split(",")[0]
-        column_number = error_message.split("column ")[-1].split(" ")[0]
-        return False, f"Error on line {line_number}, column {column_number}: {error_message}"
-    
-        
 def list_stats(alist:T_la, profile:str) -> T_da:
     """ 
         given a list as a column of a table and analyze that given column and provide stats relevant for that column
@@ -861,59 +802,6 @@ def is_list_allbools(alist: T_la) -> Tuple[bool, int]: # allbools, num_true
     
         return False, 0
     
-def profile_ls_to_loti(
-        input_ls: T_ls, 
-        repeat_startswith='Unnamed', 
-        include_cols: Optional[T_ls]=None,
-        ignore_cols: Optional[T_ls]=None,
-        ) -> T_loti:
-    """ 
-        Given a list strings, which are typically the header of a column,
-        return a list of tuples of integers loti, that describes the
-        column offset of a given starting string, and the length of
-        any repeats of that string, or strings marked with the repeat_marker.
-        
-        for example:
-        input_ls = ['Alice', 'Bob', 'Unnamed2', 'Charlie', 'David', 'Unnamed5', 'Unnamed6']
-        
-        will return:
-        output_loti = [(0, 1), (1, 2), (3, 1), (4, 3)]
-        
-        if either ignore cols or include cols are provided, then  do not profile 
-        any columns not included but include the offsets in the profile.
-        
-    """    
-    repeat_count = 0
-    result_loti: T_loti = []
-    unique_idx  = 0
-    
-    if ignore_cols is None:
-        ignore_cols = []
-    
-    unique_idx = -1
-    for idx, colstr in enumerate(input_ls):
-    
-        if colstr in ignore_cols:
-            continue
-    
-        if unique_idx == -1:
-            repeat_count = 1
-            unique_idx = idx
-                
-        elif colstr.startswith(repeat_startswith):
-            repeat_count += 1
-            
-        else:
-            result_loti.append( (unique_idx, repeat_count) )
-            unique_idx = idx
-            repeat_count = 1
-    
-    if repeat_count:
-        result_loti.append( (unique_idx, repeat_count) )
-        
-    return result_loti            
-            
-
 def profile_ls_to_lr(
         input_ls: T_ls, 
         repeat_startswith='Unnamed', 
@@ -1057,11 +945,24 @@ def transpose_lol(lol: T_lola) -> T_lola:
     # all lines must have same number of columns or it raises RuntimeError
     # (ragged right not allowed)
 
+    if not lol:
+        return []
+
+    num_rows = len(lol)
+    num_cols = len(lol[0])
+
     # the following creates a numpy array of objects, transposes that, then converts back.
     # this does not convert data in each cell of the numpy array.
 
     npao = np.array(lol, dtype=object)
     npaoT = npao.T
+
+    if npaoT.shape != (num_cols, num_rows):
+        raise RuntimeError(
+            f"transpose_lol: ragged list-of-lists (rows have inconsistent column counts); "
+            f"expected transposed shape {(num_cols, num_rows)}, got {npaoT.shape}"
+        )
+
     lolT = npaoT.tolist()
     
     return (lolT)
@@ -1083,13 +984,6 @@ def safe_get_idx(lst: Optional[List[Any]], idx: int, default: Optional[Any]=None
     except (IndexError, TypeError):
         return default
     
-
-def safe_max(listlike):
-    # note! Using try/except in to guard for the length of list is not specific enough. 
-    #   We still need failure under other conditions.
-
-    return max(listlike, default=0)
-     
 
 def shorten_str_keeping_ends(string: str, limit: int) -> str:
     """ combine multiple lines into a single line, then 
@@ -1223,15 +1117,6 @@ def lod_to_dod(lod: T_loda,
     return dod        
     
 
-def safe_min(listlike: List[Any]) -> Any:
-    # note! Using try/except in to guard for the length of list is not specific enough. 
-    #   We still need failure under other conditions.
-
-    if len(listlike) < 1:
-        return 0
-    return min(listlike)
-    
-
 def safe_stdev(listlike):
     # note! Using try/except in to guard for the length of list is not specific enough. 
     #   We still need failure under other conditions.
@@ -1267,11 +1152,6 @@ def beep(freq: int=1080, ms: int=500):
 def error_beep():
     beep()
     
-
-def notice_beep(freq: int=1080):
-    beep(freq=freq, ms=250)
-    beep(freq=freq, ms=250)
-
 
 RESET = "\033[0m"
 
@@ -1433,53 +1313,6 @@ def prog_loc() -> str:
     return f"[{filename}:{linenumber}]"
     
     
-def buff_csv_to_lol_old(
-        buff: Union[bytes, str, Iterator[str]],  # Now accepts iterators for streaming, 
-        user_format: bool=False, 
-        sep=',', 
-        include_cols: Optional[T_ls]=None, 
-        dtypes: Optional[T_dtype_dict]=None,
-        raw: bool=False,
-        ) -> T_lola:
-    """
-    Convert CSV data in a buffer (bytes or string) to a lol data type.
-
-    Supports streaming by allowing `buff` to be an iterator instead of a full buffer.
-
-    Args:
-        buff (Union[bytes, str, Iterator[str]]): The CSV data as bytes, string, or iterator.
-        user_format (bool): Whether to preprocess the CSV data (remove comments and blank lines).
-        sep (str): The separator used in the CSV data.
-
-    Returns:
-        lola: all lines in the file as lol. May be ragged.
-    """
-
-    if sep is None:
-        sep = ','
-        
-    # Convert bytes to a stream without loading everything into memory
-    if isinstance(buff, bytes):
-        buff = io.TextIOWrapper(io.BytesIO(buff), encoding="utf-8")
-        
-    # Convert string input to an iterable (StringIO)
-    if isinstance(buff, str):
-        buff = io.StringIO(buff)  # Convert to file-like object
-
-    # Ensure we process line-by-line (fix double StringIO issue)
-    if not hasattr(buff, 'read'):  # If it's not a file-like object, wrap it
-        buff = io.StringIO("\n".join(buff))
-
-    if user_format:
-        buff = preprocess_csv_buff(buff)  # remove comments, blank lines
-        
-    csv_reader = csv.reader(buff, delimiter=sep, quoting=csv.QUOTE_MINIMAL)
-
-    data_lol = [row for row in csv_reader]
-
-    return data_lol
-
-
 def buff_csv_to_lol(
     buff: Union[bytes, str, Iterator[str]],  # Supports iterators for streaming
     user_format: bool = False,
@@ -1761,9 +1594,6 @@ def len_rowcol_spec(ispec: Union[slice, int, T_li, None], tot_len: int) -> int:
     else:
         return 0
         
-def slice_to_list(slice_obj) -> list:
-    return [i for i in range(slice_obj.start or 0, slice_obj.stop or float('inf'), slice_obj.step or 1)]
-
 def slice_to_range(slice_obj, length):
     if slice_obj == slice(None, None, None):
         return range(length)
@@ -1822,17 +1652,6 @@ def _sanitize_cols(cols: T_cs, unnamed_prefix='Unnamed') -> list:
         return list(col_hd.keys())
 
 
-def dict_with_index(iterable) -> Dict[Any, int]:
-
-    return dict(with_index(iterable))
-    
-            
-def with_index(iterable):
-    """Like enumerate, but (val, i) tuples instead of (i, val)."""
-    for i, item in enumerate(iterable):
-        yield (item, i)
-
-            
 def invert_dol_to_dict(input_dol:dict) -> dict:
     """ given a dict of lists where no element in any is seen twice,
         create a dict, where the list elements are the key and the
@@ -2049,37 +1868,6 @@ def astype_value(
     raise ValueError(f"astype not supported: {astype}")
     
             
-def combine_records(record1: dict, record2: dict, suffixes: tuple = ("_x", "_y")) -> dict:
-    """
-    Combine two records into a single record, resolving column name conflicts with suffixes.
-
-    Args:
-        record1 (dict): The first record.
-        record2 (dict): The second record.
-        suffixes (tuple): Suffixes to apply to overlapping column names.
-
-    Returns:
-        dict: Combined record.
-    """
-    combined = {}
-
-    # Add fields from record1 with appropriate suffix if there's a conflict
-    for col, value in record1.items():
-        if col in record2:
-            combined[f"{col}{suffixes[0]}"] = value  # Apply suffix[0] for record1 conflicts
-        else:
-            combined[col] = value
-
-    # Add fields from record2 with appropriate suffix if there's a conflict
-    for col, value in record2.items():
-        if col in record1:
-            combined[f"{col}{suffixes[1]}"] = value  # Apply suffix[1] for record2 conflicts
-        else:
-            combined[col] = value
-
-    return combined
-    
-
 def to_dn_if_list(obj: T_ca|None) -> T_ca:
     """ if obj is a list, create a more efficient T_dn object for rapid lookups. """
     

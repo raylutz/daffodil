@@ -8,7 +8,6 @@ import markdown
 #import functools
 
 #import pprint
-from string import Template
 
 # import os
 # import sys
@@ -115,8 +114,8 @@ def mdlink(url_or_s3path: str='', title: str='', new_window: bool=False) -> str:
         
     if url_or_s3path.startswith('s3'):    
         if not title:
-            title = utils.safe_basename(url_or_s3path)
-            url   = utils.s3path_to_url(url_or_s3path)
+            title = utils.parse_s3path(url_or_s3path)['basename']
+        url = utils.s3path_to_url(url_or_s3path)
     else:
         url = url_or_s3path
         
@@ -179,7 +178,6 @@ def md_lol_table(
         records_lol:        T_lola,
         *,
         header:             T_cs | None = None, 
-        includes_header:    bool=False, 
         #align:              List[Tuple[str, str]] | None = None, 
         just:               str='', 
         omit_header:        bool=False, 
@@ -187,7 +185,6 @@ def md_lol_table(
         max_text_len:       int=80, 
         smart_fmt:          bool=False,
         include_idx:        bool=False,
-        sum_col_idxs:       T_li | None = None,
         ):
     """
     Generate a Markdown table from records.
@@ -213,27 +210,9 @@ def md_lol_table(
     # reorient data into columns
     # would like to not shorten if shorten_text=False but not sure how to do it here.
     # the reason is that the column is set to the length of the entire string rather than longest line
-    
-    # first remove the header if there is one.
-    if includes_header:
-        header = records_lol[0]
-        records_lol=records_lol[1:]
 
-    if not records_lol:
-        return ''    
+    cols_lol = utils.transpose_lol(records_lol)
 
-    if sum_col_idxs:
-        new_row = utils.lol_sum_cols(records_lol, sum_col_idxs=sum_col_idxs)
-        records_lol += [new_row]
-
-    try:
-        cols_lol = utils.transpose_lol(records_lol)
-    except RuntimeError as err:
-        print(f"{err}: records:{records_lol}")
-        #logs.error_beep()
-        breakpoint() #perm -- debugging aide
-        pass
-        
     if include_idx:
         # there is never a header at this point.
         col_idx_ls = [str(idx) for idx in range(len(records_lol))]                        
@@ -445,19 +424,21 @@ def _from_md(cls, md_str: str): # -> "Daf":
         return [cell.strip() for cell in parts]
 
     # ---- Header detection ----
+    # A header row followed by a separator row is required (headerless tables
+    # are not supported in this context).
 
-    header = None
-
-    data_lines = table_lines
-
-    if (
+    if not (
         len(table_lines) >= 2
         and _is_separator_row(table_lines[1])
     ):
 
-        colnames_ls = _parse_row(table_lines[0])
+        raise RuntimeError(
+            "Markdown table must have a header row followed by a separator row."
+        )
 
-        data_lines = table_lines[2:]
+    colnames_ls = _parse_row(table_lines[0])
+
+    data_lines = table_lines[2:]
 
     # ---- Parse data rows ----
 
@@ -465,17 +446,7 @@ def _from_md(cls, md_str: str): # -> "Daf":
 
     # ---- Structural validation ----
 
-    if colnames_ls:
-
-        expected_colnum = len(colnames_ls)
-
-    elif lol:
-
-        expected_colnum = len(lol[0])
-
-    else:
-
-        expected_colnum = 0
+    expected_colnum = len(colnames_ls)
 
     for row in lol:
 
@@ -755,23 +726,6 @@ def escape_raw_text(text: str='') -> str:
     return output_str
     
     
-def md_process_template(template_str: str, mapping: T_da):
-
-    # replace occurrences of ${dict_key} with values from mapping (dict)
-    
-    t = Template(template_str)
-    identifiers = t.get_identifiers()   # type: ignore # Returns a list of the valid identifiers in the template, 
-                                        # in the order they first appear, ignoring any invalid identifiers.
-    mapping_keys_set = set(mapping.keys())
-    identifiers_set  = set(identifiers)
-    
-    if mapping_keys_set != identifiers_set:
-        print(f"There is a difference between the identifiers in the template:{identifiers_set} vs. the map:{mapping_keys_set}")
-        print(f"The template appears to be {'valid' if t.is_valid() else 'invalid'}.")    # type: ignore
-    
-    return t.safe_substitute(mapping=mapping)
-
-
 def md_2_html_snippet(md: str, strip_newlines: bool=True):
     #print("Parsing md to html:\n"+md+"\n")
     snippet = markdown.markdown(md, extensions=['tables','toc'])

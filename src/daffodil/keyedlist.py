@@ -181,8 +181,6 @@ class KeyedList:
             self._values = []
             return
         
-        breakpoint() #perm logic error
-        pass
         raise ValueError("Must provide either a dict, keys and values, hd and list, or KeyedList")
     
     def __getitem__(self, key):
@@ -294,14 +292,16 @@ class KeyedList:
 
     def to_json(self):
         # Serialize KeyedList object to a JSON-compatible dictionary
-        return json.dumps({"__KeyedList__": True, "hd": self.hd, "values": self._values})
+        # NOTE: to_json/from_json appear unused elsewhere in daffodil (Daf.to_json/from_json
+        # serialize lol/hd directly and do not call these). Fixed anyway since the risk is low.
+        return json.dumps({"__KeyedList__": True, "hd": self.hd.to_dict(), "values": self._values})
 
     @classmethod
     def from_json(cls, json_str) -> 'KeyedList':
         # Deserialize JSON string into a KeyedList object
         obj_dict = json.loads(json_str)
         if "__KeyedList__" in obj_dict and obj_dict["__KeyedList__"]:
-            return cls(hd=obj_dict.get("hd", {}), values=obj_dict.get("values", []))
+            return cls(obj_dict.get("hd", {}), obj_dict.get("values", []))
         else:
             raise ValueError("Invalid JSON string for KeyedList")
 
@@ -337,9 +337,13 @@ def astype_la(la: T_la, astype: Optional[Union[Callable, str, type]]=None) -> T_
         
         
 class KeyedListEncoder(json.JSONEncoder):
+    # NOTE: appears unused -- Daf.to_json() serializes lol/hd directly via plain json.dumps
+    # and never passes cls=KeyedListEncoder, and KeyedList cells are not actually stored in
+    # a Daf's lol (KeyedList is a transient row wrapper, not stored cell content).
+    # Fixed anyway since the risk is low.
     def default(self, obj):
         if isinstance(obj, KeyedList):
-            return {"__KeyedList__": True, "hd": obj.hd, "values": obj._values}
+            return {"__KeyedList__": True, "hd": obj.hd.to_dict(), "values": obj._values}
         return super().default(obj)
 
 
@@ -494,7 +498,7 @@ class KeyedIndex:
             return
 
         elif isinstance(keys, KeyedList):
-            self._index = keys.keys()
+            self._index = dict(keys.hd)
             return
 
         elif isinstance(keys, list):

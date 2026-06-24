@@ -8226,11 +8226,29 @@ class Daf:
 
         header_exists = bool(self.hd)
 
+        if header_exists and daf_lol:
+            # daf_to_lol_summary embeds colnames as the first row; pull it back out and
+            # pass it explicitly via `header` rather than relying on the data's first row
+            # (daffodil never treats the first row of a lol as an implicit header).
+            embedded_header = daf_lol[0]
+            data_lol = daf_lol[1:]
+        elif daf_lol:
+            # Daffodil arrays may have no header at all (a bare lol). Conjure
+            # spreadsheet-style column names (A, B, C, ...) so the rendered table has
+            # a header row, since Daf.from_md() requires a header + separator row.
+            embedded_header = daf_utils._generate_spreadsheet_column_names_list(len(daf_lol[0]))
+            data_lol = daf_lol
+            header_exists = True
+        else:
+            embedded_header = None
+            data_lol = daf_lol
+
+        final_header = header if header is not None else embedded_header
+
         mdstr = md.md_lol_table(
-            daf_lol,
-            header              = header,
-            includes_header     = header_exists,
-            just                = just or ('>' * len(self.hd)),
+            data_lol,
+            header              = final_header,
+            just                = just or ('>' * len(data_lol[0])) if data_lol else just,
             omit_header         = not header_exists,
             shorten_text        = shorten_text,
             max_text_len        = max_text_len,

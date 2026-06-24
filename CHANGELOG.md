@@ -19,6 +19,54 @@ all prior releases. Plans for future moved to ROADMAP.md.
 
 ---
 
+## [0.5.13] - (pending)
+### Added
+- Added pytest test coverage for keyedlist.py (62% -> 100%), daf_md.py (13% -> 99%), and a substantial
+   portion of daf_utils.py (39% -> 60%), in new test files: test_keyedlist2.py, test_daf_md.py, test_daf_utils.py.
+
+### Changed
+- Daf.to_md() reworked to always pass the column header explicitly rather than relying on the first row
+   of the rendered table being treated as a header; daffodil never treats the first row of a lol as an
+   implicit header. This also fixes a `header=` override being silently ignored whenever the Daf already
+   had its own columns.
+- Daf.to_md() now generates spreadsheet-style column names (A, B, C, ...) for headerless/bare lol arrays,
+   since Daf.from_md() requires a header + separator row.
+- Daf.from_md() now requires a header + separator row; headerless markdown tables are no longer supported
+   (previously crashed with UnboundLocalError on headerless input).
+- transpose_lol() now validates the transposed shape and raises RuntimeError on ragged-right (non-rectangular)
+   input, matching its documented contract. Previously, numpy silently returned the original ragged data
+   unchanged (no error, no transpose) since np.array(lol, dtype=object) does not raise for ragged lol.
+- json_encode()/NpEncoder no longer pass `default=str` to json.dumps, which was silently bypassing
+   NpEncoder's numpy handling (np.int64, np.ndarray) for any type that wasn't already a native float
+   subclass (np.float64 only "worked" by accident). Added diagnostic breakpoint() calls (marked # temp)
+   for NaN/Infinity and for any other unrecognized type reaching the encoder, to surface real cases for
+   investigation rather than guessing at handling now.
+
+### Fixed
+- Fixed KeyedIndex.__init__() from a KeyedList: was storing a dict_keys view instead of a dict, making the
+   resulting KeyedIndex unsubscriptable.
+- Fixed KeyedList.to_json()/from_json() and KeyedListEncoder: were not converting the KeyedIndex hd to a
+   plain dict before/during JSON serialization; from_json() also called __init__() with nonexistent
+   hd=/values= keyword arguments instead of positional args.
+- Fixed mdlink(): the s3-path branch called a nonexistent utils.safe_basename() (now uses
+   parse_s3path()['basename']), and separately left `url` unassigned (UnboundLocalError) whenever a title
+   was already supplied for an s3 path.
+- Removed two stray, unmarked debug breakpoint() calls (in KeyedList.__init__() and md_lol_table()'s
+   exception handler, the latter now unreachable after the transpose_lol() fix above).
+
+### Removed
+- Removed `includes_header` / `sum_col_idxs` parameters from md_lol_table() (legacy from AuditEngine's
+   pre-daffodil md.py, unused by daffodil; sum_col_idxs called a nonexistent utils.lol_sum_cols()).
+- Removed md_process_template() (unused dead code; was also broken via a Template.safe_substitute() misuse).
+- Removed set_type_la() from daf_utils.py: unreachable dead code, only referenced from an
+   already-commented-out caller (apply_dtypes_to_hdlol, itself noting "do we need this any more? Use
+   my_daf.apply_types()"); its own logic was separately dead due to a `str is not NULL` typo.
+- Removed buff_csv_to_lol_old(), profile_ls_to_loti(), dict_with_index()/with_index(), combine_records(),
+   safe_max()/safe_min(), notice_beep(), validate_json_with_error_details(), slice_to_list() from
+   daf_utils.py -- confirmed unreachable from any production code path via reachability analysis.
+
+---
+
 ## [0.5.12] - (pending)
 ### Added
 - .from_md() method added to allow round-trip of daffodil arrays through markdown representation.
