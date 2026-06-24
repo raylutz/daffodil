@@ -766,8 +766,7 @@ class Daf:
             # if len(include_cols) > 10:
                 # include_cols_dict = dict.fromkeys(include_cols)
                 # selected_cols = [col for col in selected_cols if col in include_cols_dict]
-            else:
-                selected_cols = [col for col in selected_cols if col in include_cols]
+            selected_cols = [col for col in selected_cols if col in include_cols]
 
         if exclude_cols:
             if isinstance(exclude_cols, str):
@@ -775,8 +774,7 @@ class Daf:
             # if len(exclude_cols) > 10:
                 # exclude_cols_dict = dict.fromkeys(exclude_cols)
                 # selected_cols = [col for col in selected_cols if col not in exclude_cols_dict]
-            else:
-                selected_cols = [col for col in selected_cols if col not in exclude_cols]
+            selected_cols = [col for col in selected_cols if col not in exclude_cols]
 
         if include_types:
             if not self.dtypes:
@@ -917,7 +915,7 @@ class Daf:
 
         if not self.keyfield:
             if silent_error:
-                return [] if astype == 'list' else ().keys()  # empty KeysView
+                return [] if astype == 'list' else {}.keys()  # empty KeysView
             else:
                 raise KeysDisabledError("Key lookups are disabled (keyfield is unset).")
 
@@ -982,6 +980,7 @@ class Daf:
         if not keyfield:
             self.keyfield = ''
             self._kd = {}
+            return self
 
         if not self._is_keyfield_valid(keyfield):
             if not silent_error:
@@ -2449,11 +2448,16 @@ class Daf:
 
         else:
 
-            basename_ls = os.listdir(str(source))
+            full_source = str(source)
+
+            basename_ls = [
+                name for name in os.listdir(full_source)
+                if not os.path.isdir(os.path.join(full_source, name))
+            ]
 
             walker = [
                 (
-                    str(source),
+                    full_source,
                     [],
                     basename_ls,
                 )
@@ -2508,7 +2512,6 @@ class Daf:
 
         print(
             f"from_directory(): total time {time.time() - start:.4f}",
-            3,
         )
 
         return daf_obj
@@ -4437,12 +4440,7 @@ class Daf:
             return dict(zip(colnames, self.lol[irow]))
 
         elif rtype == 'list':
-            return self.to_list(
-                irow = irow,
-                icol = None,
-                unique = False,
-                flatten = False,
-                )
+            return list(self.lol[irow])
 
 
     # def select_by_dict_to_lod(self, selector_da: T_da, expectmax: int=-1, inverse: bool=False) -> T_loda:
@@ -4691,8 +4689,8 @@ class Daf:
                 else:
                     false_lol.append(klist._values)
 
-            true_daf = Daf(cols=self.columns(), lol=true_lol, keyfield=self.keyfield, dtypes=self.dtypes)
-            false_daf = Daf(cols=self.columns(), lol=false_lol, keyfield=self.keyfield, dtypes=self.dtypes)
+        true_daf = Daf(cols=self.columns(), lol=true_lol, keyfield=self.keyfield, dtypes=self.dtypes)
+        false_daf = Daf(cols=self.columns(), lol=false_lol, keyfield=self.keyfield, dtypes=self.dtypes)
 
         return true_daf, false_daf
 
@@ -4844,8 +4842,10 @@ class Daf:
         new_cols = [old_cols[idx] for idx in keep_idxs_li]
         self._cols_to_hd(new_cols)
 
-        new_dtypes = {col: typ for idx, (col, typ) in enumerate(self.dtypes.items()) if idx not in keep_idxs_li}
-        self.dtypes = new_dtypes
+        if self.dtypes:
+            kept_cols = {old_cols[idx] for idx in keep_idxs_li}
+            new_dtypes = {col: typ for col, typ in self.dtypes.items() if col in kept_cols}
+            self.dtypes = new_dtypes
 
         if self.keyfield in exclude_cols:
             self._invalidate_kd()
@@ -5276,6 +5276,9 @@ class Daf:
         if find_values is None:
             return self
 
+        if replacement is _MISSING:
+            raise ValueError("replace_in_columns() requires an explicit `replacement` value.")
+
         if cols is None:
             # process the entire array
             target_indices = list(range(self.num_cols()))
@@ -5298,8 +5301,15 @@ class Daf:
                     row[col_idx] = replacement
 
         if self.keyfield:
-            if not isinstance(self.keyfield, str) or self.keyfield in cols:
+            if not isinstance(self.keyfield, str):
+                # composite keyfield (tuple/list of columns) -- conservatively always invalidate,
+                # since checking whether any individual component column was touched is more work
+                # than it's worth here.
                 self._invalidate_kd()
+            else:
+                keyfield_idx = self.hd.get(self.keyfield)
+                if keyfield_idx is None or keyfield_idx in target_indices:
+                    self._invalidate_kd()
 
         return self
 
@@ -7236,7 +7246,7 @@ class Daf:
 
     def apply_to_col(self, col: str, func: Callable, **kwargs):
 
-        self[:, col] = list(map(func, self[:, col], **kwargs))
+        self[:, col] = list(map(func, self.col(col), **kwargs))
 
         if col == self.keyfield or not isinstance(self.keyfield, str):
             self._invalidate_kd()
@@ -8516,16 +8526,14 @@ class _IndirectRowView:
         if not self.indirect:
             return self.row.values()
 
-        for key in self.keys():
-            yield self[key]
+        return (self[key] for key in self.keys())
 
 
     def items(self):
         if not self.indirect:
             return self.row.items()
 
-        for key in self.keys():
-            yield (key, self[key])
+        return ((key, self[key]) for key in self.keys())
 
 
 def unpack_indirect(

@@ -259,6 +259,101 @@ all prior releases. Plans for future moved to ROADMAP.md.
    tried to merge a dict-valued column against the leftover `0`. Fixed by checking
    `if initial_da is not None:` instead, so an explicitly-passed empty dict is honored.
 
+### Added (daf.py: sorting, joining, transforming)
+- Added pytest test coverage for calc_cols(), sort_by_colname()/sort_by_colnames(), split_where(),
+   remove_dups(), apply_in_place(), annotate_daf(), update_by_keylist(), replace_in_columns(),
+   join()/join_records().
+
+### Fixed (daf.py: calc_cols)
+- Fixed calc_cols(): for both include_cols and exclude_cols, `if isinstance(include_cols, str):
+   include_cols = [include_cols]` was followed by an `else:` clause containing the actual filtering
+   logic -- but that `else` paired with the `isinstance` check, not the outer `if include_cols:`, so
+   passing a plain string (e.g. `include_cols='id'`) converted it to a list but then never applied any
+   filter at all, silently returning all columns unchanged. Fixed by separating the str-to-list
+   normalization from the filtering, which now always runs.
+
+### Fixed (daf.py: split_where)
+- Fixed split_where(): `true_daf`/`false_daf` were only constructed inside the non-`indirect_col`
+   branch, so calling `split_where(..., indirect_col=...)` raised UnboundLocalError on the final
+   `return true_daf, false_daf` -- the rows were correctly collected into true_lol/false_lol in both
+   branches, just never wrapped into Daf instances when indirect_col was used. Fixed by moving the Daf
+   construction after both branches, so it always runs.
+
+### Fixed (daf.py: replace_in_columns)
+- Fixed replace_in_columns(cols=None, ...): the keyfield-invalidation check at the end did
+   `self.keyfield in cols`, but `cols` is the original parameter (which is None in the documented
+   "process the entire array" case) -- not the already-resolved `target_indices` list -- raising
+   `TypeError: argument of type 'NoneType' is not iterable`. Separately, even when cols was provided,
+   this comparison checked a column *name* string against a list of column *indices*, which could never
+   match. Fixed by checking the keyfield's own resolved column index against target_indices instead
+   (preserving the original conservative "always invalidate" behavior for composite/tuple keyfields).
+- Fixed replace_in_columns(): `replacement: Any = _MISSING` is a sentinel meant to detect whether the
+   caller passed an explicit value (the same pattern already used correctly by `_to_pandas_df`'s
+   `default: Any = _MISSING` parameter), but nothing in this function ever checked for it -- so omitting
+   `replacement` (which the signature makes look optional) silently wrote the literal `_MISSING` sentinel
+   object into the caller's data wherever a match was found, rather than raising a clear error. Fixed by
+   raising ValueError if `replacement is _MISSING`.
+
+### Added (daf.py: from_directory)
+- Added pytest test coverage for from_directory() using pytest's tmp_path fixture (real files/
+   directories on disk): recursive harvesting, field population, file_pat filtering, empty
+   directories, and custom schema support. As a side effect, this also substantially increased
+   coverage of daf_schema.py (12% -> 23%) and schemaclass.py (0% -> 70%), since from_directory()
+   exercises the @schemaclass machinery directly.
+
+### Fixed (daf.py: from_directory)
+- Removed a stray `, 3` argument from a `print()` call (leftover from a logs.sts(msg, 3)-style call
+   that was swapped to plain print() without removing the verbosity-level argument); it was being
+   printed as a literal trailing "3" on every call.
+- Fixed from_directory(recursive=False): os.listdir() returns subdirectory names alongside file
+   names, and the non-recursive code path didn't distinguish them (unlike os.walk(), used in the
+   recursive=True path, which already separates dirnames from filenames) -- so a subdirectory could
+   show up as a row as if it were a file. Fixed by filtering out directory entries via
+   os.path.isdir() before processing, matching os.walk()'s existing behavior of only ever yielding
+   files (never bare directory entries) as rows in either mode. This also resolves the related
+   confusion around `is_dir` being hardcoded to `0`: since directories are now never turned into rows
+   in either mode, that hardcoded value is now actually consistent in both.
+
+### Added (daf.py: long tail of smaller methods)
+- Added pytest test coverage for the remaining smaller methods/properties: retmode/itermode,
+   __contains__/__str__/__repr__/__format__, isin, to_value, to_klist, to_json, extend, drop_cols,
+   set_cols, flatten, keys, select_where, dict_to_md, set_keyfield, _rebuild_kd/_build_kd/
+   _get_keyval, update_row, diff_da, sum, the valuecounts_for_* family, set_icol/set_icol_irows/
+   set_col_irows, apply_to_col, iloc, and the DafIterator/_IndirectRowView helper classes
+   (daf.py: 83% -> 87%).
+
+### Fixed (daf.py: long tail of smaller methods)
+- Fixed keys(astype='view') with no keyfield set: `().keys()` doesn't exist (`()` is an empty
+   tuple, not a dict), raising AttributeError. Fixed to use `{}.keys()`.
+- Fixed drop_cols(): crashed with AttributeError when self.dtypes was None (the normal default for
+   a Daf with no dtypes specified), since it unconditionally called `self.dtypes.items()`.
+   Separately, even with dtypes populated, the filter condition was inverted and assumed
+   self.dtypes's iteration order exactly matched self.hd's column order -- confirmed via direct
+   testing that this kept the dtype of the column being *dropped* while discarding dtypes for the
+   columns actually being kept. Fixed by filtering self.dtypes by column *name* against the
+   retained columns, which is both correct and avoids the fragile positional-ordering assumption.
+- Fixed _IndirectRowView.values()/items(): using `yield` later in the function body makes the
+   whole function a generator (regardless of any earlier `return`), so `return self.row.values()`
+   in the no-indirect-col branch was silently discarded -- calling a generator function always
+   returns a generator object immediately, and `return <value>` inside one just ends iteration
+   without producing a usable value, rather than evaluating that branch's intended return value.
+   Fixed by using generator expressions for the indirect-col case instead of `yield` statements,
+   so the early `return` actually works.
+- Fixed set_keyfield(''): the `if not keyfield:` reset branch set `self.keyfield = ''` but didn't
+   return immediately, falling through to `_is_keyfield_valid('')`, which evaluates `'' in self.hd`
+   -- always False, treated as an invalid keyfield. So resetting the keyfield with
+   silent_error=False raised KeyError unexpectedly, even though resetting to empty is the
+   documented, valid "disable key lookups" case. Fixed by returning immediately after the reset.
+- Fixed apply_to_col(): `self[:, col]` returns a Daf (a single-column sub-table), and iterating a
+   Daf yields row dicts, not raw cell values -- so `map(func, self[:, col])` was calling `func`
+   with a dict (e.g. `{'a': 1}`) instead of the actual value, raising TypeError for any numeric
+   function. Fixed to use `self.col(col)` instead, which correctly returns a flat list of values.
+- Fixed iloc(rtype='list'): called `self.to_list(irow=..., icol=...)`, but `to_list()`'s irow/icol
+   parameters were removed in a prior refactor (left as "(removed)" in to_list()'s own docstring,
+   with no commensurate update to this call site), raising TypeError. Fixed to return
+   `list(self.lol[irow])` directly, consistent with how the dict/klist rtype branches each return
+   the row in a different shape without needing to round-trip through a separate method.
+
 ---
 
 ## [0.5.12] - (pending)
