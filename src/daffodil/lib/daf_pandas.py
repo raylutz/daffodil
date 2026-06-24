@@ -213,7 +213,7 @@ def pandas_dtype_dict_to_python(pandas_dtype_dict: Any) -> Optional[Any]:
 
         else:
             print(f"Unknown Pandas dtype for column '{colname}': {pandas_dtype}")
-            breakpoint()
+            breakpoint() #perm
 
     return python_dtype_dict
 
@@ -289,8 +289,15 @@ def pandas_dtype_to_python_type(dtype: Any) -> type:
             return str
 
     # --- numpy / pandas numeric + datetime handling ---
+    # NOTE: np.timedelta64 MUST be checked before np.integer. numpy considers timedelta64 a
+    # subtype of integer (it's stored internally as an integer count of time units, e.g.
+    # nanoseconds), so np.issubdtype(timedelta64_dtype, np.integer) returns True. If the integer
+    # check were moved above this one, every timedelta64 column would be silently misclassified
+    # as int instead of pd.Timedelta. (datetime64 does not have this issue -- only timedelta64.)
     try:
-        if np.issubdtype(dtype, np.integer):
+        if np.issubdtype(dtype, np.timedelta64):
+            return pd.Timedelta
+        elif np.issubdtype(dtype, np.integer):
             return int
         elif np.issubdtype(dtype, np.floating):
             return float
@@ -298,8 +305,6 @@ def pandas_dtype_to_python_type(dtype: Any) -> type:
             return bool
         elif np.issubdtype(dtype, np.datetime64):
             return pd.Timestamp
-        elif np.issubdtype(dtype, np.timedelta64):
-            return pd.Timedelta
     except TypeError:
         pass
 

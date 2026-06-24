@@ -118,6 +118,76 @@ all prior releases. Plans for future moved to ROADMAP.md.
    the first `num_rows` (default 3) rows via repeated next(reader) calls to estimate max column count --
    raises an uncaught StopIteration if the CSV has fewer than num_rows rows total. The function's own
    docstring already flags it as "@@TODO -- should be DEPRECATED".
+- insert_irow(): if `row` is neither a list nor dict (including the default row=None), `row_la` is never
+   assigned before use, raising UnboundLocalError. Intended None-row semantics not yet decided.
+- append(): the dedicated KeyedList fast-path (`if self.hd == data_item.hd: lol.append(values())`) is
+   unreachable -- the preceding `isinstance(data_item, (dict, KeyedList))` check already intercepts every
+   KeyedList first, routing it through the slower generic record_append() path instead. Not a correctness
+   bug (record_append() handles KeyedList correctly too via its own dedicated branch), just a missed
+   optimization. May be related to recently-added dict-like operations on KeyedList; needs investigation
+   before deciding whether the dedicated branch is still needed at all.
+
+### Added (daf_pandas.py / daf.py)
+- Added pytest test coverage for daf_pandas.py's standalone dtype-mapping helpers (57% -> 95%):
+   pandas_dtype_to_python_type, python_dtype_to_pandas, pandas_dtype_dict_to_python,
+   dtypes_dict_from_dataframe, and the use_csv=True + default= combination in _to_pandas_df.
+- Added pytest test coverage for daf.py's construction/I-O cluster: __init__, copy, from_lot,
+   set_dtypes/apply_dtypes, append/_basic_append, insert_dif_row, insert_irow's working paths, and the
+   full CSV I/O round trip (from_csv for local/HTTP/S3 sources via mocking, from_csv_file, to_csv_file,
+   to_csv_buff, buff_to_file). This batch also serves as an integration-level confirmation of the
+   buff_csv_to_lol() streaming fix above, exercised through Daf.from_csv()'s actual HTTP/S3 generator path.
+
+### Fixed (daf_pandas.py)
+- Fixed pandas_dtype_to_python_type(): checked np.integer before np.timedelta64, but numpy considers
+   timedelta64 a subtype of integer (it's stored internally as an integer count of time units), so every
+   timedelta64[ns] column was silently misclassified as int instead of pd.Timedelta. Fixed by checking
+   np.timedelta64 first; added a comment explaining why the order matters, to prevent future regression.
+- Marked the "Unknown Pandas dtype" fallback breakpoint() in pandas_dtype_dict_to_python() as `#perm`
+   (a deliberate diagnostic tripwire that should never fire, but needs visibility if it ever does).
+
+### Changed (daf.py)
+- Commented out (not deleted) daf_sum2()/daf_sum3() and the sum_da2()/sum_da3() functions they called:
+   investigatory variants used to find out why daf_sum() (sum_da) was slow. The key finding -- comparing
+   `value == ''` instead of `value is NULL` made the loop take ~10x longer, since Python implements '' as
+   a singleton (like None), so the very fast `is` comparison works -- was already adopted into sum_da()
+   and other NULL comparisons throughout daf.py. Preserved as a commented-out record of that
+   investigation/finding for future reference, rather than deleted.
+
+### Added (daf.py: __setitem__ / set_irows_icols)
+- Added pytest test coverage for set_irows_icols() (the engine behind Daf.__setitem__ /
+   `daf[irows, icols] = value`) across all its branches: single row/col, single row/no col, multi-row/no
+   col, multi-row/single col, and multi-row/multi-col, each for scalar/list/dict value types.
+
+### Fixed (daf.py: __setitem__ / set_irows_icols)
+- Fixed set_irows_icols(): in three of its four `isinstance(value, (list, Iterable))` checks, a `dict`
+   value was being silently swallowed by the broader Iterable check (dict is itself Iterable, just not a
+   Sequence) before ever reaching its own dedicated `elif isinstance(value, dict):` branch below it. This
+   caused two distinct symptoms depending on which branch was hit:
+   - Multi-row, no column selection (e.g. `daf[[0,1],:] = {...}`): silent data corruption -- the dict
+      object itself was assigned as a row's raw content (`self.lol[irow] = value`) instead of being
+      mapped to columns via assign_record_irow().
+   - Multi-row, multi-column (e.g. `daf[[0,1],[0,1]] = {...}`): integer-indexed lookup into the dict
+      raised KeyError, caught by a bare `except Exception:`, which hit a `breakpoint() #perm ok` tripwire
+      -- hanging indefinitely in any non-interactive context (scripts, tests, production).
+   A fourth branch (multi-row, single column) had its dict-handling entirely commented out, meaning a
+   dict value there hit the exact same hang via the same root cause.
+   Fixed by (a) reordering every branch to check `isinstance(value, dict)` first, and (b) replacing the
+   overly-broad `Iterable` check with `collections.abc.Sequence`, which correctly excludes dict, set, and
+   generators while still covering list/tuple/range. The fourth branch's dict-handling was uncommented
+   and given the same fix. The `#perm` breakpoint tripwires were left in place (per project convention,
+   they remain valuable for catching genuinely unexpected cases) -- they're simply no longer reachable
+   via this particular (now-fixed) misrouting.
+
+### Known issues found, not yet fixed (added to the list above)
+- set_irows_icols()'s `elif isinstance(value, type(self)):` branches (assigning a whole Daf as the
+   value) appear to have pre-existing correctness problems independent of the dict/Sequence fix above:
+   indexing a Daf by a single int (e.g. `value[source_row]`) returns a wrapped single-row Daf object, not
+   a plain list of values, so `self.lol[irow] = value[source_row]` stores a Daf object as row content
+   rather than its values. In the multi-row/multi-col branch the indexing also appears semantically
+   inverted: `value[source_col]` uses a column-position index to select a *row* out of the Daf value
+   (since indexing by a single int selects a row), which doesn't correspond to "the value for this
+   column" at all. Not yet fixed -- needs a decision on what assigning a whole Daf as a __setitem__
+   value is actually supposed to mean in each branch before attempting a fix.
 
 ---
 

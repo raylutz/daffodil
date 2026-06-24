@@ -3475,7 +3475,7 @@ class Daf:
 
             if isinstance(value, dict):
                 self.assign_record_irow(irow, record=value)
-            elif isinstance(value, (list, Iterable)) and len(value) == 1:
+            elif isinstance(value, (list, Sequence)) and len(value) == 1:
                 # frequently, we will have a list generated from a selection of a column, and it it has only one value
                 # it needs to be entered in the array location, but not as a list.
                 # place a list with only one item in a cell can't be done this way:
@@ -3488,12 +3488,12 @@ class Daf:
 
         elif num_irows > 1 and num_icols == 0:
 
-            if isinstance(value, (list, Iterable)):
-                for irow in irows:
-                    self.lol[irow] = value
-            elif isinstance(value, dict):
+            if isinstance(value, dict):
                 for irow in irows:
                     self.assign_record_irow(irow, record=value)
+            elif isinstance(value, (list, Sequence)):
+                for irow in irows:
+                    self.lol[irow] = value
             elif isinstance(value, type(self)):
                 for source_row, irow in enumerate(irows):
                     self.lol[irow] = value[source_row]
@@ -3509,7 +3509,12 @@ class Daf:
             if irows is None:
                 irows = range(len(self.lol))
 
-            if isinstance(value, (list, Iterable)):
+            if isinstance(value, dict):
+                # this is the same as cols=0 bc dict updates the corresponding cols.
+                for irow in irows:
+                    self.assign_record_irow(irow, record=value)
+
+            elif isinstance(value, (list, Sequence)):
                 for source_idx, irow in enumerate(irows):
 
                     try:
@@ -3517,11 +3522,6 @@ class Daf:
                     except Exception:
                         breakpoint() #perm ok
                         pass # size of column being does not match number of rows.
-
-            # elif isinstance(value, dict):
-                # # this is the same as cols=0 bc dict updates the corresponding cols.
-                # for irow in irows:
-                    # self.assign_record_irow(irow, record=value)
 
             elif isinstance(value, type(self)):
                 for source_idx, irow in enumerate(irows):
@@ -3535,18 +3535,18 @@ class Daf:
             if irows is None:
                 irows = range(len(self.lol))
 
-            if isinstance(value, (list, Iterable)):
+            if isinstance(value, dict):
+                # this is the same as cols=0 bc dict updates the corresponding cols.
+                for irow in irows:
+                    self.assign_record_irow(irow, record=value)
+
+            elif isinstance(value, (list, Sequence)):
                 for irow in irows:
                     for source_col, icol in enumerate(icols):
                         try:
                             self.lol[irow][icol] = value[source_col]
                         except Exception:
                             breakpoint() #perm ok
-
-            elif isinstance(value, dict):
-                # this is the same as cols=0 bc dict updates the corresponding cols.
-                for irow in irows:
-                    self.assign_record_irow(irow, record=value)
 
             elif isinstance(value, type(self)):
                 for irow in irows:
@@ -6435,26 +6435,33 @@ class Daf:
     #===================================
     # apply / reduce convenience methods
 
-    def daf_sum2(
-            self,
-            by: str = 'row',
-            cols: Optional[T_la]=None,
-            **kwargs: Any,
-            ) -> T_da:
-        # this one to investigate why daf_sum is so slow!
-
-        return self.reduce(func=Daf.sum_da2, by=by, cols=cols, **kwargs)
-
-
-    def daf_sum3(
-            self,
-            by: str = 'row',
-            cols: Optional[T_la]=None,
-            **kwargs: Any,
-            ) -> T_da:
-        # this one to investigate why daf_sum is so slow!
-
-        return self.reduce(func=Daf.sum_da3, by=by, cols=cols, **kwargs)
+    # daf_sum2 / daf_sum3 (and the sum_da2 / sum_da3 functions they called) were investigatory
+    # variants used to find out why daf_sum() (sum_da) was slow. The key finding: comparing
+    # `value == ''` instead of `value is NULL` made the loop take ~10x longer -- Python implements
+    # '' as a singleton (like None), so the very fast `is` comparison works and was adopted into
+    # sum_da and other NULL comparisons throughout daf.py. Commented out rather than deleted, as
+    # a record of that investigation/finding for future reference.
+    #
+    # def daf_sum2(
+    #         self,
+    #         by: str = 'row',
+    #         cols: Optional[T_la]=None,
+    #         **kwargs: Any,
+    #         ) -> T_da:
+    #     # this one to investigate why daf_sum is so slow!
+    #
+    #     return self.reduce(func=Daf.sum_da2, by=by, cols=cols, **kwargs)
+    #
+    #
+    # def daf_sum3(
+    #         self,
+    #         by: str = 'row',
+    #         cols: Optional[T_la]=None,
+    #         **kwargs: Any,
+    #         ) -> T_da:
+    #     # this one to investigate why daf_sum is so slow!
+    #
+    #     return self.reduce(func=Daf.sum_da3, by=by, cols=cols, **kwargs)
 
 
     # def reduce2(
@@ -6785,206 +6792,212 @@ class Daf:
             return reduction_da
 
 
-    @staticmethod
-    def sum_da2(row_da: T_da,                   # the current row from the daf array.
-                accum_da: T_da,                 # an accumulated result. Must be initialized for all columns in cols.
-                cols: Iterable,                 # defines the active columns. Can be a list, keys(), range, or slice
-                astype: Optional[Type]=None,    # a type like int, float, str to cast the value if it is not that type. Optional.
-                diagnose:bool=False
-                ) -> T_da:     # result_da
-        """ sum values in row and accum dicts per colunms provided.
-            will safely skip data that can't be summed.
-        """
+    # sum_da2 / sum_da3 -- investigatory variants used to find out why daf_sum() (sum_da) was
+    # slow. The key finding: comparing `value == ''` instead of `value is NULL` made the loop
+    # take ~10x longer -- Python implements '' as a singleton (like None), so the very fast
+    # `is` comparison works and was adopted into sum_da and other NULL comparisons throughout
+    # daf.py. Commented out rather than deleted, as a record of that investigation/finding.
 
-        diagnose = diagnose
-        # nan_indicator = ''
+#     @staticmethod
+#     def sum_da2(row_da: T_da,                   # the current row from the daf array.
+#                 accum_da: T_da,                 # an accumulated result. Must be initialized for all columns in cols.
+#                 cols: Iterable,                 # defines the active columns. Can be a list, keys(), range, or slice
+#                 astype: Optional[Type]=None,    # a type like int, float, str to cast the value if it is not that type. Optional.
+#                 diagnose:bool=False
+#                 ) -> T_da:     # result_da
+#         """ sum values in row and accum dicts per colunms provided.
+#             will safely skip data that can't be summed.
+#         """
 
-        # for col, value in row_da.items():       # doing it this way requires a check for existence in each loop.
-            # if col not in cols:                 # this check is not needed in the version below.
-                # continue                        # 251 vs 207.
+#         diagnose = diagnose
+#         # nan_indicator = ''
 
-        for col in cols:
+#         # for col, value in row_da.items():       # doing it this way requires a check for existence in each loop.
+#             # if col not in cols:                 # this check is not needed in the version below.
+#                 # continue                        # 251 vs 207.
 
-            value = row_da[col]
-            #if value == nan_indicator:        # this makes the loop take 10x longer (2162) (1044% of original)
-            # if isinstance(value, str):        # this makes the loop take 42% longer (294)
-            # if isinstance(value, str) and value == '':  # same (294)
-            # if value is None or isinstance(value, str) and not value:     (350) vs 207 = 69% longer
-            if value == '':                     # this makes the loop take 10x longer (2105) (1044% of original)
-            # if isinstance(value, str) and not value:    # this makes the loop take 50% longer (305)
-                continue
+#         for col in cols:
 
-            # the try/except below is the most time efficient way to handle this while still
-            # allowing for astype and nan values. (212 ms for 1000x1000 array)
-            # Please note that the cols value is determined
-            # prior to entering the function and must contain an iterable, even if all columns
-            # are specified.
+#             value = row_da[col]
+#             #if value == nan_indicator:        # this makes the loop take 10x longer (2162) (1044% of original)
+#             # if isinstance(value, str):        # this makes the loop take 42% longer (294)
+#             # if isinstance(value, str) and value == '':  # same (294)
+#             # if value is None or isinstance(value, str) and not value:     (350) vs 207 = 69% longer
+#             if value == '':                     # this makes the loop take 10x longer (2105) (1044% of original)
+#             # if isinstance(value, str) and not value:    # this makes the loop take 50% longer (305)
+#                 continue
 
-            # writing this loop the other way around, by going through all columns and skipping those not
-            # mentioned in cols is also very inefficient.
+#             # the try/except below is the most time efficient way to handle this while still
+#             # allowing for astype and nan values. (212 ms for 1000x1000 array)
+#             # Please note that the cols value is determined
+#             # prior to entering the function and must contain an iterable, even if all columns
+#             # are specified.
 
-            # 213 for the version below, which seems like it should be fastest.
-            # but it is slightly less advantageous because initial assignment is inside the try/except block.
+#             # writing this loop the other way around, by going through all columns and skipping those not
+#             # mentioned in cols is also very inefficient.
 
-            # try:
-                # if astype:
-                    # value = row_da[col]
-                    # if astype==int and isinstance(value, (str, float, bool)):
-                        # value = int(float(value))
-                    # elif astype==float and isinstance(value, (str, int, bool)):
-                        # value = float(value)
-                    # elif astype==str and isinstance(value, (float, int, bool)):
-                        # value = str(value)
-                    # accum_da[col] += value
-                # else:
-                    # accum_da[col] += row_da[col]
-            # except Exception:
-                # continue
+#             # 213 for the version below, which seems like it should be fastest.
+#             # but it is slightly less advantageous because initial assignment is inside the try/except block.
 
-            # this one measured at 230
-            # value = row_da[col]
-            # try:
-                # if astype:
-                    # if astype==int and isinstance(value, (str, float, bool)):
-                        # value = int(float(value))
-                    # elif astype==float and isinstance(value, (str, int, bool)):
-                        # value = float(value)
-                    # elif astype==str and isinstance(value, (float, int, bool)):
-                        # value = str(value)
+#             # try:
+#                 # if astype:
+#                     # value = row_da[col]
+#                     # if astype==int and isinstance(value, (str, float, bool)):
+#                         # value = int(float(value))
+#                     # elif astype==float and isinstance(value, (str, int, bool)):
+#                         # value = float(value)
+#                     # elif astype==str and isinstance(value, (float, int, bool)):
+#                         # value = str(value)
+#                     # accum_da[col] += value
+#                 # else:
+#                     # accum_da[col] += row_da[col]
+#             # except Exception:
+#                 # continue
 
-                # accum_da[col] += value
+#             # this one measured at 230
+#             # value = row_da[col]
+#             # try:
+#                 # if astype:
+#                     # if astype==int and isinstance(value, (str, float, bool)):
+#                         # value = int(float(value))
+#                     # elif astype==float and isinstance(value, (str, int, bool)):
+#                         # value = float(value)
+#                     # elif astype==str and isinstance(value, (float, int, bool)):
+#                         # value = str(value)
 
-            # except Exception:
-                # continue
+#                 # accum_da[col] += value
 
-            # this one measured at 209 with all cols and no astype.
-            if astype:
-                try:
-                    if astype is int and isinstance(value, (str, float, bool)):
-                        value = int(float(value))
-                    elif astype is float and isinstance(value, (str, int, bool)):
-                        value = float(value)
-                    elif astype is str and isinstance(value, (float, int, bool)):
-                        value = str(value)
+#             # except Exception:
+#                 # continue
 
-                    accum_da[col] += value
+#             # this one measured at 209 with all cols and no astype.
+#             if astype:
+#                 try:
+#                     if astype is int and isinstance(value, (str, float, bool)):
+#                         value = int(float(value))
+#                     elif astype is float and isinstance(value, (str, int, bool)):
+#                         value = float(value)
+#                     elif astype is str and isinstance(value, (float, int, bool)):
+#                         value = str(value)
 
-                except Exception:
-                    continue
+#                     accum_da[col] += value
 
-            else:
-                try:
-                    accum_da[col] += value
+#                 except Exception:
+#                     continue
 
-                except Exception:
-                        continue
+#             else:
+#                 try:
+#                     accum_da[col] += value
 
-
-
-        return accum_da
-
-
-    @staticmethod
-    def sum_da3(row_da: T_da,                   # the current row from the daf array.
-                accum_da: T_da,                 # an accumulated result. Must be initialized for all columns in cols.
-                cols: Iterable,                 # defines the active columns. Can be a list, keys(), range, or slice
-                astype: Optional[Type]=None,    # a type like int, float, str to cast the value if it is not that type. Optional.
-                diagnose:bool=False
-                ) -> T_da:     # result_da
-        """ sum values in row and accum dicts per colunms provided.
-            will safely skip data that can't be summed.
-        """
-
-        diagnose = diagnose
-        #nan_indicator = ''
-
-        # for col, value in row_da.items():       # doing it this way requires a check for existence in each loop.
-            # if col not in cols:                 # this check is not needed in the version below.
-                # continue                        # 251 vs 207.
-
-        for col in cols:
-
-            value = row_da[col]
-            # if value == nan_indicator:        # this makes the loop take 10x longer (2162) (1044% of original)
-            # if isinstance(value, str):        # this makes the loop take 42% longer (294)
-            # if isinstance(value, str) and value == '':  # same (294)
-            # if value is None or isinstance(value, str) and not value:     (350) vs 207 = 69% longer
-            # if value == '':                     # this makes the loop take 10x longer (2105) (1044% of original)
-            # if isinstance(value, str) and not value:    # this makes the loop take 50% longer (305)
-            #     continue
-
-            if value is NULL:                   # about 10% faster than above.
-                continue
-
-            # the try/except below is the most time efficient way to handle this while still
-            # allowing for astype and nan values. (212 ms for 1000x1000 array)
-            # Please note that the cols value is determined
-            # prior to entering the function and must contain an iterable, even if all columns
-            # are specified.
-
-            # writing this loop the other way around, by going through all columns and skipping those not
-            # mentioned in cols is also very inefficient.
-
-            # 213 for the version below, which seems like it should be fastest.
-            # but it is slightly less advantageous because initial assignment is inside the try/except block.
-
-            # try:
-                # if astype:
-                    # value = row_da[col]
-                    # if astype==int and isinstance(value, (str, float, bool)):
-                        # value = int(float(value))
-                    # elif astype==float and isinstance(value, (str, int, bool)):
-                        # value = float(value)
-                    # elif astype==str and isinstance(value, (float, int, bool)):
-                        # value = str(value)
-                    # accum_da[col] += value
-                # else:
-                    # accum_da[col] += row_da[col]
-            # except Exception:
-                # continue
-
-            # this one measured at 230
-            # value = row_da[col]
-            # try:
-                # if astype:
-                    # if astype==int and isinstance(value, (str, float, bool)):
-                        # value = int(float(value))
-                    # elif astype==float and isinstance(value, (str, int, bool)):
-                        # value = float(value)
-                    # elif astype==str and isinstance(value, (float, int, bool)):
-                        # value = str(value)
-
-                # accum_da[col] += value
-
-            # except Exception:
-                # continue
-
-            # this one measured at 209 with all cols and no astype.
-            if astype:
-                # value = row_da[col]
-                try:
-                    if astype is int and isinstance(value, (str, float, bool)):
-                        value = int(float(value))
-                    elif astype is float and isinstance(value, (str, int, bool)):
-                        value = float(value)
-                    elif astype is str and isinstance(value, (float, int, bool)):
-                        value = str(value)
-
-                    accum_da[col] += value
-
-                except Exception:
-                    continue
-
-            else:
-                try:
-                    accum_da[col] += value
-
-                except Exception:
-                        continue
+#                 except Exception:
+#                         continue
 
 
 
-        return accum_da
+#         return accum_da
+
+
+#     @staticmethod
+#     def sum_da3(row_da: T_da,                   # the current row from the daf array.
+#                 accum_da: T_da,                 # an accumulated result. Must be initialized for all columns in cols.
+#                 cols: Iterable,                 # defines the active columns. Can be a list, keys(), range, or slice
+#                 astype: Optional[Type]=None,    # a type like int, float, str to cast the value if it is not that type. Optional.
+#                 diagnose:bool=False
+#                 ) -> T_da:     # result_da
+#         """ sum values in row and accum dicts per colunms provided.
+#             will safely skip data that can't be summed.
+#         """
+
+#         diagnose = diagnose
+#         #nan_indicator = ''
+
+#         # for col, value in row_da.items():       # doing it this way requires a check for existence in each loop.
+#             # if col not in cols:                 # this check is not needed in the version below.
+#                 # continue                        # 251 vs 207.
+
+#         for col in cols:
+
+#             value = row_da[col]
+#             # if value == nan_indicator:        # this makes the loop take 10x longer (2162) (1044% of original)
+#             # if isinstance(value, str):        # this makes the loop take 42% longer (294)
+#             # if isinstance(value, str) and value == '':  # same (294)
+#             # if value is None or isinstance(value, str) and not value:     (350) vs 207 = 69% longer
+#             # if value == '':                     # this makes the loop take 10x longer (2105) (1044% of original)
+#             # if isinstance(value, str) and not value:    # this makes the loop take 50% longer (305)
+#             #     continue
+
+#             if value is NULL:                   # about 10% faster than above.
+#                 continue
+
+#             # the try/except below is the most time efficient way to handle this while still
+#             # allowing for astype and nan values. (212 ms for 1000x1000 array)
+#             # Please note that the cols value is determined
+#             # prior to entering the function and must contain an iterable, even if all columns
+#             # are specified.
+
+#             # writing this loop the other way around, by going through all columns and skipping those not
+#             # mentioned in cols is also very inefficient.
+
+#             # 213 for the version below, which seems like it should be fastest.
+#             # but it is slightly less advantageous because initial assignment is inside the try/except block.
+
+#             # try:
+#                 # if astype:
+#                     # value = row_da[col]
+#                     # if astype==int and isinstance(value, (str, float, bool)):
+#                         # value = int(float(value))
+#                     # elif astype==float and isinstance(value, (str, int, bool)):
+#                         # value = float(value)
+#                     # elif astype==str and isinstance(value, (float, int, bool)):
+#                         # value = str(value)
+#                     # accum_da[col] += value
+#                 # else:
+#                     # accum_da[col] += row_da[col]
+#             # except Exception:
+#                 # continue
+
+#             # this one measured at 230
+#             # value = row_da[col]
+#             # try:
+#                 # if astype:
+#                     # if astype==int and isinstance(value, (str, float, bool)):
+#                         # value = int(float(value))
+#                     # elif astype==float and isinstance(value, (str, int, bool)):
+#                         # value = float(value)
+#                     # elif astype==str and isinstance(value, (float, int, bool)):
+#                         # value = str(value)
+
+#                 # accum_da[col] += value
+
+#             # except Exception:
+#                 # continue
+
+#             # this one measured at 209 with all cols and no astype.
+#             if astype:
+#                 # value = row_da[col]
+#                 try:
+#                     if astype is int and isinstance(value, (str, float, bool)):
+#                         value = int(float(value))
+#                     elif astype is float and isinstance(value, (str, int, bool)):
+#                         value = float(value)
+#                     elif astype is str and isinstance(value, (float, int, bool)):
+#                         value = str(value)
+
+#                     accum_da[col] += value
+
+#                 except Exception:
+#                     continue
+
+#             else:
+#                 try:
+#                     accum_da[col] += value
+
+#                 except Exception:
+#                         continue
+
+
+
+#         return accum_da
 
 
     def daf_valuecount(
