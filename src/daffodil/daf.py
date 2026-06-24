@@ -3757,21 +3757,25 @@ class Daf:
                         raise
 
 
-        elif isinstance(gkeys, slice):     # can be list of integer or strings (or anything hashable)
-            gkeys_range = range(gkeys.start or 0, gkeys.stop or len(keydict), gkeys.step or 1)
-            idxs = []
-            for gkey in gkeys_range:
-                # For the following, see https://github.com/raylutz/daffodil/issues/6
-                try:
-                    idxs.append(keydict[gkey])
-                except KeyError:
-                    if not silent_error:
-                        logs.sts(f"{logs.prog_loc()} Cannot find key '{gkey}' in {axis} in dataframe '{name}'", 3)
-                        raise
-                # if gkey in keydict:
-                    # idxs.append(keydict[gkey])
-                # elif not silent_error:
-                    # raise KeyError
+        elif isinstance(gkeys, slice):
+            # slice.start/.stop/.step are ordinal positions into keydict's current iteration
+            # order (same convention as integer indices elsewhere) -- NOT keys to look up.
+            # For arbitrary (e.g. string) keys there is no well-defined "next key" to support
+            # exclusive-stop slicing the way integer positions do; use the (start_key, stop_key)
+            # tuple form (inclusive of stop_key) for genuine key-range selection instead.
+            #
+            # Note: this branch is only reachable via the explicit select_krows()/select_kcols()
+            # method calls. The [] / __getitem__/__setitem__ syntax (_parse_selectors) routes ANY
+            # slice object straight to the plain-index path without ever calling krows_to_irows/
+            # kcols_to_icols/gkeys_to_idxs at all -- regardless of whether the slice's bounds are
+            # ints or strings. So `daf['a':'c']` does NOT do key-based slicing (it errors trying
+            # to use 'a'/'c' as literal list-slice bounds); only daf.select_krows(slice(...)) /
+            # daf.select_kcols(slice(...)) reach this code.
+            n = len(keydict)
+            start = gkeys.start if gkeys.start is not None else 0
+            stop  = gkeys.stop  if gkeys.stop  is not None else n
+            step  = gkeys.step  if gkeys.step  is not None else 1
+            idxs = slice(start, stop, step)
 
 
         if inverse:
@@ -3889,13 +3893,22 @@ class Daf:
                 except IndexError:
                     raise
             else:
-                row_sliced_lol.pop(irows)
+                # build a fresh list rather than mutating self.lol in place (row_sliced_lol was
+                # an alias for self.lol, so .pop() here previously destructively removed the row
+                # from the original Daf too). Normalize negative indices the way list.pop() does.
+                actual_idx = irows if irows >= 0 else len(self.lol) + irows
+                row_sliced_lol = [row for i, row in enumerate(self.lol) if i != actual_idx]
 
         elif irows and isinstance(irows, list):
 
             if daf_utils.is_list_of_type(irows, int):
                 if not invert:
-                    if len(irows) == len(self.lol):
+                    # short-circuits on the first mismatch rather than materializing/comparing
+                    # two full-length lists, so a non-natural-order irows (the common case)
+                    # bails out almost immediately rather than doing O(num_rows) work regardless
+                    # -- matters for large arrays (e.g. 500K+ rows) where this check needs to
+                    # stay cheap even when it doesn't end up taking the fast path.
+                    if len(irows) == len(self.lol) and all(irow == i for i, irow in enumerate(irows)):
                         row_sliced_lol = self.lol
                     else:
                         row_sliced_lol = [self.lol[i] for i in irows]
@@ -3924,7 +3937,8 @@ class Daf:
             if not invert:
                 row_sliced_lol = self.lol[slice_spec]
             else:
-                row_sliced_lol = [self.lol[i] for i in range(len(self.lol)) if i not in slice_spec]
+                slice_range = daf_utils.slice_to_range(slice_spec, len(self.lol))
+                row_sliced_lol = [self.lol[i] for i in range(len(self.lol)) if i not in slice_range]
 
         new_daf = self.clone_empty(lol=row_sliced_lol)
 
@@ -4006,7 +4020,10 @@ class Daf:
             # list of integers or range
             if not flip:
                 try:
-                    if (self.num_cols == len(icols)):
+                    # short-circuits on the first mismatch rather than materializing/comparing
+                    # two full-length lists, so a non-natural-order icols (the common case)
+                    # bails out almost immediately rather than doing O(num_cols) work regardless.
+                    if len(icols) == self.num_cols() and all(icol == i for i, icol in enumerate(icols)):
                         col_sliced_lol = self.lol
                     elif len(icols) == 0:
                         col_sliced_lol = []

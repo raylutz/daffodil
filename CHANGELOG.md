@@ -189,6 +189,58 @@ all prior releases. Plans for future moved to ROADMAP.md.
    column" at all. Not yet fixed -- needs a decision on what assigning a whole Daf as a __setitem__
    value is actually supposed to mean in each branch before attempting a fix.
 
+### Added (daf.py: select_irows / select_icols / gkeys_to_idxs / col_to_la)
+- Added pytest test coverage for select_irows(), select_icols(), gkeys_to_idxs() (and its
+   krows_to_irows()/kcols_to_icols()/select_krows()/select_kcols() callers), and col_to_la().
+
+### Fixed (daf.py: select_irows)
+- Fixed select_irows(int, invert=True): `row_sliced_lol = self.lol` (not a copy) followed by
+   `row_sliced_lol.pop(irows)` was destructively mutating the *original* Daf's lol in place --
+   contradicting the function's own documented contract of being a non-mutating selection that returns
+   a new instance. Fixed to build a fresh filtered list instead, correctly handling negative indices the
+   way `list.pop()` does.
+- Fixed select_irows(slice(...), invert=True): raised `TypeError: argument of type 'slice' is not
+   iterable`, since a raw slice object doesn't support membership testing (`in`). Fixed by converting the
+   slice to a range via daf_utils.slice_to_range() first.
+- Fixed select_irows()'s list-of-ints fast path: `if len(irows) == len(self.lol): row_sliced_lol =
+   self.lol` silently ignored reordering or repeated-index selections that happened to be the same
+   length as the original (e.g. `select_irows([2,0,1])` returned rows unchanged instead of reordered).
+   Fixed with a short-circuiting natural-order check (`all(irow == i for i, irow in enumerate(irows))`)
+   that bails out on the first mismatch rather than doing full-length work regardless -- chosen
+   specifically to stay cheap for large arrays (e.g. 500K+ rows) in the common case where the fast path
+   doesn't apply.
+
+### Fixed (daf.py: select_icols)
+- Fixed select_icols(): `self.num_cols` was missing `()` (comparing a bound method object to an int,
+   always False), making the analogous "selecting all columns, reuse self.lol directly" fast path
+   permanently dead. Naively adding `()` alone would have introduced a *new* correctness bug (confirmed
+   via direct testing): a same-length but reordered or repeated-index `icols` selection would then
+   silently return data unchanged while still correctly reordering the column *labels* -- a label/data
+   mismatch worse than the original dead code. Fixed with the same short-circuiting natural-order check
+   as select_irows() above, which is correct for both possible cases.
+
+### Fixed (daf.py: gkeys_to_idxs)
+- Fixed gkeys_to_idxs()'s slice branch: previously built `range(gkeys.start or 0, gkeys.stop or
+   len(keydict), ...)` and then looked up each resulting ordinal position *as if it were itself a key* in
+   keydict (`keydict[gkey]`) -- which only coincidentally worked if keydict's keys happened to be the
+   identity mapping `{0:0, 1:1, ...}`; for any realistic keydict (string keys, or non-sequential int
+   keys) this raised KeyError immediately, including for plain numeric slices like `slice(0, 2)`.
+   Clarified semantics: slice.start/.stop/.step are ordinal positions into keydict's iteration order (the
+   same convention integer indices use elsewhere), never keys to look up -- for arbitrary keys there is
+   no well-defined "next key" to support exclusive-stop slicing the way integer positions do, which is
+   exactly why the existing `(start_key, stop_key)` tuple form (inclusive of stop_key) exists as the
+   correct mechanism for genuine key-range selection. Fixed by treating slice bounds as plain ordinal
+   positions (filling in 0/len(keydict)/1 defaults) and returning a `slice` object directly, mirroring
+   how the Tuple branch already builds and returns a `slice`.
+   Also documented (via comment) an architectural finding from tracing this function's callers: this
+   slice branch is only reachable via the explicit select_krows()/select_kcols() method calls -- the
+   `daf[...]` / `__getitem__`/`__setitem__` `[]` syntax (_parse_selectors) routes ANY slice object
+   straight to the plain-index path without ever calling krows_to_irows()/kcols_to_icols()/
+   gkeys_to_idxs() at all, regardless of whether the slice's bounds are ints or strings. So
+   `daf['a':'c']` does not perform key-based slicing via `[]` (it errors trying to use the strings as
+   literal list-slice bounds) -- only `daf.select_krows(slice(...))`/`daf.select_kcols(slice(...))`
+   reach this code path.
+
 ---
 
 ## [0.5.12] - (pending)
