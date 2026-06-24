@@ -6597,7 +6597,7 @@ class Daf:
             else:
                 cols_iter = {col: None for col in self.hd.keys() if col in cols}
 
-            if initial_da:
+            if initial_da is not None:
                 reduction_ma = initial_da
             else:
                 reduction_ma = dict.fromkeys(cols_iter, 0)

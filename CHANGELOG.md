@@ -241,6 +241,24 @@ all prior releases. Plans for future moved to ROADMAP.md.
    literal list-slice bounds) -- only `daf.select_krows(slice(...))`/`daf.select_kcols(slice(...))`
    reach this code path.
 
+### Added (daf.py: reduction operations)
+- Added pytest test coverage for the reduction operations cluster: reduce(), sum_da(),
+   count_values_da(), groupby(), groupby_cols(), groupby_reduce(), multi_groupby(),
+   multi_groupby_reduce().
+
+### Fixed (daf.py: reduce)
+- Fixed reduce(by='row')'s default accumulator initialization: `if initial_da:` treated an
+   explicitly-passed empty dict (`initial_da={}`) as falsy, silently overriding it with
+   `dict.fromkeys(cols_iter, 0)` regardless. That default is itself sum_da-specific (0 is the correct
+   additive identity for summing) and is incompatible with reduction functions needing a dict-based
+   accumulator, such as count_values_da() -- whose own docstring example demonstrates exactly this usage
+   (`my_daf.reduce(count_values_da, value_counts_dodi, cols_of_interest, ...)`, though that particular
+   example is itself stale relative to reduce()'s current positional signature). The combination meant
+   even the documented workaround (passing an explicit empty dict) silently failed, raising
+   `AttributeError: 'int' object has no attribute 'get'` from inside sum_da() when count_values_da()
+   tried to merge a dict-valued column against the leftover `0`. Fixed by checking
+   `if initial_da is not None:` instead, so an explicitly-passed empty dict is honored.
+
 ---
 
 ## [0.5.12] - (pending)
