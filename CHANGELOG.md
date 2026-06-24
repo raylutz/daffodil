@@ -65,6 +65,50 @@ all prior releases. Plans for future moved to ROADMAP.md.
    safe_max()/safe_min(), notice_beep(), validate_json_with_error_details(), slice_to_list() from
    daf_utils.py -- confirmed unreachable from any production code path via reachability analysis.
 
+### Added (continued)
+- Added pytest test coverage for the remainder of daf_utils.py (60% -> 90%), including the CSV/header
+   data-munging cluster (profile_ls_to_lr, is_comment_line, make_strbool/test_strbool, unexcelstringify,
+   precheck_csv_cols, get_csv_column_names), the dtype-coercion cluster (convert_type_value, astype_value,
+   unflatten_val, str2bool, is_numeric, safe_eval, json_decode, safe_convert_json_to_obj, json_encode,
+   NpEncoder), lol manipulation helpers, the list_stats family, smart_fmt, logging/misc helpers, slice/
+   range/path/s3 helpers, buff_csv_to_lol, xlsx_to_csv, compare_lists, and several smaller helpers.
+- Added `_filter_comment_lines()`: a lazy, quote-aware, streaming-compatible comment/blank-line filter
+   for CSV input, used by buff_csv_to_lol() when user_format=True (default mode). Tracks open quoted
+   fields (counting `"` per line) so an embedded newline inside a quoted field -- which could otherwise
+   look like a standalone comment/blank line -- is never misclassified and stripped.
+- Added `strict_comment_filter` parameter to buff_csv_to_lol() (default False): opts into the older,
+   rigorous-but-non-streaming preprocess_csv_buff() behavior when needed; raises a clear ValueError if
+   used with non-str/bytes input, since that path cannot be streaming-compatible.
+
+### Changed (continued)
+- buff_csv_to_lol()'s user_format=True comment-filtering is now streaming-compatible by default (see
+   _filter_comment_lines() above), rather than requiring the full buffer to be materialized up front.
+- beep(): fixed inverted is_linux() condition that caused it to silently no-op on actual Linux; now
+   emits the terminal bell character on Linux (no external `beep` package dependency) and continues to
+   use winsound/os.system('beep ...') on Windows/other, for this dev-only diagnostic helper.
+
+### Fixed (continued)
+- Fixed buff_csv_to_lol()'s Iterator branch (text_line_generator/byte_line_generator): both reused the
+   name `buff` for the closure's captured free variable and the reassignment target, which (due to
+   Python's late-binding closures) caused the generators to yield from themselves, raising
+   'ValueError: generator already executing'. This broke Daf.from_csv() for http(s):// and s3:// sources,
+   both of which pass a real generator through this exact path -- not merely a theoretical/unused
+   capability. Fixed by capturing the original iterator under a distinct name before reassignment.
+- Fixed safe_regex_replace(): its own type hint allows `regex` to be passed as a list of patterns
+   directly, but `.strip('"')` was called unconditionally before checking for list input, crashing with
+   AttributeError on real list input. Fixed by checking the type first.
+
+### Known issues found, not yet fixed (flagged for a future round)
+- write_buff_to_fp(): `s3path` is only assigned inside the `if buff:` block, but the `else` branch
+   (taken when buff is falsy/empty) references it, raising UnboundLocalError.
+- write_buff_to_fp()'s s3 branch does `from . import s3utils`, but daffodil.lib.s3utils does not exist
+   anywhere in this package (likely left over from the AuditEngine migration, where it presumably did
+   exist as a module with this name).
+- add_trailing_columns_csv() (used by xlsx_to_csv()'s default add_trailing_blank_cols=True path) samples
+   the first `num_rows` (default 3) rows via repeated next(reader) calls to estimate max column count --
+   raises an uncaught StopIteration if the CSV has fewer than num_rows rows total. The function's own
+   docstring already flags it as "@@TODO -- should be DEPRECATED".
+
 ---
 
 ## [0.5.12] - (pending)

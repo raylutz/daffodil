@@ -392,10 +392,9 @@ def safe_regex_replace(regex: Union[List[Union[str, bytes]], str, bytes], s: str
     """        
 
     regex_str = regex.decode('utf-8') if isinstance(regex, bytes) else regex
-    regex_str = cast(str, regex_str)
-    regex_str = regex_str.strip('"')
-    
+
     if isinstance(regex_str, str):
+        regex_str = regex_str.strip('"')
         regex_list = [regex_str]   # form a list
     else:
         regex_list = regex_str
@@ -1139,7 +1138,11 @@ def safe_mean(listlike):
      
 def beep(freq: int=1080, ms: int=500):
 
-    if not is_linux():
+    if is_linux():
+        # No universally-available system beep utility; the terminal bell character
+        # works in any terminal without external dependencies (dev-only convenience).
+        print('\a', end='', flush=True)
+    else:
         try:
             import winsound
         except ImportError:
@@ -1313,6 +1316,27 @@ def prog_loc() -> str:
     return f"[{filename}:{linenumber}]"
     
     
+def _filter_comment_lines(lines: Iterator[str]) -> Iterator[str]:
+    """ Lazily filter out comment lines (per is_comment_line()) from a line-iterable, while
+        tracking whether we are currently inside an open quoted CSV field (by counting `"`
+        characters per line) so an embedded newline inside a quoted field -- which could
+        otherwise look like a standalone comment/blank line -- is never misclassified and
+        stripped. This is a streaming-compatible alternative to preprocess_csv_buff(), which
+        requires fully materializing the buffer via csv.reader/csv.writer.
+
+        Note: this is a heuristic (counting quote characters), not a full CSV parser; it
+        handles the common case of multi-line quoted fields correctly but is not a substitute
+        for preprocess_csv_buff()'s rigor in unusual edge cases.
+    """
+    inside_quoted_field = False
+    for line in lines:
+        if not inside_quoted_field and is_comment_line(line.strip()):
+            continue
+        yield line
+        if line.count('"') % 2:
+            inside_quoted_field = not inside_quoted_field
+
+
 def buff_csv_to_lol(
     buff: Union[bytes, str, Iterator[str]],  # Supports iterators for streaming
     user_format: bool = False,
@@ -1320,6 +1344,17 @@ def buff_csv_to_lol(
     include_cols: Optional[list] = None,
     dtypes: Optional[dict] = None,
     raw: bool = False,
+    strict_comment_filter: bool = False,   # only relevant when user_format=True.
+                                            # False (default): lazy, streaming-compatible line
+                                            # filter (_filter_comment_lines) that tracks open
+                                            # quoted fields so an embedded newline inside a
+                                            # quoted field is never misclassified as a
+                                            # comment/blank line. Works with str/bytes/file-like/
+                                            # iterator input.
+                                            # True: rigorous csv.reader/writer-based
+                                            # preprocess_csv_buff(); fully materializes the
+                                            # buffer first, so it requires buff to be str/bytes
+                                            # (not streaming-compatible).
 ) -> list:  # Returns full LoL stored in memory
     """
     Convert CSV data in a buffer (bytes, string, or iterator) to a list of lists (LoL).
@@ -1341,6 +1376,10 @@ def buff_csv_to_lol(
 
     if sep is None:
         sep = ','
+
+    original_buff = buff  # preserved for strict_comment_filter, which needs the raw str/bytes
+                           # input -- by the time we reach the user_format handling below, `buff`
+                           # has already been converted into a file-like object/generator.
 
     # Case 1: buff is bytes.
     if isinstance(buff, bytes):
@@ -1376,24 +1415,39 @@ def buff_csv_to_lol(
         except StopIteration:
             return []  # Empty input
 
+        source_iter = buff  # capture the original iterator under a distinct name before
+                             # reassigning `buff` below -- otherwise the generator closures
+                             # would (due to late-binding) end up yielding from themselves.
+
         # If the first item is bytes, create a generator that decodes on the fly.
         if isinstance(first_item, bytes):
             def byte_line_generator():
                 yield first_item.decode('utf-8')
-                for line in buff:
+                for line in source_iter:
                     yield line.decode('utf-8')
             buff = byte_line_generator()
         else:
             # Otherwise, create a generator that yields the first item, then the rest.
             def text_line_generator():
                 yield first_item
-                yield from buff
+                yield from source_iter
             buff = text_line_generator()
     else:
         raise ValueError("Unsupported type for buff")
 
     if user_format:
-        buff = preprocess_csv_buff(buff)
+        if strict_comment_filter:
+            # Rigorous but non-streaming: requires the original buff to have been str/bytes.
+            if not isinstance(original_buff, (str, bytes)):
+                raise ValueError(
+                    "strict_comment_filter=True requires buff to be str or bytes "
+                    "(it is not streaming-compatible); pass strict_comment_filter=False "
+                    "(the default) for file-like or iterator input."
+                )
+            buff = io.StringIO(preprocess_csv_buff(original_buff))
+        else:
+            # Streaming-compatible: lazy per-line filter, quote-aware.
+            buff = _filter_comment_lines(buff)
 
     # Use csv.reader to process the CSV stream.
     csv_reader = csv.reader(buff, delimiter=sep, quoting=csv.QUOTE_MINIMAL)
