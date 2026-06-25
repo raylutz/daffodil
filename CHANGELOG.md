@@ -354,6 +354,36 @@ all prior releases. Plans for future moved to ROADMAP.md.
    `list(self.lol[irow])` directly, consistent with how the dict/klist rtype branches each return
    the row in a different shape without needing to round-trip through a separate method.
 
+### Added (schemaclass.py / daf_schema.py)
+- Added pytest test coverage for schemaclass.py (96% -> 100%) and daf_schema.py (23% -> 100%):
+   the @schemaclass decorator and SchemaBase (default_record, record_from, get_dtypes_dict,
+   get_columns, get_pandas_dtypes_from_schema, validate_keys_debug, inheritance, instantiation
+   prevention, validation errors), and daf_schema.py's _apply_schema/_attach_schema/
+   _default_record (both schemaclass and schema_daf code paths, including all six dtype-name
+   aliases, the keyfield-from-attrs and keyfield-from-__keyfield__ paths, and the various
+   error/edge cases for each).
+
+### Changed (daf_schema.py)
+- Removed ~210 lines of duplicate code from daf_schema.py: the entire SchemaBase class and
+   schemaclass() decorator from schemaclass.py had been pasted in verbatim after a `#====`
+   separator comment, immediately following daf_schema.py's own (unrelated) _apply_schema/
+   _attach_schema/_default_record functions -- an apparent accidental copy-paste left over from
+   development. Confirmed via a repo-wide search that nothing imports schemaclass/SchemaBase from
+   daf_schema specifically (daf.py and everything else import them from the canonical
+   daffodil.lib.schemaclass module instead), and that the duck-typed `__is_schemaclass__` marker
+   check in _attach_schema works correctly regardless of which copy of the decorator created a
+   given schema, so this duplicate block was provably dead code, not a behavior change to remove.
+   Also removed the KeyedList and daf_utils imports that were only used by the removed block.
+
+### Fixed (daf_schema.py)
+- Fixed _apply_schema()'s schema_daf branch: setting `cols` (from the schema's 'Name' column)
+   and setting `dtypes` (from its 'dtype' column) are independent operations that should both
+   happen when a schema_daf provides both columns (the normal, expected case) -- but they were
+   structured as `if`/`elif`, so the dtypes block was silently skipped entirely whenever the cols
+   block ran. Confirmed via direct testing that `Daf(schema=schema_daf)` left `dtypes` as None
+   even when the schema_daf had a complete 'dtype' column. Fixed by changing `elif` to a second,
+   independent `if`.
+
 ---
 
 ## [0.5.12] - (pending)
