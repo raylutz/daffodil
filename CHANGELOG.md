@@ -19,7 +19,8 @@ all prior releases. Plans for future moved to ROADMAP.md.
 
 ---
 
-## [0.5.13] - (pending)
+## [0.5.13] - (2026-06-25)
+
 ### Added
 - Added pytest test coverage for keyedlist.py (62% -> 100%), daf_md.py (13% -> 99%), and a substantial
    portion of daf_utils.py (39% -> 60%), in new test files: test_keyedlist2.py, test_daf_md.py, test_daf_utils.py.
@@ -241,6 +242,7 @@ all prior releases. Plans for future moved to ROADMAP.md.
    literal list-slice bounds) -- only `daf.select_krows(slice(...))`/`daf.select_kcols(slice(...))`
    reach this code path.
 
+
 ### Added (daf.py: reduction operations)
 - Added pytest test coverage for the reduction operations cluster: reduce(), sum_da(),
    count_values_da(), groupby(), groupby_cols(), groupby_reduce(), multi_groupby(),
@@ -413,7 +415,7 @@ intent, so left as-is rather than guessing)
 
 ---
 
-## [0.5.12] - (pending)
+## [0.5.12] - (not formally released)
 ### Added
 - .from_md() method added to allow round-trip of daffodil arrays through markdown representation.
    - changed footer syntax so it does not need markdown escaping, uses standard syntax for easy parsing.
