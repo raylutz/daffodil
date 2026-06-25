@@ -384,6 +384,33 @@ all prior releases. Plans for future moved to ROADMAP.md.
    even when the schema_daf had a complete 'dtype' column. Fixed by changing `elif` to a second,
    independent `if`.
 
+### Added (daf.py: final coverage pass)
+- Added pytest test coverage for the remaining small/easy methods identified in a final sweep of
+   daf.py (87% -> 88%): keys()'s astype error path, set_keyfield()'s force_kd_rebuild branch,
+   flatten()'s bool-to-int and no-op branches, from_lod()/from_lot()'s edge cases, find_replace(),
+   apply() (all by= modes and keylist filtering), kcols_to_icols(), _basic_get_record(),
+   sum_dodis(), groupsum_daf(), and multi_groupsum().
+
+### Known issues found, not yet fixed -- flagged for review (no supervision available to confirm
+intent, so left as-is rather than guessing)
+- flatten(): `use_pyon = True` is hardcoded immediately after the `use_pyon` parameter,
+   unconditionally overriding whatever the caller passes -- so `use_pyon=False` (the JSON-encoding
+   branch) is currently unreachable. Per clarification: flatten() is largely deprecated now that
+   to_csv_buff()/to_csv_file() automatically flatten complex cell types via PYON encoding as part
+   of CSV writing (a significant performance win over a separate flatten-then-write pass), so this
+   is not worth fixing -- left as-is.
+
+### Changed (daf.py: set_cols)
+- Simplified set_cols(): previously attempted to "repair" the keyfield after a column rename via
+   `self.hd.get[self.keyfield]` (a syntax bug -- subscripting a bound method object instead of
+   calling it -- that always raised TypeError, silently caught, always resetting the keyfield to
+   '' regardless). Per explicit decision: column renaming is rare, and the keyfield should always
+   be reset to '' on rename rather than auto-remapped, requiring the caller to explicitly call
+   set_keyfield() afterward with the correct new name. Removed the broken repair attempt entirely
+   and documented this behavior clearly in the docstring. Updated the existing
+   test_set_cols_repair_keyfield's comment (in test_daf.py) to match, since it had asserted the
+   same `keyfield == ''` outcome all along but with a misleading "repairing" comment.
+
 ---
 
 ## [0.5.12] - (pending)

@@ -321,7 +321,9 @@ class TestDaf(unittest.TestCase):
         self.assertEqual(daf.hd, {'A': 0, 'B': 1})
     
     def test_set_cols_repair_keyfield(self):
-        # Test repairing keyfield if column names are already defined
+        # Renaming columns always resets the keyfield to '' (deliberate design decision: field
+        # renaming is rare, and the caller must explicitly call set_keyfield() afterward with
+        # the correct new column name rather than relying on automatic remapping).
         daf = Daf(cols=['col1', 'col2'], keyfield='col1')
         new_cols = ['A', 'B']
         daf.set_cols(new_cols)

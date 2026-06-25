@@ -228,6 +228,16 @@ def test_set_cols_too_few_raises():
         daf.set_cols(['only_one'])
 
 
+def test_set_cols_always_resets_keyfield():
+    # deliberate design decision: renaming columns always resets keyfield to '' rather than
+    # attempting to remap it to a new name, even when a column logically corresponding to the
+    # old keyfield still exists. Field renaming is rare, and the caller must explicitly call
+    # set_keyfield() afterward with the correct new column name.
+    daf = Daf(lol=[[1, 'a']], cols=['id', 'name'], keyfield='id')
+    daf.set_cols(['new_id', 'new_name'])
+    assert daf.keyfield == ''
+
+
 # =====================================================================
 # flatten
 # =====================================================================
@@ -314,6 +324,181 @@ def test_indirect_row_view_with_indirect_col():
     assert set(view.keys()) == {'a', 'meta', 'b'}
     assert list(view.values()) == [1, {'b': 2}, 2]
     assert ('a', 1) in list(view.items())
+
+
+# =====================================================================
+# Final pass: remaining small/easy methods
+# =====================================================================
+
+# --- keys() astype error path ---
+
+def test_keys_invalid_astype_raises():
+    daf = Daf(lol=[[1, 'a']], cols=['id', 'name'], keyfield='id')
+    with pytest.raises(ValueError):
+        daf.keys(astype='bogus')
+
+
+# --- set_keyfield force_kd_rebuild ---
+
+def test_set_keyfield_force_kd_rebuild():
+    daf = Daf(lol=[[1, 'a'], [2, 'b']], cols=['id', 'name'])
+    daf.set_keyfield('id', force_kd_rebuild=True)
+    assert daf._kd == {1: 0, 2: 1}
+
+
+# --- flatten ---
+
+def test_flatten_bool_to_int():
+    daf = Daf(lol=[[1, True]], cols=['id', 'flag'], dtypes={'id': int, 'flag': bool})
+    daf.flatten(convert_bool_to_int=True)
+    assert daf.lol == [[1, 1]]
+
+
+def test_flatten_bool_unchanged_when_disabled():
+    daf = Daf(lol=[[1, True]], cols=['id', 'flag'], dtypes={'id': int, 'flag': bool})
+    daf.flatten(convert_bool_to_int=False)
+    assert daf.lol == [[1, True]]
+
+
+def test_flatten_empty_lol_noop():
+    daf = Daf(lol=[], cols=['id'])
+    assert daf.flatten() is daf
+
+
+def test_flatten_no_dtypes_noop():
+    daf = Daf(lol=[[1, 'a']], cols=['id', 'name'])
+    assert daf.flatten() is daf
+
+
+# --- from_lod / from_lot ---
+
+def test_from_lod_explicit_cols():
+    daf = Daf.from_lod([{'a': 1, 'b': 2}], cols=['a', 'b'])
+    assert daf.lol == [[1, 2]]
+    assert list(daf.hd.keys()) == ['a', 'b']
+
+
+def test_from_lot_mismatched_length_raises():
+    with pytest.raises(ValueError):
+        Daf.from_lot([(1, 2), (3, 4, 5)], cols=['a', 'b'])
+
+
+# --- find_replace ---
+
+def test_find_replace_basic():
+    daf = Daf(lol=[[1, 'hello'], [2, 'world']], cols=['id', 'text'])
+    daf.find_replace(r'hel+o', 'REPLACED')
+    assert daf.lol == [[1, 'REPLACED'], [2, 'world']]
+
+
+# --- apply ---
+
+def test_apply_by_row():
+    daf = Daf(lol=[[1, 'a'], [2, 'b']], cols=['id', 'name'])
+
+    def upper_row(row):
+        row['name'] = row['name'].upper()
+        return row
+
+    result = daf.apply(upper_row, by='row')
+    assert result.lol == [[1, 'A'], [2, 'B']]
+
+
+def test_apply_by_table():
+    daf = Daf(lol=[[1, 'a'], [2, 'b']], cols=['id', 'name'])
+    result = daf.apply(lambda d, **kw: d.num_rows(), by='table')
+    assert result == 2
+
+
+def test_apply_by_col_not_implemented():
+    daf = Daf(lol=[[1, 'a']], cols=['id', 'name'])
+    with pytest.raises(NotImplementedError):
+        daf.apply(lambda x: x, by='col')
+
+
+def test_apply_invalid_by_not_implemented():
+    daf = Daf(lol=[[1, 'a']], cols=['id', 'name'])
+    with pytest.raises(NotImplementedError):
+        daf.apply(lambda x: x, by='bogus')
+
+
+def test_apply_with_keylist_filter():
+    daf = Daf(lol=[[1, 'a'], [2, 'b'], [3, 'c']], cols=['id', 'name'], keyfield='id')
+
+    def upper_row(row):
+        row['name'] = row['name'].upper()
+        return row
+
+    result = daf.apply(upper_row, by='row', keylist=[1, 3])
+    assert result.lol == [[1, 'A'], [3, 'C']]
+
+
+def test_apply_with_large_keylist_uses_dict_path():
+    daf = Daf(lol=[[i, 'x'] for i in range(40)], cols=['id', 'name'], keyfield='id')
+
+    def upper_row(row):
+        row['name'] = row['name'].upper()
+        return row
+
+    result = daf.apply(upper_row, by='row', keylist=list(range(35)))
+    assert result.num_rows() == 35
+
+
+# --- kcols_to_icols ---
+
+def test_kcols_to_icols_no_hd():
+    daf = Daf()
+    assert daf.kcols_to_icols(['a', 'b']) == []
+
+
+def test_kcols_to_icols_no_hd_inverse():
+    daf = Daf()
+    assert daf.kcols_to_icols(['a', 'b'], inverse=True) == range(0)
+
+
+def test_kcols_to_icols_with_hd():
+    daf = Daf(lol=[[1, 'a']], cols=['id', 'name'])
+    assert daf.kcols_to_icols(['name']) == [1]
+
+
+# --- _basic_get_record ---
+
+def test_basic_get_record_no_hd_generates_spreadsheet_names():
+    daf = Daf(lol=[[1, 'a']])
+    assert daf._basic_get_record(0) == {'A': 1, 'B': 'a'}
+
+
+def test_basic_get_record_with_include_cols():
+    daf = Daf(lol=[[1, 'a'], [2, 'b']], cols=['id', 'name'])
+    assert daf._basic_get_record(0, include_cols=['name']) == {'name': 'a'}
+
+
+# --- sum_dodis ---
+
+def test_sum_dodis_mutates_accum_in_place():
+    accum = {'k1': {'a': 10}, 'k2': {'c': 5}}
+    Daf.sum_dodis({'k1': {'a': 1, 'b': 2}}, accum)
+    assert accum == {'k1': {'a': 11, 'b': 2}, 'k2': {'c': 5}}
+
+
+def test_sum_dodis_new_key_adopted_directly():
+    accum = {}
+    Daf.sum_dodis({'k1': {'a': 1}}, accum)
+    assert accum == {'k1': {'a': 1}}
+
+
+# --- groupsum_daf / multi_groupsum ---
+
+def test_groupsum_daf():
+    daf = Daf(lol=[['M', 1, 10], ['F', 2, 20], ['M', 3, 30]], cols=['gender', 'x', 'y'])
+    result = daf.groupsum_daf('gender', reduce_cols=['x', 'y'])
+    assert result.lol == [['M', 4, 40], ['F', 2, 20]]
+
+
+def test_multi_groupsum():
+    daf = Daf(lol=[['M', 1, 10], ['F', 2, 20], ['M', 3, 30]], cols=['gender', 'x', 'y'])
+    result = daf.multi_groupsum(['gender'], reduce_cols=['x', 'y'])
+    assert result['gender'].lol == [['M', 4, 40], ['F', 2, 20]]
 
 
 # =====================================================================

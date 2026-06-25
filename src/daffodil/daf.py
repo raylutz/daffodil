@@ -851,6 +851,14 @@ class Daf:
         Notes:
             Missing or duplicate names are replaced with generated values.
             if new_cols is None, then we generate spreadsheet colnames like A, B, C... AA, AB, ...
+
+            Renaming columns always resets self.keyfield to '' (disabling key lookups), even if
+            a column that logically corresponds to the old keyfield still exists under a new
+            name. This is deliberate: field renaming is expected to be rare, and silently
+            remapping the keyfield to "whichever new name is in the same position" is an
+            error-prone correspondence to maintain automatically. After renaming columns, call
+            set_keyfield() explicitly with the correct new column name if key lookups are still
+            needed.
         """
 
         num_cols = self.num_cols() or len(self.hd)
@@ -864,17 +872,12 @@ class Daf:
         if num_cols and len(new_cols) < num_cols:
             raise AttributeError("Length of new_cols not the same as existing cols")
 
-        if self.keyfield and isinstance(self.keyfield, str) and self.hd:
-            # if column names are already defined (hd) then we need to repair the keyfield.
-            # will only be done if keyfield is a simple string or integer column name.
-
-            try:
-                keyfield_idx = self.hd.get[self.keyfield]
-                self.keyfield = new_cols[keyfield_idx]
-            except Exception:
-                self.keyfield = ''
-        else:
-            self.keyfield = ''
+        # Renaming columns always resets the keyfield to '' rather than attempting to remap it
+        # to the new name. Field renaming is rare, and the caller is expected to explicitly
+        # re-set the correct keyfield afterward (via set_keyfield()) rather than relying on
+        # automatic repair -- which would otherwise need to track which old column name
+        # corresponded to which new one, an error-prone correspondence to maintain silently.
+        self.keyfield = ''
 
         self._invalidate_kd()
 
@@ -1318,6 +1321,11 @@ class Daf:
     def flatten(self, convert_bool_to_int=True, use_pyon: bool = True):
         """
         Flatten complex column types into serializable representations.
+
+        Largely deprecated: to_csv_buff()/to_csv_file() now automatically flatten complex cell
+        types via PYON encoding as part of CSV writing, which is both simpler and a significant
+        performance win over a separate flatten-then-write pass. Calling flatten() explicitly is
+        rarely needed.
 
         Args:
             convert_bool_to_int: Convert bool values to integers.
