@@ -299,7 +299,7 @@ wheels = [
 
 [[package]]
 name = "daffodil"
-version = "0.5.11"
+version = "0.5.13"
 source = { editable = "." }
 dependencies = [
     { name = "markdown", version = "3.9", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.10'" },
