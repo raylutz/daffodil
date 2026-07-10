@@ -491,6 +491,8 @@ class Daf:
 
             usage:  if (key in my_daf)
         """
+        if not self:
+            return False
 
         self._rebuild_kd_if_invalidated()
 
@@ -1035,8 +1037,7 @@ class Daf:
             Internal use.
             Only rebuilds when keyfield is set and `_kd` is empty.
         """
-
-        if not self._kd:
+        if self and not self._kd:
             self._rebuild_kd()
         return self
 
