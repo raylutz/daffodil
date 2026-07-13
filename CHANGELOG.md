@@ -9,7 +9,15 @@ all prior releases. Plans for future moved to ROADMAP.md.
 
 ## [Unreleased]
 ### Added
-- (add entries here)
+- Daf.dodaf_to_md(dodaf, report_header='') / Daf.dodaf_from_md(md_str, header_level=2) -- render
+  a dict-of-Daf ("dodaf") as one combined markdown report (optional top-level report header, one
+  `##` section per key using that key's own to_md()), and parse it back. dodaf_from_md() skips any
+  report-level material before the first section header, splits on `##` boundaries, and parses
+  each section via the existing from_md() -- the section header text becomes both the dict key
+  and the resulting Daf's `.name`, unless a `%% daf` footer already supplies a name (footer wins
+  for `.name`, never for the dict key). Logic lives in daf_md.py (as with from_md()/_from_md(), to
+  avoid a circular import) and is wired onto the Daf class the same way. 12 new test cases in
+  test_daf_md.py.
 
 ### Changed
 - (add entries here)

@@ -411,6 +411,137 @@ def test_from_md_leading_prose_before_table():
 
 
 # =====================================================================
+# Group 3b -- Daf.dodaf_to_md() / Daf.dodaf_from_md()
+# =====================================================================
+
+def test_dodaf_to_md_basic():
+    dodaf = {
+        'Section One': Daf(lol=[[1, 2], [3, 4]], cols=['a', 'b']),
+        'Section Two': Daf(lol=[['yes', 10]], cols=['x', 'y']),
+        }
+    result = Daf.dodaf_to_md(dodaf, report_header='Test Report')
+    assert result.startswith('# Test Report')
+    assert '## Section One' in result
+    assert '## Section Two' in result
+    assert '| a | b |' in result
+    assert '|  x  | y  |' in result
+    # section order follows dict order
+    assert result.index('## Section One') < result.index('## Section Two')
+
+
+def test_dodaf_to_md_no_report_header_omits_top_level_heading():
+    dodaf = {'Section One': Daf(lol=[[1, 'a']], cols=['id', 'letter'])}
+    result = Daf.dodaf_to_md(dodaf)
+    assert result.startswith('## Section One')
+    assert not result.startswith('# ')
+
+
+def test_dodaf_to_md_empty_section_shows_placeholder():
+    dodaf = {'Empty': Daf(cols=['c1', 'c2'])}
+    result = Daf.dodaf_to_md(dodaf)
+    assert '## Empty' in result
+    assert '*(no rows)*' in result
+
+
+def test_dodaf_to_md_empty_dodaf_returns_minimal_string():
+    assert Daf.dodaf_to_md({}) == '\n'
+
+
+def test_dodaf_to_md_passes_kwargs_to_section_to_md():
+    dodaf = {'S': Daf(lol=[[1, 'a']], cols=['id', 'letter'])}
+    result = Daf.dodaf_to_md(dodaf, header=['ID', 'Letter'])
+    assert '| ID | Letter |' in result
+
+
+def test_dodaf_from_md_round_trip():
+    dodaf = {
+        'Section One': Daf(lol=[[1, 2], [3, 4]], cols=['a', 'b']),
+        'Section Two': Daf(lol=[['yes', 10]], cols=['x', 'y']),
+        }
+    report = Daf.dodaf_to_md(dodaf, report_header='Test Report')
+    restored = Daf.dodaf_from_md(report)
+
+    assert list(restored.keys()) == ['Section One', 'Section Two']
+    assert restored['Section One'].lol == [['1', '2'], ['3', '4']]
+    assert list(restored['Section One'].hd.keys()) == ['a', 'b']
+    assert restored['Section Two'].lol == [['yes', '10']]
+
+
+def test_dodaf_from_md_skips_report_header_and_leading_prose():
+    md_str = (
+        "# Report Title\n"
+        "\n"
+        "Some narrative that isn't a section.\n"
+        "\n"
+        "## Section One\n"
+        "\n"
+        "| id | letter |\n"
+        "| --- | --- |\n"
+        "| 1 | a |\n"
+        )
+    restored = Daf.dodaf_from_md(md_str)
+    assert list(restored.keys()) == ['Section One']
+    assert restored['Section One'].lol == [['1', 'a']]
+
+
+def test_dodaf_from_md_uses_header_text_as_name_by_default():
+    md_str = (
+        "## My Section\n"
+        "\n"
+        "| id |\n"
+        "| --- |\n"
+        "| 1 |\n"
+        )
+    restored = Daf.dodaf_from_md(md_str)
+    assert restored['My Section'].name == 'My Section'
+
+
+def test_dodaf_from_md_footer_name_wins_over_header_text():
+    md_str = (
+        "## My Section\n"
+        "\n"
+        "| id |\n"
+        "| --- |\n"
+        "| 1 |\n"
+        "\n"
+        "%% daf name=footername; keyfield=id\n"
+        )
+    restored = Daf.dodaf_from_md(md_str)
+    # dict key always comes from the header text...
+    assert list(restored.keys()) == ['My Section']
+    # ...but footer metadata wins for the Daf's own .name and other attrs
+    assert restored['My Section'].name == 'footername'
+    assert restored['My Section'].keyfield == 'id'
+
+
+def test_dodaf_from_md_empty_string_returns_empty_dict():
+    assert Daf.dodaf_from_md('') == {}
+
+
+def test_dodaf_from_md_no_section_headers_returns_empty_dict():
+    md_str = (
+        "| id | letter |\n"
+        "| --- | --- |\n"
+        "| 1 | a |\n"
+        )
+    assert Daf.dodaf_from_md(md_str) == {}
+
+
+def test_dodaf_from_md_custom_header_level():
+    md_str = (
+        "### Section One\n"
+        "\n"
+        "| id |\n"
+        "| --- |\n"
+        "| 1 |\n"
+        )
+    restored = Daf.dodaf_from_md(md_str, header_level=3)
+    assert list(restored.keys()) == ['Section One']
+    # default header_level=2 should NOT match '### ' lines
+    assert Daf.dodaf_from_md(md_str) == {}
+
+
+# =====================================================================
 # Group 4 -- md_lol_table / md_cols_lol_table direct branch coverage
 # =====================================================================
 

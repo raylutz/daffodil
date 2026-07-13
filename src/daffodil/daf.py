@@ -2528,6 +2528,8 @@ class Daf:
     #==== md
 
     from_md = md._from_md
+    dodaf_to_md = md.dodaf_to_md
+    dodaf_from_md = md._dodaf_from_md
 
     #==== PDF to Daf
 

@@ -172,6 +172,80 @@ def md_toc(headings_list: T_ls):
         rep += f"- [{heading}](#{escape_internal_link(heading)})\n"  
     return rep + "\n\n"
 
+# called by Daf.dodaf_to_md()
+
+@staticmethod
+def dodaf_to_md(
+        dodaf:          Dict[str, Any],       # T_dodaf -- {section_name: Daf, ...}; typed Any here (not T_daf/T_dodaf)
+                                                # to avoid importing Daf into this leaf module -- same reasoning as
+                                                # _from_md() below, which takes an already-built 'cls' rather than
+                                                # importing Daf itself.
+        report_header:  str = '',
+        **to_md_kwargs: Any,                    # passed through to each section's own Daf.to_md() (max_rows, just, etc.)
+        ) -> str:
+    """
+    Renders a dict-of-Daf ('dodaf') as ONE combined markdown report: an optional top-level `#`
+    report header, then one `##` section per key (in dict order), each followed by that key's
+    own Daf rendered via its own to_md(). Common report shape: several named result tables
+    (e.g. one per pipeline stage, or one per style) assembled into a single document that's
+    easier to produce and easier to review by eye than an equivalent JSON dump.
+
+    An empty-valued section (a Daf with no rows) still gets its own header, so the report shows
+    which sections legitimately have nothing to report rather than silently omitting them.
+    """
+    parts = []
+    if report_header:
+        parts.append(f"# {report_header}\n")
+
+    for section_name, section_daf in dodaf.items():
+        parts.append(f"## {section_name}\n")
+        parts.append(section_daf.to_md(**to_md_kwargs) or "*(no rows)*\n")
+
+    return "\n\n".join(parts) + "\n"
+
+
+# called by Daf.dodaf_from_md() -- round-trip inverse of dodaf_to_md() above.
+
+@classmethod
+def _dodaf_from_md(cls, md_str: str, header_level: int = 2) -> Dict[str, Any]:   # -> T_dodaf
+    """
+    Inverse of dodaf_to_md(): parses a combined markdown report back into a dict-of-Daf.
+
+    Any report-level material before the first section header (dodaf_to_md's own `#`
+    report_header line, or any other leading prose) is skipped entirely -- section boundaries
+    are ONLY lines starting with `'#' * header_level + ' '` (default `'## '`, matching
+    dodaf_to_md's own default section marker). Everything from one section header up to (not
+    including) the next section header of the same level -- or end of input -- becomes that
+    section's own Daf, parsed via the existing cls.from_md() (which itself tolerates leading
+    prose/comments and finds the first table in that slice, exactly one per section here).
+
+    The section header's own text becomes both the dict key AND the resulting Daf's `.name`,
+    unless from_md() already recovered a `name` from a `%% daf ...` footer -- footer metadata,
+    if present, wins over the header text for `.name` (but never for the dict key, which always
+    comes from the header).
+    """
+    if not md_str:
+        return {}
+
+    marker = '#' * header_level + ' '
+    lines = md_str.splitlines()
+
+    section_start_idxs = [i for i, ln in enumerate(lines) if ln.startswith(marker)]
+
+    dodaf: Dict[str, Any] = {}
+    for pos, start_idx in enumerate(section_start_idxs):
+        header_text = lines[start_idx][len(marker):].strip()
+        end_idx = section_start_idxs[pos + 1] if pos + 1 < len(section_start_idxs) else len(lines)
+
+        section_daf = cls.from_md('\n'.join(lines[start_idx + 1:end_idx]))
+        if not section_daf.name:
+            section_daf.name = header_text
+
+        dodaf[header_text] = section_daf
+
+    return dodaf
+
+
 # called by Daf.to_md()
 
 def md_lol_table(
