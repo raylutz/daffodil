@@ -1637,7 +1637,7 @@ class Daf:
             cols = []
 
         if not records_lod:
-            return cls(keyfield=keyfield, dtypes=dtypes)
+            return cls(cols=cols, keyfield=keyfield, dtypes=dtypes)
 
         if cols:
             pass

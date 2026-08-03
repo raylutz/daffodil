@@ -23,7 +23,14 @@ all prior releases. Plans for future moved to ROADMAP.md.
 - (add entries here)
 
 ### Fixed
-- (add entries here)
+- Daf.from_lod([], cols=[...])'s empty-records early return dropped the `cols` argument entirely,
+  returning a 0-column Daf instead of one with the requested columns (dtypes already survived this
+  same early return correctly; cols did not). A 0-column empty Daf serializes via to_csv_buff() to
+  a blank, headerless line rather than the expected header-only row (pandas' equivalent,
+  `pd.DataFrame(columns=[...]).to_csv()`, correctly emits a header-only row for zero rows). Fixed
+  by passing `cols=cols` through on that branch. Found 2026-08-03 via a caller building an empty
+  Daf with explicit cols and no dtypes (AuditEngine's mapping_option_names_ocr.py). New regression
+  test: test_from_lod_no_records_but_cols.
 
 ---
 

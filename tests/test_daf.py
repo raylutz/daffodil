@@ -602,7 +602,7 @@ class TestDaf(unittest.TestCase):
 
     def test_from_lod_no_records_no_dtypes_no_keyfield(self):
         records_lod = []
-                        
+
         keyfield = ''
         dtypes = {}
         daf = Daf.from_lod(records_lod, keyfield=keyfield, dtypes=dtypes)
@@ -614,6 +614,24 @@ class TestDaf(unittest.TestCase):
         self.assertEqual(daf._kd, {})
         self.assertEqual(daf.dtypes, dtypes)
         self.assertEqual(daf._iter_index, 0)
+
+
+    def test_from_lod_no_records_but_cols(self):
+        # regression test: from_lod([], cols=[...])'s empty-records early return used to drop the
+        # cols argument entirely (returning a 0-column Daf), even though dtypes already survived
+        # that same early return correctly (see test_from_lod_no_records_but_dtypes above). A
+        # 0-column empty Daf serializes to a headerless, blank CSV via to_csv_buff() rather than
+        # the expected header-only row.
+        records_lod = []
+
+        cols = ['col1', 'col2']
+        daf = Daf.from_lod(records_lod, cols=cols)
+
+        self.assertEqual(daf.name, '')
+        self.assertEqual(daf.hd, {'col1': 0, 'col2': 1})
+        self.assertEqual(daf.lol, [])
+        self.assertEqual(daf.columns(), cols)
+        self.assertEqual(daf.to_csv_buff(), 'col1,col2\r\n')
 
 
     # from_dod
