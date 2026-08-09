@@ -9,6 +9,17 @@ all prior releases. Plans for future moved to ROADMAP.md.
 
 ## [Unreleased]
 ### Added
+- `js/daffodil-csv.js` -- browser-side, dependency-free (beyond vendored JSON5) reader for
+  `Daf.to_csv_buff()`-produced CSV: parses CSV (RFC4180, handles quoted/embedded commas, quotes,
+  newlines) into plain JS objects, unflattening PYON-shaped cells (`{...}`/`[...]`/`(...)`) the
+  same shape-driven way `daf_utils.unflatten_val()` does on the Python side. `vendor/json5.js` is
+  the unmodified upstream `json5` v2.2.3 package (MIT); `pyonKeywordsToJson5()` handles the one gap
+  between PYON and JSON5 syntax (Python's capitalized `True`/`False`/`None`), quote-aware so a
+  string value that legitimately contains those words is left alone. Verified against a real
+  `Daf.to_csv_buff()` round trip (dict/list/tuple columns, nested quotes, empty values). See
+  `js/README.md`. Built for AuditEngine's ACRE standalone review app (a fully static, backend-free
+  reviewer tool), which needed to consume daffodil-exported ballot data in a browser with no build
+  step.
 - Daf.dodaf_to_md(dodaf, report_header='') / Daf.dodaf_from_md(md_str, header_level=2) -- render
   a dict-of-Daf ("dodaf") as one combined markdown report (optional top-level report header, one
   `##` section per key using that key's own to_md()), and parse it back. dodaf_from_md() skips any
