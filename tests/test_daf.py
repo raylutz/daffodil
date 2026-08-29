@@ -413,6 +413,23 @@ class TestDaf(unittest.TestCase):
         with self.assertRaises(KeyError):
             daf.set_keyfield('nonexistent_column', silent_error=False)
 
+    def test_set_keyfield_then_append_on_empty_daf(self):
+        # Regression: Daf(cols=[...]) with zero rows, then set_keyfield(), then append() must
+        # actually index the appended row. This used to fail silently: set_keyfield()'s own
+        # "if not self: return self" guard read a columns-only, zero-row Daf as falsy (via the
+        # old num_cols(), which returned 0 whenever there were no rows yet, ignoring hd), so
+        # self.keyfield was never actually set -- append()/keys() then behaved as if there were
+        # no keyfield at all, with no error to signal it.
+        daf = Daf(cols=['key', 'val'])
+        daf.set_keyfield('key')
+        self.assertEqual(daf.keyfield, 'key')
+
+        daf.append({'key': 'a', 'val': 1})
+        self.assertEqual(daf.keys(), ['a'])
+
+        daf.append({'key': 'b', 'val': 2})
+        self.assertEqual(daf.keys(), ['a', 'b'])
+
 
     # get_existing_keys
     def test_get_existing_keys_with_existing_keys(self):

@@ -977,9 +977,19 @@ class Daf:
             set_keyfield sets the keyfield attribute but does not force rebuild of
                 the _kd dictionary unless 'force_kd_rebuild' is True.
 
-            if self is empty do nothing.
+            if there are no columns declared at all, do nothing -- there is no schema yet
+                to validate a keyfield against.
+
+            Note: this checks self.hd directly, not `if not self:` -- __bool__/num_cols()
+                answer "does this Daf have any ROWS" (relied on throughout calling code as
+                an emptiness check), which is a different question from "are there COLUMN
+                definitions to set a keyfield against." A Daf constructed as Daf(cols=[...])
+                with nothing appended yet has real columns and zero rows -- `if not self:`
+                read that as empty and silently skipped setting the keyfield at all, with no
+                error to signal it; every append() afterward silently kept behaving as if no
+                keyfield were set, since self.keyfield never actually changed from ''.
         """
-        if not self:
+        if not self.hd:
             return self
 
         if not keyfield:
