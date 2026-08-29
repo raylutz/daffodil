@@ -2891,15 +2891,25 @@ class Daf:
     #===========================
     # append
 
-    def append(self, data_item: Union[T_daf, T_loda, T_da, T_la, KeyedList]):
+    def append(self, data_item: Union[T_daf, T_loda, T_da, T_la, KeyedList], respect_kd: bool=False):
         """
         Append data to the Daf.
 
         Args:
             data_item: Data to append (single record or collection).
+            respect_kd: If False (default), always add a new row, even if a row with the same
+                keyfield value already exists -- fast, does not touch the key index. If True,
+                look the keyfield value up first and replace that row in place instead of
+                duplicating it -- this requires the key index (rebuilt lazily if invalidated,
+                see _rebuild_kd_if_invalidated()), so it costs more than a plain append when
+                called repeatedly, since each call needs the index current.
 
         Notes:
             Supports dict, list, Daf, or list-of-records formats.
+            Prior to respect_kd being exposed here, the key index used to be maintained on
+            every append by default; that was measured as wasteful for ordinary bulk building,
+            so the default became a plain append with no duplicate check. respect_kd=True
+            restores the old check-first-then-replace behavior for callers who need it.
         """
 
         """ general append method can handle appending one record as T_da or T_la, many records as T_loda or T_daf
@@ -2917,7 +2927,7 @@ class Daf:
             logs.sts(f"{logs.prog_loc()} starting append.", 3)
 
         if isinstance(data_item, (dict, KeyedList)):
-            self.record_append(data_item, respect_kd=False)
+            self.record_append(data_item, respect_kd=respect_kd)
 
         elif isinstance(data_item, list):
             if isinstance(data_item[0], dict):
@@ -2929,7 +2939,7 @@ class Daf:
                     # columns are defined, and keyfield might also be defined
                     # create a dict.
                     da = dict(zip(self.hd.keys(), data_item))
-                    self.record_append(da, respect_kd=False)  # <-- this takes care of respecing the row kd (invalidating)
+                    self.record_append(da, respect_kd=respect_kd)  # <-- this takes care of respecing the row kd (invalidating)
                 else:
                     # no columns defined, therefore just append to lol.
                     self.lol.append(data_item)
@@ -2942,7 +2952,7 @@ class Daf:
 
             else:
                 da = data_item.to_dict()
-                self.record_append(da, respect_kd=False)  # <-- this takes care of respecing the row kd.
+                self.record_append(da, respect_kd=respect_kd)  # <-- this takes care of respecing the row kd.
 
         elif isinstance(data_item, Daf):  # type: ignore
             self.concat(data_item)
@@ -3199,11 +3209,15 @@ class Daf:
             silent_error: Suppress errors if key not found.
 
         Returns:
-            Daf: Self.
+            Daf: A new Daf with the matching row left out. self is not mutated -- its own row
+                with this key is still present afterward.
 
         Note:
-            This mutates daf array. Make a copy if the original is needed.
-
+            The returned Daf is a new view over the surviving rows, not a copy of them: each
+            row object is shared by reference with self (confirmed directly -- row identity is
+            preserved). Changing a *cell* in a row through the returned Daf changes that same
+            row as seen through self too, since both point at the same underlying row list.
+            Call .copy() first if independent data is needed.
         """
 
         # test exists in test_daf.py
@@ -3222,10 +3236,15 @@ class Daf:
             silent_error: Suppress errors.
 
         Returns:
-            Daf: Self.
+            Daf: A new Daf with the matching rows left out. self is not mutated -- its own rows
+                with these keys are still present afterward.
 
         Note:
-            This mutates daf array. Make a copy if the original is needed.
+            The returned Daf is a new view over the surviving rows, not a copy of them: each
+            row object is shared by reference with self (confirmed directly -- row identity is
+            preserved). Changing a *cell* in a row through the returned Daf changes that same
+            row as seen through self too, since both point at the same underlying row list.
+            Call .copy() first if independent data is needed.
         """
         # test exists in test_daf.py
 

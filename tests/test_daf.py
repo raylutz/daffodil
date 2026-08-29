@@ -1085,6 +1085,30 @@ class TestDaf(unittest.TestCase):
         self.assertEqual(daf.dtypes, None)
         self.assertEqual(daf._iter_index, 0)
 
+    def test_append_default_does_not_upsert_existing_key(self):
+        # default respect_kd=False: appending a dict whose key already exists adds a second
+        # row rather than replacing the first -- this is deliberate (see append()'s own
+        # docstring history: maintaining the key index on every append was measured as
+        # wasteful for ordinary bulk building), but must stay this way on purpose, not by
+        # accident, since callers may rely on it either way.
+        daf = Daf(cols=['key', 'val'], keyfield='key')
+        daf.append({'key': 'a', 'val': 1})
+        daf.append({'key': 'a', 'val': 2})
+
+        self.assertEqual(len(daf), 2)
+        self.assertEqual(daf.col('val'), [1, 2])
+
+    def test_append_respect_kd_true_upserts_existing_key(self):
+        daf = Daf(cols=['key', 'val'], keyfield='key')
+        daf.append({'key': 'a', 'val': 1}, respect_kd=True)
+        daf.append({'key': 'b', 'val': 2}, respect_kd=True)
+        daf.append({'key': 'a', 'val': 99}, respect_kd=True)
+
+        self.assertEqual(len(daf), 2)
+        self.assertEqual(daf.keys(), ['a', 'b'])   # replaced in place, not moved to the end.
+        self.assertEqual(daf['a'].to_dict()['val'], 99)
+        self.assertEqual(daf['b'].to_dict()['val'], 2)
+
     def test_record_append_with_keyfield(self):
         cols = ['col1', 'col2']
         lol = [[1, 'a'], [2, 'b']]
@@ -1362,6 +1386,33 @@ class TestDaf(unittest.TestCase):
         self.assertEqual(new_daf._kd, {})
         self.assertEqual(new_daf.dtypes, {'col1': int, 'col2': str})
         self.assertEqual(new_daf._iter_index, 0)
+
+    def test_remove_key_does_not_mutate_original(self):
+        daf = Daf(cols=['col1', 'col2'], lol=[[1, 'a'], [2, 'b'], [3, 'c']], keyfield='col1')
+
+        new_daf = daf.remove_key(2)
+
+        self.assertEqual(daf.keys(), [1, 2, 3])       # original untouched, including key 2.
+        self.assertEqual(new_daf.keys(), [1, 3])
+
+    def test_remove_key_result_shares_row_objects_with_original(self):
+        # regression: remove_key()'s docstring used to claim in-place mutation ("Returns: Daf:
+        # Self") but never actually did that -- it returns a new Daf. That new Daf is a view
+        # over the surviving rows, not a copy of them: confirmed directly that row objects are
+        # shared by reference, so mutating a cell through the new Daf is visible through the
+        # original too, unless .copy() is used first.
+        daf = Daf(cols=['col1', 'col2'], lol=[[1, 'a'], [2, 'b'], [3, 'c']], keyfield='col1')
+        daf.keys()   # force _kd to build before comparing indices below.
+
+        new_daf = daf.remove_key(2)
+        new_daf.keys()
+
+        row_in_original = daf.lol[daf._kd[3]]
+        row_in_new = new_daf.lol[new_daf._kd[3]]
+        self.assertIs(row_in_original, row_in_new)
+
+        row_in_original[1] = 'mutated'
+        self.assertEqual(new_daf.lol[new_daf._kd[3]], [3, 'mutated'])
 
     def test_remove_key_keyfield_notdefined(self):
         cols = ['col1', 'col2']
