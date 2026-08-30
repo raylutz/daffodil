@@ -42,6 +42,35 @@ all prior releases. Plans for future moved to ROADMAP.md.
   by passing `cols=cols` through on that branch. Found 2026-08-03 via a caller building an empty
   Daf with explicit cols and no dtypes (AuditEngine's mapping_option_names_ocr.py). New regression
   test: test_from_lod_no_records_but_cols.
+- `set_keyfield()`'s falsy-Daf guard (`if not self: return self`) fired on any columns-only,
+  zero-row Daf (the empty-schema case a caller builds before appending rows), since `bool(daf)`
+  follows `num_cols()`'s row-based definition, not `self.hd`. `set_keyfield()` then silently
+  no-op'd -- `.keys()` stayed stale even after later appends, invisible until the table happened to
+  be reloaded from a file that already had rows. Found via AuditEngine's s3_state work (build a
+  columns-only Daf, `set_keyfield()`, then `append()` -- exactly this shape). Fixed by checking
+  `self.hd` directly in `set_keyfield()` instead of the Daf's own truthiness; `num_cols()` itself
+  is intentionally unchanged (its falsy-means-"no rows" semantics are relied on in 238+ places
+  across AuditEngine for `if daf:` checks). New regression test:
+  test_set_keyfield_then_append_on_empty_daf.
+- `append()` gained a `respect_kd` parameter (default False, preserving existing behavior):
+  `append(data_item, respect_kd=True)` now upserts in place on an existing key instead of adding a
+  duplicate row, threaded into `record_append()`'s existing implementation. `append()`'s own
+  docstring previously claimed upsert behavior the code never actually provided (confirmed
+  directly by testing) -- a real, longstanding documentation/behavior mismatch, not a new
+  regression: the index used to be actively maintained on every append, which made upsert-by-
+  default correct, until that was deliberately changed to a lazily-rebuilt-on-`.keys()` index for
+  performance, and the docstring was never updated to match. `respect_kd=False` stays the default
+  since eagerly checking for an existing key on every append costs a rebuild of the (lazy) index
+  each time, wasteful when the caller already knows the key is new. New tests:
+  test_append_default_does_not_upsert_existing_key,
+  test_append_respect_kd_true_upserts_existing_key.
+- `remove_key()`/`remove_keylist()`'s docstrings claimed in-place mutation of the receiver; both
+  actually return a NEW Daf, sharing (not copying) the original's row objects by reference --
+  confirmed directly via `is` identity checks, and that mutating a shared row's cell through the
+  new Daf is visible through the old one too, unless `.copy()` is called first. Docstrings
+  corrected to state this accurately rather than changing the actual (correct, by design)
+  behavior. New tests: test_remove_key_does_not_mutate_original,
+  test_remove_key_result_shares_row_objects_with_original.
 
 ---
 
