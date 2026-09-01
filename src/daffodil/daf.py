@@ -2075,7 +2075,7 @@ class Daf:
         if isinstance(source, Path):  # Convert Path object to string
             source = str(source)
 
-        if source.startswith(('http://', 'https://')):  # Handle HTTP(S) URLs
+        if source.startswith('http'):  # Handle HTTP(S) URLs
             try:
                 import requests  # Import only if needed
                 response = requests.get(source, stream=True)
