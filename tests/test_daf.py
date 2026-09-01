@@ -413,6 +413,23 @@ class TestDaf(unittest.TestCase):
         with self.assertRaises(KeyError):
             daf.set_keyfield('nonexistent_column', silent_error=False)
 
+    def test_set_keyfield_then_append_on_empty_daf(self):
+        # Regression: Daf(cols=[...]) with zero rows, then set_keyfield(), then append() must
+        # actually index the appended row. This used to fail silently: set_keyfield()'s own
+        # "if not self: return self" guard read a columns-only, zero-row Daf as falsy (via the
+        # old num_cols(), which returned 0 whenever there were no rows yet, ignoring hd), so
+        # self.keyfield was never actually set -- append()/keys() then behaved as if there were
+        # no keyfield at all, with no error to signal it.
+        daf = Daf(cols=['key', 'val'])
+        daf.set_keyfield('key')
+        self.assertEqual(daf.keyfield, 'key')
+
+        daf.append({'key': 'a', 'val': 1})
+        self.assertEqual(daf.keys(), ['a'])
+
+        daf.append({'key': 'b', 'val': 2})
+        self.assertEqual(daf.keys(), ['a', 'b'])
+
 
     # get_existing_keys
     def test_get_existing_keys_with_existing_keys(self):
@@ -602,7 +619,7 @@ class TestDaf(unittest.TestCase):
 
     def test_from_lod_no_records_no_dtypes_no_keyfield(self):
         records_lod = []
-                        
+
         keyfield = ''
         dtypes = {}
         daf = Daf.from_lod(records_lod, keyfield=keyfield, dtypes=dtypes)
@@ -614,6 +631,24 @@ class TestDaf(unittest.TestCase):
         self.assertEqual(daf._kd, {})
         self.assertEqual(daf.dtypes, dtypes)
         self.assertEqual(daf._iter_index, 0)
+
+
+    def test_from_lod_no_records_but_cols(self):
+        # regression test: from_lod([], cols=[...])'s empty-records early return used to drop the
+        # cols argument entirely (returning a 0-column Daf), even though dtypes already survived
+        # that same early return correctly (see test_from_lod_no_records_but_dtypes above). A
+        # 0-column empty Daf serializes to a headerless, blank CSV via to_csv_buff() rather than
+        # the expected header-only row.
+        records_lod = []
+
+        cols = ['col1', 'col2']
+        daf = Daf.from_lod(records_lod, cols=cols)
+
+        self.assertEqual(daf.name, '')
+        self.assertEqual(daf.hd, {'col1': 0, 'col2': 1})
+        self.assertEqual(daf.lol, [])
+        self.assertEqual(daf.columns(), cols)
+        self.assertEqual(daf.to_csv_buff(), 'col1,col2\r\n')
 
 
     # from_dod
@@ -1050,6 +1085,30 @@ class TestDaf(unittest.TestCase):
         self.assertEqual(daf.dtypes, None)
         self.assertEqual(daf._iter_index, 0)
 
+    def test_append_default_does_not_upsert_existing_key(self):
+        # default respect_kd=False: appending a dict whose key already exists adds a second
+        # row rather than replacing the first -- this is deliberate (see append()'s own
+        # docstring history: maintaining the key index on every append was measured as
+        # wasteful for ordinary bulk building), but must stay this way on purpose, not by
+        # accident, since callers may rely on it either way.
+        daf = Daf(cols=['key', 'val'], keyfield='key')
+        daf.append({'key': 'a', 'val': 1})
+        daf.append({'key': 'a', 'val': 2})
+
+        self.assertEqual(len(daf), 2)
+        self.assertEqual(daf.col('val'), [1, 2])
+
+    def test_append_respect_kd_true_upserts_existing_key(self):
+        daf = Daf(cols=['key', 'val'], keyfield='key')
+        daf.append({'key': 'a', 'val': 1}, respect_kd=True)
+        daf.append({'key': 'b', 'val': 2}, respect_kd=True)
+        daf.append({'key': 'a', 'val': 99}, respect_kd=True)
+
+        self.assertEqual(len(daf), 2)
+        self.assertEqual(daf.keys(), ['a', 'b'])   # replaced in place, not moved to the end.
+        self.assertEqual(daf['a'].to_dict()['val'], 99)
+        self.assertEqual(daf['b'].to_dict()['val'], 2)
+
     def test_record_append_with_keyfield(self):
         cols = ['col1', 'col2']
         lol = [[1, 'a'], [2, 'b']]
@@ -1327,6 +1386,33 @@ class TestDaf(unittest.TestCase):
         self.assertEqual(new_daf._kd, {})
         self.assertEqual(new_daf.dtypes, {'col1': int, 'col2': str})
         self.assertEqual(new_daf._iter_index, 0)
+
+    def test_remove_key_does_not_mutate_original(self):
+        daf = Daf(cols=['col1', 'col2'], lol=[[1, 'a'], [2, 'b'], [3, 'c']], keyfield='col1')
+
+        new_daf = daf.remove_key(2)
+
+        self.assertEqual(daf.keys(), [1, 2, 3])       # original untouched, including key 2.
+        self.assertEqual(new_daf.keys(), [1, 3])
+
+    def test_remove_key_result_shares_row_objects_with_original(self):
+        # regression: remove_key()'s docstring used to claim in-place mutation ("Returns: Daf:
+        # Self") but never actually did that -- it returns a new Daf. That new Daf is a view
+        # over the surviving rows, not a copy of them: confirmed directly that row objects are
+        # shared by reference, so mutating a cell through the new Daf is visible through the
+        # original too, unless .copy() is used first.
+        daf = Daf(cols=['col1', 'col2'], lol=[[1, 'a'], [2, 'b'], [3, 'c']], keyfield='col1')
+        daf.keys()   # force _kd to build before comparing indices below.
+
+        new_daf = daf.remove_key(2)
+        new_daf.keys()
+
+        row_in_original = daf.lol[daf._kd[3]]
+        row_in_new = new_daf.lol[new_daf._kd[3]]
+        self.assertIs(row_in_original, row_in_new)
+
+        row_in_original[1] = 'mutated'
+        self.assertEqual(new_daf.lol[new_daf._kd[3]], [3, 'mutated'])
 
     def test_remove_key_keyfield_notdefined(self):
         cols = ['col1', 'col2']

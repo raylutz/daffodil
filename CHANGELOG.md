@@ -9,13 +9,68 @@ all prior releases. Plans for future moved to ROADMAP.md.
 
 ## [Unreleased]
 ### Added
-- (add entries here)
+- `js/daffodil-csv.js` -- browser-side, dependency-free (beyond vendored JSON5) reader for
+  `Daf.to_csv_buff()`-produced CSV: parses CSV (RFC4180, handles quoted/embedded commas, quotes,
+  newlines) into plain JS objects, unflattening PYON-shaped cells (`{...}`/`[...]`/`(...)`) the
+  same shape-driven way `daf_utils.unflatten_val()` does on the Python side. `vendor/json5.js` is
+  the unmodified upstream `json5` v2.2.3 package (MIT); `pyonKeywordsToJson5()` handles the one gap
+  between PYON and JSON5 syntax (Python's capitalized `True`/`False`/`None`), quote-aware so a
+  string value that legitimately contains those words is left alone. Verified against a real
+  `Daf.to_csv_buff()` round trip (dict/list/tuple columns, nested quotes, empty values). See
+  `js/README.md`. Built for AuditEngine's ACRE standalone review app (a fully static, backend-free
+  reviewer tool), which needed to consume daffodil-exported ballot data in a browser with no build
+  step.
+- Daf.dodaf_to_md(dodaf, report_header='') / Daf.dodaf_from_md(md_str, header_level=2) -- render
+  a dict-of-Daf ("dodaf") as one combined markdown report (optional top-level report header, one
+  `##` section per key using that key's own to_md()), and parse it back. dodaf_from_md() skips any
+  report-level material before the first section header, splits on `##` boundaries, and parses
+  each section via the existing from_md() -- the section header text becomes both the dict key
+  and the resulting Daf's `.name`, unless a `%% daf` footer already supplies a name (footer wins
+  for `.name`, never for the dict key). Logic lives in daf_md.py (as with from_md()/_from_md(), to
+  avoid a circular import) and is wired onto the Daf class the same way. 12 new test cases in
+  test_daf_md.py.
 
 ### Changed
 - (add entries here)
 
 ### Fixed
-- (add entries here)
+- Daf.from_lod([], cols=[...])'s empty-records early return dropped the `cols` argument entirely,
+  returning a 0-column Daf instead of one with the requested columns (dtypes already survived this
+  same early return correctly; cols did not). A 0-column empty Daf serializes via to_csv_buff() to
+  a blank, headerless line rather than the expected header-only row (pandas' equivalent,
+  `pd.DataFrame(columns=[...]).to_csv()`, correctly emits a header-only row for zero rows). Fixed
+  by passing `cols=cols` through on that branch. Found 2026-08-03 via a caller building an empty
+  Daf with explicit cols and no dtypes (AuditEngine's mapping_option_names_ocr.py). New regression
+  test: test_from_lod_no_records_but_cols.
+- `set_keyfield()`'s falsy-Daf guard (`if not self: return self`) fired on any columns-only,
+  zero-row Daf (the empty-schema case a caller builds before appending rows), since `bool(daf)`
+  follows `num_cols()`'s row-based definition, not `self.hd`. `set_keyfield()` then silently
+  no-op'd -- `.keys()` stayed stale even after later appends, invisible until the table happened to
+  be reloaded from a file that already had rows. Found via AuditEngine's s3_state work (build a
+  columns-only Daf, `set_keyfield()`, then `append()` -- exactly this shape). Fixed by checking
+  `self.hd` directly in `set_keyfield()` instead of the Daf's own truthiness; `num_cols()` itself
+  is intentionally unchanged (its falsy-means-"no rows" semantics are relied on in 238+ places
+  across AuditEngine for `if daf:` checks). New regression test:
+  test_set_keyfield_then_append_on_empty_daf.
+- `append()` gained a `respect_kd` parameter (default False, preserving existing behavior):
+  `append(data_item, respect_kd=True)` now upserts in place on an existing key instead of adding a
+  duplicate row, threaded into `record_append()`'s existing implementation. `append()`'s own
+  docstring previously claimed upsert behavior the code never actually provided (confirmed
+  directly by testing) -- a real, longstanding documentation/behavior mismatch, not a new
+  regression: the index used to be actively maintained on every append, which made upsert-by-
+  default correct, until that was deliberately changed to a lazily-rebuilt-on-`.keys()` index for
+  performance, and the docstring was never updated to match. `respect_kd=False` stays the default
+  since eagerly checking for an existing key on every append costs a rebuild of the (lazy) index
+  each time, wasteful when the caller already knows the key is new. New tests:
+  test_append_default_does_not_upsert_existing_key,
+  test_append_respect_kd_true_upserts_existing_key.
+- `remove_key()`/`remove_keylist()`'s docstrings claimed in-place mutation of the receiver; both
+  actually return a NEW Daf, sharing (not copying) the original's row objects by reference --
+  confirmed directly via `is` identity checks, and that mutating a shared row's cell through the
+  new Daf is visible through the old one too, unless `.copy()` is called first. Docstrings
+  corrected to state this accurately rather than changing the actual (correct, by design)
+  behavior. New tests: test_remove_key_does_not_mutate_original,
+  test_remove_key_result_shares_row_objects_with_original.
 
 ---
 
