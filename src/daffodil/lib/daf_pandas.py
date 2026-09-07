@@ -56,7 +56,10 @@ from typing import List, Dict, Any, Tuple, Optional, Union, cast, Type, Callable
 from .daf_utils import _MISSING
 
 #==== Pandas
-@classmethod
+# see daf_pdf.py's _from_pdf() for why @classmethod on a module-level function here is
+# deliberate (wired onto Daf in daf.py: `from_pandas_df = daf_pandas._from_pandas_df`), not a
+# mistake mypy can see through.
+@classmethod  # type: ignore[misc]
 def _from_pandas_df(
         cls,
         df: T_df, 
@@ -184,7 +187,7 @@ def pandas_dtype_dict_to_python(pandas_dtype_dict: Any) -> Optional[Any]:
     import pandas as pd
     import numpy as np
 
-    python_dtype_dict = {}
+    python_dtype_dict: Dict[Any, type] = {}
 
     for colname, pandas_dtype in pandas_dtype_dict.items():
 

@@ -49,7 +49,12 @@ import re
 from typing import List, Dict, Any, Tuple, Optional, Union, cast, Type, Callable # noqa: F401
 
 #==== PDF
-@classmethod
+# @classmethod on a module-level function is deliberate here, not a mistake: this function is
+# wired onto the Daf class elsewhere (daf.py: `from_pdf = daf_pdf._from_pdf`) to avoid a
+# circular import (Daf itself can't import daf_pdf at module scope, since daf_pdf's own type
+# hints reference Daf) -- same pattern as daf_md.py's _from_md()/dodaf_to_md(). mypy has no way
+# to know the classmethod descriptor will be attached to a class later, hence the ignore.
+@classmethod  # type: ignore[misc]
 def _from_pdf(cls, filename, skip_to_header: int=0, skip_to_table: int=1):
 
     import pdfplumber
@@ -148,7 +153,8 @@ def _from_pdf(cls, filename, skip_to_header: int=0, skip_to_table: int=1):
 
 
 #==== PDF
-@classmethod
+# see _from_pdf()'s own comment above -- same deliberate wired-on-later classmethod pattern.
+@classmethod  # type: ignore[misc]
 def _from_pdf_new(cls, filename, skip_to_header: int=0, skip_to_table: int=1):
 
     import pdfplumber
@@ -179,9 +185,16 @@ def _from_pdf_new(cls, filename, skip_to_header: int=0, skip_to_table: int=1):
 
 # the following is specific to the audit_enting application.
 
+# Not wired onto Daf anywhere and not called from src/ or tests/ -- appears to be dead/unfinished
+# code ported in from elsewhere. Left as-is (not this pass's job to complete unowned business
+# logic), but flagging a real latent bug found while typing this: _from_pdf is a classmethod
+# object (see its own comment above), and calling it directly like this (not via
+# SomeClass.from_pdf(...)) raises "TypeError: 'classmethod' object is not callable" -- confirmed
+# interactively. Also, table_lines below is initialized to [] and never populated before the loop
+# that consumes it, so that loop can never run even if the call above didn't crash first.
 def parse_results_pdf(cls, filename, skip_to_header: int=0, skip_to_table: int=1, diagnose: bool=False):
 
-    my_daf = _from_pdf(filename=filename, skip_to_header=0, skip_to_table=0)
+    my_daf = _from_pdf(filename=filename, skip_to_header=0, skip_to_table=0)  # type: ignore[call-arg]
 
     header = my_daf[0]
     header = header.replace('65 & OVER', '65_&_OVER')
@@ -194,7 +207,7 @@ def parse_results_pdf(cls, filename, skip_to_header: int=0, skip_to_table: int=1
     if not my_daf:
         my_daf = cls(cols=header_ls)
 
-    table_lines = []    # solve issue below.
+    table_lines: List[str] = []    # solve issue below.
 
     state = 'looking'
     county = 'county_not_defined'

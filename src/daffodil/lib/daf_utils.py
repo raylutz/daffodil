@@ -13,11 +13,12 @@ import datetime
 import statistics
 import ast
 import platform
+import time
 
 import xlsx2csv     # type: ignore
 import numpy as np
 
-from typing import List, Dict, Any, Tuple, Optional, Union, cast, Type, Callable, TypeVar # noqa: F401
+from typing import List, Dict, Any, Tuple, Optional, Union, cast, Type, Callable, TypeVar, IO # noqa: F401
 T = TypeVar('T')
 from types import FrameType
 from collections.abc import Iterable, Iterator    # noqa: F401
@@ -393,6 +394,7 @@ def safe_regex_replace(regex: Union[List[Union[str, bytes]], str, bytes], s: str
 
     regex_str = regex.decode('utf-8') if isinstance(regex, bytes) else regex
 
+    regex_list: List[Union[str, bytes]]
     if isinstance(regex_str, str):
         regex_str = regex_str.strip('"')
         regex_list = [regex_str]   # form a list
@@ -403,7 +405,12 @@ def safe_regex_replace(regex: Union[List[Union[str, bytes]], str, bytes], s: str
     
     # apply list of regexes in order provided.
         
-    for one_replace_regex in regex_list:
+    for one_replace_regex_item in regex_list:
+        # decode any bytes item up front -- the parsing below (sep_char = ...[0], re.split on a
+        # single separator char) only works correctly against str; indexing a bytes object
+        # returns an int, not a one-byte bytes object, which would silently break sep_char.
+        one_replace_regex = (one_replace_regex_item.decode('utf-8')
+                              if isinstance(one_replace_regex_item, bytes) else one_replace_regex_item)
         one_replace_regex = one_replace_regex.strip()
         sep_char = one_replace_regex[0]
         if sep_char == one_replace_regex[-1]:
@@ -1338,7 +1345,9 @@ def _filter_comment_lines(lines: Iterator[str]) -> Iterator[str]:
 
 
 def buff_csv_to_lol(
-    buff: Union[bytes, str, Iterator[str]],  # Supports iterators for streaming
+    buff: Union[bytes, str, Iterator[str], IO[Any]],  # also accepts a seekable file-like object
+                                                        # (Case 3 below) -- IO[Any] covers both
+                                                        # binary- and text-mode file handles.
     user_format: bool = False,
     sep: str = ',',
     include_cols: Optional[list] = None,
@@ -1391,6 +1400,9 @@ def buff_csv_to_lol(
 
     # Case 3: buff is a file-like object that supports seek.
     elif hasattr(buff, 'seek'):
+        # hasattr() (unlike isinstance()) doesn't narrow the type for mypy -- buff is duck-typed
+        # file-like here (confirmed by the hasattr checks themselves), not a specific nominal type.
+        buff = cast(IO[Any], buff)
         try:
             # If available, use peek to inspect a few characters/bytes.
             if hasattr(buff, 'peek'):
@@ -1447,10 +1459,13 @@ def buff_csv_to_lol(
             buff = io.StringIO(preprocess_csv_buff(original_buff))
         else:
             # Streaming-compatible: lazy per-line filter, quote-aware.
-            buff = _filter_comment_lines(buff)
+            buff = _filter_comment_lines(cast(Iterator[str], buff))
 
+    # By this point every branch above (Cases 1-4, plus the user_format normalization just
+    # above) has reduced buff to something string-line-iterable -- a TextIOWrapper, StringIO,
+    # or generator -- but mypy can't track that invariant through this much branching/reassignment.
     # Use csv.reader to process the CSV stream.
-    csv_reader = csv.reader(buff, delimiter=sep, quoting=csv.QUOTE_MINIMAL)
+    csv_reader = csv.reader(cast(Iterable[str], buff), delimiter=sep, quoting=csv.QUOTE_MINIMAL)
 
     if diagnose:
         data_lol = []
@@ -1670,7 +1685,8 @@ def is_list_of_type(test_item: Any, of_type: Union[Type, Tuple[Type, ...]]) -> b
 
     if test_item and isinstance(test_item, list) and isinstance(test_item[0], of_type):
         return True
-        
+    return False
+
 
 def is_tuple_of_type_len(test_item: Any, of_type: Union[Type, Tuple[Type, ...]], length: int):
     # test if test_item is a T_tuple(of_type) with length.
@@ -1772,6 +1788,8 @@ def _sanitize_cols(cols: T_cs, unnamed_prefix='Unnamed') -> list:
                 col_hd[f"{col}_{idx}"] = idx
         return list(col_hd.keys())
 
+    return []
+
 
 def invert_dol_to_dict(input_dol:dict) -> dict:
     """ given a dict of lists where no element in any is seen twice,
@@ -1789,7 +1807,7 @@ def invert_dol_to_dict(input_dol:dict) -> dict:
     return result_dict
 
 
-def min_max_cols_lol(lol: T_lola, start: Optional[int]=None, limit: Optional[int]=None) -> Tuple[int, int]:
+def min_max_cols_lol(lol: T_lola, start: Optional[int]=None, limit: Optional[int]=None) -> Tuple[Optional[int], int]:
 
     max_cols = 0
     min_cols = None
@@ -1804,7 +1822,7 @@ def min_max_cols_lol(lol: T_lola, start: Optional[int]=None, limit: Optional[int
     return min_cols, max_cols
     
 
-def equal_cols_lol(lol: T_lola, limit: int=10, check_all:bool=False) -> T_lola:
+def equal_cols_lol(lol: T_lola, limit: Optional[int]=10, check_all:bool=False) -> T_lola:
     """ Make lol have equal number of columns throughout. 
         Appends columns of '' on the right end.
         Mutates in place.

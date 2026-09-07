@@ -3,6 +3,7 @@
 import typing
 from typing import List, Dict, Any, Tuple, Optional, TypeVar, Union, cast, Type, Callable # noqa: F401
 from daffodil.lib.daf_types import T_ls, T_lola, T_da, T_li, T_cs, T_ca, T_ma # noqa: F401
+from daffodil.lib.schemaclass import SchemaBase
 
 import copy
 
@@ -211,6 +212,7 @@ def _attach_schema(self, schema: type) -> None:
     # basic validation
     if not getattr(schema, "__is_schemaclass__", False):
         raise TypeError("schema must be a @schemaclass")
+    schema = cast(Type[SchemaBase], schema)
 
     # remember schema
     self.schema = schema
@@ -281,7 +283,7 @@ def _default_record(self) -> T_da:
         and getattr(schema, "__is_schemaclass__", False)
         ):
 
-        return schema.default_record()
+        return cast(Type[SchemaBase], schema).default_record()
 
     # ---------------------------------------------------------
     # schema_daf support

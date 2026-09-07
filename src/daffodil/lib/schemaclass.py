@@ -13,7 +13,7 @@ schema descriptor by consuming code.
 
 import copy
 import typing
-from typing import Dict, Any, List, TypeVar, Union   # noqa: F401
+from typing import Dict, Any, List, TypeVar, Union, Protocol   # noqa: F401
 from ..keyedlist import KeyedList
 from . import daf_utils
 
@@ -21,10 +21,12 @@ T_da =  Dict[str, Any]
 
 T = TypeVar("T")
 
-class SchemaBase:
+class SchemaBase(Protocol):
     """
     Static interface for schemaclasses so mypy can see attributes
-    injected by @schemaclass.
+    injected by @schemaclass. A Protocol (not a plain class) so its '...'
+    method bodies are recognized as interface declarations, not
+    incomplete implementations missing a return statement.
     """
 
     __annotations__: Dict[str, type]
@@ -61,7 +63,7 @@ def schemaclass(cls: type[T]) -> type[T]:
 
     # ---- allow inheritance ------------------------------------------------
 
-    merged_ann = {}
+    merged_ann: Dict[str, type] = {}
 
     for base_cls in reversed(cls.__mro__):
 
@@ -73,8 +75,11 @@ def schemaclass(cls: type[T]) -> type[T]:
         )
 
     ann = merged_ann
-    
-    cls.__schema_annotations__ = merged_ann
+
+    # cls (type[T], an arbitrary caller class) doesn't statically declare any of these --
+    # they're deliberately injected at decoration time, hence setattr rather than plain
+    # attribute assignment (which mypy correctly refuses on an undeclared attribute/method).
+    setattr(cls, '__schema_annotations__', merged_ann)
 
     # ---- basic validation -------------------------------------------------
 
@@ -96,11 +101,14 @@ def schemaclass(cls: type[T]) -> type[T]:
             f"{cls.__name__} is a schemaclass and cannot be instantiated"
         )
 
-    cls.__init__ = _no_init
+    setattr(cls, '__init__', _no_init)
 
     # ---- helper methods ---------------------------------------------------
+    # Each @classmethod/@staticmethod below is a nested function, not a real method of any
+    # class yet -- it becomes one only once attached below (setattr(cls, name, func)). mypy
+    # has no way to know that, hence the ignores on each decorator.
 
-    @classmethod
+    @classmethod  # type: ignore[misc]
     def default_record(cls, **kwargs: Any) -> T_da:
         """
         Return a new record dict initialized from schema defaults.
@@ -136,7 +144,7 @@ def schemaclass(cls: type[T]) -> type[T]:
         return rec
 
 
-    @classmethod
+    @classmethod  # type: ignore[misc]
     def record_from(cls, src: Union[T_da, KeyedList]) -> T_da:
         """
         Create a schema-compatible record from a source mapping.
@@ -170,7 +178,7 @@ def schemaclass(cls: type[T]) -> type[T]:
         return rec
 
         
-    @classmethod
+    @classmethod  # type: ignore[misc]
     def get_dtypes_dict(cls, *, use_origins: bool = False) -> Dict[str, type]:
         """
         Return a dtypes dictionary mapping column names to intended types.
@@ -188,7 +196,7 @@ def schemaclass(cls: type[T]) -> type[T]:
         return dtypes_dict
    
     
-    @classmethod
+    @classmethod  # type: ignore[misc]
     def get_columns(cls) -> List[str]:
         """
         Return a list of column names.
@@ -200,7 +208,7 @@ def schemaclass(cls: type[T]) -> type[T]:
         return columns_ls
    
     
-    @staticmethod
+    @staticmethod  # type: ignore[misc]
     def get_pandas_dtypes_from_schema(schema):
         dtypes = {}
 
@@ -221,7 +229,7 @@ def schemaclass(cls: type[T]) -> type[T]:
         return dtypes
 
 
-    @classmethod
+    @classmethod  # type: ignore[misc]
     def validate_keys_debug(cls, da: T_da) -> None:
         if not __debug__:
             return
@@ -232,16 +240,17 @@ def schemaclass(cls: type[T]) -> type[T]:
 
     
     # ---- attach helpers to class -----------------------------------------
+    # setattr, not plain assignment -- see the comment above the helpers themselves.
 
-    cls.default_record  = default_record
-    cls.get_dtypes_dict = get_dtypes_dict
-    cls.get_columns     = get_columns
-    cls.get_pandas_dtypes_from_schema = get_pandas_dtypes_from_schema
-    cls.validate_keys_debug = validate_keys_debug
-    cls.record_from     = record_from
-    
+    setattr(cls, 'default_record', default_record)
+    setattr(cls, 'get_dtypes_dict', get_dtypes_dict)
+    setattr(cls, 'get_columns', get_columns)
+    setattr(cls, 'get_pandas_dtypes_from_schema', get_pandas_dtypes_from_schema)
+    setattr(cls, 'validate_keys_debug', validate_keys_debug)
+    setattr(cls, 'record_from', record_from)
+
     # ---- marker attribute -------------------------------------------------
 
-    cls.__is_schemaclass__ = True
+    setattr(cls, '__is_schemaclass__', True)
 
     return cls

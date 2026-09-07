@@ -174,7 +174,10 @@ def md_toc(headings_list: T_ls):
 
 # called by Daf.dodaf_to_md()
 
-@staticmethod
+# @staticmethod on a module-level function is deliberate here (wired onto Daf in daf.py:
+# `dodaf_to_md = md.dodaf_to_md`) to avoid a circular import -- see daf_pdf.py's _from_pdf()
+# for the same pattern spelled out in full. mypy can't see the later attachment, hence the ignore.
+@staticmethod  # type: ignore[misc]
 def dodaf_to_md(
         dodaf:          Dict[str, Any],       # T_dodaf -- {section_name: Daf, ...}; typed Any here (not T_daf/T_dodaf)
                                                 # to avoid importing Daf into this leaf module -- same reasoning as
@@ -205,8 +208,8 @@ def dodaf_to_md(
 
 
 # called by Daf.dodaf_from_md() -- round-trip inverse of dodaf_to_md() above.
-
-@classmethod
+# Same wired-on-later @classmethod pattern as dodaf_to_md() above.
+@classmethod  # type: ignore[misc]
 def _dodaf_from_md(cls, md_str: str, header_level: int = 2) -> Dict[str, Any]:   # -> T_dodaf
     """
     Inverse of dodaf_to_md(): parses a combined markdown report back into a dict-of-Daf.
@@ -287,15 +290,20 @@ def md_lol_table(
 
     cols_lol = utils.transpose_lol(records_lol)
 
+    # header's declared type (T_cs) also accepts a KeysView or a dict (its keys) as a
+    # convenience, not just a plain list -- normalize to a real list once, up front, since
+    # every use below (concatenation, passing to md_cols_lol_table) needs an actual list.
+    header_ls: Optional[List[str]] = list(header) if header is not None else None
+
     if include_idx:
         # there is never a header at this point.
-        col_idx_ls = [str(idx) for idx in range(len(records_lol))]                        
+        col_idx_ls = [str(idx) for idx in range(len(records_lol))]
         cols_lol = [col_idx_ls] + cols_lol
-        if header:
-            header = ['idx'] + header
+        if header_ls:
+            header_ls = ['idx'] + header_ls
         just = '^' + just
 
-    return md_cols_lol_table(cols_lol, header=header, just=just, 
+    return md_cols_lol_table(cols_lol, header=header_ls, just=just,
                 omit_header=omit_header, shorten_text=shorten_text, max_text_len=max_text_len, smart_fmt=smart_fmt)
 
 
@@ -413,8 +421,8 @@ def md_cols_lol_table(
     return ''.join(ls)
         
 #== from_md parsing.
-
-@classmethod
+# Same wired-on-later @classmethod pattern as dodaf_to_md() above.
+@classmethod  # type: ignore[misc]
 def _from_md(cls, md_str: str): # -> "Daf":
     """
     Construct a Daf from a Markdown table.
@@ -450,8 +458,11 @@ def _from_md(cls, md_str: str): # -> "Daf":
         find_first_markdown_table(lines)
 
     # ---- No table found ----
-
-    if table_start_idx is None:
+    # find_first_markdown_table() sets all three together (a table is found with both a start
+    # and an end, or not found at all, in which case all three come back None) -- check all
+    # three here so mypy can narrow table_lines/table_end_idx for the rest of this function too,
+    # not just table_start_idx.
+    if table_start_idx is None or table_end_idx is None or table_lines is None:
 
         for ln in lines:
 
@@ -489,7 +500,7 @@ def _from_md(cls, md_str: str): # -> "Daf":
 
         body = line.strip().strip("|").replace(" ", "")
 
-        return body and all(c in "-:|" for c in body)
+        return bool(body) and all(c in "-:|" for c in body)
 
     def _parse_row(line: str) -> T_ls:
 

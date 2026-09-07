@@ -363,6 +363,8 @@ class KeyedIndex:
         - tuple
         - dict        (uses dict.keys())
         - dict_keys   (keys view)
+        - KeyedList   (uses its own .hd)
+        - KeyedIndex  (copies the other index's keys)
 
     Unsupported:
         - arbitrary iterables (explicit rejection to avoid ambiguity)
@@ -486,6 +488,8 @@ class KeyedIndex:
                 Tuple[TKey, ...],
                 Dict[TKey, Any],
                 KeysView[TKey],
+                KeyedList,
+                'KeyedIndex',
             ]
         ] = None,
     ) -> None:
