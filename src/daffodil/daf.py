@@ -142,7 +142,8 @@ class Daf:
     def __init__(self,
             lol:        T_lola|None         = None,     # used to initialize the data array.
             hd:         T_di|None           = None,     # used to initialize the hd array. If used, then cols not needed.
-            kd:         T_di|None           = None,     # used to initialize the kd array if no keyfield is set.
+            kd:         Dict[Union[str, int], int]|None = None,  # used to initialize the kd array if no keyfield is set.
+                                                        # keys can be int too (an int-valued single-column keyfield), not just str.
             cols:       T_cs|None           = None,     # Optional column names to use.
             dtypes:     T_dtype_dict|None   = None,     # Optional dtype_dict describing the desired type of each column.
                                                         #   also used to define column names if provided and cols not provided.
@@ -1079,7 +1080,7 @@ class Daf:
 
 
     @staticmethod
-    def _build_kd(col_idx: Union[int, T_li], lol: T_lola) -> T_di:
+    def _build_kd(col_idx: Union[int, T_li], lol: T_lola) -> Dict[Union[str, int], int]:
         """
         Build key dictionary from column index and data.
 
@@ -1094,16 +1095,20 @@ class Daf:
             Internal.
         """
 
-        # build key dictionary from col_idx col of lol 
+        # build key dictionary from col_idx col of lol
+        # _build_hd()'s own declared return type is Dict[str, int] (correct for its primary use
+        # building a column-NAME header dict), but it's reused here to build a dict from the
+        # actual VALUES in a keyfield column, which -- unlike column names -- can legitimately be
+        # int too (an int-valued single-column keyfield); cast reflects that broader real return.
         if isinstance(col_idx, int):
             key_col = daf_utils.select_col_of_lol_by_col_idx(lol, col_idx)
 
             # see https://github.com/raylutz/daffodil/issues/6
-            kd = Daf._build_hd(key_col)
+            kd = cast(Dict[Union[str, int], int], Daf._build_hd(key_col))
             #kd = {key: index for index, key in enumerate(key_col)}
         else:
             col_idx_list = col_idx
-            kd = Daf._build_hd(Daf(lol=lol)[:, col_idx_list].to_lota())
+            kd = cast(Dict[Union[str, int], int], Daf._build_hd(Daf(lol=lol)[:, col_idx_list].to_lota()))
         return kd
 
 
@@ -3397,7 +3402,9 @@ class Daf:
             isinstance(row_spec, (int, slice, range))
             or daf_utils.is_list_of_type(row_spec, (int, range))
         ):
-            irows = row_spec
+            # is_list_of_type() already confirmed (at runtime) row_spec is one of the declared
+            # irows alternatives -- it's just not a TypeGuard, so mypy can't narrow on it itself.
+            irows = cast(Union[int, slice, range, T_li], row_spec)
 
         else:
             raise TypeError(f"Invalid row selector: {row_spec}")
@@ -3419,7 +3426,7 @@ class Daf:
             isinstance(col_spec, (int, slice, range))
             or daf_utils.is_list_of_type(col_spec, (int, range))
         ):
-            icols = col_spec
+            icols = cast(Union[int, slice, range, T_li], col_spec)
 
         else:
             raise TypeError(f"Invalid column selector: {col_spec}")
@@ -3475,9 +3482,9 @@ class Daf:
         return self
 
 
-    def set_irows_icols(self, 
-            irows: Union[slice, int, T_li, Iterable, None], 
-            icols: Union[slice, int, T_li, None], 
+    def set_irows_icols(self,
+            irows: Union[slice, int, range, T_li, Iterable, None],
+            icols: Union[slice, int, range, T_li, None],
             value: Any) -> 'Daf':
         """
         Set values at specified row and column indices.
@@ -3505,7 +3512,10 @@ class Daf:
         tot_num_cols = self.num_cols()
         tot_num_rows = self.num_rows()
 
-        num_irows = daf_utils.len_rowcol_spec(irows, tot_num_rows)
+        # irows accepts a bare Iterable per this method's own signature, but len_rowcol_spec
+        # only actually measures slice/int/range/list (silently returns 0 for anything else,
+        # e.g. a generator) -- in every real caller, irows/icols is one of those four by here.
+        num_irows = daf_utils.len_rowcol_spec(cast(Union[slice, int, range, T_li, None], irows), tot_num_rows)
         num_icols = daf_utils.len_rowcol_spec(icols, tot_num_cols)
 
         if num_irows == 1 and isinstance(irows, int):
@@ -3518,6 +3528,15 @@ class Daf:
         if isinstance(icols, slice):
             icols = daf_utils.slice_to_range(icols, self.num_cols())
 
+        # By this point every branch above has normalized irows/icols down to range or list[int]
+        # only -- slice was just converted to range, None to [], and (unlike icols, which has no
+        # equivalent conversion) a lone int irows/icols was already wrapped in a single-item list
+        # a few lines up (num_irows/num_icols == 1 and isinstance(..., int)). The declared param
+        # type is wider (Iterable, T_li, ...) to accept what callers may pass in, not what
+        # remains once this normalization runs.
+        irows = cast(Union[range, T_li], irows)
+        icols = cast(Union[range, T_li], icols)
+
         # special case when cols not specified.
         if num_irows == 1 and num_icols == 0:
 
@@ -3528,7 +3547,11 @@ class Daf:
             elif isinstance(value, dict):
                 self.assign_record_irow(irow, record=value)
             elif isinstance(value, type(self)):
-                self.lol[irow] = value
+                # Flagging, not changing: this stores the whole Daf `value` object as the row's
+                # raw list content -- inconsistent with the num_irows > 1 branch below, which
+                # indexes into value (value[source_row]) to get an actual row instead. Left
+                # as-is (no test covers `my_daf[i] = other_daf` to confirm intended behavior).
+                self.lol[irow] = value  # type: ignore[call-overload]
             else:
                 # set the same value in the row for all columns.
                 self.lol[irow] = [value] * len(self.lol[irow])
@@ -3557,8 +3580,10 @@ class Daf:
                 for irow in irows:
                     self.assign_record_irow(irow, record=value)
             elif isinstance(value, (list, Sequence)):
+                # value may be a non-list Sequence (e.g. tuple) here -- stored as-is, matching
+                # this branch's existing (pre-existing, not changed here) behavior.
                 for irow in irows:
-                    self.lol[irow] = value
+                    self.lol[irow] = value  # type: ignore[call-overload]
             elif isinstance(value, type(self)):
                 for source_row, irow in enumerate(irows):
                     self.lol[irow] = value[source_row]
@@ -3660,7 +3685,10 @@ class Daf:
         if not self.keyfield and not self._kd:
             # if keyfield is unset, kd may still be initialized manually.
 
-            KeysDisabledError("Key lookups are disabled (keyfield is unset).")
+            # `raise` was missing here -- constructed but never raised, so this docstring's own
+            # "raises KeysDisabledError if keyfield is not set" silently didn't happen; every
+            # other identical message elsewhere in this file (e.g. select_krows()) does raise.
+            raise KeysDisabledError("Key lookups are disabled (keyfield is unset).")
             # if inverse:
                 # return range(len(self))
             # else:
@@ -3706,7 +3734,10 @@ class Daf:
                 return []
 
         return type(self).gkeys_to_idxs(
-                    keydict         = self.hd,
+                    # self.hd's keys (Dict[str, int]) are a subset of what gkeys_to_idxs accepts
+                    # (Dict[str|int, int]) -- dict is invariant in its key type for mypy, so this
+                    # narrower-is-fine relationship needs a cast to type-check.
+                    keydict         = cast(Dict[Union[str, int], int], self.hd),
                     gkeys           = kcols,
                     inverse         = inverse,
                     silent_error    = silent_error,

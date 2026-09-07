@@ -1716,17 +1716,19 @@ def len_slice(slice_obj: slice, tot_len: int=0):
     return len_int
     
 
-def len_rowcol_spec(ispec: Union[slice, int, T_li, None], tot_len: int) -> int:
-    """ return the length of a slice, int, li. If None, then len = 0 
-    
+def len_rowcol_spec(ispec: Union[slice, int, range, T_li, None], tot_len: int) -> int:
+    """ return the length of a slice, int, range, li. If None, then len = 0
+
         returns -1 if the length is not terminated
     """
-    
+
     if isinstance(ispec, slice):
         return len_slice(ispec, tot_len)
     elif isinstance(ispec, int):
         return 1
-    elif isinstance(ispec, list):
+    elif isinstance(ispec, (list, range)):
+        # range was previously missing here -- fell through to the `else: return 0` branch,
+        # silently reporting length 0 for a real, non-empty range() irows/icols spec.
         return len(ispec)
     else:
         return 0
