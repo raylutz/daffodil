@@ -2034,7 +2034,7 @@ def unexcelstringify(astr):
         
     return astr
 
-def get_indirect_da(row_da: T_da, indirect_col: str) -> T_da:
+def get_indirect_da(row_da: T_ma, indirect_col: str) -> T_da:
 
     da = row_da.get(indirect_col, {})
 
@@ -2043,8 +2043,8 @@ def get_indirect_da(row_da: T_da, indirect_col: str) -> T_da:
 
     return da
 
-    
-def get_indirect_val(row_da: T_da, indirect_col: str, col: str, default: Any = 0):
+
+def get_indirect_val(row_da: T_ma, indirect_col: str, col: str, default: Any = 0):
 
     da = get_indirect_da(row_da, indirect_col)
 

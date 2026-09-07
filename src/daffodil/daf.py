@@ -3846,7 +3846,10 @@ class Daf:
             for one_gkey in gkeys:   # renamed from gkey -- distinct from the str|int `gkey` above
                 # For the following, see https://github.com/raylutz/daffodil/issues/6
                 try:
-                    idxs.append(keydict[one_gkey])
+                    # gkeys may iterate to a tuple or other non-str/int element (per its Union
+                    # type); keydict only has str|int keys, so such a lookup simply KeyErrors
+                    # below and is handled the same as any other missing key.
+                    idxs.append(keydict[cast(Union[str, int], one_gkey)])
                 except KeyError:
                     if not silent_error:
                         # logs.sts(f"{logs.prog_loc()} Cannot find key '{one_gkey}' in {axis} in dataframe '{name}'", 3)
@@ -4476,7 +4479,7 @@ class Daf:
         if len(self) > 1:
             raise ValueError("Ambiguous 2dim array.")
 
-        return self.iloc(irow=0, include_cols=None)
+        return cast(T_da, self.iloc(irow=0, include_cols=None))
 
 
     def to_klist(self, irow: int=0) -> KeyedList:
@@ -4489,7 +4492,7 @@ class Daf:
         Returns:
             KeyedList: Row representation.
         """
-        return self.iloc(irow, rtype='klist')
+        return cast(KeyedList, self.iloc(irow, rtype='klist'))
 
 
     def irow(self, irow: int=0, include_cols: Optional[T_ls]=None) -> T_da:
@@ -4503,10 +4506,10 @@ class Daf:
         Returns:
             Dict: Row data.
         """
-        return self.iloc(irow, include_cols)
+        return cast(T_da, self.iloc(irow, include_cols))
 
 
-    def iloc(self, irow: int=0, include_cols: Optional[T_ls]=None, rtype: str='dict') -> Union[T_da, KeyedList]:
+    def iloc(self, irow: int=0, include_cols: Optional[T_ls]=None, rtype: str='dict') -> Union[T_ma, T_la]:
         """
         Select row by index.
 
@@ -4542,6 +4545,8 @@ class Daf:
 
         elif rtype == 'list':
             return list(self.lol[irow])
+
+        raise ValueError(f"iloc: unrecognized rtype '{rtype}'")
 
 
     # def select_by_dict_to_lod(self, selector_da: T_da, expectmax: int=-1, inverse: bool=False) -> T_loda:
@@ -4596,7 +4601,7 @@ class Daf:
         return daf
 
 
-    def select_first_row_by_dict(self, selector_da: T_da, inverse:bool=False) -> T_da:
+    def select_first_row_by_dict(self, selector_da: T_da, inverse:bool=False) -> T_ma:
         """
         Select first row matching criteria.
 
@@ -4605,7 +4610,7 @@ class Daf:
             inverse: Invert selection.
 
         Returns:
-            Dict: Matching row or empty dict.
+            Dict or KeyedList (per current itermode): Matching row or empty dict.
         """
 
         """ Selects the first row in daf which matches the fields specified in selector_da
@@ -5702,6 +5707,7 @@ class Daf:
             Note: do not include the final row in the list which is compared with the prior list.
         """
 
+        reversed_irows_rli: Union[range, T_li]
         if irows_rli is None:
             reversed_irows_rli = range(len(self) - 2, -1, -1)
         else:
@@ -5754,7 +5760,11 @@ class Daf:
 
     def apply(
             self,
-            func:       Callable[[Union[T_da, 'Daf'], Optional[T_la]], Union[T_da, 'Daf']],
+            # called as func(self, **kwargs) for by='table', func(row, **kwargs) for by='row'.
+            # by='table' is a pure passthrough of func's return value (any type -- see
+            # test_daf_misc.py, where it returns a bare int), so func's return type isn't
+            # pinned down here.
+            func:       Callable[..., Any],
             by:         str='row',
             keylist:    Optional[Union[T_la, T_lota]]=None,     # list of keys of rows to include (DEPRECATE?)
             **kwargs:   Any,
@@ -5781,7 +5791,10 @@ class Daf:
             Daf: A new Daf instance with the transformed data.
         """
         if by == 'table':
-            return func(self, **kwargs)
+            # by contract (see docstring) func returns a 'Daf' when by='table', though this
+            # is a pure passthrough and isn't actually enforced (a test exercises it with a
+            # func returning a bare int).
+            return func(self, **kwargs)  # type: ignore[no-any-return]
 
         result_daf = Daf()
 
@@ -5794,7 +5807,9 @@ class Daf:
             self._rebuild_kd_if_invalidated()
 
             for row in self:
-                if self.keyfield and keylist_or_dict and row[self.keyfield] not in keylist_or_dict:
+                # self.keyfield here always names a single field (composite/multi-col keyfields
+                # aren't used for this row-membership check).
+                if self.keyfield and keylist_or_dict and row[cast(str, self.keyfield)] not in keylist_or_dict:
                     continue
                 transformed_row = func(row, **kwargs)
                 result_daf.append(transformed_row)          # Will not append an empty row.
@@ -5825,7 +5840,8 @@ class Daf:
 
     def apply_in_place(
             self,
-            func:       Callable[[T_ma], Union[T_ma, None]],
+            # called as func(row, **kwargs) -- see the apply() comment on Callable[...] above.
+            func:       Callable[..., Union[T_ma, None]],
             by:         str='row',
             rowkeys:    Union[T_la, T_lota] | None=None,  # list of rowkeys to include.
                         # the above changed from keylist to avoid confusion with KeyedList
@@ -5859,15 +5875,17 @@ class Daf:
             self._rebuild_kd_if_invalidated()
 
             for idx, row_da in enumerate(self):
-                if rowkeys_list_or_dict and self.keyfield and row_da[self.keyfield] not in rowkeys_list_or_dict:
+                if rowkeys_list_or_dict and self.keyfield and row_da[cast(str, self.keyfield)] not in rowkeys_list_or_dict:
                     continue
                 transformed_row_da = func(row_da, **kwargs)
+                if transformed_row_da is None:
+                    raise ValueError("apply_in_place: func must return a row for by='row' (None is only valid for by='row_klist')")
                 self.lol[idx] = list(transformed_row_da.values())
 
         elif by == 'row_klist':
 
             for idx, row_klist in enumerate(self.iter_klist()):
-                if rowkeys_list_or_dict and self.keyfield and row_klist[self.keyfield] not in rowkeys_list_or_dict:
+                if rowkeys_list_or_dict and self.keyfield and row_klist[cast(str, self.keyfield)] not in rowkeys_list_or_dict:
                     continue
 
                 # func should return nothing and instead mutate row_klist, which will mutate the row in the array.
@@ -5932,7 +5950,7 @@ class Daf:
     def manifest_apply(
             self,
             func: Callable[[T_da, Optional[T_la]], Tuple[T_da, 'Daf']],    # function to apply according to 'by' parameter
-            load_func: Callable[[T_da], 'Daf'],            # optional function to load data for each manifest entry, defaults to local file system
+            load_func: Callable[[T_ma], 'Daf'],            # optional function to load data for each manifest entry, defaults to local file system
             save_func: Callable[[T_da, 'Daf'], str],       # optional function to save data for each manifest entry, defaults to local file system
             by: str='row',                                  # determines how the func is applied.
             cols: Optional[T_la]=None,                      # columns included in the apply operation.
@@ -5968,8 +5986,11 @@ class Daf:
             # Load the specified Daf table
             loaded_daf = load_func(chunk_spec)
 
-            # Apply the function to the loaded Daf
-            result_chunk_spec, transformed_daf = loaded_daf.apply(func, by=by, cols=cols, **kwargs)
+            # Apply the function to the loaded Daf. apply()'s by='table' mode is a pure
+            # passthrough of func's return value, so at by='table' this really returns
+            # func's declared Tuple[T_da, 'Daf'] rather than apply()'s nominal 'Daf'.
+            # No caller/test currently exercises manifest_apply -- untested.
+            result_chunk_spec, transformed_daf = cast(Tuple[T_da, 'Daf'], loaded_daf.apply(func, by=by, cols=cols, **kwargs))
 
             # Save the resulting Daf table
             save_func(result_chunk_spec, transformed_daf)
@@ -5982,8 +6003,10 @@ class Daf:
 
     def manifest_reduce(
             self,
-            func: Callable[[T_da, Optional[T_la]], T_da],
-            load_func: Optional[Callable[[T_da], 'Daf']] = None,
+            # func is passed through to Daf.reduce() (row/reduction/cols/**kwargs), not called
+            # directly here, so its exact arity isn't pinned down at this level.
+            func: Callable[..., Any],
+            load_func: Optional[Callable[[T_ma], 'Daf']] = None,
             by: str='row',                                  # determines how the func is applied.
             cols: Optional[T_la]=None,                      # columns included in the reduce operation.
             **kwargs: Any,
@@ -5999,6 +6022,9 @@ class Daf:
         Returns:
             Daf: Result of reducing all chunks into a single record.
         """
+        if load_func is None:
+            raise ValueError("manifest_reduce: load_func is required")
+
         first_reduction_daf = self.clone_empty()
 
         for chunk_spec in self:
@@ -6006,18 +6032,19 @@ class Daf:
             loaded_daf = load_func(chunk_spec)
 
             # Apply the function to the loaded Daf
-            reduction_da = loaded_daf.reduce(func, by=by, cols=cols, **kwargs)
+            reduction_ma = loaded_daf.reduce(func, by=by, cols=cols, **kwargs)
 
-            first_reduction_daf.append(reduction_da)
+            first_reduction_daf.append(reduction_ma)
 
-        final_reduction_da = first_reduction_daf.reduce(func, by=by, cols=cols, **kwargs)
+        final_reduction_ma = first_reduction_daf.reduce(func, by=by, cols=cols, **kwargs)
 
-        return final_reduction_da
+        return cast(T_da, final_reduction_ma)
 
 
     def manifest_process(
             self,
-            func: Callable[[T_da, Optional[T_la]], T_da],   # function to run for each hunk specified by the manifest
+            # called as func(chunk_spec, **kwargs) -- see the apply() comment on Callable[...] above.
+            func: Callable[..., T_da],   # function to run for each hunk specified by the manifest
             **kwargs: Any,
             ) -> 'Daf':                                    # records describing metadata of each hunk
         """
@@ -6197,7 +6224,9 @@ class Daf:
     def groupby_cols_reduce(
             self,
             groupby_colnames: T_ls,
-            func: Callable[[T_da, Union['Daf', T_da]], Union[T_da, T_la, 'Daf']],
+            # passed through to Daf.reduce() (row/reduction/cols/**kwargs) -- see the
+            # manifest_reduce comment on Callable[...] above.
+            func: Callable[..., Any],
             by: str='row',                                  # determines how the func is applied.
             reduce_cols: Optional[T_la]=None,               # columns included in the reduce operation.
             diagnose: bool = False,
@@ -6300,7 +6329,7 @@ class Daf:
         if diagnose:  # pragma: no cover
             daf_utils.sts(f"Total of {len(grouped_tdodaf):,} groups. Reduction starting.", 3)
 
-        result_daf = Daf(cols=groupby_colnames + reduce_cols)
+        result_daf = Daf(cols=groupby_colnames + (reduce_cols or []))
 
         for coltup, this_daf in grouped_tdodaf.items():
 
@@ -6308,8 +6337,9 @@ class Daf:
                 # nothing found with this combination of groupby cols.
                 continue
 
-            # apply the reduction function
-            reduction_da = this_daf.reduce(func, by=by, cols=reduce_cols, **kwargs)
+            # apply the reduction function. by='row'/'table' (the only modes that make sense
+            # here, to combine with the groupby cols below) always reduce to a single record.
+            reduction_da = cast(T_ma, this_daf.reduce(func, by=by, cols=reduce_cols, **kwargs))
 
             # add back in the groupby cols
             for idx, groupcolname in enumerate(groupby_colnames):
@@ -6326,7 +6356,9 @@ class Daf:
     def groupby_reduce(
             self,
             colname:        str,
-            func:           Callable[['Daf', T_ma], Union[T_ma, T_la]], # function reduces one grouped daf to one record.
+            # passed through to Daf.reduce() (row/reduction/cols/**kwargs) -- see the
+            # manifest_reduce comment on Callable[...] above.
+            func:           Callable[..., Any], # function reduces one grouped daf to one record.
             by:             str='row',                                  # determines how the func is applied.
             reduce_cols:    T_cs | None=None,                           # columns included in the reduce operation.
             diagnose:       bool=False,
@@ -6340,12 +6372,14 @@ class Daf:
 
         if diagnose:
             logs.sts(f"{logs.prog_loc()} starting groupby '{colname}' operation", 3)
-        grouped_dodaf = self.groupby(colname)
+        # groupby(colname=<str>) (colnames not passed) always takes the Dict[str, 'Daf']
+        # branch, never the tuple-keyed Dict[Tuple[str, ...], 'Daf'] one.
+        grouped_dodaf = cast(T_dodaf, self.groupby(colname))
         result_daf = Daf.reduce_dodaf_to_daf(
             func            = func,             # function reduces one grouped daf to one record.
             colname         = colname,
             grouped_dodaf   = grouped_dodaf,
-            reduce_cols     = reduce_cols,
+            reduce_cols     = list(reduce_cols) if reduce_cols is not None else None,
             by              = by,
             diagnose        = diagnose,
             **kwargs,
@@ -6416,7 +6450,9 @@ class Daf:
     @staticmethod
     def reduce_dodaf_to_daf(
             colname:        str,
-            func:           Callable[[T_da, T_da], Union[T_da, T_la]],
+            # passed through to Daf.reduce() (row/reduction/cols/**kwargs) -- see the
+            # manifest_reduce comment on Callable[...] above.
+            func:           Callable[..., Any],
             grouped_dodaf:  T_dodaf,
             reduce_cols:    Optional[T_la]=None,    # columns included in the reduce operation, None = all except for colname.
             diagnose:       bool=False,
@@ -6446,7 +6482,9 @@ class Daf:
 
             if diagnose:
                 logs.sts(f"## Group {group_num}: {colname}={colval}\n\n{this_daf}\n\n", 3)
-            reduction_da = this_daf.reduce(func, cols=reduce_cols, **kwargs)
+            # by defaults to 'row' (the only mode used here), which always reduces to a
+            # single record.
+            reduction_da = cast(T_ma, this_daf.reduce(func, cols=reduce_cols, **kwargs))
                     # def reduce(
                             # self,
                             # func: Callable[[T_da, T_da], Union[T_da, T_la]],
@@ -6457,13 +6495,13 @@ class Daf:
                             # ) -> Union[T_da, T_la]:
 
             if diagnose:
-                logs.sts(f"Post reduction: {Daf.from_lod([reduction_da])=}", 3)
+                logs.sts(f"Post reduction: {Daf.from_lod([cast(T_da, reduction_da)])=}", 3)
 
             # add colname:colval to the dict, as it is removed by the reduction func.
             reduction_da[colname] = colval
 
             if diagnose:
-                logs.sts(f"Post add colname:colval to the dict: {Daf.from_lod([reduction_da])=}", 3)
+                logs.sts(f"Post add colname:colval to the dict: {Daf.from_lod([cast(T_da, reduction_da)])=}", 3)
 
             # this will also maintain the kd.
             result_daf.append(reduction_da)
@@ -6477,7 +6515,9 @@ class Daf:
     def multi_groupby_reduce(
             self,
             colnames:       T_cs,
-            func:           Callable[[T_ma, T_ma], Union[T_ma, T_la]],  # function reduces one grouped daf to one record.
+            # passed through to Daf.reduce() (row/reduction/cols/**kwargs) -- see the
+            # manifest_reduce comment on Callable[...] above.
+            func:           Callable[..., Any],  # function reduces one grouped daf to one record.
             by:             str='row',                                  # determines how the func is applied.
             reduce_cols:    T_cs | None=None,                           # columns included in the reduce operation.
             diagnose:       bool=False,
@@ -6494,6 +6534,7 @@ class Daf:
         multi_grouped_dododaf = self.multi_groupby(colnames)
 
         result_dodaf: T_dodaf = {}
+        reduce_cols_la = list(reduce_cols) if reduce_cols is not None else None
 
         for colname, grouped_dodaf in multi_grouped_dododaf.items():
 
@@ -6501,7 +6542,7 @@ class Daf:
                 func            = func,         # function reduces one grouped daf to one record.
                 colname         = colname,
                 grouped_dodaf   = grouped_dodaf,
-                reduce_cols     = reduce_cols,
+                reduce_cols     = reduce_cols_la,
                 diagnose        = diagnose,
                 **kwargs,
                 )
@@ -6517,7 +6558,7 @@ class Daf:
 
     def apply_colwise(
         self,
-        target_col: Union[str, int],
+        target_col: str,
         func: Callable[[T_da], Any],
         *,
         default: Any = 0,
@@ -7422,7 +7463,7 @@ class Daf:
 
 
     @staticmethod
-    def diff_da(d1_da: T_ma, d2_da: T_ma, keys: T_ca | str | None=None) -> T_ma:     # result_ma
+    def diff_da(d1_da: T_ma, d2_da: T_ma, keys: T_ca | str | None=None) -> T_da:     # result_da
         """ difference of two dictionaries by keys, according to the columns provided.
             if keys not specified or value does not exist in both rows, then do not include a result.
             if value exists in only one row, assume the value in the other row is 0.
@@ -7435,11 +7476,12 @@ class Daf:
         else:
             keys_ca = keys or []
 
-        # the 'or 0' part handles null string.
-        result_ma = {key: (d1_da.get(key, 0) or 0) - (d2_da.get(key, 0) or 0)
+        # the 'or 0' part handles null string. Always a plain dict comprehension,
+        # regardless of whether d1_da/d2_da are dict or KeyedList.
+        result_da = {key: (d1_da.get(key, 0) or 0) - (d2_da.get(key, 0) or 0)
                         for key in keys_ca}
 
-        return result_ma
+        return result_da
 
 
     @staticmethod
