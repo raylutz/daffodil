@@ -103,14 +103,18 @@ from daffodil.keyedlist import KeyedList
 from daffodil.keyedlist import KeyedIndex
 
 import typing
-from typing import List, Dict, Any, Tuple, Optional, Union, cast, Type, Callable  # noqa: F401
+from typing import List, Dict, Any, Tuple, Optional, Union, cast, Type, Callable, Generic, TypeVar  # noqa: F401
 from collections.abc import Iterable, Collection, Sequence, Iterator              # noqa: F401
 
 
 #T_Daf = Type['Daf']
-T_daf = typing.ForwardRef('Daf')
+# No T_daf alias -- mypy does not treat a plain string-valued module attribute as an implicit
+# forward-reference type alias (confirmed directly; needs either a real class object, only
+# available after Daf is defined below, or a `TypeAlias`-annotated assignment, which needs
+# Python 3.10+ and this project targets >=3.9). Using the 'Daf' forward-reference string
+# literally at each use site instead avoids the whole issue.
 
-T_dodaf = Dict[str, T_daf]
+T_dodaf = Dict[str, 'Daf']
 
 logs = daf_utils                # alias
 NULL = ''                       # instead of var == '' use var is NULL
@@ -718,6 +722,7 @@ class Daf:
                 my_daf[~my_daf.keys().isin(rowkeys_to_keep_list)]
 
         """
+        searchable2: Union[Dict[Any, Any], T_la]
         if isinstance(listlike2, list) and len(listlike1) > 10 and len(listlike2) > 30:
             searchable2 = dict.fromkeys(listlike2)
         else:
@@ -758,7 +763,7 @@ class Daf:
 
 
         # start with all cols.
-        selected_cols = self.hd.keys()  # change to columns()
+        selected_cols: List[str] = list(self.hd.keys())  # change to columns()
         if not selected_cols:
             return []
 
@@ -834,7 +839,8 @@ class Daf:
         # unit tests exist
 
         self.hd         = {from_to_dict.get(col, col):idx for idx, col in enumerate(self.hd.keys())}
-        self.dtypes     = {from_to_dict.get(col, col):typ for col, typ in self.dtypes.items()}
+        if self.dtypes:
+            self.dtypes = {from_to_dict.get(col, col):typ for col, typ in self.dtypes.items()}
         self._invalidate_kd()
         self.keyfield   = ''
 
@@ -900,7 +906,7 @@ class Daf:
             *,
             silent_error: bool=True, 
             astype: str = 'list',           # 'list' | 'view'
-            ) -> Union[T_la, T_lota]:
+            ) -> Union[T_la, T_kva]:
 
         """
         Return row keys derived from the keyfield or separately provided kd.
@@ -1036,7 +1042,6 @@ class Daf:
         """
         if self.keyfield:
             self._kd = {}
-        return self
 
 
     def _rebuild_kd_if_invalidated(self):
@@ -1064,12 +1069,13 @@ class Daf:
 
         if self._is_keyfield_valid():
             if isinstance(self.keyfield, (str, int)):
-                col_idx = self.hd[self.keyfield]
+                # self.hd is typed Dict[str, int] (the common case), but per this class's own
+                # support for numeric column names, an int keyfield is a valid key into it too.
+                col_idx = self.hd[cast(str, self.keyfield)]
                 self._kd = type(self)._build_kd(col_idx, self.lol)
             else:
-                col_idx_list = [self.hd[key_tup] for key_tup in self.keyfield]
+                col_idx_list = [self.hd[cast(str, key_tup)] for key_tup in self.keyfield]
                 self._kd = type(self)._build_kd(col_idx_list, self.lol)
-        return self
 
 
     @staticmethod
@@ -1118,7 +1124,7 @@ class Daf:
         return keyval
 
 
-    def _is_keyfield_valid(self, keyfield: str=''):
+    def _is_keyfield_valid(self, keyfield: Union[str, int, T_ta, T_la]='') -> bool:
         """
         Validate keyfield against available columns.
 
@@ -1212,9 +1218,9 @@ class Daf:
         if not self.hd:
             raise NotImplementedError ("self.hd must be defined to use .set_dtypes()")
 
-        dtypes = {}
+        dtypes: T_dtype_dict = {}
 
-        col_to_typ_dict = daf_utils.invert_dol_to_dict(typ_to_cols_dict)
+        col_to_typ_dict = daf_utils.invert_dol_to_dict(typ_to_cols_dict or {})
 
         for colname in self.hd:
 
@@ -1283,7 +1289,9 @@ class Daf:
 
         # this adopts the hd from dtypes if not already defined.
         if not self.hd and self.dtypes and isinstance(self.dtypes, dict):
-            self._cols_to_hd(dtypes.keys())
+            # self.dtypes, not the (possibly still-None if the caller didn't pass dtypes=)
+            # local dtypes param -- the guard above checks self.dtypes specifically.
+            self._cols_to_hd(self.dtypes.keys())
             # currently will not overwrite existing cols.
             # (i.e. pass partial dtypes will alter only those cols)
 
@@ -1837,7 +1845,10 @@ class Daf:
             If remove_keyfield=True (default) dod2 will be produced, else dod1.
 
         """
-        return daf_utils.lod_to_dod(self.to_lod(), keyfield=self.keyfield, remove_keyfield=remove_keyfield)
+        # lod_to_dod() does a single dict-key lookup per row (da[keyfield]), which only makes
+        # sense for a simple str keyfield, not daf's own broader composite (tuple/list) keyfield
+        # support -- this method is only meaningful when self.keyfield is a plain str.
+        return daf_utils.lod_to_dod(self.to_lod(), keyfield=cast(str, self.keyfield), remove_keyfield=remove_keyfield)
 
 
     # ==== cols_dol
@@ -1901,7 +1912,7 @@ class Daf:
         """ convert daf to dictionary of lists of values, where key is the
             column name, and the list are the values in that column.
         """
-        result_dol = {colname: [] for colname in self.columns()}
+        result_dol: Dict[str, list] = {colname: [] for colname in self.columns()}
 
         for row_da in self:
             for key, val in row_da.items():
@@ -2202,7 +2213,7 @@ class Daf:
         return my_daf
 
     @classmethod
-    def from_dirlist(cls, dirpath: str|Path, schema: T_daf | None):
+    def from_dirlist(cls, dirpath: str|Path, schema: 'Daf' | None):
         """
         Create daf from directory listing, using optional schema if specified.
 
@@ -2227,7 +2238,7 @@ class Daf:
             unflatten: bool=True,                   # unflatten fields that are defined as dict or list.
             include_cols: Optional[T_ls]=None,      # include only the columns specified. noheader must be false.
             name: str = '',                         # name attribute of the Daf array created.
-            ) -> 'Daf':                             # New daf instance
+            ) -> Optional['Daf']:                   # New daf instance, or None on a read error (see below)
         """
         Read CSV file into Daf.
 
@@ -2372,7 +2383,10 @@ class Daf:
             file_path: Destination path.
             fmt: File extension/format.
         """
-        return daf_utils.write_buff_to_fp(buff, file_path, fmt=fmt)
+        # write_buff_to_fp() does str-only operations on file_path (.startswith('s3'), a regex
+        # substitution) that would raise AttributeError on a real Path object -- str() it here
+        # rather than widening write_buff_to_fp() to silently accept something it can't handle.
+        return daf_utils.write_buff_to_fp(buff, str(file_path), fmt=fmt)
 
     #==== Directory capture
 
@@ -2461,6 +2475,7 @@ class Daf:
         # traversal
         #=========================
 
+        walker: Iterable[Tuple[str, List[str], List[str]]]
         if recursive:
 
             walker = os.walk(str(source))
@@ -2477,7 +2492,7 @@ class Daf:
             walker = [
                 (
                     full_source,
-                    [],
+                    cast(List[str], []),
                     basename_ls,
                 )
             ]
@@ -2762,7 +2777,7 @@ class Daf:
         # get the column name of the last column in the array.
         num_cols = self.num_cols()
         last_col_idx = num_cols - 1
-        last_spreadsheet_colname = Daf._calculate_single_column_name(last_col_idx)
+        last_spreadsheet_colname = daf_utils._calculate_single_column_name(last_col_idx)
 
         range_name = f"{sheetname}!A1:{last_spreadsheet_colname}{len(self.lol)}"
 
@@ -2891,7 +2906,7 @@ class Daf:
     #===========================
     # append
 
-    def append(self, data_item: Union[T_daf, T_loda, T_da, T_la, KeyedList], respect_kd: bool=False):
+    def append(self, data_item: Union['Daf', T_loda, T_da, T_la, KeyedList], respect_kd: bool=False):
         """
         Append data to the Daf.
 
@@ -3102,7 +3117,9 @@ class Daf:
 
             if isinstance(record, KeyedList):
                 # for keyedlist, simply adopt the hd and the list as first row.
-                self.hd = record.hd
+                # self.hd is a real dict everywhere else in this class -- record.hd is a
+                # KeyedIndex; .to_dict() gives the equivalent {key: position} dict.
+                self.hd = cast(Dict[str, int], record.hd.to_dict())
                 self.lol = [record.values()]
 
             elif isinstance(record, dict):
@@ -3170,10 +3187,14 @@ class Daf:
         if isinstance(row, KeyedList):
             if not self.hd:
                 if _use_keyedindex_for_hd:
-                    self.hd = row.hd                  # already KeyedIndex
+                    # _use_keyedindex_for_hd is currently False -- self.hd staying a real dict
+                    # (Dict[str, int]) everywhere else in this class is still the real contract;
+                    # this branch is scaffolding for a not-yet-completed migration, not live code.
+                    self.hd = row.hd  # type: ignore[assignment]  # already KeyedIndex
                 else:
-                    # convert to dict (copy)
-                    self.hd = dict(zip(row.hd, range(len(row.hd))))
+                    # equivalent to (and simpler/faster than) dict(zip(row.hd, range(len(row.hd))))
+                    # -- KeyedIndex.to_dict() already returns exactly this {key: position} dict.
+                    self.hd = cast(Dict[str, int], row.hd.to_dict())
             self.lol.append(row._values)
             return self
 
@@ -3183,7 +3204,8 @@ class Daf:
                 keys = list(row.keys())
 
                 if _use_keyedindex_for_hd:
-                    self.hd = KeyedIndex(keys)
+                    # see the KeyedList branch above -- same not-yet-completed migration flag.
+                    self.hd = KeyedIndex(keys)  # type: ignore[assignment]
                 else:
                     self.hd = dict(zip(keys, range(len(keys))))
 
@@ -5693,7 +5715,7 @@ class Daf:
 
     def apply(
             self,
-            func:       Callable[[Union[T_da, T_daf], Optional[T_la]], Union[T_da, T_daf]],
+            func:       Callable[[Union[T_da, 'Daf'], Optional[T_la]], Union[T_da, 'Daf']],
             by:         str='row',
             keylist:    Optional[Union[T_la, T_lota]]=None,     # list of keys of rows to include (DEPRECATE?)
             **kwargs:   Any,
@@ -6638,6 +6660,7 @@ class Daf:
 
             #allcols = self.hd.keys()
 
+            cols_iter: Iterable[str]
             if cols is None:
                 cols_iter = self.hd.keys()
             elif isinstance(cols, str):
@@ -8478,28 +8501,37 @@ class Daf:
         return value_counts_daf
 
 
-class DafIterator:
-    def __init__(self, this_daf: Daf, rtype: Type = dict):
+DafIterRtype = TypeVar('DafIterRtype', Dict[str, Any], KeyedList, list)
+
+
+class DafIterator(Generic[DafIterRtype]):
+    """ Generic in the row shape it produces (dict/KeyedList/list), so iter_dict()/iter_klist()/
+        iter_list() below can each promise the narrower Iterator[X] they actually construct,
+        instead of every DafIterator instance claiming the full Union[T_ma, list] regardless of
+        which rtype it was actually built with. """
+    def __init__(self, this_daf: Daf, rtype: Type[DafIterRtype] = dict):  # type: ignore[assignment]
+        # every real caller (iter_dict/iter_klist/iter_list below) passes rtype explicitly;
+        # mypy just can't verify a single concrete default satisfies a constrained TypeVar.
         self.this_daf = this_daf
-        self.rtype = rtype
+        self.rtype: Type[DafIterRtype] = rtype
         self._index = 0
 
     def __iter__(self):
         return self
 
-    def __next__(self) -> Union[T_ma, list]:
+    def __next__(self) -> DafIterRtype:
         if self._index < len(self.this_daf.lol):
             row = self.this_daf.lol[self._index]
             self._index += 1
 
             if self.rtype is dict:
-                return dict(zip(self.this_daf.hd.keys(), row))
+                return cast(DafIterRtype, dict(zip(self.this_daf.hd.keys(), row)))
 
             elif self.rtype == KeyedList:
-                return KeyedList(self.this_daf.hd, row)
+                return cast(DafIterRtype, KeyedList(self.this_daf.hd, row))
 
             elif self.rtype is list:
-                return row
+                return cast(DafIterRtype, row)
 
             else:
                 raise NotImplementedError(f"Unknown return type: {self.rtype}")
