@@ -6697,17 +6697,23 @@ class Daf:
     def daf_sum(
             self,
             by:             str = 'row',                    # row|col|table|sparse_row
-            cols:           Optional[Iterable] = None,
+            cols:           T_cs | None = None,
             indirect_col:   str = '',                       # indirect_col is required for lol array.
             **kwargs:       Any,
-            ) -> T_da:
+            ) -> T_ma:
 
-        return self.reduce(func=Daf.sum_da, by=by, cols=cols, indirect_col=indirect_col, **kwargs)
+        # for the default by='row' (the only mode used by any caller/test), reduce() always
+        # returns a single record.
+        return cast(T_ma, self.reduce(func=Daf.sum_da, by=by, cols=cols, indirect_col=indirect_col, **kwargs))
 
 
     def reduce(
             self,
-            func:           Callable[[T_ma, T_ma], Union[T_ma, T_la]],
+            # real reduction functions (sum_da, count_values_da, ...) take further keyword-only
+            # params beyond the row/reduction pair (cols, astype, omit_nulls, is_sparse,
+            # diagnose, ...) passed through via **kwargs below, so the fixed 2-arg Callable
+            # forms can't express this.
+            func:           Callable[..., Any],
             by:             str = 'row',                                # row|col|table|sparse_row
             cols:           T_cs|None=None,                    # columns included in the reduce operation.
             initial_da:     T_ma|None=None,
@@ -6772,7 +6778,7 @@ class Daf:
             return result_ma
 
         elif by == 'col':
-            reduction_la = []                   # perflint-reviewed (use-tuple-over-list)
+            reduction_la: T_la = []                   # perflint-reviewed (use-tuple-over-list)
             num_cols = self.num_cols()
             for icol in range(num_cols):
                 col_la = self.icol(icol)
@@ -6824,7 +6830,7 @@ class Daf:
                 astype:         Type | None=None,        # a type like int, float, str to cast the value if it is not that type. Optional.
                 is_sparse:      bool=False,
                 diagnose:       bool=False
-                ) -> T_da:  # result_da
+                ) -> T_ma:  # result_ma -- same object (and type) as reduction_da, returned in place
         """
             numeric sum of values in row and accum dicts per colunms provided.
             will safely skip data that can't be summed.
@@ -7181,7 +7187,8 @@ class Daf:
             Need a way to specify that blank values will also be counted.
         """
 
-        return self.reduce(func=type(self).count_values_da, by=by, cols=cols)
+        # by='row' (the default, and the only mode exercised) always reduces to a single record.
+        return cast(T_ma, self.reduce(func=type(self).count_values_da, by=by, cols=cols))
 
 
     def groupsum_daf(
@@ -7206,6 +7213,9 @@ class Daf:
             # keyfield: str=colname,                        # provide this for when no keyfield is desired?
                                                             # current operation sets keyfield to colname.
             ) -> Dict[str, 'Daf']:
+
+        if colnames is None:
+            raise ValueError("multi_groupsum: colnames is required")
 
         result_dodaf = self.multi_groupby_reduce(colnames=colnames, func=self.__class__.sum_da, by=by, reduce_cols=reduce_cols)
 
@@ -7463,13 +7473,13 @@ class Daf:
 
 
     @staticmethod
-    def diff_da(d1_da: T_ma, d2_da: T_ma, keys: T_ca | str | None=None) -> T_da:     # result_da
+    def diff_da(d1_da: T_ma, d2_da: T_ma, keys: T_ls | str | None=None) -> T_da:     # result_da
         """ difference of two dictionaries by keys, according to the columns provided.
             if keys not specified or value does not exist in both rows, then do not include a result.
             if value exists in only one row, assume the value in the other row is 0.
         """
 
-        keys_ca: T_ca = []
+        keys_ca: T_ls
 
         if isinstance(keys, str):
             keys_ca = [keys]                      # perflint-reviewed (use-tuple-over-list)
@@ -7487,12 +7497,15 @@ class Daf:
     @staticmethod
     def count_values_da(
             row_da:         T_ma,
-            reduction_da:   T_ma,
+            # needs a dict-based accumulator (see test_daf_reduction.py header), but despite the
+            # T_dodi ("dict of dict of int") name, values may also be a list or dict copied
+            # straight from row_da (see the 'val is a list'/'val is a dict' branches below).
+            reduction_da:   T_da,
             cols:           T_cs,
             *,
             omit_nulls: bool=False,
 
-            ) -> T_dodi:
+            ) -> T_da:
         """ incrementally build the result_dodi, which is the valuecounts for each item in row_da.
             can be used to calculate valuecounts over all rows and chunks.
 
@@ -7643,7 +7656,7 @@ class Daf:
             to_sum_daf = self
             colnames_ls = self.columns()
         else:
-            to_sum_daf = self[:, colnames_ls]
+            to_sum_daf = self[:, list(colnames_ls)]
             """ given a list of colnames, create a new daf of those cols.
                 creates as new daf
             """
@@ -8047,9 +8060,11 @@ class Daf:
             shared_fields = cast(list, shared_fields)
             shared_fields.append(other_keyfield)
 
-        shared_fields   = daf_utils.to_dn_if_list(shared_fields)
-        self_cols       = daf_utils.to_dn_if_list(self_cols)
-        other_cols      = daf_utils.to_dn_if_list(other_cols)
+        # to_dn_if_list()'s T_ca return type is broader (str|int|tuple keys, untyped dict) than
+        # T_cs -- but these are always column-name collections here, so str keys only.
+        shared_fields   = cast(T_cs, daf_utils.to_dn_if_list(shared_fields))
+        self_cols       = cast(T_cs, daf_utils.to_dn_if_list(self_cols))
+        other_cols      = cast(T_cs, daf_utils.to_dn_if_list(other_cols))
 
         # Get column names and names from both Dafs  (list of KeyViews of Any)
         colnames_locs: List[T_cs] = [self_cols, other_cols]
