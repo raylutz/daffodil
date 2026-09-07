@@ -3753,7 +3753,7 @@ class Daf:
             silent_error: bool=False,
             axis:       str='rowkeys',              # used for status messages only.
             name:       str='unspecified',          # used for status messages only.
-            ) -> Union[slice, int, T_li, range, None]:
+            ) -> Union[slice, int, T_li, range]:
         """
         Convert general keys to indices using key dictionary.
 
@@ -3786,6 +3786,7 @@ class Daf:
             raise TypeError("None is not a valid key selector")
 
         # --- empty selection ---
+        idxs: Union[slice, T_li]
         if isinstance(gkeys, (list,dict,tuple)) and not gkeys:
             idxs = []
 
@@ -3842,13 +3843,13 @@ class Daf:
 
         elif isinstance(gkeys, Iterable) and not isinstance(gkeys, (str, bytes, dict)):     # can be list of integer or strings (or anything hashable)
             idxs = []
-            for gkey in gkeys:
+            for one_gkey in gkeys:   # renamed from gkey -- distinct from the str|int `gkey` above
                 # For the following, see https://github.com/raylutz/daffodil/issues/6
                 try:
-                    idxs.append(keydict[gkey])
+                    idxs.append(keydict[one_gkey])
                 except KeyError:
                     if not silent_error:
-                        # logs.sts(f"{logs.prog_loc()} Cannot find key '{gkey}' in {axis} in dataframe '{name}'", 3)
+                        # logs.sts(f"{logs.prog_loc()} Cannot find key '{one_gkey}' in {axis} in dataframe '{name}'", 3)
                         # breakpoint()
                         raise
 
@@ -3998,35 +3999,40 @@ class Daf:
         elif irows and isinstance(irows, list):
 
             if daf_utils.is_list_of_type(irows, int):
+                # is_list_of_type() isn't a TypeGuard -- confirmed at runtime that every element
+                # is int, mypy just can't narrow irows: T_li | T_lor from that call itself.
+                irows_li = cast(T_li, irows)
                 if not invert:
                     # short-circuits on the first mismatch rather than materializing/comparing
                     # two full-length lists, so a non-natural-order irows (the common case)
                     # bails out almost immediately rather than doing O(num_rows) work regardless
                     # -- matters for large arrays (e.g. 500K+ rows) where this check needs to
                     # stay cheap even when it doesn't end up taking the fast path.
-                    if len(irows) == len(self.lol) and all(irow == i for i, irow in enumerate(irows)):
+                    if len(irows_li) == len(self.lol) and all(irow == i for i, irow in enumerate(irows_li)):
                         row_sliced_lol = self.lol
                     else:
-                        row_sliced_lol = [self.lol[i] for i in irows]
+                        row_sliced_lol = [self.lol[i] for i in irows_li]
                 else:
-                    if len(irows) > 10:
-                        irows_iter = dict.fromkeys(irows)
+                    irows_iter: Iterable[int]
+                    if len(irows_li) > 10:
+                        irows_iter = dict.fromkeys(irows_li)
                     else:
-                        irows_iter = irows
+                        irows_iter = irows_li
                     row_sliced_lol = [self.lol[i] for i in range(len(self.lol)) if i not in irows_iter]
 
             elif daf_utils.is_list_of_type(irows, range):
-                rows_lor = irows    # just a name change
+                rows_lor = cast(T_lor, irows)    # just a name change
                 if not invert:
                     row_sliced_lol = [self.lol[i] for irange in rows_lor for i in irange]
                 else:
                     row_sliced_lol = [self.lol[i] for i in range(len(self.lol)) if not any(i in r for r in rows_lor)]
 
         elif irows and isinstance(irows, (range, Iterable)):
+            irows_ii = cast(Iterable[int], irows)
             if not invert:
-                row_sliced_lol = [self.lol[i] for i in irows]
+                row_sliced_lol = [self.lol[i] for i in irows_ii]
             else:
-                row_sliced_lol = [self.lol[i] for i in range(len(self.lol)) if i not in irows]
+                row_sliced_lol = [self.lol[i] for i in range(len(self.lol)) if i not in irows_ii]
 
         elif isinstance(irows, slice):
             slice_spec = irows
@@ -4113,7 +4119,9 @@ class Daf:
         elif (daf_utils.is_list_of_type(icols, int) or
                 isinstance(icols, list) and not icols or
                 isinstance(icols, range)):
-            # list of integers or range
+            # list of integers or range -- is_list_of_type() isn't a TypeGuard, confirmed at
+            # runtime, mypy just can't narrow icols from that call itself.
+            icols = cast(Union[T_li, range], icols)
             if not flip:
                 try:
                     # short-circuits on the first mismatch rather than materializing/comparing
@@ -4140,7 +4148,7 @@ class Daf:
         # this part needs to be tested!
         elif isinstance(icols, list) and icols and daf_utils.is_list_of_type(icols, range):
             # list of ranges:
-            cols_lor = icols # name change only.
+            cols_lor = cast(T_lor, icols) # name change only.
             if not flip:
                 # Flatten ranges into individual column indices
                 col_sliced_lol = [[row[icol] for irange in cols_lor for icol in irange]
