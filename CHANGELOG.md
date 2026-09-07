@@ -31,9 +31,40 @@ all prior releases. Plans for future moved to ROADMAP.md.
   test_daf_md.py.
 
 ### Changed
-- (add entries here)
+- `mypy` (added to `mypy.ini`'s scope, now fully clean: 217 -> 0 errors) run across all of
+  `src/daffodil` for the first time. Most fixes were mechanical (missing/narrow annotations,
+  `Union[dict, KeyedList]` (`T_ma`) made explicit at the many call sites where a row can
+  legitimately be either, `cast()` after a runtime-confirmed branch where `daf_utils.is_list_of_type()`
+  -- a runtime check, not a `TypeGuard` -- left mypy unable to narrow). `apply()`/`reduce()`/
+  `manifest_*()`/`groupby*()`'s `func` parameters are now typed `Callable[..., Any]`: real
+  reduction functions (`sum_da`, `count_values_da`, ...) take further keyword-only params
+  (`cols`, `astype`, `omit_nulls`, `is_sparse`, ...) forwarded via `**kwargs`, which no fixed-arity
+  `Callable[[X, Y], Z]` form can express. Considered making `KeyedList` a formal
+  `collections.abc.MutableMapping` to resolve this more "properly", but decided against it: the
+  whole point of `KeyedList` is that the key and the list are two separate, independently
+  replaceable parts, not that it's fully a collection -- explicit `Union[dict, KeyedList]` typing
+  with `isinstance` narrowing where needed keeps that design intact.
+- `daf_pdf.~py` and `daf_indexing.~py` (old editor-backup-looking files, accidentally
+  git-tracked) moved out of `src/` to a gitignored, local-only `deprecated/` folder.
 
 ### Fixed
+- Found and fixed several real bugs during the mypy pass (each verified against the full 1294-test
+  suite before/after): `daf_utils.py` used `time.sleep` in `write_buff_to_s3path()`/
+  `does_s3path_exist()` without importing the `time` module -- would have raised `NameError` the
+  first time that path actually ran. `daf_utils.is_list_of_type()`/`_sanitize_cols()` fell through
+  to an implicit `None` instead of `False`/`[]` on certain inputs. `daf_utils.safe_regex_replace()`
+  mishandled a `bytes` item during decoding. `daf_utils.len_rowcol_spec()` silently measured a
+  `range` input as length 0 (range was already a documented valid input). `daf.py`'s
+  `apply_dtypes()` read the `dtypes` parameter instead of `self.dtypes` in its hd-adoption branch,
+  after a guard that checked `self.dtypes`. `record_append()`/`_basic_append()` assigned a
+  `KeyedIndex` object directly to `self.hd`, which must be a real `dict` everywhere else it's
+  used. `krows_to_irows()` constructed a `KeysDisabledError` but never raised it. `apply_in_place()`
+  would crash with a bare `AttributeError` if `func` returned `None` for `by='row'` (`None` is
+  only valid for `by='row_klist'`) -- now raises a clear `ValueError`. `manifest_reduce()` and
+  `multi_groupsum()` silently passed a `None` default into functions that require a real value,
+  failing deep inside with `"None" not callable` or a `KeyError` -- now raise a clear `ValueError`
+  up front. `groupby_cols_reduce()` crashed (`TypeError: can only concatenate list (not "NoneType")
+  to list`) if `reduce_cols` was left at its `None` default.
 - Daf.from_lod([], cols=[...])'s empty-records early return dropped the `cols` argument entirely,
   returning a 0-column Daf instead of one with the requested columns (dtypes already survived this
   same early return correctly; cols did not). A 0-column empty Daf serializes via to_csv_buff() to
