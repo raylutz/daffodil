@@ -77,3 +77,4 @@ docs\\
 
 tests/.coverage
 coverage.json
+deprecated/
