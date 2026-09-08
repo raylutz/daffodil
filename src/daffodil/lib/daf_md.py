@@ -474,12 +474,14 @@ def _from_md(cls, md_str: str): # -> "Daf":
 
                 break
 
+        # keyfield/name are typed str (default ''), not Optional -- footer_meta.get() returns
+        # None when absent, so 'or ''' keeps the actual value passed matching the declared type.
         return cls(
             lol=[],
             cols=None,
             schema=footer_meta.get("schema"),
-            keyfield=footer_meta.get("keyfield"),
-            name=footer_meta.get("name"),
+            keyfield=footer_meta.get("keyfield") or '',
+            name=footer_meta.get("name") or '',
         )
 
     # ---- Footer detection ----
@@ -545,11 +547,13 @@ def _from_md(cls, md_str: str): # -> "Daf":
 
     # ---- Metadata extraction ----
 
-    name = footer_meta.get("name")
+    # keyfield/name are typed str (default ''), not Optional -- footer_meta.get() returns None
+    # when absent, so 'or ''' keeps the actual value passed matching the declared type.
+    name = footer_meta.get("name") or ''
 
     schema = footer_meta.get("schema")
 
-    keyfield = footer_meta.get("keyfield")
+    keyfield = footer_meta.get("keyfield") or ''
 
     new_daf = cls(
         lol=lol,

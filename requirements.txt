@@ -7,8 +7,7 @@
 xlsx2csv>=0.8.2
 Markdown>=3.4.1
 
-# required for daf_benchmarks.py
-# note: pympler does not work with later pandas.
+# required for daf_benchmarks.py / daf_demo.py
 numpy>=1.23.2
 pandas>=1.5.3
-Pympler==1.1  
+objsize  

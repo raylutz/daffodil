@@ -102,6 +102,30 @@ all prior releases. Plans for future moved to ROADMAP.md.
   corrected to state this accurately rather than changing the actual (correct, by design)
   behavior. New tests: test_remove_key_does_not_mutate_original,
   test_remove_key_result_shares_row_objects_with_original.
+- `_from_md()`/`_dodaf_from_md()` passed `footer_meta.get("keyfield")`/`.get("name")` straight
+  into `Daf.__init__`, both of which can be `None` when no footer metadata is present --
+  `keyfield`/`name` are typed plain `str` (default `''`), not `Optional`. Worked by accident under
+  plain Python (no runtime parameter-type enforcement); surfaced while piloting `mypyc`
+  compilation, whose compiled `__init__` does enforce the declared signature and raised a
+  `TypeError`. Fixed both call sites with `or ''`.
+- `tests/daf_benchmarks.py` couldn't run at all: missing `objsize` dev dependency (added to
+  `pyproject.toml`'s `dev` group and `requirements.txt`, replacing the no-longer-used `Pympler`
+  pin the script stopped importing a while ago) and two calls to `daf_sum2()`/`daf_sum3()`, long
+  commented out of `daf.py` itself as investigatory dead ends. Removed both calls and their
+  `report_attrs` row.
+
+### mypyc compilation pilot (not adopted, investigation only)
+Explored whether `mypyc` could speed up daffodil, at Ray's request, as an explicit experiment
+("not a serious need"). Full writeup, including every source change a real compile needed and why,
+lives in AuditEngine's engineering notebook (a sibling repo,
+`engineering_notebook/2026-09-08_mypyc-compilation-pilot-daffodil-and-audit-engine.md`) rather than
+here, since none of it was applied to real source beyond the two bugfixes above. Numbers:
+`docs/daf_benchmarks_mypyc.md` (real 17-48% speedups on operations that stay in daffodil's own
+Python loops -- construction, mutation, insert, row-wise sum, keyed lookup; no benefit on
+pandas/numpy interop or pure list-reshuffling operations like `transpose`). Verdict: real for
+daffodil's own hot paths, but not pursued further given the real ongoing costs (platform-specific
+wheel builds instead of one universal pure-Python wheel, a broken local editable-install dev loop,
+harder debugging) against no concrete felt need yet.
 
 ---
 

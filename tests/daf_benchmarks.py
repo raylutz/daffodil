@@ -587,8 +587,6 @@ gc.disable()
                     'insert_icol',
                     'sum cols',
                     'sample_daf.daf_sum()',
-                    'sample_daf.daf_sum2()',
-                    'sample_daf.daf_sum3()',
                     'sum_np',
                     'transpose',
                     'transpose_npao',
@@ -708,13 +706,9 @@ gc.disable()
     report_daf['sample_daf.daf_sum()', 'daf'] = ms = timeit.timeit('sample_daf.daf_sum()', setup=setup_code, globals=globals(), number=loops) * 1000 / (loops)
     print(f"sample_daf.daf_sum()            {ms:.4f} ms")
 
-    report_daf['sample_daf.daf_sum2()', 'daf'] = ms = timeit.timeit('sample_daf.daf_sum2()', setup=setup_code, globals=globals(), number=loops) * 1000 / (loops)
-    gc.enable()
-    print(f"sample_daf.daf_sum2()           {ms:.4f} ms")
-
-    report_daf['sample_daf.daf_sum3()', 'daf'] = ms = timeit.timeit('sample_daf.daf_sum3()', setup=setup_code, globals=globals(), number=loops) * 1000 / (loops)
-    gc.enable()
-    print(f"sample_daf.daf_sum3()           {ms:.4f} ms")
+    # daf_sum2()/daf_sum3() were investigatory variants of daf_sum(), commented out of daf.py
+    # itself once their finding (see daf.py, right above sum_da2/sum_da3) was folded into
+    # daf_sum()/sum_da() -- no longer callable, so no longer benchmarked here either.
 
     #report_daf['sum_np', 'loops']          = loops
     report_daf['sum_np', 'daf']             = ms = timeit.timeit('sample_daf.sum_np()',    setup=setup_code, globals=globals(), number=loops) * 1000 / (loops)
