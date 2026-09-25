@@ -240,18 +240,28 @@ class TestDaf(unittest.TestCase):
         assert my_daf.is_rectangular()
         assert my_daf.lol == [[1, 'A', 'x'], [2, '', ''], [3, 'C', '']]
 
-    def test_force_rectangular_leaves_long_rows_untouched(self):
-        # over-length rows are real data corruption (e.g. an unquoted comma) -- padding
-        # must not silently truncate them and hide it.
+    def test_force_rectangular_raises_on_long_rows(self):
+        # over-length rows are real data corruption (e.g. an unquoted comma) -- padding can't
+        # fix that, and silently returning a still-non-rectangular Daf despite the method's own
+        # name would be worse than raising. Must not silently truncate them either.
         my_daf = Daf(lol=[[1, 'A'], [2, 'B', 'extra']], cols=['id', 'name'])
-        my_daf.force_rectangular()
+        with pytest.raises(ValueError):
+            my_daf.force_rectangular()
+        # left untouched -- no partial mutation before the raise.
         assert my_daf.lol == [[1, 'A'], [2, 'B', 'extra']]
-        assert not my_daf.is_rectangular()
 
     def test_force_rectangular_already_rectangular_is_a_noop(self):
         my_daf = Daf(lol=[[1, 'A'], [2, 'B']], cols=['id', 'name'])
         my_daf.force_rectangular()
         assert my_daf.lol == [[1, 'A'], [2, 'B']]
+
+    def test_force_rectangular_raises_before_padding_short_rows_too(self):
+        # a mix of a short row and a long row in the same Daf -- must raise on the long one
+        # rather than padding the short one first and leaving a half-fixed result.
+        my_daf = Daf(lol=[[1], [2, 'B', 'extra'], [3, 'C']], cols=['id', 'name'])
+        with pytest.raises(ValueError):
+            my_daf.force_rectangular()
+        assert my_daf.lol == [[1], [2, 'B', 'extra'], [3, 'C']]
 
 
     # calc_cols

@@ -17,10 +17,12 @@ all prior releases. Plans for future moved to ROADMAP.md.
   written to replace the CSV-text round trip in `daf_utils.add_trailing_columns_csv()` (its own
   `@@TODO` already flagged this), which only samples the first few rows to guess the target
   width and can under-pad a file whose later rows are genuinely wider. A row that's *longer*
-  than the target is left untouched by `force_rectangular()` on purpose -- that's a different
-  problem (e.g. an unquoted comma in a hand-edited CSV field splitting it into extra columns),
-  and silently truncating it would hide real data corruption rather than surface it. Motivated
-  by a real incident in AuditEngine (`CA_SanFrancisco_20241105_pilot_d05`): a hand-edited
+  than the target raises `ValueError` rather than being padded or silently left as-is --
+  that's a different problem (e.g. an unquoted comma in a hand-edited CSV field splitting it
+  into extra columns), and this method's own name promises a rectangular result, so returning
+  a still-non-rectangular `Daf` with no signal at all would be worse than the loud failure.
+  Never truncates a long row either, which would hide real data corruption rather than surface
+  it. Motivated by a real incident in AuditEngine (`CA_SanFrancisco_20241105_pilot_d05`): a hand-edited
   `LATER_EIF` row's unquoted comma shifted every later column by one, and nothing in the load
   path noticed.
 - `js/daffodil-csv.js` -- browser-side, dependency-free (beyond vendored JSON5) reader for

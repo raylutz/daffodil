@@ -598,12 +598,19 @@ class Daf:
         Returns:
             Daf: self, mutated in place, for chaining.
 
+        Raises:
+            ValueError: if any row is longer than the target width. Padding can't fix
+                that, and this method's own name promises a rectangular result -- an
+                over-length row is real data corruption (e.g. an unquoted comma in a
+                hand-edited CSV row splitting it into extra fields), and returning
+                self still non-rectangular with no signal at all would be worse than
+                the loud failure this raises instead. Never silently truncates a long
+                row either, which would hide the corruption rather than surface it.
+
         Notes:
             Target width is len(cols) if columns are defined, else the longest row
-            currently present. A row already at or over the target width is left
-            untouched -- an over-length row is a different problem (e.g. an unquoted
-            comma in a hand-edited CSV row shifting the rest of that row into extra
-            fields) that padding can't fix and shouldn't silently hide by truncating.
+            currently present -- by construction, no row can then exceed it, so the
+            error above is only reachable when columns are defined.
 
             Written for the case xlsx_to_csv()'s docstring describes: an xlsx source
             (via xlsx2csv) omits a row's trailing empty cells entirely rather than
@@ -617,6 +624,14 @@ class Daf:
             return self
 
         target_len = len(self.hd) if self.hd else max((len(row) for row in self.lol), default=0)
+
+        long_rows = [(i, len(row)) for i, row in enumerate(self.lol) if len(row) > target_len]
+        if long_rows:
+            raise ValueError(
+                    f"force_rectangular: {len(long_rows)} row(s) exceed the target width of "
+                    f"{target_len} -- likely real data corruption (e.g. an unquoted comma "
+                    f"splitting a value), not the xlsx trailing-cell omission this pads for. "
+                    f"(row index, actual length): {long_rows[:10]}")
 
         for row in self.lol:
             if len(row) < target_len:
