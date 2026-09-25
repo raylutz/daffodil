@@ -188,6 +188,72 @@ class TestDaf(unittest.TestCase):
         assert my_daf.shape() == (4, 3)
 
 
+    # is_rectangular(), force_rectangular()
+    def test_is_rectangular_empty_daf(self):
+        assert Daf().is_rectangular()
+
+    def test_is_rectangular_cols_defined_all_rows_match(self):
+        my_daf = Daf(lol=[[1, 'A'], [2, 'B'], [3, 'C']], cols=['id', 'name'])
+        assert my_daf.is_rectangular()
+
+    def test_is_rectangular_cols_defined_a_short_row(self):
+        # row 2 is missing its trailing value -- e.g. a hand-edited CSV row missing
+        # its trailing comma for an empty last column.
+        my_daf = Daf(lol=[[1, 'A'], [2]], cols=['id', 'name'])
+        assert not my_daf.is_rectangular()
+
+    def test_is_rectangular_cols_defined_a_long_row(self):
+        # row 2 has an extra value -- e.g. an unquoted comma inside a CSV field split
+        # it into two.
+        my_daf = Daf(lol=[[1, 'A'], [2, 'B', 'extra']], cols=['id', 'name'])
+        assert not my_daf.is_rectangular()
+
+    def test_is_rectangular_no_cols_rows_match_each_other(self):
+        my_daf = Daf(lol=[[1, 'A'], [2, 'B'], [3, 'C']])
+        assert my_daf.is_rectangular()
+
+    def test_is_rectangular_no_cols_rows_differ(self):
+        my_daf = Daf(lol=[[1, 'A'], [2]])
+        assert not my_daf.is_rectangular()
+
+    def test_is_rectangular_trailing_comma_row_is_rectangular(self):
+        # an empty trailing field that kept its comma parses to '' -- still full length,
+        # not ragged. Confirms the comment-column case from a hand-edited file is fine.
+        my_daf = Daf(lol=[[1, 'A', 'a comment'], [2, 'B', '']], cols=['id', 'name', 'comment'])
+        assert my_daf.is_rectangular()
+
+    def test_force_rectangular_empty_daf(self):
+        my_daf = Daf()
+        result = my_daf.force_rectangular()
+        assert result is my_daf
+        assert my_daf.is_rectangular()
+
+    def test_force_rectangular_pads_short_rows_to_cols_length(self):
+        my_daf = Daf(lol=[[1, 'A', 'x'], [2], [3, 'C']], cols=['id', 'name', 'note'])
+        my_daf.force_rectangular()
+        assert my_daf.is_rectangular()
+        assert my_daf.lol == [[1, 'A', 'x'], [2, '', ''], [3, 'C', '']]
+
+    def test_force_rectangular_pads_short_rows_no_cols_uses_longest_row(self):
+        my_daf = Daf(lol=[[1, 'A', 'x'], [2], [3, 'C']])
+        my_daf.force_rectangular()
+        assert my_daf.is_rectangular()
+        assert my_daf.lol == [[1, 'A', 'x'], [2, '', ''], [3, 'C', '']]
+
+    def test_force_rectangular_leaves_long_rows_untouched(self):
+        # over-length rows are real data corruption (e.g. an unquoted comma) -- padding
+        # must not silently truncate them and hide it.
+        my_daf = Daf(lol=[[1, 'A'], [2, 'B', 'extra']], cols=['id', 'name'])
+        my_daf.force_rectangular()
+        assert my_daf.lol == [[1, 'A'], [2, 'B', 'extra']]
+        assert not my_daf.is_rectangular()
+
+    def test_force_rectangular_already_rectangular_is_a_noop(self):
+        my_daf = Daf(lol=[[1, 'A'], [2, 'B']], cols=['id', 'name'])
+        my_daf.force_rectangular()
+        assert my_daf.lol == [[1, 'A'], [2, 'B']]
+
+
     # calc_cols
     def test_calc_cols_include_cols(self):
         # Test calc_cols method with include_cols parameter

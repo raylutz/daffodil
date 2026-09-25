@@ -9,6 +9,20 @@ all prior releases. Plans for future moved to ROADMAP.md.
 
 ## [Unreleased]
 ### Added
+- `Daf.is_rectangular()` / `Daf.force_rectangular()` -- verify and, if needed, fix a `Daf`
+  whose rows don't all have the same length. `is_rectangular()` checks every row (against
+  `len(hd)` if columns are defined, else against each other), unlike `num_cols()`, which only
+  samples the first 10 rows and assumes consistency. `force_rectangular()` pads any short row
+  with empty strings up to the target width, in a single pass directly over `self.lol` --
+  written to replace the CSV-text round trip in `daf_utils.add_trailing_columns_csv()` (its own
+  `@@TODO` already flagged this), which only samples the first few rows to guess the target
+  width and can under-pad a file whose later rows are genuinely wider. A row that's *longer*
+  than the target is left untouched by `force_rectangular()` on purpose -- that's a different
+  problem (e.g. an unquoted comma in a hand-edited CSV field splitting it into extra columns),
+  and silently truncating it would hide real data corruption rather than surface it. Motivated
+  by a real incident in AuditEngine (`CA_SanFrancisco_20241105_pilot_d05`): a hand-edited
+  `LATER_EIF` row's unquoted comma shifted every later column by one, and nothing in the load
+  path noticed.
 - `js/daffodil-csv.js` -- browser-side, dependency-free (beyond vendored JSON5) reader for
   `Daf.to_csv_buff()`-produced CSV: parses CSV (RFC4180, handles quoted/embedded commas, quotes,
   newlines) into plain JS objects, unflattening PYON-shaped cells (`{...}`/`[...]`/`(...)`) the

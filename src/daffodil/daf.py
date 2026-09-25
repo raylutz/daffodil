@@ -567,6 +567,64 @@ class Daf:
         return self.num_rows()
 
 
+    def is_rectangular(self) -> bool:
+        """
+        Check whether every row has the same length.
+
+        Returns:
+            bool: True if all rows are the same length.
+
+        Notes:
+            If columns are defined (hd is non-empty), every row's length must equal the
+            number of columns. If not, every row's length must equal the first row's.
+            An empty Daf (no rows) is considered rectangular.
+
+            Checks every row -- O(num_rows). Unlike num_cols(), which only samples the
+            first 10 rows and assumes the array is already consistent, this is the
+            actual verification, not an estimate.
+        """
+        if not self.lol:
+            return True
+
+        target_len = len(self.hd) if self.hd else len(self.lol[0])
+
+        return all(len(row) == target_len for row in self.lol)
+
+
+    def force_rectangular(self) -> 'Daf':
+        """
+        Pad every row shorter than the target width with empty strings, in place.
+
+        Returns:
+            Daf: self, mutated in place, for chaining.
+
+        Notes:
+            Target width is len(cols) if columns are defined, else the longest row
+            currently present. A row already at or over the target width is left
+            untouched -- an over-length row is a different problem (e.g. an unquoted
+            comma in a hand-edited CSV row shifting the rest of that row into extra
+            fields) that padding can't fix and shouldn't silently hide by truncating.
+
+            Written for the case xlsx_to_csv()'s docstring describes: an xlsx source
+            (via xlsx2csv) omits a row's trailing empty cells entirely rather than
+            writing them out, so short rows are the normal, expected case there, not
+            data corruption -- this is the general-purpose fix for that, operating
+            directly on self.lol in one pass instead of add_trailing_columns_csv()'s
+            CSV-text round trip, which only samples the first few rows to guess the
+            target width and can under-pad a file whose later rows are genuinely wider.
+        """
+        if not self.lol:
+            return self
+
+        target_len = len(self.hd) if self.hd else max((len(row) for row in self.lol), default=0)
+
+        for row in self.lol:
+            if len(row) < target_len:
+                row.extend([''] * (target_len - len(row)))
+
+        return self
+
+
     def shape(self):
         """
         Return shape of the Daf.
