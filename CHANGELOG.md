@@ -20,11 +20,16 @@ all prior releases. Plans for future moved to ROADMAP.md.
   `keyfield`/`widths`/`dtypes` only; deliberately not tied to `@schemaclass` (a Python class,
   not something a CLI can discover or author) -- `dtypes` is the same plain `{col: type}` map
   `Daf.set_dtypes()`/`apply_dtypes()` already consume, which is what a schemaclass resolves to
-  anyway. `get`/`set`/`add-row`/`delete-row`/`diff`/`export-ods` deferred to a later round, once
-  this shape has been exercised against real data (no reusable row/column diff exists in `Daf`
-  today -- `diff_da()` is numeric dict subtraction, not a table diff -- and no ODS reader/writer
-  exists at all; `export-ods` will need `odfdo`, added as an optional `ods` extra when it lands).
-  20 new tests, `tests/test_daffy.py`.
+  anyway.
+  v2, same day: `show` (windowed view), `get`/`set`/`add-row`/`delete-row` (unambiguous row
+  addressing via `--where COL=VALUE` or `--pos N`, atomic write via temp-file + `os.replace()`,
+  sniffed line-ending preserved on every write, `set --expect-old` guards against clobbering a
+  change made since the row was last read), and `diff` (real new logic -- no reusable row/column
+  diff exists in `Daf`; `diff_da()` is numeric dict subtraction, not a table diff -- `--key COLUMN`
+  or position-based comparison, duplicate-key detection refuses rather than guessing, exit
+  0/1/2 for equal/different/error). `export-ods` and column add/rename/delete still not done
+  (`Daf.drop_cols()`/`rename_cols()` exist and are real candidates for delete/rename when it
+  lands; no direct primitive found for add-col). 47 tests total, `tests/test_daffy.py`.
 - `Daf.is_rectangular()` / `Daf.force_rectangular()` -- verify and, if needed, fix a `Daf`
   whose rows don't all have the same length. `is_rectangular()` checks every row (against
   `len(hd)` if columns are defined, else against each other), unlike `num_cols()`, which only

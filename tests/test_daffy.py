@@ -202,3 +202,271 @@ def test_select_pyon_format_is_valid_python_literal(sample_csv, capsys):
     assert exit_code == 0
     parsed = ast.literal_eval(out)
     assert parsed[0]['id'] == '001'
+
+
+# =====================================================================
+# cli.py -- show
+# =====================================================================
+
+def test_show_offset_and_limit_window_the_table(sample_csv, capsys):
+    exit_code = cli.main(['show', str(sample_csv), '--offset', '1', '--limit', '1', '--format', 'json'])
+    rows = json.loads(capsys.readouterr().out)
+
+    assert exit_code == 0
+    assert len(rows) == 1
+    assert rows[0]['name'] == 'Bob'
+
+
+# =====================================================================
+# cli.py -- get
+# =====================================================================
+
+def test_get_by_where_returns_whole_row(sample_csv, capsys):
+    exit_code = cli.main(['get', str(sample_csv), '--where', 'id=002', '--format', 'json'])
+    row = json.loads(capsys.readouterr().out)
+
+    assert exit_code == 0
+    assert row == {'id': '002', 'name': 'Bob', 'city': 'Reno'}
+
+
+def test_get_by_pos_returns_whole_row(sample_csv, capsys):
+    exit_code = cli.main(['get', str(sample_csv), '--pos', '0', '--format', 'json'])
+    row = json.loads(capsys.readouterr().out)
+
+    assert exit_code == 0
+    assert row['name'] == 'Alice'
+
+
+def test_get_with_col_returns_just_that_value(sample_csv, capsys):
+    exit_code = cli.main(['get', str(sample_csv), '--where', 'id=002', '--col', 'city', '--format', 'json'])
+    value = json.loads(capsys.readouterr().out)
+
+    assert exit_code == 0
+    assert value == 'Reno'
+
+
+def test_get_where_and_pos_together_is_rejected(sample_csv, capsys):
+    exit_code = cli.main(['get', str(sample_csv), '--where', 'id=002', '--pos', '0'])
+
+    assert exit_code == 2
+    assert "not both" in capsys.readouterr().err
+
+
+def test_get_neither_where_nor_pos_is_rejected(sample_csv, capsys):
+    exit_code = cli.main(['get', str(sample_csv)])
+
+    assert exit_code == 2
+    assert "Specify --where" in capsys.readouterr().err
+
+
+def test_get_where_matching_zero_rows_is_rejected(sample_csv, capsys):
+    exit_code = cli.main(['get', str(sample_csv), '--where', 'id=999'])
+
+    assert exit_code == 2
+    assert "matched no rows" in capsys.readouterr().err
+
+
+def test_get_where_matching_duplicate_rows_is_rejected(tmp_path, capsys):
+    path = tmp_path / "dup.csv"
+    path.write_text("id,name\n1,Alice\n1,Duplicate\n")
+
+    exit_code = cli.main(['get', str(path), '--where', 'id=1'])
+
+    assert exit_code == 2
+    assert "not unique" in capsys.readouterr().err
+
+
+def test_get_pos_out_of_range_is_rejected(sample_csv, capsys):
+    exit_code = cli.main(['get', str(sample_csv), '--pos', '99'])
+
+    assert exit_code == 2
+    assert "out of range" in capsys.readouterr().err
+
+
+# =====================================================================
+# cli.py -- set (mutation, atomic write, CRLF preservation)
+# =====================================================================
+
+def test_set_by_where_changes_cell_and_preserves_crlf(sample_csv):
+    exit_code = cli.main(['set', str(sample_csv), '--where', 'id=002', '--col', 'city', '--value', 'Newtown'])
+
+    assert exit_code == 0
+    raw = sample_csv.read_bytes()
+    assert b'\r\n' in raw
+    assert b'002,Bob,Newtown\r\n' in raw
+    # untouched rows are byte-identical, not just content-equal
+    assert b'001,Alice,San Diego\r\n' in raw
+
+
+def test_set_by_pos_changes_cell(sample_csv, capsys):
+    cli.main(['set', str(sample_csv), '--pos', '0', '--col', 'name', '--value', 'Alicia'])
+    capsys.readouterr()  # discard the 'changed: ...' confirmation line
+    row = json.loads(_run_and_capture(['get', str(sample_csv), '--pos', '0', '--format', 'json'], capsys))
+
+    assert row['name'] == 'Alicia'
+
+
+def _run_and_capture(argv, capsys):
+    cli.main(argv)
+    return capsys.readouterr().out
+
+
+def test_set_unknown_column_is_rejected(sample_csv, capsys):
+    exit_code = cli.main(['set', str(sample_csv), '--pos', '0', '--col', 'nosuchcol', '--value', 'x'])
+
+    assert exit_code == 2
+    assert "unknown column" in capsys.readouterr().err
+
+
+def test_set_expect_old_mismatch_refuses_write(sample_csv, capsys):
+    before = sample_csv.read_bytes()
+
+    exit_code = cli.main(['set', str(sample_csv), '--where', 'id=002', '--col', 'city',
+                           '--value', 'X', '--expect-old', 'WrongOldValue'])
+
+    assert exit_code == 2
+    assert "refusing to overwrite" in capsys.readouterr().err
+    assert sample_csv.read_bytes() == before  # file genuinely untouched
+
+
+def test_set_expect_old_match_allows_write(sample_csv):
+    exit_code = cli.main(['set', str(sample_csv), '--where', 'id=002', '--col', 'city',
+                           '--value', 'Newtown', '--expect-old', 'Reno'])
+
+    assert exit_code == 0
+    assert b'002,Bob,Newtown' in sample_csv.read_bytes()
+
+
+# =====================================================================
+# cli.py -- add-row / delete-row
+# =====================================================================
+
+def test_add_row_appends_with_defaults_for_missing_columns(sample_csv, capsys):
+    exit_code = cli.main(['add-row', str(sample_csv), '--values', 'id=004,name=Dana'])
+    capsys.readouterr()  # discard the 'added row ...' confirmation line
+
+    assert exit_code == 0
+    row = json.loads(_run_and_capture(['get', str(sample_csv), '--where', 'id=004', '--format', 'json'], capsys))
+    assert row == {'id': '004', 'name': 'Dana', 'city': ''}
+
+
+def test_add_row_preserves_crlf(sample_csv):
+    cli.main(['add-row', str(sample_csv), '--values', 'id=004,name=Dana,city=Fresno'])
+
+    raw = sample_csv.read_bytes()
+    assert b'\r\n' in raw
+    assert b'004,Dana,Fresno\r\n' in raw
+
+
+def test_add_row_unknown_column_is_rejected(sample_csv, capsys):
+    exit_code = cli.main(['add-row', str(sample_csv), '--values', 'nosuchcol=x'])
+
+    assert exit_code == 2
+    assert "unknown column" in capsys.readouterr().err
+
+
+def test_delete_row_by_pos_removes_it(sample_csv, capsys):
+    exit_code = cli.main(['delete-row', str(sample_csv), '--pos', '0'])
+    capsys.readouterr()  # discard the 'deleted row ...' confirmation line
+
+    assert exit_code == 0
+    rows = json.loads(_run_and_capture(['select', str(sample_csv), '--format', 'json'], capsys))
+    assert {row['name'] for row in rows} == {'Bob', 'Carl'}
+
+
+def test_delete_row_preserves_crlf(sample_csv):
+    cli.main(['delete-row', str(sample_csv), '--pos', '0'])
+
+    raw = sample_csv.read_bytes()
+    assert b'\r\n' in raw
+
+
+def test_delete_row_where_matching_zero_rows_is_rejected(sample_csv, capsys):
+    exit_code = cli.main(['delete-row', str(sample_csv), '--where', 'id=999'])
+
+    assert exit_code == 2
+    assert "matched no rows" in capsys.readouterr().err
+
+
+# =====================================================================
+# diff.py / cli.py diff -- exit codes, key-based and position-based comparison
+# =====================================================================
+
+@pytest.fixture
+def old_new_csv(tmp_path):
+    old_path = tmp_path / "old.csv"
+    new_path = tmp_path / "new.csv"
+    old_path.write_text("id,name,city\r\n001,Alice,San Diego\r\n002,Bob,Reno\r\n003,Carl,Fresno\r\n", newline='')
+    new_path.write_text("id,name,city\r\n001,Alice,San Diego\r\n002,Bob,Newtown\r\n004,Dana,Chicago\r\n", newline='')
+    return old_path, new_path
+
+
+def test_diff_equal_files_exits_0(old_new_csv, capsys):
+    old_path, _ = old_new_csv
+    exit_code = cli.main(['diff', str(old_path), str(old_path), '--key', 'id'])
+
+    assert exit_code == 0
+    assert "No differences" in capsys.readouterr().out
+
+
+def test_diff_by_key_reports_added_removed_changed(old_new_csv, capsys):
+    old_path, new_path = old_new_csv
+    exit_code = cli.main(['diff', str(old_path), str(new_path), '--key', 'id', '--format', 'json'])
+    result = json.loads(capsys.readouterr().out)
+
+    assert exit_code == 1
+    assert result['compared_by'] == 'key:id'
+    assert [r['id'] for r in result['rows_added']] == ['004']
+    assert [r['id'] for r in result['rows_removed']] == ['003']
+    assert result['changed_cells'] == [{'row': '002', 'col': 'city', 'old': 'Reno', 'new': 'Newtown'}]
+
+
+def test_diff_without_key_compares_by_position_and_says_so(old_new_csv, capsys):
+    old_path, new_path = old_new_csv
+    exit_code = cli.main(['diff', str(old_path), str(new_path), '--format', 'json'])
+    result = json.loads(capsys.readouterr().out)
+
+    assert exit_code == 1
+    assert result['compared_by'] == 'position'
+
+
+def test_diff_duplicate_keys_exits_2_and_reports_them(tmp_path, capsys):
+    dup_path = tmp_path / "dup.csv"
+    other_path = tmp_path / "other.csv"
+    dup_path.write_text("id,name\n1,Alice\n1,Duplicate\n")
+    other_path.write_text("id,name\n1,Alice\n")
+
+    exit_code = cli.main(['diff', str(dup_path), str(other_path), '--key', 'id'])
+
+    assert exit_code == 2
+    assert "duplicate" in capsys.readouterr().out.lower()
+
+
+def test_diff_columns_added_and_removed_are_detected(tmp_path, capsys):
+    old_path = tmp_path / "old.csv"
+    new_path = tmp_path / "new.csv"
+    old_path.write_text("id,name,legacy\n1,Alice,x\n")
+    new_path.write_text("id,name,extra\n1,Alice,y\n")
+
+    exit_code = cli.main(['diff', str(old_path), str(new_path), '--key', 'id', '--format', 'json'])
+    result = json.loads(capsys.readouterr().out)
+
+    assert exit_code == 1
+    assert result['columns_added'] == ['extra']
+    assert result['columns_removed'] == ['legacy']
+
+
+def test_diff_missing_file_exits_2(tmp_path, old_new_csv, capsys):
+    old_path, _ = old_new_csv
+    exit_code = cli.main(['diff', str(old_path), str(tmp_path / "nope.csv")])
+
+    assert exit_code == 2
+    assert "does not exist" in capsys.readouterr().err
+
+
+def test_diff_unknown_key_exits_2(old_new_csv, capsys):
+    old_path, new_path = old_new_csv
+    exit_code = cli.main(['diff', str(old_path), str(new_path), '--key', 'nosuchcol'])
+
+    assert exit_code == 2
+    assert "not a column in both files" in capsys.readouterr().err
