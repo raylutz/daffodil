@@ -470,3 +470,57 @@ def test_diff_unknown_key_exits_2(old_new_csv, capsys):
 
     assert exit_code == 2
     assert "not a column in both files" in capsys.readouterr().err
+
+
+# =====================================================================
+# widths_edit.py / cli.py widths-show, widths-edit -- the pieces testable without a real
+# LibreOffice/UNO installation (none exists on this box -- confirmed via `import uno` and
+# `which soffice`, both absent). The interactive open/apply/close-sync path itself needs
+# verification on a machine that actually has LibreOffice.
+# =====================================================================
+
+from daffodil.daffy import widths_edit
+
+
+def test_text_import_filter_options_forces_every_column_to_text_format():
+    # format code '2' per column is LibreOffice's CSV-import "Text" column type -- this is what
+    # stops LibreOffice auto-detecting an id column as numeric and dropping a leading zero.
+    result = widths_edit._text_import_filter_options(3)
+
+    assert result == '44,34,76,1,1/2/2/2/3/2,true'
+
+
+def test_widths_show_with_no_profile_reports_none(sample_csv, capsys):
+    exit_code = cli.main(['widths-show', str(sample_csv)])
+    out = capsys.readouterr().out
+
+    assert exit_code == 0
+    assert "No widths recorded" in out
+
+
+def test_widths_show_reads_widths_from_profile(sample_csv, capsys):
+    profile.save_profile(sample_csv, {'widths_lo_mm100': {'id': 1000, 'city': 5000}})
+
+    exit_code = cli.main(['widths-show', str(sample_csv), '--format', 'json'])
+    widths = json.loads(capsys.readouterr().out)
+
+    assert exit_code == 0
+    assert widths == {'id': 1000, 'city': 5000}
+
+
+def test_widths_edit_missing_file_errors_cleanly(tmp_path, capsys):
+    exit_code = cli.main(['widths-edit', str(tmp_path / "nope.csv")])
+
+    assert exit_code == 2
+    assert "does not exist" in capsys.readouterr().err
+
+
+def test_widths_edit_without_uno_gives_actionable_error(sample_csv, capsys):
+    # Simulates this exact box: LibreOffice/UNO not installed. Real end-to-end behavior (opening
+    # LibreOffice, applying widths, syncing on close) is NOT covered by this test -- verify that
+    # separately on a machine with LibreOffice actually installed.
+    exit_code = cli.main(['widths-edit', str(sample_csv)])
+    err = capsys.readouterr().err
+
+    assert exit_code == 2
+    assert "Cannot import the 'uno' module" in err

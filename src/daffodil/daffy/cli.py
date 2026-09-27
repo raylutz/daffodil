@@ -19,6 +19,7 @@ from daffodil.daffy import diff as diff_mod
 from daffodil.daffy import profile as profile_mod
 from daffodil.daffy import rowlocate
 from daffodil.daffy import sniff as sniff_mod
+from daffodil.daffy import widths_edit
 from daffodil.daffy import writeback
 
 
@@ -302,6 +303,45 @@ def cmd_diff(args: argparse.Namespace) -> int:
     return 0 if result.is_equal else 1
 
 
+def cmd_widths_show(args: argparse.Namespace) -> int:
+    csv_path = Path(args.csv_path)
+    if not csv_path.exists():
+        print(f"error: {csv_path} does not exist", file=sys.stderr)
+        return 2
+
+    prof = profile_mod.load_profile(csv_path, explicit_path=args.profile)
+    widths = prof.get('widths_lo_mm100', {})
+
+    if args.format == 'md':
+        if not widths:
+            print("No widths recorded (no profile, or profile has no 'widths_lo_mm100').")
+        for col, width in widths.items():
+            print(f"{col}: {width} (1/100 mm)")
+    elif args.format == 'json':
+        print(json.dumps(widths, indent=2))
+    elif args.format == 'pyon':
+        print(pprint.pformat(widths))
+    return 0
+
+
+def cmd_widths_edit(args: argparse.Namespace) -> int:
+    csv_path = Path(args.csv_path)
+    if not csv_path.exists():
+        print(f"error: {csv_path} does not exist", file=sys.stderr)
+        return 2
+
+    try:
+        result = widths_edit.edit_widths(csv_path, explicit_profile_path=args.profile)
+    except widths_edit.WidthsEditError as e:
+        print(f"error: {e}", file=sys.stderr)
+        return 2
+
+    print(f"Saved widths to {result['profile_path']}")
+    for col, width in result['widths_lo_mm100'].items():
+        print(f"  {col}: {width} (1/100 mm)")
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog='daffy', description='Inspect, edit, compare, and export CSV tables (built on Daffodil).')
     subparsers = parser.add_subparsers(dest='command', required=True)
@@ -364,6 +404,20 @@ def build_parser() -> argparse.ArgumentParser:
                          'Without it, rows are compared by position (stated in the output).')
     p_diff.add_argument('--format', choices=['md', 'json', 'pyon'], default='md')
     p_diff.set_defaults(func=cmd_diff)
+
+    p_widths_show = subparsers.add_parser('widths-show', help='Show column widths recorded in the profile sidecar.')
+    p_widths_show.add_argument('csv_path')
+    p_widths_show.add_argument('--profile', help='Explicit profile sidecar path.')
+    p_widths_show.add_argument('--format', choices=['md', 'json', 'pyon'], default='md')
+    p_widths_show.set_defaults(func=cmd_widths_show)
+
+    p_widths_edit = subparsers.add_parser('widths-edit', help='Open the CSV in LibreOffice (real GUI window, not '
+                                           'for agent/headless use) with known widths pre-applied; save the '
+                                           'widths back to the profile sidecar when the window is closed. '
+                                           'Requires LibreOffice and its UNO Python bindings -- not usable headlessly.')
+    p_widths_edit.add_argument('csv_path')
+    p_widths_edit.add_argument('--profile', help='Explicit profile sidecar path.')
+    p_widths_edit.set_defaults(func=cmd_widths_edit)
 
     return parser
 

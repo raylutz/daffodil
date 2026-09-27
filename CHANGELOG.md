@@ -27,9 +27,24 @@ all prior releases. Plans for future moved to ROADMAP.md.
   change made since the row was last read), and `diff` (real new logic -- no reusable row/column
   diff exists in `Daf`; `diff_da()` is numeric dict subtraction, not a table diff -- `--key COLUMN`
   or position-based comparison, duplicate-key detection refuses rather than guessing, exit
-  0/1/2 for equal/different/error). `export-ods` and column add/rename/delete still not done
-  (`Daf.drop_cols()`/`rename_cols()` exist and are real candidates for delete/rename when it
-  lands; no direct primitive found for add-col). 47 tests total, `tests/test_daffy.py`.
+  0/1/2 for equal/different/error).
+  v3, same day: dropped the planned `export-ods` in favor of a different approach (Ray): open the
+  real CSV directly in a live LibreOffice Calc window via the UNO API (`widths-edit`), pre-apply
+  any widths already known, block while the window is open, and read the (possibly user-adjusted)
+  widths back into the profile on close -- no separate `.ods` artifact to generate or keep in sync
+  at all. Forces every column to LibreOffice's CSV-import "Text" format on load, so opening
+  through daffy never lets LibreOffice's own type auto-detection mangle a leading zero the way its
+  default CSV import would -- same string-preservation principle as the rest of daffy. Widths
+  stored under a distinct `widths_lo_mm100` key (LibreOffice's native 1/100mm column-width unit,
+  labeled and kept separate from any future markdown-width concept, per the original design doc's
+  own caution about not conflating display-width units across renderers). `widths-show` reads the
+  profile without touching LibreOffice at all. NOT verified end to end -- this dev box has no
+  LibreOffice/UNO installed at all (confirmed: `import uno` fails, no `soffice` binary); built
+  against the documented UNO API, needs real verification on a machine that has LibreOffice
+  (motivating case: `arg_specs.csv`'s description column auto-sizing to 17+ inches by default).
+  Column add/rename/delete still not done (`Daf.drop_cols()`/`rename_cols()` exist and are real
+  candidates for delete/rename when it lands; no direct primitive found for add-col). 52 tests
+  total, `tests/test_daffy.py`.
 - `Daf.is_rectangular()` / `Daf.force_rectangular()` -- verify and, if needed, fix a `Daf`
   whose rows don't all have the same length. `is_rectangular()` checks every row (against
   `len(hd)` if columns are defined, else against each other), unlike `num_cols()`, which only
