@@ -28,6 +28,10 @@ dependencies = [
 numpy = ['numpy']
 pandas = ["pandas"]
 pdf = ["pdfplumber"]
+ods = ["odfdo"]
+
+[project.scripts]
+daffy = "daffodil.daffy.cli:main"
 
 [project.urls]
 Homepage = "https://github.com/raylutz/daffodil"
