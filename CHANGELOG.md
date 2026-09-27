@@ -16,7 +16,7 @@ all prior releases. Plans for future moved to ROADMAP.md.
   sniffed from raw bytes *before* `Daf.from_csv()`'s text-mode read silently normalizes CRLF
   away, plus an optional sidecar profile) and `select` (equality filter via `Daf.select_by_dict()`,
   column projection via `Daf.select_cols()`, row limit; md/json/pyon output). Optional sidecar
-  metadata file, `<name>,profile.json` next to the CSV (e.g. `foo.csv,profile.json`) -- holds
+  metadata file, `<name>.profile.json` next to the CSV (e.g. `foo.csv.profile.json`) -- holds
   `keyfield`/`widths`/`dtypes` only; deliberately not tied to `@schemaclass` (a Python class,
   not something a CLI can discover or author) -- `dtypes` is the same plain `{col: type}` map
   `Daf.set_dtypes()`/`apply_dtypes()` already consume, which is what a schemaclass resolves to

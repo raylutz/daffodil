@@ -61,7 +61,7 @@ def test_sniff_detects_semicolon_delimiter(tmp_path):
 def test_profile_path_uses_full_csv_name(tmp_path):
     csv_path = tmp_path / "foo.csv"
 
-    assert profile.profile_path_for(csv_path) == tmp_path / "foo.csv,profile.json"
+    assert profile.profile_path_for(csv_path) == tmp_path / "foo.csv.profile.json"
 
 
 def test_missing_profile_returns_empty_dict(tmp_path):
@@ -77,7 +77,7 @@ def test_save_then_load_profile_round_trips(tmp_path):
 
     saved_path = profile.save_profile(csv_path, {'keyfield': 'a', 'widths': {'b': 10}, 'dtypes': {}})
 
-    assert saved_path == tmp_path / "foo.csv,profile.json"
+    assert saved_path == tmp_path / "foo.csv.profile.json"
     assert profile.load_profile(csv_path) == {'keyfield': 'a', 'widths': {'b': 10}, 'dtypes': {}}
 
 
@@ -102,7 +102,7 @@ def test_explicit_profile_path_overrides_discovery(tmp_path):
 
 def test_malformed_profile_raises(tmp_path):
     csv_path = tmp_path / "foo.csv"
-    (tmp_path / "foo.csv,profile.json").write_text("[1, 2, 3]")  # a list, not an object
+    (tmp_path / "foo.csv.profile.json").write_text("[1, 2, 3]")  # a list, not an object
 
     with pytest.raises(ValueError):
         profile.load_profile(csv_path)

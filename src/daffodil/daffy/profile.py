@@ -1,9 +1,11 @@
 # profile.py -- optional sidecar metadata for a CSV file: display widths, keyfield, dtypes.
 #
-# Naming convention (Ray, 2026-09-27): "foo.csv,profile.json" -- the sidecar name is the CSV's
-# own full filename (extension included) with ",profile.json" appended, same directory. This
+# Naming convention (Ray, 2026-09-27): "foo.csv.profile.json" -- the sidecar name is the CSV's
+# own full filename (extension included) with ".profile.json" appended, same directory. This
 # keeps the CSV's real name fully visible in a directory listing and avoids ever colliding with
-# a real data file (no CSV file is named "*.csv,profile.json").
+# a real data file (no CSV file is named "*.csv.profile.json"). A comma was considered and
+# rejected (Ray: "not a good idea in general") -- a dot is the ordinary, shell- and
+# filesystem-safe separator.
 #
 # dtypes is a plain {colname: typename} map, not a daffodil @schemaclass -- Ray, 2026-09-27:
 # "Basic schema is only to convert str to python types when needed... dtypes_dict is sufficient
@@ -20,7 +22,7 @@ PROFILE_FIELDS = ('keyfield', 'widths', 'dtypes')
 
 def profile_path_for(csv_path: str | Path) -> Path:
     csv_path = Path(csv_path)
-    return csv_path.with_name(csv_path.name + ',profile.json')
+    return csv_path.with_name(csv_path.name + '.profile.json')
 
 
 def load_profile(csv_path: str | Path, explicit_path: Optional[str | Path] = None) -> Dict[str, Any]:
