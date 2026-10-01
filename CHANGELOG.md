@@ -45,6 +45,22 @@ all prior releases. Plans for future moved to ROADMAP.md.
   for `.name`, never for the dict key). Logic lives in daf_md.py (as with from_md()/_from_md(), to
   avoid a circular import) and is wired onto the Daf class the same way. 12 new test cases in
   test_daf_md.py.
+- Added pytest test coverage for the remaining reachable gaps: overall 84% -> 95%
+  (daf.py 88% -> 99%, daf_sql.py 0% -> 99%, daf_utils.py 86% -> 98%, daf_pandas.py 95% -> 99%).
+  New files: test_daf_coverage_a.py, test_daf_coverage_b.py, test_daf_sql.py,
+  test_daf_utils_coverage.py, test_daf_pdf.py (smoke test only; daf_pdf is experimental).
+  What's left uncovered is dead code, `diagnose`-only branches, daf_pdf.py and md_demo.py.
+  Tests that reach `breakpoint()` paths replace `sys.breakpointhook` so pytest never stops in pdb.
+- 20 strict-xfail tests document real bugs found along the way (not yet fixed), e.g.
+  `UnboundLocalError` after a `breakpoint()` in `sort_by_colname(s)`, `safe_regex_select`,
+  `safe_regex_replace`, `convert_type_value`, `len_slice`, `select_icols`, `record_append`;
+  `manifest_reduce` dropping chunk columns; `count_values_da` mutating source rows;
+  `derive_join_translator_daf` mutating the caller's `shared_fields`; `flatten(use_pyon=False)`
+  ignoring its argument; `_sanitize_cols` dropping a column (`Daf(cols=['a_2','a','a'])`);
+  `set_irows_icols` storing Daf objects instead of their values; `sql_escape_str` decoding
+  already-safe `__HH` names and not round-tripping characters above 0xFF.
+- Dev dependencies: added requests, xlsxwriter (already used by tests) and pytest-cov.
+  Added CLAUDE.md and a `.claude/settings.json` SessionStart hook that runs `uv sync`.
 
 ### Changed
 - `mypy` (added to `mypy.ini`'s scope, now fully clean: 217 -> 0 errors) run across all of
