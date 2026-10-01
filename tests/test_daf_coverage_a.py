@@ -12,14 +12,6 @@ from daffodil.daf import Daf, KeysDisabledError
 from daffodil.keyedlist import KeyedList
 
 
-@pytest.fixture
-def no_breakpoint(monkeypatch):
-    """ Some code paths in daf.py call breakpoint() before raising/continuing.
-        Neutralize it so tests never drop into a debugger.
-    """
-    monkeypatch.setattr(sys, 'breakpointhook', lambda *a, **k: None)
-
-
 def _daf3():
     return Daf(lol=[[1, 2, 3], [4, 5, 6], [7, 8, 9]], cols=['a', 'b', 'c'])
 
@@ -31,12 +23,10 @@ def test_init_sanitize_cols_duplicates():
     assert daf.columns() == ['a', 'a_1', 'a_1_2', 'Unnamed3']
 
 
-@pytest.mark.xfail(strict=True, reason="BUG: daf_utils._sanitize_cols renames the dup 'a' at idx 2 to "
-                                       "'a_2', colliding with existing 'a_2'; the column is silently dropped")
-def test_init_sanitize_cols_collision():
-    daf = Daf(cols=['a_2', 'a', 'a'])
-    assert len(daf.columns()) == 3
-    assert len(set(daf.columns())) == 3
+def test_init_sanitize_cols_collision_raises():
+    # renaming the duplicate 'a' at idx 2 to 'a_2' would collide with the existing 'a_2'.
+    with pytest.raises(KeyError, match="'a_2'"):
+        Daf(cols=['a_2', 'a', 'a'])
 
 
 # --- _default_iterator / iter_list
@@ -71,13 +61,13 @@ def test_contains_on_empty_daf_is_false():
 
 # --- calc_cols with types but no dtypes
 
-def test_calc_cols_include_types_without_dtypes_raises(no_breakpoint):
+def test_calc_cols_include_types_without_dtypes_raises():
     daf = _daf3()
     with pytest.raises(RuntimeError):
         daf.calc_cols(include_types=int)
 
 
-def test_calc_cols_exclude_types_without_dtypes_raises(no_breakpoint):
+def test_calc_cols_exclude_types_without_dtypes_raises():
     daf = _daf3()
     with pytest.raises(RuntimeError):
         daf.calc_cols(exclude_types=int)
@@ -119,8 +109,6 @@ def test_apply_dtypes_single_type_for_all_cols():
 
 # --- flatten
 
-@pytest.mark.xfail(strict=True, reason="BUG: flatten() overwrites its use_pyon parameter with "
-                                       "'use_pyon = True' (daf.py:1462), so use_pyon=False never JSON-encodes")
 def test_flatten_use_pyon_false_json_encodes():
     daf = Daf(lol=[[{'x': 1}, True]], cols=['a', 'b'], dtypes={'a': dict, 'b': bool})
     daf.flatten(use_pyon=False)
@@ -329,10 +317,7 @@ def test_record_append_mapping_reordered():
     assert daf.lol == [[1, 2], [10, 20]]
 
 
-@pytest.mark.xfail(strict=True, reason="BUG: record_append() with a non-dict Mapping whose keys match "
-                                       "hd order hits breakpoint() at daf.py:3231 and leaves rec_la "
-                                       "unbound (UnboundLocalError)")
-def test_record_append_mapping_same_order(no_breakpoint):
+def test_record_append_mapping_same_order():
     daf = Daf(lol=[[1, 2]], cols=['a', 'b'])
     daf.record_append(MappingProxyType({'a': 10, 'b': 20}))
     assert daf.lol == [[1, 2], [10, 20]]
@@ -373,21 +358,20 @@ def test_set_irows_icols_none_irows_is_noop():
     assert daf.lol == [[1, 2, 3], [4, 5, 6], [7, 8, 9]]
 
 
-def test_set_irows_icols_short_column_list_partial(no_breakpoint):
-    # value list shorter than the number of rows: extra rows are left unchanged.
+def test_set_irows_icols_column_list_wrong_length_raises():
     daf = _daf3()
-    daf.set_irows_icols([0, 1, 2], 1, [100])
-    assert daf.lol == [[1, 100, 3], [4, 5, 6], [7, 8, 9]]
+    with pytest.raises(ValueError, match='1 values given for 3 rows'):
+        daf.set_irows_icols([0, 1, 2], 1, [100])
+    assert daf.lol == _daf3().lol
 
 
-def test_set_irows_icols_short_row_list_partial(no_breakpoint):
+def test_set_irows_icols_row_list_wrong_length_raises():
     daf = _daf3()
-    daf.set_irows_icols([0, 1], [0, 1], [100])
-    assert daf.lol == [[100, 2, 3], [100, 5, 6], [7, 8, 9]]
+    with pytest.raises(ValueError, match='1 values given for 2 columns'):
+        daf.set_irows_icols([0, 1], [0, 1], [100])
+    assert daf.lol == _daf3().lol
 
 
-@pytest.mark.xfail(strict=True, reason="BUG: set_irows_icols() single row, no cols, Daf value stores the "
-                                       "Daf object itself as the row (daf.py:3627)")
 def test_set_irows_icols_single_row_from_daf():
     daf = _daf3()
     daf.set_irows_icols(0, None, Daf(lol=[[10, 20, 30]], cols=['a', 'b', 'c']))
@@ -395,28 +379,43 @@ def test_set_irows_icols_single_row_from_daf():
     assert isinstance(daf.lol[0], list)
 
 
-@pytest.mark.xfail(strict=True, reason="BUG: set_irows_icols() multi rows, no cols, Daf value stores "
-                                       "one-row Daf objects as rows (daf.py:3662)")
 def test_set_irows_icols_multi_row_from_daf():
     daf = _daf3()
     daf.set_irows_icols([0, 1], None, Daf(lol=[[10, 20, 30], [40, 50, 60]], cols=['a', 'b', 'c']))
     assert daf.lol == [[10, 20, 30], [40, 50, 60], [7, 8, 9]]
 
 
-@pytest.mark.xfail(strict=True, reason="BUG: set_irows_icols() single col, Daf value: value[i][0] is "
-                                       "still a Daf, so Daf objects are stored in cells (daf.py:3691)")
+def test_set_irows_icols_daf_value_wrong_shape_raises():
+    daf = _daf3()
+    with pytest.raises(ValueError, match='shape'):
+        daf.set_irows_icols([0, 1], None, Daf(lol=[[10, 20]], cols=['a', 'b']))
+    assert daf.lol == _daf3().lol
+
+
+def test_set_irows_icols_single_cell_keeps_daf_object():
+    # a single cell may hold a Daf as-is.
+    daf = _daf3()
+    inner = Daf(lol=[[10, 20]], cols=['a', 'b'])
+    daf.set_irows_icols(0, 0, inner)
+    assert daf.lol[0][0] is inner
+
+
 def test_set_irows_icols_single_col_from_daf():
     daf = _daf3()
     daf.set_irows_icols([0, 1], 1, Daf(lol=[[100], [200]], cols=['x']))
     assert daf.lol == [[1, 100, 3], [4, 200, 6], [7, 8, 9]]
 
 
-@pytest.mark.xfail(strict=True, reason="BUG: daf[rows, cols] = other_daf indexes value by column only "
-                                       "(value[source_col]) and stores row Daf objects in cells (daf.py:3717)")
 def test_setitem_block_from_daf():
     daf = _daf3()
     daf[0:2, 0:2] = Daf(lol=[[100, 200], [300, 400]], cols=['a', 'b'])
     assert daf.lol == [[100, 200, 3], [300, 400, 6], [7, 8, 9]]
+
+
+def test_setitem_block_from_larger_daf_raises():
+    daf = _daf3()
+    with pytest.raises(ValueError, match='shape'):
+        daf[0:2, 0:2] = _daf3()
 
 
 # --- select_krows / select_kcols without keys
@@ -461,9 +460,7 @@ def test_select_icols_uneven_rows_raises_indexerror():
         daf.select_icols([0, 2])
 
 
-@pytest.mark.xfail(strict=True, reason="BUG: select_icols(slice) on uneven rows swallows IndexError after "
-                                       "breakpoint() (daf.py:4185-4187) and then fails with UnboundLocalError")
-def test_select_icols_slice_uneven_rows_raises_indexerror(no_breakpoint):
+def test_select_icols_slice_uneven_rows_raises_indexerror():
     daf = Daf(lol=[[1, 2, 3], [4]], cols=['a', 'b', 'c'])
     with pytest.raises(IndexError):
         daf.select_icols(slice(0, 3))

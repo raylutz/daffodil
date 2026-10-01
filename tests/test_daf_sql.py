@@ -4,7 +4,6 @@
 # sqlite helper functions (lod -> table, index creation, column sums, row selection).
 
 import sqlite3
-import sys
 from unittest import mock
 
 import pytest
@@ -174,16 +173,13 @@ def test_create_index_at_cursor_already_exists_error_treated_as_success():
     assert daf_sql.create_index_at_cursor(cursor, 'rowkey', 't') is True
 
 
-@pytest.mark.parametrize("cursor_factory", [
-    lambda: _mem_table().cursor(),                       # OperationalError: no such column
-    lambda: mock.MagicMock(**{'execute.side_effect': RuntimeError('boom')}),
+@pytest.mark.parametrize("cursor_factory, exc_type", [
+    (lambda: _mem_table().cursor(), sqlite3.OperationalError),          # no such column
+    (lambda: mock.MagicMock(**{'execute.side_effect': RuntimeError('boom')}), RuntimeError),
 ])
-def test_create_index_at_cursor_failure_returns_false(monkeypatch, cursor_factory):
-    beeps, breaks = [], []
-    monkeypatch.setattr(daf_sql.logs, 'error_beep', lambda: beeps.append(1))
-    monkeypatch.setattr(sys, 'breakpointhook', lambda *a, **k: breaks.append(1))
-    assert daf_sql.create_index_at_cursor(cursor_factory(), 'missing_col', 't') is False
-    assert beeps == [1] and breaks == [1]
+def test_create_index_at_cursor_failure_raises(cursor_factory, exc_type):
+    with pytest.raises(exc_type):
+        daf_sql.create_index_at_cursor(cursor_factory(), 'missing_col', 't')
 
 
 # --- lod_to_sqlite_table ---

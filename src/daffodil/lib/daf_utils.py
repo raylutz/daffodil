@@ -99,10 +99,7 @@ class NpEncoder(json.JSONEncoder):
         elif isinstance(obj, np.ndarray):
             return obj.tolist()
         else:
-            # We have not yet seen a real case land here. If this fires, inspect
-            # `obj` (its type and value) to decide how it should actually be
-            # encoded before deciding on a fix.
-            breakpoint()  # temp -- investigate unrecognized type reaching NpEncoder.default()
+            # raises TypeError for any other type that json can't serialize.
             return super(NpEncoder, self).default(obj)
 
 
@@ -114,17 +111,9 @@ def json_encode(data_item: Any, indent: Optional[int]=None) -> str:
     
     if data_item is None:
         return ''
-    try:
-        return json.dumps(data_item, cls=NpEncoder, indent=indent, ensure_ascii=False, allow_nan=False)
-    except ValueError:
-        # NaN/Infinity encountered. json.dumps does not route these through
-        # NpEncoder.default() since they are natively-serializable floats (or
-        # numpy floating subclasses of float); it raises ValueError here instead.
-        # We have not yet seen a real case of this -- if this fires, inspect
-        # data_item to decide how NaN/Infinity should actually be encoded
-        # (e.g. as the daffodil NULL sentinel) before deciding on a fix.
-        breakpoint()  # temp -- investigate NaN/Infinity encountered in json_encode input
-        return json.dumps(data_item, cls=NpEncoder, indent=indent, ensure_ascii=False)
+    # NaN/Infinity raise ValueError (allow_nan=False): they are not valid JSON, and how they
+    # should be encoded (e.g. as the daffodil NULL sentinel) has not been decided.
+    return json.dumps(data_item, cls=NpEncoder, indent=indent, ensure_ascii=False, allow_nan=False)
 
 
 def make_strbool(val: Union[bool, str, int, None]) -> str:
@@ -146,11 +135,8 @@ def test_strbool(val: Union[bool, str, int, None, object]) -> bool:
         return False
     elif not bool(val == val):  # nan
         return False
-    else:    
-        breakpoint() #perm
-        error_beep()
-        
-    return False    # token return for mypy.
+
+    raise TypeError(f"test_strbool(): unsupported type {type(val).__name__}")
     
         
 def xlsx_to_csv(xlsx: bytes, sheetname: Optional[str]=None, add_trailing_blank_cols: bool=True) -> bytes:
@@ -261,10 +247,6 @@ def insert_col_in_lol_at_icol(icol: int=-1, col_la: Optional[T_la]=None, lol: Op
         val = safe_get_idx(col_la, irow, default)
         row_la.insert(icol, val)
         
-        if len(row_la) == num_cols:
-            breakpoint() #perm Should never happen, insert should add a column.
-            pass        
-        
     return lol
     
     
@@ -369,9 +351,8 @@ def safe_regex_select(regex:Union[str, bytes], s:str, default:str='', flags=0) -
     if match:
         try:
             valstr = match.group(1)   # type: ignore
-        except IndexError:
-            breakpoint() #perm
-            error_beep()
+        except IndexError as exc_info:
+            raise ValueError(f"safe_regex_select(): regex '{regex_str}' has no capture group") from exc_info
         return valstr.strip()
     else:
         return default
@@ -420,10 +401,9 @@ def safe_regex_replace(regex: Union[List[Union[str, bytes]], str, bytes], s: str
             continue    # give up on this pattern.
         try:
             findpat, replacepat = re.split(sep_char, one_replace_regex)
-        except Exception as err:
-            print(err)
-            breakpoint() #perm
-            pass
+        except ValueError as exc_info:
+            raise ValueError(f"safe_regex_replace(): replace regex '{sep_char}{one_replace_regex}{sep_char}' "
+                             f"must have the form {sep_char}find{sep_char}replace{sep_char}") from exc_info
         result = re.sub(findpat, replacepat, result, flags=flags)
         
     return result
@@ -517,10 +497,8 @@ def convert_type_value(val: Any, desired_type: Type[T], unflatten: bool=True):
         new_val = val
 
     else:
-        breakpoint() #perm
-        error_beep()
-        pass
-                 
+        raise TypeError(f"convert_type_value(): cannot convert {type(val).__name__} value to {desired_type}")
+
     return new_val
     
     
@@ -1647,13 +1625,8 @@ def write_buff_to_fp(buff: T_buff,
                 # shutil.copyfile(file_path, backup_path)
             if rtype in ['binary', 'image']:
                 buff = cast(bytes, buff)
-                try:
-                    with open(file_path, mode='wb') as file:
-                        file.write(buff)
-                except Exception:
-                    error_beep()
-                    breakpoint() #perm
-                    pass
+                with open(file_path, mode='wb') as file:
+                    file.write(buff)
             else:
                 buff = cast(str, buff)
                 with open(file_path, mode='wt', newline='', encoding="utf-8") as file:
@@ -1708,12 +1681,7 @@ def len_slice(slice_obj: slice, tot_len: int=0):
         
     start, stop, step = slice_obj.start or 0, slice_obj.stop or tot_len, slice_obj.step or 1
     
-    try:
-        len_int = (stop - start + step - 1) // step
-    except Exception:
-        breakpoint() #perm
-        
-    return len_int
+    return (stop - start + step - 1) // step
     
 
 def len_rowcol_spec(ispec: Union[slice, int, range, T_li, None], tot_len: int) -> int:
@@ -1741,11 +1709,7 @@ def slice_to_range(slice_obj, length):
             stop = length
         else:
             stop = min(slice_obj.stop, length)
-        try:
-            return range(slice_obj.start or 0, stop, slice_obj.step or 1)
-        except Exception:
-            breakpoint() #perm
-            pass
+        return range(slice_obj.start or 0, stop, slice_obj.step or 1)
 
 
 def _calculate_single_column_name(index: int) -> str:
@@ -1787,7 +1751,11 @@ def _sanitize_cols(cols: T_cs, unnamed_prefix='Unnamed') -> list:
                 col_hd[col] = idx
             else:
                 # if not unique, add _NNN after the name.
-                col_hd[f"{col}_{idx}"] = idx
+                new_col = f"{col}_{idx}"
+                if new_col in col_hd:
+                    raise KeyError(f"_sanitize_cols(): renaming duplicate column '{col}' to '{new_col}' "
+                                   f"collides with an existing column")
+                col_hd[new_col] = idx
         return list(col_hd.keys())
 
     return []
@@ -1925,15 +1893,15 @@ def compare_lists(
                 ref_dict            = dict.fromkeys(ref_list)   # returns dictionary with specified keys and values are all None.
             elif isinstance(ref_list, dict):
                 ref_dict            = ref_list
-                
+            else:   # any other iterable, e.g. a tuple.
+                ref_dict            = dict.fromkeys(ref_list)
+
             if isinstance(work_list, list):
                 work_dict           = dict.fromkeys(work_list)
             elif isinstance(work_list, dict):
                 work_dict           = work_list
-                
-            if not isinstance(ref_dict, dict) or not isinstance(work_dict, dict):
-                breakpoint() # logic error
-                pass
+            else:   # any other iterable, e.g. a tuple.
+                work_dict           = dict.fromkeys(work_list)
             
             matching_list       = [val for val in work_list if val in ref_dict]
             missing_list        = [val for val in ref_list if val not in work_dict]

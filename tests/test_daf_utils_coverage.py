@@ -1,13 +1,9 @@
 # test_daf_utils_coverage.py
 #
 # Additional coverage tests for daffodil/lib/daf_utils.py (plus a few for daf_pandas.py),
-# targeting branches not exercised by test_daf_utils.py: numpy JSON encoding, debug-trap
-# fallbacks (with breakpoint() neutralized), regex helpers, s3 helpers (boto3 mocked -- no
-# network), file-like CSV parsing, beep/sts/loc helpers, and astype_value string specs.
-#
-# Several library code paths call breakpoint() as a debug tripwire. Those tests install a
-# recording sys.breakpointhook (via the `bp` fixture) so the suite never drops into pdb, and
-# assert that the tripwire fired.
+# targeting branches not exercised by test_daf_utils.py: numpy JSON encoding, error paths,
+# regex helpers, s3 helpers (boto3 mocked -- no network), file-like CSV parsing,
+# beep/sts/loc helpers, and astype_value string specs.
 
 import io
 import os
@@ -19,17 +15,6 @@ import numpy as np
 import pytest
 
 from daffodil.lib import daf_utils as utils
-
-
-# --- fixtures ---
-
-@pytest.fixture
-def bp(monkeypatch):
-    """ Replace sys.breakpointhook with a recorder; also silence error_beep(). """
-    calls = []
-    monkeypatch.setattr(sys, 'breakpointhook', lambda *a, **k: calls.append(1))
-    monkeypatch.setattr(utils, 'error_beep', lambda: None)
-    return calls
 
 
 # =====================================================================
@@ -48,15 +33,14 @@ def test_json_encode_numpy_int_and_array():
     assert utils.json_encode([np.int64(3), np.array([1, 2])]) == '[3, [1, 2]]'
 
 
-def test_json_encode_unsupported_type_raises_typeerror(bp):
+def test_json_encode_unsupported_type_raises_typeerror():
     with pytest.raises(TypeError):
         utils.json_encode({'a': object()})
-    assert bp == [1]
 
 
-def test_json_encode_nan_falls_back_to_nan_literal(bp):
-    assert utils.json_encode([float('nan'), 1]) == '[NaN, 1]'
-    assert bp == [1]
+def test_json_encode_nan_raises_valueerror():
+    with pytest.raises(ValueError):
+        utils.json_encode([float('nan'), 1])
 
 
 # --- test_strbool ---
@@ -65,9 +49,9 @@ def test_test_strbool_nan_is_false():
     assert utils.test_strbool(float('nan')) is False
 
 
-def test_test_strbool_unsupported_type_returns_false(bp):
-    assert utils.test_strbool(object()) is False
-    assert bp == [1]
+def test_test_strbool_unsupported_type_raises():
+    with pytest.raises(TypeError, match='object'):
+        utils.test_strbool(object())
 
 
 # --- sort_lol_by_cols ---
@@ -92,12 +76,9 @@ def test_safe_regex_select_bytes_and_default():
     assert utils.safe_regex_select(r'id=(\d+)', 'nothing here', default='none') == 'none'
 
 
-@pytest.mark.xfail(strict=True, reason="BUG: safe_regex_select() with a regex lacking a capture "
-                   "group hits IndexError, then returns unbound `valstr` -> UnboundLocalError "
-                   "(daf_utils.py:371-375)")
-def test_safe_regex_select_no_capture_group_does_not_crash(bp):
-    result = utils.safe_regex_select(r'abc', 'xxabcxx', default='dflt')
-    assert result in ('abc', 'dflt')
+def test_safe_regex_select_no_capture_group_raises():
+    with pytest.raises(ValueError, match='no capture group'):
+        utils.safe_regex_select(r'abc', 'xxabcxx', default='dflt')
 
 
 # --- safe_regex_replace ---
@@ -112,26 +93,16 @@ def test_safe_regex_replace_bytes_items_in_list():
     assert utils.safe_regex_replace([b'/a/b/', b'#c##'], 'aacc') == 'bb'
 
 
-@pytest.mark.xfail(strict=True, reason="BUG: safe_regex_replace() with a pattern containing too "
-                   "many separators (e.g. '/a/b/c/') catches the split ValueError, then uses unbound "
-                   "findpat/replacepat -> UnboundLocalError instead of skipping the pattern like the "
-                   "malformed-separator case (daf_utils.py:421-427)")
-def test_safe_regex_replace_too_many_separators_is_skipped(bp, capsys):
-    assert utils.safe_regex_replace('/a/b/c/', 'abc') == 'abc'
+def test_safe_regex_replace_too_many_separators_raises():
+    with pytest.raises(ValueError, match='/a/b/c/'):
+        utils.safe_regex_replace('/a/b/c/', 'abc')
 
 
 # --- convert_type_value / unflatten_val / safe_convert_json_to_obj ---
 
-@pytest.mark.xfail(strict=True, reason="BUG: convert_type_value() with an unsupported desired_type "
-                   "(e.g. set) falls to the else branch and returns unbound `new_val` -> "
-                   "UnboundLocalError (daf_utils.py:519-524)")
-def test_convert_type_value_unsupported_type_no_unbound_local(bp):
-    try:
+def test_convert_type_value_unsupported_type_raises():
+    with pytest.raises(TypeError, match='cannot convert'):
         utils.convert_type_value('x', set)
-    except UnboundLocalError:
-        pytest.fail("UnboundLocalError leaked from convert_type_value")
-    except (TypeError, ValueError):
-        pass
 
 
 def test_unflatten_val_json_only_literal():
@@ -417,11 +388,10 @@ def test_write_buff_to_fp_local_binary(tmp_path):
     assert (tmp_path / 'out.bin').read_bytes() == b'\x01\x02'
 
 
-def test_write_buff_to_fp_local_binary_open_failure_hits_tripwire(bp, tmp_path):
+def test_write_buff_to_fp_local_binary_open_failure_raises(tmp_path):
     fp = str(tmp_path / 'no_such_dir' / 'out.bin')
-    assert utils.write_buff_to_fp(b'\x01', fp, rtype='binary') == fp
-    assert bp == [1]
-    assert not os.path.exists(fp)
+    with pytest.raises(FileNotFoundError):
+        utils.write_buff_to_fp(b'\x01', fp, rtype='binary')
 
 
 def test_write_buff_to_fp_empty_buff_not_written(tmp_path):
@@ -432,21 +402,14 @@ def test_write_buff_to_fp_empty_buff_not_written(tmp_path):
 
 # --- len_slice / slice_to_range ---
 
-@pytest.mark.xfail(strict=True, reason="BUG: len_slice() on a slice with non-numeric bounds catches "
-                   "the TypeError, then returns unbound `len_int` -> UnboundLocalError "
-                   "(daf_utils.py:1711-1716)")
-def test_len_slice_bad_bounds_no_unbound_local(bp):
-    try:
+def test_len_slice_bad_bounds_raises():
+    with pytest.raises(TypeError):
         utils.len_slice(slice('a', 'b'), 5)
-    except UnboundLocalError:
-        pytest.fail("UnboundLocalError leaked from len_slice")
-    except (TypeError, ValueError):
-        pass
 
 
-def test_slice_to_range_non_int_start_hits_tripwire_returns_none(bp):
-    assert utils.slice_to_range(slice('a', 5), 10) is None
-    assert bp == [1]
+def test_slice_to_range_non_int_start_raises():
+    with pytest.raises(TypeError):
+        utils.slice_to_range(slice('a', 5), 10)
 
 
 def test_slice_to_range_normal():
@@ -509,12 +472,10 @@ def test_pandas_dtype_dict_to_python_timedelta():
     assert result == {'td': pd.Timedelta, 'i': int}
 
 
-def test_pandas_dtype_dict_to_python_unknown_dtype_hits_tripwire(bp, capsys):
+def test_pandas_dtype_dict_to_python_unknown_dtype_raises():
     import pandas as pd
-    result = daf_pandas.pandas_dtype_dict_to_python({'cat': pd.CategoricalDtype(['x']), 'f': np.dtype('float64')})
-    assert result == {'f': float}      # unknown column omitted
-    assert bp == [1]
-    assert "Unknown Pandas dtype for column 'cat'" in capsys.readouterr().out
+    with pytest.raises(TypeError, match="Unknown Pandas dtype for column 'cat'"):
+        daf_pandas.pandas_dtype_dict_to_python({'cat': pd.CategoricalDtype(['x']), 'f': np.dtype('float64')})
 
 
 def test_pandas_dtype_to_python_type_tz_aware_datetime():

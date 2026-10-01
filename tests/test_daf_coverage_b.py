@@ -3,25 +3,11 @@
 # Coverage-driven tests for daf.py, second half of the file (methods from iloc() through
 # unpack_indirect()). Focuses on error paths, alternate branches (composite keyfields,
 # indirect columns, diagnose=True logging) and rarely used helpers.
-#
-# Several code paths in daf.py call breakpoint() as a "perm assertion break". These tests
-# replace sys.breakpointhook with a recorder (see the `bp` fixture) so the paths can be
-# exercised non-interactively and the fact that the break was reached can be asserted.
-
-import sys
 
 import pytest
 
 import daffodil.daf as daf_module
 from daffodil.daf import Daf, KeysDisabledError
-
-
-@pytest.fixture
-def bp(monkeypatch):
-    """ Replace breakpoint() with a recorder; returns the list of recorded calls. """
-    calls = []
-    monkeypatch.setattr(sys, 'breakpointhook', lambda *a, **k: calls.append(1))
-    return calls
 
 
 # =====================================================================
@@ -91,19 +77,15 @@ def test_replace_in_columns_composite_keyfield_invalidates_kd():
 # sort_by_colname() / sort_by_colnames() with an unknown column
 # =====================================================================
 
-@pytest.mark.xfail(strict=True, reason="BUG: unknown colname hits breakpoint() then raises "
-                   "UnboundLocalError ('colidx') instead of KeyError (daf.py:5541-5547)")
-def test_sort_by_colname_unknown_column_raises_keyerror(bp):
+def test_sort_by_colname_unknown_column_raises_keyerror():
     daf = Daf(cols=['a', 'b'], lol=[[2, 1], [1, 2]])
-    with pytest.raises(KeyError):
+    with pytest.raises(KeyError, match='zz'):
         daf.sort_by_colname('zz')
 
 
-@pytest.mark.xfail(strict=True, reason="BUG: unknown colname hits breakpoint() then raises "
-                   "UnboundLocalError ('colidxs') instead of KeyError (daf.py:5569-5576)")
-def test_sort_by_colnames_unknown_column_raises_keyerror(bp):
+def test_sort_by_colnames_unknown_column_raises_keyerror():
     daf = Daf(cols=['a', 'b'], lol=[[2, 1], [1, 2]])
-    with pytest.raises(KeyError):
+    with pytest.raises(KeyError, match='zz'):
         daf.sort_by_colnames(['a', 'zz'])
 
 
@@ -121,20 +103,18 @@ def test_apply_formulas_empty_daf_returns_none():
     assert Daf().apply_formulas(Daf()) is None
 
 
-def test_apply_formulas_shape_mismatch_raises(bp):
+def test_apply_formulas_shape_mismatch_raises():
     daf = Daf(cols=['a', 'b'], lol=[[1, 2], [3, 4]])
     with pytest.raises(RuntimeError, match='same shape'):
         daf.apply_formulas(Daf(cols=['a'], lol=[['']]))
-    assert bp
 
 
-def test_apply_formulas_formula_error_reraises(bp, capsys):
+def test_apply_formulas_formula_error_reraises(capsys):
     daf = Daf(cols=['a', 'b'], lol=[[1, 2], [3, 4]])
     formulas = Daf(cols=['a', 'b'], lol=[['1/0', ''], ['', '']])
     with pytest.raises(ZeroDivisionError):
         daf.apply_formulas(formulas)
     assert "Error in formula for cell [0,0]" in capsys.readouterr().out
-    assert bp
 
 
 # =====================================================================
@@ -180,11 +160,10 @@ def test_apply_in_place_row_klist_with_rowkeys():
     assert daf.lol == [['a', 1], ['b', 20], ['c', 3]]
 
 
-def test_apply_in_place_unknown_by_raises(bp):
+def test_apply_in_place_unknown_by_raises():
     daf = Daf(cols=['k', 'v'], lol=[['a', 1]])
     with pytest.raises(NotImplementedError):
         daf.apply_in_place(lambda row: row, by='bogus')
-    assert bp
 
 
 # =====================================================================
@@ -225,9 +204,6 @@ def test_manifest_reduce_requires_load_func():
         manifest.manifest_reduce(Daf.sum_da)
 
 
-@pytest.mark.xfail(strict=True, reason="BUG: manifest_reduce accumulates chunk reductions into "
-                   "self.clone_empty() (the manifest's columns), so chunk columns are dropped "
-                   "(daf.py:6101)")
 def test_manifest_reduce_sums_all_chunks():
     manifest = Daf(cols=['name'], lol=[['c1'], ['c2']])
     store = _chunk_store()
@@ -326,19 +302,16 @@ def _failing_reduction(row, acc, cols=None, **kwargs):
     raise RuntimeError('boom')
 
 
-def test_reduce_row_func_exception_hits_breakpoint(bp, capsys):
+def test_reduce_row_func_exception_propagates():
     daf = Daf(cols=['a', 'b'], lol=[[1, 2], [3, 4]])
-    result = daf.reduce(_failing_reduction)
-    assert result == {'a': 0, 'b': 0}       # accumulator left at its initial value
-    assert len(bp) == 2
-    assert "err = boom" in capsys.readouterr().out
+    with pytest.raises(RuntimeError, match='boom'):
+        daf.reduce(_failing_reduction)
 
 
-def test_reduce_sparse_row_func_exception_hits_breakpoint(bp):
+def test_reduce_sparse_row_func_exception_propagates():
     daf = Daf(cols=['id', 'j'], lol=[['x', '{"p": 1}'], ['y', '{"q": 2}']])
-    result = daf.reduce(_failing_reduction, by='sparse_row', indirect_col='j')
-    assert result == {}
-    assert len(bp) == 2
+    with pytest.raises(RuntimeError, match='boom'):
+        daf.reduce(_failing_reduction, by='sparse_row', indirect_col='j')
 
 
 # =====================================================================
@@ -356,10 +329,9 @@ class _AddRaisesKeyError:
     __radd__ = __add__
 
 
-def test_sum_da_sparse_unexpected_exception_hits_breakpoint(bp):
-    result = Daf.sum_da({'a': _AddRaisesKeyError()}, {'a': 0})
-    assert result == {'a': 0}
-    assert bp
+def test_sum_da_sparse_unexpected_exception_propagates():
+    with pytest.raises(KeyError):
+        Daf.sum_da({'a': _AddRaisesKeyError()}, {'a': 0})
 
 
 def test_sum_da_astype_float():
@@ -377,16 +349,15 @@ def test_sum_da_astype_int_skips_unconvertible():
     assert Daf.sum_da({'a': 'x'}, {'a': 0}, cols=['a'], astype=int) == {'a': 0}
 
 
-def test_sum_da_astype_uninitialized_accumulator_hits_breakpoint(bp):
-    # reduction_da must be initialized for all cols; otherwise the KeyError path breaks.
-    assert Daf.sum_da({'a': 1}, {}, cols=['a'], astype=int) == {}
-    assert bp
+def test_sum_da_astype_uninitialized_accumulator_raises():
+    # with astype, reduction_da must be initialized for all cols.
+    with pytest.raises(KeyError):
+        Daf.sum_da({'a': 1}, {}, cols=['a'], astype=int)
 
 
-def test_sum_da_cols_unexpected_exception_hits_breakpoint(bp):
-    result = Daf.sum_da({'a': _AddRaisesKeyError()}, {'a': 0}, cols=['a'])
-    assert result == {'a': 0}
-    assert bp
+def test_sum_da_cols_unexpected_exception_propagates():
+    with pytest.raises(KeyError):
+        Daf.sum_da({'a': _AddRaisesKeyError()}, {'a': 0}, cols=['a'])
 
 
 # =====================================================================
@@ -450,11 +421,10 @@ def test_alter_daf_per_setting_empty_setting_is_noop():
     assert daf.alter_daf_per_setting({'spec': []}, 'spec', {}).lol == [['a']]
 
 
-def test_alter_daf_per_setting_missing_setting_hits_breakpoint(bp, capsys):
+def test_alter_daf_per_setting_missing_setting_raises():
     daf = Daf(cols=['x'], lol=[['a']])
-    assert daf.alter_daf_per_setting({}, 'spec', {}).lol == [['a']]
-    assert bp
-    assert "not found in settingdict" in capsys.readouterr().out
+    with pytest.raises(KeyError, match="'spec' not found"):
+        daf.alter_daf_per_setting({}, 'spec', {})
 
 
 # =====================================================================
@@ -477,13 +447,19 @@ def test_count_values_da_list_value_first_row():
     assert result == {'l': [1, 2]}
 
 
-@pytest.mark.xfail(strict=True, reason="BUG: count_values_da stores the row's list by reference "
-                   "(daf.py:7626) and later .append()s into it (7628), mutating the source row")
 def test_count_values_da_list_value_does_not_mutate_source_row():
     row1 = {'l': [1, 2]}
     acc = Daf.count_values_da(row1, {}, ['l'])
     Daf.count_values_da({'l': [3]}, acc, ['l'])
     assert row1 == {'l': [1, 2]}
+
+
+def test_count_values_da_dict_value_does_not_mutate_source_row():
+    row1 = {'d': {'x': 1}}
+    acc = Daf.count_values_da(row1, {}, ['d'])
+    Daf.count_values_da({'d': {'x': 2, 'y': 1}}, acc, ['d'])
+    assert row1 == {'d': {'x': 1}}
+    assert acc == {'d': {'x': 3, 'y': 1}}
 
 
 # =====================================================================

@@ -215,8 +215,7 @@ def pandas_dtype_dict_to_python(pandas_dtype_dict: Any) -> Optional[Any]:
             python_dtype_dict[colname] = pd.Timedelta
 
         else:
-            print(f"Unknown Pandas dtype for column '{colname}': {pandas_dtype}")
-            breakpoint() #perm
+            raise TypeError(f"Unknown Pandas dtype for column '{colname}': {pandas_dtype}")
 
     return python_dtype_dict
 

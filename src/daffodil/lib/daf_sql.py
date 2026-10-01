@@ -185,7 +185,7 @@ def create_index_at_cursor(
         diagnose (bool): Whether to enable diagnostic logging (default: False).
 
     Returns:
-        bool: True if the index was successfully created or already exists, False otherwise.
+        bool: True if the index was successfully created or already exists. Any other error is raised.
         
     Respect any changes both to daf_sql.py and sql_utils.py
     """
@@ -212,20 +212,11 @@ def create_index_at_cursor(
         logs.sts(f"{logs.prog_loc()} Added index of col '{index_colname}' successfully.", 3, enable=diagnose)
         return True
 
-    except sqlite3.OperationalError as err:
-        if "already exists" in str(err):
+    except sqlite3.OperationalError as exc_info:
+        if "already exists" in str(exc_info):
             logs.sts(f"{logs.prog_loc()} index already exists, don't need to add it again.", 3)
             return True
-        else:
-            logs.sts(f"Unexpected OperationalError: {err}.", 3)
-    except Exception as err:        
-        logs.sts(f"Unexpected Error: {err}.", 3)
-
-    logs.error_beep()
-    breakpoint() #perm
-    pass
-        
-    return False
+        raise
 
 
 def sum_columns_in_sqlite_table(table_name='tempdata', db_file_path=None):

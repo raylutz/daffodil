@@ -271,9 +271,7 @@ class Daf:
                 cols = daf_utils._sanitize_cols(cols=cols)
                 self._cols_to_hd(cols)
                 if len(cols) != len(self.hd):
-                    breakpoint() #perm assertion error
-                    pass
-                    raise AttributeError ("AttributeError: cols not unique")
+                    raise AttributeError("cols not unique")
 
         # if self.hd and dtypes:
             # effective_dtypes = {col: dtypes.get(col, str) for col in self.hd}
@@ -859,9 +857,7 @@ class Daf:
 
         if include_types:
             if not self.dtypes:
-                breakpoint() #perm
-                pass
-                raise RuntimeError
+                raise RuntimeError("calc_cols(): include_types/exclude_types requires dtypes to be set")
 
             if not isinstance(include_types, list):
                 include_types = [include_types]
@@ -869,9 +865,7 @@ class Daf:
 
         if exclude_types:
             if not self.dtypes:
-                breakpoint() #perm
-                pass
-                raise RuntimeError
+                raise RuntimeError("calc_cols(): include_types/exclude_types requires dtypes to be set")
 
             if not isinstance(exclude_types, list):
                 exclude_types = [exclude_types]
@@ -1451,8 +1445,6 @@ class Daf:
             Historical Reference: https://legacy.python.org/workshops/1994-11/FlattenPython.html
         """
 
-        use_pyon = True
-
         if not self.lol or not self.lol[0] or not self.dtypes:
             # this can sometimes happen, no worries.
             # when daf is constructed internally and has no list or dict types, there is no need to flatten.
@@ -1461,9 +1453,7 @@ class Daf:
 
         if not self.hd:     # pragma: no cover
             # should not be the case. Logic error.
-            breakpoint() #perm
-            pass
-            raise RuntimeError
+            raise RuntimeError("flatten(): Daf has data and dtypes but no header")
 
         # first calculate all columns to consider
         cols = self.hd.keys()
@@ -3228,7 +3218,8 @@ class Daf:
         elif isinstance(record, dict):
             rec_la = list(record.values())  # must copy into a list.
         else:
-            breakpoint() #perm
+            # any other mapping with keys in column order.
+            rec_la = [record[col] for col in self.hd]
 
         if self.keyfield and respect_kd:
             keyval = self._get_keyval(record)
@@ -3610,6 +3601,14 @@ class Daf:
         irows = cast(Union[range, T_li], irows)
         icols = cast(Union[range, T_li], icols)
 
+        # A Daf value supplies its values (from .lol, regardless of its retmode), so its shape
+        # must match the target region. Only a single cell can hold a Daf object as-is.
+        if isinstance(value, type(self)) and not (num_irows == 1 and num_icols == 1):
+            target_shape = (num_irows, num_icols or tot_num_cols)
+            if value.shape() != target_shape:
+                raise ValueError(f"set_irows_icols(): Daf value has shape {value.shape()}, "
+                                 f"but the target region is {target_shape}")
+
         # special case when cols not specified.
         if num_irows == 1 and num_icols == 0:
 
@@ -3620,16 +3619,12 @@ class Daf:
             elif isinstance(value, dict):
                 self.assign_record_irow(irow, record=value)
             elif isinstance(value, type(self)):
-                # Flagging, not changing: this stores the whole Daf `value` object as the row's
-                # raw list content -- inconsistent with the num_irows > 1 branch below, which
-                # indexes into value (value[source_row]) to get an actual row instead. Left
-                # as-is (no test covers `my_daf[i] = other_daf` to confirm intended behavior).
-                self.lol[irow] = value  # type: ignore[call-overload]
+                self.lol[irow] = list(value.lol[0])
             else:
                 # set the same value in the row for all columns.
                 self.lol[irow] = [value] * len(self.lol[irow])
 
-        if num_irows == 1 and num_icols == 1:
+        elif num_irows == 1 and num_icols == 1:
 
             irow = irows[0]
             icol = icols[0]
@@ -3659,7 +3654,7 @@ class Daf:
                     self.lol[irow] = value  # type: ignore[call-overload]
             elif isinstance(value, type(self)):
                 for source_row, irow in enumerate(irows):
-                    self.lol[irow] = value[source_row]
+                    self.lol[irow] = list(value.lol[source_row])
             else:
                 # set the same value in the row for all columns.
                 for irow in irows:
@@ -3678,17 +3673,14 @@ class Daf:
                     self.assign_record_irow(irow, record=value)
 
             elif isinstance(value, (list, Sequence)):
+                if len(value) != len(irows):
+                    raise ValueError(f"set_irows_icols(): {len(value)} values given for {len(irows)} rows")
                 for source_idx, irow in enumerate(irows):
-
-                    try:
-                        self.lol[irow][icol] = value[source_idx]
-                    except Exception:
-                        breakpoint() #perm ok
-                        pass # size of column being does not match number of rows.
+                    self.lol[irow][icol] = value[source_idx]
 
             elif isinstance(value, type(self)):
                 for source_idx, irow in enumerate(irows):
-                    self.lol[irow][icol] = value[source_idx][0]
+                    self.lol[irow][icol] = value.lol[source_idx][0]
 
             else:
                 # set the same value in the row for all selected columns.
@@ -3704,17 +3696,17 @@ class Daf:
                     self.assign_record_irow(irow, record=value)
 
             elif isinstance(value, (list, Sequence)):
-                for irow in irows:
-                    for source_col, icol in enumerate(icols):
-                        try:
-                            self.lol[irow][icol] = value[source_col]
-                        except Exception:
-                            breakpoint() #perm ok
-
-            elif isinstance(value, type(self)):
+                # the same list of values is applied to each selected row.
+                if len(value) != len(icols):
+                    raise ValueError(f"set_irows_icols(): {len(value)} values given for {len(icols)} columns")
                 for irow in irows:
                     for source_col, icol in enumerate(icols):
                         self.lol[irow][icol] = value[source_col]
+
+            elif isinstance(value, type(self)):
+                for source_row, irow in enumerate(irows):
+                    for source_col, icol in enumerate(icols):
+                        self.lol[irow][icol] = value.lol[source_row][source_col]
 
             else:
                 # set the same value in the row for all selected columns.
@@ -4182,9 +4174,8 @@ class Daf:
                 try:
                     col_sliced_lol = [[row[icol] for icol in icols_range]
                                             for row in self.lol]
-                except Exception:
-                    breakpoint()    # perm. This should not ever occur.
-                    pass
+                except IndexError as exc_info:
+                    raise IndexError("select_icols(): column slice exceeds the length of some rows") from exc_info
 
                 if orig_cols:
                     sliced_cols = [orig_cols[icol] for icol in icols_range]
@@ -5539,10 +5530,8 @@ class Daf:
 
         try:
             colidx = self.hd[colname]
-        except Exception as err:
-            print(f"{err}")
-            breakpoint() #perm # assertion break
-            pass
+        except KeyError as exc_info:
+            raise KeyError(f"sort_by_colname(): column '{colname}' not found") from exc_info
 
         self.lol = daf_utils.sort_lol_by_col(self.lol, colidx, reverse=reverse, length_priority=length_priority)
         self._invalidate_kd()    # use lazy kd rebuilding
@@ -5568,10 +5557,8 @@ class Daf:
 
         try:
             colidxs = [self.hd[colname] for colname in colnames]
-        except Exception as err:
-            print(f"{err}")
-            breakpoint() #perm # assertion break
-            pass
+        except KeyError as exc_info:
+            raise KeyError(f"sort_by_colnames(): column {exc_info} not found") from exc_info
 
         self.lol = daf_utils.sort_lol_by_cols(self.lol, colidxs, reverse=reverse, length_priority=length_priority)
         #self._rebuild_kd()
@@ -5631,8 +5618,6 @@ class Daf:
             return
 
         if self.shape() != formulas_daf.shape():
-            breakpoint() #perm assertion error
-
             raise RuntimeError("apply_formulas requires data arrays of the same shape.")
 
         lol_changed = True     # must evaluate at least once.
@@ -5660,9 +5645,8 @@ class Daf:
                         continue
                     try:
                         new_value = eval(cell_formula)
-                    except Exception as err:
-                        print(f"Error in formula for cell [{irow},{icol}]: '{cell_formula}': '{err}'")
-                        breakpoint() #perm assertion error
+                    except Exception as exc_info:
+                        print(f"Error in formula for cell [{irow},{icol}]: '{cell_formula}': '{exc_info}'")
                         raise
 
                     if new_value != self.lol[irow][icol]:
@@ -5965,8 +5949,6 @@ class Daf:
                 func(row_klist, **kwargs)
 
         else:
-            breakpoint()    # perm
-            pass
             raise NotImplementedError
 
         # Rebuild the internal data structure (if needed)
@@ -6098,7 +6080,8 @@ class Daf:
         if load_func is None:
             raise ValueError("manifest_reduce: load_func is required")
 
-        first_reduction_daf = self.clone_empty()
+        # collects one reduction per chunk; its columns come from the chunks, not the manifest.
+        first_reduction_daf = type(self)()
 
         for chunk_spec in self:
             # Load the specified Daf table
@@ -6835,12 +6818,7 @@ class Daf:
                 reduction_ma = dict.fromkeys(cols_iter, 0)
 
             for row_ma in self:
-                try:
-                    reduction_ma = func(row_ma, reduction_ma, cols=cols_iter, **kwargs)
-                except Exception as err:
-                    print(f"err = {err}")
-                    breakpoint() #perm: investigate why reduction function not working
-                    pass
+                reduction_ma = func(row_ma, reduction_ma, cols=cols_iter, **kwargs)
 
                 # def count_values_da(row_da: T_da, reduction_da: T_da, cols: Iterable, omit_nulls: bool=False) -> T_dodi:
                 # def sum_da         (row_da: T_da, reduction_da: T_da, cols: Iterable, astype: Optional[Type]=None, diagnose:bool=False
@@ -6871,14 +6849,7 @@ class Daf:
                 #     indirect_da = daf_utils.safe_convert_json_to_obj(indirect_val)
                 # else:
                 #     indirect_da = indirect_val
-                try:
-
-                    reduction_ma = func(indirect_ma, reduction_ma, cols=cols, is_sparse=True, **kwargs)
-
-                except Exception as err:
-                    print(f"err = {err}")
-                    breakpoint() #perm: investigate why reduction function not working
-                    pass
+                reduction_ma = func(indirect_ma, reduction_ma, cols=cols, is_sparse=True, **kwargs)
 
                 # def count_values_da(row_da: T_da, reduction_da: T_da, cols: Iterable, omit_nulls: bool=False) -> T_dodi:
                 # def sum_da         (row_da: T_da, reduction_da: T_da, cols: Iterable, astype: Optional[Type]=None, diagnose:bool=False
@@ -6936,9 +6907,6 @@ class Daf:
                 #except Exception:
                 except (ValueError, TypeError):
                     continue
-                except Exception:
-                    breakpoint() #perm
-                    pass # unexpected exception
 
             return reduction_da
 
@@ -7016,9 +6984,6 @@ class Daf:
 
                     except ValueError:
                         continue
-                    except Exception:
-                        breakpoint() #perm
-                        pass # unexpected exception
 
                 else:
                     try:
@@ -7032,9 +6997,6 @@ class Daf:
                     #except Exception:
                     except (ValueError, TypeError):
                         continue
-                    except Exception:
-                        breakpoint() #perm
-                        pass # unexpected exception
 
 
 
@@ -7375,9 +7337,7 @@ class Daf:
 
         setting_lod = settingsdict.get(setting_name, None)
         if setting_lod is None:
-            print(f"{setting_name = } not found in settingdict")
-            breakpoint()  # perm
-            pass
+            raise KeyError(f"alter_daf_per_setting(): setting '{setting_name}' not found in settingsdict")
 
         if not setting_lod:
             return self     # do nothing.
@@ -7385,11 +7345,7 @@ class Daf:
         if isinstance(setting_lod, dict):
             setting_lod = [setting_lod]                 # perflint-reviewed (use-tuple-over-list)
 
-        try:
-            setting_daf = Daf.from_lod(setting_lod)
-        except Exception:
-            breakpoint()  # perm (fixed edge case in .from_lod()
-            pass
+        setting_daf = Daf.from_lod(setting_lod)
 
         alter_specs_daf = setting_daf.select_by_dict(setting_select_dict)
 
@@ -7621,17 +7577,18 @@ class Daf:
                 continue
 
             if val and isinstance(val, list):
-                # val is a list of values
+                # val is a list of values. Copy it, so later appends don't mutate the source row.
                 if col not in result_dodi:
-                    result_dodi[col] = val
+                    result_dodi[col] = list(val)
                 else:
                     result_dodi[col].append(val)
                 continue
 
             if val and isinstance(val, dict):
                 # val is a dict of values determined in another pass.
+                # Copy it, since sum_da() below accumulates into result_dodi[col] in place.
                 if col not in result_dodi:
-                    result_dodi[col] = val
+                    result_dodi[col] = dict(val)
                 else:
                     result_dodi[col] = Daf.sum_da(val, result_dodi[col])
                 continue
@@ -8246,11 +8203,7 @@ class Daf:
         join_names_ls = [self.name or 'daf1', other_daf.name or 'daf2']
 
         # we allow the translator to contain records for more than two dafs that may be joined in a chain opeation.
-        try:
-            eff_translator_daf = translator_daf.select_where(lambda row: bool(row.get('source_name') in join_names_ls))
-        except Exception:
-            breakpoint() # perm okay
-            pass
+        eff_translator_daf = translator_daf.select_where(lambda row: bool(row.get('source_name') in join_names_ls))
 
         resolved_colnames = eff_translator_daf.col("resolved_colname")
 

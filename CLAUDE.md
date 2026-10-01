@@ -30,30 +30,21 @@ Daffodil is a lightweight, pure-Python 2-D dataframe library (`Daf` class). Sour
 - When a test exposes a real bug and the fix isn't in scope, write the test for the *correct*
   behavior and mark it `@pytest.mark.xfail(strict=True, reason="BUG: <what> (file:line)")`.
   Never encode buggy behavior as expected.
-- Library code calls `breakpoint()` on many error paths. Tests that reach them must replace
-  `sys.breakpointhook` (see the `bp` fixture in `tests/test_daf_coverage_b.py`) so the suite
-  never drops into pdb.
-
-## breakpoint() conventions
-
-`breakpoint()` calls (especially those marked `#perm`) are deliberate diagnostic points, not
-leftover debugging. Don't remove them or flag them as bugs.
-
-- In production (AuditEngine), `utilities/breakpoint_hook.py` is installed as
-  `sys.breakpointhook`. It captures a report (call site, arguments, stack with locals, and the
-  exception if one is found) and raises `BreakpointCaptured`, so execution does not continue
-  past the call. Code after a `breakpoint()` therefore only runs under a no-op hook or after
-  `c` in pdb; an `UnboundLocalError` there is a fallback-path issue, not a production bug.
-- Design is incremental: when a specific call site turns out to matter for diagnosis, enrich
-  that call with more context, rather than trying to solve diagnosability everywhere at once.
-- Naming: if an `except` clause that precedes a `breakpoint()` captures the exception, name it
-  `exc_info` (not `e`/`err`). The hook does a literal `f_locals.get('exc_info')` lookup; any
-  other name means the report has no `python_exception`. Only rename where a `breakpoint()`
-  actually follows in that scope.
-- Caution specific to daffodil: it's a public library, and the default hook
-  (`pdb.set_trace(*, header=None)`) raises `TypeError` on unknown keywords. So
-  `breakpoint(extra={...})`, which the AuditEngine hook supports, would break any daffodil user
-  who doesn't install that hook. Don't add `extra=` here without guarding it.
-- Commit and push current work before starting any sweep across many call sites.
 - Record notable changes in `CHANGELOG.md` under `## [Unreleased]` (Keep a Changelog format),
   including test-coverage additions with before -> after percentages.
+
+## Errors, not breakpoint()
+
+- Daffodil library code raises a specific exception on error paths (e.g. `KeyError` for a
+  column or setting that doesn't exist, `ValueError` for a value of the wrong shape,
+  `TypeError` for an unsupported type) instead of calling `breakpoint()`. Use
+  `raise ... from exc_info` when re-raising from an `except` clause.
+- `tests/conftest.py` makes any `breakpoint()` reached during a test fail, so new ones are
+  caught. `daf_pdf.py` (experimental) and `md_demo.py` still contain some.
+- Background: in AuditEngine, `utilities/breakpoint_hook.py` replaces pdb so AI assistants can
+  run code non-interactively; it captures a report and raises `BreakpointCaptured`. That hook
+  looks up the exception in a local named `exc_info`, so name captured exceptions `exc_info`
+  where an `except` clause is followed by a `breakpoint()`. The default hook
+  (`pdb.set_trace(*, header=None)`) rejects unknown keywords, so never use
+  `breakpoint(extra=...)` in daffodil.
+- Commit and push current work before starting any sweep across many call sites.

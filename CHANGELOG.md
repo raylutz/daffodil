@@ -50,19 +50,33 @@ all prior releases. Plans for future moved to ROADMAP.md.
   New files: test_daf_coverage_a.py, test_daf_coverage_b.py, test_daf_sql.py,
   test_daf_utils_coverage.py, test_daf_pdf.py (smoke test only; daf_pdf is experimental).
   What's left uncovered is dead code, `diagnose`-only branches, daf_pdf.py and md_demo.py.
-  Tests that reach `breakpoint()` paths replace `sys.breakpointhook` so pytest never stops in pdb.
-- 20 strict-xfail tests document real bugs found along the way (not yet fixed), e.g.
-  `UnboundLocalError` after a `breakpoint()` in `sort_by_colname(s)`, `safe_regex_select`,
-  `safe_regex_replace`, `convert_type_value`, `len_slice`, `select_icols`, `record_append`;
-  `manifest_reduce` dropping chunk columns; `count_values_da` mutating source rows;
-  `derive_join_translator_daf` mutating the caller's `shared_fields`; `flatten(use_pyon=False)`
-  ignoring its argument; `_sanitize_cols` dropping a column (`Daf(cols=['a_2','a','a'])`);
-  `set_irows_icols` storing Daf objects instead of their values; `sql_escape_str` decoding
-  already-safe `__HH` names and not round-tripping characters above 0xFF.
+- Bugs found by those tests: fixed ones are listed under Fixed below. Five still open are
+  documented as strict-xfail tests: `sql_escape_str` decoding already-safe `__HH` names and not
+  round-tripping characters above 0xFF; `derive_join_translator_daf` mutating the caller's
+  `shared_fields`; composite-key `join()` failing with a bare `AssertionError`;
+  `add_trailing_columns_csv` on files with fewer than 3 rows.
+- `tests/conftest.py`: any `breakpoint()` reached during a test now fails it.
 - Dev dependencies: added requests, xlsxwriter (already used by tests) and pytest-cov.
   Added CLAUDE.md and a `.claude/settings.json` SessionStart hook that runs `uv sync`.
 
 ### Changed
+- Library code no longer calls `breakpoint()` on error paths (except experimental daf_pdf.py
+  and md_demo.py); it raises a specific exception instead. Previously, without a breakpoint
+  hook, execution continued past the `breakpoint()` and often failed later with
+  `UnboundLocalError` or silently returned partial results. Notable new raises:
+  `sort_by_colname(s)` and `alter_daf_per_setting` -> `KeyError` for a missing column/setting;
+  `set_irows_icols()` (`daf[...] = value`) -> `ValueError` when a list or Daf value doesn't
+  match the target region; `select_icols(slice)` on ragged rows -> `IndexError`;
+  `safe_regex_select` (no capture group) and `safe_regex_replace` (malformed `/find/repl/`)
+  -> `ValueError`; `convert_type_value`, `test_strbool`, `pandas_dtype_dict_to_python`
+  (unknown dtype, previously dropped the column) -> `TypeError`; `json_encode` with
+  NaN/Infinity -> `ValueError` (previously emitted non-standard `NaN`); `reduce()` and
+  `sum_da()` let unexpected exceptions from the reduction propagate; `create_index_at_cursor`
+  re-raises instead of returning `False`; `write_buff_to_fp`, `len_slice`, `slice_to_range`
+  let the underlying error propagate.
+- `set_irows_icols()` with a Daf value now assigns the Daf's values (from `.lol`, regardless of
+  its retmode) and requires its shape to match the target region. A single cell can still hold
+  a Daf object.
 - `mypy` (added to `mypy.ini`'s scope, now fully clean: 217 -> 0 errors) run across all of
   `src/daffodil` for the first time. Most fixes were mechanical (missing/narrow annotations,
   `Union[dict, KeyedList]` (`T_ma`) made explicit at the many call sites where a row can
@@ -80,6 +94,17 @@ all prior releases. Plans for future moved to ROADMAP.md.
   git-tracked) moved out of `src/` to a gitignored, local-only `deprecated/` folder.
 
 ### Fixed
+- `manifest_reduce()` collected per-chunk results into a Daf with the manifest's columns, so
+  the chunks' data columns were dropped (returned e.g. `{'name': 0}`).
+- `count_values_da()` stored a row's list/dict value by reference and later accumulated into
+  it, mutating the caller's source rows.
+- `flatten(use_pyon=False)` ignored its argument (overwritten by `use_pyon = True`), so it
+  never JSON-encoded.
+- `Daf(cols=['a_2', 'a', 'a'])` silently lost a column when renaming a duplicate collided with
+  an existing name; `_sanitize_cols` now raises `KeyError`.
+- `record_append()` with a non-dict mapping (e.g. `MappingProxyType`) whose keys are in column
+  order failed with `UnboundLocalError`.
+- List comparison helper accepts a tuple for `ref_list`/`work_list` (was `UnboundLocalError`).
 - Found and fixed several real bugs during the mypy pass (each verified against the full 1294-test
   suite before/after): `daf_utils.py` used `time.sleep` in `write_buff_to_s3path()`/
   `does_s3path_exist()` without importing the `time` module -- would have raised `NameError` the
