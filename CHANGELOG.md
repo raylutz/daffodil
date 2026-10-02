@@ -71,7 +71,8 @@ all prior releases. Plans for future moved to ROADMAP.md.
   were rewritten to explain what each is for, with examples that are run as doctests.
 - Docstrings were rewritten for the class itself and for construction, size, copying,
   columns and keys, dtypes, schemas, `strip`, `clone_empty`, `set_lol` and the conversions
-  to and from lists, dicts, CSV, Excel, NumPy, Pandas and JSON. Each one says what the
+  to and from lists, dicts, CSV, Excel, NumPy, Pandas and JSON, appending, removing,
+  indexing, selecting and reading rows, columns and cells. Each one says what the
   method is for, what it changes and what it returns. Examples are run as doctests.
   The schema and Pandas methods are defined in helper modules. They did not appear in the
   API reference before. The reference now has a section for them. Issues noticed on the way

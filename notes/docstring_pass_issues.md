@@ -147,3 +147,48 @@ The date of the first entry is 2026-10-02.
     for every one of these. Eight tests are in `tests/test_daf_select_icols.py`.
     Five of them are marked `xfail(strict=True)` with a reason that starts
     with BUG.
+
+## Group 5 continued: selecting and reading rows, columns and cells
+
+43. SERIOUS. Assigning one value or one list to several whole rows corrupts
+    the table. `set_irows_icols()` tests `isinstance(value, (list, Sequence))`,
+    and a `str` is a Sequence. Real output for three rows:
+
+        d[[0, 1]] = 'x'     rows 0 and 1 become the bare string 'x'
+        d[:] = 'x'          every row becomes the bare string 'x'
+        d[[0, 1]] = [7,8,9] rows 0 and 1 are the same list object, so
+                            a change to one shows in the other
+        d[[0, 1]] = 5       correct, [[5,5,5],[5,5,5],...]
+        d[2] = 'x'          correct, one row
+
+    Tests are in `tests/test_daf_setitem_rows.py`. Three are `xfail(strict=True)`.
+    The `__setitem__` docstring says assigning text to several whole rows
+    does not work yet.
+44. `d[0] = {'v': 'q'}` sets the other cells of the row to NULL. It does not
+    update only `v`. `update_record_irow()` is the method that merges. The
+    README says the column names are respected, which does not say this.
+45. `remove_dups()` with no argument clears the keyfield, and then returns every
+    row as a duplicate. With an argument it sets the keyfield of the Daf as a
+    side effect. It keeps the last row of each key.
+46. `drop_cols()` of the keyfield column leaves `keyfield` set to a column that
+    no longer exists.
+47. `select_cols()` returns the columns in the order of the Daf, not in the order
+    asked for, unlike `select_kcols()` and `d[:, [...]]`. Names that are not
+    columns give rows with no columns.
+48. Row sharing differs between selectors. `select_where()`, `split_where()` and
+    `select_irows()` share the rows. `select_by_dict()` copies them.
+    `select_irows([], invert=True)` makes a deep copy.
+49. Missing keys raise different errors. `col()` raises `RuntimeError` for a
+    missing column. `select_record(silent_error=False)` raises `KeyError()` with
+    no key in it. `select_by_dict(expectmax=)` raises `LookupError()` with no
+    message. Elsewhere a missing key gives `KeyError` with the key.
+50. `iloc(-1)` returns `{}` and `icol(-1)` returns `[]`, while `d[-1]` and
+    `d[:, -1]` count from the end.
+51. The old second string of `to_list()` said that a table with several rows
+    and columns gives an empty list. The code raises `ValueError`. The old
+    `to_dict()` text named an `include_cols` argument that it does not have.
+52. The README says appending a row whose key exists overwrites it. The default
+    is `respect_kd=False`, which adds a second row.
+53. The names of the flags differ: `inverse` in `select_krows()` and
+    `select_kcols()`, `invert` in `select_irows()`, and `flip` in
+    `select_icols()` and `select_kcols()`.

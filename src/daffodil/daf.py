@@ -3907,16 +3907,60 @@ class Daf:
                                         Union[slice, int, str, T_li, T_ls, range, T_lor, Tuple[str, str]]]],
             ) -> Any:
         """
-        Retrieve data using slicing or indexing.
+        Select rows, columns or cells, as in `my_daf[rows, cols]`.
+
+        The selector is `[rows]` or `[rows, cols]`. With one selector, all columns are
+        returned. Use `:` for all. A selector is one of these.
+
+            integer       A position. Negative counts from the end.
+            slice         `2:5`, `:3`, `::2`, as for a Python list.
+            list          A list of positions, in the order given, or a list of ranges.
+            range         A range of positions.
+            string        A key of the keyfield for rows, or a column name for columns.
+            list of str   Several keys, or several column names, in the order given.
+            tuple         An inclusive range of keys, or of column names. Use None to
+                          start at the first or to end at the last, as in `(None, 'r3')`.
+
+        A tuple of two items is read as `[rows, cols]` when it stands alone. To give a
+        range of row keys, add the column selector, as in `my_daf[('r1', 'r3'), :]`.
+
+        Integers are always positions. A keyfield or column names that are integers
+        cannot be used in brackets. Use `select_krows()` and `select_kcols()` instead.
+
+        The result is a new Daf. Its rows are shared with this Daf when you select
+        rows, so changing a cell in the result changes it here too. Selecting columns
+        makes new rows, so the result is independent. The keyfield and dtypes carry
+        over if their columns are still there. See [retmode][daffodil.daf.Daf.retmode]
+        for getting a bare value or list when the result is one cell, row or column.
+
+        A column slice works as it does for a Python list.
 
         Args:
-            slice_spec: Row/column selection specification.
-            empty row spec should return empty result.
+            slice_spec: A row selector, or a tuple of a row selector and a column selector.
 
         Returns:
-            Any: Selected data as Daf or as value depending on retmode.
+            A new Daf, or a value or list if `retmode` is `val`.
 
+        Raises:
+            IndexError: A row or column position is out of range.
+            KeyError: A key or column name is not found.
+            KeysDisabledError: Rows are selected by key and there is no keyfield.
+            TypeError: A selector is None, or has a type that is not accepted.
 
+        Examples:
+            >>> d = Daf(lol=[[1, 'a', 10], [2, 'b', 20], [3, 'c', 30]], cols=['id', 'v', 'n'], keyfield='id')
+            >>> d[1].lol
+            [[2, 'b', 20]]
+            >>> d[1:].lol
+            [[2, 'b', 20], [3, 'c', 30]]
+            >>> d[:, 'v'].lol
+            [['a'], ['b'], ['c']]
+            >>> d[[2, 0], ['n', 'id']].lol
+            [[30, 3], [10, 1]]
+            >>> d[1, 'n'].to_value()
+            20
+            >>> d[(1, 2), :].lol
+            [[1, 'a', 10], [2, 'b', 20]]
         """
         irows, icols = self._parse_selectors(slice_spec)
 
@@ -3935,17 +3979,33 @@ class Daf:
             value: Any,
             ) -> 'Daf':
         """
-        Assign values using slicing or indexing.
+        Assign values to a selection, as in `my_daf[rows, cols] = value`.
+
+        The selector is the same as for `[]`. The Daf is changed in place.
+
+        A single value fills every cell of the selection. A list fills the selection
+        in order. A dict given for a row sets that row from the dict. The cells whose
+        columns are not in the dict become NULL. See `set_irows_icols()` for what
+        happens when the source and the selection differ in size.
+
+        Assigning text to several whole rows at once does not work yet. Assign to a
+        column instead, as in `my_daf[:, 'v'] = 'x'`.
+
+        If you change a keyfield cell, the key index is rebuilt when it is next needed.
 
         Args:
-            slice_spec: Row/column selection.
-            value: Value to assign.
+            slice_spec: A row selector, or a tuple of a row selector and a column selector.
+            value: The value, list, dict or Daf to assign.
 
-        Returns:
-            Daf: Self.
-
-        Note:
-            Mutates Daf array in place.
+        Examples:
+            >>> d = Daf(lol=[[1, 'a', 10], [2, 'b', 20], [3, 'c', 30]], cols=['id', 'v', 'n'], keyfield='id')
+            >>> d[1, 'v'] = 'z'
+            >>> d[:, 'n'] = [1, 2, 3]
+            >>> d.lol
+            [[1, 'a', 1], [2, 'z', 2], [3, 'c', 3]]
+            >>> d[0] = {'v': 'q'}
+            >>> d.lol[0]
+            ['', 'q', '']
         """
         irows, icols = self._parse_selectors(slice_spec)
         return self.set_irows_icols(irows=irows, icols=icols, value=value)
@@ -4274,20 +4334,27 @@ class Daf:
             silent_error:   bool = False,
             ) -> Union[slice, int, T_li, range]:
         """
-        Convert key-based row selection to index-based selection.
+        Turn row keys into row positions.
+
+        This is the step that lets `my_daf['r2']` work. Call it when you need the
+        positions themselves. The Daf must have a keyfield, or a key index passed in
+        as `kd`.
+
+        The keys may be a key, a list of keys, or a tuple that gives an inclusive range
+        of keys. A range is made from positions, so the keys must be in the same order
+        as the rows.
 
         Args:
-            krows: Key-based selection.
-            inverse: Invert selection.
-            silent_error: Suppress errors.
+            krows: A key, a list of keys, or a tuple that gives a range of keys.
+            inverse: If True, return the positions of the rows that are not selected.
+            silent_error: If True, keys that are not found are ignored.
 
         Returns:
-            Union[slice, int, List[int], range]: Row indices.
+            The row positions.
 
-        Note:
-            requires keyfield or manually initialized kd.
-            Internal use.
-
+        Raises:
+            KeysDisabledError: There is no keyfield and no key index.
+            KeyError: A key is not found and `silent_error` is False.
         """
         """
         If the keyfield is set, then the rows can be selected by providing a
@@ -4328,15 +4395,22 @@ class Daf:
             silent_error: bool=False,
             ) -> Union[slice, int, T_li, range, None]:
         """
-        Convert key-based column selection to index-based selection.
+        Turn column names into column positions.
+
+        This is the step that lets `my_daf[:, 'v']` work. A name that looks like an
+        integer is still read as a name.
 
         Args:
-            kcols: Column keys.
-            inverse: Invert selection.
-            silent_error: Suppress errors.
+            kcols: A name, a list of names, or a tuple that gives an inclusive range of names.
+            inverse: If True, return the positions of the columns that are not selected.
+            silent_error: If True, names that are not found are ignored.
 
         Returns:
-            Union[slice, int, List[int], range, None]: Column indices.
+            The column positions. With no column names the result is empty, or all
+            positions if `inverse` is True.
+
+        Raises:
+            KeyError: A name is not found and `silent_error` is False.
         """
         """
         If cols are defined is set, then the cols can be selected by providing a
@@ -4512,15 +4586,36 @@ class Daf:
             silent_error:   bool=False,
             ) -> 'Daf':
         """
-        Select rows by key values.
+        Select rows by key. Rows with those keys are kept, or dropped if `inverse` is True.
+
+        This is the same as `my_daf[keys]`, with a choice to drop rows and to ignore
+        keys that are not found. It works with integer keys, which brackets cannot.
+        The rows are shared with this Daf. Use `copy()` if you need to change them
+        independently.
+
+        A bare tuple means an inclusive range of keys, so `(1, 2)` is the rows from key
+        1 through key 2. For a composite keyfield, give a list of tuples.
 
         Args:
-            krows: Key-based selection.
-            inverse: Invert selection.
-            silent_error: Suppress errors.
+            krows: A key, a list of keys, or a tuple that gives a range of keys.
+            inverse: If True, drop the selected rows and keep the others.
+            silent_error: If True, keys that are not found are ignored.
 
         Returns:
-            Daf: New instance.
+            The new Daf.
+
+        Raises:
+            KeysDisabledError: The Daf has no keyfield.
+            KeyError: A key is not found and `silent_error` is False.
+
+        Examples:
+            >>> d = Daf(lol=[[1, 'a', 10], [2, 'b', 20], [3, 'c', 30]], cols=['id', 'v', 'n'], keyfield='id')
+            >>> d.select_krows([3, 1]).lol
+            [[3, 'c', 30], [1, 'a', 10]]
+            >>> d.select_krows([1, 2], inverse=True).lol
+            [[3, 'c', 30]]
+            >>> d.select_krows([1, 9], silent_error=True).lol
+            [[1, 'a', 10]]
         """
         self._rebuild_kd_if_invalidated()
 
@@ -4544,16 +4639,37 @@ class Daf:
             silent_error:   bool=False,
             ) -> 'Daf':
         """
-        Select columns by key values.
+        Select columns by name. Columns with those names are kept, or dropped if `inverse` is True.
+
+        This is the same as `my_daf[:, names]`, with more choices. The result is
+        a new Daf with new rows, in the order of the names you give. With `flip=True`
+        the selected columns become rows, and the result has no column names and no
+        keyfield. This costs no more than selecting the columns.
+
+        Selecting columns copies data, so it is not cheap. For `apply` and `reduce`,
+        use their `cols` argument instead.
 
         Args:
-            kcols: Column selection.
-            inverse: Invert selection.
-            flip: Transpose result.
-            silent_error: Suppress errors.
+            kcols: A name, a list of names, or a tuple that gives a range of names.
+            inverse: If True, drop the named columns and keep the others.
+            flip: If True, turn the selected columns into rows.
+            silent_error: If True, names that are not found are ignored.
 
         Returns:
-            Daf: New instance.
+            The new Daf.
+
+        Raises:
+            KeysDisabledError: The Daf has no column names.
+            KeyError: A name is not found and `silent_error` is False.
+
+        Examples:
+            >>> d = Daf(lol=[[1, 'a', 10], [2, 'b', 20], [3, 'c', 30]], cols=['id', 'v', 'n'], keyfield='id')
+            >>> d.select_kcols(['n', 'id']).lol
+            [[10, 1], [20, 2], [30, 3]]
+            >>> d.select_kcols('v', inverse=True).columns()
+            ['id', 'n']
+            >>> d.select_kcols('v', flip=True).lol
+            [['a', 'b', 'c']]
         """
         if not self.hd:
             raise KeysDisabledError("select_kcols requires hd.")
@@ -4568,17 +4684,31 @@ class Daf:
 
     def select_irows(self, irows: Union[slice, int, T_li, range, T_lor, Iterable, None], invert: bool=False) -> 'Daf':
         """
-        Select rows by index.
+        Select rows by position. Those rows are kept, or dropped if `invert` is True.
+
+        This is the same as `my_daf[rows]`, with a choice to drop rows. It is cheap.
+        The new Daf holds the same row lists as this one, so changing a cell in
+        the result changes it here too. The exception is dropping an empty selection,
+        which makes a deep copy. The keyfield, dtypes and column names carry over.
 
         Args:
-            irows: Row indices.
-            invert: Invert selection.
+            irows: A position, a slice, a range, a list of positions, or a list of ranges.
+            invert: If True, drop the selected rows and keep the others.
 
         Returns:
-            Daf: New instance.
+            The new Daf.
 
-        Notes:
-            Uses references to original data.
+        Raises:
+            IndexError: A single position is out of range.
+
+        Examples:
+            >>> d = Daf(lol=[[1, 'a', 10], [2, 'b', 20], [3, 'c', 30]], cols=['id', 'v', 'n'], keyfield='id')
+            >>> d.select_irows(1).lol
+            [[2, 'b', 20]]
+            >>> d.select_irows(1, invert=True).lol
+            [[1, 'a', 10], [3, 'c', 30]]
+            >>> d.select_irows(slice(1, None)).lol
+            [[2, 'b', 20], [3, 'c', 30]]
         """
         """ select rows from daf and return a new instance.
             This is an efficient opeation. The array in the new instance
@@ -4669,14 +4799,32 @@ class Daf:
 
     def select_icols(self, icols: Union[slice, int, T_li, range, T_lor, None], flip: bool=False) -> 'Daf':
         """
-        Select columns by index.
+        Select columns by position. Those columns are kept, in the order given.
+
+        This is the same as `my_daf[:, cols]`. It makes new rows, so it is not cheap.
+        For `apply` and `reduce`, use their `cols` argument instead. A slice works as
+        it does for a Python list. The keyfield and dtypes carry over if their columns
+        are kept. With `flip=True` the columns become rows, and the result has no
+        column names, no dtypes and no keyfield.
 
         Args:
-            icols: Column indices.
-            flip: Transpose result.
+            icols: A position, a slice, a range, a list of positions, or a list of ranges.
+            flip: If True, turn the selected columns into rows.
 
         Returns:
-            Daf: New instance.
+            The new Daf.
+
+        Raises:
+            IndexError: A position is beyond the end of some row.
+
+        Examples:
+            >>> d = Daf(lol=[[1, 'a', 10], [2, 'b', 20], [3, 'c', 30]], cols=['id', 'v', 'n'], keyfield='id')
+            >>> d.select_icols([2, 0]).lol
+            [[10, 1], [20, 2], [30, 3]]
+            >>> d.select_icols(slice(-2, None)).columns()
+            ['v', 'n']
+            >>> d.select_icols([0, 1], flip=True).lol
+            [[1, 2, 3], ['a', 'b', 'c']]
         """
 
         """ select cols from daf and return a new instance.
@@ -4814,14 +4962,30 @@ class Daf:
 
     def select_record(self, key: Union[str, int, T_ta], silent_error: bool=True) -> T_da:
         """
-        Select a single record by key.
+        Get one row as a dict, by its key.
+
+        If the key is not found, the answer is an empty dict, unless `silent_error` is
+        False. Then a `KeyError` is raised. A typo in a key gives an empty dict, so
+        check it, or pass `silent_error=False`. An empty Daf gives an empty dict.
+        For a composite keyfield the key is a tuple.
 
         Args:
-            key: Key value.
-            silent_error: Suppress errors.
+            key: The key of the row.
+            silent_error: If False, raise an error when the key is not found.
 
         Returns:
-            Dict: Record data.
+            The row as a dict, or an empty dict.
+
+        Raises:
+            KeysDisabledError: The Daf has rows but no keyfield and no key index.
+            KeyError: The key is not found and `silent_error` is False.
+
+        Examples:
+            >>> d = Daf(lol=[[1, 'a', 10], [2, 'b', 20], [3, 'c', 30]], cols=['id', 'v', 'n'], keyfield='id')
+            >>> d.select_record(2)
+            {'id': 2, 'v': 'b', 'n': 20}
+            >>> d.select_record(9)
+            {}
         """
         """ Select one record from daf using the key and return as a single T_da dict.
 
@@ -4896,18 +5060,22 @@ class Daf:
 
     def select_records_daf(self, keys_ls: Union[T_ls, Iterable], inverse:bool=False, silent_error: bool=False) -> 'Daf':
         """
-        Select multiple records by keys.
+        Select several rows by key and return them as a Daf.
+
+        This is `select_krows()` with a friendlier answer for an empty list of keys.
+        No keys gives an empty Daf, or all the rows if `inverse` is True.
 
         Args:
-            keys_ls: Keys to select.
-            inverse: Invert selection.
-            silent_error: Suppress errors.
+            keys_ls: The keys of the rows.
+            inverse: If True, drop the selected rows and keep the others.
+            silent_error: If True, keys that are not found are ignored.
 
         Returns:
-            Daf: New instance.
+            The new Daf.
 
-        Notes:
-            Requires keyfield or manually initialized kd.
+        Raises:
+            KeysDisabledError: The Daf has no keyfield and no key index.
+            KeyError: A key is not found and `silent_error` is False.
         """
 
         """ Select multiple records from daf using the keys and return as a single daf.
@@ -4928,17 +5096,19 @@ class Daf:
 
     def irow_la(self, irow: int) -> T_la:
         """
-        Return row as list.
+        Get one row as a list, by position.
+
+        The list is the row itself, not a copy. Changing it changes the Daf. Use
+        `iloc()` with `rtype='list'` for a copy.
 
         Args:
-            irow: Row index.
+            irow: The row position.
 
         Returns:
-            List: Row data.
+            The row.
 
-        Note:
-            Does not create a new list. returns a reference to the existing list in lol.
-
+        Raises:
+            IndexError: The position is out of range.
         """
         return self.lol[irow]
 
@@ -4950,19 +5120,24 @@ class Daf:
         astype:     Optional[Union[Callable, str]]=None,
         ) -> Any:
         """
-        Return a single value.
+        Get the one value of a Daf that has one row and one column.
+
+        Use it on the result of a selection, as in `my_daf[1, 'n'].to_value()`.
 
         Args:
-            # irow: Row index.
-            # icol: Column index.
-            default: Default if missing.
-            astype: Optional type conversion.
+            default: Returned if the Daf is not one cell. Without it, an error is raised.
+            astype: A type or function to convert the value with.
 
         Returns:
-            Any: Value.
+            The value.
 
-            returns a single value from an array,
-            at default location 0,0 or as specified.
+        Raises:
+            ValueError: The Daf is not one cell and no default is given.
+
+        Examples:
+            >>> d = Daf(lol=[[1, 'a', 10], [2, 'b', 20], [3, 'c', 30]], cols=['id', 'v', 'n'], keyfield='id')
+            >>> d[1, 'n'].to_value()
+            20
         """
 
         num_rows, num_cols = self.shape()
@@ -4986,19 +5161,32 @@ class Daf:
         astype:     Optional[Union[Callable, str, type]]=None,
         ) -> list:
         """
-        Extract data as a list.
+        Get the values of a Daf that has one row or one column, as a list.
+
+        Use it on the result of a selection, as in `my_daf[:, 'v'].to_list()`. A column
+        is read from the Daf, so use `col()` if you only need the list. An empty
+        Daf gives an empty list. A Daf with more than one row and more than one column
+        is not accepted.
 
         Args:
-            # irow: Row selection.          (removed)
-            # icol: Column selection.       (removed)
-            unique: Return unique values.
-            flatten: Flatten nested lists.
-            omit_nulls: Remove empty values.
-            default: Replacement value.
-            astype: Optional type conversion.
+            unique: If True, leave out repeated values and keep the order.
+            flatten: If True, join items that are lists into one list.
+            omit_nulls: If True, leave out the empty values.
+            default: Replaces NULL, None and NaN values. This may itself be None.
+            astype: A type or function to convert each value with.
 
         Returns:
-            list: Extracted values.
+            The list.
+
+        Raises:
+            ValueError: The Daf has more than one row and more than one column.
+
+        Examples:
+            >>> d = Daf(lol=[[1, 'a', 10], [2, 'b', 20], [3, 'c', 30]], cols=['id', 'v', 'n'], keyfield='id')
+            >>> d[:, 'v'].to_list()
+            ['a', 'b', 'c']
+            >>> d[1].to_list()
+            [2, 'b', 20]
         """
         """ return data from a daf array as a list
             defaults to the most obvious list if irow and icol not specified.
@@ -5056,10 +5244,16 @@ class Daf:
     def to_lota(self,
         ) -> T_lota:
         """
-        Convert data to list of tuples.
+        Make a list of tuples, one tuple for each row.
+
+        This is handy for making composite keys.
 
         Returns:
-            List[Tuple]: Tuple representation.
+            The rows as tuples.
+
+        Examples:
+            >>> Daf(lol=[[1, 'a']], cols=['id', 'v']).to_lota()
+            [(1, 'a')]
         """
         """ return data from a daf array as a list of tuple of any (List[Tuple[Any...]])
             This is convenient for creating compound keys
@@ -5079,14 +5273,22 @@ class Daf:
             # include_cols: Optional[T_ls]=None,
             ) -> T_da:
         """
-        Return a row as dictionary.
+        Get the one row of a Daf as a dict.
 
-        Args:
-            # irow: Row index.
-            include_cols: Optional columns.
+        Use it on the result of a selection, as in `my_daf[1].to_dict()`. A column is
+        not turned into a dict. Use `to_list()` for that. An empty Daf gives an empty
+        dict.
 
         Returns:
-            Dict: Row data.
+            The row, as a dict that maps column names to values.
+
+        Raises:
+            ValueError: The Daf has more than one row.
+
+        Examples:
+            >>> d = Daf(lol=[[1, 'a', 10], [2, 'b', 20], [3, 'c', 30]], cols=['id', 'v', 'n'], keyfield='id')
+            >>> d[1].to_dict()
+            {'id': 2, 'v': 'b', 'n': 20}
         """
         """ alias for iloc
             Note that this does not convert a column to a dict. Use to_list to convert a column.
@@ -5100,27 +5302,43 @@ class Daf:
 
     def to_klist(self, irow: int=0) -> KeyedList:
         """
-        Return a row as KeyedList.
+        Get one row as a [KeyedList][daffodil.keyedlist.KeyedList].
+
+        The KeyedList shares the row and the column names with the Daf, so it costs
+        little. A position that is out of range, or a negative one, gives an empty
+        KeyedList.
 
         Args:
-            irow: Row index.
+            irow: The row position.
 
         Returns:
-            KeyedList: Row representation.
+            The row.
+
+        Examples:
+            >>> d = Daf(lol=[[1, 'a', 10], [2, 'b', 20], [3, 'c', 30]], cols=['id', 'v', 'n'], keyfield='id')
+            >>> d.to_klist(1)['v']
+            'b'
         """
         return cast(KeyedList, self.iloc(irow, rtype='klist'))
 
 
     def irow(self, irow: int=0, include_cols: Optional[T_ls]=None) -> T_da:
         """
-        Alias for iloc.
+        Get one row as a dict, by position.
+
+        This is `iloc()` with the default `rtype`.
 
         Args:
-            irow: Row index.
-            include_cols: Optional columns.
+            irow: The row position.
+            include_cols: Only these columns are included.
 
         Returns:
-            Dict: Row data.
+            The row as a dict. A position that is out of range gives an empty dict.
+
+        Examples:
+            >>> d = Daf(lol=[[1, 'a', 10], [2, 'b', 20], [3, 'c', 30]], cols=['id', 'v', 'n'], keyfield='id')
+            >>> d.irow(1, include_cols=['n'])
+            {'n': 20}
         """
         return cast(T_da, self.iloc(irow, include_cols))
 
@@ -5140,15 +5358,31 @@ class Daf:
 
     def iloc(self, irow: int=0, include_cols: Optional[T_ls]=None, rtype: str='dict') -> Union[T_ma, T_la]:
         """
-        Select row by index.
+        Get one row by position, as a dict, a KeyedList or a list.
+
+        A negative position, or one that is out of range, gives an empty dict, or an
+        empty KeyedList. It does not count from the end. Use the row selector `[-1]`
+        for that. With no column names, the keys are spreadsheet names such as `A`.
 
         Args:
-            irow: Row index.
-            include_cols: Optional columns.
-            rtype: Return type ('dict', 'klist', or 'list').
+            irow: The row position.
+            include_cols: Only these columns are included. This applies to a dict.
+            rtype: `dict` for a new dict, `klist` for a KeyedList that shares the row, or `list` for a copy of the row.
 
         Returns:
-            Union[Dict, KeyedList]: Row data.
+            The row.
+
+        Raises:
+            ValueError: `rtype` is not one of the three names.
+
+        Examples:
+            >>> d = Daf(lol=[[1, 'a', 10], [2, 'b', 20], [3, 'c', 30]], cols=['id', 'v', 'n'], keyfield='id')
+            >>> d.iloc(1)
+            {'id': 2, 'v': 'b', 'n': 20}
+            >>> d.iloc(1, rtype='list')
+            [2, 'b', 20]
+            >>> d.iloc(-1)
+            {}
         """
         """ Select one record from daf using the idx and return as a single T_da dict
             test exists in test_daf.py
@@ -5198,16 +5432,31 @@ class Daf:
             keyfield:       Union[str, int, T_ta]='',
             ) -> 'Daf':
         """
-        Select rows matching a dictionary of conditions.
+        Select the rows that match every field of a dict.
+
+        A row matches if each key of `selector_da` is a column whose value in that row
+        equals the value given. With `inverse=True` the rows that do not match are
+        returned. The rows of the new Daf are new lists, so they can be changed
+        without changing this Daf.
 
         Args:
-            selector_da: Field-value criteria.
-            expectmax: Maximum expected matches.
-            inverse: Invert selection.
-            keyfield: Keyfield for result.
+            selector_da: The column names and the values they must have.
+            expectmax: If this is not -1 and more rows match, raise `LookupError`.
+            inverse: If True, return the rows that do not match.
+            keyfield: The keyfield of the new Daf. If empty, the keyfield of this Daf.
 
         Returns:
-            Daf: Filtered instance.
+            The new Daf.
+
+        Raises:
+            LookupError: More than `expectmax` rows match.
+
+        Examples:
+            >>> d = Daf(lol=[[1, 'a', 10], [2, 'b', 20], [3, 'c', 30]], cols=['id', 'v', 'n'], keyfield='id')
+            >>> d.select_by_dict({'v': 'b'}).lol
+            [[2, 'b', 20]]
+            >>> d.select_by_dict({'v': 'b'}, inverse=True).lol
+            [[1, 'a', 10], [3, 'c', 30]]
         """
 
         """ Selects rows in daf which match the fields specified in selector_da
@@ -5232,14 +5481,24 @@ class Daf:
 
     def select_first_row_by_dict(self, selector_da: T_da, inverse:bool=False) -> T_ma:
         """
-        Select first row matching criteria.
+        Get the first row that matches every field of a dict.
+
+        The matching rule is that of `select_by_dict()`. With `inverse=True` it is the
+        first row that does not match.
 
         Args:
-            selector_da: Field-value criteria.
-            inverse: Invert selection.
+            selector_da: The column names and the values they must have.
+            inverse: If True, find the first row that does not match.
 
         Returns:
-            Dict or KeyedList (per current itermode): Matching row or empty dict.
+            The row, as a dict or a KeyedList according to `itermode`. An empty dict if none matches.
+
+        Examples:
+            >>> d = Daf(lol=[[1, 'a', 10], [2, 'b', 20], [3, 'c', 30]], cols=['id', 'v', 'n'], keyfield='id')
+            >>> d.select_first_row_by_dict({'v': 'b'})
+            {'id': 2, 'v': 'b', 'n': 20}
+            >>> d.select_first_row_by_dict({'v': 'zz'})
+            {}
         """
 
         """ Selects the first row in daf which matches the fields specified in selector_da
@@ -5258,14 +5517,29 @@ class Daf:
 
     def select_where(self, where: Callable, indirect_col: Optional[str]=None) -> 'Daf':
         """
-        Select rows using a predicate function.
+        Select the rows for which a function is true.
+
+        The function gets each row, as a [KeyedList][daffodil.keyedlist.KeyedList].
+        Read cells by column name, as in `row['n']`. Values are used as stored, so
+        convert text first if the Daf was read from a CSV.
+
+        With `indirect_col`, a name that is not a column is looked up in the dict
+        held in that column.
+
+        The new Daf shares the selected rows with this one. The keyfield and dtypes
+        carry over.
 
         Args:
-            where: Callable applied to each row.
-            indirect_col: Optional indirect column.
+            where: A function that takes a row and returns True to keep it.
+            indirect_col: A column that holds a dict, to read names that are not columns from.
 
         Returns:
-            Daf: Filtered instance.
+            The new Daf.
+
+        Examples:
+            >>> d = Daf(lol=[[1, 'a', 10], [2, 'b', 20], [3, 'c', 30]], cols=['id', 'v', 'n'], keyfield='id')
+            >>> d.select_where(lambda row: row['n'] > 10).lol
+            [[2, 'b', 20], [3, 'c', 30]]
         """
         """
         Select rows in Daf based on the provided where condition
@@ -5303,13 +5577,20 @@ class Daf:
 
     def select_where_idxs(self, where: Callable) -> T_li:
         """
-        Return indices of rows matching predicate.
+        Get the positions of the rows for which a function is true.
+
+        The function gets each row, as in `select_where()`.
 
         Args:
-            where: Callable applied to each row.
+            where: A function that takes a row and returns True to keep it.
 
         Returns:
-            List[int]: Matching row indices.
+            The row positions.
+
+        Examples:
+            >>> d = Daf(lol=[[1, 'a', 10], [2, 'b', 20], [3, 'c', 30]], cols=['id', 'v', 'n'], keyfield='id')
+            >>> d.select_where_idxs(lambda row: row['n'] > 10)
+            [1, 2]
         """
 
         """
@@ -5329,13 +5610,28 @@ class Daf:
 
     def remove_dups(self, keyfield: Union[str, T_ta, T_la]='') -> Tuple['Daf', 'Daf']:  # unique_daf, duplicates_daf
         """
-        Split data into unique and duplicate records by keyfield.
+        Split the rows into those with a unique key and those with a repeated key.
+
+        Only the keyfield is compared, not the whole row. For each key, the last row
+        is kept as the unique one. The earlier rows with that key are the duplicates.
+        The unique rows are in the order in which their keys first appear.
+
+        You must pass `keyfield`. This method sets the keyfield of this Daf to it, so
+        the Daf is changed. If you pass nothing, the keyfield is cleared and every row
+        is returned as a duplicate. If there are no repeats, the first result is this
+        same Daf, not a copy, and the second is empty.
 
         Args:
-            keyfield: Keyfield to evaluate.
+            keyfield: The column, or tuple or list of columns, that identifies a row.
 
         Returns:
-            Tuple[Daf, Daf]: (unique_records, duplicate_records)
+            A tuple of the Daf of unique rows and the Daf of duplicate rows.
+
+        Examples:
+            >>> d = Daf(lol=[[1, 'a'], [2, 'b'], [1, 'c']], cols=['id', 'v'])
+            >>> unique, dups = d.remove_dups('id')
+            >>> unique.lol, dups.lol
+            ([[1, 'c'], [2, 'b']], [[1, 'a']])
         """
         """
         If it is known that duplicates may exist in the array with respect to keyfield,
@@ -5381,14 +5677,24 @@ class Daf:
             indirect_col: Optional[str] = None,
             ) -> Tuple['Daf', 'Daf']:
         """
-        Split rows into two Daf instances based on predicate.
+        Split the rows in two, by a function that is true or false for each row.
+
+        The function gets each row, as in `select_where()`. Both new Daf instances
+        share their rows with this one, so changing a cell in one changes it here
+        too. The keyfield and dtypes carry over to both.
 
         Args:
-            where: Callable applied to each row.
-            indirect_col: Optional indirect column.
+            where: A function that takes a row and returns True or False.
+            indirect_col: A column that holds a dict, to read names that are not columns from.
 
         Returns:
-            Tuple[Daf, Daf]: (true_rows, false_rows)
+            A tuple of the Daf of the rows where the function is true and the Daf of the others.
+
+        Examples:
+            >>> d = Daf(lol=[[1, 'a', 10], [2, 'b', 20], [3, 'c', 30]], cols=['id', 'v', 'n'], keyfield='id')
+            >>> big, small = d.split_where(lambda row: row['n'] > 10)
+            >>> big.lol, small.lol
+            ([[2, 'b', 20], [3, 'c', 30]], [[1, 'a', 10]])
         """
         """
         Select rows in Daf based on the provided where condition,
@@ -5441,19 +5747,34 @@ class Daf:
             default:        Optional[Any]='',
             ) -> list:
         """
-        Retrieve column values as list.
+        Get one column as a list, by name.
+
+        This does not make a Daf first, as `my_daf[:, 'v'].to_list()` does.
+
+        With `indirect_col`, a name that is not a column is read from the dict held in
+        that column, row by row. A row that lacks it gets `default`.
 
         Args:
-            colname: Column name.
-            unique: Return unique values.
-            omit_nulls: Remove empty values.
-            silent_error: Suppress errors.
-            astype: Optional type conversion.
-            indirect_col: Optional indirect column.
-            default: Default value.
+            colname: The column name.
+            unique: If True, leave out repeated values and keep the order.
+            omit_nulls: If True, leave out the empty values.
+            silent_error: If True, a column that is not found gives an empty list.
+            astype: A type or function to convert each value with.
+            indirect_col: A column that holds a dict, to read the name from.
+            default: The value for a row that lacks the name. It is used only with `indirect_col`.
 
         Returns:
-            list: Column values.
+            The values of the column.
+
+        Raises:
+            RuntimeError: The column is not found and `silent_error` is False, or the name is empty.
+
+        Examples:
+            >>> d = Daf(lol=[[1, 'a', 10], [2, 'b', 20], [3, 'c', 30]], cols=['id', 'v', 'n'], keyfield='id')
+            >>> d.col('v')
+            ['a', 'b', 'c']
+            >>> d.col('n', astype=str)
+            ['10', '20', '30']
         """
 
         """ alias for col_to_la()
@@ -5483,10 +5804,25 @@ class Daf:
             indirect_col:   Optional[str]=None,
             default:        Optional[Any]='',
         ) -> list:
-        """ pull out out a column from daf by colname as a list of any
-            does not modify daf. Using unique requires that the
-            values in the column are hashable.
-            test exists in test_daf.py
+        """
+        Get one column as a list, by name.
+
+        This does the same as `col()`. See that method.
+
+        Args:
+            colname: The column name.
+            unique: If True, leave out repeated values and keep the order.
+            omit_nulls: If True, leave out the empty values.
+            silent_error: If True, a column that is not found gives an empty list.
+            astype: A type or function to convert each value with.
+            indirect_col: A column that holds a dict, to read the name from.
+            default: The value for a row that lacks the name. It is used only with `indirect_col`.
+
+        Returns:
+            The values of the column.
+
+        Raises:
+            RuntimeError: The column is not found and `silent_error` is False, or the name is empty.
         """
 
         if not colname:
@@ -5525,14 +5861,39 @@ class Daf:
 
 
     def icol(self, icol: int) -> list:
+        """
+        Get one column as a list, by position.
+
+        A position that is negative or out of range gives an empty list.
+
+        Args:
+            icol: The column position.
+
+        Returns:
+            The values of the column.
+
+        Examples:
+            >>> d = Daf(lol=[[1, 'a', 10], [2, 'b', 20], [3, 'c', 30]], cols=['id', 'v', 'n'], keyfield='id')
+            >>> d.icol(1)
+            ['a', 'b', 'c']
+        """
+
         return self.icol_to_la(icol)
 
 
     def icol_to_la(self, icol: int, unique: bool=False, omit_nulls: bool=False) -> list:
-        """ pull out out a column from daf by icol idx as a list of any
-            can also use column ranges and then transpose()
-            does not modify daf
-            test exists in test_daf.py
+        """
+        Get one column as a list, by position, with options.
+
+        A position that is negative or out of range gives an empty list.
+
+        Args:
+            icol: The column position.
+            unique: If True, leave out repeated values and keep the order.
+            omit_nulls: If True, leave out the empty values.
+
+        Returns:
+            The values of the column.
         """
 
         if icol < 0 or not self or icol >= self.num_cols():
@@ -5550,17 +5911,27 @@ class Daf:
 
 
     def drop_cols(self, exclude_cols: Optional[T_ls]=None) -> 'Daf':
-        """ given a list of colnames, cols, remove them from daf array
-            alters the daf and creates a copy of all data.
+        """
+        Remove columns from this Daf, in place.
 
-            Note, this is a inefficient process that should be avoided. specify columns
-                    to be included in operation instead.
+        The rows are rebuilt without those columns, so this copies all the data. Avoid
+        it for large tables. Use the `cols` argument of `apply` and `reduce`, or
+        `select_kcols()` to get a new Daf, instead.
 
-            Note: could provide an option to not create a copy, and use splicing.
+        The column names and dtypes are updated. A name that is not a column is ignored.
+        If the keyfield is dropped, the key index is cleared but the keyfield is not.
+        Set it again with `set_keyfield()`. With no names, nothing happens.
 
-            MUTATES IN PLACE, AVOID.
+        Args:
+            exclude_cols: The names of the columns to remove.
 
-            test exists in test_daf.py
+        Returns:
+            This Daf, which has been changed.
+
+        Examples:
+            >>> d = Daf(lol=[[1, 'a', 10], [2, 'b', 20], [3, 'c', 30]], cols=['id', 'v', 'n'], keyfield='id')
+            >>> d.drop_cols(['v']).columns()
+            ['id', 'n']
         """
 
         if exclude_cols:
@@ -5593,10 +5964,30 @@ class Daf:
             cols: Optional[T_ls]=None,
             exclude_cols: Optional[T_ls]=None,
             ) -> 'Daf':
-        """ given a list of colnames, alter the daf to select only the cols specified.
-            this produces a new daf. Instead of selecting cols in this manner, it is better
-            provide cols parameter in any .apply, .reduce, .from_xxx or .to_xxx methods,
-            because this operation is not efficient.
+        """
+        Make a new Daf with only some columns, chosen by name.
+
+        The columns stay in the order of this Daf, not in the order of `cols`. Use
+        `select_kcols()` if you want the order you give. With no arguments all columns
+        are kept. A name that is not a column is ignored, so a list of unknown names
+        gives rows with no columns.
+
+        This copies data, so it is not cheap. For `apply` and `reduce`, use their
+        `cols` argument instead. The keyfield carries over if its column is kept.
+
+        Args:
+            cols: The names of the columns to keep. If empty, all columns.
+            exclude_cols: The names of the columns to leave out.
+
+        Returns:
+            The new Daf.
+
+        Examples:
+            >>> d = Daf(lol=[[1, 'a', 10], [2, 'b', 20], [3, 'c', 30]], cols=['id', 'v', 'n'], keyfield='id')
+            >>> d.select_cols(['n', 'id']).columns()
+            ['id', 'n']
+            >>> d.select_cols(exclude_cols=['v']).columns()
+            ['id', 'n']
         """
 
         if not cols:
