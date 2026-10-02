@@ -141,6 +141,11 @@ all prior releases. Plans for future moved to ROADMAP.md.
   git-tracked) moved out of `src/` to a gitignored, local-only `deprecated/` folder.
 
 ### Fixed
+- Reading a column slice with a negative number or a stop of 0 gave wrong data or an error.
+  `d[:, -2:]` returned five columns with repeats, `d[:, :-1]` returned none, and `d[:, 1:-1]`
+  and `d[:, ::-1]` raised `IndexError`. `select_icols()` now uses `slice.indices()`, the rule
+  of a Python list slice. A stop beyond the last column is cut to the end, not an error.
+  Eight tests added.
 - `apply_schema()` with something that is not a schema stored it in `schema` and returned
   None. It now raises `TypeError` and stores nothing. It matches `attach_schema()`. Test
   added.

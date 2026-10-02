@@ -128,7 +128,7 @@ The date of the first entry is 2026-10-02.
 41. `remove_key(None, silent_error=True)` raises `TypeError`. The flag does not
     cover it.
 
-## Group 5: indexing (serious, found 2026-10-02)
+## Group 5: indexing (serious, found 2026-10-02, fixed with approval the same day)
 
 42. SERIOUS. Column slices with a negative number, or a stop of 0, give wrong
     data or an error. The cause is `select_icols()` at `daf.py` line 4720:

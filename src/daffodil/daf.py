@@ -4717,7 +4717,7 @@ class Daf:
 
         elif isinstance(icols, slice):
             slice_spec = icols
-            icols_range = range(slice_spec.start or 0, slice_spec.stop or self.num_cols(), slice_spec.step or 1)
+            icols_range = range(*slice_spec.indices(self.num_cols()))   # same rule as a Python list slice.
 
             if not icols_range:
                 return Daf()
