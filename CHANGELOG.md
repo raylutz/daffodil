@@ -144,6 +144,12 @@ all prior releases. Plans for future moved to ROADMAP.md.
   git-tracked) moved out of `src/` to a gitignored, local-only `deprecated/` folder.
 
 ### Fixed
+- `from_lod()` lost a value without a message when a later dict had a key that the first dict
+  did not have. It now raises `ValueError` that names the keys, and says to pass `cols=`. A
+  record that only lacks keys still gets NULL. The check compares the keys of each dict with a
+  set of the columns in C, and builds each row directly, so it takes about the same time or
+  less, for 10, 100 and 1,000 columns. It is not made when `cols` or `dtypes` is given.
+  Eight tests added.
 - `drop_cols()` left the keyfield set to a column that was gone, so key lookups returned empty
   results or raised `KeyError`. It missed a composite keyfield too. It now clears the keyfield
   when any column of it is dropped, as `select_cols()`, `rename_cols()` and `set_cols()` do.

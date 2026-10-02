@@ -1981,13 +1981,15 @@ class Daf:
         """
         Make a Daf from a list of dicts, one dict for each row.
 
-        The column names are the keys of the first dict. The first dict must have
-        every key. A later dict that lacks a key gets NULL there. A later dict with an
-        extra key loses that value. Empty dicts and items that are not dicts are
-        skipped.
+        Without `cols` or `dtypes`, the column names are the keys of the first dict. A
+        later dict that lacks a key gets NULL there. A later dict with a key that the
+        first dict does not have raises `ValueError`, because that value would be
+        lost. The error names the keys. Give `cols` with all the columns you want to
+        avoid it. Empty dicts and items that are not dicts are skipped.
 
         If `cols` is given, those are the columns. Otherwise the keys of `dtypes` are
-        the columns, and any other keys are left out.
+        the columns. In both cases any other keys are left out, because you chose
+        the columns.
 
         Args:
             records_lod: The rows, as dicts.
@@ -1998,6 +2000,10 @@ class Daf:
 
         Returns:
             The new Daf.
+
+        Raises:
+            ValueError: A dict has a key that is not a column of the first dict, and
+                neither `cols` nor `dtypes` is given.
 
         Examples:
             >>> Daf.from_lod([{'a': 1, 'b': 2}, {'a': 3}]).lol
@@ -2025,18 +2031,31 @@ class Daf:
         if not records_lod:
             return cls(cols=cols, keyfield=keyfield, dtypes=dtypes)
 
-        if cols:
-            pass
-            # cols = cols.
-        elif dtypes:
-            cols = list(dtypes.keys())
+        if cols or dtypes:
+            # the caller chose the columns, so keys that are not columns are left out on purpose.
+            if not cols:
+                cols = list(dtypes.keys())
+
+            lol = [list(daf_utils.set_cols_da(record_da, cols).values())
+                    for record_da in records_lod if record_da and isinstance(record_da, dict)]
+
         else:
+            # the columns come from the first record. A later record may lack some of them, which
+            # are then NULL. A key that is not a column would be lost, so stop and say so.
+            # Checking the keys of each record against a set of the columns is done in C, and
+            # building the row directly avoids making a dict for each record.
             cols = list(records_lod[0].keys())
+            colset = set(cols)
 
-        # is this better than just appending dicts?
-
-        lol = [list(daf_utils.set_cols_da(record_da, cols).values())
-                for record_da in records_lod if record_da and isinstance(record_da, dict)]
+            lol = []
+            for record_da in records_lod:
+                if record_da and isinstance(record_da, dict):
+                    if not record_da.keys() <= colset:
+                        extra_keys = [key for key in record_da if key not in colset]
+                        raise ValueError(
+                            f"from_lod: a record has keys that are not columns of the first record: "
+                            f"{extra_keys[:5]}. Pass cols= with all the columns that you want.")
+                    lol.append([record_da.get(col, NULL) for col in cols])
 
         # following invalidates kd for lazy rebuilding.
         return cls(cols=cols, lol=lol, keyfield=keyfield, dtypes=dtypes, name=name)

@@ -767,3 +767,52 @@ def test_drop_cols_keeps_the_keyfield_when_another_column_is_dropped():
     assert daf.keyfield == 'id'
     assert daf.keys() == [1, 2]
     assert daf.select_record(2) == {'id': 2, 'n': 20}
+
+
+# from_lod
+
+def test_from_lod_later_dict_with_fewer_keys_gets_null():
+    daf = Daf.from_lod([{'a': 1, 'b': 2}, {'a': 3}])
+    assert daf.columns() == ['a', 'b']
+    assert daf.lol == [[1, 2], [3, '']]
+
+
+def test_from_lod_later_dict_with_a_new_key_raises():
+    with pytest.raises(ValueError, match="'b'"):
+        Daf.from_lod([{'a': 1}, {'a': 3, 'b': 9}])
+
+
+def test_from_lod_new_key_is_found_even_when_the_dict_lacks_an_old_key():
+    # the same number of keys as the first dict, and one of them is new.
+    with pytest.raises(ValueError, match="'d'"):
+        Daf.from_lod([{'a': 1, 'b': 2, 'c': 3}, {'a': 1, 'c': 3, 'd': 9}])
+    # fewer keys than the first dict, and one of them is new.
+    with pytest.raises(ValueError, match="'d'"):
+        Daf.from_lod([{'a': 1, 'b': 2, 'c': 3}, {'a': 1, 'd': 9}])
+
+
+def test_from_lod_error_names_the_extra_keys_only():
+    with pytest.raises(ValueError) as excinfo:
+        Daf.from_lod([{'a': 1}, {'a': 2, 'x': 1, 'y': 2}])
+    assert "['x', 'y']" in str(excinfo.value)
+
+
+def test_from_lod_with_cols_drops_other_keys_on_purpose():
+    daf = Daf.from_lod([{'a': 1, 'b': 2}, {'a': 3, 'b': 4, 'c': 5}], cols=['b', 'a'])
+    assert daf.lol == [[2, 1], [4, 3]]
+
+
+def test_from_lod_with_dtypes_drops_other_keys_on_purpose():
+    daf = Daf.from_lod([{'a': 1, 'b': 2}, {'a': 3, 'b': 4, 'c': 5}], dtypes={'a': int, 'b': int})
+    assert daf.lol == [[1, 2], [3, 4]]
+
+
+def test_from_lod_skips_empty_and_non_dict_items():
+    daf = Daf.from_lod([{'a': 1}, {}, None, {'a': 2}])
+    assert daf.lol == [[1], [2]]
+
+
+def test_from_lod_cells_may_be_arrays():
+    np = pytest.importorskip('numpy')
+    daf = Daf.from_lod([{'a': 1, 'b': 2}, {'a': np.array([1, 2]), 'b': 3}])
+    assert daf.num_rows() == 2
