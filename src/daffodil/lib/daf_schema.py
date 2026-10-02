@@ -16,87 +16,64 @@ def _apply_schema(
         schema: Optional[Union[type, 'Daf']]=None,
         ) -> 'Daf':
     """
-    Apply schema metadata to this Daf instance.
+    Attach a schema to this Daf and fill in what the Daf is missing.
 
-    Supports:
-        - schemaclass
-        - schema_daf
+    A schema describes columns: their names, types and default values. Use one
+    when many tables share a layout, or to make new records with the defaults.
+    The constructor calls this method, so `Daf(schema=...)` applies the schema.
 
-    Semantics:
+    Two kinds of schema are accepted.
 
-        - attaches schema to self.schema
-        - sets cols if not already defined
-        - sets dtypes if not already defined
-        - sets keyfield if not already defined
+    A class decorated with `@schemaclass`. The annotated attributes give the
+    column names and types. Their values are the defaults. A `__keyfield__`
+    attribute gives the keyfield.
 
-    For schema_daf:
+    A schema Daf, with one row for each column of the table. It must have a
+    `Name` column. It may have a `dtype` column, which holds one of `str`, `int`,
+    `float`, `bool`, `list` or `dict`. A `Default` column gives the defaults. Its
+    `attrs` may hold a `keyfield`.
 
-        Expected columns may include:
+    Only gaps are filled. The column names, the dtypes and the keyfield are taken
+    from the schema only if the Daf has none. The rows are never changed and
+    nothing is validated.
 
-            Name
-            dtype
-            Default
-            Type
-            Values
-            Description
-            Attributes
+    The other columns of a schema Daf are for building input forms. They are not
+    used by daffodil. The `Type` column says what kind of form control to use.
 
-        Only:
-            Name
-            dtype
+        checkbox   One or more checkboxes. Value lists the labels.
+                       checkbox+buttons adds Set and Clear buttons.
+                       checkbox+values allows values that differ from the labels.
+        date       A text box with a calendar button.
+        label      Read only text.
+        radio      Like checkbox, but only one can be chosen.
+        select     A dropdown or list box. Value lists the options.
+                       select+multi allows several choices.
+                       select+values allows values that differ from the labels.
+        text       A one line text box. Value is the initial text.
+        textarea   A multi line text box. Size is columns x rows, such as 80x6.
 
-        are currently interpreted structurally here.
-    
-    Other fields are defined to help with user interface for entering and editing records.
-
-        Type specifies the UI to be used.
-        
-        Type        Description
-
-        checkbox    One or more checkboxes. 
-                        Size:   How many checkboxes will be displayed on each line. 
-                        Value:  A comma-separated list of item labels.
-                        Modifiers:
-                            checkbox+buttons    will add Set and Clear buttons to the basic checkbox type.
-                            checkbox+values     allows the definition of values that are different to the displayed text.
-
-        date        A single-line text box and a calendar icon button next to it; clicking on the 
-                        button will bring up a calendar from which the user can select a date. 
-                        The date can also be typed into the text box.   
-                        Size:   The text box width in characters.   
-                        Value:  The initial text (unless default column exists).
-
-        label       Read-only label text.
-                        Value:  The text of the label.
-
-        radio       Like checkbox except that radio buttons are mutually exclusive; only one can be selected.   
-                        radio+values allows the definition of values that are different to the displayed text.
-
-        select      A select box / dropdown.    
-                        Size: A fixed size for the box (e.g. 1, or a range e.g. 3..10. To get a dropdown, use size 1.
-                                If you specify a range, the box will never be smaller than 3 items, never larger 
-                                than 10, and will be 5 high if there are only 5 options.    
-                        Value: A comma-separated list of options for the box.
-                        Modifiers:
-                            select+multi turns multiselect on for the select, to allow Shift+Click and Ctrl+Click 
-                                to select (or deselect) multiple items.
-                            select+values   allows the definition of values that are different to the displayed text. 
-                                You can combine these modifiers e.g. select+multi+values
-
-        text        A one-line text field. 
-                        Size:   The text box width in number of characters. 
-                        Value:  The initial (default) content when a new topic is created with this form definition 
-                                    (unless default column exists).
-
-        textarea        A multi-line text box.  
-                        Size:   Size in columns x rows, e.g. 80x6; default size is 40x5.    
-                        Value:  The initial text (unless default column exists).     
+    Args:
+        schema: The schema to apply. If None, the schema already attached is used.
 
     Returns:
-        self
+        This Daf, which has been changed.
 
     Raises:
         TypeError: The schema is neither a `@schemaclass` nor a schema Daf. Nothing is stored.
+        RuntimeError: A `dtype` in a schema Daf is not one of the supported names.
+
+    Examples:
+        >>> from daffodil.daf import Daf
+        >>> from daffodil.lib.schemaclass import schemaclass
+        >>> @schemaclass
+        ... class Person:
+        ...     name: str = ''
+        ...     age: int = 0
+        >>> d = Daf(schema=Person)
+        >>> d.columns()
+        ['name', 'age']
+        >>> d.dtypes
+        {'name': <class 'str'>, 'age': <class 'int'>}
     """
 
     # no schema argument in the method call, use defined schema
@@ -204,14 +181,30 @@ def _apply_schema(
 
 def _attach_schema(self: 'Daf', schema: type) -> 'Daf':
     """
-    Attach a schema_class type schema to the Daf instance.
+    Attach a `@schemaclass` to this Daf.
+
+    This is the strict form of `apply_schema()`, for a schema class only. It stores
+    the schema, then fills in the column names, the dtypes and the keyfield, each
+    only if the Daf has none. The rows are never changed and nothing is validated.
 
     Args:
-        schema: Schema class.
+        schema: A class decorated with `@schemaclass`.
 
-    Notes:
-        Does not modify data or perform validation.
-        Modifies dtypes property.
+    Returns:
+        This Daf, which has been changed.
+
+    Raises:
+        TypeError: The class is not a `@schemaclass`.
+
+    Examples:
+        >>> from daffodil.daf import Daf
+        >>> from daffodil.lib.schemaclass import schemaclass
+        >>> @schemaclass
+        ... class Person:
+        ...     name: str = ''
+        ...     age: int = 0
+        >>> Daf().attach_schema(Person).columns()
+        ['name', 'age']
     """
     """
     Attach a schema to this Daf instance without modifying data.
@@ -262,20 +255,32 @@ def _attach_schema(self: 'Daf', schema: type) -> 'Daf':
 
 def _default_record(self: 'Daf') -> T_da:
     """
-    Return a new record initialized from the attached schema.
+    Make a new record that holds the defaults of the attached schema.
 
-    Supports:
-        - schemaclass
-        - schema_daf
+    Use it to start a record that you fill in, then append. Each call returns a
+    new dict, so changing it does not change the next one. Nothing is converted
+    or validated.
 
-    The schema is used only as a source of:
-        - column names
-        - default values
+    For a schema Daf the `Name` column gives the keys and the `Default` column
+    gives the values. A missing `Default` column gives empty strings.
 
-    No type conversion, validation, or normalization is performed.
+    Returns:
+        A dict that maps each column name to its default.
 
-    TODO:
-        support KeyedList return type.
+    Raises:
+        AttributeError: No schema is attached.
+        RuntimeError: A schema Daf has no `Name` column.
+        TypeError: The attached schema is of an unsupported kind.
+
+    Examples:
+        >>> from daffodil.daf import Daf
+        >>> from daffodil.lib.schemaclass import schemaclass
+        >>> @schemaclass
+        ... class Person:
+        ...     name: str = ''
+        ...     age: int = 0
+        >>> Daf(schema=Person).default_record()
+        {'name': '', 'age': 0}
     """
 
     if not self.schema:

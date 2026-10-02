@@ -34,3 +34,31 @@ The date of the first entry is 2026-10-02.
     list, so that example does not run. The second string is left as it was.
 11. `set_keyfield()` does not check that keys are unique. Duplicate keys give
     a `keys()` list without the repeat and a lookup that finds the last row.
+
+## Group 2: dtypes, schemas, strip, clone_empty, set_lol
+
+12. An explicit `keyfield` passed with `schema=` is lost when the column names
+    come from the schema. `Daf(schema=B, keyfield='contest')` ends with the
+    schema's `__keyfield__`. The cause is that `attach_schema()` calls
+    `set_cols()`, and `set_cols()` clears the keyfield. The README says the
+    schema keyfield is used only if none was given. Passing `cols` too keeps
+    the explicit keyfield.
+13. The README schema example uses a plain class. Since the apply_schema change
+    on 2026-10-02, `Daf(schema=PlainClass)` raises `TypeError`. Before, it was
+    silently ignored and no columns were defined. The example needs
+    `@schemaclass`. The README is not changed yet.
+14. `default_record = daf_schema._default_record` appears twice in the class
+    body, at `daf.py` lines 1496 and 1881. It is harmless.
+15. `apply_dtypes()` turns a value that cannot be converted into NULL without
+    any message. `'x'` as an int becomes `''`. This is by design in
+    `convert_type_value()`, but a bad value is lost.
+16. `set_dtypes()` raises `NotImplementedError` when the Daf has no column
+    names. `ValueError` would fit better.
+17. `clone_empty()` keeps the keyfield even when `cols` is given and does not
+    contain it. It does not keep the name. It returns a `Daf` even from a
+    subclass. It has a dead test, `if self is None`.
+18. `_safe_tofloat()` has no `@staticmethod` and no `self`. Its docstring says
+    it returns the original value on failure, but it returns 0.0.
+19. Methods attached from helper modules were missing from the API reference.
+    The schema ones are added. The `from_md`, `dodaf_to_md`, `dodaf_from_md`,
+    `from_pdf`, `from_pandas_df` and `to_pandas_df` entries come with their groups.

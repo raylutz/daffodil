@@ -69,6 +69,12 @@ all prior releases. Plans for future moved to ROADMAP.md.
   match their signatures.
 - Docstrings for `retmode`, `itermode`, `iter_dict`, `iter_klist`, `iter_list` and `__iter__`
   were rewritten to explain what each is for, with examples that are run as doctests.
+- Docstrings were rewritten for the class itself and for construction, size, copying,
+  columns and keys, dtypes, schemas, `strip`, `clone_empty` and `set_lol`. Each one says what
+  the method is for, what it changes and what it returns. Examples are run as doctests.
+  The three schema methods are defined in daf_schema.py. They did not appear in the API
+  reference before. The reference now has a section for them. Issues noticed on the way are
+  listed in notes/docstring_pass_issues.md. No behavior was changed.
 - Type annotations: every parameter and return value is now annotated, in every module except
   daf_pdf.py and md_demo.py. The doc tables read their types from the signatures, so a missing
   annotation left a blank. `Daf.update_row` is now a static method, as it has no self. It was

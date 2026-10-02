@@ -1506,18 +1506,28 @@ class Daf:
             ) -> 'Daf':
 
         """
-        Define data types for columns using default and type-to-cols dols.
+        Set the dtype of every column, from a default and a few exceptions.
+
+        Use it when most columns have one type and a few differ. The result is stored
+        in `dtypes`. This does not convert any data. Call `apply_dtypes()` for that.
+
+        If most columns differ, assign a dict to `dtypes` yourself.
 
         Args:
-            default_type: Default type applied to unspecified columns.
-            typ_to_cols_dict: Mapping of type to column names.
+            default_type: The type of every column that is not listed.
+            typ_to_cols_dict: Maps a type to the names of the columns of that type.
 
         Returns:
-            Daf: Self.
+            This Daf, which has been changed.
 
-        Notes:
-            Does not apply type conversion. Use `apply_dtypes()` to convert data.
-        """    
+        Raises:
+            NotImplementedError: The Daf has no column names.
+
+        Examples:
+            >>> d = Daf(lol=[['1', '2', 'x']], cols=['a', 'b', 'c'])
+            >>> d.set_dtypes(str, {int: ['a', 'b']}).dtypes
+            {'a': <class 'int'>, 'b': <class 'int'>, 'c': <class 'str'>}
+        """
 
         """ set dtypes from default and dol where the key of the dict is the type,
             and the list is the column names of that type.
@@ -1560,22 +1570,48 @@ class Daf:
             silent_error:   bool=False,
             ) -> 'Daf':
         """
-        Apply data type conversions to columns.
+        Convert the columns to their dtypes, in place.
+
+        A CSV file is read as text, because that is the fastest way to load it. Call
+        this method to turn the columns you need into numbers, lists and so on. It
+        changes the cells where they are and does not make a new table. Columns you
+        leave out are not touched.
+
+        The `dtypes` argument is a dict that maps a column name to a type, or one type
+        for all columns. It may hold more columns than the Daf. If it is given, it
+        replaces `dtypes` of the Daf. If neither is set, nothing happens. With no
+        columns defined, the names are taken from the dtypes.
+
+        Types must be plain types such as `int`, `float`, `bool`, `str`, `list`,
+        `dict`, `tuple` or `set`. Annotations such as `List[str]` do not work.
+
+        By default, columns of type `str` are skipped. The cells are assumed to be text
+        already. Pass `from_str=False` when they may hold other values. Then each cell
+        is converted with `str()`. Columns of type `list` or `dict` are read from
+        their text. Pass `unflatten=False` to leave them as text.
+
+        A cell that cannot be converted becomes NULL. An empty cell stays empty. No
+        error is raised, so check the result if the data is not trusted.
 
         Args:
-            dtypes: Column-to-type mapping or single type. Can be a superset of the columns.
-            unflatten: Convert serialized structures back to Python objects.
-            from_str: Treat values as strings before conversion.
-            default_type: Default type for unspecified columns.
-            silent_error: If False, validate columns against dtypes.
+            dtypes: Maps column names to types, or a single type for all columns.
+            unflatten: If True, read list and dict columns from their text.
+            from_str: If True, the cells are text, so `str` columns are not converted.
+            default_type: The type to use for a column that has no dtype.
+            silent_error: If False, raise an error when a column has no dtype.
 
         Returns:
-            Daf: Self.
+            This Daf, which has been changed.
 
-        Notes:
-            Conversion is performed in-place.
-            Columns (self.hd) must be defined.
-            if no dtypes is passed and self.dtypes is not defined, do nothing.
+        Raises:
+            ValueError: A column has no dtype and `silent_error` is False.
+
+        Examples:
+            >>> d = Daf(lol=[['1', '2.5', 'x']], cols=['a', 'b', 'c'])
+            >>> d.apply_dtypes(dtypes={'a': int, 'b': float, 'c': str}).lol
+            [[1, 2.5, 'x']]
+            >>> Daf(lol=[['x', '']], cols=['a', 'b']).apply_dtypes(dtypes={'a': int, 'b': int}).lol
+            [['', '']]
         """
 
         """ convert columns of daf array to the datatypes specified in self.dtypes or in passed parameter.
@@ -1656,22 +1692,29 @@ class Daf:
 
     def flatten(self, convert_bool_to_int: bool=True, use_pyon: bool = True) -> 'Daf':
         """
-        Convert list and dict cells to PYON text, and optionally bools to ints.
+        Turn list and dict cells into text, in place.
 
-        Rarely needed. to_csv_buff() and to_csv_file() flatten every cell as they write, using
-        the cell's repr. That is simpler and faster than a separate flatten pass.
+        You rarely need this. `to_csv_buff()` and `to_csv_file()` write every cell as
+        text already, so a separate pass is not needed.
 
-        Objects written to CSV must have a repr that can be read back. Unusual objects may not
-        flatten correctly.
+        Only the columns whose dtype is `list` or `dict` are changed. Each cell
+        becomes its `str()` text. A column of dtype `bool` becomes 0 and 1. Without
+        dtypes nothing happens.
 
         Args:
-            convert_bool_to_int: Convert columns with dtype bool to 0 and 1.
-            use_pyon: Kept for compatibility. Only True is supported. False raises ValueError,
-                since JSON flattening was dropped when daffodil standardized on PYON.
+            convert_bool_to_int: If True, write bool columns as 0 and 1.
+            use_pyon: Kept for compatibility. Only True is supported.
 
-        Notes:
-            Only columns with dtype list or dict are converted. Modifies the Daf in place.
-            Historical reference: https://legacy.python.org/workshops/1994-11/FlattenPython.html
+        Returns:
+            This Daf, which has been changed.
+
+        Raises:
+            ValueError: `use_pyon` is False.
+
+        Examples:
+            >>> d = Daf(lol=[[[1, 2], True]], cols=['a', 'b'], dtypes={'a': list, 'b': bool})
+            >>> d.flatten().lol
+            [['[1, 2]', 1]]
         """
         if not use_pyon:
             raise ValueError("flatten(): use_pyon=False is not supported. Cells are flattened to PYON.")
@@ -1784,17 +1827,21 @@ class Daf:
 
 
     def strip(self, chrs: str=' ') -> 'Daf':
-        """ 
-        Strip characters from string values in the array.
+        """
+        Remove characters from both ends of every text cell, in place.
+
+        Each character in `chrs` is removed on its own, so `'()"'` removes any mix of
+        parentheses and quotes. Cells that are not text, and empty cells, are skipped.
 
         Args:
-            chrs: Characters to remove from both ends of strings.
+            chrs: The characters to remove.
 
         Returns:
-            Daf: Self.
+            This Daf, which has been changed.
 
-        Notes:
-            Non-string values are ignored.
+        Examples:
+            >>> Daf(lol=[[' a ', 3, '("x")']], cols=['p', 'q', 'r']).strip(' ()"').lol
+            [['a', 3, 'x']]
         """
         """ remove leading or trailing characters in the string chrs from each str value in the array.
             modifies in-place.  Ignores non str values.
@@ -1839,18 +1886,27 @@ class Daf:
 
     def clone_empty(self, lol: Optional[T_lola]=None, cols: Optional[T_ls]=None, name:str='') -> 'Daf':
         """
-        Create a new Daf with the same structure but no data.
+        Make a new Daf with the same layout and no rows.
+
+        The new Daf has the same column names, keyfield and dtypes. The dtypes dict is
+        copied, and the `attrs` are deep copied. The name, the key index and the
+        display settings are not carried over. Set them on the new Daf if you need them.
+
+        Give `lol` to fill the new Daf with rows. They are adopted, not copied.
 
         Args:
-            lol: Optional data for new instance.
-            cols: Optional column override.
-            name: Optional name.
+            lol: Rows for the new Daf. If None, it has no rows.
+            cols: Column names to use instead of the existing ones.
+            name: The name of the new Daf.
 
         Returns:
-            Daf: New instance.
+            The new Daf.
 
-        Notes:
-            Does not copy metadata such as attrs or kd. Adopts keyfield.
+        Examples:
+            >>> d = Daf(lol=[[1, 'a']], cols=['id', 'v'], keyfield='id')
+            >>> c = d.clone_empty()
+            >>> c.columns(), c.keyfield, c.num_rows()
+            (['id', 'v'], 'id', 0)
         """
         """
         Create a new empty Daf instance from self, adopting column names but not data.
@@ -1881,16 +1937,21 @@ class Daf:
 
     def set_lol(self, new_lol: T_lola) -> 'Daf':
         """
-        Replace internal data array.
+        Replace the rows with a new list of lists.
+
+        The list is adopted, not copied. The column names, the keyfield and the other
+        settings stay. The key index is rebuilt when it is next needed.
 
         Args:
-            new_lol: New list-of-lists data.
+            new_lol: The new rows.
 
         Returns:
-            Daf: Self.
+            This Daf, which has been changed.
 
-        Notes:
-            Rebuilds key dictionary if needed.
+        Examples:
+            >>> d = Daf(lol=[[1, 'a']], cols=['id', 'v'], keyfield='id')
+            >>> d.set_lol([[5, 'q'], [6, 'r']]).keys()
+            [5, 6]
         """
         """ set the lol with the value passed, leaving other settings,
             and recalculating kd if required (i.e. if keyfield is defined).
