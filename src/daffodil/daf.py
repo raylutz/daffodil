@@ -2030,7 +2030,7 @@ class Daf:
 
         for row_da in self:
             for key, val in row_da.items():
-                result_dol[key].append(val)
+                result_dol[key].append(val)     # type: ignore[index]  # a row's keys are column names (str)
 
         return result_dol
 
@@ -6964,7 +6964,7 @@ class Daf:
                     # This will only invoke the exception when encountering non-numeric data, and does
                     # not require an initial check
 
-                    reduction_da[col] = reduction_da.get(col, 0) + val + 0
+                    reduction_da[col] = reduction_da.get(col, 0) + val + 0     # type: ignore[index, call-overload]
 
                 #except Exception:
                 except (ValueError, TypeError):

@@ -261,7 +261,7 @@ class KeyedList:
         
         raise ValueError("Must provide either a dict, keys and values, hd and list, or KeyedList")
     
-    def __getitem__(self, key):
+    def __getitem__(self, key: Union[TKey, List[TKey]]) -> Any:
         """
             indexing can use a scalar key or a list of keys, which returns a list.
         """
@@ -275,7 +275,7 @@ class KeyedList:
         else:
             raise ValueError
     
-    def __setitem__(self, key, value):
+    def __setitem__(self, key: TKey, value: Any) -> None:
         if key not in self.hd:
             if self._hd_shared:
                 self.hd = KeyedIndex(list(self.hd))     # a copy, so other KeyedLists do not get the key
@@ -289,7 +289,7 @@ class KeyedList:
             self._values[self.hd[key]] = value
 
     
-    def __delitem__(self, key):
+    def __delitem__(self, key: TKey) -> None:
         # index = self.hd.pop(key)
         # del self._values[index]
                 
@@ -305,13 +305,13 @@ class KeyedList:
         self._hd_shared = False
 
 
-    def __len__(self):
+    def __len__(self) -> int:
         return len(self._values)
     
-    def __iter__(self):
+    def __iter__(self) -> Iterator[TKey]:
         return iter(self.hd)
 
-    def keys(self):
+    def keys(self) -> KeysView[TKey]:
         return self.hd.keys()
 
     def set_values(self, new_values: List[Any]) -> None:
@@ -332,29 +332,29 @@ class KeyedList:
         return astype_la(self._values, astype)
 
 
-    def items(self):
+    def items(self) -> Iterator[Tuple[TKey, Any]]:
         return zip(self.hd, self._values)
 
 
-    def get(self, key, default=None):
+    def get(self, key: TKey, default: Any = None) -> Any:
         try:
             return self._values[self.hd[key]]
         except KeyError:
             return default
 
 
-    def update(self, other):
+    def update(self, other: Union['KeyedList', Dict[TKey, Any]]) -> None:
         # this could allow direct updating.
         for key, value in other.items():
             self[key] = value
     
-    def to_dict(self):
+    def to_dict(self) -> Dict[TKey, Any]:
         return dict(self.items())
     
-    def __repr__(self):
+    def __repr__(self) -> str:
         return repr(dict(self.items()))
         
-    def __bool__(self):
+    def __bool__(self) -> bool:
         """ return true if there is something in the values list. """
         return bool(self._values)
         
@@ -372,14 +372,14 @@ class KeyedList:
     #     return dict(zip(keys, range(len(keys))))
         
 
-    def to_json(self):
+    def to_json(self) -> str:
         # Serialize KeyedList object to a JSON-compatible dictionary
         # NOTE: to_json/from_json appear unused elsewhere in daffodil (Daf.to_json/from_json
         # serialize lol/hd directly and do not call these). Fixed anyway since the risk is low.
         return json.dumps({"__KeyedList__": True, "hd": self.hd.to_dict(), "values": self._values})
 
     @classmethod
-    def from_json(cls, json_str) -> 'KeyedList':
+    def from_json(cls, json_str: str) -> 'KeyedList':
         # Deserialize JSON string into a KeyedList object
         obj_dict = json.loads(json_str)
         if "__KeyedList__" in obj_dict and obj_dict["__KeyedList__"]:
@@ -423,7 +423,7 @@ class KeyedListEncoder(json.JSONEncoder):
     # and never passes cls=KeyedListEncoder, and KeyedList cells are not actually stored in
     # a Daf's lol (KeyedList is a transient row wrapper, not stored cell content).
     # Fixed anyway since the risk is low.
-    def default(self, obj):
+    def default(self, obj: Any) -> Any:
         if isinstance(obj, KeyedList):
             return {"__KeyedList__": True, "hd": obj.hd.to_dict(), "values": obj._values}
         return super().default(obj)
@@ -692,7 +692,7 @@ class KeyedIndex:
     def __bool__(self) -> bool:
         return bool(self._index)
 
-    def __eq__(self, other):
+    def __eq__(self, other: object) -> bool:
         if isinstance(other, KeyedIndex):
             return self._index == other._index
             
