@@ -158,7 +158,7 @@ all prior releases. Plans for future moved to ROADMAP.md.
   path for plain digit text. For 2,000 rows and 1,000 columns of int text it takes 0.521 s, not
   0.932 s. For 200,000 rows and 3 columns it takes 0.076 s, not 0.175 s. A new function,
   `daf_utils.get_converter()`, gives the conversion for a type. Results are the same as before
-  for 521 test values, except for the two changes above. Fourteen tests added.
+  for 521 test values, except for the two changes above. Nine tests added, and one that was marked as a bug now passes.
 - `apply_to_col()` passed its keyword arguments to `map()`, so any keyword argument raised
   `TypeError`. They are now passed to the function with each value. Three tests added.
 - `from_lod()` lost a value without a message when a later dict had a key that the first dict
