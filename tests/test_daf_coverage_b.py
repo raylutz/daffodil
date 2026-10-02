@@ -747,3 +747,10 @@ def test_extend_respect_kd():
     recs = [{'id': 2, 'v': 'x'}, {'id': 5, 'v': 'y'}]
     assert _kdaf([[1, 'a'], [2, 'b']]).extend(recs).lol == [[1, 'a'], [2, 'b'], [2, 'x'], [5, 'y']]
     assert _kdaf([[1, 'a'], [2, 'b']]).extend(recs, respect_kd=True).lol == [[1, 'a'], [2, 'x'], [5, 'y']]
+
+
+def test_apply_colwise_returns_self():
+    daf = Daf(lol=[[1, 2], [3, 0]], cols=['a', 'b'])
+    result = daf.apply_colwise('c', lambda r: r['a'] / r['b'], default=-1.0)
+    assert result is daf
+    assert daf.lol == [[1, 2, 0.5], [3, 0, -1.0]]

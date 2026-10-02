@@ -6724,7 +6724,7 @@ class Daf:
         """
 
         if target_col not in self.columns():
-            self.insert_col(target_col, default)
+            self.insert_col(target_col, default=default)
 
         def row_op(row: T_da) -> T_da:
             try:
@@ -6734,7 +6734,9 @@ class Daf:
 
             return row
 
-        return self.apply_in_place(row_op)
+        self.apply_in_place(row_op)
+
+        return self
 
 
     #===================================

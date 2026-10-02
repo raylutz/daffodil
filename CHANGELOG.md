@@ -132,6 +132,9 @@ all prior releases. Plans for future moved to ROADMAP.md.
   git-tracked) moved out of `src/` to a gitignored, local-only `deprecated/` folder.
 
 ### Fixed
+- `apply_colwise()` returned None, although its docstring and annotation say it returns the
+  Daf. It now returns the Daf. It also passes the default to `insert_col()` by name. The
+  results are the same as before. Test added.
 - `drop_cols()`, `update_by_keylist()` and `insert_col()` returned None when there was
   nothing to do. They now return the Daf, as the other methods do, so calls can be chained.
   Their return type is now `Daf`, not `Optional[Daf]`. Three tests changed from `is None`
