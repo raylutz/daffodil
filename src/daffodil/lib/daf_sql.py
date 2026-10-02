@@ -27,7 +27,10 @@ logs = utils                # alias
 @functools.lru_cache()
 def sql_unesc_str(escaped_name: str) -> str:
     """ Unquote a SQL identifier and unescape embedded double quotes.
-    
+
+        Any __HH, a double underscore and two hex digits, is decoded as a character. So column
+        and table names must not contain a double underscore. See README.md.
+
         Respect any changes to sql_utils.py and daf_sql.py
     """
     escaped_name = escaped_name.strip()
@@ -63,6 +66,9 @@ def sql_escape_str(name: str, quoting_ok: bool=True) -> str:
         - If not quote_ok, then encode individual characters using double underscore + hex value.
         
         Note: If constructing an INDEX name from a table name will require quoting_ok=False
+
+        Column and table names must not contain a double underscore. It is reserved for the
+        __HH encoding, and any __HH in a name is decoded as a character. See README.md.
     
         Respect any changes to sql_utils.py and daf_sql.py
     """

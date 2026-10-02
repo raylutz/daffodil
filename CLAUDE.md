@@ -123,6 +123,11 @@ Source code is in src/daffodil and tests are in tests.
 - Record notable changes in CHANGELOG.md under Unreleased. Include coverage changes with
   before and after percentages.
 
+## Names
+
+- Column and table names must not contain a double underscore. It is reserved for the __HH
+  encoding used to store any name in SQLite. README.md states this rule.
+
 ## Missing values
 
 - A missing or unknown value in daffodil is NULL, which is the empty string ''. It is defined

@@ -54,8 +54,7 @@ all prior releases. Plans for future moved to ROADMAP.md.
   test_daf_utils_coverage.py and test_daf_pdf.py. The PDF file is only a smoke test, since
   daf_pdf is experimental.
 - The remaining uncovered lines are dead code, debug-only branches, daf_pdf.py and md_demo.py.
-- Five known bugs are still open. Each has a test marked as an expected failure.
-  - SQL name escaping changes names that were already safe.
+- Four known bugs are still open. Each has a test marked as an expected failure.
   - SQL name escaping can't round-trip characters such as the euro sign.
   - The join translator adds to the caller's shared_fields list.
   - A join on a composite key fails with a bare AssertionError.

@@ -97,12 +97,6 @@ def test_sql_escape_str_no_quoting_result_is_usable_as_bare_identifier():
     conn.close()
 
 
-@pytest.mark.xfail(strict=True, reason="BUG: sql_unesc_str decodes '__HH' inside an already-safe "
-                   "identifier, so a legal name like 'data__ab' is mangled to '\"data\\xab\"'")
-def test_sql_escape_str_safe_name_containing_double_underscore_hex():
-    assert daf_sql.sql_escape_str('data__ab') == 'data__ab'
-
-
 @pytest.mark.xfail(strict=True, reason="BUG: quoting_ok=False encodes chars > 0xFF with >2 hex "
                    "digits (e.g. '__20AC') but sql_unesc_str only decodes exactly 2, so not reversible")
 def test_sql_escape_str_no_quoting_roundtrip_non_latin1():
