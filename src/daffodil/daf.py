@@ -132,6 +132,36 @@ class KeysDisabledError(DaffodilError, LookupError):
     """Row-key lookups are unavailable because keyfield is unset/disabled."""
 
 class Daf:
+    """
+    A table of data, stored as a list of rows.
+
+    Daf is a small, fast, pure Python table. Use it to read, reshape and write
+    2-D data without the weight of pandas. It is not meant for heavy numeric work.
+
+    The rows are a list of lists named `lol`. A row holds only values. The column
+    names are kept once, in a header dict named `hd` that maps each name to its
+    position. That makes rows cheap to build, append and copy.
+
+    A Daf may have a keyfield. This is a column, or a tuple of columns, whose
+    values name the rows. The key index is built the first time a key is needed.
+    It is rebuilt after the rows change.
+
+    A missing value is `NULL`, which is the empty string. It prints as nothing.
+
+    Rows are returned as dicts or as [KeyedList][daffodil.keyedlist.KeyedList]
+    objects. See [retmode][daffodil.daf.Daf.retmode] and
+    [itermode][daffodil.daf.Daf.itermode].
+
+    Examples:
+        >>> d = Daf(lol=[[1, 'a'], [2, 'b']], cols=['id', 'v'], keyfield='id')
+        >>> d.columns()
+        ['id', 'v']
+        >>> d.select_record(2)
+        {'id': 2, 'v': 'b'}
+        >>> d.shape()
+        (2, 2)
+    """
+
     RETMODE_OBJ  = 'obj'
     RETMODE_VAL  = 'val'
 
@@ -161,29 +191,46 @@ class Daf:
             attrs:      Optional[T_da]      = None,     # arbitrary additional attributes.
         ):
         """
-        Initialize a Daf instance.
+        Create a Daf from rows, column names and options.
 
-        Creates a row-oriented 2D data structure with optional column metadata,
-        key indexing, and iteration configuration.
+        Every argument is optional, so `Daf()` makes an empty table. The usual call
+        gives the rows and the column names.
+
+        The rows are not copied. The `lol` list you pass in becomes the data of the
+        Daf, so changing one changes the other. The same holds for `hd`, `kd` and
+        `attrs`. Pass `use_copy=True` to deep copy `lol` first.
+
+        If `cols` is given, it sets the column names. If it is not given, the keys of
+        `dtypes` set them. Otherwise `hd` is used. A name that is empty or repeated
+        is made unique, so `['a', 'a']` becomes `['a', 'a_1']`.
+
+        With no names at all, the Daf has no columns and `lol` is only a list of rows.
+        Call `set_cols()` to name them later.
 
         Args:
-            lol:        Initial data as list-of-lists (rows).
-            hd:         Header dictionary mapping column name to index.
-            kd:         Optional keyed dictionary for lookup when no keyfield is set.
-            cols:       Optional list of column names.
-            dtypes:     Optional mapping of column names to Python types.
-            schema:     Optional schema class defining columns and defaults or Daf array of more complex schema
-            keyfield:   Column(s) used as key. May be a single column, or tuple/list of columns.
-            name:       Optional name of the Daf instance.
-            use_copy:   If True, deep copy the input data.
-            disp_cols:  Optional list of columns used for display.
+            lol: Rows, as a list of lists. Adopted, not copied.
+            hd: Header dict that maps column name to position.
+            kd: Key index to adopt when no keyfield is set.
+            cols: Column names. These win over `hd` and `dtypes`.
+            dtypes: Type for each column, used when converting from strings.
+            schema: A `@schemaclass` or a schema Daf that supplies columns and defaults.
+            keyfield: Column, or tuple or list of columns, whose values identify rows.
+            name: Free text name of this Daf.
+            use_copy: If True, deep copy `lol` instead of adopting it.
+            disp_cols: Column names to show when the Daf is printed.
+            retmode: Whether a one cell result is returned as a Daf or a bare value.
+            itermode: Whether iteration yields dicts or KeyedList objects.
+            attrs: Free form dict of extra information. Adopted, not copied.
 
-            retmode:    Default return mode ('obj', etc.).
-            itermode:   Default iterator mode ('dict' or 'keyedlist').
-            attrs:      Optional dictionary of additional attributes.
+        Raises:
+            TypeError: `disp_cols` is not a list, a tuple or None.
 
-        Notes:
-            Column structure may be derived from `hd`, `cols`, `dtypes`, or `schema`.
+        Examples:
+            >>> d = Daf(lol=[[1, 'a'], [2, 'b']], cols=['id', 'v'], keyfield='id')
+            >>> d.num_rows()
+            2
+            >>> Daf(lol=[[1, 2]], cols=['a', 'a']).columns()
+            ['a', 'a_1']
         """
 
         self.name           = name              # str - arbitrary name for this daffodil array
@@ -474,13 +521,20 @@ class Daf:
 
     def __bool__(self) -> bool:
         """
-        Evaluate truthiness of the Daf instance.
+        Say whether the Daf holds data.
+
+        `bool(d)` and `if d:` are true when the Daf has at least one row with a value.
+        A Daf that has column names but no rows is false. Daffodil uses this as its
+        test for an empty table.
 
         Returns:
-            bool: True if the Daf contains data, False otherwise.
+            True if there is data.
 
-        Notes:
-            Intended to check existence and non-emptiness.
+        Examples:
+            >>> bool(Daf(cols=['a']))
+            False
+            >>> bool(Daf(lol=[[1]], cols=['a']))
+            True
         """
 
         return bool(self.num_cols())
@@ -488,13 +542,24 @@ class Daf:
 
     def __format__(self, format_spec: str) -> str:
         """
-        Format a value from Daf instance.
+        Format a Daf that holds one cell.
+
+        With no format spec this is the same as `str()`. With a spec, the Daf must
+        have exactly one cell. A number is formatted with the spec. Anything else
+        is converted with `str()`.
 
         Args:
-            format_spec: Format specification.
+            format_spec: A format spec such as `.2f`.
 
         Returns:
-            str: Formatted representation.
+            The formatted text.
+
+        Raises:
+            ValueError: A spec is given and the Daf does not have exactly one cell.
+
+        Examples:
+            >>> format(Daf(lol=[[3.14159]], cols=['a']), '.2f')
+            '3.14'
         """
         # Assuming the current object is a single cell when called in formatting
         # If a format_spec is provided, use it; otherwise, use __str__
@@ -508,13 +573,24 @@ class Daf:
 
     def __eq__(self, other: object) -> bool:
         """
-        Compare this Daf instance with another.
+        Compare two Daf instances.
+
+        Two Daf instances are equal when their rows, their column names and their
+        keyfield are equal. The order of the columns matters. The name, dtypes,
+        attrs and modes are not compared. Anything that is not a Daf is not equal.
 
         Args:
-            other: Object to compare against.
+            other: The object to compare with.
 
         Returns:
-            bool: True if equal, False otherwise.
+            True if equal.
+
+        Examples:
+            >>> a = Daf(lol=[[1]], cols=['x'])
+            >>> a == Daf(lol=[[1]], cols=['x'])
+            True
+            >>> a == Daf(lol=[[1]], cols=['x'], keyfield='x')
+            False
         """
         if not isinstance(other, Daf):
             return False
@@ -524,39 +600,52 @@ class Daf:
 
     def __str__(self) -> str:
         """
-        Return a human-readable string representation.
+        Show the Daf as a Markdown table.
+
+        The table shows at most `md_max_rows` rows and `md_max_cols` columns, 10 by
+        default. Larger tables show the first five and the last five, with `...`
+        between them. A summary line with the size and keyfield follows the table.
+        Use `md_daf_table_snippet()` for control over the output.
 
         Returns:
-            str: String representation.
-        """        
+            The Markdown text.
+        """
         return self.md_daf_table_snippet()
 
 
     def __repr__(self) -> str:
         """
-        Return a developer-oriented representation.
+        Show the Daf as a Markdown table, for the Python prompt.
+
+        This is the same text as `str()`, with a newline in front, so the table
+        starts at the left margin when it is echoed at the prompt.
 
         Returns:
-            str: Representation string.
+            The Markdown text.
         """
         return "\n"+self.md_daf_table_snippet()
 
 
     def __contains__(self, key: Any) -> bool:
         """
-        Check if a key exists in the Daf.
+        Test whether a key is in the keyfield column.
+
+        Use it as `key in my_daf`. For a composite keyfield, the key is a tuple.
+        An empty Daf contains nothing.
 
         Args:
-            key: Key to test.
+            key: The key to look for.
 
         Returns:
-            bool: True if key exists.
+            True if a row has this key.
 
-        Notes:
-            If keyfield is set, the internal _kd may be rebuilt if invalidated.
-            else, kd could be manually initiallized, do not rebuild.
+        Raises:
+            KeyError: The Daf has rows but no keyfield, and no key index was adopted.
 
-            usage:  if (key in my_daf)
+        Examples:
+            >>> d = Daf(lol=[[1, 'a'], [2, 'b']], cols=['id', 'v'], keyfield='id')
+            >>> 2 in d, 5 in d
+            (True, False)
         """
         if not self:
             return False
@@ -577,15 +666,21 @@ class Daf:
 
     def num_cols(self) -> int:
         """
-        Estimate the number of columns.
+        Count the columns by looking at the rows.
+
+        This does not use the column names. It returns the length of the longest of
+        the first 10 rows, and 0 if there are no rows. For a table with equal row
+        lengths that is the real width. Use `len(d.columns())` to count the names, and
+        `is_rectangular()` to check the rows.
 
         Returns:
-            int: Number of columns.
+            The number of columns.
 
-        Notes:
-            Uses up to the first 10 rows. Assumes rows have consistent length.
-            Returns 0 if no data.
-            This only works well if the array has rows that are all the same length.
+        Examples:
+            >>> Daf(lol=[[1, 2, 3]], cols=['a', 'b']).num_cols()
+            3
+            >>> Daf(cols=['a', 'b']).num_cols()
+            0
         """
         # unit tested
 
@@ -597,20 +692,20 @@ class Daf:
 
     def __len__(self) -> int:
         """
-        Return number of rows.
+        Return the number of rows, so `len(d)` works.
 
         Returns:
-            int: Number of rows in the Daf.
+            The number of rows.
         """
         return self.num_rows()
 
 
     def num_rows(self) -> int:
         """
-        Return number of rows.
+        Return the number of rows.
 
         Returns:
-            int: Number of rows in the Daf.
+            The number of rows.
         """
  
         if not self.lol:
@@ -621,10 +716,12 @@ class Daf:
 
     def len(self) -> int:
         """
-        Return number of rows.
+        Return the number of rows.
+
+        This does the same as `num_rows()` and `len(d)`.
 
         Returns:
-            int: Number of rows in the Daf.
+            The number of rows.
         """
         return self.num_rows()
 
@@ -633,17 +730,18 @@ class Daf:
         """
         Check whether every row has the same length.
 
+        With column names, every row must be as long as the number of names. Without
+        names, every row must be as long as the first row. An empty Daf is rectangular.
+
+        This looks at every row. Use it when you do not trust the source of the data.
+        `num_cols()` only samples the first rows.
+
         Returns:
-            bool: True if all rows are the same length.
+            True if all rows have the expected length.
 
-        Notes:
-            If columns are defined (hd is non-empty), every row's length must equal the
-            number of columns. If not, every row's length must equal the first row's.
-            An empty Daf (no rows) is considered rectangular.
-
-            Checks every row -- O(num_rows). Unlike num_cols(), which only samples the
-            first 10 rows and assumes the array is already consistent, this is the
-            actual verification, not an estimate.
+        Examples:
+            >>> Daf(lol=[[1, 2], [3]], cols=['a', 'b']).is_rectangular()
+            False
         """
         if not self.lol:
             return True
@@ -655,32 +753,24 @@ class Daf:
 
     def force_rectangular(self) -> 'Daf':
         """
-        Pad every row shorter than the target width with empty strings, in place.
+        Pad short rows with empty strings, in place.
+
+        Use this when a source leaves off trailing empty cells. An xlsx file read by
+        `xlsx_to_csv()` does that. The target width is the number of column names. With
+        no names, it is the length of the longest row.
+
+        Rows that are too long are not cut. That would hide damage, such as an
+        unquoted comma that split a value. They raise an error instead.
 
         Returns:
-            Daf: self, mutated in place, for chaining.
+            This Daf, which has been changed.
 
         Raises:
-            ValueError: if any row is longer than the target width. Padding can't fix
-                that, and this method's own name promises a rectangular result -- an
-                over-length row is real data corruption (e.g. an unquoted comma in a
-                hand-edited CSV row splitting it into extra fields), and returning
-                self still non-rectangular with no signal at all would be worse than
-                the loud failure this raises instead. Never silently truncates a long
-                row either, which would hide the corruption rather than surface it.
+            ValueError: A row is longer than the number of columns. Nothing is changed.
 
-        Notes:
-            Target width is len(cols) if columns are defined, else the longest row
-            currently present -- by construction, no row can then exceed it, so the
-            error above is only reachable when columns are defined.
-
-            Written for the case xlsx_to_csv()'s docstring describes: an xlsx source
-            (via xlsx2csv) omits a row's trailing empty cells entirely rather than
-            writing them out, so short rows are the normal, expected case there, not
-            data corruption -- this is the general-purpose fix for that, operating
-            directly on self.lol in one pass instead of add_trailing_columns_csv()'s
-            CSV-text round trip, which only samples the first few rows to guess the
-            target width and can under-pad a file whose later rows are genuinely wider.
+        Examples:
+            >>> Daf(lol=[[1, 2], [3]], cols=['a', 'b']).force_rectangular().lol
+            [[1, 2], [3, '']]
         """
         if not self.lol:
             return self
@@ -704,19 +794,18 @@ class Daf:
 
     def shape(self) -> Tuple[int, int]:
         """
-        Return shape of the Daf.
+        Return the number of rows and columns as a tuple.
+
+        This is a method, not a property, because the column count is worked out from
+        the rows. It is the same as `(num_rows(), num_cols())`. A Daf with column
+        names but no rows has shape `(0, 0)`.
 
         Returns:
-            Tuple[int, int]: (number of rows, number of columns)
+            A tuple of the number of rows and the number of columns.
 
-        Notes:
-            Column count is based on the first (up to) 10 rows.
-
-        shape() is a method and not a property because it is work
-                to determine the shape. use num_rows() and num_cols()
-                instead.
-
-
+        Examples:
+            >>> Daf(lol=[[1, 2], [3, 4], [5, 6]], cols=['a', 'b']).shape()
+            (3, 2)
         """
         # test exists in test_daf.py
 
@@ -731,20 +820,36 @@ class Daf:
 
     def copy(self, deep: bool = False, for_sorting: bool = False) -> Daf:
         """
-        Create a copy of the Daf.
+        Make a copy of the Daf.
+
+        How much is copied depends on the options. Choose the cheapest one that is
+        safe for what you do next.
+
+        A plain copy is shallow. The new Daf shares the row list `lol`, the rows and
+        `hd` with the original. Appending a row to the copy also appends it to the
+        original, and so does changing a cell. Only the `attrs` are copied.
+
+        With `for_sorting=True` the list of rows is copied, but the rows are still
+        shared. You can sort or reorder the copy without changing the original. A
+        change inside a row still reaches both.
+
+        With `deep=True` nothing is shared.
 
         Args:
-            deep: If True, perform a deep copy.
-            for_sorting: If true and deep not also provided,
-                makes a shallow copy of lol an kd so the copied daf array
-                can be sorted and not impact the first array, although the
-                contents of the rows are still shared.
+            deep: If True, copy everything, so the two Daf instances are independent.
+            for_sorting: If True and not deep, copy the list of rows but share the rows.
 
         Returns:
-            Daf: Copied instance.
+            The new Daf.
 
-        Notes:
-            Ensures `attrs` are copied correctly.
+        Examples:
+            >>> d = Daf(lol=[[2, 'b'], [1, 'a']], cols=['id', 'v'])
+            >>> shallow = d.copy()
+            >>> shallow.lol.append([3, 'c'])
+            >>> d.num_rows()
+            3
+            >>> d.copy(deep=True).lol is d.lol
+            False
         """
 
         if deep:
@@ -788,10 +893,17 @@ class Daf:
 
     def columns(self) -> T_ls:
         """
-        Return column names.
+        Return the column names.
+
+        The list is a new copy, so changing it does not change the Daf. Use
+        `set_cols()` or `rename_cols()` to change the names.
 
         Returns:
-            List[str]: Column names.
+            The column names, in order.
+
+        Examples:
+            >>> Daf(cols=['a', 'b']).columns()
+            ['a', 'b']
         """
         # test exists in test_daf.py
         return list(self.hd.keys())
@@ -812,17 +924,22 @@ class Daf:
     @staticmethod
     def isin(listlike1: Union[T_da, T_la], listlike2: Union[T_da, T_la]) -> T_lb:
         """
-        Compute membership mask between two collections.
+        Make a list of True and False, one per item of the first collection.
+
+        An item is True if it is found in the second collection. This is a static
+        method, so call it as `Daf.isin(a, b)`. It is handy for picking or leaving out
+        columns by name.
 
         Args:
-            listlike1: Source collection.
-            listlike2: Values to test membership against.
+            listlike1: The items to test, in order.
+            listlike2: The collection to look in.
 
         Returns:
-            List[bool]: Boolean mask indicating membership.
+            A list of bools, as long as `listlike1`.
 
-        Notes:
-            Commonly used for column or row selection and exclusion.
+        Examples:
+            >>> Daf.isin(['a', 'b', 'c'], ['b'])
+            [False, True, False]
         """
 
         """ creates a boolean mask (list of bools) for each item in list1 which is in list2
@@ -876,19 +993,31 @@ class Daf:
             exclude_types: Optional[List[Type]]=None,
            ) -> Iterable:
         """
-        Compute a set of columns for operations such as apply or reduce.
+        Work out a list of column names from rules.
+
+        Use it to choose the columns for `apply` or `reduce`. The rules are applied
+        in this order: include by name, exclude by name, include by type and exclude
+        by type. The result keeps the order of the Daf. A single name may be given
+        as a string.
+
+        With a group by operation, leave the group by columns out of the list.
 
         Args:
-            include_cols: Columns to include by name.
-            exclude_cols: Columns to exclude by name.
-            include_types: Include columns by type.
-            exclude_types: Exclude columns by type.
+            include_cols: Keep only these column names.
+            exclude_cols: Drop these column names.
+            include_types: Keep only columns whose dtype is in this list.
+            exclude_types: Drop columns whose dtype is in this list.
 
         Returns:
-            Iterable: Selected column names.
+            The selected column names.
 
-        Notes:
-            Do not include groupby columns when used with group operations.
+        Raises:
+            RuntimeError: A type rule is given and no dtypes are set.
+
+        Examples:
+            >>> d = Daf(lol=[[1, 2, 3]], cols=['a', 'b', 'c'])
+            >>> d.calc_cols(exclude_cols='b')
+            ['a', 'c']
         """
 
         """ this method helps to calculate the columns to be specified for a apply or reduce operation.
@@ -958,14 +1087,24 @@ class Daf:
 
     def rename_cols(self, from_to_dict: T_ds) -> 'Daf':
         """
-        Rename columns using a mapping.
+        Rename columns in place.
+
+        Names that are not in the mapping stay as they are. Names in the mapping that
+        are not in the Daf are ignored. The dtypes are renamed too.
+
+        The keyfield is cleared, even if its column was not renamed. Call
+        `set_keyfield()` afterwards to turn key lookups back on.
 
         Args:
-            from_to_dict: Mapping of old column names to new names.
+            from_to_dict: Maps old names to new names.
 
-        Notes:
-            Rebuilds internal header and respects dtypes.
-            Clears keyfield; it must be reset after renaming.
+        Returns:
+            This Daf, which has been changed.
+
+        Examples:
+            >>> d = Daf(lol=[[1, 2]], cols=['a', 'b'])
+            >>> d.rename_cols({'b': 'c'}).columns()
+            ['a', 'c']
         """
 
         # unit tests exist
@@ -981,24 +1120,34 @@ class Daf:
 
     def set_cols(self, new_cols: Optional[T_ls]=None, sanitize_cols: bool=True, unnamed_prefix: str='col') -> 'Daf':
         """
-        Set column names for the Daf.
+        Set the column names, in place.
+
+        The new names are given by position, so the first name goes to the first
+        column. Without a list, the names are A, B, C and so on, like a spreadsheet.
+
+        With `sanitize_cols` on, a repeated name gets a suffix, so `['a', 'a']` becomes
+        `['a', 'a_1']`. An empty name becomes the prefix and its position, like `col2`.
+        The dtypes are renamed by position as well.
+
+        The keyfield is cleared. Call `set_keyfield()` afterwards to turn key lookups
+        back on.
 
         Args:
-            new_cols: Ordered list of column names. If None, generates spreadsheet-style names.
-            sanitize_cols: If True, ensure names are valid and unique.
-            unnamed_prefix: Prefix used for generated column names.
+            new_cols: The names, in order. If None, spreadsheet names are made.
+            sanitize_cols: If True, make the names valid and unique.
+            unnamed_prefix: The start of a name made for an empty one.
 
-        Notes:
-            Missing or duplicate names are replaced with generated values.
-            if new_cols is None, then we generate spreadsheet colnames like A, B, C... AA, AB, ...
+        Returns:
+            This Daf, which has been changed.
 
-            Renaming columns always resets self.keyfield to '' (disabling key lookups), even if
-            a column that logically corresponds to the old keyfield still exists under a new
-            name. This is deliberate: field renaming is expected to be rare, and silently
-            remapping the keyfield to "whichever new name is in the same position" is an
-            error-prone correspondence to maintain automatically. After renaming columns, call
-            set_keyfield() explicitly with the correct new column name if key lookups are still
-            needed.
+        Raises:
+            AttributeError: There are fewer names than columns.
+
+        Examples:
+            >>> Daf(lol=[[1, 2, 3]]).set_cols().columns()
+            ['A', 'B', 'C']
+            >>> Daf(lol=[[1, 2, 3]]).set_cols(['a', 'a', '']).columns()
+            ['a', 'a_1', 'col2']
         """
 
         num_cols = self.num_cols() or len(self.hd)
@@ -1041,17 +1190,32 @@ class Daf:
             ) -> Union[T_la, T_kva]:
 
         """
-        Return row keys derived from the keyfield or separately provided kd.
+        Return the row keys.
+
+        The keys are the values of the keyfield column, in row order. With a composite
+        keyfield each key is a tuple. The key index is built here if it is needed.
+
+        Without a keyfield the answer is an empty list, unless `silent_error` is False.
+        Then it raises an error. An index passed in as `kd` is not used by this method.
+
+        With `astype='view'` you get a view of the key index, not a copy. It keeps the
+        old keys after the Daf changes, so use it right away.
 
         Args:
-            silent_error: If False, raise error when keyfield is invalid.
-            astype: Output format ('list' or 'view').
+            silent_error: If False, raise an error when there is no keyfield.
+            astype: `list` for a new list, or `view` for a view of the index.
 
         Returns:
-            Union[List, KeysView]: Keys as list or view.
+            The keys.
 
-        Notes:
-            Users should not access the internal `_kd` directly.
+        Raises:
+            KeysDisabledError: There is no keyfield and `silent_error` is False.
+            ValueError: `astype` is neither `list` nor `view`.
+
+        Examples:
+            >>> d = Daf(lol=[[1, 'a'], [2, 'b']], cols=['id', 'v'], keyfield='id')
+            >>> d.keys()
+            [1, 2]
         """
 
         # test exists in test_daf.py
@@ -1082,27 +1246,36 @@ class Daf:
             force_kd_rebuild: bool=False,
             ) -> 'Daf':
         """
-        Set or reset the keyfield used for indexing. Index built lazily when needed.
+        Choose the column, or columns, that identify the rows.
+
+        Give a column name, or a tuple or list of names for a composite key. A
+        composite key is a tuple of those values. An empty keyfield turns key lookups
+        off. The key index is built later, when it is first needed.
+
+        The Daf must have column names first. With none, nothing happens.
+
+        A name that is not a column is stored anyway unless `silent_error` is False.
+        Then a `KeyError` is raised. A key that is not unique is not checked. A lookup
+        finds the last row that has it.
 
         Args:
-            keyfield: Column name(s) used as key. May be str, tuple, or list.
-            silent_error: If False, raise error for invalid keyfield.
-            force_kd_rebuild: If True, rebuild key dictionary immediately.
+            keyfield: Column name, or a tuple or list of names. Empty to turn off.
+            silent_error: If False, raise an error for a name that is not a column.
+            force_kd_rebuild: If True, build the key index now.
 
-        Notes:
-            If keyfield is empty, indexing is disabled and `_kd` is invalidated.
-            Keyfield changes do not automatically rebuild `_kd` unless forced.
+        Returns:
+            This Daf, which has been changed.
 
-            _kd semantics:
+        Raises:
+            KeyError: The keyfield is not a column and `silent_error` is False.
 
-            - If keyfield != '':
-                _kd is a managed index derived from lol and keyfield.
-                It may be invalidated (set to {}) and rebuilt lazily.
-
-            - If keyfield == '':
-                _kd is unmanaged (external/adopted).
-                It is not maintained and may become stale after mutation.
-        """ 
+        Examples:
+            >>> d = Daf(lol=[[1, 'a'], [2, 'b']], cols=['id', 'v'])
+            >>> d.set_keyfield('id').keys()
+            [1, 2]
+            >>> d.set_keyfield(['id', 'v']).keys()
+            [(1, 'a'), (2, 'b')]
+        """
         """ set the indexing keyfield to a new column
             if keyfield == '', then reset the keyfield.
             if keyfield not in columns,
@@ -1294,13 +1467,21 @@ class Daf:
 
     def get_existing_keys(self, keylist: T_ls) -> T_ls:
         """
-        Filter a list of keys to those present in the Daf.
+        Keep the keys that are in the Daf.
+
+        Use it to find out which of a list of keys have a row. The order of the list
+        is kept. The result is empty if the Daf has no keyfield.
 
         Args:
-            keylist: List of keys to check.
+            keylist: The keys to check.
 
         Returns:
-            List: Keys that exist in the Daf.
+            The keys from the list that have a row.
+
+        Examples:
+            >>> d = Daf(lol=[[1, 'a'], [2, 'b']], cols=['id', 'v'], keyfield='id')
+            >>> d.get_existing_keys([1, 5, 2])
+            [1, 2]
         """
 
         # unit tested
