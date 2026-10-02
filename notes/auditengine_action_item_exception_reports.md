@@ -131,3 +131,18 @@ With a bad later pattern, it silently applied the previous pattern again.
 5. Search AuditEngine for calls to the functions in section 4a. Decide whether any of them
    relied on continue mode. If so, the caller may need its own guard, or the owner may want
    that daffodil change revisited.
+
+## 6. Separate check: json_encode and NpEncoder
+
+- daffodil's daf_utils.py has `json_encode()` and the `NpEncoder` class it uses.
+- Nothing in daffodil calls them. ROADMAP.md says json_encode was replaced by Daf.to_json().
+- They probably came from AuditEngine. The owner wants them removed from daffodil if unused.
+- NaN and Infinity never occur in daffodil data. json_encode now raises ValueError on them,
+  which is Python's own error from strict JSON.
+
+Steps:
+
+1. Search AuditEngine for `json_encode` and `NpEncoder`, including any `daf_utils.` prefix.
+2. If AuditEngine uses them, copy them into AuditEngine's own utilities and change those
+   imports.
+3. Report back, so they and their tests can be deleted from daffodil.
