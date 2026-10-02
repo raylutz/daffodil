@@ -828,3 +828,84 @@ def test_apply_dtypes_keeps_every_digit_of_a_large_number():
     daf = Daf(lol=[['12345678901234567890']], cols=['id'])
     daf.apply_dtypes(dtypes={'id': int})
     assert daf.lol == [[12345678901234567890]]
+
+
+# columns that are added keep the names and the data together
+
+def _named():
+    return Daf(lol=[[1, 'ab12'], [2, 'cd34']], cols=['id', 's'], keyfield='id')
+
+
+def test_assign_icol_append_names_the_new_column():
+    daf = _named()
+    daf.assign_icol(-1, ['x', 'y'])
+    assert daf.columns() == ['id', 's', 'C']
+    assert daf.lol == [[1, 'ab12', 'x'], [2, 'cd34', 'y']]
+    assert daf.to_lod() == [{'id': 1, 's': 'ab12', 'C': 'x'}, {'id': 2, 's': 'cd34', 'C': 'y'}]
+
+
+def test_assign_icol_existing_column_changes_no_names():
+    daf = _named()
+    daf.assign_icol(1, ['x', 'y'])
+    assert daf.columns() == ['id', 's']
+
+
+def test_assign_icol_append_with_a_taken_name_gets_a_suffix():
+    daf = Daf(lol=[[1, 2]], cols=['id', 'C'])
+    daf.assign_icol(-1, [9])
+    assert daf.columns() == ['id', 'C', 'C_1']
+
+
+def test_insert_icol_without_a_name_names_the_new_column():
+    daf = _named()
+    daf.insert_icol(1, ['x', 'y'])
+    assert daf.columns() == ['id', 'C', 's']
+    assert daf.lol == [[1, 'x', 'ab12'], [2, 'y', 'cd34']]
+
+
+def test_insert_icol_with_a_name_uses_it():
+    daf = _named()
+    daf.insert_icol(1, ['x', 'y'], colname='mine')
+    assert daf.columns() == ['id', 'mine', 's']
+
+
+def test_insert_icol_on_a_daf_without_names_adds_no_names():
+    daf = Daf(lol=[[1, 'a']])
+    daf.insert_icol(1, ['x'])
+    assert daf.columns() == []
+    assert daf.lol == [[1, 'x', 'a']]
+
+
+def test_annotate_daf_adds_a_new_field_as_a_column():
+    daf = _named()
+    other = Daf(lol=[[1, 'P'], [2, 'Q']], cols=['id', 'w'], keyfield='id')
+    daf.annotate_daf(other, {'newcol': 'w'})
+    assert daf.columns() == ['id', 's', 'newcol']
+    assert daf.lol == [[1, 'ab12', 'P'], [2, 'cd34', 'Q']]
+
+
+def test_regex_select_into_a_new_column():
+    daf = _named()
+    daf.set_col2_from_col1_using_regex_select('s', 'n', regex=r'(\d+)')
+    assert daf.columns() == ['id', 's', 'n']
+    assert daf.lol == [[1, 'ab12', '12'], [2, 'cd34', '34']]
+
+
+def test_regex_select_with_an_unknown_col1_adds_no_column():
+    daf = _named()
+    with pytest.raises(KeyError):
+        daf.set_col2_from_col1_using_regex_select('nope', 'n', regex=r'(\d+)')
+    assert daf.columns() == ['id', 's']
+
+
+def test_apply_replace_regex_into_a_new_column():
+    daf = _named()
+    daf.apply_replace_regex('s', 't', replace_regex='/ab//')
+    assert daf.columns() == ['id', 's', 't']
+    assert daf.lol == [[1, 'ab12', '12'], [2, 'cd34', 'cd34']]
+
+
+def test_apply_replace_regex_with_an_unknown_column_adds_no_column():
+    daf = _named()
+    daf.apply_replace_regex('nope', 't', replace_regex='/a/b/')
+    assert daf.columns() == ['id', 's']

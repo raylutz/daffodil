@@ -6297,9 +6297,9 @@ class Daf:
         Fill a column by position with the values of a list.
 
         A list that is too short is filled out with `default`. With no list, every cell
-        gets `default`. With `icol=-1` a new column is added at the right. Its name is
-        not added, so the Daf has more values in each row than names. Use `insert_col()`
-        to add a column with a name.
+        gets `default`. With `icol=-1` a new column is added at the right. If the Daf has
+        column names, the new column gets the next spreadsheet name, such as `C`, made
+        unique. Use `insert_col()` to add a column with a name of your own.
 
         Args:
             icol: The column position. -1 adds a column at the right.
@@ -6316,6 +6316,24 @@ class Daf:
 
         self.lol = daf_utils.assign_col_in_lol_at_icol(icol, col_la, lol=self.lol, default=default)
 
+        if self.hd and self.lol and len(self.lol[0]) > len(self.hd):
+            # a column was added at the right. Name it, so the names match the data.
+            self._cols_to_hd(list(self.hd) + [self._new_colname()])
+
+    def _new_colname(self) -> str:
+        """
+        Make a name for a new column that has no name: the next spreadsheet name, such as `C`.
+
+        If that name is taken, a suffix is added, such as `C_1`. Internal use.
+        """
+        base = daf_utils._calculate_single_column_name(len(self.hd))
+        name = base
+        suffix = 0
+        while name in self.hd:
+            suffix += 1
+            name = f"{base}_{suffix}"
+        return name
+
 
 
     def insert_icol(
@@ -6330,9 +6348,9 @@ class Daf:
 
         A list that is too short is filled out with `default`. With `icol=-1`, or a
         position beyond the last column, the column is added at the right. Give
-        `colname` to name it. Without a name the data is inserted, but the names are
-        not changed, so rows have more values than names. The dtypes are not changed.
-        Use `set_keyfield()` if the column is to be the keyfield.
+        `colname` to name it. Without a name, if the Daf has column names, the column
+        gets the next spreadsheet name, such as `C`, made unique. The dtypes are not
+        changed. Use `set_keyfield()` if the column is to be the keyfield.
 
         Args:
             icol: The column position. -1 adds the column at the right.
@@ -6352,6 +6370,9 @@ class Daf:
         # from utilities import daf_utils
 
         self.lol = daf_utils.insert_col_in_lol_at_icol(icol, col_la, lol=self.lol, default=default)
+
+        if self.hd and not colname:
+            colname = self._new_colname()       # the names must match the data.
 
         if colname:
             if not self.hd:
@@ -7111,8 +7132,8 @@ class Daf:
         Both Daf instances need a keyfield. For each row here, the row with the same
         key in `other_daf` is found, and each field of this row named in
         `my_to_other_dict` gets the value of the other field. A key that is missing
-        in `other_daf` raises `KeyError`. Name existing columns. A name that is not
-        a column adds a value to the rows, but not a column name.
+        in `other_daf` raises `KeyError`. A field that is not a column here is added as
+        a new column at the right.
 
         Args:
             other_daf: The Daf to copy from.
@@ -7142,6 +7163,11 @@ class Daf:
             raise KeyError("annotate_daf: other daf array must have keyfield defined")
 
         other_daf._rebuild_kd_if_invalidated()
+
+        # a field that is not a column is added first, filled with NULL, so the names match the data.
+        for my_field in my_to_other_dict:
+            if my_field not in self.hd:
+                self.assign_col(my_field)
 
         for my_rec_klist in self.iter_klist():
 
@@ -8922,7 +8948,7 @@ class Daf:
 
         `regex` must have one pair of parentheses around the part to keep. A cell that
         does not match gives an empty cell. Give `regex` as a keyword. Without `col2`,
-        `col1` is changed. `col2` must be a column. If it is not, nothing is stored.
+        `col1` is changed. If `col2` is not a column, it is added at the right.
 
         Args:
             col1: The column to read.
@@ -8945,6 +8971,9 @@ class Daf:
         if not col2:
             col2 = col1
 
+        if col2 not in self.hd and col1 in self.hd:
+            self.insert_col(col2)       # a new column, so the result has a place to go.
+
         self.apply_in_place(lambda row_da: set_row_col2_from_col1_using_regex_select(row_da, col1, col2, regex))
 
 
@@ -8963,7 +8992,7 @@ class Daf:
             /pre(select)post/a\1b/        keep it, with new text around it
 
         The result goes to `col2`, or to `col` if there is no `col2`. A column that is
-        not found does nothing. `col2` must be a column. If it is not, nothing is stored.
+        not found does nothing. If `col2` is not a column, it is added at the right.
 
         Args:
             col: The column to read.
@@ -8988,6 +9017,9 @@ class Daf:
 
         if not col2:
             col2 = col
+
+        if col2 not in self.hd and col in self.hd:
+            self.insert_col(col2)       # a new column, so the result has a place to go.
 
         self.apply_in_place(lambda row_ma: set_row_col2_from_col_using_regex_replace(row_ma, col, col2, replace_regex))
 

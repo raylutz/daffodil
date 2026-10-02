@@ -144,6 +144,14 @@ all prior releases. Plans for future moved to ROADMAP.md.
   git-tracked) moved out of `src/` to a gitignored, local-only `deprecated/` folder.
 
 ### Fixed
+- Several methods added a value to the rows without adding a column name, so the rows had more
+  values than `columns()` had names. The CSV writer, `to_lod()` and `to_pandas_df()` then lost the
+  value, and `d[:, 2]` raised `IndexError`. `annotate_daf()` with a field that is not a column,
+  and `set_col2_from_col1_using_regex_select()` and `apply_replace_regex()` with a new `col2`,
+  now add that column. `assign_icol(-1)` and `insert_icol()` with no `colname` name the new
+  column with the next spreadsheet name, such as `C`, made unique, when the Daf has names. After
+  the `apply_in_place()` change, the two regex methods had also stopped storing anything for a
+  new `col2`. Eleven tests added.
 - `apply_dtypes()` and `convert_type_value()` changed a whole number text above 2 to the power
   53 into a different number, because the text went through a float. `'12345678901234567890'`
   became `12345678901234567168`. Whole number text is now converted with `int()`, so every digit

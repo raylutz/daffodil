@@ -196,7 +196,7 @@ The date of the first entry is 2026-10-02.
 
 ## Group 6: assigning, inserting, replacing and sorting
 
-54. `assign_icol(-1, ...)` adds a column of data but not a column name. Each
+54. Fixed with approval on 2026-10-02. `assign_icol(-1, ...)` added a column of data but not a column name. Each
     row then has one more value than `columns()` has names. `insert_icol()`
     without `colname` does the same. The README and docstrings call these
     ways to add a column.
@@ -232,7 +232,7 @@ The date of the first entry is 2026-10-02.
 
     `apply()` builds its new Daf from the first row returned, so it follows the
     returned dict. `by='row_klist'` avoids the problem.
-62. Three more methods add a value to the rows but not a name to the columns,
+62. Fixed with approval on 2026-10-02. Three more methods added a value to the rows but not a name to the columns,
     like item 54: `annotate_daf()` with a field that is not a column, and
     `set_col2_from_col1_using_regex_select()` and `apply_replace_regex()` with
     a new `col2`.
@@ -290,7 +290,7 @@ The date of the first entry is 2026-10-02.
 
 ## Side effect of item 61, found on 2026-10-02
 
-76. After `apply_in_place(by='row')` began writing back by column name, two
+76. Fixed with approval on 2026-10-02. After `apply_in_place(by='row')` began writing back by column name, two
     methods that relied on it to add a value stopped storing anything when
     `col2` is a new name. `set_col2_from_col1_using_regex_select('s', 'n')` and
     `apply_replace_regex('s', 't')` now leave the table unchanged. Before, they
