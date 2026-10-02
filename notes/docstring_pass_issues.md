@@ -144,6 +144,6 @@ The date of the first entry is 2026-10-02.
 
     Row slices are correct, and so is assigning to a column slice. Only reading
     a column slice is wrong. Python's `slice.indices()` gives the right answer
-    for every one of these. Seven tests are in `tests/test_daf_select_icols.py`.
+    for every one of these. Eight tests are in `tests/test_daf_select_icols.py`.
     Five of them are marked `xfail(strict=True)` with a reason that starts
     with BUG.
