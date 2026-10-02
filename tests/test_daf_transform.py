@@ -248,14 +248,14 @@ def test_update_by_keylist_basic():
 def test_update_by_keylist_none_keylist_noop():
     daf = Daf(lol=[[1, 'a']], cols=['id', 'name'], keyfield='id')
     result = daf.update_by_keylist(keylist=None, record={'name': 'x'})
-    assert result is None
+    assert result is daf
     assert daf.lol == [[1, 'a']]
 
 
 def test_update_by_keylist_none_record_noop():
     daf = Daf(lol=[[1, 'a']], cols=['id', 'name'], keyfield='id')
     result = daf.update_by_keylist(keylist=[1], record=None)
-    assert result is None
+    assert result is daf
     assert daf.lol == [[1, 'a']]
 
 

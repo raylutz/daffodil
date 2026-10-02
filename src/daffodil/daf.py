@@ -5069,7 +5069,7 @@ class Daf:
         return result_la
 
 
-    def drop_cols(self, exclude_cols: Optional[T_ls]=None) -> Optional['Daf']:
+    def drop_cols(self, exclude_cols: Optional[T_ls]=None) -> 'Daf':
         """ given a list of colnames, cols, remove them from daf array
             alters the daf and creates a copy of all data.
 
@@ -5087,7 +5087,7 @@ class Daf:
             keep_idxs_li: T_li = [self.hd[col] for col in self.hd if col not in exclude_cols]
 
         else:
-            return None
+            return self
 
         for irow, la in enumerate(self.lol):
             la = [la[idx] for idx in keep_idxs_li]
@@ -5233,7 +5233,7 @@ class Daf:
 
 
     #@deprecated("Use 'my_daf[keylist] = record' syntax")
-    def update_by_keylist(self, keylist: Optional[T_ls]=None, record: Optional[T_da]=None) -> Optional['Daf']:
+    def update_by_keylist(self, keylist: Optional[T_ls]=None, record: Optional[T_da]=None) -> 'Daf':
         """ Update selected records in daf by keylist using record
             only update those columns that have dict keys
             but keep all other dict items intact in that row if not updated.
@@ -5244,7 +5244,7 @@ class Daf:
         """
 
         if record is None or not self.lol or not self.hd or not self.keyfield or not keylist:
-            return None
+            return self
 
         self._rebuild_kd_if_invalidated()
 
@@ -5396,7 +5396,7 @@ class Daf:
             col_la:     Optional[T_la]=None,    # column to insert
             icol:       int=-1,                 # insert at end by default
             default:    Any='',
-            ) -> Optional['Daf']:
+            ) -> 'Daf':
 
         """ add col by colname and set to la at icol
             if la is not long enough for a full column, use the default.
@@ -5407,7 +5407,7 @@ class Daf:
         """
 
         if not colname:
-            return None
+            return self
         if not col_la:
             col_la = []             # perflint-reviewed (use-tuple-over-list)
 

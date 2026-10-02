@@ -195,7 +195,7 @@ def test_drop_cols_no_dtypes_does_not_crash():
 def test_drop_cols_none_is_noop():
     daf = Daf(lol=[[1, 'a']], cols=['id', 'name'])
     result = daf.drop_cols(None)
-    assert result is None
+    assert result is daf
     assert daf.lol == [[1, 'a']]
 
 
@@ -736,3 +736,12 @@ def test_iloc_out_of_range_returns_empty():
 def test_iloc_no_cols_generates_spreadsheet_names():
     daf = Daf(lol=[[1, 'a']])
     assert daf.iloc(0) == {'A': 1, 'B': 'a'}
+
+
+def test_noop_calls_return_self_for_chaining():
+    daf = Daf(lol=[[1, 'a']], cols=['id', 'name'], keyfield='id')
+    assert daf.drop_cols([]) is daf
+    assert daf.update_by_keylist([], {'name': 'x'}) is daf
+    assert daf.insert_col('') is daf
+    assert daf.lol == [[1, 'a']]
+    assert list(daf.hd) == ['id', 'name']

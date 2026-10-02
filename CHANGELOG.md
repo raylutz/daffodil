@@ -132,6 +132,10 @@ all prior releases. Plans for future moved to ROADMAP.md.
   git-tracked) moved out of `src/` to a gitignored, local-only `deprecated/` folder.
 
 ### Fixed
+- `drop_cols()`, `update_by_keylist()` and `insert_col()` returned None when there was
+  nothing to do. They now return the Daf, as the other methods do, so calls can be chained.
+  Their return type is now `Daf`, not `Optional[Daf]`. Three tests changed from `is None`
+  to `is daf`. One test added.
 - `append(Daf, respect_kd=True)` ignored `respect_kd` and left duplicate keys. It now passes
   the flag to `concat()`. `extend()` ignored it too. `concat()` returns the Daf instead of
   None when the other Daf is empty. Its docstring said it kept one record per key, which
