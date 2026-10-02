@@ -272,3 +272,18 @@ The date of the first entry is 2026-10-02.
     The likely intent is to pass them to `func`.
 73. `convert_type_value()`: `'false'` and `'no'` convert to the `bool` value 1,
     `'inf'` to `int` raises `OverflowError`, and `'1.9'` to `int` gives 1.
+74. SERIOUS for ids. `convert_type_value()` turns a text number into an `int`
+    with `int(float(val))`. Above 2 to the power 53 a float cannot hold every
+    digit, so the number is silently changed. Real output:
+
+        '9007199254740993'      becomes 9007199254740992
+        '12345678901234567890'  becomes 12345678901234567168
+        Daf.apply_dtypes() gives the same changed value.
+
+    Python's own `int()` on the text keeps every digit. A test is in
+    `tests/test_daf_utils_coverage.py`, marked `xfail(strict=True)`.
+75. `apply_dtypes()` is the slowest way to convert many columns. For 2,000 rows
+    and 1,000 columns, all converted to int: `apply_dtypes()` 0.900 s, `apply_to_col()`
+    for each column 0.632 s, `apply_in_place()` by row 0.476 s, a plain loop with a
+    minimal int conversion 0.198 s. The cause is a call of the general conversion
+    function for every cell, with several checks each.

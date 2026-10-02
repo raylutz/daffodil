@@ -494,3 +494,14 @@ def test_pandas_dtype_to_python_type_timedelta_index():
 # daf_md.py
 # =====================================================================
 # Remaining uncovered lines in daf_md.py (453, 542) are unreachable -- see report; no tests.
+
+
+# convert_type_value: whole numbers that are too big for a float
+
+@pytest.mark.xfail(strict=True, reason="BUG: daf_utils.py convert_type_value() converts a str to int with "
+                   "int(float(val)). Above 2**53 the float cannot hold the number, so "
+                   "'9007199254740993' becomes 9007199254740992.")
+def test_convert_type_value_big_int_text_keeps_every_digit():
+    from daffodil.lib.daf_utils import convert_type_value
+    assert convert_type_value('9007199254740993', int) == 9007199254740993
+    assert convert_type_value('12345678901234567890', int) == 12345678901234567890
