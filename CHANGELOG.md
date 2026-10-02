@@ -115,8 +115,9 @@ all prior releases. Plans for future moved to ROADMAP.md.
   a table that had the manifest's columns. It now keeps the chunks' columns.
 - `count_values_da` changed the caller's rows. It stored a row's list or dict, then added to
   it. It now stores a copy.
-- `flatten` ignored use_pyon=False and never wrote JSON. A leftover line set use_pyon back to
-  True.
+- `flatten` silently ignored use_pyon=False. A line set use_pyon back to True. Since daffodil
+  standardized on PYON, use_pyon=False now raises ValueError, and the JSON code is removed.
+  The parameter stays so existing calls with use_pyon=True still work.
 - Duplicate column names could lose a column name. With columns a_2, a and a, the second a is
   renamed a_2, which already exists.
   - The header then had 2 names, while each row still had 3 values.

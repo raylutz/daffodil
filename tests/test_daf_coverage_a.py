@@ -109,10 +109,11 @@ def test_apply_dtypes_single_type_for_all_cols():
 
 # --- flatten
 
-def test_flatten_use_pyon_false_json_encodes():
+def test_flatten_use_pyon_false_raises():
     daf = Daf(lol=[[{'x': 1}, True]], cols=['a', 'b'], dtypes={'a': dict, 'b': bool})
-    daf.flatten(use_pyon=False)
-    assert daf.lol == [['{"x": 1}', 1]]
+    with pytest.raises(ValueError, match='use_pyon=False is not supported'):
+        daf.flatten(use_pyon=False)
+    assert daf.lol == [[{'x': 1}, True]]
 
 
 # --- to_attrib_dict

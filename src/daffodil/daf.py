@@ -1409,39 +1409,25 @@ class Daf:
 
     def flatten(self, convert_bool_to_int=True, use_pyon: bool = True):
         """
-        Flatten complex column types into serializable representations.
+        Convert list and dict cells to PYON text, and optionally bools to ints.
 
-        Largely deprecated: to_csv_buff()/to_csv_file() now automatically flatten complex cell
-        types via PYON encoding as part of CSV writing, which is both simpler and a significant
-        performance win over a separate flatten-then-write pass. Calling flatten() explicitly is
-        rarely needed.
+        Rarely needed. to_csv_buff() and to_csv_file() flatten every cell as they write, using
+        the cell's repr. That is simpler and faster than a separate flatten pass.
+
+        Objects written to CSV must have a repr that can be read back. Unusual objects may not
+        flatten correctly.
 
         Args:
-            convert_bool_to_int: Convert bool values to integers.
-            use_pyon: Use PYON encoding instead of JSON.
+            convert_bool_to_int: Convert columns with dtype bool to 0 and 1.
+            use_pyon: Kept for compatibility. Only True is supported. False raises ValueError,
+                since JSON flattening was dropped when daffodil standardized on PYON.
 
         Notes:
-            Modifies data in-place. Useful prior to CSV export.
-            Not required prior to CSV export if PYON is used, csv conversion 
-                will convert to PYON for any complext types.
+            Only columns with dtype list or dict are converted. Modifies the Daf in place.
+            Historical reference: https://legacy.python.org/workshops/1994-11/FlattenPython.html
         """
-
-        """ convert any columns specified in dtypes as either list or dict, and
-            flatten using PYON or JSON encoding. Modifies the array in place. If use_pyon, will
-            flatten arbitrary nested objects, functions or methods.
-
-            Note, if using pyon encoding, there is no need to flatten prior to writing the csv data,
-                as it is converted using csv.writer using the __repr__ method for the object. This
-                normally works but you should use int's for bools in your data so the data will
-                not explode into True and False strings, but remain 1 and 0.
-
-            if desired type is bool, it will convert to int, if convert_bool_to_int is True
-
-            This should be envoked just prior to saving the data to a csv file if use_pyon = False.
-            --> Otherwise, there is no need to flatten the data, it will happen automatically.
-
-            Historical Reference: https://legacy.python.org/workshops/1994-11/FlattenPython.html
-        """
+        if not use_pyon:
+            raise ValueError("flatten(): use_pyon=False is not supported. Cells are flattened to PYON.")
 
         if not self.lol or not self.lol[0] or not self.dtypes:
             # this can sometimes happen, no worries.
@@ -1468,11 +1454,7 @@ class Daf:
                 icol = self.hd[col]
 
                 for irow in range(len(self.lol)):
-
-                    if use_pyon:
-                        self.lol[irow][icol] = f"{self.lol[irow][icol]}"
-                    else:
-                        self.lol[irow][icol] = daf_utils.json_encode(self.lol[irow][icol])
+                    self.lol[irow][icol] = f"{self.lol[irow][icol]}"
 
             if convert_bool_to_int and desired_type is bool:
                 # this should be rare!
@@ -2412,10 +2394,8 @@ class Daf:
         """ this function writes the daf array to a csv buffer, including the header if include_header==True.
             The buffer can be saved to a local file or uploaded to a storage service like s3.
 
-            Use .flatten() before calling this and use JSON encoding for any objects that are not str, int, float, or bool.
-
-            However, this function will automatically flatten any nested objects to PYON, 
-                    according to __repr__ for that object.
+            There is no need to call .flatten() first. This function flattens any nested
+                    objects to PYON, according to __repr__ for that object.
                 This differs from pure JSON format because:
                     1. it uses single-quotes instead of double quotes around strings.
                     2. it allows non-str keys in dicts.
