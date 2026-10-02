@@ -72,8 +72,34 @@ def _from_pandas_df(
         dtypes: Optional[T_dtype_dict]=None
         ) -> 'Daf':  # -> 'Daf'
     """
-    Convert a Pandas dataframe to daf object
-        @@TODO: This does not enforce dtypes are correct.
+    Make a Daf from a Pandas DataFrame or Series.
+
+    The values become plain Python values. The column names come from the
+    DataFrame. The index is not kept. The dtypes are worked out from the Pandas
+    dtypes, but the values are not converted to them. A Series becomes one row,
+    with the index labels as column names. Its dtypes dict is keyed `col`, which
+    does not match those names.
+
+    With `use_csv=True` the DataFrame is turned into CSV text first, and that is
+    read back. This can be faster for some frames.
+
+    Args:
+        df: The DataFrame or Series.
+        keyfield: Column, or tuple or list of columns, whose values identify rows.
+        name: Name of the new Daf.
+        use_csv: If True, convert by way of CSV text.
+        dtypes: Accepted, but it is not used. The dtypes come from `df`.
+
+    Returns:
+        The new Daf.
+
+    Examples:
+        >>> import pandas as pd
+        >>> from daffodil.daf import Daf
+        >>> df = pd.DataFrame({'id': [1, 2], 'v': ['a', 'b']})
+        >>> d = Daf.from_pandas_df(df, keyfield='id')
+        >>> d.lol
+        [[1, 'a'], [2, 'b']]
     """
     import pandas as pd     # type: ignore
     
@@ -116,49 +142,35 @@ def _to_pandas_df(
     defaulting_cols: Optional[T_ls] = None,
     ) -> Any:
     """
-    Convert the Daffodil table to a Pandas DataFrame.
+    Make a Pandas DataFrame from the Daf.
 
-    Parameters:
-        cols:
-            List of columns (names or indices) to include in the DataFrame.
-            If None, includes all columns.
+    Daffodil stores a missing value as an empty string. Pandas treats that as
+    text, so a column with empty cells is of type `object`, even if the rest are
+    numbers. Text that looks like a number stays text. Convert columns afterwards
+    if you want other types.
 
-        default:
-            If provided, replaces all '' and None with this value.
-            Requires that defaulting_cols be provided to indicate which columns to clean.
-            NOTE: Mutates the provided daffodil array. Copy it prior to calling if the array
-                    will be further used.
+    Giving `default` replaces empty and None cells in the Daf itself, before the
+    conversion. That changes the Daf you called it on. Copy it first if you need
+    it unchanged. `default` cannot be used with `use_csv`.
 
-        defaulting_cols:
-            Columns to which default should apply. Ignored if default is not provided.
-            If None and default is given, default applies to all included columns.
-
-        use_csv:
-            Convert via internal CSV buffer. Faster in some cases.
-
-        use_donpa:
-            Convert via dict-of-numpy-arrays (Daffodil-native, fastest for numeric).
-            Probably not a good choice for arrays with non-numeric columns.
+    Args:
+        cols: Names, or positions, of the columns to include. If None, all columns.
+        use_csv: If True, convert by way of CSV text.
+        use_donpa: If True, convert by way of `to_donpa()`. This suits numeric columns.
+        default: Value that replaces empty and None cells. This changes the Daf.
+        defaulting_cols: The columns that `default` applies to. If None, all included columns.
 
     Returns:
-        Pandas DataFrame.
+        The DataFrame.
 
+    Raises:
+        NotImplementedError: `default` is given with `use_csv=True`.
 
-    Notes:
-    - Daffodil uses '' (empty string) as the standard representation for unset or missing values,
-      which is ideal for display and printing. These will appear as strings in the resulting DataFrame.
-    - Pandas treats '' as a valid string, not a missing value, which can cause columns to be inferred
-      as 'object' type even if most values are numeric.
-    - This method avoids implicit type coercion: string values like '123' remain strings,
-      even if they look numeric. It is up to the caller to post-process columns if explicit type
-      conversion is desired.
-
-    Mutation Warning:
-    - If `default` is provided (and `use_csv` is False), this method will mutate the Daffodil
-      table in place by replacing '' and None in the specified columns. This matches Daffodil’s
-      general mutability model, but callers should not rely on the Daf instance being unchanged
-      after conversion. If you need to preserve the original table, make a copy first.
-      
+    Examples:
+        >>> from daffodil.daf import Daf
+        >>> d = Daf(lol=[[1, 'a'], [2, 'b']], cols=['id', 'v'])
+        >>> d.to_pandas_df().values.tolist()
+        [[1, 'a'], [2, 'b']]
     """
 
     selected_cols = cols if cols is not None else self.columns()

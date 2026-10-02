@@ -24,3 +24,15 @@ imports. They are called like any other method, for example `my_daf.apply_schema
       heading: "default_record"
       heading_level: 3
       show_root_full_path: false
+
+::: daffodil.lib.daf_pandas._from_pandas_df
+    options:
+      heading: "from_pandas_df"
+      heading_level: 3
+      show_root_full_path: false
+
+::: daffodil.lib.daf_pandas._to_pandas_df
+    options:
+      heading: "to_pandas_df"
+      heading_level: 3
+      show_root_full_path: false

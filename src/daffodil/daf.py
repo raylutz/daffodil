@@ -1979,19 +1979,31 @@ class Daf:
             cols:           T_ls | None                 = None, # Optionally use cols to define column names
             ) -> 'Daf':
         """
-        Create Daf from list of dictionaries.
+        Make a Daf from a list of dicts, one dict for each row.
+
+        The column names are the keys of the first dict. The first dict must have
+        every key. A later dict that lacks a key gets NULL there. A later dict with an
+        extra key loses that value. Empty dicts and items that are not dicts are
+        skipped.
+
+        If `cols` is given, those are the columns. Otherwise the keys of `dtypes` are
+        the columns, and any other keys are left out.
 
         Args:
-            records_lod: List of dict records.
-            keyfield: Optional keyfield.
-            dtypes: Optional dtype mapping, used to establish columns if provided.
-            name: Optional name.
+            records_lod: The rows, as dicts.
+            keyfield: Column, or tuple or list of columns, whose values identify rows.
+            dtypes: Type for each column. When given, it also selects the columns.
+            name: Name of the new Daf.
+            cols: Column names to use, in order.
 
         Returns:
-            Daf: New instance.
+            The new Daf.
 
-        Note:
-            adopts dict keys as column names if dtypes not provided.
+        Examples:
+            >>> Daf.from_lod([{'a': 1, 'b': 2}, {'a': 3}]).lol
+            [[1, 2], [3, '']]
+            >>> Daf.from_lod([{'a': 1, 'b': 2}], cols=['b', 'a']).lol
+            [[2, 1]]
         """
 
         """ Create Daf instance from loda type, adopting dict keys as column names
@@ -2042,17 +2054,29 @@ class Daf:
             name:           str                         = '',   # Optional name of the daffodil instance.
             ) -> 'Daf':
         """
-        Create Daf from list of tuples.
+        Make a Daf from a list of tuples, one tuple for each row.
+
+        Without `cols` the columns are named `col_0`, `col_1` and so on. This differs
+        from `set_cols()`, which makes spreadsheet names such as `A` and `B`.
 
         Args:
-            records_lot: List of tuples.
-            cols: Column names.
-            dtypes: Column type mapping.
-            keyfield: Keyfield definition.
-            name: Optional name.
+            records_lot: The rows, as tuples.
+            cols: Column names. They must be as many as the items in each tuple.
+            dtypes: Type for each column.
+            keyfield: Column, or tuple or list of columns, whose values identify rows.
+            name: Name of the new Daf.
 
         Returns:
-            Daf: New instance.
+            The new Daf.
+
+        Raises:
+            ValueError: A tuple does not have as many items as there are columns.
+
+        Examples:
+            >>> Daf.from_lot([(1, 'a'), (2, 'b')], cols=['id', 'v']).lol
+            [[1, 'a'], [2, 'b']]
+            >>> Daf.from_lot([(1, 'a')]).columns()
+            ['col_0', 'col_1']
         """
         """
         Create Daf instance from LOT (list of tuples), adopting given column names or generating default ones.
@@ -2095,10 +2119,18 @@ class Daf:
 
     def to_lod(self) -> T_loda:
         """
-        Convert Daf to list of dictionaries.
+        Make a list of dicts, one dict for each row.
+
+        The dicts are new, but the values in them are the same objects as in the Daf.
+        An empty Daf gives an empty list. See `iter_dict()` to go through rows one at
+        a time without building the whole list.
 
         Returns:
-            List[Dict]: Data as list of dicts.
+            The rows as dicts.
+
+        Examples:
+            >>> Daf(lol=[[1, 'a']], cols=['id', 'v']).to_lod()
+            [{'id': 1, 'v': 'a'}]
         """
         # test exists in test_daf.py
 
@@ -2122,18 +2154,26 @@ class Daf:
             ) -> 'Daf':
 
         """
-        Create Daf from dict-of-dicts structure.
+        Make a Daf from a dict of dicts, where the outer key names the row.
+
+        A dict of dicts usually does not repeat the row key inside each row. A Daf
+        table always has it as a column. If the inner dicts lack the `keyfield`
+        column, it is added from the outer keys. The new Daf has that keyfield.
+
+        Use `to_dod()` to go back.
 
         Args:
-            dod: Nested dictionary.
-            keyfield: Name of key column.
-            dtypes: Optional dtype mapping.
+            dod: A dict that maps a row key to a dict of that row.
+            keyfield: The column that holds the outer key.
+            dtypes: Type for each column.
 
         Returns:
-            Daf: New instance.
+            The new Daf.
 
-        Notes:
-            Adds keyfield column if not present.
+        Examples:
+            >>> d = Daf.from_dod({'r0': {'x': 1}, 'r1': {'x': 2}})
+            >>> d.columns(), d.lol
+            (['rowkey', 'x'], [['r0', 1], ['r1', 2]])
         """
 
         """ a dict of dict (dod) structure is very similar to a Daf table, but there is a slight difference.
@@ -2173,13 +2213,27 @@ class Daf:
             remove_keyfield:    bool=True,      # by default, the keyfield column is removed.
             ) -> T_doda:
         """
-        Convert Daf to dict-of-dicts structure.
+        Make a dict of dicts, where the keyfield value names each row.
+
+        The keyfield column is left out of the inner dicts by default. Pass
+        `remove_keyfield=False` to keep it there too. The Daf must have a keyfield.
+        Without one, a `KeyError` is raised.
 
         Args:
-            remove_keyfield: If True, omit keyfield column.
+            remove_keyfield: If True, do not repeat the key inside each inner dict.
 
         Returns:
-            Dict: Nested dictionary representation.
+            A dict that maps each key to a dict of that row.
+
+        Raises:
+            KeyError: The Daf has no keyfield.
+
+        Examples:
+            >>> d = Daf(lol=[[1, 'a']], cols=['id', 'v'], keyfield='id')
+            >>> d.to_dod()
+            {1: {'v': 'a'}}
+            >>> d.to_dod(remove_keyfield=False)
+            {1: {'id': 1, 'v': 'a'}}
         """
 
         """ a dict of dict structure is very similar to a Daf table, but there is a slight difference.
@@ -2216,15 +2270,24 @@ class Daf:
             dtypes: Optional[T_dtype_dict]=None,
             ) -> 'Daf':
         """
-        Create Daf from column-oriented dict of lists.
+        Make a Daf from a dict of lists, where each list is a column.
+
+        All lists should be as long as the first one. If a list is shorter, an
+        `IndexError` is raised. If it is longer, the extra values are dropped without
+        a message.
 
         Args:
-            cols_dol: Mapping of column name to list of values.
-            keyfield: Optional keyfield.
-            dtypes: Optional dtype mapping.
+            cols_dol: Maps a column name to the list of its values.
+            keyfield: Column, or tuple or list of columns, whose values identify rows.
+            dtypes: Type for each column.
 
         Returns:
-            Daf: New instance.
+            The new Daf.
+
+        Examples:
+            >>> d = Daf.from_cols_dol({'A': [1, 2, 3], 'B': [4, 5, 6]})
+            >>> d.lol
+            [[1, 4], [2, 5], [3, 6]]
         """
         """ Create Daf instance from cols_dol type, adopting dict keys as column names
             and creating columns from each value (list)
@@ -2259,10 +2322,14 @@ class Daf:
 
     def to_cols_dol(self) -> dict:
         """
-        Convert Daf to column-oriented dict of lists.
+        Make a dict of lists, one list of values for each column.
 
         Returns:
-            Dict[str, List]: Column data.
+            A dict that maps each column name to the list of its values.
+
+        Examples:
+            >>> Daf(lol=[[1, 'a'], [2, 'b']], cols=['id', 'v']).to_cols_dol()
+            {'id': [1, 2], 'v': ['a', 'b']}
         """
 
         """ convert daf to dictionary of lists of values, where key is the
@@ -2279,19 +2346,17 @@ class Daf:
 
     def to_attrib_dict(self) -> dict:
         """
-        Convert Daf to attribute dictionary representation.
+        Make a dict with the column names and the rows.
+
+        This is deprecated. It keeps the rows as they are, not copied. Use
+        `to_lod()` or `to_cols_dol()` instead.
 
         Returns:
-            Dict: Dictionary with 'cols' and 'lol'.
+            A dict with the keys `cols` and `lol`.
 
-        Notes:
-            Deprecated.
-
-        Example:
-        {
-            'cols': ['A', 'B', 'C'],
-            'lol': [[1, 4, 7], [2, 5, 8], [3, 6, 9]]
-        }
+        Examples:
+            >>> Daf(lol=[[1, 'a']], cols=['id', 'v']).to_attrib_dict()
+            {'cols': ['id', 'v'], 'lol': [[1, 'a']]}
         """
         return {'cols': self.columns(), 'lol': self.lol}
 
@@ -2306,19 +2371,30 @@ class Daf:
             dtypes:     Optional[T_dtype_dict]=None
             ) -> 'Daf':
         """
-        Create Daf by transposing list-of-dicts into columns.
+        Make a Daf in which each dict becomes a column, not a row.
+
+        The keys of the dicts become the first column, and each dict adds one more
+        column after it. Use this to compare several results side by side, such as
+        the same features measured in several tries. It is a transpose of
+        `from_lod()`.
+
+        Without `cols`, the first column is named `key` and the others `A`, `B` and
+        so on. The names in `cols` include the first column. The keyfield is not set
+        unless `keyfield` is given.
 
         Args:
-            lod: List of dictionaries.
-            cols: Optional column names.
-            keyfield: Keyfield name.
-            dtypes: Optional dtype mapping.
+            lod: The dicts. They should all have the same keys.
+            cols: Column names, starting with the name of the column of keys.
+            keyfield: Column whose values identify rows.
+            dtypes: Type for each column of the dicts, before the change.
 
         Returns:
-            Daf: New instance.
+            The new Daf.
 
-        Notes:
-            Useful for comparative reporting across multiple records.
+        Examples:
+            >>> d = Daf.from_lod_to_cols([{'A': 1, 'B': 2}, {'A': 4, 'B': 5}], cols=['Feature', 'T1', 'T2'])
+            >>> d.lol
+            [['A', 1, 4], ['B', 2, 5]]
         """
         r""" Create Daf instance from a list of dictionaries to be placed in columns
             where each column shares the same keys in the first column of the array.
@@ -2385,18 +2461,24 @@ class Daf:
             unflatten: bool=True,                   # unflatten fields that are defined as dict or list.
             ) -> 'Daf':
         """
-        Create Daf from Excel buffer.
+        Make a Daf from the bytes of an xlsx file.
+
+        The first sheet is turned into CSV by the `xlsx2csv` package. The CSV is then
+        read like any CSV text. All values start as text, so give `dtypes` or call
+        `apply_dtypes()` to convert them.
+
+        Short rows are not padded here. `xlsx2csv` pads them. See `xlsx_to_csv()`.
 
         Args:
-            excel_buff: Binary Excel data.
-            keyfield: Optional keyfield.
-            dtypes: Optional dtype mapping.
-            noheader: If True, skip header parsing.
-            user_format: If True, preprocess input.
-            unflatten: Convert structured data types.
+            excel_buff: The bytes of the xlsx file.
+            keyfield: Column whose values identify rows.
+            dtypes: Type for each column.
+            noheader: If True, the first row is data, not column names.
+            user_format: If True, skip comment lines and blank lines.
+            unflatten: If True, read list and dict columns from their text.
 
         Returns:
-            Daf: New instance.
+            The new Daf.
         """
 
         # from utilities import xlsx_utils
@@ -2418,20 +2500,35 @@ class Daf:
     #==== CSV
     @classmethod
     def from_csv(cls, source: str | Path, **kwargs: Any) -> 'Daf':
-        """
-        Load CSV from file, URL, or S3.
+        r"""
+        Read a CSV file, a web address or an S3 object into a Daf.
+
+        The source may be a path, a `Path`, an `http` or `https` address, or an
+        `s3://bucket/key` name. The `requests` and `boto3` packages are imported only
+        when they are needed.
+
+        Every value is read as text. Give `dtypes`, or call `apply_dtypes()`, to
+        convert them. The other keyword arguments, such as `keyfield`, are those of
+        `from_csv_buff()`.
 
         Args:
-            source: Path, URL, or S3 location.
-            **kwargs: Passed to from_csv_buff.
+            source: A file path, an `http` address or an `s3://` name.
+            **kwargs: Passed on to `from_csv_buff()`.
 
         Returns:
-            Daf: Loaded data.
+            The new Daf.
 
-        Notes:
-            Data is initially loaded as strings.
-            use apply_dtypes() to convert data types.
-            Does not set the keyfield.
+        Raises:
+            RuntimeError: The download fails, a needed package is missing, or the
+                local file cannot be read or parsed. The message says which.
+
+        Examples:
+            >>> import os, tempfile
+            >>> path = os.path.join(tempfile.mkdtemp(), 'x.csv')
+            >>> with open(path, 'w') as f:
+            ...     n = f.write('id,v\n1,a\n')
+            >>> Daf.from_csv(path).lol
+            [['1', 'a']]
         """
         """
         Load a CSV file from a local file, URL, or S3 path into a Daf array.
@@ -2501,22 +2598,34 @@ class Daf:
             include_cols: Optional[T_ls]=None,          # include only the columns specified. noheader must be false.
             name: str = '',                             # name attribute of the Daf array created.
             ) -> 'Daf':
-        """
-        Create Daf from CSV buffer or iterator.
+        r"""
+        Make a Daf from CSV text, bytes or an iterator of lines.
+
+        The first row holds the column names, unless `noheader` is True. Quoted fields
+        may hold commas. Empty rows at the end are dropped. Cells are text, unless
+        `dtypes` is given. Then the cells are converted, and list and dict columns
+        are read from their text unless `unflatten` is False.
 
         Args:
-            csv_buff: CSV data (bytes, str, or iterator).
-            keyfield: Optional keyfield.
-            dtypes: Optional dtype mapping.
-            noheader: Skip header parsing.
-            user_format: Preprocess input.
-            sep: Field separator.
-            unflatten: Convert structured types.
-            include_cols: Subset of columns.
-            name: Optional name.
+            csv_buff: The CSV, as text, bytes or an iterator of lines.
+            keyfield: Column, or tuple or list of columns, whose values identify rows.
+            dtypes: Type for each column.
+            noheader: If True, the first row is data, and the Daf has no column names.
+            user_format: If True, skip comment lines and blank lines.
+            sep: The character that separates fields.
+            unflatten: If True, read list and dict columns from their text.
+            include_cols: Accepted, but it has no effect.
+            name: Name of the new Daf.
 
         Returns:
-            Daf: New instance.
+            The new Daf.
+
+        Examples:
+            >>> d = Daf.from_csv_buff('id,v\n1,a\n2,"b,c"\n')
+            >>> d.columns(), d.lol
+            (['id', 'v'], [['1', 'a'], ['2', 'b,c']])
+            >>> Daf.from_csv_buff('id,v\n1,a\n', dtypes={'id': int, 'v': str}).lol
+            [[1, 'a']]
         """
 
         """
@@ -2583,21 +2692,24 @@ class Daf:
             name: str = '',                         # name attribute of the Daf array created.
             ) -> Optional['Daf']:                   # New daf instance, or None on a read error (see below)
         """
-        Read CSV file into Daf.
+        Read a CSV file into a Daf. Deprecated, use `from_csv()`.
+
+        Unlike `from_csv()`, a file that cannot be read prints a message and returns
+        None. It does not raise an error. The file is read with the default encoding.
 
         Args:
-            filepath: File path.
-            keyfield: Optional keyfield.
-            dtypes: Optional dtype mapping.
-            noheader: Skip header parsing.
-            user_format: Preprocess input.
-            sep: Field separator.
-            unflatten: Convert structured types.
-            include_cols: Subset of columns.
-            name: Optional name.
+            filepath: Path of the file.
+            keyfield: Column, or tuple or list of columns, whose values identify rows.
+            dtypes: Type for each column.
+            noheader: If True, the first row is data, and the Daf has no column names.
+            user_format: If True, skip comment lines and blank lines.
+            sep: The character that separates fields.
+            unflatten: If True, read list and dict columns from their text.
+            include_cols: Accepted, but it has no effect.
+            name: Name of the new Daf.
 
         Returns:
-            Daf: New instance.
+            The new Daf, or None if the file could not be read.
         """
         """ Read a csv file directly into a daf array in memory, per arguments.
 
@@ -2644,16 +2756,27 @@ class Daf:
             include_header:     bool=True,
             #append_if_exists:   bool=False,
             ) -> str:
-        """
-        Write Daf to CSV file.
+        r"""
+        Write the Daf to a CSV file.
+
+        The file has a header row of column names unless `include_header` is False.
+        Each cell is written as text, so lists and dicts are written in their `str()`
+        form. A NULL cell is written as nothing. The default line ending is `\r\n`.
 
         Args:
-            file_path: Output file path.
-            line_terminator: Line ending.
-            include_header: Include column names.
+            file_path: Where to write the file.
+            line_terminator: The line ending. If None, `\r\n` is used.
+            include_header: If True, write the column names first.
 
         Returns:
-            str: Path written.
+            The path that was written.
+
+        Examples:
+            >>> import os, tempfile
+            >>> path = os.path.join(tempfile.mkdtemp(), 'x.csv')
+            >>> d = Daf(lol=[[1, 'a']], cols=['id', 'v'])
+            >>> d.to_csv_file(path) == path
+            True
         """
         if isinstance(file_path, Path):  # Convert Path object to string
             file_path = str(file_path)
@@ -2673,18 +2796,25 @@ class Daf:
             line_terminator: Optional[str]=None,
             include_header: bool=True,
             ) -> T_buff:
-        """
-        Write Daf to CSV buffer.
+        r"""
+        Make CSV text from the Daf.
+
+        The text can be saved to a file or uploaded. There is no need to call
+        `flatten()` first. Each cell is written with `str()`, so a list or dict is
+        written as its Python text, with single quotes. The bool `True` is written as
+        `True`. A NULL cell is written as nothing. The text is not JSON.
 
         Args:
-            line_terminator: Line ending.
-            include_header: Include column names.
+            line_terminator: The line ending. If None, `\r\n` is used.
+            include_header: If True, write the column names first.
 
         Returns:
-            Buffer: CSV data.
+            The CSV text.
 
-        Notes:
-            Automatically flattens complex types using __repr__ (to PYON).
+        Examples:
+            >>> d = Daf(lol=[[1, 'a']], cols=['id', 'v'])
+            >>> d.to_csv_buff(line_terminator='\n')
+            'id,v\n1,a\n'
         """
         """ this function writes the daf array to a csv buffer, including the header if include_header==True.
             The buffer can be saved to a local file or uploaded to a storage service like s3.
@@ -2717,12 +2847,18 @@ class Daf:
     @staticmethod
     def buff_to_file(buff: T_buff, file_path: str | Path, fmt:str='.csv') -> str:
         """
-        Write buffer to file.
+        Write text or bytes to a file.
+
+        This is a static method, so call it as `Daf.buff_to_file(buff, path)`. It is
+        the helper that `to_csv_file()` uses.
 
         Args:
-            buff: Data buffer.
-            file_path: Destination path.
-            fmt: File extension/format.
+            buff: The text or bytes to write.
+            file_path: Where to write.
+            fmt: The file format, such as `.csv`.
+
+        Returns:
+            The path that was written.
         """
         # write_buff_to_fp() does str-only operations on file_path (.startswith('s3'), a regex
         # substitution) that would raise AttributeError on a real Path object -- str() it here
@@ -2740,30 +2876,29 @@ class Daf:
             file_pat: str | None = None,
         ) -> 'Daf':
         """
-        Create a Daf from a local filesystem directory listing.
+        Make a Daf that lists the files in a folder.
 
-        The resulting Daf is initialized using either:
-            - the supplied schema, or
-            - the default filesystem schema.
+        Each row describes one file. The columns are the path, the folder, the name,
+        the name without its extension, the extension, the size in bytes, and the
+        modified and created times. There is also an `is_dir` column, which is always
+        0 because folders are not listed. Paths use `/` on every system.
 
-        Standard fields automatically populated:
+        The `schema` chooses the columns of the result. A `@schemaclass` that lists
+        only some of the fields above keeps only those. Other columns of the schema
+        get their defaults. The new Daf has no keyfield. Files that cannot be read
+        are skipped.
 
-            filepath
-            dirpath
-            basename
-            rootname
-            extension
-            size
-            mtime
-            ctime
-            is_dir
+        The method prints the time it took, which you may not want in a script.
+        Only local folders are supported.
 
-        Notes:
-            - paths are normalized to use '/'
-            - rows are appended incrementally
-            - only local filesystem operation is currently supported
-            - enrichment beyond filesystem metadata should occur later
-            - can be extended to handle other filesystems like s3.
+        Args:
+            source: The folder to list.
+            schema: A `@schemaclass` that chooses the columns. If None, the built in one is used.
+            recursive: If True, list files in all sub folders. Otherwise only the folder itself.
+            file_pat: A regular expression. Only file names that match it are listed. Case is ignored.
+
+        Returns:
+            The new Daf.
         """
 
         import os
@@ -2915,19 +3050,27 @@ class Daf:
     @classmethod
     def from_numpy(cls, npa: Any, keyfield:str='', cols:Optional[T_la]=None, name:str='') -> 'Daf':
         """
-        Create a Daf instance from a NumPy array.
+        Make a Daf from a NumPy array.
+
+        The values become plain Python values. A two dimensional array gives one row
+        for each row of the array. A one dimensional array gives a single row.
+
+        NumPy arrays hold one type. If the array mixes numbers and text, NumPy has
+        already turned everything into text before this method sees it.
 
         Args:
-            npa: NumPy array.
-            keyfield: Optional keyfield.
-            cols: Optional column names.
-            name: Optional name.
+            npa: The NumPy array.
+            keyfield: Column, or tuple or list of columns, whose values identify rows.
+            cols: Column names.
+            name: Name of the new Daf.
 
         Returns:
-            Daf: New instance.
+            The new Daf.
 
-        Notes:
-            Converts values to native Python types. NumPy type coercion may result in loss of original type information.
+        Examples:
+            >>> import numpy as np
+            >>> Daf.from_numpy(np.array([[1, 2], [3, 4]]), cols=['a', 'b']).lol
+            [[1, 2], [3, 4]]
         """
         """
         Convert a Numpy dataframe to daf object
@@ -2953,13 +3096,18 @@ class Daf:
 
     def to_numpy(self) -> T_npa:
         """
-        Convert Daf data to a NumPy array.
+        Make a NumPy array of the rows.
+
+        Column names, the keyfield and any dtypes are not kept. NumPy picks one type
+        for the whole array. If the Daf mixes numbers and text, every value becomes
+        text.
 
         Returns:
-            numpy.ndarray: Array representation of data.
+            The NumPy array.
 
-        Notes:
-            Column names and keyfield indexing are not preserved.
+        Examples:
+            >>> Daf(lol=[[1, 2.5]], cols=['a', 'b']).to_numpy().tolist()
+            [[1.0, 2.5]]
         """
         """
         Convert the core array of a Daf object to numpy.
@@ -2985,20 +3133,22 @@ class Daf:
 
     def to_donpa(self, colnames: Optional[T_ls]=None, default: Any = _MISSING) -> T_donpa:
         """
-        Convert selected columns to a dictionary of NumPy arrays (donpa).
+        Make a dict of NumPy arrays, one array for each column.
+
+        This is a light form of a DataFrame. The arrays can be used in vector
+        operations, such as `donpa['D_pct'] = donpa['D_votes'] / donpa['RV_total']`.
+        Each column gets its own type, so numbers and text can be mixed.
 
         Args:
-            colnames: Columns to include. If None, include all columns.
-            default: Replacement value for missing entries.
+            colnames: The columns to include. If None, all columns.
+            default: Passed to `col()`. It does not replace NULL cells.
 
         Returns:
-            Dict[str, numpy.ndarray]: Column arrays.
+            A dict that maps each column name to an array.
 
-        Notes:
-            - Column arrays can be used directly in vector operations:
-                e.g., `my_donpa['D_pct'] = my_donpa['D_votes'] / my_donpa['RV_total']`
-            - This structure is conceptually similar to a Pandas DataFrame, but lighter-weight and faster
-              for numeric computations or export.
+        Examples:
+            >>> Daf(lol=[[1, 'a'], [2, 'b']], cols=['id', 'v']).to_donpa(['id'])['id'].tolist()
+            [1, 2]
         """
         """
         Convert specified columns of the Daffodil table to a dict of NumPy arrays (donpa).
@@ -3028,6 +3178,22 @@ class Daf:
 
     @classmethod
     def from_googlesheet(cls, spreadsheet_id: str, sheetname: str = 'Sheet1') -> 'Daf':
+        """
+        Read a Google Sheet into a Daf. This is unfinished.
+
+        The sheet is read with the Google API. The path of the service account file in
+        the source is a placeholder, `path/to/your/service_account.json`. Edit it
+        before you use this method. The columns are named `A`, `B` and so on, and the
+        first row of the sheet is data.
+
+        Args:
+            spreadsheet_id: The ID of the Google Sheet.
+            sheetname: The name of the sheet.
+
+        Returns:
+            The new Daf.
+        """
+
         from googleapiclient.discovery import build
         from google.oauth2 import service_account
         """
@@ -3089,14 +3255,19 @@ class Daf:
 
     def to_googlesheet(self, spreadsheet_id: str, sheetname: str = 'Sheet1') -> 'Daf':
         """
-        Export Daf data to a Google Sheet.
+        Write the Daf to a Google Sheet. This is unfinished.
+
+        The rows are written without the column names, starting at cell A1. The path
+        of the service account file in the source is a placeholder,
+        `path/to/your/service_account.json`. Edit it before you use this method.
+        A message is printed when the write is done.
 
         Args:
-            spreadsheet_id: Google Sheets ID.
-            sheetname: Sheet name.
+            spreadsheet_id: The ID of the Google Sheet.
+            sheetname: The name of the sheet.
 
         Returns:
-            Daf: Self.
+            This Daf.
         """
         """ export data from daf structure to googlesheet. """
         # NOT OPERATIONAL
@@ -3155,13 +3326,29 @@ class Daf:
 
     def to_json(self, concise: bool=True) -> str:
         """
-        Serialize Daf to JSON.
+        Make JSON text that holds the whole Daf.
+
+        The text holds the rows, the column names, the dtypes, the keyfield, the name,
+        the attrs and the display columns. With `concise=True`, the parts that are
+        empty are left out. Use `from_json()` to read it back.
+
+        Types are written by name. Only `int`, `float`, `str` and `bool` are read back
+        as types. Other names, such as `list`, come back as text.
+
+        Cells must be JSON values. A tuple comes back as a list, and a set raises a
+        `TypeError`. A NaN is written as `NaN`, which some JSON readers reject.
+
+        If the Daf has no dtypes, they are set to an empty dict as a side effect.
 
         Args:
-            concise: If True, use compact representation.
+            concise: If True, leave out the parts that are empty.
 
         Returns:
-            str: JSON string.
+            The JSON text.
+
+        Examples:
+            >>> Daf(lol=[[1]], cols=['a']).to_json()
+            '{"lol": [[1]], "hd": {"a": 0}}'
         """
         # Convert data types to string representations, rather than type objects.
         #   isinstance(v, type) -- Checks if the value is a Python type object (int, float, str, etc.).
@@ -3206,13 +3393,18 @@ class Daf:
     @classmethod
     def from_json(cls, json_str: str) -> 'Daf':
         """
-        Create Daf from JSON string.
+        Make a Daf from JSON text made by `to_json()`.
 
         Args:
-            json_str: JSON input.
+            json_str: The JSON text.
 
         Returns:
-            Daf: New instance.
+            The new Daf.
+
+        Examples:
+            >>> d = Daf(lol=[[1, 'a']], cols=['id', 'v'], keyfield='id')
+            >>> Daf.from_json(d.to_json()) == d
+            True
         """
         # Deserialize JSON string into a Daf object
         daf_dict = json.loads(json_str)

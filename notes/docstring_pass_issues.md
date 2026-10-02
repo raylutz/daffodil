@@ -62,3 +62,48 @@ The date of the first entry is 2026-10-02.
 19. Methods attached from helper modules were missing from the API reference.
     The schema ones are added. The `from_md`, `dodaf_to_md`, `dodaf_from_md`,
     `from_pdf`, `from_pandas_df` and `to_pandas_df` entries come with their groups.
+
+## Group 3: conversions to and from other forms
+
+20. `from_csv_buff(include_cols=...)` and `from_csv_file(include_cols=...)` have
+    no effect. The argument reaches `buff_csv_to_lol()` in `daf_utils.py`, which
+    never uses it. All columns are read. The old docstrings said it includes
+    only the columns given.
+21. `from_csv()` docstring said it does not set the keyfield. It does, when
+    `keyfield=` is passed, because the keyword arguments go to `from_csv_buff()`.
+    The docstring is fixed.
+22. `from_csv()` reports any error while parsing a local file as
+    `RuntimeError: Failed to read local file`. A column mismatch in the CSV is
+    labelled that way too.
+23. `from_csv_file()` prints a message and returns None when the file cannot be
+    read. It is marked deprecated. It also reads with the default encoding,
+    while `from_csv()` uses UTF-8.
+24. `from_lod()` takes the columns from the first dict only. A later dict with
+    an extra key loses that value without a message. Empty dicts and non dict
+    items are skipped without a message, so rows can be lost.
+25. `from_cols_dol()` uses the length of the first list. A shorter list raises
+    `IndexError`. A longer list loses its extra values without a message.
+26. `to_dod()` on a Daf with no keyfield raises a bare `KeyError('')`. The
+    message does not say the keyfield is missing.
+27. `from_lot()` names columns `col_0`, `col_1`. `set_cols()` and
+    `from_googlesheet()` name them `A`, `B`. The two defaults differ.
+28. `from_directory()` prints its elapsed time to standard output. It never
+    lists folders, so the `is_dir` column is always 0. A schema that leaves out
+    standard fields drops those columns.
+29. `to_donpa(default=...)` has no effect on NULL cells. In `col_to_la()` the
+    `default` is used only with `indirect_col`. `to_pandas_df(use_donpa=True,
+    default=...)` passes it on, so it has no effect there either.
+30. `from_googlesheet()` had its imports before the docstring, so Python did not
+    treat the text as a docstring. It was None. The docstring is now first.
+    Both Google Sheet methods use the placeholder path
+    `path/to/your/service_account.json`, so they cannot work as shipped.
+31. `to_json()` writes dtypes by name, but `from_json()` knows only `int`,
+    `float`, `str` and `bool`. A `list` or `dict` dtype comes back as the text
+    `'list'`. The round trip loses it.
+32. `to_json()` sets `self.dtypes = {}` when dtypes is None. That is a side
+    effect of a method that should only read. A NaN is written as `NaN`, which
+    is not valid JSON. A tuple cell comes back as a list.
+33. `from_pandas_df()` ignores its `dtypes` argument. With `use_csv=True` it also
+    loses `name`. For a Series the dtypes dict has the key `col`, not the
+    index labels used as column names.
+34. `buff_to_file()` and several `from_*` methods had no `Returns` text.
