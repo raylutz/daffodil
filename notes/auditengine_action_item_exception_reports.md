@@ -146,3 +146,24 @@ Steps:
 2. If AuditEngine uses them, copy them into AuditEngine's own utilities and change those
    imports.
 3. Report back, so they and their tests can be deleted from daffodil.
+
+## 7. Mirror a change to SQL name encoding in sql_utils.py
+
+The comments in daffodil's daf_sql.py ask for changes to be mirrored in AuditEngine's
+sql_utils.py. On 2026-10-02, sql_escape_str and sql_unesc_str changed.
+
+- Before, a character was encoded as __ plus as many hex digits as it needed. Decoding read
+  exactly 2. So any character above 0xFF could not be read back. The euro sign became
+  __20AC and came back as a space and AC.
+- Now the encoding marks the width, like Python's escapes:
+  - __HH up to 0xFF, which is unchanged;
+  - __uHHHH up to 0xFFFF;
+  - __UHHHHHHHH above that.
+- Decoding uses one regex: `__U([0-9A-Fa-f]{8})|__u([0-9A-Fa-f]{4})|__([0-9A-Fa-f]{2})`.
+
+Steps:
+
+1. Copy the helper `_sql_encode_char()` and `_SQL_DECODE_RE` from daf_sql.py into sql_utils.py,
+   and use them in the matching escape and unescape functions.
+2. Check for saved SQLite files whose names contain characters above 0xFF. Their stored names
+   use the old form, and would not match the new encoding.

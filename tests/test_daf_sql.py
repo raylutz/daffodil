@@ -97,11 +97,15 @@ def test_sql_escape_str_no_quoting_result_is_usable_as_bare_identifier():
     conn.close()
 
 
-@pytest.mark.xfail(strict=True, reason="BUG: quoting_ok=False encodes chars > 0xFF with >2 hex "
-                   "digits (e.g. '__20AC') but sql_unesc_str only decodes exactly 2, so not reversible")
-def test_sql_escape_str_no_quoting_roundtrip_non_latin1():
-    enc = daf_sql.sql_escape_str('€x', quoting_ok=False)
-    assert daf_sql.sql_unesc_str(enc) == '€x'
+@pytest.mark.parametrize("name, encoded", [
+    ('caf\u00e9',   'caf__E9'),             # up to 0xFF: 2 hex digits, as before
+    ('\u20acx',     '__u20ACx'),            # up to 0xFFFF: __u and 4 hex digits
+    ('emoji\U0001F600', 'emoji__U0001F600'),  # above 0xFFFF: __U and 8 hex digits
+])
+def test_sql_escape_str_no_quoting_roundtrip_non_latin1(name, encoded):
+    enc = daf_sql.sql_escape_str(name, quoting_ok=False)
+    assert enc == encoded
+    assert daf_sql.sql_unesc_str(enc) == name
 
 
 # --- create_index_at_cursor ---

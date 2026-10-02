@@ -24,19 +24,35 @@ from typing import List, Dict, Any, Tuple, Optional, Union, cast, Type, Callable
 logs = utils                # alias
 
 
+# A character is encoded like Python's escapes, so every code point fits:
+#   __HH        up to 0xFF
+#   __uHHHH     up to 0xFFFF
+#   __UHHHHHHHH above that
+_SQL_DECODE_RE = re.compile(r'__U([0-9A-Fa-f]{8})|__u([0-9A-Fa-f]{4})|__([0-9A-Fa-f]{2})')
+
+
+def _sql_encode_char(ch: str) -> str:
+    code = ord(ch)
+    if code <= 0xFF:
+        return f"__{code:02X}"
+    if code <= 0xFFFF:
+        return f"__u{code:04X}"
+    return f"__U{code:08X}"
+
+
 @functools.lru_cache()
 def sql_unesc_str(escaped_name: str) -> str:
     """ Unquote a SQL identifier and unescape embedded double quotes.
 
-        Any __HH, a double underscore and two hex digits, is decoded as a character. So column
-        and table names must not contain a double underscore. See README.md.
+        Any __HH, __uHHHH or __UHHHHHHHH is decoded as a character. So column and table names
+        must not contain a double underscore. See README.md.
 
         Respect any changes to sql_utils.py and daf_sql.py
     """
     escaped_name = escaped_name.strip()
     
     # unencode unusual characters if any are found with double underscores.
-    unesc_name = re.sub(r'__([0-9A-Fa-f]{2})', lambda x: chr(int(x.group(1), 16)), escaped_name)
+    unesc_name = _SQL_DECODE_RE.sub(lambda x: chr(int(x.group(1) or x.group(2) or x.group(3), 16)), escaped_name)
     
     if unesc_name.startswith('"') and unesc_name.endswith('"'):
         return unesc_name[1:-1].replace('""', '"')
@@ -68,7 +84,7 @@ def sql_escape_str(name: str, quoting_ok: bool=True) -> str:
         Note: If constructing an INDEX name from a table name will require quoting_ok=False
 
         Column and table names must not contain a double underscore. It is reserved for the
-        __HH encoding, and any __HH in a name is decoded as a character. See README.md.
+        encoding: __HH up to 0xFF, __uHHHH up to 0xFFFF and __UHHHHHHHH above. See README.md.
     
         Respect any changes to sql_utils.py and daf_sql.py
     """
@@ -87,14 +103,14 @@ def sql_escape_str(name: str, quoting_ok: bool=True) -> str:
         """ Encode the original non-compliant characters using double underscores and hex values. 
             this is a reversible encoding. Running this twice will not hurt.
         """
-        # 1. escape any illegal characters as __HH where HH is the hex value.
-        new_name = re.sub(r'[^0-9A-Za-z_]', lambda x: f'__{ord(x.group()):X}', name)
+        # 1. escape any illegal characters as __HH, __uHHHH or __UHHHHHHHH (hex code point).
+        new_name = re.sub(r'[^0-9A-Za-z_]', lambda x: _sql_encode_char(x.group()), name)
         
         # 2. escapes the first character of any names with leading numerics.
         # 3. escapes the first character of any reserved words.
         
         if re.search(r'^\d', new_name) or (new_name.lower() in _RESERVED_SQL_WORDS_SET):
-            new_name = f"__{ord(new_name[0]):02X}" + new_name[1:]
+            new_name = _sql_encode_char(new_name[0]) + new_name[1:]
 
     return new_name
    

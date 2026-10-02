@@ -54,8 +54,7 @@ all prior releases. Plans for future moved to ROADMAP.md.
   test_daf_utils_coverage.py and test_daf_pdf.py. The PDF file is only a smoke test, since
   daf_pdf is experimental.
 - The remaining uncovered lines are dead code, debug-only branches, daf_pdf.py and md_demo.py.
-- Four known bugs are still open. Each has a test marked as an expected failure.
-  - SQL name escaping can't round-trip characters such as the euro sign.
+- Three known bugs are still open. Each has a test marked as an expected failure.
   - The join translator adds to the caller's shared_fields list.
   - A join on a composite key fails with a bare AssertionError.
   - Adding trailing columns to a CSV fails when the file has fewer than 3 rows.
@@ -133,6 +132,10 @@ all prior releases. Plans for future moved to ROADMAP.md.
 - `pandas_dtype_dict_to_python` now uses pandas_dtype_to_python_type(), the same mapping as
   Daf.from_pandas_df(). Before, it had its own copy, which left out category columns with a
   breakpoint. Now a category column maps to str.
+- SQL name encoding could not round-trip characters above 0xFF. The euro sign was written as
+  __20AC but read back as a space and AC. Encoding now marks the width, like Python's escapes:
+  __HH up to 0xFF, __uHHHH up to 0xFFFF and __UHHHHHHHH above. Names up to 0xFF encode as
+  before.
 - The list comparison helper now accepts tuples. It used to fail with UnboundLocalError.
 - Found and fixed several real bugs during the mypy pass (each verified against the full 1294-test
   suite before/after): `daf_utils.py` used `time.sleep` in `write_buff_to_s3path()`/

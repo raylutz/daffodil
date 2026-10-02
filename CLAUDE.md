@@ -125,8 +125,9 @@ Source code is in src/daffodil and tests are in tests.
 
 ## Names
 
-- Column and table names must not contain a double underscore. It is reserved for the __HH
-  encoding used to store any name in SQLite. README.md states this rule.
+- Column and table names must not contain a double underscore. It is reserved for the
+  encoding used to store any name in SQLite: __HH up to 0xFF, __uHHHH up to 0xFFFF and
+  __UHHHHHHHH above. README.md states this rule.
 
 ## Missing values
 
