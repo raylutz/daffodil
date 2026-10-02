@@ -107,3 +107,23 @@ The date of the first entry is 2026-10-02.
     loses `name`. For a Series the dtypes dict has the key `col`, not the
     index labels used as column names.
 34. `buff_to_file()` and several `from_*` methods had no `Returns` text.
+
+## Group 4: appending and removing rows
+
+35. `append()` takes a list of lists as one row whose cells are lists. It does
+    not take it as several rows. `append([[3,'c'],[4,'d']])` adds the row
+    `[[3,'c'],[4,'d']]`. Only a list of dicts is read as several rows.
+36. `append(list)` drops values beyond the columns and pads short lists with
+    NULL, with no message.
+37. `append()` defaults to `respect_kd=False`, and `record_append()` defaults to
+    `respect_kd=True`. The same word has the opposite default in the two methods.
+38. `append()` has a branch for a `KeyedList` that is never reached, because an
+    earlier branch already takes `dict` and `KeyedList` together.
+39. `remove_key()` and `remove_keylist()` do not remove anything. They return a
+    new Daf, and the names suggest an in place change. The new Daf shares the
+    surviving rows with the original.
+40. `remove_key((1, 'a'))` with a composite key raises `KeyError: 1`, because a
+    bare tuple is read as a range. Only `remove_key([(1, 'a')])` works. The
+    annotation of `keyval` allows a tuple.
+41. `remove_key(None, silent_error=True)` raises `TypeError`. The flag does not
+    cover it.
