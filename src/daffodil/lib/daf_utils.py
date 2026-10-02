@@ -397,8 +397,8 @@ def safe_regex_replace(regex: Union[List[Union[str, bytes]], str, bytes], s: str
         if sep_char == one_replace_regex[-1]:
             one_replace_regex = one_replace_regex[1:-1]   # remove them -- strip() removes too many in remove case, /asdff//
         else:
-            sts(f"malformed replace regex: '{one_replace_regex}', ignoring", 3)
-            continue    # give up on this pattern.
+            raise ValueError(f"safe_regex_replace(): replace regex '{one_replace_regex}' "
+                             f"must have the form {sep_char}find{sep_char}replace{sep_char}")
         try:
             findpat, replacepat = re.split(sep_char, one_replace_regex)
         except ValueError as exc_info:

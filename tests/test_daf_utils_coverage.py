@@ -83,10 +83,10 @@ def test_safe_regex_select_no_capture_group_raises():
 
 # --- safe_regex_replace ---
 
-def test_safe_regex_replace_malformed_pattern_is_ignored():
-    # first and last chars differ -> malformed, skipped; second pattern still applied.
-    result = utils.safe_regex_replace(['/foo/bar|', '/baz/qux/'], 'foo baz')
-    assert result == 'foo qux'
+def test_safe_regex_replace_mismatched_ends_raises():
+    # first and last chars differ.
+    with pytest.raises(ValueError, match=r"'/foo/bar\|' must have the form /find/replace/"):
+        utils.safe_regex_replace(['/foo/bar|', '/baz/qux/'], 'foo baz')
 
 
 def test_safe_regex_replace_bytes_items_in_list():

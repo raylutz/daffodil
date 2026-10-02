@@ -77,7 +77,9 @@ all prior releases. Plans for future moved to ROADMAP.md.
 - Selecting a column slice from rows of uneven length raises IndexError.
 - New errors for bad input:
   - `safe_regex_select` raises ValueError when the regex has no capture group.
-  - `safe_regex_replace` raises ValueError for a pattern with too many separators.
+  - `safe_regex_replace` raises ValueError for a badly formed pattern. That covers too many
+    separators, and first and last characters that differ. The second kind used to be skipped
+    with a logged message.
   - `convert_type_value` and test_strbool raise TypeError for an unsupported type.
   - `json_encode` raises ValueError for NaN or Infinity. It used to write NaN, which is not
     valid JSON.
