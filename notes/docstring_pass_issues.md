@@ -263,3 +263,12 @@ The date of the first entry is 2026-10-02.
 71. The `dtype` and `format` items of `gen_stats_daf()` are not used.
     `valuecounts_for_colname_selectedby_colname()` has no `omit_nulls`, unlike
     `valuecounts_for_colname()`.
+
+## Found while discussing item 6
+
+72. `apply_to_col(col, func, **kwargs)` passes the keyword arguments to `map()`,
+    which takes none. Any keyword argument raises
+    `TypeError: map() takes no keyword arguments`. The docstring now says so.
+    The likely intent is to pass them to `func`.
+73. `convert_type_value()`: `'false'` and `'no'` convert to the `bool` value 1,
+    `'inf'` to `int` raises `OverflowError`, and `'1.9'` to `int` gives 1.

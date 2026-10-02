@@ -1593,6 +1593,12 @@ class Daf:
         A cell that cannot be converted becomes NULL. An empty cell stays empty. No
         error is raised, so check the result if the data is not trusted.
 
+        This method does the common conversions and keeps them simple. For your own
+        rules, convert the columns yourself and then say what the types are. Use
+        `apply_to_col()` for one column, or `apply_in_place()` for several. Your
+        function can raise, collect the bad values, or use any default. Then set
+        `dtypes`. This does not convert anything. See the second example.
+
         Args:
             dtypes: Maps column names to types, or a single type for all columns.
             unflatten: If True, read list and dict columns from their text.
@@ -1612,6 +1618,21 @@ class Daf:
             [[1, 2.5, 'x']]
             >>> Daf(lol=[['x', '']], cols=['a', 'b']).apply_dtypes(dtypes={'a': int, 'b': int}).lol
             [['', '']]
+
+            Your own conversion, here one that records the values that fail:
+
+            >>> bad = []
+            >>> def to_int(value):
+            ...     try:
+            ...         return int(value)
+            ...     except ValueError:
+            ...         bad.append(value)
+            ...         return ''
+            >>> d = Daf(lol=[['1'], ['x'], ['3']], cols=['n'])
+            >>> d.apply_to_col('n', to_int)
+            >>> d.dtypes = {'n': int}
+            >>> d.lol, bad
+            ([[1], [''], [3]], ['x'])
         """
 
         """ convert columns of daf array to the datatypes specified in self.dtypes or in passed parameter.
@@ -9068,7 +9089,7 @@ class Daf:
         Args:
             col: The column name.
             func: A function that takes a value and returns the new value.
-            **kwargs: Passed to `map()`.
+            **kwargs: Do not use. Any keyword argument raises `TypeError`, because it is passed to `map()`.
 
         Examples:
             >>> d = Daf(lol=[[1, 5], [2, 6]], cols=['a', 'b'])
