@@ -63,6 +63,8 @@ all prior releases. Plans for future moved to ROADMAP.md.
   docstrings. mkdocs, Material, mkdocstrings and Ruff were added to the dev tools, with mkdocs
   pinned below version 2. The build still prints 29 warnings about docstrings that don't
   match their signatures.
+- Docstrings for `retmode`, `itermode`, `iter_dict`, `iter_klist`, `iter_list` and `__iter__`
+  were rewritten to explain what each is for, with examples that are run as doctests.
 
 ### Changed
 - Library code no longer calls `breakpoint()` on error paths. It raises a specific error

@@ -138,6 +138,21 @@ Source code is in src/daffodil and tests are in tests.
 - The build prints warnings for docstrings that don't match their signatures. Fix them
   when you edit that function.
 
+### Writing a docstring
+
+- A docstring must teach. Say what the thing is, what it is for, when to use it and when
+  not to. Never just restate the name. "Get the current mode" is not a description.
+- Check every claim by running the code. Don't describe what you have not seen happen.
+- Name the behavior a caller could trip over. For example, say if a result is a copy or a
+  view, and if the original is changed.
+- Add a short example when it helps. Write it in the doctest style, with `>>>`, and run it.
+- The heading must be `Examples:`, in the plural. The singular `Example:` is shown as a
+  note box, and the code is not highlighted.
+- Put names that contain an underscore in backticks, such as `iter_dict()`. Otherwise the
+  underscores turn text into italics.
+- Keep a second string after the docstring as it is. If it holds useful information, move
+  that into the real docstring.
+
 ## Names
 
 - Column and table names must not contain a double underscore. It is reserved for the

@@ -9,6 +9,12 @@ nav:
   - API:
       - Daf: api/daf.md
 
+markdown_extensions:
+  - admonition
+  - pymdownx.details
+  - pymdownx.highlight
+  - pymdownx.superfences
+
 plugins:
   - search
   - mkdocstrings:

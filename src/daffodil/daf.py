@@ -293,10 +293,38 @@ class Daf:
     @property
     def retmode(self):
         """
-        Get the current return mode.
+        What a selection like `daf[row, col]` returns: a Daf, or plain values.
+
+        'obj' is the default. Every selection returns a new Daf, so you can keep calling Daf
+        methods on the result.
+
+        'val' returns plain Python values when the selection is one cell, one row or one
+        column. You get a single value, or a list. A selection of several rows and several
+        columns is still a Daf.
+
+        Use 'val' when you read values for your own code. Use 'obj' when you want to keep
+        working with Daf methods.
+
+        The mode belongs to the Daf you set it on. A Daf made by a selection starts again at
+        'obj'. A copy keeps the mode.
+
+        Set it with `daf.retmode = 'val'`, or with the retmode argument when you create the
+        Daf. Any other value raises ValueError.
 
         Returns:
-            str: Current return mode.
+            str: 'obj' or 'val'.
+
+        Examples:
+            >>> daf = Daf(cols=['x', 'y'], lol=[[1, 2], [3, 4]])
+            >>> type(daf[0, 'x']).__name__
+            'Daf'
+            >>> daf.retmode = 'val'
+            >>> daf[0, 'x']
+            1
+            >>> daf[1, :]
+            [3, 4]
+            >>> daf[:, 'y']
+            [2, 4]
         """
         return self._retmode
 
@@ -318,10 +346,37 @@ class Daf:
     @property
     def itermode(self):
         """
-        Get the current iterator mode.
+        What each row is when you loop over a Daf: a dict, or a KeyedList.
+
+        'dict' is the default. Each row is a new dict of column name to value. It is a copy,
+        so changing it does not change the Daf.
+
+        'keyedlist' gives each row as a KeyedList. You read it by column name, like a dict.
+        But it is a view of the row inside the Daf, so assigning to it changes the Daf.
+
+        Use 'dict' to read data. Use 'keyedlist' when a loop should update the rows in place.
+
+        The mode is used by `for row in daf`, and by methods that loop over the rows, such as
+        `reduce()`. The methods `iter_dict()`, `iter_klist()` and `iter_list()` ignore it and
+        always give their own kind of row. A Daf made by a selection starts again at 'dict'.
+
+        Set it with `daf.itermode = 'keyedlist'`, or with the itermode argument when you
+        create the Daf. Any other value raises ValueError.
 
         Returns:
-            str: Current iterator mode.
+            str: 'dict' or 'keyedlist'.
+
+        Examples:
+            >>> daf = Daf(cols=['x', 'y'], lol=[[1, 2], [3, 4]])
+            >>> for row in daf:
+            ...     row['y'] = 0
+            >>> daf.lol
+            [[1, 2], [3, 4]]
+            >>> daf.itermode = 'keyedlist'
+            >>> for row in daf:
+            ...     row['y'] = 0
+            >>> daf.lol
+            [[1, 0], [3, 0]]
         """
         return self._itermode
 
@@ -341,12 +396,13 @@ class Daf:
 
     def __iter__(self) -> Iterator[Union[Dict[str, Any], KeyedList]]:
         """
-        Return an iterator over rows.
+        Loop over the rows, as in `for row in daf`.
 
-        Iteration behavior depends on the current `itermode`.
+        Each row is a dict or a KeyedList, depending on itermode. For plain lists, use
+        `iter_list()`.
 
         Returns:
-            Iterator: Iterator yielding rows as dicts or KeyedList objects.
+            Iterator: The rows, as dicts or KeyedList objects.
         """
         return self._default_iterator()
 
@@ -362,30 +418,38 @@ class Daf:
 
     def iter_dict(self) -> Iterator[Dict[str,Any]]:
         """
-        Iterate over rows as dictionaries.
+        Loop over the rows as dicts, whatever the itermode is.
+
+        Each dict is a copy, so changing it does not change the Daf.
 
         Returns:
-            Iterator[Dict[str, Any]]: Rows as dictionaries.
+            Iterator[Dict[str, Any]]: Each row as a dict of column name to value.
         """
         return DafIterator(self, dict)
 
 
     def iter_klist(self) -> Iterator[KeyedList]:
         """
-        Iterate over rows as KeyedList objects.
+        Loop over the rows as KeyedLists, whatever the itermode is.
+
+        A KeyedList is read by column name, like a dict. It is a view of the row inside the
+        Daf, so assigning to it changes the Daf.
 
         Returns:
-            Iterator[KeyedList]: Rows as KeyedList instances.
+            Iterator[KeyedList]: Each row as a KeyedList.
         """
         return DafIterator(self, KeyedList)
 
 
     def iter_list(self) -> Iterator[list]:
         """
-        Iterate over rows as raw lists.
+        Loop over the rows as the plain lists that the Daf stores.
+
+        Values are read by position, not by column name. These are the Daf's own row lists,
+        not copies, so assigning to one changes the Daf.
 
         Returns:
-            Iterator[list]: Rows as lists.
+            Iterator[list]: Each row as a list.
         """
         return DafIterator(self, list)
 
