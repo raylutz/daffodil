@@ -5690,7 +5690,7 @@ class Daf:
 
         # a key index built here, so this Daf keeps its own keyfield and key index.
         if isinstance(key_cols, (str, int)):
-            kd = type(self)._build_kd(self.hd[key_cols], self.lol)
+            kd = type(self)._build_kd(self.hd[key_cols], self.lol)  # type: ignore[index]  # an int keyfield is a column name here
         else:
             kd = type(self)._build_kd([self.hd[cast(str, col)] for col in key_cols], self.lol)
 
