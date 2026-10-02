@@ -100,8 +100,11 @@ all prior releases. Plans for future moved to ROADMAP.md.
   it, mutating the caller's source rows.
 - `flatten(use_pyon=False)` ignored its argument (overwritten by `use_pyon = True`), so it
   never JSON-encoded.
-- `Daf(cols=['a_2', 'a', 'a'])` silently lost a column when renaming a duplicate collided with
-  an existing name; `_sanitize_cols` now raises `KeyError`.
+- `Daf(cols=['a_2', 'a', 'a'])`: renaming the duplicate 'a' to 'a_2' collided with the existing
+  'a_2', so the header ended up with 2 names while every row still held 3 values. The third
+  column's data stayed in `.lol` but had no name, so name-based access (`to_lod()`, `col()`,
+  selects) could not see it and `shape()` disagreed with `columns()`. `_sanitize_cols` now
+  raises `KeyError` on the collision.
 - `record_append()` with a non-dict mapping (e.g. `MappingProxyType`) whose keys are in column
   order failed with `UnboundLocalError`.
 - List comparison helper accepts a tuple for `ref_list`/`work_list` (was `UnboundLocalError`).

@@ -3,6 +3,23 @@
 Daffodil is a lightweight, pure-Python 2-D dataframe library (`Daf` class). Source is in
 `src/daffodil/` (src layout); tests are in `tests/`.
 
+## How to work (owner's rules)
+
+- **No sub-agents.** Do all work in a single thread. Speed is not a priority; cost and accuracy are.
+- **Report before changing behavior.** Before making any change that alters library behavior
+  (a fix, a new raise, a removed check), write up each item and wait for approval. Each item
+  in the report should give:
+  - what happens now, shown by actually running the code (real output, not a paraphrase);
+  - the relevant code, with file:line;
+  - why it matters, and who or what could be affected;
+  - the options, with a recommendation;
+  - the exact proposed change (a diff or code snippet).
+- **Be accurate and complete.** Verify every claim by running it. Don't summarize loosely
+  (e.g. "drops a column" when only the column's name is lost and the data remains). Prefer
+  a longer, precise description over a terse one.
+- Adding tests or docs that don't change library behavior doesn't need prior approval, but
+  still report what was added.
+
 ## Setup and tests
 
 - Use `uv`. `uv sync` installs the package plus the dev group (pytest, pytest-cov, numpy,
