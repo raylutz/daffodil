@@ -6,14 +6,17 @@ The daffodil changes are on branch claude/daffodil-test-coverage-jkhn2m and not 
 ## Summary
 
 - Daffodil no longer calls `breakpoint()`. Where it used to, it now raises an error.
-- In AuditEngine, the breakpoint hook wrote a report at each of those places. In continue
-  mode, such as in Lambda, the code then carried on.
+- In AuditEngine, the breakpoint hook wrote a report at each of those places. Normally it then
+  exits with code 42, so the run stopped there. Only when set to continue, such as in Lambda,
+  did the code carry on.
 - An error raised inside daffodil does not reach the breakpoint hook. In Lambda it is caught
   by the top-level try and except, and no report is written.
 - The action: write the same kind of report from that top-level except clause, using the
   error's traceback. Then daffodil errors are as easy to diagnose as breakpoints.
-- One thing is lost for good. After an error, the work cannot continue from the failing line.
-  Section 4 lists the daffodil places where continue mode used to keep going.
+- In the normal exit mode, the outcome is the same as before: the run stops at the problem.
+  Only the report is missing, which this action item fixes.
+- In continue mode, one thing is lost. After an error, the work cannot continue from the
+  failing line. Section 4 lists the daffodil places where continue mode used to keep going.
 
 ## 1. Why sys.excepthook is not enough
 
@@ -54,6 +57,8 @@ Also worth checking:
 
 ## 3. What can't be recovered
 
+- This only matters when the hook is set to continue. In the normal exit mode, the run
+  stopped at these places anyway.
 - In continue mode, a breakpoint let the code carry on with a fallback.
 - An error unwinds the stack. The function that failed can't resume. The Lambda task fails
   where before it might have finished.
@@ -67,7 +72,8 @@ not listed.
 
 ### 4a. Continue mode kept going, now it raises
 
-These are the ones most likely to change how an AuditEngine run ends.
+In the normal exit mode, all of these stopped the run, as they still do. Only in continue
+mode did they carry on, and these are the ones where that changes.
 
 | Place | Continue mode on main | Now |
 |---|---|---|
