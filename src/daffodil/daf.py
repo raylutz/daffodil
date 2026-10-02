@@ -8175,6 +8175,9 @@ class Daf:
         if not self.keyfield or not other_daf.keyfield:
             raise KeysDisabledError("Both Daf instances must have a keyfield defined for a join operation.")
 
+        if not isinstance(self.keyfield, str) or not isinstance(other_daf.keyfield, str):
+            raise KeyError("join not supported for complex keys (i.e. tuples)")
+
         self._rebuild_kd_if_invalidated()
         other_daf._rebuild_kd_if_invalidated()
 
@@ -8200,9 +8203,6 @@ class Daf:
         # Prepare the resulting Daf
         result_daf = Daf(cols=resolved_colnames, name=name, keyfield=self.keyfield)
         keyfield = self.keyfield   # okay to set now with lazy kd generation.
-
-        if not isinstance(keyfield, str):
-            raise KeyError("join not supported for complex keys (i.e. tuples)")
 
         # Helper function to fetch a record by key, with silent error
         def fetch_record(daf: 'Daf', mykey: Union[str, int]):

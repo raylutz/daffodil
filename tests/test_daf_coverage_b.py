@@ -592,14 +592,20 @@ def test_join_composite_keyfield_with_custom_translator_raises_keyerror():
         a.join(b, custom_translator_daf=translator)
 
 
-@pytest.mark.xfail(strict=True, reason="BUG: join() with composite keyfields fails with a bare "
-                   "AssertionError in derive_join_translator (daf.py:8071) instead of the intended "
-                   "KeyError 'join not supported for complex keys' (daf.py:8262)")
 def test_join_composite_keyfield_raises_keyerror():
     a = Daf(cols=['a', 'b', 'v'], lol=[[1, 2, 3]], keyfield=['a', 'b'])
     b = Daf(cols=['a', 'b', 'w'], lol=[[1, 2, 4]], keyfield=['a', 'b'])
-    with pytest.raises(KeyError):
+    with pytest.raises(KeyError, match='complex keys'):
         a.join(b)
+
+
+def test_join_one_composite_keyfield_raises_keyerror():
+    single = Daf(cols=['k', 'v'], lol=[[1, 'a']], keyfield='k')
+    composite = Daf(cols=['k', 'j', 'w'], lol=[[1, 2, 'b']], keyfield=('k', 'j'))
+    with pytest.raises(KeyError, match='complex keys'):
+        single.join(composite)
+    with pytest.raises(KeyError, match='complex keys'):
+        composite.join(single)
 
 
 # =====================================================================

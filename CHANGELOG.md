@@ -54,8 +54,7 @@ all prior releases. Plans for future moved to ROADMAP.md.
   test_daf_utils_coverage.py and test_daf_pdf.py. The PDF file is only a smoke test, since
   daf_pdf is experimental.
 - The remaining uncovered lines are dead code, debug-only branches, daf_pdf.py and md_demo.py.
-- Two known bugs are still open. Each has a test marked as an expected failure.
-  - A join on a composite key fails with a bare AssertionError.
+- One known bug is still open. It has a test marked as an expected failure.
   - Adding trailing columns to a CSV fails when the file has fewer than 3 rows.
 - tests/conftest.py makes a test fail if it reaches `breakpoint()`.
 - Dev tools: added requests, xlsxwriter and pytest-cov. The tests already needed the first two.
@@ -138,6 +137,9 @@ all prior releases. Plans for future moved to ROADMAP.md.
 - `join` changed the caller's shared_fields list. It added each table's key to the list. When
   the list was reused for another join, a stale key could make a plain column look shared, and
   the second table's values for that column were dropped. The list is now copied first.
+- `join` on a composite key failed with an AssertionError that had no message. It now raises
+  KeyError saying join is not supported for complex keys. The check runs once, at the start of
+  the join.
 - The list comparison helper now accepts tuples. It used to fail with UnboundLocalError.
 - Found and fixed several real bugs during the mypy pass (each verified against the full 1294-test
   suite before/after): `daf_utils.py` used `time.sleep` in `write_buff_to_s3path()`/
