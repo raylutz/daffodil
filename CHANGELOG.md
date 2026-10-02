@@ -142,6 +142,11 @@ all prior releases. Plans for future moved to ROADMAP.md.
   git-tracked) moved out of `src/` to a gitignored, local-only `deprecated/` folder.
 
 ### Fixed
+- Assigning a `str` to several rows or to a column corrupted the table. `d[[0, 1]] = 'x'` and
+  `d[:] = 'x'` stored the bare string as each row. `d[:, 'v'] = 'x'` set only the first row,
+  and `'xyz'` spread its letters over the rows. A `str` or `bytes` is now one value. A list
+  assigned to several whole rows was stored as one shared list object, and each row now gets
+  its own copy. Seven tests added.
 - Reading a column slice with a negative number or a stop of 0 gave wrong data or an error.
   `d[:, -2:]` returned five columns with repeats, `d[:, :-1]` returned none, and `d[:, 1:-1]`
   and `d[:, ::-1]` raised `IndexError`. `select_icols()` now uses `slice.indices()`, the rule

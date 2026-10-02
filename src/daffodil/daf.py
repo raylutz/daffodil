@@ -3988,10 +3988,9 @@ class Daf:
         columns are not in the dict become NULL. See `set_irows_icols()` for what
         happens when the source and the selection differ in size.
 
-        Assigning text, a `str`, to several rows or to a column does not work yet. The
-        text is treated as a list of characters. `my_daf[:, 'v'] = 'x'` sets only the
-        first row, and `'xyz'` spreads its letters over the rows. Assign a list of
-        the same length instead, or one cell at a time. A number is not affected.
+        A `str` or `bytes` is one value, not a list of characters, so
+        `my_daf[:, 'v'] = 'xyz'` sets every row of `v` to `xyz`. A list assigned to
+        several whole rows is copied, so each row has its own list.
 
         If you change a keyfield cell, the key index is rebuilt when it is next needed.
 
@@ -4249,7 +4248,7 @@ class Daf:
 
             if isinstance(value, dict):
                 self.assign_record_irow(irow, record=value)
-            elif isinstance(value, (list, Sequence)) and len(value) == 1:
+            elif isinstance(value, Sequence) and not isinstance(value, (str, bytes)) and len(value) == 1:
                 # frequently, we will have a list generated from a selection of a column, and it it has only one value
                 # it needs to be entered in the array location, but not as a list.
                 # place a list with only one item in a cell can't be done this way:
@@ -4265,11 +4264,11 @@ class Daf:
             if isinstance(value, dict):
                 for irow in irows:
                     self.assign_record_irow(irow, record=value)
-            elif isinstance(value, (list, Sequence)):
-                # value may be a non-list Sequence (e.g. tuple) here -- stored as-is, matching
-                # this branch's existing (pre-existing, not changed here) behavior.
+            elif isinstance(value, Sequence) and not isinstance(value, (str, bytes)):
+                # a str or bytes is a single value, not a sequence of values.
+                # each row gets its own copy, so the rows do not share one list.
                 for irow in irows:
-                    self.lol[irow] = value  # type: ignore[call-overload]
+                    self.lol[irow] = list(value)
             elif isinstance(value, type(self)):
                 for source_row, irow in zip(value.lol, irows):
                     self.lol[irow] = list(source_row)
@@ -4290,7 +4289,7 @@ class Daf:
                 for irow in irows:
                     self.assign_record_irow(irow, record=value)
 
-            elif isinstance(value, (list, Sequence)):
+            elif isinstance(value, Sequence) and not isinstance(value, (str, bytes)):
                 for source_val, irow in zip(value, irows):
                     self.lol[irow][icol] = source_val
 
@@ -4311,7 +4310,7 @@ class Daf:
                 for irow in irows:
                     self.assign_record_irow(irow, record=value)
 
-            elif isinstance(value, (list, Sequence)):
+            elif isinstance(value, Sequence) and not isinstance(value, (str, bytes)):
                 # the same list of values is applied to each selected row.
                 for irow in irows:
                     for source_val, icol in zip(value, icols):

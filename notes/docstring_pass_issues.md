@@ -150,7 +150,7 @@ The date of the first entry is 2026-10-02.
 
 ## Group 5 continued: selecting and reading rows, columns and cells
 
-43. SERIOUS. Assigning one value or one list to several whole rows corrupts
+43. SERIOUS, fixed with approval on 2026-10-02. Assigning one value or one list to several whole rows corrupts
     the table. `set_irows_icols()` tests `isinstance(value, (list, Sequence))`,
     and a `str` is a Sequence. Real output for three rows:
 
@@ -163,9 +163,8 @@ The date of the first entry is 2026-10-02.
         d[[0, 1]] = 5       correct, [[5,5,5],[5,5,5],...]
         d[2] = 'x'          correct, one row
 
-    Tests are in `tests/test_daf_setitem_rows.py`. Four are `xfail(strict=True)`.
-    The `__setitem__` docstring says assigning text to rows or to a column
-    does not work yet.
+    Tests are in `tests/test_daf_setitem_rows.py`. They passed after the fix, and the markers are gone.
+    The `__setitem__` docstring describes the fixed behavior.
 44. `d[0] = {'v': 'q'}` sets the other cells of the row to NULL. It does not
     update only `v`. `update_record_irow()` is the method that merges. The
     README says the column names are respected, which does not say this.
