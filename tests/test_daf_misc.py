@@ -816,3 +816,15 @@ def test_from_lod_cells_may_be_arrays():
     np = pytest.importorskip('numpy')
     daf = Daf.from_lod([{'a': 1, 'b': 2}, {'a': np.array([1, 2]), 'b': 3}])
     assert daf.num_rows() == 2
+
+
+def test_apply_dtypes_keeps_the_text_of_a_value_that_cannot_be_converted():
+    daf = Daf(lol=[['1', '2.5'], ['x', 'abc'], ['', '']], cols=['n', 'f'])
+    daf.apply_dtypes(dtypes={'n': int, 'f': float})
+    assert daf.lol == [[1, 2.5], ['x', 'abc'], ['', '']]
+
+
+def test_apply_dtypes_keeps_every_digit_of_a_large_number():
+    daf = Daf(lol=[['12345678901234567890']], cols=['id'])
+    daf.apply_dtypes(dtypes={'id': int})
+    assert daf.lol == [[12345678901234567890]]

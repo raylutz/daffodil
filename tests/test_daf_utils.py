@@ -189,12 +189,12 @@ def test_convert_type_value_to_float():
     assert utils.convert_type_value('3.7', float) == 3.7
 
 
-def test_convert_type_value_to_int_conversion_failure_returns_null():
-    assert utils.convert_type_value('not a number', int) == ''
+def test_convert_type_value_to_int_conversion_failure_keeps_the_text():
+    assert utils.convert_type_value('not a number', int) == 'not a number'
 
 
-def test_convert_type_value_to_float_conversion_failure_returns_null():
-    assert utils.convert_type_value('not a number', float) == ''
+def test_convert_type_value_to_float_conversion_failure_keeps_the_text():
+    assert utils.convert_type_value('not a number', float) == 'not a number'
 
 
 def test_convert_type_value_to_bool_true():
@@ -1236,3 +1236,45 @@ def test_write_buff_to_fp_s3_path_reaches_boto3():
     # genuinely attempts the boto3 call (fails on missing module / credentials instead).
     with pytest.raises((ModuleNotFoundError, ImportError)):
         utils.write_buff_to_fp('a,b\n', 's3://bucket/key.csv')
+
+def test_convert_type_value_int_text_with_a_point_or_exponent():
+    assert utils.convert_type_value('1.9', int) == 1
+    assert utils.convert_type_value('-1.9', int) == -1
+    assert utils.convert_type_value('1e3', int) == 1000
+    assert utils.convert_type_value('1E3', int) == 1000
+
+
+def test_convert_type_value_int_keeps_every_digit_of_a_large_number():
+    assert utils.convert_type_value('9007199254740993', int) == 9007199254740993
+    assert utils.convert_type_value('12345678901234567890', int) == 12345678901234567890
+    assert utils.convert_type_value(10**30, int) == 10**30
+
+
+def test_convert_type_value_int_infinity_keeps_the_value():
+    assert utils.convert_type_value('inf', int) == 'inf'
+    assert utils.convert_type_value('1e999', int) == '1e999'
+    assert utils.convert_type_value(float('inf'), int) == float('inf')
+
+
+def test_convert_type_value_int_words_for_zero_and_one():
+    assert [utils.convert_type_value(w, int) for w in ('0', '0.0', 'False', 'FALSE')] == [0, 0, 0, 0]
+    assert [utils.convert_type_value(w, int) for w in ('1', '1.0', 'True', 'TRUE')] == [1, 1, 1, 1]
+
+
+def test_convert_type_value_text_with_a_comma_or_trailing_letters_is_kept():
+    assert utils.convert_type_value('1,000', int) == '1,000'
+    assert utils.convert_type_value('12abc', int) == '12abc'
+    assert utils.convert_type_value('1,5', float) == '1,5'
+
+
+def test_get_converter_gives_the_same_result_as_convert_type_value():
+    values = ['', None, '5', '1.9', 'x', '1e3', 'True', 7, 2.5, True]
+    for desired_type in (int, float, bool, str):
+        convert = utils.get_converter(desired_type)
+        for value in values:
+            assert convert(value) == utils.convert_type_value(value, desired_type) or \
+                (convert(value) != convert(value))
+
+
+def test_get_converter_for_list_uses_the_general_function():
+    assert utils.get_converter(list)('[1, 2]') == [1, 2]

@@ -49,7 +49,7 @@ The date of the first entry is 2026-10-02.
     `@schemaclass`. The README is not changed yet.
 14. `default_record = daf_schema._default_record` appears twice in the class
     body, at `daf.py` lines 1496 and 1881. It is harmless.
-15. `apply_dtypes()` turns a value that cannot be converted into NULL without
+15. Changed with approval on 2026-10-02, the text is kept. `apply_dtypes()` turned a value that cannot be converted into NULL without
     any message. `'x'` as an int becomes `''`. This is by design in
     `convert_type_value()`, but a bad value is lost.
 16. `set_dtypes()` raises `NotImplementedError` when the Daf has no column
@@ -266,13 +266,13 @@ The date of the first entry is 2026-10-02.
 
 ## Found while discussing item 6
 
-72. `apply_to_col(col, func, **kwargs)` passes the keyword arguments to `map()`,
+72. Fixed with approval on 2026-10-02. `apply_to_col(col, func, **kwargs)` passed the keyword arguments to `map()`,
     which takes none. Any keyword argument raises
     `TypeError: map() takes no keyword arguments`. The docstring now says so.
     The likely intent is to pass them to `func`.
 73. `convert_type_value()`: `'false'` and `'no'` convert to the `bool` value 1,
     `'inf'` to `int` raises `OverflowError`, and `'1.9'` to `int` gives 1.
-74. SERIOUS for ids. `convert_type_value()` turns a text number into an `int`
+74. Fixed with approval on 2026-10-02. SERIOUS for ids. `convert_type_value()` turns a text number into an `int`
     with `int(float(val))`. Above 2 to the power 53 a float cannot hold every
     digit, so the number is silently changed. Real output:
 
@@ -282,7 +282,7 @@ The date of the first entry is 2026-10-02.
 
     Python's own `int()` on the text keeps every digit. A test is in
     `tests/test_daf_utils_coverage.py`, marked `xfail(strict=True)`.
-75. `apply_dtypes()` is the slowest way to convert many columns. For 2,000 rows
+75. Sped up with approval on 2026-10-02. `apply_dtypes()` was the slowest way to convert many columns. For 2,000 rows
     and 1,000 columns, all converted to int: `apply_dtypes()` 0.900 s, `apply_to_col()`
     for each column 0.632 s, `apply_in_place()` by row 0.476 s, a plain loop with a
     minimal int conversion 0.198 s. The cause is a call of the general conversion

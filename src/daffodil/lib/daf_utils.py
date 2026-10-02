@@ -456,64 +456,144 @@ def set_dict_dtypes(
     return da
     
             
+# words that mean 0 and 1 for an int. A dict lookup is one step for any text.
+_INT_WORDS: Dict[str, int] = {'0': 0, '0.0': 0, 'False': 0, 'FALSE': 0, '1': 1, '1.0': 1, 'True': 1, 'TRUE': 1}
+
+
+def _convert_int(val: Any) -> Any:
+    """ convert one value to int. See convert_type_value(). """
+    if val.__class__ is str and val.isdigit() and val.isascii():
+        return int(val)                         # plain digits, the most common case. Checked first.
+
+    if val in ('', None) or val != val:         # null string means None or NAN
+        return ''
+
+    if isinstance(val, str):
+        known = _INT_WORDS.get(val)
+        if known is not None:
+            return known
+
+        if '.' in val or 'e' in val or 'E' in val:
+            # a decimal point or an exponent. int() does not accept these in text,
+            # so go through a float. This cuts the decimal part.
+            try:
+                return int(float(val))
+            except (ValueError, OverflowError):
+                return val                      # not a number. Keep the text.
+
+        try:
+            return int(val)                     # whole number text of any size, with every digit.
+        except ValueError:
+            return val                          # not a number. Keep the text.
+
+    try:
+        return int(val)                         # int, float, bool and NumPy numbers.
+    except OverflowError:
+        return val                              # an infinity. Keep it as it is.
+
+
+def _convert_float(val: Any) -> Any:
+    """ convert one value to float. See convert_type_value(). """
+    if val.__class__ is str:
+        # text is the common case. Only the empty string needs a test first.
+        try:
+            return float(val) if val != '' else ''
+        except ValueError:
+            return val                          # not a number. Keep the text.
+
+    if val in ('', None) or val != val:
+        return ''
+    try:
+        return float(val)
+    except ValueError:
+        return val                              # not a number. Keep the text.
+
+
+def _convert_str(val: Any) -> Any:
+    """ convert one value to str. See convert_type_value(). """
+    if val in ('', None) or val != val:
+        return ''
+    if isinstance(val, str):
+        return val
+    if isinstance(val, bool):
+        return int(val)
+    return f"{val}"
+
+
+def _convert_bool(val: Any) -> Any:
+    """ convert one value to 0 or 1. See convert_type_value(). """
+    # null string means None or NAN
+    return 0 if val in ('0', '', None, False, 'False', 'FALSE') or val != val else 1
+
+
+_CONVERTERS: Dict[Any, Callable[[Any], Any]] = {
+    float:  _convert_float,
+    bool:   _convert_bool,
+    str:    _convert_str,
+}
+
+
+def get_converter(desired_type: Any, unflatten: bool=True) -> Callable[[Any], Any]:
+    """ Return the function that converts one value to desired_type.
+
+        Use this to look the function up once for a column, then call it for each
+        cell. It gives the same result as convert_type_value(), without the lookup
+        and the tests for each cell.
+    """
+    if desired_type in _CONVERTERS:
+        return _CONVERTERS[desired_type]
+    if desired_type == int:                     # noqa: E721  # == so that other int types are accepted.
+        return _convert_int
+    return lambda val: convert_type_value(val, desired_type, unflatten)
+
+
 def convert_type_value(val: Any, desired_type: Type[T], unflatten: bool=True) -> Any:
     """ given a single value, and a desired type, convert it if possible.
         For list and dict type, if str and JSON, convert to list or dict type if unflatten is True.
         At this point, desired type must be the origin of any type definitions, such as int, str, float, list, dict, set, tuple.
-        
+
         If there is no value, value retured is ''
         If type is bool, value is 0 or 1 (integers), but source can be '0', '1', '', None, True, False
-    """  
-
-    if desired_type is not bool and (val in ('', None) or val != val):   # null string means None or NAN
-        new_val: Any = ''
+        If an int or float cannot be made from the text, the text is returned as it was.
+        Text with a decimal point or an exponent is converted to int by way of a float. Any
+        other text is converted to int directly, so every digit of a large number is kept.
+    """
 
     # intentionally use == here to allow any type of int.
     # if use 'is' (as recommended by linter) it will exclude int32, int64 and other variants.
 
-    elif desired_type == int:                       # noqa: E721 
-        if val in ('0', '0.0', 'False', 'FALSE'):
-            new_val = 0
-        elif val in ('1', '1.0', 'True', 'TRUE'):
-            new_val = 1
-        else:
-            try:
-                new_val = int(float(val))
-            except ValueError:
-                new_val = ''
-            
+    if desired_type == int:                         # noqa: E721
+        return _convert_int(val)
+
     elif desired_type is float:
-        try:
-            new_val = float(val)
-        except ValueError:
-            new_val = ''
-                
+        return _convert_float(val)
+
     elif desired_type is bool:
-        # null string means None or NAN
-        new_val = 0 if val in ('0', '', None, False, 'False', 'FALSE') or val != val else 1
-            
-    elif desired_type in (list, dict) and isinstance(val, str) and unflatten:
-        new_val = unflatten_val(val)
+        return _convert_bool(val)
 
     elif desired_type is str:
-        if isinstance(val, str):
-            new_val = val
-        elif isinstance(val, bool):
-            new_val = int(val)
-        else:    
-            new_val = f"{val}"
-        
+        return _convert_str(val)
+
+    elif desired_type not in (list, dict):
+        # a type that is not converted by this function.
+        if val in ('', None) or val != val:
+            return ''
+        raise TypeError(f"convert_type_value(): cannot convert {type(val).__name__} value to {desired_type}")
+
+    elif val in ('', None) or val != val:           # null string means None or NAN
+        return ''
+
+    elif isinstance(val, str) and unflatten:
+        return unflatten_val(val)
+
     elif desired_type is list and isinstance(val, list) or \
          desired_type is dict and isinstance(val, dict):
         # no conversion required.
-        new_val = val
+        return val
 
-    else:
-        raise TypeError(f"convert_type_value(): cannot convert {type(val).__name__} value to {desired_type}")
+    raise TypeError(f"convert_type_value(): cannot convert {type(val).__name__} value to {desired_type}")
 
-    return new_val
-    
-    
+
 def unflatten_val(val: str) -> Union[str, list, dict]:
     """ convert a str into python object.
     

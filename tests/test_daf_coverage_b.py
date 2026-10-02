@@ -754,3 +754,23 @@ def test_apply_colwise_returns_self():
     result = daf.apply_colwise('c', lambda r: r['a'] / r['b'], default=-1.0)
     assert result is daf
     assert daf.lol == [[1, 2, 0.5], [3, 0, -1.0]]
+
+
+# apply_to_col
+
+def test_apply_to_col_passes_keyword_arguments_to_the_function():
+    daf = Daf(lol=[[1, 5], [2, 6]], cols=['a', 'b'])
+    daf.apply_to_col('b', lambda value, factor: value * factor, factor=10)
+    assert daf.col('b') == [50, 60]
+
+
+def test_apply_to_col_without_keyword_arguments():
+    daf = Daf(lol=[[1, 5], [2, 6]], cols=['a', 'b'])
+    daf.apply_to_col('b', lambda value: value + 1)
+    assert daf.col('b') == [6, 7]
+
+
+def test_apply_to_col_rebuilds_the_key_index_for_the_keyfield():
+    daf = Daf(lol=[[1, 'a'], [2, 'b']], cols=['id', 'v'], keyfield='id')
+    daf.apply_to_col('id', lambda value: value * 10)
+    assert daf.keys() == [10, 20]

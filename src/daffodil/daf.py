@@ -1590,8 +1590,11 @@ class Daf:
         is converted with `str()`. Columns of type `list` or `dict` are read from
         their text. Pass `unflatten=False` to leave them as text.
 
-        A cell that cannot be converted becomes NULL. An empty cell stays empty. No
-        error is raised, so check the result if the data is not trusted.
+        A cell that cannot be converted to an `int` or a `float` keeps its text, so a bad
+        value is still there to be found, as with `list` and `dict`. An empty cell stays
+        empty. No error is raised here. A later step, such as a sum or a sort, may raise
+        one. Whole number text of any size is converted exactly. Text with a decimal point
+        or an exponent is converted to an `int` by way of a float, which cuts the decimal part.
 
         This method does the common conversions and keeps them simple. For your own
         rules, convert the columns yourself and then say what the types are. Use
@@ -1617,7 +1620,7 @@ class Daf:
             >>> d.apply_dtypes(dtypes={'a': int, 'b': float, 'c': str}).lol
             [[1, 2.5, 'x']]
             >>> Daf(lol=[['x', '']], cols=['a', 'b']).apply_dtypes(dtypes={'a': int, 'b': int}).lol
-            [['', '']]
+            [['x', '']]
 
             Your own conversion, here one that records the values that fail:
 
@@ -1705,9 +1708,11 @@ class Daf:
             # update this column if needed.
             icol = self.hd[col]
 
-            for irow in range(len(self.lol)):
+            # look up the conversion once for the column, not for each cell.
+            convert = daf_utils.get_converter(desired_type)
 
-                self.lol[irow][icol] = daf_utils.convert_type_value(self.lol[irow][icol], desired_type) # unflatten=True
+            for row_la in self.lol:
+                row_la[icol] = convert(row_la[icol])
 
         return self
 
@@ -9089,16 +9094,22 @@ class Daf:
         Args:
             col: The column name.
             func: A function that takes a value and returns the new value.
-            **kwargs: Do not use. Any keyword argument raises `TypeError`, because it is passed to `map()`.
+            **kwargs: Keyword arguments passed on to the function with each value.
 
         Examples:
             >>> d = Daf(lol=[[1, 5], [2, 6]], cols=['a', 'b'])
             >>> d.apply_to_col('b', lambda value: value * 2)
             >>> d.col('b')
             [10, 12]
+            >>> d.apply_to_col('b', lambda value, factor: value * factor, factor=10)
+            >>> d.col('b')
+            [100, 120]
         """
 
-        self[:, col] = list(map(func, self.col(col), **kwargs))
+        if kwargs:
+            self[:, col] = [func(value, **kwargs) for value in self.col(col)]
+        else:
+            self[:, col] = list(map(func, self.col(col)))
 
         if col == self.keyfield or not isinstance(self.keyfield, str):
             self._invalidate_kd()
