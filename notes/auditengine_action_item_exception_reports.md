@@ -74,7 +74,7 @@ These are the ones most likely to change how an AuditEngine run ends.
 | daf.py:6842 reduce | Row skipped, reduction went on | Error from the reduction function |
 | daf.py:6880 reduce, sparse rows | Row skipped, reduction went on | Error from the reduction function |
 | daf.py:6940, 7020, 7036 sum_da | Odd value skipped | The value's own error |
-| daf.py:7379 alter_daf_per_setting | Missing setting did nothing | KeyError |
+| daf.py:7379 alter_daf_per_setting | Missing setting did nothing | KeyError, or nothing with silent_error=True |
 | daf_utils.py:126 json_encode | NaN written as NaN, not valid JSON | ValueError |
 | daf_utils.py:150 test_strbool | Odd type gave False | TypeError |
 | daf_utils.py:1655 write_buff_to_fp | Write failed silently, path returned | The OSError |

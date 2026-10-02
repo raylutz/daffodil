@@ -71,7 +71,9 @@ all prior releases. Plans for future moved to ROADMAP.md.
     later with UnboundLocalError, or returned partial results without any warning.
 - New errors for a missing name:
   - `sort_by_colname` and sort_by_colnames raise Python's own KeyError for an unknown column.
-  - `alter_daf_per_setting` raises KeyError for an unknown setting.
+  - `alter_daf_per_setting` raises KeyError for a setting missing from the dict. A setting of
+    None or empty still does nothing. A new silent_error parameter, False by default, makes a
+    missing setting do nothing too.
 - Selecting a column slice from rows of uneven length raises IndexError.
 - New errors for bad input:
   - `safe_regex_select` raises ValueError when the regex has no capture group.

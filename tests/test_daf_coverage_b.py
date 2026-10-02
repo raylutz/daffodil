@@ -423,8 +423,18 @@ def test_alter_daf_per_setting_empty_setting_is_noop():
 
 def test_alter_daf_per_setting_missing_setting_raises():
     daf = Daf(cols=['x'], lol=[['a']])
-    with pytest.raises(KeyError, match="'spec' not found"):
+    with pytest.raises(KeyError, match="'spec'"):
         daf.alter_daf_per_setting({}, 'spec', {})
+
+
+def test_alter_daf_per_setting_missing_setting_silent_is_noop():
+    daf = Daf(cols=['x'], lol=[['a']])
+    assert daf.alter_daf_per_setting({}, 'spec', {}, silent_error=True).lol == [['a']]
+
+
+def test_alter_daf_per_setting_none_setting_is_noop():
+    daf = Daf(cols=['x'], lol=[['a']])
+    assert daf.alter_daf_per_setting({'spec': None}, 'spec', {}).lol == [['a']]
 
 
 # =====================================================================

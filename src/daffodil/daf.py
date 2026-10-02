@@ -7274,7 +7274,13 @@ class Daf:
         return self
 
 
-    def alter_daf_per_setting(self, settingsdict: T_da, setting_name: str, setting_select_dict: dict) -> 'Daf':
+    def alter_daf_per_setting(
+            self,
+            settingsdict:           T_da,
+            setting_name:           str,
+            setting_select_dict:    dict,
+            silent_error:           bool = False,   # if True, a missing setting does nothing
+            ) -> 'Daf':
 
         """ alter a daf using setting_name in settingsdict, selected by setting_select_dict
 
@@ -7304,11 +7310,16 @@ class Daf:
 
         The action is to filter to 'spec_name' in colname, and then apply the replace regex.
 
+        setting_name normally must be a key in settingsdict. A value of None or empty means
+        no changes. A missing key raises KeyError, unless silent_error is True. Then it is
+        treated as empty.
+
         """
 
-        setting_lod = settingsdict.get(setting_name, None)
-        if setting_lod is None:
-            raise KeyError(f"alter_daf_per_setting(): setting '{setting_name}' not found in settingsdict")
+        if silent_error:
+            setting_lod = settingsdict.get(setting_name)
+        else:
+            setting_lod = settingsdict[setting_name]
 
         if not setting_lod:
             return self     # do nothing.
