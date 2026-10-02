@@ -79,8 +79,6 @@ all prior releases. Plans for future moved to ROADMAP.md.
   - `safe_regex_select` raises ValueError when the regex has no capture group.
   - `safe_regex_replace` raises ValueError for a pattern with too many separators.
   - `convert_type_value` and test_strbool raise TypeError for an unsupported type.
-  - `pandas_dtype_dict_to_python` raises TypeError for an unknown dtype. It used to leave that
-    column out silently.
   - `json_encode` raises ValueError for NaN or Infinity. It used to write NaN, which is not
     valid JSON.
 - Errors are no longer hidden:
@@ -130,6 +128,9 @@ all prior releases. Plans for future moved to ROADMAP.md.
   - This now raises KeyError.
 - `record_append` failed with UnboundLocalError for a mapping that isn't a dict, such as a
   read-only mapping.
+- `pandas_dtype_dict_to_python` now uses pandas_dtype_to_python_type(), the same mapping as
+  Daf.from_pandas_df(). Before, it had its own copy, which left out category columns with a
+  breakpoint. Now a category column maps to str.
 - The list comparison helper now accepts tuples. It used to fail with UnboundLocalError.
 - Found and fixed several real bugs during the mypy pass (each verified against the full 1294-test
   suite before/after): `daf_utils.py` used `time.sleep` in `write_buff_to_s3path()`/

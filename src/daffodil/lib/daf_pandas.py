@@ -183,41 +183,13 @@ def _to_pandas_df(
     return df
         
 
-def pandas_dtype_dict_to_python(pandas_dtype_dict: Any) -> Optional[Any]:
-    import pandas as pd
-    import numpy as np
-
-    python_dtype_dict: Dict[Any, type] = {}
-
-    for colname, pandas_dtype in pandas_dtype_dict.items():
-
-        if (
-            isinstance(pandas_dtype, pd.StringDtype)
-            or pandas_dtype == np.object_
-            or pandas_dtype is str
-            or pd.api.types.is_string_dtype(pandas_dtype)
-        ):
-            python_dtype_dict[colname] = str
-
-        elif pd.api.types.is_integer_dtype(pandas_dtype):
-            python_dtype_dict[colname] = int
-
-        elif pd.api.types.is_float_dtype(pandas_dtype):
-            python_dtype_dict[colname] = float
-
-        elif pd.api.types.is_bool_dtype(pandas_dtype):
-            python_dtype_dict[colname] = bool
-
-        elif pd.api.types.is_datetime64_any_dtype(pandas_dtype):
-            python_dtype_dict[colname] = pd.Timestamp
-
-        elif pd.api.types.is_timedelta64_dtype(pandas_dtype):
-            python_dtype_dict[colname] = pd.Timedelta
-
-        else:
-            raise TypeError(f"Unknown Pandas dtype for column '{colname}': {pandas_dtype}")
-
-    return python_dtype_dict
+def pandas_dtype_dict_to_python(pandas_dtype_dict: Any) -> Dict[Any, type]:
+    """ Map each column's pandas dtype to a Python type.
+        Kept for compatibility. It uses pandas_dtype_to_python_type(), the same mapping as
+        Daf.from_pandas_df().
+    """
+    return {colname: pandas_dtype_to_python_type(pandas_dtype)
+            for colname, pandas_dtype in pandas_dtype_dict.items()}
 
 
 def python_dtype_to_pandas(python_type: Type) -> Optional[Any]:

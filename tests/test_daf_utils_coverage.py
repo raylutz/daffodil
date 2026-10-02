@@ -472,10 +472,11 @@ def test_pandas_dtype_dict_to_python_timedelta():
     assert result == {'td': pd.Timedelta, 'i': int}
 
 
-def test_pandas_dtype_dict_to_python_unknown_dtype_raises():
+def test_pandas_dtype_dict_to_python_category_is_str():
+    # same mapping as pandas_dtype_to_python_type(), which Daf.from_pandas_df() uses.
     import pandas as pd
-    with pytest.raises(TypeError, match="Unknown Pandas dtype for column 'cat'"):
-        daf_pandas.pandas_dtype_dict_to_python({'cat': pd.CategoricalDtype(['x']), 'f': np.dtype('float64')})
+    result = daf_pandas.pandas_dtype_dict_to_python({'cat': pd.CategoricalDtype(['x']), 'f': np.dtype('float64')})
+    assert result == {'cat': str, 'f': float}
 
 
 def test_pandas_dtype_to_python_type_tz_aware_datetime():
