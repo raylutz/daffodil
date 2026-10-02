@@ -44,7 +44,7 @@ class SchemaBase(Protocol):
     def get_columns(cls) -> List[str]: ...
 
     @staticmethod
-    def get_pandas_dtypes_from_schema(schema) -> Dict[str, Any]: ...
+    def get_pandas_dtypes_from_schema(schema: type) -> Dict[str, Any]: ...
 
     @classmethod
     def validate_keys_debug(cls, da: T_da) -> None: ...
@@ -96,7 +96,7 @@ def schemaclass(cls: type[T]) -> type[T]:
 
     # ---- prevent instantiation -------------------------------------------
 
-    def _no_init(*args, **kwargs):
+    def _no_init(*args: Any, **kwargs: Any) -> None:
         raise TypeError(
             f"{cls.__name__} is a schemaclass and cannot be instantiated"
         )
@@ -209,10 +209,10 @@ def schemaclass(cls: type[T]) -> type[T]:
    
     
     @staticmethod  # type: ignore[misc]
-    def get_pandas_dtypes_from_schema(schema):
+    def get_pandas_dtypes_from_schema(schema: type) -> Dict[str, Any]:
         dtypes = {}
 
-        for name, tp in schema.__schema_annotations__.items():
+        for name, tp in schema.__schema_annotations__.items():     # type: ignore[attr-defined]  # set by @schemaclass
             origin = typing.get_origin(tp) or tp
 
             if origin in (list, dict):

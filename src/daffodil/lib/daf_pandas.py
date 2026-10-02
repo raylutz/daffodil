@@ -50,7 +50,10 @@ import io
 import pandas as pd
 # import daffodil.lib.daf_utils    as daf_utils
 
-from typing import List, Dict, Any, Tuple, Optional, Union, cast, Type, Callable # noqa: F401
+from typing import List, Dict, Any, Tuple, Optional, Union, cast, Type, Callable, TYPE_CHECKING # noqa: F401
+
+if TYPE_CHECKING:       # for the annotations only. A real import would be circular.
+    from daffodil.daf import Daf
 
 # define a sentinel object to express a missing item where None is a valid value.
 from .daf_utils import _MISSING
@@ -67,7 +70,7 @@ def _from_pandas_df(
         name: str='', 
         use_csv: bool=False, 
         dtypes: Optional[T_dtype_dict]=None
-        ):  # -> 'Daf'
+        ) -> 'Daf':  # -> 'Daf'
     """
     Convert a Pandas dataframe to daf object
         @@TODO: This does not enforce dtypes are correct.

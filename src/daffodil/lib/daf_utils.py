@@ -22,7 +22,7 @@ import numpy as np
 from typing import List, Dict, Any, Tuple, Optional, Union, cast, Type, Callable, TypeVar, IO # noqa: F401
 T = TypeVar('T')
 from types import FrameType
-from collections.abc import Iterable, Iterator    # noqa: F401
+from collections.abc import Iterable, Iterator, Sequence    # noqa: F401
 
 from daffodil.lib.daf_types import T_lola, T_loda, T_dtype_dict, T_da, T_ds, \
                                     T_la, T_ls, T_doda, T_buff, T_li, \
@@ -90,7 +90,7 @@ def select_col_of_lol_by_col_idx(lol: T_lola, col_idx: int) -> T_la:
 
 class NpEncoder(json.JSONEncoder):
     #This is needed to allow np.int64 to be converted.
-    def default(self, obj):
+    def default(self, obj: Any) -> Any:
         import numpy as np
         
         if isinstance(obj, np.integer):
@@ -354,7 +354,7 @@ def sort_lol_by_cols(lol: T_lola, colidxs: T_li, reverse: bool = False, length_p
         return sorted(lol, key=lambda x: [x[idx] for idx in colidxs], reverse=reverse)
     
     
-def safe_regex_select(regex:Union[str, bytes], s:str, default:str='', flags=0) -> str:
+def safe_regex_select(regex:Union[str, bytes], s:str, default:str='', flags: int=0) -> str:
 
     regex_str = regex.decode('utf-8') if isinstance(regex, bytes) else regex
     regex_str = regex_str.strip('"')
@@ -370,7 +370,7 @@ def safe_regex_select(regex:Union[str, bytes], s:str, default:str='', flags=0) -
         return default
         
 
-def safe_regex_replace(regex: Union[List[Union[str, bytes]], str, bytes], s: str, flags=re.S) -> str:
+def safe_regex_replace(regex: Union[List[Union[str, bytes]], str, bytes], s: str, flags: int=re.S) -> str:
 
     """ apply one or more replac regex patterns.
         replace pattern is /find/replace/
@@ -456,7 +456,7 @@ def set_dict_dtypes(
     return da
     
             
-def convert_type_value(val: Any, desired_type: Type[T], unflatten: bool=True):
+def convert_type_value(val: Any, desired_type: Type[T], unflatten: bool=True) -> Any:
     """ given a single value, and a desired type, convert it if possible.
         For list and dict type, if str and JSON, convert to list or dict type if unflatten is True.
         At this point, desired type must be the origin of any type definitions, such as int, str, float, list, dict, set, tuple.
@@ -800,7 +800,7 @@ def is_list_allbools(alist: T_la) -> Tuple[bool, int]: # allbools, num_true
     
 def profile_ls_to_lr(
         input_ls: T_ls, 
-        repeat_startswith='Unnamed', 
+        repeat_startswith: str='Unnamed', 
         include_cols: Optional[T_ls]=None,
         ignore_cols: Optional[T_ls]=None,
         ) -> T_lr:
@@ -1058,7 +1058,7 @@ def str2bool(value: Optional[Any]) -> bool:
     raise ValueError(f"Boolean value expected, value:{value}")
 
 
-def safe_del_key(da: Dict[Any, Any], k:Any): 
+def safe_del_key(da: Dict[Any, Any], k:Any) -> Dict[Any, Any]: 
     """ delete a key from da if possible. modifies da directly and handles error.
         also returns da convenience value.
     """
@@ -1113,7 +1113,7 @@ def lod_to_dod(lod: T_loda,
     return dod        
     
 
-def safe_stdev(listlike):
+def safe_stdev(listlike: Sequence[float]) -> float:
     # note! Using try/except in to guard for the length of list is not specific enough. 
     #   We still need failure under other conditions.
     #   statistics library provides only statisticsError which is not specific enough.
@@ -1123,7 +1123,7 @@ def safe_stdev(listlike):
     return statistics.stdev(listlike)
     
     
-def safe_mean(listlike):
+def safe_mean(listlike: Sequence[float]) -> float:
     # note! Using try/except in to guard for the length of list is not specific enough. 
     #   We still need failure under other conditions.
     #   statistics library provides only statisticsError which is not specific enough.
@@ -1133,7 +1133,7 @@ def safe_mean(listlike):
     return statistics.mean(listlike)    
 
      
-def beep(freq: int=1080, ms: int=500):
+def beep(freq: int=1080, ms: int=500) -> None:
 
     if is_linux():
         # No universally-available system beep utility; the terminal bell character
@@ -1149,7 +1149,7 @@ def beep(freq: int=1080, ms: int=500):
             winsound.Beep(freq, ms)     # type: ignore
             
     
-def error_beep():
+def error_beep() -> None:
     beep()
     
 
@@ -1173,7 +1173,7 @@ def colorize(text: str, color: str) -> str:
 
 
 
-def sts(text: str, verboselevel: int=0, end: str='\n', enable: bool=True, color='yellow') -> str:
+def sts(text: str, verboselevel: int=0, end: str='\n', enable: bool=True, color: str='yellow') -> str:
     """ Append string to logfile report.
         Also return the string so an interal version can be maintained
         for other reporting.
@@ -1222,7 +1222,7 @@ def caller_loc() -> str:
         del frame
 
 
-def stsloc(text: str, verboselevel: int=0, end: str='\n', enable: bool=True, color='yellow') -> str:
+def stsloc(text: str, verboselevel: int=0, end: str='\n', enable: bool=True, color: str='yellow') -> str:
 
     loctext = f"{caller_loc()} {text}"
 
@@ -1423,14 +1423,14 @@ def buff_csv_to_lol(
 
         # If the first item is bytes, create a generator that decodes on the fly.
         if isinstance(first_item, bytes):
-            def byte_line_generator():
-                yield first_item.decode('utf-8')
+            def byte_line_generator() -> Iterator[str]:
+                yield first_item.decode('utf-8')    # type: ignore[union-attr]  # narrowed to bytes above
                 for line in source_iter:
-                    yield line.decode('utf-8')
+                    yield line.decode('utf-8')    # type: ignore[union-attr]
             buff = byte_line_generator()
         else:
             # Otherwise, create a generator that yields the first item, then the rest.
-            def text_line_generator():
+            def text_line_generator() -> Iterator[str]:
                 yield first_item
                 yield from source_iter
             buff = text_line_generator()
@@ -1673,7 +1673,7 @@ def is_list_of_type(test_item: Any, of_type: Union[Type, Tuple[Type, ...]]) -> b
     return False
 
 
-def is_tuple_of_type_len(test_item: Any, of_type: Union[Type, Tuple[Type, ...]], length: int):
+def is_tuple_of_type_len(test_item: Any, of_type: Union[Type, Tuple[Type, ...]], length: int) -> bool:
     # test if test_item is a T_tuple(of_type) with length.
     #
     # example: is_tuple_of_type_len((str, str), of_type: str, length: 2)
@@ -1682,7 +1682,7 @@ def is_tuple_of_type_len(test_item: Any, of_type: Union[Type, Tuple[Type, ...]],
 
         
 
-def len_slice(slice_obj: slice, tot_len: int=0):
+def len_slice(slice_obj: slice, tot_len: int=0) -> int:
     """ Calculate the length of the slice, including step 
     
         tot_len should be the total length of the sliced object.    
@@ -1716,7 +1716,7 @@ def len_rowcol_spec(ispec: Union[slice, int, range, T_li, None], tot_len: int) -
     else:
         return 0
         
-def slice_to_range(slice_obj, length):
+def slice_to_range(slice_obj: slice, length: int) -> range:
     if slice_obj == slice(None, None, None):
         return range(length)
     try:
@@ -1751,7 +1751,7 @@ def _generate_spreadsheet_column_names_list(num_cols: int) -> T_ls:
     return [_calculate_single_column_name(i) for i in range(num_cols)]
 
 
-def _sanitize_cols(cols: T_cs, unnamed_prefix='Unnamed') -> list:
+def _sanitize_cols(cols: T_cs, unnamed_prefix: str='Unnamed') -> list:
     """ make sure there are no blanks and columns are unique.
         if missing, substitute with {unnamed_prefix}{col_idx}
         if duplicated, substitute with prior_name_{col_idx}
@@ -1845,7 +1845,7 @@ def equal_cols_lol(lol: T_lola, limit: Optional[int]=10, check_all:bool=False) -
     return equal_cols_lol(lol=lol, limit=None)
 
 
-def extract_docstring_parts(func) -> Tuple[str, str]:
+def extract_docstring_parts(func: Callable) -> Tuple[str, str]:
     """
     Extract the description and help text from a function's docstring.
 
@@ -1867,7 +1867,7 @@ def extract_docstring_parts(func) -> Tuple[str, str]:
 
 
 
-def precheck_csv_cols(csv_buff, expected_cols: T_ls) -> Tuple[T_ls, T_ls]:
+def precheck_csv_cols(csv_buff: str, expected_cols: T_ls) -> Tuple[T_ls, T_ls]:
     
     original_cols = get_csv_column_names(csv_buff)
 
@@ -2007,7 +2007,7 @@ def to_dn_if_list(obj: T_ca|None) -> T_ca:
     return obj
 
 
-def unexcelstringify(astr):
+def unexcelstringify(astr: str) -> str:
     """ excel spreadsheets sometimes stringify content using ="n" syntax.
         This function removes the stringify characters
     """
@@ -2030,7 +2030,7 @@ def get_indirect_da(row_da: T_ma, indirect_col: str) -> T_da:
     return da
 
 
-def get_indirect_val(row_da: T_ma, indirect_col: str, col: str, default: Any = 0):
+def get_indirect_val(row_da: T_ma, indirect_col: str, col: str, default: Any = 0) -> Any:
 
     da = get_indirect_da(row_da, indirect_col)
 

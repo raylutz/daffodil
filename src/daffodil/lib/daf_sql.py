@@ -115,7 +115,7 @@ def sql_escape_str(name: str, quoting_ok: bool=True) -> str:
     return new_name
    
 
-def lod_to_sqlite_table(lod, table_name='tempdata', db_file_path=None, key_col='rowkey'):
+def lod_to_sqlite_table(lod: List[Dict[str, Any]], table_name: str='tempdata', db_file_path: Optional[str]=None, key_col: str='rowkey') -> None:
 
     # see also: https://www.sqlite.org/fasterthanfs.html
 
@@ -186,7 +186,7 @@ def lod_to_sqlite_table(lod, table_name='tempdata', db_file_path=None, key_col='
     # logs.sts(f"{logs.prog_loc()} Added index of col '{index_colname}' successfully.", 3, enable=diagnose)
 
 def create_index_at_cursor(
-        cursor, 
+        cursor: sqlite3.Cursor, 
         index_colname:  str, 
         table_name:     str, 
         unique:         bool=False, 
@@ -241,7 +241,7 @@ def create_index_at_cursor(
         raise
 
 
-def sum_columns_in_sqlite_table(table_name='tempdata', db_file_path=None):
+def sum_columns_in_sqlite_table(table_name: str='tempdata', db_file_path: Optional[str]=None) -> Optional[Dict[str, Any]]:
 
     if db_file_path is None:
         db_file_path=f'{table_name}.db'
@@ -275,7 +275,7 @@ def sum_columns_in_sqlite_table(table_name='tempdata', db_file_path=None):
     else:
         return None
 
-def get_memory_usage_of_table_in_memory(table_name='tempdata'):
+def get_memory_usage_of_table_in_memory(table_name: str='tempdata') -> int:
     # Connect to an in-memory SQLite database
     conn = sqlite3.connect(table_name)
     cursor = conn.cursor()
@@ -296,7 +296,7 @@ def get_memory_usage_of_table_in_memory(table_name='tempdata'):
     return total_size_bytes
 
 
-def print_table_summary(table_name='example', db_file_path=None):
+def print_table_summary(table_name: str='example', db_file_path: Optional[str]=None) -> None:
 
     if db_file_path is None:
         db_file_path=f'{table_name}.db'
@@ -320,7 +320,7 @@ def print_table_summary(table_name='example', db_file_path=None):
 
 
 
-def sqlite_selectrow(table_name, key_col='rowkey', value='500'): 
+def sqlite_selectrow(table_name: str, key_col: str='rowkey', value: Any='500') -> Optional[Dict[str, Any]]: 
 
     # Connect to the SQLite database
     conn = sqlite3.connect(f"{table_name}.db")

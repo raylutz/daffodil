@@ -65,10 +65,11 @@ all prior releases. Plans for future moved to ROADMAP.md.
   match their signatures.
 - Docstrings for `retmode`, `itermode`, `iter_dict`, `iter_klist`, `iter_list` and `__iter__`
   were rewritten to explain what each is for, with examples that are run as doctests.
-- Type annotations: every parameter and return value in daf.py and keyedlist.py is now annotated.
-  The doc tables read their types from the signatures, so a missing annotation left a blank.
-  The other modules are still to do, except daf_pdf.py and md_demo.py. `Daf.update_row` is now
-  a static method, as it has no self. It was only ever called on the class.
+- Type annotations: every parameter and return value is now annotated, in every module except
+  daf_pdf.py and md_demo.py. The doc tables read their types from the signatures, so a missing
+  annotation left a blank. `Daf.update_row` is now a static method, as it has no self. It was
+  only ever called on the class. The annotation of `_attach_schema` said it returns None, but it
+  returns the Daf. Modules that cannot import Daf at run time use a TYPE_CHECKING import.
 - KeyedList and KeyedIndex have new docstrings, which are the one place that explains how
   KeyedList rows work. The Daf docstrings link to them. They have their own page in the docs.
   The older text stays as the second string. Two errors in the old KeyedIndex text were fixed:

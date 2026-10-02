@@ -7,12 +7,14 @@ from daffodil.lib.schemaclass import SchemaBase
 
 import copy
 
-# from daffodil.daf import Daf 
+from typing import TYPE_CHECKING
+if TYPE_CHECKING:       # for the annotations only. A real import would be circular.
+    from daffodil.daf import Daf
 
 def _apply_schema(
-        self,
-        schema=None,
-        ): # -> 'Daf':
+        self: 'Daf',
+        schema: Optional[Union[type, 'Daf']]=None,
+        ) -> 'Daf':
     """
     Apply schema metadata to this Daf instance.
 
@@ -189,7 +191,7 @@ def _apply_schema(
         return self
 
 
-def _attach_schema(self, schema: type) -> None:
+def _attach_schema(self: 'Daf', schema: type) -> 'Daf':
     """
     Attach a schema_class type schema to the Daf instance.
 
@@ -247,7 +249,7 @@ def _attach_schema(self, schema: type) -> None:
     return self
 
 
-def _default_record(self) -> T_da:
+def _default_record(self: 'Daf') -> T_da:
     """
     Return a new record initialized from the attached schema.
 

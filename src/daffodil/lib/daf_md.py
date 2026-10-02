@@ -17,7 +17,10 @@ from daffodil.lib.daf_types import T_ls, T_lola, T_da, T_li, T_cs, T_ca, T_ma # 
             #, T_doda, T_df, T_lf, T_loda, T_loloda, T_lodolodi, T_ts, T_ds, T_dola 
 import daffodil.lib.daf_utils as utils
 
-from typing import List, Dict, Any, Tuple, Optional, Union, cast  # noqa: F401
+from typing import List, Dict, Any, Tuple, Optional, Union, cast, TYPE_CHECKING  # noqa: F401
+
+if TYPE_CHECKING:       # for the annotations only. A real import would be circular.
+    from daffodil.daf import Daf
 
 
 # Translation dictionaries for table alignment
@@ -129,7 +132,7 @@ def mdlink_s3path(s3path: str='', title: str='', new_window: bool=False) -> str:
     return mdlink(url_or_s3path=s3path, title=title, new_window=new_window)
 
 
-def new_window_link(url: str='', title: str=''):
+def new_window_link(url: str='', title: str='') -> str:
     return f'<a href="{url}" target="_blank">{title}</a>'
     
 
@@ -164,7 +167,7 @@ def md_parse_link(md_link: str) -> Tuple[str, str]:
     return text, link
         
 
-def md_toc(headings_list: T_ls):
+def md_toc(headings_list: T_ls) -> str:
 
     rep = "# Table of Contents\n\n"
     
@@ -262,7 +265,7 @@ def md_lol_table(
         max_text_len:       int=80, 
         smart_fmt:          bool=False,
         include_idx:        bool=False,
-        ):
+        ) -> str:
     """
     Generate a Markdown table from records.
     This could be called md_lol_table()
@@ -317,7 +320,7 @@ def md_cols_lol_table(
         shorten_text:   bool = True,
         max_text_len:   Optional[int] = None,
         smart_fmt:      bool = False,
-        ):
+        ) -> str:
 
     """ Use this function when a number of columns of data already exist that should be listed side by side.
         This function does not include the header in the data because it is easier to provide a separate list of strings.
@@ -423,7 +426,7 @@ def md_cols_lol_table(
 #== from_md parsing.
 # Same wired-on-later @classmethod pattern as dodaf_to_md() above.
 @classmethod  # type: ignore[misc]
-def _from_md(cls, md_str: str): # -> "Daf":
+def _from_md(cls, md_str: str) -> 'Daf': # -> "Daf":
     """
     Construct a Daf from a Markdown table.
 
@@ -815,7 +818,7 @@ def escape_raw_text(text: str='') -> str:
     return output_str
     
     
-def md_2_html_snippet(md: str, strip_newlines: bool=True):
+def md_2_html_snippet(md: str, strip_newlines: bool=True) -> str:
     #print("Parsing md to html:\n"+md+"\n")
     snippet = markdown.markdown(md, extensions=['tables','toc'])
     if strip_newlines:
@@ -824,7 +827,7 @@ def md_2_html_snippet(md: str, strip_newlines: bool=True):
     return snippet
     
     
-def md_2_html(title: str, md: str, strip_newlines: bool=False, include_open_image_js: bool=False):
+def md_2_html(title: str, md: str, strip_newlines: bool=False, include_open_image_js: bool=False) -> str:
 
     md_html = md_2_html_snippet(md, strip_newlines=strip_newlines)
 
