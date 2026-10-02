@@ -218,3 +218,48 @@ The date of the first entry is 2026-10-02.
 60. `sort_by_colname()` raises `TypeError` for a column that mixes None and
     numbers. NULL, which is the empty string, mixed with numbers does the same. A
     column of text with NULL sorts the NULL first.
+
+## Group 7: formulas, apply, reduce, grouping, sums, counts, joins, pivots, Markdown
+
+61. `apply_in_place(by='row')` stores the values of the returned dict by
+    position. A dict with the keys in another order puts values in the wrong
+    columns. A shorter dict makes a shorter row. A longer dict makes a longer
+    row. Real output for columns g, x, y and row `['a', 1, 10]`:
+
+        returns {'y':..,'g':..,'x':..}  row becomes [10, 'a', 1]
+        returns {'y': 10}               row becomes [10]
+        returns an extra key 'new'      row becomes ['a', 1, 10, 5]
+
+    `apply()` builds its new Daf from the first row returned, so it follows the
+    returned dict. `by='row_klist'` avoids the problem.
+62. Three more methods add a value to the rows but not a name to the columns,
+    like item 54: `annotate_daf()` with a field that is not a column, and
+    `set_col2_from_col1_using_regex_select()` and `apply_replace_regex()` with
+    a new `col2`.
+63. `apply_formulas()` runs `eval()` on the formula text. The docstring now
+    warns about this. After a formula error, it prints the error, raises it,
+    and leaves `retmode` as `val`.
+64. `sum_np()` is described as accepting blanks. A blank, which is `''`, makes
+    NumPy raise `TypeError`. `sum()` raises `ValueError` for a text column unless
+    the column is left out with `colnames_ls`.
+65. `join()` fills a missing match with `None`. The README says the same. The
+    rule for the rest of the library is NULL, the empty string.
+66. `transpose()` without `include_header` names the columns `key`, `A`, `B`.
+    The data has no key column, so there is one name too many, and the names
+    are shifted from the data. Passing `new_cols` avoids it.
+67. `narrow_to_wide()` assumes that rows of one id are next to each other. If
+    they are not, it loses columns without a message. Its `wide_cols` argument is
+    not used. The old `wide_to_narrow()` docstring named `value_cols` and
+    `varval_cols`, which are not arguments.
+68. `to_md(max_cols=2)` with no `max_rows` adds a row of `...` under the header.
+    The cause is in `daf_to_lol_summary()`, which treats `max_rows=0` as a
+    limit of zero.
+69. `from_md()` raises `RuntimeError` for a table with no header and separator
+    rows. Its old text said the header is optional. The values come back as text.
+70. Code that cannot run: `apply(by='col')` raises before the code under it. The
+    argument `colnames` of `multi_groupby()` is not used. `manifest_apply()`
+    works only with `by='table'`, because `apply()` returns a Daf for other
+    values and the method expects a tuple.
+71. The `dtype` and `format` items of `gen_stats_daf()` are not used.
+    `valuecounts_for_colname_selectedby_colname()` has no `omit_nulls`, unlike
+    `valuecounts_for_colname()`.

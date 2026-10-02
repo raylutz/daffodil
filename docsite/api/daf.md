@@ -36,3 +36,21 @@ imports. They are called like any other method, for example `my_daf.apply_schema
       heading: "to_pandas_df"
       heading_level: 3
       show_root_full_path: false
+
+::: daffodil.lib.daf_md._from_md
+    options:
+      heading: "from_md"
+      heading_level: 3
+      show_root_full_path: false
+
+::: daffodil.lib.daf_md.dodaf_to_md
+    options:
+      heading: "dodaf_to_md"
+      heading_level: 3
+      show_root_full_path: false
+
+::: daffodil.lib.daf_md._dodaf_from_md
+    options:
+      heading: "dodaf_from_md"
+      heading_level: 3
+      show_root_full_path: false

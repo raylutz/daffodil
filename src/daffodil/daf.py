@@ -3638,20 +3638,26 @@ class Daf:
 
     def extend(self, records_lod: T_loda, respect_kd: bool=False) -> 'Daf':
         """
-        Append multiple records from a list of dicts.
+        Append several records that are given as a list of dicts.
+
+        Each dict is a row, placed by column name, as in `append()`. A Daf with no
+        columns takes them from the first dict. An empty list, or a list that holds
+        one empty dict, adds nothing.
+
+        Without `respect_kd`, a key that already exists is added again. Use
+        `respect_kd=True` when the keyfield must stay unique.
 
         Args:
-            records_lod: Records to append.
-            respect_kd: If False, append every record without looking at the keys. If True,
-                replace the row that has the same key and append the records with new keys.
+            records_lod: The records, as dicts.
+            respect_kd: If True, replace the row that has the same key. Otherwise add it.
 
         Returns:
-            This Daf, which has been changed in place.
+            This Daf, which has been changed.
 
-        Notes:
-            If this Daf is empty, it adopts the columns of the first record.
-            Without `respect_kd`, a key that already exists is added a second time.
-            Use `respect_kd=True` when the keyfield must stay unique.
+        Examples:
+            >>> d = Daf(lol=[[1, 'a']], cols=['id', 'v'], keyfield='id')
+            >>> d.extend([{'id': 2, 'v': 'b'}, {'id': 1, 'v': 'new'}], respect_kd=True).lol
+            [[1, 'new'], [2, 'b']]
         """
 
         if not records_lod or len(records_lod) == 1 and not records_lod[0]:
@@ -4165,26 +4171,39 @@ class Daf:
             icols: Union[slice, int, range, T_li, None],
             value: Any) -> 'Daf':
         """
-        Set values at specified row and column indices.
+        Set values at row positions and column positions, in place.
+
+        This is what `my_daf[rows, cols] = value` calls, after the selectors are turned
+        into positions. `irows` and `icols` are an integer, a slice, a range or a list.
+        If `icols` is None, the whole row is set. If `irows` is None, nothing is
+        set. Use `slice(None)` for all rows.
+
+        What is set depends on the value.
+
+            a single value    fills every selected cell. A str or bytes is a single value.
+            a list            fills a selection in order. For several whole rows, each
+                              row becomes a copy of the list.
+            a dict            sets a row. The cells of columns that the dict lacks become NULL.
+            a Daf             is copied as a block, from its top left corner.
+
+        Nothing is checked, and no error is raised for a size mismatch. A smaller source
+        fills the top left of the selection and leaves the rest. A larger one fills the
+        selection and the extra values are ignored. Check the sizes first if it matters.
 
         Args:
-            irows: Row indices.
-            icols: Column indices.
-            value: Value to assign.
+            irows: The row positions.
+            icols: The column positions.
+            value: The value, list, dict or Daf to set.
 
         Returns:
-            Daf: Self.
+            This Daf, which has been changed.
 
-        Assigning a list or a Daf:
-            Values are copied only where the source and the region overlap. Nothing is
-            checked and no error is raised for a size mismatch.
-            A smaller source fills the top-left of the region. The rest is unchanged.
-            A larger source fills the region. The extra values are ignored.
-            Check sizes beforehand if a mismatch matters.
-
-            A list fills one column, or is applied to every selected row of a block.
-            A Daf is copied as a block, from its top-left corner. Its retmode does not
-            matter. A single cell holds the Daf object itself.
+        Examples:
+            >>> d = Daf(lol=[[1, 'a', 10], [2, 'b', 20], [3, 'c', 30]], cols=['id', 'v', 'n'])
+            >>> d.set_irows_icols([0, 1], [1, 2], 'Z').lol
+            [[1, 'Z', 'Z'], [2, 'Z', 'Z'], [3, 'c', 30]]
+            >>> d.set_irows_icols(2, None, ['x', 'y', 'z']).lol[2]
+            ['x', 'y', 'z']
         """
         """ set rows and cols in given daf.
 
@@ -4447,22 +4466,39 @@ class Daf:
             name:       str='unspecified',          # used for status messages only.
             ) -> Union[slice, int, T_li, range]:
         """
-        Convert general keys to indices using key dictionary.
+        Turn keys into positions, using a dict of key to position.
+
+        This is the step under `krows_to_irows()` and `kcols_to_icols()`. It is a
+        static method. It is for internal use.
+
+        A key gives a list with one position. A list of keys gives their positions in
+        that order. A tuple of two keys is an inclusive range, and `None` in it means
+        the start or the end. A tuple of one key means that key to the end. A slice is
+        taken as positions. With `inverse`, the positions that are not selected are
+        returned.
 
         Args:
-            keydict: Mapping of keys to indices.
-            gkeys: Keys to resolve.
-            inverse: Invert selection.
-            silent_error: Suppress errors.
-            axis: Axis label (for messaging).
-            name: Context label.
+            keydict: Maps each key to its position.
+            gkeys: The keys.
+            inverse: If True, return the positions that are not selected.
+            silent_error: If True, keys that are not found are ignored.
+            axis: A label for error messages.
+            name: A label for error messages.
 
         Returns:
-            Union[slice, int, List[int], range, None]: Indices.
+            The positions, as a list or a slice.
 
-        Note:
-            Internal Use
-        """    
+        Raises:
+            KeysDisabledError: The dict is empty.
+            KeyError: A key is not found and `silent_error` is False.
+            TypeError: The keys are None, or a tuple of a length other than 1 or 2.
+
+        Examples:
+            >>> Daf.gkeys_to_idxs({'a': 0, 'b': 1, 'c': 2}, ['c', 'a'])
+            [2, 0]
+            >>> Daf.gkeys_to_idxs({'a': 0, 'b': 1, 'c': 2}, ('a', 'b'))
+            slice(0, 2, 1)
+        """
         """
         If keydict is defined, then the idxs can be selected by providing a
         gkeys parameter that will index the keydict, and return either a
@@ -6765,44 +6801,47 @@ class Daf:
     #   apply formulas
 
     def apply_formulas(self, formulas_daf: 'Daf') -> None:
-        r""" apply an array of formulas to the data in daf
+        """
+        Fill cells from spreadsheet like formulas, in place.
 
-        formulas must have the same shape as self daf instance.
-        cells which are empty '' do not function.
+        `formulas_daf` is a Daf of the same shape. Each cell holds a Python
+        expression as text. An empty cell is skipped. The result of each expression is
+        stored in the same cell of this Daf. The formulas are evaluated again and again
+        until no cell changes, so a cell may use the result of another. A circular
+        set of formulas raises `RuntimeError` after 100 passes.
 
-        formulas are re-evaluated until there are no further changes. Error will result if expressions are circular.
+        In a formula, `$d` is this Daf, `$r` is the row number of the cell and `$c` is
+        its column number. References are absolute unless you build them from `$r` and
+        `$c`. So `sum($d[$r, :$c])` is the sum of the cells to the left in the same row.
 
-        #### Special Notation
-        There is only a very few cases of special notation:
+        Other examples:
 
-        - $d -- references the current daf instance, a convenient shorthand.
-        - $c -- the current cell column index
-        - $r -- the current cell row index
+            $d[14,20]+$d[15,25]       the sum of two cells
+            max(0,$d[($r-1),$c])      the cell above, but not below 0
+            $d[($r-1),$c] * 0.15      15 percent of the cell above
 
-        Typical cases:
-            sum($d[$r, :$c])        sum all cells in the current row from the first column upto but not including the current column
-            sum($d[:$r, $c])        sum all cells in the cnrrent column from the first row upto but not including the current row
-            $d[14,20]+$d[15,25]     add data in the cell at row 14, col 20 to the data in cell at row 15 and column 25
-            max(0,$d[($r-1),$c])    the value prior row in current column unless less than 0, then will enter 0.
-            $d[($r-1),$c] * 0.15    15% of the value prior row in current column
+        Warning: the formulas are run with `eval()`. Never use formulas from a source
+        you do not trust.
 
-        By using the current cell references, formulas can be the same no matter where they may be written, similar to spreadsheet formulas.
-        Typical spreadsheet formulas are treated as relative, and then modified whenever copied for the same relative cell references, unless they are made absolute by using $.
-        Here, the references are absolute unless you create a relative reference by relating to the current cell row $r and/or column $c.
+        An error in a formula prints the cell and the formula, and is raised again.
+        The `retmode` of this Daf is then left as `val`.
 
-        Example usage:
-            The following example adds rows and columns of a 3 x 2 array of values.
+        Args:
+            formulas_daf: The formulas, with the same shape as this Daf.
 
-            example_daf = Daf(cols=['A', 'B', 'C'], lol=[[1, 2, 0],[4, 5, 0],[7, 8, 0],[0, 0, 0]])
-            formulas_daf = Daf(cols=['A', 'B', 'C'],
-            formulas_daf = Daf(cols=['A', 'B', 'C'],
-                    lol=[['',                    '',                    "sum($d[$r,:$c])"],
-                         ['',                    '',                    "sum($d[$r,:$c])"],
-                         ['',                    '',                    "sum($d[$r,:$c])"],
-                         ["sum($d[:$r,$c])",     "sum($d[:$r,$c])",     "sum($d[:$r,$c])"]]
-                         )
-            expected_result = Daf(cols=['A', 'B', 'C'], lol=[[1, 2, 3],[4, 5, 9],[7, 8, 15],[12, 15, 27]])
+        Raises:
+            RuntimeError: The shapes differ, or the formulas never settle.
 
+        Examples:
+            >>> d = Daf(cols=['A', 'B', 'C'], lol=[[1, 2, 0], [4, 5, 0], [7, 8, 0], [0, 0, 0]])
+            >>> f = Daf(cols=['A', 'B', 'C'], lol=[
+            ...     ['', '', 'sum($d[$r,:$c])'],
+            ...     ['', '', 'sum($d[$r,:$c])'],
+            ...     ['', '', 'sum($d[$r,:$c])'],
+            ...     ['sum($d[:$r,$c])', 'sum($d[:$r,$c])', 'sum($d[:$r,$c])']])
+            >>> d.apply_formulas(f)
+            >>> d.lol
+            [[1, 2, 3], [4, 5, 9], [7, 8, 15], [12, 15, 27]]
         """
 
         # TODO: This algorithm is not optimal. Ideally, a dependency tree would be formed and
@@ -6880,22 +6919,25 @@ class Daf:
 
 
     def cols_to_dol(self, colname1: str, colname2: str) -> T_dola:
-        """ given a daf with at least two columns, create a dict of list
-            lookup where the key are values in col1 and list of values are
-            unique values in col2. Values in cols must be hashable.
+        """
+        Make a lookup from the values of one column to the values of another.
 
-        For example, if:
+        For each value in `colname1`, the result lists the different values that appear
+        with it in `colname2`, in the order first seen. Use it to see how two columns
+        relate. The values must be hashable. If a name is not a column, or the Daf is
+        empty, the result is empty.
 
-        daf.lol = [['a', 'b', 'c'],
-                    ['b', 'd', 'e'],
-                    ['a', 'f', 'g'],
-                    ['b', 'd', 'm']]
-        daf.columns = ['col1', 'col2', 'col3']
-        daf.cols_to_dol('col1', 'col2') results in
-        {'a': ['b', 'f'], 'b':['d']}
+        Args:
+            colname1: The column of keys.
+            colname2: The column of values.
 
-            test exists in test_daf.py
+        Returns:
+            A dict that maps each value of the first column to a list of values of the second.
 
+        Examples:
+            >>> d = Daf(lol=[['a', 'b'], ['b', 'd'], ['a', 'f'], ['b', 'd']], cols=['c1', 'c2'])
+            >>> d.cols_to_dol('c1', 'c2')
+            {'a': ['b', 'f'], 'b': ['d']}
         """
 
         if colname1 not in self.hd or colname2 not in self.hd or not self.lol:
@@ -6931,6 +6973,29 @@ class Daf:
             cols: Optional[T_ls]=None,
             ) -> 'Daf':
 
+        """
+        Insert a row that holds the difference of two rows.
+
+        The difference is the first row minus the second row, for the numeric columns
+        you name. Other columns of the new row are empty. A cell that is empty counts
+        as 0. By default the second row is the one after the first, and the new row goes
+        between them. Columns that hold text must not be in `cols`.
+
+        Args:
+            irow1: The position of the first row.
+            irow2: The position of the second row. If None, the row after the first.
+            irow_insert: Where to insert the new row. If None, at `irow2`.
+            cols: The columns to subtract. If None, all columns.
+
+        Returns:
+            This Daf, which has been changed.
+
+        Examples:
+            >>> d = Daf(lol=[[1, 10], [3, 14], [6, 20]], cols=['a', 'n'])
+            >>> d.insert_dif_row(0).lol
+            [[1, 10], [-2, -4], [3, 14], [6, 20]]
+        """
+
         if irow2 is None:
             irow2 = irow1 + 1
         if irow_insert is None:
@@ -6953,10 +7018,25 @@ class Daf:
             offset: int=0
             ) -> 'Daf':
 
-        """ given a list of row indexes irows_li, insert a difference row of that row
-            and the next row, for the columns specified by name, either
-            between them (offset=0) or after them (offset=1)
-            Note: do not include the final row in the list which is compared with the prior list.
+        """
+        Insert a difference row after each of several rows.
+
+        For each position, a row is inserted that holds that row minus the next row,
+        as in `insert_dif_row()`. Do not list the last row. By default all rows are
+        used. With `offset=1` the new row goes after the next row, not between them.
+
+        Args:
+            irows_rli: The positions of the first rows. If None, every row but the last.
+            cols: The columns to subtract. If None, all columns.
+            offset: 0 inserts between the two rows. 1 inserts after the second.
+
+        Returns:
+            This Daf, which has been changed.
+
+        Examples:
+            >>> d = Daf(lol=[[1, 10], [3, 14], [6, 20]], cols=['a', 'n'])
+            >>> d.insert_dif_rows().lol
+            [[1, 10], [-2, -4], [3, 14], [-3, -6], [6, 20]]
         """
 
         reversed_irows_rli: Union[range, T_li]
@@ -6976,9 +7056,29 @@ class Daf:
 
     def annotate_daf(self, other_daf: 'Daf', my_to_other_dict: T_ds) -> 'Daf':
         """
-            Adopt fields from other_daf for fields in self using my_to_other_dict map.
+        Copy fields from another Daf into this one, row by row, matching on the key.
 
-            Note: should be changed to allow other_daf to contain a subset of records that need to be annotated.
+        Both Daf instances need a keyfield. For each row here, the row with the same
+        key in `other_daf` is found, and each field of this row named in
+        `my_to_other_dict` gets the value of the other field. A key that is missing
+        in `other_daf` raises `KeyError`. Name existing columns. A name that is not
+        a column adds a value to the rows, but not a column name.
+
+        Args:
+            other_daf: The Daf to copy from.
+            my_to_other_dict: Maps the field to set here to the field to read there.
+
+        Returns:
+            This Daf, which has been changed.
+
+        Raises:
+            KeyError: A keyfield is not set, or a key is not found in `other_daf`.
+
+        Examples:
+            >>> a = Daf(lol=[[1, 'x'], [2, 'y']], cols=['id', 'v'], keyfield='id')
+            >>> o = Daf(lol=[[1, 'P'], [2, 'Q']], cols=['id', 'w'], keyfield='id')
+            >>> a.annotate_daf(o, {'v': 'w'}).lol
+            [[1, 'P'], [2, 'Q']]
         """
 
         my_keyfield = self.keyfield
@@ -7024,23 +7124,38 @@ class Daf:
                 # cols: Optional[T_la]=None,                    # columns included in the apply operation.
             ) -> "Daf":
         """
-        Apply a function to each 'row', 'col', or 'table' in the Daf and create a new Daf with the transformed data.
-        If the function returns an empty record or None, then do not append.
+        Apply a function to each row and collect the results in a new Daf.
 
-        Note: to apply a function to a portion of the table, first select the columns or rows desired
-                using a selection process.
-            Keylist: probably will be deprecated. Select rows prior to invocation.
+        The function gets a row and returns the new row as a dict. If it returns an
+        empty dict or None, that row is left out. The new Daf takes its columns from
+        the first row returned. It has no keyfield. This Daf is not changed.
+
+        With `by='table'` the function gets the whole Daf, and its result is returned
+        as it is. Use that to run any function on the table. `by='col'` is not
+        supported.
+
+        The function gets the rows as dicts, or as KeyedList objects if `itermode` is
+        `keyedlist`. The extra keyword arguments are passed on to it. To work on only
+        some rows, give the `keylist`, or select them first.
 
         Args:
-            func (Callable): The function to apply to each 'row', 'col', or 'table'.
-            It should take a row dictionary and any additional parameters.
-            by (str): either 'row', 'col' or 'table'
-                if by == 'table', function should create a new Daf instance.
-            keylist: Optional[T_ls]=None,                   # list of keys of rows to include.
-            **kwargs: Additional parameters to pass to the function.
+            func: The function to apply. It takes a row, or the Daf, and the keyword arguments.
+            by: `row` to apply to each row, or `table` to apply to the whole Daf.
+            keylist: Keys of the rows to include. All rows if None. This may be removed.
+            **kwargs: Keyword arguments passed on to the function.
 
         Returns:
-            Daf: A new Daf instance with the transformed data.
+            The new Daf, or the result of the function for `by='table'`.
+
+        Raises:
+            NotImplementedError: `by` is `col`, or is not recognized.
+
+        Examples:
+            >>> d = Daf(lol=[['a', 1, 10], ['b', 2, 20], ['a', 3, 30]], cols=['g', 'x', 'y'])
+            >>> d.apply(lambda row: {'g': row['g'].upper(), 'z': row['y'] * 2}).lol
+            [['A', 20], ['B', 40], ['A', 60]]
+            >>> d.apply(lambda row: row if row['y'] > 15 else None).lol
+            [['b', 2, 20], ['a', 3, 30]]
         """
         if by == 'table':
             # by contract (see docstring) func returns a 'Daf' when by='table', though this
@@ -7087,6 +7202,24 @@ class Daf:
 
     @staticmethod
     def update_row(row: T_ma, da: T_da) -> T_ma:
+        """
+        Update a row with the items of a dict, and return the row.
+
+        This is a small helper to use inside `apply()`, as in
+        `d.apply(lambda row: Daf.update_row(row, {'z': 0}))`. It is a static method.
+
+        Args:
+            row: The row, as a dict. It is changed.
+            da: The items to put in the row.
+
+        Returns:
+            The same row.
+
+        Examples:
+            >>> Daf.update_row({'a': 1}, {'b': 2})
+            {'a': 1, 'b': 2}
+        """
+
         row.update(da)
         return row
 
@@ -7101,19 +7234,37 @@ class Daf:
             **kwargs:   Any,
             ) -> None:
         """
-        Apply a function to each 'row', 'row_klist', 'col', or 'table' in the daf.
+        Apply a function to each row and store the results in this Daf.
+
+        With `by='row'` the function gets each row as a dict. It must return a row. The
+        values of the returned dict are stored as the new row, in the order of its
+        keys, so the keys must be the columns in their order. A dict that is
+        shorter, longer or in a different order puts values in the wrong columns.
+
+        With `by='row_klist'` the function gets each row as a
+        [KeyedList][daffodil.keyedlist.KeyedList]. It changes the row and returns
+        nothing. It cannot put values in the wrong column.
+
+        The key index is rebuilt when it is next needed. Use `apply()` to get a new Daf.
 
         Args:
-            func (Callable): The function to apply to each 'row'
-                                It should take a row dictionary (or KeyedList) and any additional parameters.
-            by (str):       either 'row', 'row_klist', 'col' or 'table'
-                                if by == 'row_klist' then the function should modify the KeyedList of that row
-                                                        which will mutate the row in the table.
-                                if by == 'table', function should create a new Daf instance.
-            rowkeys:        list of keys of rows to include (keyfield must be defined).
-            **kwargs:       Additional keyword parameters to pass to the function.
+            func: The function to apply to each row. It takes a row and the keyword arguments.
+            by: `row` or `row_klist`.
+            rowkeys: Keys of the rows to include. All rows if None. The Daf needs a keyfield.
+            **kwargs: Keyword arguments passed on to the function.
 
-        Modifies self in-place.
+        Raises:
+            ValueError: With `by='row'` the function returned None.
+            NotImplementedError: `by` is not `row` or `row_klist`.
+
+        Examples:
+            >>> d = Daf(lol=[['a', 1, 10], ['b', 2, 20], ['a', 3, 30]], cols=['g', 'x', 'y'])
+            >>> d.apply_in_place(lambda row: {**row, 'y': row['y'] + 1})
+            >>> d.col('y')
+            [11, 21, 31]
+            >>> d.apply_in_place(lambda row: row.__setitem__('y', 0), by='row_klist')
+            >>> d.col('y')
+            [0, 0, 0]
         """
         if rowkeys is None:
             rowkeys = []
@@ -7208,26 +7359,24 @@ class Daf:
              **kwargs: Any,
             ) -> "Daf":
         """
-        Given a chunk_manifest_daf, where each record is a chunk_spec (dict),
-        1. load the each chunk using 'load_func(chunk_spec)'
-        2. apply 'func' to the loaded Daf instance to produce (result_chunk_spec, new_daf)
-        3. save new_daf using 'save_func(result_chunk_spec)'
-        4. append result_chunk_spec to result_manifest_daf describing the resulting chunks
+        Run a function on each chunk that a manifest lists, and save the results.
+
+        A manifest is a Daf in which each row describes one chunk of data. For each
+        row, `load_func` loads the chunk as a Daf. `func` is applied to it with
+        `by='table'`, so it gets the loaded Daf and the keyword `cols`. It returns a
+        tuple of a dict that describes the result chunk and the new Daf. `save_func`
+        saves the new Daf. The result manifest has one row for each dict.
 
         Args:
-            func (Callable): The function to apply to each table specified by each record in self.
-            load_func (Callable): load specified daf table based on the chunkspec in each row of self.
-            save_func (Callable): save resulting daf table after operation by func.
-            **kwargs: Additional parameters to pass to func
+            func: Gets a loaded Daf. Returns a dict that describes the result and the new Daf.
+            load_func: Loads the chunk that a manifest row describes.
+            save_func: Saves a new Daf, given the dict that describes it.
+            by: Must be `table`.
+            cols: Passed to `func` as the keyword `cols`.
+            **kwargs: Keyword arguments passed on to `func`.
 
         Returns:
-            result_manifest_daf
-
-        Note, this method can be used for transformation, where the same number of transformed chunks exists,
-            or, it can be used for reduction.
-        if 'reduce' is true, then each chunk returns a daf with a single row.
-
-
+            The manifest of the result chunks.
         """
 
         result_manifest_daf = Daf()
@@ -7263,15 +7412,30 @@ class Daf:
             **kwargs: Any,
             ) -> T_da:
         """
-        Apply a reduction function to the tables specified by the chunk manifest.
+        Reduce the chunks that a manifest lists into one row.
+
+        Each chunk is loaded with `load_func` and reduced with `reduce()`. The
+        reductions are put in a Daf, and that is reduced again with the same function.
+        This works for functions such as `sum_da()` that can be combined in this way.
 
         Args:
-            func (Callable): The function to apply to each table specified by each record in self.
-            load_func (Callable): Load specified daf table based on the chunkspec in each row of self.
-            **kwargs: Additional parameters to pass to func
+            func: The reduction function. See `reduce()`.
+            load_func: Loads the chunk that a manifest row describes. It is required.
+            by: How the function is applied. See `reduce()`.
+            cols: The columns to reduce. All columns if None.
+            **kwargs: Keyword arguments passed on to the function.
 
         Returns:
-            Daf: Result of reducing all chunks into a single record.
+            The reduced row, as a dict.
+
+        Raises:
+            ValueError: No `load_func` is given.
+
+        Examples:
+            >>> store = {'c1': Daf(lol=[[1, 2], [3, 4]], cols=['a', 'b']), 'c2': Daf(lol=[[10, 20]], cols=['a', 'b'])}
+            >>> manifest = Daf(lol=[['c1'], ['c2']], cols=['chunk'])
+            >>> manifest.manifest_reduce(Daf.sum_da, load_func=lambda spec: store[spec['chunk']])
+            {'a': 14, 'b': 26}
         """
         if load_func is None:
             raise ValueError("manifest_reduce: load_func is required")
@@ -7300,19 +7464,23 @@ class Daf:
             **kwargs: Any,
             ) -> 'Daf':                                    # records describing metadata of each hunk
         """
-        Given a chunk_manifest_daf, where each record is a chunk_spec (dict),
-        1. apply 'func' to each chunk specified by the manifest.
-        2. func() will load the chunk and save any results.
-        3. returns one record for each func() call, add these to the resulting daf.
+        Call a function once for each chunk that a manifest lists.
+
+        The function gets the manifest row as a dict, and does its own loading and
+        saving. It returns a dict of information about what it did. These dicts are
+        collected as the rows of the result.
 
         Args:
-            func (Callable): The function to apply to each table specified by each record in self.
-            cols:            Reduce scope to a set of cols
-            **kwargs: Additional parameters to pass to func
+            func: Gets a manifest row and returns a dict of results.
+            **kwargs: Keyword arguments passed on to the function.
 
         Returns:
-            result_daf
+            A Daf with one row for each returned dict.
 
+        Examples:
+            >>> manifest = Daf(lol=[['c1'], ['c2']], cols=['chunk'])
+            >>> manifest.manifest_process(lambda spec: {'chunk': spec['chunk'], 'seen': True}).lol
+            [['c1', True], ['c2', True]]
         """
 
         result_daf = Daf()
@@ -7336,10 +7504,30 @@ class Daf:
             omit_nulls: bool=False,         # do not group to values in column that are null ('')
             ) -> Union[Dict[str, 'Daf'], Dict[Tuple[str, ...], 'Daf']]:
 
-        """ given a daf, break into a number of daf's based on one colname or list of colnames specified.
-            For each discrete value in colname(s), create a daf table with all cols,
-            including colname, and return in a dodaf (dict of daf) structure.
-            If list of colnames is provided, dodaf keys are tuples of the values.
+        """
+        Split the Daf into several Daf instances, one for each value of a column.
+
+        The result is a dict. Each key is a value found in the column, in the order
+        first seen. Each value is a Daf of the rows that have it, with all columns.
+        The rows are not copied, so changing a cell in a group changes it here too.
+
+        With several columns, as a list, the keys are tuples of their values. See
+        `groupby_cols()`. With `omit_nulls`, rows that have an empty value in the
+        column are left out.
+
+        Args:
+            colname: The column to group by.
+            colnames: Several columns to group by. Use this or `colname`.
+            omit_nulls: If True, leave out rows that have an empty value.
+
+        Returns:
+            A dict that maps each value, or tuple of values, to a Daf.
+
+        Examples:
+            >>> d = Daf(lol=[['a', 1, 10], ['b', 2, 20], ['a', 3, 30]], cols=['g', 'x', 'y'])
+            >>> groups = d.groupby('g')
+            >>> list(groups), groups['a'].lol
+            (['a', 'b'], [['a', 1, 10], ['a', 3, 30]])
         """
 
         if isinstance(colname, list) and not colnames:
@@ -7370,12 +7558,23 @@ class Daf:
 
     def groupby_cols(self, colnames: T_ls) -> Dict[Tuple[str, ...], 'Daf']:
 
-        """ given a daf, break into a number of daf's based on colnames specified.
-            For each discrete value in colname, create a daf table with all cols,
-            including colnames, and return in a dodaf (dict of daf) structure,
-            where the keys are a tuple of the column values.
+        """
+        Split the Daf by the values of several columns.
 
-            Examine the records to determine what the values are for the colnames specified.
+        The result is a dict. Each key is a tuple of the values in the columns, even
+        for one column. Each value is a Daf of the rows that have them. The rows are
+        not copied.
+
+        Args:
+            colnames: The columns to group by.
+
+        Returns:
+            A dict that maps each tuple of values to a Daf.
+
+        Examples:
+            >>> d = Daf(lol=[['a', 1, 10], ['b', 2, 20], ['a', 3, 30]], cols=['g', 'x', 'y'])
+            >>> list(d.groupby_cols(['g']))
+            [('a',), ('b',)]
         """
 
         result_dodaf: Dict[Tuple[str, ...], 'Daf'] = {}
@@ -7399,18 +7598,26 @@ class Daf:
             indirect_col: Optional[str] = None,
         ) -> Dict[Any, 'Daf']:
 
-        """ Group rows by where(row), supporting fanout.
+        """
+        Group the rows by the result of a function.
 
-            where(row) -> None | key | iterable[key]
-            Returns dodaf with rows appended by reference (no copy)
-                to the appropriate daf based on the key.
-            For example, the function where can return a list of tuples
-                which are then used as keys to the dodaf output, and the
-                row in question is appended to those daf arrays by reference
-                (no copying).
+        The function gets each row and returns a key, or a list of keys, or None. A row
+        goes into the group of each key. A list of keys puts the same row in several
+        groups. None leaves the row out. The groups are Daf instances in a dict. The rows
+        are not copied, so changing a cell in a group changes it here too.
 
-            group_where()
+        Args:
+            where: The function. It gets a row and returns None, a key, or an iterable of keys.
+            indirect_col: A column that holds a dict, to read names that are not columns from.
 
+        Returns:
+            A dict that maps each key to a Daf.
+
+        Examples:
+            >>> d = Daf(lol=[['a', 1, 10], ['b', 2, 20], ['a', 3, 30]], cols=['g', 'x', 'y'])
+            >>> groups = d.group_where(lambda row: [row['g'], 'all'])
+            >>> {key: len(group) for key, group in groups.items()}
+            {'a': 2, 'all': 3, 'b': 1}
         """
 
         # --- helpers ---
@@ -7486,9 +7693,32 @@ class Daf:
             ) -> 'Daf':
 
         """
-            Given a daf, break into a number of daf's based on values in groupby_colnames.
-            For each group, apply func. to data in reduce_cols.
-            returns daf with one row per group, and keyfield not set.
+        Group the rows by several columns and reduce each group to one row.
+
+        Use it to total the numbers for each combination of a few identifying columns.
+        The result has one row for each combination. It has the group columns first and
+        then the `reduce_cols`. It has no keyfield. For each group, `func` is used as in
+        `reduce()`.
+
+        For example, group by gender, religion and zip code, and sum the counts of
+        several causes in each group. The number of rows is the number of combinations
+        that occur.
+
+        Args:
+            groupby_colnames: The columns that identify a group.
+            func: The reduction function. See `reduce()`.
+            by: How the function is applied. See `reduce()`.
+            reduce_cols: The columns to reduce.
+            diagnose: If True, print progress messages.
+            **kwargs: Keyword arguments passed on to the function.
+
+        Returns:
+            The Daf with one row for each group.
+
+        Examples:
+            >>> d = Daf(lol=[['a', 1, 10], ['b', 2, 20], ['a', 3, 30]], cols=['g', 'x', 'y'])
+            >>> d.groupby_cols_reduce(['g'], Daf.sum_da, reduce_cols=['y']).lol
+            [['a', 40], ['b', 20]]
         """
         # unit test exists.
         """
@@ -7616,10 +7846,28 @@ class Daf:
             diagnose:       bool=False,
             **kwargs:       Any,
             ) -> 'Daf':
-        """ given a daf, break into a number of daf's based on colname specified.
-            For each group, apply callable.
-            returns daf with one row per group, with keyfield the groupby value in colname.
+        """
+        Group the rows by one column and reduce each group to one row.
 
+        The result has one row for each value in the column, and its keyfield is that
+        column. The columns in `reduce_cols` hold the reduced values. Other columns are
+        empty. For each group, `func` is used as in `reduce()`.
+
+        Args:
+            colname: The column to group by.
+            func: The reduction function. See `reduce()`.
+            by: How the function is applied. See `reduce()`.
+            reduce_cols: The columns to reduce. All except `colname` if None.
+            diagnose: If True, print progress messages.
+            **kwargs: Keyword arguments passed on to the function.
+
+        Returns:
+            The Daf with one row for each group.
+
+        Examples:
+            >>> d = Daf(lol=[['a', 1, 10], ['b', 2, 20], ['a', 3, 30]], cols=['g', 'x', 'y'])
+            >>> d.groupby_reduce('g', Daf.sum_da, reduce_cols=['y']).lol
+            [['a', '', 40], ['b', '', 20]]
         """
 
         if diagnose:
@@ -7646,27 +7894,27 @@ class Daf:
             omit_nulls:         bool=False,         # do not group to values in column that are null ('')
             ) -> Dict[str, Dict[str, 'Daf']]:   # result_dododaf
 
-        """ given a daf, break into a number of daf's based on a list of colnames specified.
-            For each groupby_colname, for each discrete value, create a daf table with all cols,
-            including colname, and provide a dodaf structure for each groupby_colname.
+        """
+        Group the rows by each of several columns, one column at a time.
 
-            Please note that each daf array which is built the value of each colname is not reduced.
+        The result is a dict of dicts. The first key is the column. The second key is a
+        value in that column. Each innermost value is a Daf of the rows that have it.
+        This is not a grouping by combinations. Use `groupby_cols()` for that.
+        The groups are not reduced.
 
-            {groupby_colname1:
-                {value1: Daf,
-                 value2: Daf,
-                 ...
-                 valuen: Daf,
-                }
-             groupby_colname2:
-                {value1: Daf,
-                 value2: Daf,
-                 ...
-                 valuen: Daf,
-                }
-            ...
-            }
+        Args:
+            groupby_colnames: The columns to group by.
+            colnames: Not used.
+            omit_nulls: If True, leave out rows that have an empty value.
 
+        Returns:
+            A dict that maps each column to a dict of value and Daf.
+
+        Examples:
+            >>> d = Daf(lol=[['a', 1, 10], ['b', 2, 20], ['a', 3, 30]], cols=['g', 'x', 'y'])
+            >>> groups = d.multi_groupby(['g', 'x'])
+            >>> list(groups), list(groups['g'])
+            (['g', 'x'], ['a', 'b'])
         """
         if isinstance(groupby_colnames, str):
             groupby_colnames = [groupby_colnames]
@@ -7710,10 +7958,23 @@ class Daf:
             diagnose:       bool=False,
             **kwargs:       Any,
             ) -> 'Daf':
-        """ after splitting a daf into a number of mutually exclusive daf objects based on the value in colname,
-            combine these using reduction function func, resulting in a single record for each Daf array.
-            Then append these records into the resulting Daf array, containing one record per value in column 'colname'
-            Other than columns specified in 'reduce_cols', other columns are '' unless they are single-valued.
+        """
+        Reduce each Daf in a dict to one row, and join the rows in a Daf.
+
+        This is the second half of `groupby_reduce()`. The dict maps the values of a
+        column to Daf instances. Each Daf is reduced with `reduce()`. The value is
+        stored in the column `colname` of the row. The result has `colname` as its keyfield.
+
+        Args:
+            colname: The column that holds the value of each group.
+            func: The reduction function. See `reduce()`.
+            grouped_dodaf: A dict that maps each value to a Daf.
+            reduce_cols: The columns to reduce. All columns except `colname` if None.
+            diagnose: If True, print progress messages.
+            **kwargs: Keyword arguments passed on to the function.
+
+        Returns:
+            The Daf with one row for each group.
         """
 
         if diagnose:
@@ -7775,10 +8036,28 @@ class Daf:
             diagnose:       bool=False,
             **kwargs:       Any,
             ) -> Dict[str, 'Daf']:
-        """ given a daf, break into a number of daf's based on colnames specified.
-            For each group, apply callable.
-            returns dodaf with one daf per colname.
-            In each of those dafs, there is row per value in the colname, with keyfield the groupby value in colname.
+        """
+        Group by each of several columns and reduce each group to one row.
+
+        This is `multi_groupby()` followed by `groupby_reduce()` for each column. The
+        result is a dict. Each key is a column. Each value is a Daf with one row for
+        each value of that column, and that column as its keyfield.
+
+        Args:
+            colnames: The columns to group by, one at a time.
+            func: The reduction function. See `reduce()`.
+            by: How the function is applied. See `reduce()`.
+            reduce_cols: The columns to reduce.
+            diagnose: If True, print progress messages.
+            **kwargs: Keyword arguments passed on to the function.
+
+        Returns:
+            A dict that maps each column to its Daf.
+
+        Examples:
+            >>> d = Daf(lol=[['a', 1, 10], ['b', 2, 20], ['a', 3, 30]], cols=['g', 'x', 'y'])
+            >>> d.multi_groupby_reduce(['g'], Daf.sum_da, reduce_cols=['y'])['g'].lol
+            [['a', '', 40], ['b', '', 20]]
         """
 
         if diagnose:
@@ -7816,27 +8095,25 @@ class Daf:
         default: Any = 0,
     ) -> "Daf":
         """
-        Apply a function to each row and store the result in target_col.
+        Compute one column from the other columns of each row, in place.
 
-        - If target_col doesn't exist, it is inserted with default values.
-        - If func raises an exception, default is used instead.
-        - `func` receives a row dict (T_da) and can access any number of fields.
+        The function gets each row, as a dict, and returns the value for `target_col`.
+        If the function raises an error for a row, that row gets `default`. If
+        `target_col` is not a column, it is added at the right, and the rows are
+        filled with `default` first. Use it for a ratio or a total of other columns.
 
-        Returns the modified Daf object (in-place).
+        Args:
+            target_col: The column to store the result in.
+            func: A function that takes a row and returns the value.
+            default: The value for a row where the function raises an error.
 
-        # Example:
-        # Compute RV_partisanship = REP / (REP + DEM), and default to 0 on error
+        Returns:
+            This Daf, which has been changed.
 
-            my_daf.apply_colwise(
-                target_col="RV_partisanship",
-                func=lambda row: row["REP"] / (row["REP"] + row["DEM"]),
-                default=0.0
-            )
-
-        # Behavior:
-        # - If 'RV_partisanship' doesn't exist, it's inserted and initialized to 0.0
-        # - If REP or DEM are missing or invalid in a row, that row's value stays 0.0
-        # - Otherwise, the row gets REP / (REP + DEM)
+        Examples:
+            >>> d = Daf(lol=[[1, 2], [3, 0]], cols=['a', 'b'])
+            >>> d.apply_colwise('ratio', lambda row: row['a'] / row['b'], default=-1.0).lol
+            [[1, 2, 0.5], [3, 0, -1.0]]
         """
 
         if target_col not in self.columns():
@@ -7958,6 +8235,27 @@ class Daf:
 
         # for the default by='row' (the only mode used by any caller/test), reduce() always
         # returns a single record.
+        """
+        Add up the columns, using `reduce()` and `sum_da()`.
+
+        Cells that cannot be added, such as text, are skipped. A column that is not
+        in `cols` is empty in the result.
+
+        Args:
+            by: How the function is applied. See `reduce()`.
+            cols: The columns to sum. All if None.
+            indirect_col: A column that holds a dict. Required for `sparse_row`.
+            **kwargs: Keyword arguments passed on to `reduce()`.
+
+        Returns:
+            A dict with a total for each column.
+
+        Examples:
+            >>> d = Daf(lol=[['a', 1, 10], ['b', 2, 20], ['a', 3, 30]], cols=['g', 'x', 'y'])
+            >>> d.daf_sum(cols=['y'])
+            {'g': '', 'x': '', 'y': 60}
+        """
+
         return cast(T_ma, self.reduce(func=Daf.sum_da, by=by, cols=cols, indirect_col=indirect_col, **kwargs))
 
 
@@ -7976,22 +8274,45 @@ class Daf:
             **kwargs:       Any,
             ) -> Union[T_ma, T_la]:
         """
-        Apply a function to each 'row', 'col', or 'table' and accumulate to a single T_da
-        Note: to apply a function to a portion of the table, first select the columns or rows desired
-                using a selection process.
+        Combine all the rows into one result, using a function.
+
+        The function gets each row, and the result so far, and returns the new result.
+        A sum or a count is a reduction. With `by='row'`, the function is called as
+        `func(row, result, cols=cols, **kwargs)`. The result starts as 0 for each of
+        the columns, or as `initial_da`. It returns a dict with every column. Columns
+        that are not in `cols` are empty.
+
+        With `by='col'` the function gets each column as a list and the result so far
+        as a list. With `by='table'` it gets this Daf and `cols`, and its result is
+        returned as it is. With `by='sparse_row'`, rows are read from the dict in
+        `indirect_col`, and the result starts as `initial_da` or an empty dict.
+
+        An error in the function stops the reduction. With `silent_error=True` the
+        row is skipped. The result may then be missing rows, with no sign of it. An
+        empty Daf gives an empty dict for `by='row'`.
+
+        To reduce part of the table, select the rows or columns first, or give `cols`.
 
         Args:
-            func (Callable): The function to apply to each 'row', 'col', or 'table'.
-            It should take a row dictionary and any additional parameters.
-            by (str): either 'row', 'col' or 'table'
-                if by == 'table', function should create a new Daf instance.
-            silent_error (bool): For 'row' and 'sparse_row'. If False, an error raised by func
-                stops the reduction. If True, that row is skipped and the reduction goes on.
-                Use with care: a result may then be missing rows, with no sign of it.
-            **kwargs: Additional parameters to pass to the function.
+            func: The function that combines. For example `Daf.sum_da`.
+            by: `row`, `col`, `table` or `sparse_row`.
+            cols: The columns included in the reduction. All columns if None.
+            initial_da: The result to start from, instead of zeros.
+            indirect_col: A column that holds a dict. Required for `sparse_row`.
+            silent_error: If True, a row for which the function raises is skipped.
+            **kwargs: Keyword arguments passed on to the function.
 
         Returns:
-            either a dict (by='rows' or 'table') or list (by='cols')
+            A dict for `row`, `table` and `sparse_row`. A list for `col`.
+
+        Raises:
+            ValueError: `sparse_row` is used with no `indirect_col`.
+            NotImplementedError: `by` is not recognized.
+
+        Examples:
+            >>> d = Daf(lol=[['a', 1, 10], ['b', 2, 20], ['a', 3, 30]], cols=['g', 'x', 'y'])
+            >>> d.reduce(Daf.sum_da, cols=['x', 'y'])
+            {'g': '', 'x': 6, 'y': 60}
         """
         if by == 'table':
             reduction_ma = func(self, cols, **kwargs)
@@ -8086,9 +8407,26 @@ class Daf:
                 diagnose:       bool=False
                 ) -> T_ma:  # result_ma -- same object (and type) as reduction_da, returned in place
         """
-            numeric sum of values in row and accum dicts per colunms provided.
-            will safely skip data that can't be summed.
-            First three args should be provided by position only to avoid naming issues among different reductions.
+        Add the values of a row to a running total. Use it with `reduce()`.
+
+        This is a static method. A value that cannot be added, such as text or an empty
+        cell, is skipped. The total is changed and returned. With `astype`, each value
+        is first converted to that type.
+
+        Args:
+            row_da: The current row.
+            reduction_da: The running total. It is changed.
+            cols: The columns to add. All if None.
+            astype: A type to convert each value to before adding.
+            is_sparse: If True, the row may hold only some of the columns.
+            diagnose: Not used.
+
+        Returns:
+            The running total.
+
+        Examples:
+            >>> Daf.sum_da({'x': 1, 'y': 2}, {'x': 10, 'y': 0}, cols=['x', 'y'])
+            {'x': 11, 'y': 2}
         """
         # def sum_da         (row_da: T_da, reduction_da: T_da, cols: Iterable, astype: Optional[Type]=None, diagnose:bool=False
 
@@ -8426,10 +8764,21 @@ class Daf:
             by:     str         = 'row',
             cols:   T_cs | None = None,
             ) -> T_ma:
-        """ count values in columns specified and return for each column,
-            a dictionary of values and counts for each value in the column
+        """
+        Count how often each value occurs, in each column, using `reduce()`.
 
-            Need a way to specify that blank values will also be counted.
+        Args:
+            by: How the function is applied. See `reduce()`.
+            cols: The columns to count. All if None.
+
+        Returns:
+            A dict that maps each column to a dict of value and count. A column that is
+            not in `cols` is empty.
+
+        Examples:
+            >>> d = Daf(lol=[['a', 1, 10], ['b', 2, 20], ['a', 3, 30]], cols=['g', 'x', 'y'])
+            >>> d.daf_valuecount(cols=['g'])['g']
+            {'a': 2, 'b': 1}
         """
 
         # by='row' (the default, and the only mode exercised) always reduces to a single record.
@@ -8445,6 +8794,25 @@ class Daf:
                                                             # current operation sets keyfield to colname.
             ) -> 'Daf':
 
+        """
+        Group by a column and add up the other columns of each group.
+
+        This is `groupby_reduce()` with `sum_da()`.
+
+        Args:
+            colname: The column to group by.
+            by: How the function is applied. See `reduce()`.
+            reduce_cols: The columns to add.
+
+        Returns:
+            The Daf with one row for each group.
+
+        Examples:
+            >>> d = Daf(lol=[['a', 1, 10], ['b', 2, 20], ['a', 3, 30]], cols=['g', 'x', 'y'])
+            >>> d.groupsum_daf('g', reduce_cols=['y']).lol
+            [['a', '', 40], ['b', '', 20]]
+        """
+
         result_daf = self.groupby_reduce(colname=colname, func=self.__class__.sum_da, by=by, reduce_cols=reduce_cols)
 
         return result_daf
@@ -8459,6 +8827,23 @@ class Daf:
                                                             # current operation sets keyfield to colname.
             ) -> Dict[str, 'Daf']:
 
+        """
+        Group by each of several columns, one at a time, and add up the columns.
+
+        This is `multi_groupby_reduce()` with `sum_da()`.
+
+        Args:
+            colnames: The columns to group by. These are required.
+            by: How the function is applied. See `reduce()`.
+            reduce_cols: The columns to add.
+
+        Returns:
+            A dict that maps each column to a Daf with one row for each value.
+
+        Raises:
+            ValueError: No `colnames` are given.
+        """
+
         if colnames is None:
             raise ValueError("multi_groupsum: colnames is required")
 
@@ -8469,9 +8854,24 @@ class Daf:
 
     def set_col2_from_col1_using_regex_select(self, col1: str, col2: str='', regex: str='') -> None:
 
-        """ given two cols that already exist, apply regex select to col1 to create col2
-            regex should include parens that enclose the desired portion of col1.
-            col2 defaults to col1 if not provided, but you must use keyword regex.
+        r"""
+        Fill a column with the part of another column that a regex selects, in place.
+
+        `regex` must have one pair of parentheses around the part to keep. A cell that
+        does not match gives an empty cell. Give `regex` as a keyword. Without `col2`,
+        `col1` is changed. If `col2` is not a column, the values are added to the
+        rows, but not a column name.
+
+        Args:
+            col1: The column to read.
+            col2: The column to write. Defaults to `col1`.
+            regex: A regular expression with one group.
+
+        Examples:
+            >>> d = Daf(lol=[[1, 'ab12'], [2, 'cd34']], cols=['id', 's'])
+            >>> d.set_col2_from_col1_using_regex_select('s', regex=r'(\d+)')
+            >>> d.col('s')
+            ['12', '34']
         """
 
         # from utilities import daf_utils
@@ -8488,14 +8888,34 @@ class Daf:
 
     def apply_replace_regex(self, col: str, col2: str='', replace_regex: str='') -> 'Daf':
 
-        """ apply a replace regex pattern, with form '/find/replace/' to col, or
-            by from col to col2.
+        r"""
+        Change a column with a pattern of the form `/find/replace/`, in place.
 
-            remove pattern:                 /find//
-            replace pattern:                /find/replace/
-            select pattern:                 /pretext(select)posttext/\1/
-            select pattern with changes     /pretext(select)posttext/prefix\1suffix/
+        The pattern has three parts that are separated by `/`. The first is a regular
+        expression. The second is what replaces the part it finds. The groups it
+        finds can be used as `\1`. A pattern with an empty second part removes the text.
 
+            /find//                       remove
+            /find/replace/                replace
+            /pre(select)post/\1/          keep only the selected part
+            /pre(select)post/a\1b/        keep it, with new text around it
+
+        The result goes to `col2`, or to `col` if there is no `col2`. A column that is
+        not found does nothing. If `col2` is not a column, the values are added to the
+        rows, but not a column name.
+
+        Args:
+            col: The column to read.
+            col2: The column to write. Defaults to `col`.
+            replace_regex: The pattern.
+
+        Returns:
+            This Daf, which has been changed.
+
+        Examples:
+            >>> d = Daf(lol=[[1, 'ab12']], cols=['id', 's'])
+            >>> d.apply_replace_regex('s', replace_regex='/ab//').col('s')
+            ['12']
         """
 
         # from utilities import daf_utils
@@ -8521,38 +8941,34 @@ class Daf:
             silent_error:           bool = False,   # if True, a missing setting does nothing
             ) -> 'Daf':
 
-        """ alter a daf using setting_name in settingsdict, selected by setting_select_dict
+        """
+        Change this Daf with the replace patterns found in a settings dict.
 
-            Example:
-                biabif_daf = daf_utils.alter_daf_per_setting(
-                    this_daf            = biabif_daf,
-                    settingsdict        = argsdict,
-                    setting_name        = 'daf_replace_regex_spec',
-                    setting_select_dict = {'spec_name': archive_basename},
-                    )
+        The setting is a dict, or a list of dicts. Each has a `spec_name`, a `colname`
+        and a `replace_regex`. The ones whose fields match `setting_select_dict` are
+        used. For each, `apply_replace_regex()` changes the column. Use it to give
+        different edits to different files, such as fixing ids in one source.
 
-                cvrbif_daf = daf_utils.alter_daf_per_setting(
-                    this_daf            = cvrbif_daf,
-                    settingsdict        = argsdict,
-                    setting_name        = 'daf_replace_regex_spec',
-                    setting_select_dict = {'spec_name': cvr_fn},
-                    )
+        A setting that is None or empty changes nothing. A name that is not in the
+        settings dict raises `KeyError`, unless `silent_error` is True.
 
-        daf_replace_regex_spec:
-            list of replace regex specs to apply to biabif, cvrbif, and cvrvotes, specific to each
-            archive or cvr file. Can use to alter ballotids if duplicate names do not reference
-            the same ballot. Format is {'spec_name':archive_filename, "colname"="colname str",
-            replace_regex="replace regex str"}.
+        Args:
+            settingsdict: A dict of settings.
+            setting_name: The key of the setting in the dict.
+            setting_select_dict: Selects which specs apply, such as `{'spec_name': 'file1.csv'}`.
+            silent_error: If True, a missing setting changes nothing.
 
-            Apply replace regex to ballotids in biabif from specified archive, or cvrbif or cvrvotes
-            from specified cvr fn.  replace_regex is like "/findstr/replstr/
+        Returns:
+            This Daf, which has been changed.
 
-        The action is to filter to 'spec_name' in colname, and then apply the replace regex.
+        Raises:
+            KeyError: The setting is missing and `silent_error` is False.
 
-        setting_name normally must be a key in settingsdict. A value of None or empty means
-        no changes. A missing key raises KeyError, unless silent_error is True. Then it is
-        treated as empty.
-
+        Examples:
+            >>> d = Daf(lol=[['04_1'], ['05_2']], cols=['ballot_id'])
+            >>> spec = {'spec_name': 'a.zip', 'colname': 'ballot_id', 'replace_regex': r'/^04_/14_/'}
+            >>> d.alter_daf_per_setting({'fix': [spec]}, 'fix', {'spec_name': 'a.zip'}).col('ballot_id')
+            ['14_1', '05_2']
         """
 
         if silent_error:
@@ -8580,64 +8996,24 @@ class Daf:
             self,                       # daf to alter
             alter_specs_daf: 'Daf',     # daf containing cols: colname, replace_regex
             ) -> 'Daf':
-        r"""
-            Given daf array, use alter_specs_daf to alter the array with individual replace_regex specs.
+        """
+        Change this Daf with the replace patterns listed in a Daf.
 
-            alter_specs_daf should be preselected to retain only those specs (rows) that apply using "spec_name"
-            alter_specs_daf has columns:
-                spec_name       - used to select the appropriate alter specs.
-                                    prior to entry, the daf contains only those records that are appropriate.
-                colname         - column to alter
-                replace_regex   - string formatted to provide find and replace.
+        Each row of `alter_specs_daf` has a `colname` and a `replace_regex`. The
+        pattern is applied to the column with `apply_replace_regex()`. Give it only
+        the rows that apply, for example by selecting on `spec_name` first.
 
-            Sometimes, duplicate ballot_id value will be used for different ballots
-            This can happen if the ballots are in different src or cvr files.
-            Check argsdict[setting_name] to see if it is a single dict or a lod. Convert da to loda
-            Match field 'spec_name' in lod with value 'spec_name'.
-            in this dict, use colname specified.
-            Apply 'replace_regexp' to column specified.
+        Args:
+            alter_specs_daf: The specs, with the columns `colname` and `replace_regex`.
 
-            usage:
-                if argsdict['daf_replace_regex_spec']:
-                    alter_specs_daf = Daf.from_lod(argsdict['daf_replace_regex_spec'])
-                    alter_specs_daf = alter_specs_daf.select_dict({'spec_name': spec_name})
+        Returns:
+            This Daf, which has been changed.
 
-                    for alter_spec_da in alter_specs_daf:
-                        this_daf.apply_replace_regex(colname=alter_spec_da['colname']
-
-            Example:
-                alter_specs_daf = Daf.from_lod(
-                    [{  "spec_name": "Database 2 All Tabulators Results.zip",
-                        "colname": "ballot_id",
-                        "replace_regex": r"/04000_(\d\d\d\d\d_\d\d\d\d\d\d)/14000_\1/"
-                     },
-                     {  "spec_name": "CVR_Export_20230206180329 DB2 Certified.csv",
-                        "colname": "ballot_id",
-                        "replace_regex":r"/04000_(\d\d\d\d\d_\d\d\d\d\d\d)/14000_\1/"
-                     }])
-
-            biabif_daf = Daf(cols=['ballot_id', 'batchid', 'archive_basename'],
-                lol = [['01780_00000_983814', '01780_00000', 'Database 1 All Tabulators Results.zip'],
-                       ['01780_00000_996586', '01780_00000', 'Database 1 All Tabulators Results.zip'],
-                       ['01780_00000_998212', '01780_00000', 'Database 1 All Tabulators Results.zip'],
-                       ['04000_00001_000001', '04000_00001', 'Database 1 All Tabulators Results.zip'],
-                       ['04000_00001_000002', '04000_00001', 'Database 1 All Tabulators Results.zip'],
-                       ['04000_00001_000003', '04000_00001', 'Database 1 All Tabulators Results.zip'],
-                      ],
-                )
-
-            result_daf = biabif_daf.alter_daf_per_alter_specs_daf(
-                alter_specs_daf=alter_specs_daf)
-
-            expected_daf = Daf(cols=['ballot_id', 'batchid', 'archive_basename'],
-                lol = [['01780_00000_983814', '01780_00000', 'Database 1 All Tabulators Results.zip'],
-                       ['01780_00000_996586', '01780_00000', 'Database 1 All Tabulators Results.zip'],
-                       ['01780_00000_998212', '01780_00000', 'Database 1 All Tabulators Results.zip'],
-                       ['14000_00001_000001', '04000_00001', 'Database 1 All Tabulators Results.zip'],
-                       ['14000_00001_000002', '04000_00001', 'Database 1 All Tabulators Results.zip'],
-                       ['14000_00001_000003', '04000_00001', 'Database 1 All Tabulators Results.zip'],
-                      ],
-                )
+        Examples:
+            >>> d = Daf(lol=[['04_1'], ['05_2']], cols=['ballot_id'])
+            >>> specs = Daf.from_lod([{'colname': 'ballot_id', 'replace_regex': r'/^04_/14_/'}])
+            >>> d.alter_daf_per_alter_specs_daf(specs).col('ballot_id')
+            ['14_1', '05_2']
         """
         for alter_spec_da in alter_specs_daf:
 
@@ -8648,6 +9024,21 @@ class Daf:
 
 
     def apply_to_col(self, col: str, func: Callable, **kwargs: Any) -> None:
+
+        """
+        Replace each value of a column by the result of a function, in place.
+
+        Args:
+            col: The column name.
+            func: A function that takes a value and returns the new value.
+            **kwargs: Passed to `map()`.
+
+        Examples:
+            >>> d = Daf(lol=[[1, 5], [2, 6]], cols=['a', 'b'])
+            >>> d.apply_to_col('b', lambda value: value * 2)
+            >>> d.col('b')
+            [10, 12]
+        """
 
         self[:, col] = list(map(func, self.col(col), **kwargs))
 
@@ -8724,9 +9115,23 @@ class Daf:
 
     @staticmethod
     def diff_da(d1_da: T_ma, d2_da: T_ma, keys: T_ls | str | None=None) -> T_da:     # result_da
-        """ difference of two dictionaries by keys, according to the columns provided.
-            if keys not specified or value does not exist in both rows, then do not include a result.
-            if value exists in only one row, assume the value in the other row is 0.
+        """
+        Subtract one dict from another, for the keys you name.
+
+        This is a static method. A key that is missing, or an empty value, counts as
+        0. Keys that you do not name are left out. The values must be numbers.
+
+        Args:
+            d1_da: The first dict.
+            d2_da: The dict to subtract.
+            keys: The key or keys to include. If None, the result is empty.
+
+        Returns:
+            A dict of the differences.
+
+        Examples:
+            >>> Daf.diff_da({'a': 5, 't': 'x'}, {'a': 2, 't': 'y'}, keys=['a'])
+            {'a': 3}
         """
 
         keys_ca: T_ls
@@ -8756,28 +9161,26 @@ class Daf:
             omit_nulls: bool=False,
 
             ) -> T_da:
-        """ incrementally build the result_dodi, which is the valuecounts for each item in row_da.
-            can be used to calculate valuecounts over all rows and chunks.
+        """
+        Add one row to running counts of the values in each column. Use it with `reduce()`.
 
-            row_da may be scalar values (typically strings that are to be counted)
-            but may also be a dodi of totals from a set of chunks that are to be combined.
+        This is a static method. The counts are a dict that maps each column to a dict
+        of value and count. The counts are changed and returned. A cell that holds
+        a list is collected into a list. A cell that holds a dict is added to the
+        counts for that column with `sum_da()`. Use `omit_nulls` to skip empty cells.
 
-            Intended use is to use this to calculate valuecounts by scanning all rows of a daf.
-            Return a dodi.
-            Put those in a daf table and then scan those combined values and create a singular result.
+        Args:
+            row_da: The current row.
+            reduction_da: The running counts. They are changed.
+            cols: The columns to count.
+            omit_nulls: If True, empty cells are not counted.
 
-            This is a reducing and accumulating operation. Can be used with daf.reduce().
+        Returns:
+            The running counts.
 
-            For example:
-                value_counts_dodi = {}
-                cols_of_interest  = ['gender', 'location']
-
-                value_counts_dodi = my_daf.reduce(count_values_da, value_counts_dodi, cols_of_interest, omit_nulls=True)
-
-            results in (something, like, this):
-
-                value_counts_dodi = {'gender': {'Male': 2435, 'Female': 2489}, 'location':{'north': 2433, 'south': 345}}
-
+        Examples:
+            >>> Daf.count_values_da({'g': 'a'}, {}, ['g'])
+            {'g': {'a': 1}}
         """
 
         # if cols is None:
@@ -8826,8 +9229,21 @@ class Daf:
 
     @staticmethod
     def sum_dodis(this_dodi: T_dodi, accum_dodi: T_dodi) -> None:
-        """ add values for matching keys in this_dodi and accum_dodi.
-            sum cases where the keys are the same.
+        """
+        Add one dict of dicts of numbers into another, in place.
+
+        This is a static method. For each key, the numbers of the inner dicts are
+        added with `sum_da()`. A key that is new is stored as it is, not copied.
+
+        Args:
+            this_dodi: The counts to add.
+            accum_dodi: The running totals. They are changed.
+
+        Examples:
+            >>> total = {'c': {'x': 2, 'y': 1}}
+            >>> Daf.sum_dodis({'c': {'x': 1}}, total)
+            >>> total
+            {'c': {'x': 3, 'y': 1}}
         """
 
         for key, this_di in this_dodi.items():
@@ -8854,8 +9270,28 @@ class Daf:
             colnames_ls:    T_cs | None = None,    # parameter name now inconsistent.
             numeric_only:   bool = False,
             ) -> dict: # sums_di
-        """ total the columns in the table specified, and return a dict of {colname: total,...}
-            unit tests exist
+        """
+        Total the columns, and return a dict of the totals.
+
+        Each total starts as a float. Empty cells are skipped. A cell that is text
+        that is not a number raises `ValueError`, so give `colnames_ls` to leave
+        those columns out. With `numeric_only`, and dtypes of `int` or `float`, only
+        those columns are totaled, and a cell that is not a number counts as 0. The
+        totals are converted to the dtypes, if the Daf has them.
+
+        Args:
+            colnames_ls: The columns to total. All if None.
+            numeric_only: If True, total only the columns with an `int` or `float` dtype.
+
+        Returns:
+            A dict that maps each column name to its total.
+
+        Raises:
+            ValueError: A cell cannot be converted to a number.
+
+        Examples:
+            >>> Daf(lol=[[1, 10], [2, 20]], cols=['x', 'y']).sum()
+            {'x': 3.0, 'y': 30.0}
         """
 
 
@@ -8888,12 +9324,22 @@ class Daf:
             colnames_ls: T_cs | None = None,
             ) -> dict: # sums_di
 
-        """ total the columns in the table specified, and return a dict of {colname: total,...}
-            This uses NumPy and requires that library, but this is about 3x faster.
-            If you have mixed types in your Daf array, then use colnames to subset the
-            columns sent to NumPy to those that contain only numerics and blanks.
-            For many numeric operations, convert a set of columns to NumPy
-            and work directly with NumPy and then convert back. See to_numpy and from_numpy()
+        """
+        Total the columns with NumPy, and return a dict of the totals.
+
+        This needs NumPy. Use `colnames_ls` to pass only the columns that hold numbers.
+        A column with text or empty cells makes NumPy raise an error, so this
+        does not skip empty cells as `sum()` does.
+
+        Args:
+            colnames_ls: The columns to total. All if None.
+
+        Returns:
+            A dict that maps each column name to its total. An empty Daf gives an empty dict.
+
+        Examples:
+            >>> Daf(lol=[[1, 10], [2, 20]], cols=['x', 'y']).sum_np()
+            {'x': 3, 'y': 30}
         """
         # unit tests exist
         #   need tests for blanks and subsetting columns.
@@ -8931,12 +9377,27 @@ class Daf:
             reverse:    bool=True,
             omit_nulls: bool=False,
             ) -> T_di:
-        """ given a column of enumerated values, count all unique values in the column
-            and return a dict of valuecounts_di, where the key is each of the unique values
-            and the value is the count of that value in the column.
-            if sort is true, return the dict sorted from most frequent to least frequently
-            detected value.
-            unit tests exist
+        """
+        Count how often each value occurs in one column.
+
+        With `sort=True` the dict is ordered from the most common value to the least.
+        Use `reverse=False` for the other way. A column that does not exist gives an
+        empty dict. An empty cell is counted as the empty string, unless
+        `omit_nulls` is True.
+
+        Args:
+            colname: The column to count.
+            sort: If True, order by count.
+            reverse: With `sort`, True puts the most common first.
+            omit_nulls: If True, leave out the count of empty cells.
+
+        Returns:
+            A dict that maps each value to its count.
+
+        Examples:
+            >>> d = Daf(lol=[['a'], ['b'], ['a'], ['']], cols=['g'])
+            >>> d.valuecounts_for_colname('g', sort=True, omit_nulls=True)
+            {'a': 2, 'b': 1}
         """
 
         valuecounts_di: T_di = {}
@@ -8969,10 +9430,22 @@ class Daf:
             reverse:        bool=True,
             omit_nulls:     bool=False,
             ) -> T_dodi:
-        """ return value counts for a set of columns or all columns if no colnames_ls are provided.
-            sort if noted from most prevalent to least in each column.
+        """
+        Count how often each value occurs, in each of several columns.
 
-            Note: This is an inefficient algorithm
+        Args:
+            colnames_ls: The columns to count. All if None.
+            sort: If True, order each count by size.
+            reverse: With `sort`, True puts the most common first.
+            omit_nulls: If True, leave out the count of empty cells.
+
+        Returns:
+            A dict that maps each column to a dict of value and count.
+
+        Examples:
+            >>> d = Daf(lol=[['a', 'x'], ['b', 'x']], cols=['g', 'h'])
+            >>> d.valuecounts_for_colnames_ls()
+            {'g': {'a': 1, 'b': 1}, 'h': {'x': 2}}
         """
 
         if not colnames_ls:
@@ -8997,8 +9470,23 @@ class Daf:
             sort: bool = False,
             reverse: bool = True,
             ) -> T_di:
-        """ Create valuecounts for each colname for all rows where
-            selectedby_colvalue is found in selectedby_colname
+        """
+        Count the values of a column, in the rows where another column has a value.
+
+        Args:
+            colname: The column to count.
+            selectedby_colname: The column to test.
+            selectedby_colvalue: Only rows where that column equals this are counted.
+            sort: If True, order the counts by size.
+            reverse: With `sort`, True puts the most common first.
+
+        Returns:
+            A dict that maps each value to its count. It is empty if a column does not exist.
+
+        Examples:
+            >>> d = Daf(lol=[['a', 'x'], ['b', 'x'], ['a', 'y']], cols=['g', 'h'])
+            >>> d.valuecounts_for_colname_selectedby_colname('g', 'h', 'x')
+            {'a': 1, 'b': 1}
         """
 
 
@@ -9035,10 +9523,18 @@ class Daf:
             reverse: bool = True,
             ) -> T_dodi:
 
-        """ Create valuecounts for each column in colnames_ls (or all columns if None)
-            when selectedby_colvalue is found in selectedby_colname
+        """
+        Count the values of several columns, in the rows where another column has a value.
 
+        Args:
+            colnames_ls: The columns to count. All if None.
+            selectedby_colname: The column to test.
+            selectedby_colvalue: Only rows where that column equals this are counted.
+            sort: If True, order the counts by size.
+            reverse: With `sort`, True puts the most common first.
 
+        Returns:
+            A dict that maps each column to a dict of value and count.
         """
 
 
@@ -9069,12 +9565,25 @@ class Daf:
             sort: bool = False,
             reverse: bool = True,
             ) -> T_dodi:
-        """ frequently, two columns are related, and it may be required
-            that one is single-valued for each item in the other.
-            This function does a single scan of the data and accumulates
-            value counts for colname1 for each value in groupedby colname2.
-            Result is dodi, with the first key being the groupby values
-            and the second being the values counted in colname1.
+        """
+        Count the values of one column, for each value of another.
+
+        The data is read once. Use it to see whether two columns relate one to one: each
+        group should then hold a single value.
+
+        Args:
+            colname1: The column whose values are counted.
+            groupedby_colname2: The column whose values form the groups.
+            sort: If True, order each count by size.
+            reverse: With `sort`, True puts the most common first.
+
+        Returns:
+            A dict that maps each value of the second column to a dict of value and count.
+
+        Examples:
+            >>> d = Daf(lol=[['a', 'x'], ['b', 'x'], ['a', 'y']], cols=['g', 'h'])
+            >>> d.valuecounts_for_colname1_groupedby_colname2('g', 'h')
+            {'x': {'a': 1, 'b': 1}, 'y': {'a': 1}}
         """
 
 
@@ -9111,6 +9620,31 @@ class Daf:
 
     def gen_stats_daf(self, col_def_lot: T_lota) -> T_doda:
 
+        """
+        Work out statistics for columns, given a profile for each.
+
+        `col_def_lot` has a tuple for each column of interest. The tuple is the column
+        name, a type, a format, and a profile. The profile is one of `index`,
+        `attrib`, `file_paths`, `scalar` or `localidx`, and chooses what is measured.
+        An index looks for repeats, an attribute counts the values, and a scalar gives
+        the minimum, maximum, mean and standard deviation. The type and format are not
+        used.
+
+        Args:
+            col_def_lot: A list of tuples of column name, type, format and profile.
+
+        Returns:
+            A dict that maps each column name to its statistics, as a dict.
+
+        Raises:
+            NotImplementedError: A profile is not one of the five.
+
+        Examples:
+            >>> d = Daf(lol=[[1], [3]], cols=['n'])
+            >>> d.gen_stats_daf([('n', int, '', 'scalar')])['n']['mean']
+            2
+        """
+
         info_dod = {}
 
         # from utilities import daf_utils
@@ -9127,18 +9661,27 @@ class Daf:
 
     def transpose(self, new_keyfield:str='', new_cols:Optional[T_la]=None, include_header:bool = False) -> 'Daf':
         """
-        This implementation uses the built-in zip(*self.lol) to transpose the rows and columns efficiently.
-        The resulting transposed data is then used to create a new Daf instance.
+        Turn rows into columns and columns into rows.
+
+        The result has one row for each column of this Daf. With `include_header=True`,
+        the first column of the result holds the column names of this Daf, and the
+        names given in `new_cols` or the default names must then include that column.
+        The default names are `key`, then `A`, `B` and so on. Without `include_header`
+        pass `new_cols` that has one name for each row of this Daf, or the names will
+        be one too many. The data is copied.
 
         Args:
-        - new_cols (list): names of the new columns. If include_header is True, this will be the first column.
-        - new_keyfield (str): The new keyfield to be used in the transposed Daf.
-        - include_header (bool): indicates if the column names, if defined, will also be included
-                        and will become the first column in the result
+            new_keyfield: The keyfield of the result.
+            new_cols: The names of the columns of the result.
+            include_header: If True, the column names become the first column.
 
         Returns:
-        - Daf: A new Daf instance with transposed data and optional new keyfield.
+            The new Daf.
 
+        Examples:
+            >>> d = Daf(lol=[[1, 'a'], [2, 'b']], cols=['id', 'v'])
+            >>> d.transpose(include_header=True).lol
+            [['id', 1, 2], ['v', 'a', 'b']]
         """
         import numpy as np
 
@@ -9179,71 +9722,33 @@ class Daf:
         tag_other: bool = False,                        # if True, and col not in shared_fields, add suffix tag to other_daf cols
 
         ) -> 'Daf':  # Translator Daf
-        r"""
-        Derive a Daf translator for resolving column conflicts between two tables.
+        """
+        Work out how the columns of two Daf instances are named in a join.
+
+        The translator is a Daf with a row for each column of the result. Its
+        columns are `resolved_colname`, `source_name`, `source_colname` and
+        `is_keyfield`. A column name that both Daf instances have is given a suffix
+        with the name of its source, such as `name_daf1`, unless it is a shared
+        field. The names of the instances are `daf1` and `daf2` if they have none.
+        The keyfields are always shared.
+
+        `join()` calls this. Call it yourself to see the names, or to edit the
+        translator and give it back as `custom_translator_daf`.
 
         Args:
-            other_daf: 'Daf',                               # The other Daf instance to join with
-            shared_fields: Optional[T_ls] = None,           # Columns shared between tables that do not require renaming
-                                                            # keyfields do not need to be added here.
-            tag_other: bool = False,                        # if True, and col not in shared_fields, add suffix tag to other_daf cols
+            other_daf: The Daf to join with.
+            shared_fields: Columns that both have and that appear only once.
+            omit_other_cols: Columns of the other Daf to leave out.
+            tag_other: If True, every column of the other Daf, except shared ones, gets a suffix.
 
         Returns:
-            Daf: Translator table with resolved column names and source mapping.
+            The translator Daf. Its keyfield is `resolved_colname`.
 
-        Example:
-            Source Daf objects:
-
-            `my_daf`:
-            | id |  name   |  status  |
-            | -: | ------: | -------: |
-            |  1 |   Alice |   active |
-            |  2 |     Bob | inactive |
-            |  3 | Charlie |   active |
-
-            \[3 rows x 3 cols; keyfield='id'; 3 keys ] (Daf)
-
-            `other_daf`:
-            | id |   address   | salary |
-            | -: | ----------: | -----: |
-            |  1 | 123 Main St |  50000 |
-            |  3 |  456 Elm St |  70000 |
-            |  4 |  789 Oak St |  60000 |
-
-            \[3 rows x 3 cols; keyfield='id'; 3 keys ] (Daf)
-
-            Code:
-            ```python
-            translator_daf = my_daf.derive_join_translator(other_daf, shared_fields=["id"])
-            ```
-
-            Resulting Translator Daf:
-            | resolved_colname  | source_name | source_colname | is_keyfield |
-            | ----------------: | ----------: | -------------: | ----------: |
-            | id                | self        | id             | True        |
-            | name              | self        | name           | False       |
-            | status            | self        | status         | False       |
-            | id_other          | other       | id             | False       |
-            | address           | other       | address        | False       |
-            | salary            | other       | salary         | False       |
-
-            \[6 rows x 4 cols; keyfield='resolved_colname'; 6 keys ] (Daf)
-
-        Template for hand-generated custom translator:
-
-        custom_translator = Daf(
-            cols = ["resolved_colname",     "source_name", "source_colname", 'is_keyfield'],
-            lol  = [
-                    ["id",                  'daf1',        "id",                True],
-                    ["full_name",           'daf1',        "name",              False],
-                    ["residential_address", 'daf2',        "address",           False],
-                    ["monthly_salary",      'daf2',        "salary",            False],
-            ],
-            keyfield = 'resolved_colname'
-        )
-
-
-
+        Examples:
+            >>> a = Daf(lol=[[1, 'x']], cols=['id', 'name'], keyfield='id')
+            >>> b = Daf(lol=[[1, 'y']], cols=['id', 'name'], keyfield='id')
+            >>> a.derive_join_translator(b).col('resolved_colname')
+            ['id', 'name_daf1', 'name_daf2']
         """
         assert isinstance(self.keyfield, str)
         assert isinstance(other_daf.keyfield, str)
@@ -9278,24 +9783,24 @@ class Daf:
 
         ) -> 'Daf':  # Translator Daf
         """
-        Derive a Daf translator for resolving column conflicts between two tables.
-        This classmethod version is suitable for use by sql join.
+        Work out a join translator from column names, with no Daf instances.
+
+        This is the form that does not need two Daf instances, so SQL joins can use
+        it. See `derive_join_translator()` for what the translator holds.
 
         Args:
-            self_keyfield:      str,                        # pass self.keyfield (daf)          or esc_my_index_col (sql)
-            other_keyfield:     str,                        # pass other_daf.keyfield (daf)     or esc_other_index_col (sql)
-            self_cols:          Union[list, dict, T_kva],   # pass self.columns() (daf)         or esc_sql_cols (sql)
-            other_cols:         Union[list, dict, T_kva],   # pass other_daf.columns() (daf)    or esc_sql_other_cols (sql)
-            self_name:          str = '',                   # pass self.name (daf)              or esc_sql_table_name (sql)
-            other_name:         str = '',                   # pass other_daf.name (daf)         or esc_sql_other_table_name (sql)
-            shared_fields:      Optional[T_ls] = None,      # Columns shared between tables that do not require renaming (esc if sql)
-            tag_other:          bool = False,               # if True, and col not in shared_fields, add suffix tag to other_cols
+            self_keyfield: The keyfield of the first table.
+            other_keyfield: The keyfield of the other table.
+            self_cols: The column names of the first table.
+            other_cols: The column names of the other table.
+            self_name: The name of the first table.
+            other_name: The name of the other table.
+            shared_fields: Columns that both have and that appear only once. The list is not changed.
+            omit_other_cols: Columns of the other table to leave out.
+            tag_other: If True, every column of the other table, except shared ones, gets a suffix.
 
         Returns:
-            Daf: Translator table with resolved column names and source mapping.
-
-        Example:
-            Source Daf objects:
+            The translator Daf. Its keyfield is `resolved_colname`.
         """
 
         shared_fields   = list(shared_fields or [])     # a copy, so the caller's list is not changed.
@@ -9374,27 +9879,51 @@ class Daf:
         name: str='',                                       # name for the joined instance.
     ) -> 'Daf':
         """
-        Perform a join operation between two Daf instances using their keyfields.
-        
-        raises KeysDisabledError if either instance is missing a keyfield.
+        Join two Daf instances on their keyfields, as in SQL.
+
+        Both need a keyfield, and it must be a single column. A row of this Daf is
+        joined with the row of `other_daf` that has the same key.
+
+        The types of join are:
+
+            inner    only the keys that are in both.
+            left     all keys of this Daf.
+            right    all keys of the other Daf.
+            outer    all keys of both.
+
+        Columns that only one Daf has are in the result. A column that both have
+        is given the name of its source as a suffix, such as `name_daf1`, unless it is
+        in `shared_fields`. The names are `daf1` and `daf2` if the instances have no
+        names. For other names use `custom_translator_daf`, which you can start from
+        `derive_join_translator()`.
+
+        When a key has no match, its cells from the other side are `None`, not NULL.
+        The keyfield of the result is the keyfield of this Daf. The result is a new Daf.
 
         Args:
-            other_daf: 'Daf',                                   # The other Daf instance to join with.
-            how: str = 'inner',                                 # Type of join - 'inner', 'left', 'right', 'outer'. Default is 'inner'.
-            shared_fields: Optional[T_ls] = None,               # List of fields to ignore in conflict resolution (shared fields)
-            tag_other: bool = False,                            # if not a shared field or keyfield, suffix all other_daf fields with _{name}
-            custom_translator_daf: Optional['Daf'] = None,      # provide a custom translater to provide all naming details.
-            diagnose: bool = False,                             # Enable diagnostic logging.
-            name: str='',                                       # name for the joined instance.
+            other_daf: The Daf to join with.
+            how: `inner`, `left`, `right` or `outer`.
+            shared_fields: Columns that both have and that appear only once.
+            tag_other: If True, every column of the other Daf, except shared ones, gets a suffix.
+            custom_translator_daf: A translator that sets all the names.
+            diagnose: If True, print progress messages.
+            name: The name of the result.
 
         Returns:
-            Daf: A new Daf instance containing the result of the join.
+            The joined Daf.
 
-        notes:
-            1. both dataframes must have keyfield defined. The keyfield will be the field that is used for the join.
-            2. dataframes can be named, otherwise, the names default to 'daf1' and 'daf2'
-            3. a single join translater can be used for joins of multiple dataframes. In that case, name all dataframes.
+        Raises:
+            ValueError: `how` is not one of the four.
+            KeysDisabledError: A Daf has no keyfield.
+            KeyError: A keyfield is a tuple.
 
+        Examples:
+            >>> a = Daf(lol=[[1, 'Alice'], [2, 'Bob']], cols=['id', 'name'], keyfield='id')
+            >>> b = Daf(lol=[[1, 50], [3, 70]], cols=['id', 'salary'], keyfield='id')
+            >>> a.join(b).lol
+            [[1, 'Alice', 50]]
+            >>> a.join(b, how='left').lol
+            [[1, 'Alice', 50], [2, 'Bob', None]]
         """
         if how not in ("inner", "left", "right", "outer"):
             raise ValueError(f"Unsupported join type: {how}")
@@ -9496,17 +10025,21 @@ class Daf:
         ) -> T_da:
 
         """
-        Combine multiple records using a join translator Daf. This works on one record from each array to be joined.
+        Combine one record from each table into one record, using a translator.
+
+        This is a static method, and the step that `join()` repeats. A record may be
+        None, which gives None for the columns of that side.
 
         Args:
-            records (List[Optional[T_da]]): List of source records, indexed by source_index.
-            translator_daf (Daf): Translator Daf with resolved column mapping.
-            join_names_ls: names of the two Daf arrays supplying the records
-                            required only if there are more than two source_names specified in the translator.
-
+            records: The two records, in the order of the source names.
+            translator_daf: The translator, as from `derive_join_translator()`.
+            join_names_ls: The two source names. Needed only if the translator names more than two sources.
 
         Returns:
-            T_da: Combined record as a dictionary.
+            The combined record, as a dict.
+
+        Raises:
+            ValueError: The translator names more than two sources and `join_names_ls` is not given.
         """
         combined_record = {}
 
@@ -9556,17 +10089,26 @@ class Daf:
             value_colname: str = 'value',       # column of values from each value column
             ) -> 'Daf':
         """
-        Convert a wide DataFrame to a narrow format.
-        This can be called "melt" or "unpivot"
+        Turn columns into rows. This is called melt or unpivot.
 
-        Parameters:
-            self (daf.Daf): The wide Daffodil dataframe to convert.
-            id_cols (List[str]): Columns to use as identifier variables.
-            value_cols (Union[str, List[str]]): Columns to unpivot.
-            varval_cols: defaults to 'variable', 'value'
+        Each column that is not an id column gives one row for each row of this Daf.
+        The row holds the id values, the name of the column, and its value.
+
+        Args:
+            id_cols: The columns that identify a row. They are kept as they are.
+            varname_colname: The name of the new column that holds the old column names.
+            value_colname: The name of the new column that holds the values.
 
         Returns:
-            equivalent dataframe in narrow (i.e tidy) format.
+            The new Daf.
+
+        Raises:
+            TypeError: `id_cols` is not a list.
+
+        Examples:
+            >>> d = Daf(lol=[['x', 1, 2], ['y', 3, 4]], cols=['id', 'a', 'b'])
+            >>> d.wide_to_narrow(['id']).lol
+            [['x', 'a', 1], ['x', 'b', 2], ['y', 'a', 3], ['y', 'b', 4]]
         """
         if not isinstance(id_cols, list):
             raise TypeError("id_cols must be a list")
@@ -9595,18 +10137,27 @@ class Daf:
             wide_cols:      T_cs | None = None,
             ) -> 'Daf':
         """
-        Convert a narrow Daf DataFrame to a wide format.
-        This can be called "pivot" or "spread"
+        Turn rows into columns. This is called pivot or spread.
 
-        Parameters:
-            self (Daffodil DataFrame): The narrow DataFrame to convert.
-            id_cols:        Columns to use as index/identifier.
-            varname_col:    Column to pivot into new DataFrame columns.
-            value_col:      Column to pivot into new DataFrame values.
+        The rows of one id must be next to each other. A new row of the result starts
+        whenever the id values change, so rows that are not sorted by id give a wrong
+        result with no error. The columns of the result are the id columns and then
+        the names in `varname_col`, in the order first seen. The `wide_cols` argument
+        is not used.
+
+        Args:
+            id_cols: The columns that identify a row.
+            varname_col: The column whose values become the new column names.
+            value_col: The column whose values fill the new columns.
+            wide_cols: Not used.
 
         Returns:
-            Daf: The wide DataFrame.
+            The new Daf.
 
+        Examples:
+            >>> d = Daf(lol=[['x', 'a', 1], ['x', 'b', 2], ['y', 'a', 3], ['y', 'b', 4]], cols=['id', 'variable', 'value'])
+            >>> d.narrow_to_wide(['id']).lol
+            [['x', 1, 2], ['y', 3, 4]]
         """
         wide_daf = Daf()
 
@@ -9635,7 +10186,16 @@ class Daf:
     def md_daf_table_snippet(
             self,
             ) -> str:
-        """ provide an abbreviated md table given a daf representation """
+        """
+        Make a short Markdown table of the Daf, with a summary line.
+
+        This is what `str()` shows. It keeps at most `md_max_rows` rows and
+        `md_max_cols` columns, 10 by default. Longer text is shortened to 80
+        characters.
+
+        Returns:
+            The Markdown text.
+        """
 
         return self.to_md(
                 max_rows        = self.md_max_rows,
@@ -9662,7 +10222,42 @@ class Daf:
             header:         T_cs | None=None,    # use this header instead.
             ) -> str:
                 
-        """ provide an full md table given a daf representation """
+        """
+        Make a Markdown table of the Daf.
+
+        Without limits the whole table is written. With `max_rows` or `max_cols`, the
+        first and last are kept, and the middle is replaced by `...`. Text longer
+        than `max_text_len` is shortened by cutting out its middle. `just` has one
+        character for each column: `<` left, `^` center, `>` right. The default is
+        right. With no column names, `A`, `B` and so on are used. With `include_summary`,
+        the Markdown can be read back with `from_md()`, as text.
+
+        Use `max_rows` and `max_cols` together, or neither. With only `max_cols`, a row of
+        `...` is added under the header by mistake.
+
+        Args:
+            max_rows: The most rows to show. 0 for all.
+            max_cols: The most columns to show. 0 for all.
+            just: The justification of each column.
+            shorten_text: If True, shorten text that is longer than `max_text_len`.
+            max_text_len: The longest text to show in full.
+            smart_fmt: If True, show numbers with fewer decimal places.
+            include_summary: If True, add a line with the size, keyfield and name.
+            disp_cols: Column names to show instead of the real ones.
+            header: A header to use instead.
+
+        Returns:
+            The Markdown text.
+
+        Examples:
+            >>> d = Daf(lol=[[1, 'a'], [2, 'b']], cols=['id', 'v'])
+            >>> print(d.to_md())
+            | id | v |
+            | -: | -: |
+            |  1 | a |
+            |  2 | b |
+            <BLANKLINE>
+        """
 
         daf_lol = self.daf_to_lol_summary(max_rows=max_rows, max_cols=max_cols, disp_cols=disp_cols)
 
@@ -9727,7 +10322,25 @@ class Daf:
             include_summary: bool   = False,     # include a one-line summary after the table.
             disp_cols:      Optional[T_ls]=None, # use these column names instead of those defined in daf.
             ) -> str:
-        """ treat rows as columns """
+        """
+        Make a Markdown table in which each row of the Daf is a column.
+
+        There is no header. The first column holds the column names of the Daf. Use it
+        for a Daf with few rows and many columns.
+
+        Args:
+            max_rows: The most rows to show. 0 for all.
+            max_cols: The most columns to show. 0 for all.
+            just: The justification of each column.
+            shorten_text: If True, shorten text that is longer than `max_text_len`.
+            max_text_len: The longest text to show in full.
+            smart_fmt: If True, show numbers with fewer decimal places.
+            include_summary: Not used.
+            disp_cols: Column names to show instead of the real ones.
+
+        Returns:
+            The Markdown text.
+        """
 
         daf_lol = self.daf_to_lol_summary(max_rows=max_rows, max_cols=max_cols, disp_cols=disp_cols)
 
@@ -9757,6 +10370,23 @@ class Daf:
         # from utilities import daf_utils
 
         # first build a basic summary by adding colnames, if they exist.
+        """
+        Make a list of lists for display, with the column names first.
+
+        If there are more rows or columns than the limits, the first and last are
+        kept and the middle is replaced by `...`. Set both limits or neither. With only
+        `max_cols`, a row of `...` is added under the header by mistake. The rows are
+        not copied.
+
+        Args:
+            max_rows: The most rows to keep. 0 for no limit.
+            max_cols: The most columns to keep. 0 for no limit.
+            disp_cols: Column names to use instead of the real ones.
+
+        Returns:
+            The rows, with a header row first if there are column names.
+        """
+
         if disp_cols:
             if isinstance(disp_cols, list):
                 colnames_ls = disp_cols
@@ -9796,11 +10426,27 @@ class Daf:
 
     @staticmethod
     def dict_to_md(da: T_da, cols: Optional[T_ls]=None, just: str='<<') -> str:
-        """ this convenience method can be used for interactive inspection of a dict,
-            by placing the dict keys in the first column and the values in the second
-            column. Much easier to work with than just using print(da).
+        """
+        Show a dict as a two column Markdown table, for looking at it.
 
-            To use this interactively, use print(Daf.dict_to_md(my_da))
+        This is a static method. Use it as `print(Daf.dict_to_md(my_da))`. The keys are
+        in the first column and the values in the second.
+
+        Args:
+            da: The dict.
+            cols: The two column names. Default `key` and `value`.
+            just: The justification of the two columns.
+
+        Returns:
+            The Markdown text.
+
+        Examples:
+            >>> print(Daf.dict_to_md({'a': 1, 'b': 'two'}))
+            | key | value |
+            | :-- | :---- |
+            | a   | 1     |
+            | b   | two   |
+            <BLANKLINE>
         """
         if not cols:
             cols = ['key', 'value']
@@ -9818,13 +10464,26 @@ class Daf:
             include_total: bool=False,          #
             omit_nulls: bool=False,             # set to true if '' should be omitted.
             ) -> 'Daf':
-        """ create a values count daf of the results of value counts analysis of one column, colname.
-            The result is a daf table with two columns.
-            Left column has the values, and the right column has the counts for each value.
-            column names are [colname, 'counts'] in the result. These can be changed later if they are not
-            output when used with multiple columns may be useful but only if they have the same set of values.
-            provides a total line if "include_sum" is true.
-            does not set the keyfield
+        """
+        Make a Daf that lists each value of a column and its count.
+
+        The columns are the name of the column, and `counts`. There is no keyfield.
+        With `include_total` a last row holds the total.
+
+        Args:
+            colname: The column to count.
+            sort: If True, order by count.
+            reverse: With `sort`, True puts the most common first.
+            include_total: If True, add a row with the total.
+            omit_nulls: If True, leave out the count of empty cells.
+
+        Returns:
+            The new Daf.
+
+        Examples:
+            >>> d = Daf(lol=[['a'], ['b'], ['a']], cols=['g'])
+            >>> d.value_counts_daf('g', sort=True).lol
+            [['a', 2], ['b', 1]]
         """
 
         value_counts_di   = self.valuecounts_for_colname(colname=colname, sort=sort, reverse=reverse)

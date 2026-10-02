@@ -190,14 +190,36 @@ def dodaf_to_md(
         **to_md_kwargs: Any,                    # passed through to each section's own Daf.to_md() (max_rows, just, etc.)
         ) -> str:
     """
-    Renders a dict-of-Daf ('dodaf') as ONE combined markdown report: an optional top-level `#`
-    report header, then one `##` section per key (in dict order), each followed by that key's
-    own Daf rendered via its own to_md(). Common report shape: several named result tables
-    (e.g. one per pipeline stage, or one per style) assembled into a single document that's
-    easier to produce and easier to review by eye than an equivalent JSON dump.
+    Make one Markdown report from a dict of Daf instances.
 
-    An empty-valued section (a Daf with no rows) still gets its own header, so the report shows
-    which sections legitimately have nothing to report rather than silently omitting them.
+    This is a static method. The report has an optional first level heading, then
+    a second level section for each key, in the order of the dict. Each section
+    holds that Daf as a table, from its own `to_md()`. A Daf with no rows still gets
+    its section, with a line `*(no rows)*`, so you can see which sections were empty.
+    Use `dodaf_from_md()` to read the report back.
+
+    Args:
+        dodaf: A dict that maps a section name to a Daf.
+        report_header: The title of the report. Left out if empty.
+        **to_md_kwargs: Passed on to the `to_md()` of each Daf, such as `max_rows`.
+
+    Returns:
+        The Markdown text.
+
+    Examples:
+        >>> from daffodil.daf import Daf
+        >>> print(Daf.dodaf_to_md({'first': Daf(lol=[[1]], cols=['a'])}, report_header='Report'))
+        # Report
+        <BLANKLINE>
+        <BLANKLINE>
+        ## first
+        <BLANKLINE>
+        <BLANKLINE>
+        | a |
+        | -: |
+        | 1 |
+        <BLANKLINE>
+        <BLANKLINE>
     """
     parts = []
     if report_header:
@@ -215,20 +237,28 @@ def dodaf_to_md(
 @classmethod  # type: ignore[misc]
 def _dodaf_from_md(cls, md_str: str, header_level: int = 2) -> Dict[str, Any]:   # -> T_dodaf
     """
-    Inverse of dodaf_to_md(): parses a combined markdown report back into a dict-of-Daf.
+    Read a report made by `dodaf_to_md()` back into a dict of Daf instances.
 
-    Any report-level material before the first section header (dodaf_to_md's own `#`
-    report_header line, or any other leading prose) is skipped entirely -- section boundaries
-    are ONLY lines starting with `'#' * header_level + ' '` (default `'## '`, matching
-    dodaf_to_md's own default section marker). Everything from one section header up to (not
-    including) the next section header of the same level -- or end of input -- becomes that
-    section's own Daf, parsed via the existing cls.from_md() (which itself tolerates leading
-    prose/comments and finds the first table in that slice, exactly one per section here).
+    A section starts at a line that begins with the marker of `header_level`,
+    which is `## ` by default. Text before the first section, such as the report
+    title, is skipped. Each section becomes a Daf, read with `from_md()`, so the
+    cells are text. The section title is the dict key and the `name` of the Daf, unless the table's
+    footer gives a name. The footer wins for the name, never for the key. Empty
+    text gives an empty dict.
 
-    The section header's own text becomes both the dict key AND the resulting Daf's `.name`,
-    unless from_md() already recovered a `name` from a `%% daf ...` footer -- footer metadata,
-    if present, wins over the header text for `.name` (but never for the dict key, which always
-    comes from the header).
+    Args:
+        md_str: The Markdown text.
+        header_level: The number of `#` that start a section heading.
+
+    Returns:
+        A dict that maps each section title to a Daf.
+
+    Examples:
+        >>> from daffodil.daf import Daf
+        >>> report = Daf.dodaf_to_md({'first': Daf(lol=[[1]], cols=['a'])})
+        >>> back = Daf.dodaf_from_md(report)
+        >>> back['first'].lol, back['first'].name
+        ([['1']], 'first')
     """
     if not md_str:
         return {}
@@ -427,24 +457,34 @@ def md_cols_lol_table(
 # Same wired-on-later @classmethod pattern as dodaf_to_md() above.
 @classmethod  # type: ignore[misc]
 def _from_md(cls, md_str: str) -> 'Daf': # -> "Daf":
-    """
-    Construct a Daf from a Markdown table.
+    r"""
+    Make a Daf from a Markdown table. This reads what `to_md()` writes.
 
-    Grammar:
+    Only the first table in the text is read. Text before it, such as headings and
+    prose, is skipped. A table row starts and ends with `|`. The table must have
+    a header row and then a separator row such as `| -: | -: |`. The columns are
+    the header cells.
 
-    - Table rows must start (after optional whitespace) and end with '|'
-    - Header exists iff:
-          len(table_lines) >= 2
-          AND second row is a separator row
-    - Footer (optional):
-          First line starting with '%% daf '
-          appearing after the table block
-    - Footer is optional
-    - Empty input → empty Daf
+    A footer line that starts with `%% daf ` and follows the table may give the
+    keyfield and name, as `to_md(include_summary=True)` writes. Every cell is read as
+    text. Convert them with `apply_dtypes()`. Text with no table, or empty text,
+    gives an empty Daf.
 
-    Notes:
-    - Only the first valid markdown table is parsed.
-    - Leading prose/comments/headings are allowed.
+    Args:
+        md_str: The Markdown text.
+
+    Returns:
+        The new Daf.
+
+    Raises:
+        RuntimeError: A table is found but it has no header row and separator row.
+
+    Examples:
+        >>> from daffodil.daf import Daf
+        >>> text = "| id | v |\n| -: | -: |\n|  1 | a |\n|  2 | b |\n\n%% daf rows=2; cols=2; keyfield='id'; name='nm'\n"
+        >>> d = Daf.from_md(text)
+        >>> d.lol, d.keyfield, d.name
+        ([['1', 'a'], ['2', 'b']], 'id', 'nm')
     """
 
     if not md_str:

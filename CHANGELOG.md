@@ -73,9 +73,10 @@ all prior releases. Plans for future moved to ROADMAP.md.
   columns and keys, dtypes, schemas, `strip`, `clone_empty`, `set_lol` and the conversions
   to and from lists, dicts, CSV, Excel, NumPy, Pandas and JSON, appending, removing,
   indexing, selecting and reading rows, columns and cells, assigning, inserting,
-  replacing and sorting. Each one says what the
+  replacing and sorting, formulas, apply and reduce, grouping, sums and counts, joins, pivots,
+  and Markdown. The build of the reference now has no warnings. It had 22 before. Each one says what the
   method is for, what it changes and what it returns. Examples are run as doctests.
-  The schema and Pandas methods are defined in helper modules. They did not appear in the
+  The schema, Pandas and Markdown methods are defined in helper modules. They did not appear in the
   API reference before. The reference now has a section for them. Issues noticed on the way
   are listed in notes/docstring_pass_issues.md. No behavior was changed.
 - Type annotations: every parameter and return value is now annotated, in every module except
