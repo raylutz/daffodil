@@ -64,6 +64,19 @@ This applies to code comments, the changelog, docs and chat.
 - When showing code in the chat, keep it narrow enough to read on a phone. Show only the
   relevant lines, and trim long comments.
 
+## breakpoint() in the owner's projects
+
+- AuditEngine uses `breakpoint()` at places where reaching it means the code is probably
+  written wrong. An example is asking for a setting that isn't in the settings dict. There
+  are about 400 of these.
+- A breakpoint hook replaces pdb. It writes a report with the stack trace and locals to the
+  file system, where an AI assistant can inspect it.
+- The hook can be set to exit the program with code 42 at a breakpoint.
+- Or it can be set to continue, for example when running in AWS Lambda. Then the code after
+  the breakpoint runs. So that code must do something reasonable, never something
+  catastrophic.
+- Daffodil itself now raises errors instead. See the daffodil part below.
+
 ## Commits
 
 - Commits use the owner's identity: Raymond Lutz <raylutz@cognisys.com>.
