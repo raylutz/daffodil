@@ -8922,8 +8922,7 @@ class Daf:
 
         `regex` must have one pair of parentheses around the part to keep. A cell that
         does not match gives an empty cell. Give `regex` as a keyword. Without `col2`,
-        `col1` is changed. If `col2` is not a column, the values are added to the
-        rows, but not a column name.
+        `col1` is changed. `col2` must be a column. If it is not, nothing is stored.
 
         Args:
             col1: The column to read.
@@ -8964,8 +8963,7 @@ class Daf:
             /pre(select)post/a\1b/        keep it, with new text around it
 
         The result goes to `col2`, or to `col` if there is no `col2`. A column that is
-        not found does nothing. If `col2` is not a column, the values are added to the
-        rows, but not a column name.
+        not found does nothing. `col2` must be a column. If it is not, nothing is stored.
 
         Args:
             col: The column to read.

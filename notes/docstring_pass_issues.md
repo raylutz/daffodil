@@ -287,3 +287,12 @@ The date of the first entry is 2026-10-02.
     for each column 0.632 s, `apply_in_place()` by row 0.476 s, a plain loop with a
     minimal int conversion 0.198 s. The cause is a call of the general conversion
     function for every cell, with several checks each.
+
+## Side effect of item 61, found on 2026-10-02
+
+76. After `apply_in_place(by='row')` began writing back by column name, two
+    methods that relied on it to add a value stopped storing anything when
+    `col2` is a new name. `set_col2_from_col1_using_regex_select('s', 'n')` and
+    `apply_replace_regex('s', 't')` now leave the table unchanged. Before, they
+    added a value to each row and no column name. Both docstrings now say that
+    `col2` must be a column. Item 7 covers what they should do.
