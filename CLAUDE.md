@@ -117,6 +117,15 @@ Source code is in src/daffodil and tests are in tests.
 - Record notable changes in CHANGELOG.md under Unreleased. Include coverage changes with
   before and after percentages.
 
+## Missing values
+
+- A missing or unknown value in daffodil is NULL, which is the empty string ''. It is defined
+  in daf.py and daf_utils.py.
+- Test for it with `val is NULL`. Python keeps one shared empty string, so `is` works and is
+  faster than `==`.
+- Printability comes first. An empty cell prints as nothing, which is what we want to see.
+- Use NULL for missing values, not None, NaN or a typed placeholder.
+
 ## Performance over guard rails
 
 - Daffodil is for people who want speed. Don't add checks to the normal path to protect
