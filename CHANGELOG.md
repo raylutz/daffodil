@@ -144,6 +144,13 @@ all prior releases. Plans for future moved to ROADMAP.md.
   git-tracked) moved out of `src/` to a gitignored, local-only `deprecated/` folder.
 
 ### Fixed
+- `remove_dups()` changed the Daf it was called on. It set the keyfield of the Daf to the
+  argument. Called with no argument on a keyed Daf, it cleared the keyfield and returned every
+  row as a duplicate. Without a keyfield it did the same, with no error. It now uses the
+  keyfield of the Daf when none is given, raises `KeysDisabledError` when there is none, and
+  leaves the Daf as it was. The two results have the key columns as their keyfield. When there
+  are no repeats, the first result is now a new Daf that shares the rows, not the same Daf.
+  Five tests added and one changed.
 - `narrow_to_wide()` lost data without a message. Rows of one id that were not next to each
   other gave two rows for the id and dropped columns. A name that first appeared in a later
   id was dropped, even for sorted input. It now groups by id in any order, keeps all names

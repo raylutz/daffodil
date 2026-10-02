@@ -168,7 +168,7 @@ The date of the first entry is 2026-10-02.
 44. `d[0] = {'v': 'q'}` sets the other cells of the row to NULL. It does not
     update only `v`. `update_record_irow()` is the method that merges. The
     README says the column names are respected, which does not say this.
-45. `remove_dups()` with no argument clears the keyfield, and then returns every
+45. Fixed with approval on 2026-10-02. `remove_dups()` with no argument clears the keyfield, and then returns every
     row as a duplicate. With an argument it sets the keyfield of the Daf as a
     side effect. It keeps the last row of each key.
 46. `drop_cols()` of the keyfield column leaves `keyfield` set to a column that

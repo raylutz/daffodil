@@ -5649,20 +5649,24 @@ class Daf:
         """
         Split the rows into those with a unique key and those with a repeated key.
 
-        Only the keyfield is compared, not the whole row. For each key, the last row
+        Only the key columns are compared, not the whole row. For each key, the last row
         is kept as the unique one. The earlier rows with that key are the duplicates.
         The unique rows are in the order in which their keys first appear.
 
-        You must pass `keyfield`. This method sets the keyfield of this Daf to it, so
-        the Daf is changed. If you pass nothing, the keyfield is cleared and every row
-        is returned as a duplicate. If there are no repeats, the first result is this
-        same Daf, not a copy, and the second is empty.
+        Without `keyfield`, the keyfield of this Daf is used. If there is none, a
+        `KeysDisabledError` is raised. This Daf is not changed. Both results share their
+        rows with it, and both have the key columns as their keyfield.
 
         Args:
             keyfield: The column, or tuple or list of columns, that identifies a row.
+                If empty, the keyfield of this Daf.
 
         Returns:
             A tuple of the Daf of unique rows and the Daf of duplicate rows.
+
+        Raises:
+            KeysDisabledError: There is no `keyfield` and this Daf has none.
+            KeyError: A key column is not found.
 
         Examples:
             >>> d = Daf(lol=[[1, 'a'], [2, 'b'], [1, 'c']], cols=['id', 'v'])
@@ -5680,29 +5684,25 @@ class Daf:
         Returns unique_daf array with keyfield set and duplicates_daf, which may have repeats.
 
         """
-        num_rows_orig = self.num_rows()
+        key_cols: Any = keyfield or self.keyfield
+        if not key_cols:
+            raise KeysDisabledError("remove_dups: give a keyfield, or set one on the Daf.")
 
-        # the following does NOT rebuild the kd
-        self.set_keyfield(keyfield=keyfield)
+        # a key index built here, so this Daf keeps its own keyfield and key index.
+        if isinstance(key_cols, (str, int)):
+            kd = type(self)._build_kd(self.hd[key_cols], self.lol)
+        else:
+            kd = type(self)._build_kd([self.hd[cast(str, col)] for col in key_cols], self.lol)
 
-        self._rebuild_kd_if_invalidated()
+        # irows of the last record of each key. These are the unique records.
+        unique_irows = list(kd.values())
 
-        num_uniquely_keyed_rows = len(self._kd)
-
-        if num_rows_orig == num_uniquely_keyed_rows:
-            return self, Daf()
-
-        # key irows of records that are unique
-        unique_irows = self._kd.values()
-
-        # unset the keyfield
-        self._invalidate_kd()
-
-        # remove duplicated rows and set the keyfield to form unique_daf
         unique_daf = self.select_irows(irows=unique_irows, invert=False)
-    
+        unique_daf.keyfield = key_cols
+
         # all the other records are duplicates.
-        dups_daf   = self.select_irows(irows=unique_irows, invert=True)
+        dups_daf = self.select_irows(irows=unique_irows, invert=True)
+        dups_daf.keyfield = key_cols
 
         return unique_daf, dups_daf
 

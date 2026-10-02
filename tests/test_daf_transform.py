@@ -154,11 +154,50 @@ def test_remove_dups_with_duplicates():
     assert dups_daf.lol == [[1, 'a']]
 
 
-def test_remove_dups_no_duplicates_returns_self():
+def test_remove_dups_no_duplicates():
     daf = Daf(lol=[[1, 'a'], [2, 'b']], cols=['id', 'name'])
     unique_daf, dups_daf = daf.remove_dups('id')
-    assert unique_daf is daf
+    assert unique_daf.lol == [[1, 'a'], [2, 'b']]
+    assert unique_daf is not daf
+    assert unique_daf.lol[0] is daf.lol[0]
     assert dups_daf.lol == []
+
+
+def _dups_daf(keyfield=''):
+    return Daf(lol=[[1, 'a'], [2, 'b'], [1, 'c'], [3, 'd'], [2, 'e']], cols=['id', 'v'], keyfield=keyfield)
+
+
+def test_remove_dups_default_uses_the_keyfield_of_the_daf():
+    daf = _dups_daf('id')
+    unique_daf, dups_daf = daf.remove_dups()
+    assert unique_daf.lol == [[1, 'c'], [2, 'e'], [3, 'd']]
+    assert dups_daf.lol == [[1, 'a'], [2, 'b']]
+    assert unique_daf.keyfield == 'id'
+    assert dups_daf.keyfield == 'id'
+
+
+def test_remove_dups_does_not_change_the_daf():
+    daf = _dups_daf('v')
+    daf.remove_dups('id')
+    assert daf.keyfield == 'v'
+    assert daf.keys() == ['a', 'b', 'c', 'd', 'e']
+    assert daf.num_rows() == 5
+    daf2 = _dups_daf()
+    daf2.remove_dups('id')
+    assert daf2.keyfield == ''
+
+
+def test_remove_dups_without_any_keyfield_raises():
+    with pytest.raises(KeysDisabledError):
+        _dups_daf().remove_dups()
+
+
+def test_remove_dups_composite_keyfield():
+    daf = Daf(lol=[[1, 'a', 0], [1, 'a', 1], [1, 'b', 2]], cols=['p', 'q', 'r'])
+    unique_daf, dups_daf = daf.remove_dups(('p', 'q'))
+    assert unique_daf.lol == [[1, 'a', 1], [1, 'b', 2]]
+    assert dups_daf.lol == [[1, 'a', 0]]
+    assert unique_daf.keyfield == ('p', 'q')
 
 
 # =====================================================================
