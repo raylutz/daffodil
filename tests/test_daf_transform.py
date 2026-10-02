@@ -416,3 +416,54 @@ def test_apply_in_place_by_row_with_keyedlist_itermode():
     daf.itermode = 'keyedlist'
     daf.apply_in_place(lambda row: {'x': row['x'] * 10})
     assert daf.lol == [['a', 10], ['b', 20]]
+
+
+# narrow_to_wide
+
+def _narrow(lol):
+    return Daf(lol=lol, cols=['id', 'variable', 'value'])
+
+
+def test_narrow_to_wide_grouped_by_id():
+    result = _narrow([['x', 'a', 1], ['x', 'b', 2], ['y', 'a', 3], ['y', 'b', 4]]).narrow_to_wide(['id'])
+    assert result.columns() == ['id', 'a', 'b']
+    assert result.lol == [['x', 1, 2], ['y', 3, 4]]
+
+
+def test_narrow_to_wide_rows_of_an_id_not_together():
+    result = _narrow([['x', 'a', 1], ['y', 'a', 3], ['x', 'b', 2], ['y', 'b', 4]]).narrow_to_wide(['id'])
+    assert result.columns() == ['id', 'a', 'b']
+    assert result.lol == [['x', 1, 2], ['y', 3, 4]]
+
+
+def test_narrow_to_wide_name_first_seen_in_a_later_id():
+    result = _narrow([['x', 'a', 1], ['y', 'a', 3], ['y', 'c', 9]]).narrow_to_wide(['id'])
+    assert result.columns() == ['id', 'a', 'c']
+    assert result.lol == [['x', 1, ''], ['y', 3, 9]]
+
+
+def test_narrow_to_wide_missing_combination_is_null():
+    result = _narrow([['x', 'a', 1], ['x', 'b', 2], ['y', 'a', 3]]).narrow_to_wide(['id'])
+    assert result.lol == [['x', 1, 2], ['y', 3, '']]
+
+
+def test_narrow_to_wide_repeated_name_keeps_the_last_value():
+    result = _narrow([['x', 'a', 1], ['x', 'a', 5]]).narrow_to_wide(['id'])
+    assert result.lol == [['x', 5]]
+
+
+def test_narrow_to_wide_wide_cols_chooses_and_orders():
+    result = _narrow([['x', 'a', 1], ['x', 'b', 2], ['y', 'a', 3]]).narrow_to_wide(['id'], wide_cols=['b', 'a'])
+    assert result.columns() == ['id', 'b', 'a']
+    assert result.lol == [['x', 2, 1], ['y', '', 3]]
+
+
+def test_narrow_to_wide_several_id_columns_and_custom_names():
+    daf = Daf(lol=[['x', 1, 'a', 10], ['x', 2, 'a', 20], ['x', 1, 'b', 30]], cols=['p', 'q', 'k', 'v'])
+    result = daf.narrow_to_wide(['p', 'q'], varname_col='k', value_col='v')
+    assert result.columns() == ['p', 'q', 'a', 'b']
+    assert result.lol == [['x', 1, 10, 30], ['x', 2, 20, '']]
+
+
+def test_narrow_to_wide_empty():
+    assert Daf().narrow_to_wide(['id']).shape() == (0, 0)

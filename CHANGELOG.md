@@ -144,6 +144,12 @@ all prior releases. Plans for future moved to ROADMAP.md.
   git-tracked) moved out of `src/` to a gitignored, local-only `deprecated/` folder.
 
 ### Fixed
+- `narrow_to_wide()` lost data without a message. Rows of one id that were not next to each
+  other gave two rows for the id and dropped columns. A name that first appeared in a later
+  id was dropped, even for sorted input. It now groups by id in any order, keeps all names
+  in the order first seen, and fills missing combinations with NULL. `wide_cols`, which was
+  not used, now chooses and orders the columns. It is slower, 0.60 s against 0.43 s for
+  200,000 rows, and holds one dict for each id. Eight tests added.
 - `apply_in_place(by='row')` stored the values of the returned dict by position. A dict with
   the keys in another order put values in the wrong columns, a shorter dict made a short row,
   and a longer dict made a long row. The values are now written back by column name. A column

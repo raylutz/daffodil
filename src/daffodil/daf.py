@@ -10152,45 +10152,59 @@ class Daf:
         """
         Turn rows into columns. This is called pivot or spread.
 
-        The rows of one id must be next to each other. A new row of the result starts
-        whenever the id values change, so rows that are not sorted by id give a wrong
-        result with no error. The columns of the result are the id columns and then
-        the names in `varname_col`, in the order first seen. The `wide_cols` argument
-        is not used.
+        The rows of one id may be anywhere in the table. The result has one row for
+        each id, in the order in which the ids first appear. The columns are the id
+        columns and then the names found in `varname_col`, in the order first seen. An
+        id that has no value for a name gets NULL. If an id has the same name more
+        than once, the last value is kept.
+
+        With `wide_cols`, those are the columns after the ids, in that order. A
+        name that is not listed is left out.
+
+        An empty Daf gives an empty Daf.
 
         Args:
             id_cols: The columns that identify a row.
             varname_col: The column whose values become the new column names.
             value_col: The column whose values fill the new columns.
-            wide_cols: Not used.
+            wide_cols: The names to use as columns, in order. If None, all names found.
 
         Returns:
             The new Daf.
 
         Examples:
-            >>> d = Daf(lol=[['x', 'a', 1], ['x', 'b', 2], ['y', 'a', 3], ['y', 'b', 4]], cols=['id', 'variable', 'value'])
+            >>> d = Daf(lol=[['x', 'a', 1], ['y', 'a', 3], ['x', 'b', 2], ['y', 'b', 4]], cols=['id', 'variable', 'value'])
             >>> d.narrow_to_wide(['id']).lol
             [['x', 1, 2], ['y', 3, 4]]
+            >>> d.narrow_to_wide(['id'], wide_cols=['b', 'a']).lol
+            [['x', 2, 1], ['y', 4, 3]]
         """
-        wide_daf = Daf()
+        if not self.lol:
+            return Daf()
 
-        wide_row_ma: T_ma = {}
-        for row_ma in self:
-            index_cols_ma = {col: row_ma[col] for col in id_cols}
-            if not wide_row_ma:
-                wide_row_ma = index_cols_ma.copy()
-            elif not daf_utils.is_d1_in_d2(index_cols_ma, wide_row_ma):
-                wide_daf.append(wide_row_ma)
-                wide_row_ma = index_cols_ma.copy()
+        hd          = self.hd
+        id_idxs     = [hd[col] for col in id_cols]
+        var_idx     = hd[varname_col]
+        val_idx     = hd[value_col]
 
-            var_name = row_ma[varname_col]
-            value    = row_ma[value_col]
+        rows_dod: Dict[Tuple[Any, ...], Dict[Any, Any]] = {}
+        names_d: Dict[Any, None] = {}
 
-            wide_row_ma[var_name] = value
+        for row_la in self.lol:
+            id_tup = tuple([row_la[idx] for idx in id_idxs])
+            wide_row_d = rows_dod.get(id_tup)
+            if wide_row_d is None:
+                wide_row_d = rows_dod[id_tup] = {}
+            var_name = row_la[var_idx]
+            wide_row_d[var_name] = row_la[val_idx]
+            names_d[var_name] = None
 
-        wide_daf.append(wide_row_ma)
+        names_ls = list(wide_cols) if wide_cols is not None else list(names_d)
 
-        return wide_daf
+        wide_lol = [list(id_tup) + [wide_row_d.get(name, NULL) for name in names_ls]
+                    for id_tup, wide_row_d in rows_dod.items()]
+
+        return Daf(lol=wide_lol, cols=list(id_cols) + names_ls)
 
 
     #===============================
