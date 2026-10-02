@@ -87,8 +87,12 @@ all prior releases. Plans for future moved to ROADMAP.md.
   - `reduce` and sum_da pass on errors from the reduction function.
   - `create_index_at_cursor` raises on failure. It used to return False.
   - `write_buff_to_fp`, len_slice and slice_to_range pass on the original error.
-- Assigning a Daf into part of another Daf now copies its values. The Daf must be the same
-  shape as the target region. A single cell can still hold a whole Daf.
+- Assigning a Daf into part of another Daf now copies its values. Before, the cells were
+  filled with Daf objects.
+  - The copy starts at the Daf's top-left corner. Its retmode does not matter.
+  - A larger Daf is copied only as far as the region goes.
+  - A smaller Daf raises IndexError. Cells copied before the error keep their new values.
+  - A single cell still holds a whole Daf.
 - `mypy` (added to `mypy.ini`'s scope, now fully clean: 217 -> 0 errors) run across all of
   `src/daffodil` for the first time. Most fixes were mechanical (missing/narrow annotations,
   `Union[dict, KeyedList]` (`T_ma`) made explicit at the many call sites where a row can

@@ -385,11 +385,12 @@ def test_set_irows_icols_multi_row_from_daf():
     assert daf.lol == [[10, 20, 30], [40, 50, 60], [7, 8, 9]]
 
 
-def test_set_irows_icols_daf_value_wrong_shape_raises():
+def test_set_irows_icols_smaller_daf_value_raises_indexerror():
+    # rows copied before the error keep their new values.
     daf = _daf3()
-    with pytest.raises(ValueError, match='shape'):
-        daf.set_irows_icols([0, 1], None, Daf(lol=[[10, 20]], cols=['a', 'b']))
-    assert daf.lol == _daf3().lol
+    with pytest.raises(IndexError):
+        daf.set_irows_icols([0, 1], None, Daf(lol=[[10, 20, 30]], cols=['a', 'b', 'c']))
+    assert daf.lol == [[10, 20, 30], [4, 5, 6], [7, 8, 9]]
 
 
 def test_set_irows_icols_single_cell_keeps_daf_object():
@@ -412,10 +413,18 @@ def test_setitem_block_from_daf():
     assert daf.lol == [[100, 200, 3], [300, 400, 6], [7, 8, 9]]
 
 
-def test_setitem_block_from_larger_daf_raises():
+def test_setitem_block_from_larger_daf_copies_top_left():
     daf = _daf3()
-    with pytest.raises(ValueError, match='shape'):
-        daf[0:2, 0:2] = _daf3()
+    daf[0:2, 0:2] = Daf(lol=[[10, 20, 30], [40, 50, 60], [70, 80, 90]], cols=['x', 'y', 'z'])
+    assert daf.lol == [[10, 20, 3], [40, 50, 6], [7, 8, 9]]
+
+
+def test_setitem_block_from_smaller_daf_raises_indexerror():
+    # cells copied before the error keep their new values.
+    daf = _daf3()
+    with pytest.raises(IndexError):
+        daf[0:2, 0:2] = Daf(lol=[[10]], cols=['x'])
+    assert daf.lol == [[10, 2, 3], [4, 5, 6], [7, 8, 9]]
 
 
 # --- select_krows / select_kcols without keys

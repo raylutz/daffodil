@@ -3560,6 +3560,14 @@ class Daf:
 
         Returns:
             Daf: Self.
+
+        Assigning a Daf:
+            A single cell holds the Daf object itself.
+            For a larger region, the Daf's values are copied in, starting at its top-left
+            corner. Its retmode does not matter.
+            If the Daf is larger than the region, only the part that fits is copied.
+            If the Daf is smaller than the region, IndexError is raised. Cells copied
+            before the error keep their new values.
         """
         """ set rows and cols in given daf.
 
@@ -3600,14 +3608,6 @@ class Daf:
         # remains once this normalization runs.
         irows = cast(Union[range, T_li], irows)
         icols = cast(Union[range, T_li], icols)
-
-        # A Daf value supplies its values (from .lol, regardless of its retmode), so its shape
-        # must match the target region. Only a single cell can hold a Daf object as-is.
-        if isinstance(value, type(self)) and not (num_irows == 1 and num_icols == 1):
-            target_shape = (num_irows, num_icols or tot_num_cols)
-            if value.shape() != target_shape:
-                raise ValueError(f"set_irows_icols(): Daf value has shape {value.shape()}, "
-                                 f"but the target region is {target_shape}")
 
         # special case when cols not specified.
         if num_irows == 1 and num_icols == 0:
