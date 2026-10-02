@@ -11,6 +11,14 @@ Source code is in src/daffodil and tests are in tests.
 - Check every claim by running the code. Describe what actually happens. For example, don't
   say a column was dropped when only its name was lost and the data is still there.
 
+## Commits
+
+- Commits use the owner's identity: Raymond Lutz <raylutz@cognisys.com>. The startup hook sets
+  this, since the cloud container starts with a Claude identity.
+- Never add Co-Authored-By, Claude-Session or any other line crediting Claude. Claude is a
+  tool, not an author. This also applies to pull request descriptions.
+- Before committing, check that the author is correct with `git log -1 --format='%an <%ae>'`.
+
 ## Reviewing changes with the owner
 
 - The owner often reads on a phone and can't open files in the cloud session. Present
