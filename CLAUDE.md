@@ -21,12 +21,10 @@ Daffodil part applies only to this repo.
 - Start with a short numbered list, one line per item.
 - Then go through one item at a time. Wait for a decision before moving on. Some items need
   a night to think over, and some are easy.
-- For each item, give:
-  - what happens now, from actually running the code;
-  - the relevant code, with the file and line number;
-  - why it matters and what it could affect;
-  - the options, and which one you recommend;
-  - the exact change you propose.
+- Present each item as a list of options only. Don't describe it in terms of branches or of
+  what is there now. One option is always "Original": how the code behaved before any changes.
+- For each option, give its code, the file and line, and real output from running it.
+- Then say why it matters, what it could affect and which option you recommend.
 
 ## Writing style
 
