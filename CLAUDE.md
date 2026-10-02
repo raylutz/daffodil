@@ -1,7 +1,9 @@
-# Daffodil: notes for Claude
+# Notes for Claude
 
-Daffodil is a small, fast, pure-Python library for 2-D data tables. The main class is Daf.
-Source code is in src/daffodil and tests are in tests.
+This file has two parts. The global rules apply to all of the owner's projects. The
+Daffodil part applies only to this repo.
+
+# Part 1: Global rules
 
 ## How to work
 
@@ -10,14 +12,7 @@ Source code is in src/daffodil and tests are in tests.
   removed checks. Adding tests or docs needs no approval, but say what you added.
 - Check every claim by running the code. Describe what actually happens. For example, don't
   say a column was dropped when only its name was lost and the data is still there.
-
-## Commits
-
-- Commits use the owner's identity: Raymond Lutz <raylutz@cognisys.com>. The startup hook sets
-  this, since the cloud container starts with a Claude identity.
-- Never add Co-Authored-By, Claude-Session or any other line crediting Claude. Claude is a
-  tool, not an author. This also applies to pull request descriptions.
-- Before committing, check that the author is correct with `git log -1 --format='%an <%ae>'`.
+- Commit and push before starting a change that touches many places.
 
 ## Reviewing changes with the owner
 
@@ -47,10 +42,46 @@ This applies to code comments, the changelog, docs and chat.
 - Put a date or a name once, at the top of an entry. Don't repeat them through the text.
 - Revise before presenting. Don't hand over a first draft.
 
+## Code style
+
+- Use type annotations throughout.
+- Use the project's type aliases instead of spelling out types. In daffodil they are in
+  src/daffodil/lib/daf_types.py. Other projects may have their own types module.
+- An alias name is T_ followed by letters for the type:
+  - d is a dict with str keys, and id is a dict with int keys.
+  - l is a list, s a str, i an int, f a float, b a bool, t a tuple and a is Any.
+  - o means "of".
+  - For example, T_da is a dict of Any and T_ls is a list of str.
+  - T_dols is a dict of lists of str, and T_dodi is a dict of dicts of int.
+- End each identifier with the same letters, so its type shows in its name. For example:
+  row_da, colnames_ls, result_dodi. A list of lists is lol, as in data_lol.
+- Follow PEP 8 in general, but not its line-length limit.
+- Don't use Black or any other auto-formatter. Don't reflow existing code.
+- Lining things up in columns is good. This includes assignments and trailing comments.
+- A short, commonly used function can keep its signature on one line.
+- Otherwise, put one parameter per line, with names, types, defaults and comments lined up
+  in columns. derive_join_translator_daf in daffodil's daf.py is a good example.
+- When showing code in the chat, keep it narrow enough to read on a phone. Show only the
+  relevant lines, and trim long comments.
+
+## Commits
+
+- Commits use the owner's identity: Raymond Lutz <raylutz@cognisys.com>.
+- A cloud container starts with a Claude identity, so set the owner's identity first.
+- Never add Co-Authored-By, Claude-Session or any other line crediting Claude. Claude is a
+  tool, not an author. This also applies to pull request descriptions.
+- Before committing, check the author with `git log -1 --format='%an <%ae>'`.
+
+# Part 2: Daffodil
+
+Daffodil is a small, fast, pure-Python library for 2-D data tables. The main class is Daf.
+Source code is in src/daffodil and tests are in tests.
+
 ## Setup and tests
 
-- Use uv. Running `uv sync` installs the package and the dev tools. A startup hook in
-  .claude/settings.json runs it at the start of each session.
+- Use uv. Running `uv sync` installs the package and the dev tools.
+- A startup hook in .claude/settings.json runs `uv sync` and sets the git identity at the
+  start of each session.
 - Run the tests with `uv run pytest -q -p no:cacheprovider`. It takes a few seconds.
 - For coverage, add `--cov=daffodil --cov-report=term-missing`.
 - All tests must pass before any commit.
@@ -98,4 +129,3 @@ This applies to code comments, the changelog, docs and chat.
   `breakpoint()`, name the caught exception exc_info.
 - Never pass extra keywords to `breakpoint()` in daffodil. Python's default hook rejects them
   with a TypeError.
-- Commit and push before starting a change that touches many places.
