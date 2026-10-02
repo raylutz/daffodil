@@ -6060,11 +6060,26 @@ class Daf:
     #   modify records
 
     def assign_record(self, record: T_da) -> None:
-        """ Assign one record in daf using the key using a single T_da dict.
+        """
+        Put one row in the Daf by its key, replacing a row that has the same key.
 
-            TODO Upate to accept KeyedList
+        The row is a dict. If a row with that key exists, the whole row is replaced.
+        The cells of columns that the dict lacks become NULL. If the key is new, the
+        row is added at the end. This is an upsert for one row. For that, `append()`
+        with `respect_kd=True` also works. Use `update_by_keylist()` to change only
+        some cells.
 
-            unit tests exist
+        Args:
+            record: The row, as a dict. It must have the keyfield.
+
+        Raises:
+            KeysDisabledError: The Daf has no keyfield.
+
+        Examples:
+            >>> d = Daf(lol=[[1, 'a', 10], [2, 'b', 20], [3, 'c', 30]], cols=['id', 'v', 'n'], keyfield='id')
+            >>> d.assign_record({'id': 2, 'v': 'new'})
+            >>> d.lol
+            [[1, 'a', 10], [2, 'new', ''], [3, 'c', 30]]
         """
 
         if not self.keyfield:
@@ -6087,11 +6102,23 @@ class Daf:
 
 
     def assign_record_irow(self, irow: int=-1, record: Optional[T_da]=None) -> None:
-        """ Assign one record in daf using the iloc using a single T_da dict.
+        """
+        Put one row in the Daf by position, replacing the row there.
 
-            TODO Update to accept KeyedList
+        The row is a dict. The whole row is replaced, and the cells of columns that
+        the dict lacks become NULL. With the default position, which is negative, or
+        with a position beyond the end, the row is added at the end instead. Use
+        `update_record_irow()` to change only some cells.
 
-            unit tests exist
+        Args:
+            irow: The row position. A negative or too large position adds the row at the end.
+            record: The row, as a dict. If None, nothing happens.
+
+        Examples:
+            >>> d = Daf(lol=[[1, 'a', 10], [2, 'b', 20], [3, 'c', 30]], cols=['id', 'v', 'n'], keyfield='id')
+            >>> d.assign_record_irow(1, {'v': 'q'})
+            >>> d.lol[1]
+            ['', 'q', '']
         """
 
         if record is None:
@@ -6106,13 +6133,25 @@ class Daf:
 
     #@deprecated("Use 'my_daf[keylist] = record' syntax")
     def update_by_keylist(self, keylist: Optional[T_ls]=None, record: Optional[T_da]=None) -> 'Daf':
-        """ Update selected records in daf by keylist using record
-            only update those columns that have dict keys
-            but keep all other dict items intact in that row if not updated.
+        """
+        Change some cells in the rows that have the given keys.
 
-            Equivalent to: my_daf[keylist] = record
+        Only the columns that are keys of the dict are changed. Other cells keep
+        their values. A key that is not found is skipped. This is a bulk form of
+        `my_daf[key, colname] = value`. The row positions do not change, so the key
+        index stays valid.
 
-            DEPRECATE?
+        Args:
+            keylist: The keys of the rows to change.
+            record: The new values, as a dict of column name and value. Names that are not columns are ignored.
+
+        Returns:
+            This Daf, which has been changed. With no keyfield, rows, keys or record, nothing happens.
+
+        Examples:
+            >>> d = Daf(lol=[[1, 'a', 10], [2, 'b', 20], [3, 'c', 30]], cols=['id', 'v', 'n'], keyfield='id')
+            >>> d.update_by_keylist([1, 3, 9], {'v': 'q'}).lol
+            [[1, 'q', 10], [2, 'b', 20], [3, 'q', 30]]
         """
 
         if record is None or not self.lol or not self.hd or not self.keyfield or not keylist:
@@ -6130,17 +6169,21 @@ class Daf:
 
 
     def update_record_irow(self, irow: int=-1, record: Optional[T_da]=None) -> None:
-        """ Update one record in daf at iloc using a single T_da dict,
-            and only update those columns that have dict keys
-            but keep all other dict items intact in that row.
+        """
+        Change some cells in the row at a position.
 
-            Equivalent to my_daf[irow] = record
+        Only the columns that are keys of the dict are changed. Other cells keep their
+        values. A position that is out of range does nothing.
 
-            DEPRECATE?
+        Args:
+            irow: The row position.
+            record: The new values, as a dict of column name and value. Names that are not columns are ignored.
 
-            TODO: Allow record to be KeyedList
-
-            unit tests exist
+        Examples:
+            >>> d = Daf(lol=[[1, 'a', 10], [2, 'b', 20], [3, 'c', 30]], cols=['id', 'v', 'n'], keyfield='id')
+            >>> d.update_record_irow(1, {'v': 'q'})
+            >>> d.lol[1]
+            [2, 'q', 20]
         """
 
         if record is None or not self.lol or not self.hd:
@@ -6164,16 +6207,24 @@ class Daf:
             col_la: Optional[T_la]=None,
             default: Any=''
             ) -> None:
-        """ modify icol by index using col_la
-            use default if col_la not long enough to fill all cells.
-            Also, if col_la not provided, use default to fill all cells in the column.
-            if icol == -1, append column on the right side.
+        """
+        Fill a column by position with the values of a list.
 
-            Equivalent to  my_daf[:, icol] = col_la
+        A list that is too short is filled out with `default`. With no list, every cell
+        gets `default`. With `icol=-1` a new column is added at the right. Its name is
+        not added, so the Daf has more values in each row than names. Use `insert_col()`
+        to add a column with a name.
 
-            Except that icol can be -1 and it will append.
-            DEPRECATE?
+        Args:
+            icol: The column position. -1 adds a column at the right.
+            col_la: The values, one for each row.
+            default: The value for rows that the list does not reach.
 
+        Examples:
+            >>> d = Daf(lol=[[1, 'a', 10], [2, 'b', 20], [3, 'c', 30]], cols=['id', 'v', 'n'], keyfield='id')
+            >>> d.assign_icol(1, ['x', 'y'], default='D')
+            >>> d.col('v')
+            ['x', 'y', 'D']
         """
         # from utilities import daf_utils
 
@@ -6188,11 +6239,28 @@ class Daf:
             colname:    str='',
             default:    Any=''
             ) -> 'Daf':
-        """ insert column col_la at icol, shifting other column data.
-            use default if la not long enough
-            If icol==-1, insert column at right end.
-            Note: use set_keyfield() if this column is to be the keyfield.
-            unit tests
+        """
+        Insert a column at a position and move the later columns right.
+
+        A list that is too short is filled out with `default`. With `icol=-1`, or a
+        position beyond the last column, the column is added at the right. Give
+        `colname` to name it. Without a name the data is inserted, but the names are
+        not changed, so rows have more values than names. The dtypes are not changed.
+        Use `set_keyfield()` if the column is to be the keyfield.
+
+        Args:
+            icol: The column position. -1 adds the column at the right.
+            col_la: The values, one for each row.
+            colname: The name of the new column.
+            default: The value for rows that the list does not reach.
+
+        Returns:
+            This Daf, which has been changed.
+
+        Examples:
+            >>> d = Daf(lol=[[1, 'a', 10], [2, 'b', 20], [3, 'c', 30]], cols=['id', 'v', 'n'], keyfield='id')
+            >>> d.insert_icol(1, ['x', 'y', 'z'], colname='new').columns()
+            ['id', 'new', 'v', 'n']
         """
 
         # from utilities import daf_utils
@@ -6212,10 +6280,25 @@ class Daf:
 
 
     def insert_irow(self, irow: int=-1, row: Optional[Union[T_la, T_da]]=None, default: Any='') -> 'Daf':
-        """ insert row row_la at irow, shifting other rows down.
-            use default if la not long enough
-            If irow > len(daf), insert row at the end.
+        """
+        Insert a row at a position and move the later rows down.
 
+        The row is a list of values, or a dict that is placed by column name. A short
+        list is filled out with `default`. A position beyond the last row adds the row
+        at the end. The key index is rebuilt when it is next needed.
+
+        Args:
+            irow: The row position. -1 adds the row at the end.
+            row: The row, as a list or a dict.
+            default: The value for cells that a short list does not reach.
+
+        Returns:
+            This Daf, which has been changed.
+
+        Examples:
+            >>> d = Daf(lol=[[1, 'a', 10], [2, 'b', 20], [3, 'c', 30]], cols=['id', 'v', 'n'], keyfield='id')
+            >>> d.insert_irow(1, {'id': 9, 'v': 'z'}).lol
+            [[1, 'a', 10], [9, 'z', ''], [2, 'b', 20], [3, 'c', 30]]
         """
 
         # from utilities import daf_utils
@@ -6238,13 +6321,28 @@ class Daf:
 
 
     def assign_col(self, colname: str, la: Optional[T_la]=None, default: Any='') -> 'Daf':
-        """ modify col by colname using la
-            use default if la not long enough.
-            test exists in test_daf.py
+        """
+        Fill a column by name with the values of a list, or add it if it is new.
 
-            Equivalent to my_daf[:, colname] = la
+        This is `my_daf[:, colname] = values`, and it also adds a column. A list that
+        is too short is filled out with `default`. With no list, every cell gets
+        `default`. If the column is the keyfield, the key index is rebuilt when it is
+        next needed.
 
-            if colname not exists, then add column of that name and initialize.
+        Args:
+            colname: The column name.
+            la: The values, one for each row.
+            default: The value for rows that the list does not reach.
+
+        Returns:
+            This Daf, which has been changed.
+
+        Examples:
+            >>> d = Daf(lol=[[1, 'a', 10], [2, 'b', 20], [3, 'c', 30]], cols=['id', 'v', 'n'], keyfield='id')
+            >>> d.assign_col('w', default=0).columns()
+            ['id', 'v', 'n', 'w']
+            >>> d.col('w')
+            [0, 0, 0]
         """
 
         if colname in self.hd:
@@ -6270,12 +6368,29 @@ class Daf:
             default:    Any='',
             ) -> 'Daf':
 
-        """ add col by colname and set to la at icol
-            if la is not long enough for a full column, use the default.
-            if colname exists, overwrite it.
-            Can use to set a constant value by not passing col_la and setting default.
-            use set_keyfield() if this column will become the keyfield.
-            unit tested
+        """
+        Add a named column at a position, or overwrite it if the name exists.
+
+        A list that is too short is filled out with `default`. With no list, every cell
+        gets `default`, so this can add a constant column. If the name already exists
+        the column is overwritten, and `icol` is ignored. An empty name does nothing.
+        Use `set_keyfield()` if the column is to be the keyfield.
+
+        Args:
+            colname: The name of the column.
+            col_la: The values, one for each row.
+            icol: The column position. -1 adds the column at the right.
+            default: The value for rows that the list does not reach.
+
+        Returns:
+            This Daf, which has been changed.
+
+        Examples:
+            >>> d = Daf(lol=[[1, 'a', 10], [2, 'b', 20], [3, 'c', 30]], cols=['id', 'v', 'n'], keyfield='id')
+            >>> d.insert_col('w', ['x', 'y', 'z'], icol=1).columns()
+            ['id', 'w', 'v', 'n']
+            >>> d.insert_col('k', default=5).col('k')
+            [5, 5, 5]
         """
 
         if not colname:
@@ -6295,8 +6410,21 @@ class Daf:
 
 
     def insert_idx_col(self, colname: str='idx', icol:int=0, startat:int=0) -> 'Daf':
-        """ insert an index column at column icol with name colname with indexes starting at 'startat'
-            unit tested
+        """
+        Insert a column of row numbers.
+
+        Args:
+            colname: The name of the new column.
+            icol: The column position.
+            startat: The number of the first row.
+
+        Returns:
+            This Daf, which has been changed.
+
+        Examples:
+            >>> d = Daf(lol=[[1, 'a', 10], [2, 'b', 20], [3, 'c', 30]], cols=['id', 'v', 'n'], keyfield='id')
+            >>> d.insert_idx_col().col('idx')
+            [0, 1, 2]
         """
 
         num_rows = len(self)
@@ -6308,12 +6436,24 @@ class Daf:
 
 
     def set_col_irows(self, colname: str, irows: T_li, val: Any) -> 'Daf':
-        """ set a given icol and list of irows to val
+        """
+        Set one value in the given rows of a named column.
 
-            Equivalent to my_daf[irows, colname] = val
+        This is `my_daf[irows, colname] = value`. A column name that is not found does
+        nothing. Row positions that are out of range are skipped.
 
-            DEPRECATE?
+        Args:
+            colname: The column name.
+            irows: The row positions.
+            val: The value to set.
 
+        Returns:
+            This Daf, which has been changed.
+
+        Examples:
+            >>> d = Daf(lol=[[1, 'a', 10], [2, 'b', 20], [3, 'c', 30]], cols=['id', 'v', 'n'], keyfield='id')
+            >>> d.set_col_irows('v', [0, 2], 'Z').col('v')
+            ['Z', 'b', 'Z']
         """
 
         # see https://github.com/raylutz/daffodil/issues/7
@@ -6329,9 +6469,25 @@ class Daf:
 
     def set_icol(self, icol: int, val: Any) -> 'Daf':
 
-        """ Equivalent to my_daf[:, icol] = val
+        """
+        Set one value in every row of a column, by position.
 
-            DEPRECATE?
+        This is `my_daf[:, icol] = value`.
+
+        Args:
+            icol: The column position.
+            val: The value to set.
+
+        Returns:
+            This Daf, which has been changed.
+
+        Raises:
+            IndexError: The position is beyond the end of a row.
+
+        Examples:
+            >>> d = Daf(lol=[[1, 'a', 10], [2, 'b', 20], [3, 'c', 30]], cols=['id', 'v', 'n'], keyfield='id')
+            >>> d.set_icol(1, 'Z').col('v')
+            ['Z', 'Z', 'Z']
         """
 
 
@@ -6342,12 +6498,22 @@ class Daf:
 
 
     def set_icol_irows(self, icol: int, irows: T_li, val: Any) -> None:
-        """ set a given icol and list of irows to val
+        """
+        Set one value in the given rows of a column, by position.
 
-            Equivalent to my_daf[irows, icol] = val
+        This is `my_daf[irows, icol] = value`. Row positions that are out of range
+        are skipped.
 
-            DEPRECATE?
+        Args:
+            icol: The column position.
+            irows: The row positions.
+            val: The value to set.
 
+        Examples:
+            >>> d = Daf(lol=[[1, 'a', 10], [2, 'b', 20], [3, 'c', 30]], cols=['id', 'v', 'n'], keyfield='id')
+            >>> d.set_icol_irows(1, [0, 9, -1], 'Z')
+            >>> d.col('v')
+            ['Z', 'b', 'c']
         """
 
         for irow in irows:
@@ -6361,7 +6527,25 @@ class Daf:
     # find/replace
 
     def find_replace(self, find_pat: str, replace_val: Any) -> None:
-        """ scan cells in daf and if match is found, replace the cell with pattern """
+        """
+        Replace every cell that matches a pattern, in place.
+
+        Each cell is converted to text and searched with the regular expression
+        `find_pat`. If it matches anywhere in the text, the whole cell is replaced by
+        `replace_val`. It is not a substitution inside the text. Every column is
+        searched, including numbers, and the key index is rebuilt when it is next
+        needed.
+
+        Args:
+            find_pat: A regular expression.
+            replace_val: The value that replaces a matching cell.
+
+        Examples:
+            >>> d = Daf(lol=[[1, 'a', 10], [2, 'b', 20], [3, 'c', 30]], cols=['id', 'v', 'n'], keyfield='id')
+            >>> d.find_replace(r'^[ab]$', 'HIT')
+            >>> d.col('v')
+            ['HIT', 'HIT', 'c']
+        """
 
         for row_la in self.lol:
             for i, value in enumerate(row_la):
@@ -6378,26 +6562,30 @@ class Daf:
         replacement: Any = _MISSING
     ) -> 'Daf':
         """
-        Replace all values in `find_values` with `replacement` for the specified columns.
+        Replace listed values with another value, in some columns, in place.
 
-        Parameters:
-            cols:
-                A list of column names (str) or indices (int).
-                If None, all columns will be included.
-            find_values:
-                A list of values to search for (e.g., ['', None]).
-            replacement:
-                The value to substitute in place of any matched item.
+        A cell is replaced when it equals any value in `find_values`. A typical use
+        is `['', None]` to fill empty cells. Columns may be given by name or by
+        position, or all columns if `cols` is None. With no `find_values` nothing
+        happens. The key index is rebuilt if the keyfield may have changed.
 
-        Behavior:
-            - Column identifiers may be strings (header names) or integers (column indices).
-            - If headers exist, string names are looked up via self.hd.
-            - If cols is None, all columns [0..num_cols-1] will be modified.
-            - Modifies self in place and returns self.
+        Args:
+            cols: Column names or positions. If None, all columns.
+            find_values: The values to look for.
+            replacement: The value to put in their place. This is required.
+
+        Returns:
+            This Daf, which has been changed.
 
         Raises:
-            KeyError if a string column name is not found in the header.
-            TypeError if a column identifier is not str or int.
+            ValueError: No `replacement` is given.
+            KeyError: A column name is not found.
+            TypeError: A column is neither a name nor a position.
+
+        Examples:
+            >>> d = Daf(lol=[[1, 'a', 10], [2, 'b', 20], [3, 'c', 30]], cols=['id', 'v', 'n'], keyfield='id')
+            >>> d.replace_in_columns(['v'], ['a', 'c'], '-').col('v')
+            ['-', 'b', '-']
         """
 
         if find_values is None:
@@ -6445,7 +6633,22 @@ class Daf:
     # split and grouping
 
     def split_daf_into_ranges(self, chunk_ranges: List[Tuple[int, int]]) -> List['Daf']:
-        """ Given a df and list of (start,end) ranges, split daf into list of daf.
+        """
+        Split the rows into several Daf instances, by position ranges.
+
+        Each range is `(start, end)`, and `end` is not included. The new Daf instances
+        share their rows with this one.
+
+        Args:
+            chunk_ranges: The ranges of row positions.
+
+        Returns:
+            A list of Daf instances, one for each range.
+
+        Examples:
+            >>> d = Daf(lol=[[1, 'a', 10], [2, 'b', 20], [3, 'c', 30]], cols=['id', 'v', 'n'], keyfield='id')
+            >>> [part.lol for part in d.split_daf_into_ranges([(0, 2), (2, 3)])]
+            [[[1, 'a', 10], [2, 'b', 20]], [[3, 'c', 30]]]
         """
 
         chunks_lodaf = [self.select_irows(list(range(start, end))) for start,end in chunk_ranges]
@@ -6455,8 +6658,22 @@ class Daf:
 
 
     def split_daf_into_chunks_lodaf(self, max_chunk_size: int) -> List['Daf']:
-        """ given a daf, split it evenly by rows into a list of dafs.
-            size of some dafs may be less than the max but not over.
+        """
+        Split the rows evenly into Daf instances of at most a given size.
+
+        The sizes are as equal as possible, so some chunks are smaller than the
+        maximum. None is larger. The chunks share their rows with this Daf.
+
+        Args:
+            max_chunk_size: The most rows in one chunk.
+
+        Returns:
+            A list of Daf instances.
+
+        Examples:
+            >>> d = Daf(lol=[[i] for i in range(7)], cols=['a'])
+            >>> [len(part) for part in d.split_daf_into_chunks_lodaf(3)]
+            [3, 2, 2]
         """
         # from utilities import daf_utils
 
@@ -6470,17 +6687,33 @@ class Daf:
     #   sort
 
     def sort_by_colname(self, colname:str, *, reverse: bool=False, length_priority: bool=False) -> 'Daf':
-        """ sort the data by a given colname, using length priority if specified.
-            sorts in place. Make a copy if you need the original order.
-            Note, this will place an empty field before fields with contents, 
-            which differs from spreadsheet operation.
+        """
+        Sort the rows by one column, in place.
 
-            Length priority will allow proper sorting when values include embedded integers which are not left-padded.
+        Make a copy first if you need the original order. An empty cell sorts before
+        a cell with content, unlike a spreadsheet. Values in the column must be
+        comparable with each other, so a column that mixes None and numbers raises
+        `TypeError`.
 
-                ie.             ['10', '99', '8', '100', '0']
-                will sort to    ['0', '8', '10', '99', '100']
-                rather than     ['0', '10', '100', '8', '99']
+        With `length_priority`, a shorter text sorts before a longer one, so numbers
+        that are stored as text sort as numbers. Without it, `'10'`, `'100'`, `'8'`
+        are in text order.
 
+        Args:
+            colname: The column to sort by.
+            reverse: If True, sort from high to low.
+            length_priority: If True, sort by length first, then by value.
+
+        Returns:
+            This Daf, which has been changed.
+
+        Raises:
+            KeyError: The column name is not found.
+
+        Examples:
+            >>> d = Daf(lol=[['10'], ['99'], ['8'], ['100']], cols=['a'])
+            >>> d.sort_by_colname('a', length_priority=True).col('a')
+            ['8', '10', '99', '100']
         """
         if not self or len(self) <= 1:
             return self
@@ -6493,18 +6726,29 @@ class Daf:
 
 
     def sort_by_colnames(self, colnames:T_ls, reverse: bool=False, length_priority: bool=False) -> 'Daf':
-        """ sort the data by multiple colnames, using length priority if specified.
-            sorts in place. Make a copy if you need the original order.
+        """
+        Sort the rows by several columns, in place.
 
-            Length priority will allow proper sorting when values include embedded integers which are not left-padded.
+        The first column is the main sort key. The others break ties. See
+        `sort_by_colname()` for the rules of ordering and for `length_priority`.
+        Calling `sort_by_colname()` for each column, last column first, gives the same
+        order.
 
-                ie.             ['10', '99', '8', '100', '0']
-                will sort to    ['0', '8', '10', '99', '100']
-                rather than     ['0', '10', '100', '8', '99']
+        Args:
+            colnames: The columns to sort by, main key first.
+            reverse: If True, sort from high to low.
+            length_priority: If True, sort by length first, then by value.
 
-            Note: consider deprecating. Can accomplish with some loss of efficiency as:
-                sort_by_colname('colname1').sort_by_colname('colname2')
+        Returns:
+            This Daf, which has been changed.
 
+        Raises:
+            KeyError: A column name is not found.
+
+        Examples:
+            >>> d = Daf(lol=[[2, 'b'], [1, 'z'], [1, 'a']], cols=['p', 'q'])
+            >>> d.sort_by_colnames(['p', 'q']).lol
+            [[1, 'a'], [1, 'z'], [2, 'b']]
         """
         if not self or len(self) <= 1:
             return self

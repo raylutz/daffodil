@@ -193,3 +193,28 @@ The date of the first entry is 2026-10-02.
 53. The names of the flags differ: `inverse` in `select_krows()` and
     `select_kcols()`, `invert` in `select_irows()`, and `flip` in
     `select_icols()` and `select_kcols()`.
+
+## Group 6: assigning, inserting, replacing and sorting
+
+54. `assign_icol(-1, ...)` adds a column of data but not a column name. Each
+    row then has one more value than `columns()` has names. `insert_icol()`
+    without `colname` does the same. The README and docstrings call these
+    ways to add a column.
+55. `assign_record_irow()` appends the row when the position is negative or
+    beyond the end, and its default position is -1. A caller who passes a bad
+    position adds a row without a message. `update_record_irow()` ignores a
+    bad position.
+56. `insert_irow(0, 'zz')` raises `UnboundLocalError`, because a row that is
+    neither a list nor a dict leaves `row_la` unset.
+57. `find_replace()` replaces the whole cell when the pattern matches anywhere
+    in it. The name suggests a substitution inside the text. It also returns
+    None, while the other mutating methods return the Daf.
+58. `set_col_irows()` ignores a column name that is not found. `set_icol()`
+    raises `IndexError` for a bad column. Several of these methods are marked
+    `DEPRECATE?` in their old text.
+59. `assign_record()`, `assign_record_irow()`, `update_record_irow()`,
+    `assign_icol()` and `set_icol_irows()` return None. The methods that
+    do the same kind of change elsewhere return the Daf.
+60. `sort_by_colname()` raises `TypeError` for a column that mixes None and
+    numbers. NULL, which is the empty string, mixed with numbers does the same. A
+    column of text with NULL sorts the NULL first.
