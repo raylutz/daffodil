@@ -1,67 +1,84 @@
-# Daffodil — notes for Claude
+# Daffodil: notes for Claude
 
-Daffodil is a lightweight, pure-Python 2-D dataframe library (`Daf` class). Source is in
-`src/daffodil/` (src layout); tests are in `tests/`.
+Daffodil is a small, fast, pure-Python library for 2-D data tables. The main class is Daf.
+Source code is in src/daffodil and tests are in tests.
 
-## How to work (owner's rules)
+## How to work
 
-- **No sub-agents.** Do all work in a single thread. Speed is not a priority; cost and accuracy are.
-- **Report before changing behavior.** Before making any change that alters library behavior
-  (a fix, a new raise, a removed check), write up each item and wait for approval. Each item
-  in the report should give:
-  - what happens now, shown by actually running the code (real output, not a paraphrase);
-  - the relevant code, with file:line;
-  - why it matters, and who or what could be affected;
-  - the options, with a recommendation;
-  - the exact proposed change (a diff or code snippet).
-- **Be accurate and complete.** Verify every claim by running it. Don't summarize loosely
-  (e.g. "drops a column" when only the column's name is lost and the data remains). Prefer
-  a longer, precise description over a terse one.
-- Adding tests or docs that don't change library behavior doesn't need prior approval, but
-  still report what was added.
+- Don't use sub-agents. Work in a single thread. Speed doesn't matter. Cost and accuracy do.
+- Get approval before any change to library behavior. This includes fixes, new errors and
+  removed checks. Adding tests or docs needs no approval, but say what you added.
+- Check every claim by running the code. Describe what actually happens. For example, don't
+  say a column was dropped when only its name was lost and the data is still there.
+
+## Reviewing changes with the owner
+
+- The owner often reads on a phone and can't open files in the cloud session. Present
+  reviews in the chat.
+- Start with a short numbered list, one line per item.
+- Then go through one item at a time. Wait for a decision before moving on. Some items need
+  a night to think over, and some are easy.
+- For each item, give:
+  - what happens now, from actually running the code;
+  - the relevant code, with the file and line number;
+  - why it matters and what it could affect;
+  - the options, and which one you recommend;
+  - the exact change you propose.
+
+## Writing style
+
+This applies to code comments, the changelog, docs and chat.
+
+- Write short sentences, with one idea per sentence.
+- Don't use em dashes, or double hyphens as dashes.
+- Avoid parenthetical asides. If it matters, give it its own sentence.
+- Use at most one or two backticked names per line.
+- Don't fill the text with quoted values. Put code in a code block when it's needed.
+- Never use relative times such as "yesterday", "earlier today" or "this morning". Give the
+  actual date, and the time if it matters.
+- Put a date or a name once, at the top of an entry. Don't repeat them through the text.
+- Revise before presenting. Don't hand over a first draft.
 
 ## Setup and tests
 
-- Use `uv`. `uv sync` installs the package plus the dev group (pytest, pytest-cov, numpy,
-  pandas, pdfplumber, requests, xlsxwriter). A SessionStart hook in `.claude/settings.json`
-  runs it automatically.
-- Run the suite: `uv run pytest -q -p no:cacheprovider` (about 2–5 s).
-- Coverage: `uv run pytest -q -p no:cacheprovider --cov=daffodil --cov-report=term-missing`.
-- The full suite must stay green before any commit.
+- Use uv. Running `uv sync` installs the package and the dev tools. A startup hook in
+  .claude/settings.json runs it at the start of each session.
+- Run the tests with `uv run pytest -q -p no:cacheprovider`. It takes a few seconds.
+- For coverage, add `--cov=daffodil --cov-report=term-missing`.
+- All tests must pass before any commit.
 
 ## Layout
 
-- `src/daffodil/daf.py`: the `Daf` class (most of the code).
-- `src/daffodil/keyedlist.py`: `KeyedList`.
-- `src/daffodil/lib/`: helpers. Some `Daf` methods are module-level functions wired onto the
-  class (e.g. `from_md = daf_md._from_md`) to avoid circular imports; this is deliberate.
-- `tests/test_*.py` are collected by pytest. Other files in `tests/` (`*_demo.py`,
-  `npao_*.py`, `daf_benchmarks.py`, ...) are scripts, not tests.
+- src/daffodil/daf.py holds the Daf class, which is most of the code.
+- src/daffodil/keyedlist.py holds KeyedList.
+- src/daffodil/lib holds helper modules. Some Daf methods are defined there and attached to
+  the class. This avoids circular imports and is deliberate.
+- pytest only collects files named test_*.py. The other files in tests are scripts.
 
 ## Conventions
 
-- `daf_pdf.py` is experimental and its API isn't settled. Don't write tests that lock in its
-  current behavior, and don't refactor it unless asked.
-- Tests are plain pytest functions, grouped by the method under test, asserting actual output
-  values (not just that lines execute). No network access in tests; mock it.
-- When a test exposes a real bug and the fix isn't in scope, write the test for the *correct*
-  behavior and mark it `@pytest.mark.xfail(strict=True, reason="BUG: <what> (file:line)")`.
-  Never encode buggy behavior as expected.
-- Record notable changes in `CHANGELOG.md` under `## [Unreleased]` (Keep a Changelog format),
-  including test-coverage additions with before -> after percentages.
+- daf_pdf.py is experimental and its design isn't settled. Don't write tests that lock in its
+  current behavior. Don't refactor it unless asked.
+- Tests are plain pytest functions, grouped by the method they test. They check actual
+  output values. Tests must not use the network, so mock any network calls.
+- When a test finds a real bug that you aren't fixing, write the test for the correct
+  behavior. Mark it with `xfail(strict=True)` and a reason that starts with "BUG:" and names
+  the file and line. Never write a test that expects the buggy behavior.
+- Record notable changes in CHANGELOG.md under Unreleased. Include coverage changes with
+  before and after percentages.
 
 ## Errors, not breakpoint()
 
-- Daffodil library code raises a specific exception on error paths (e.g. `KeyError` for a
-  column or setting that doesn't exist, `ValueError` for a value of the wrong shape,
-  `TypeError` for an unsupported type) instead of calling `breakpoint()`. Use
-  `raise ... from exc_info` when re-raising from an `except` clause.
-- `tests/conftest.py` makes any `breakpoint()` reached during a test fail, so new ones are
-  caught. `daf_pdf.py` (experimental) and `md_demo.py` still contain some.
-- Background: in AuditEngine, `utilities/breakpoint_hook.py` replaces pdb so AI assistants can
-  run code non-interactively; it captures a report and raises `BreakpointCaptured`. That hook
-  looks up the exception in a local named `exc_info`, so name captured exceptions `exc_info`
-  where an `except` clause is followed by a `breakpoint()`. The default hook
-  (`pdb.set_trace(*, header=None)`) rejects unknown keywords, so never use
-  `breakpoint(extra=...)` in daffodil.
-- Commit and push current work before starting any sweep across many call sites.
+- Library code raises a specific error instead of calling `breakpoint()`. For example, use
+  KeyError for a missing column, ValueError for a value of the wrong shape and TypeError for
+  an unsupported type.
+- When re-raising inside an except clause, use `raise ... from exc_info`.
+- tests/conftest.py makes any test fail if it reaches `breakpoint()`. This catches new ones.
+  daf_pdf.py and md_demo.py still contain some.
+- AuditEngine installs its own breakpoint hook, so AI assistants can run code without pdb.
+  The hook saves a report and raises an error instead of stopping.
+- That hook looks for a local variable named exc_info. So if an except clause is followed by
+  `breakpoint()`, name the caught exception exc_info.
+- Never pass extra keywords to `breakpoint()` in daffodil. Python's default hook rejects them
+  with a TypeError.
+- Commit and push before starting a change that touches many places.
