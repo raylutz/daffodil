@@ -7295,7 +7295,7 @@ class Daf:
                 # column order. A name that is not a column is ignored. A column that is not
                 # returned keeps its value.
                 for colname, val in transformed_row_da.items():
-                    icol = hd.get(colname)
+                    icol = hd.get(colname)  # type: ignore[call-overload]  # a row key from a KeyedList is Hashable
                     if icol is not None:
                         row_la[icol] = val
 
