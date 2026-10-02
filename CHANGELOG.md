@@ -132,6 +132,9 @@ all prior releases. Plans for future moved to ROADMAP.md.
   git-tracked) moved out of `src/` to a gitignored, local-only `deprecated/` folder.
 
 ### Fixed
+- `apply_schema()` with something that is not a schema stored it in `schema` and returned
+  None. It now raises `TypeError` and stores nothing. It matches `attach_schema()`. Test
+  added.
 - `apply_colwise()` returned None, although its docstring and annotation say it returns the
   Daf. It now returns the Daf. It also passes the default to `insert_col()` by name. The
   results are the same as before. Test added.

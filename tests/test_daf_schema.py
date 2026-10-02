@@ -234,3 +234,14 @@ def test_default_record_unsupported_schema_type_raises():
     daf.schema = 42
     with pytest.raises(TypeError):
         daf.default_record()
+
+
+def test_apply_schema_rejects_non_schema():
+    class Plain:
+        pass
+
+    daf = Daf(lol=[[1, 2]], cols=['a', 'b'])
+    for bad in (Plain, 42, {'a': 'int'}):
+        with pytest.raises(TypeError, match='apply_schema'):
+            daf.apply_schema(bad)  # type: ignore[arg-type]
+    assert daf.schema is None

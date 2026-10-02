@@ -94,6 +94,9 @@ def _apply_schema(
 
     Returns:
         self
+
+    Raises:
+        TypeError: The schema is neither a `@schemaclass` nor a schema Daf. Nothing is stored.
     """
 
     # no schema argument in the method call, use defined schema
@@ -103,6 +106,14 @@ def _apply_schema(
     # there is no schema defined, so give up.
     if schema is None:
         return self
+
+    is_schemaclass = isinstance(schema, type) and getattr(schema, "__is_schemaclass__", False)
+
+    if not is_schemaclass and not isinstance(schema, type(self)):
+        raise TypeError(
+            f"apply_schema: schema must be a @schemaclass or a schema Daf, "
+            f"not {type(schema).__name__}"
+            )
 
     self.schema = schema
 
@@ -188,7 +199,7 @@ def _apply_schema(
 
             self.keyfield = schema_keyfield
 
-        return self
+    return self
 
 
 def _attach_schema(self: 'Daf', schema: type) -> 'Daf':
