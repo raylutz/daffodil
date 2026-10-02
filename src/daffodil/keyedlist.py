@@ -13,6 +13,79 @@ import json
 
 class KeyedList:
     """
+    A row that reads like a dict but points at a list instead of copying its values.
+
+    A KeyedList pairs a list of values with an index of the keys. You read it by key, as in
+    `row['qty']`, the same way you read a dict. But the values are not copied into it. It
+    adopts the list you give it. It can also share one index of keys with many other
+    KeyedLists, which is what a table does with the column names of its rows.
+
+    Daffodil gives you its rows as KeyedLists when `itermode` is 'keyedlist', and from
+    `iter_klist()` and `iloc()`. Each one points at a row of the table.
+
+    How it differs from a dict:
+
+    - Writing to it writes to the list it adopted. If that list is a row of a Daf, the Daf
+      changes. A dict row never changes the table.
+    - `values()` returns the adopted list itself, not a copy. Use `to_dict()` for an
+      independent copy.
+    - Creating one is cheap if you give it an existing index. A dict copies every value in.
+    - Keys must be unique, and keys and values must be the same length.
+
+    Ways to create one:
+
+    - `KeyedList(keys, values)`: adopts the values list. No copy.
+    - `KeyedList(index, values)`: the same, but reuses a `KeyedIndex` that you already built.
+      This is the fastest, and it is what Daf uses for its rows.
+    - `KeyedList(a_dict)`: copies the values out of the dict. Slower than the forms above.
+    - `KeyedList(keys, default=0)`: every key gets the same default value.
+    - `KeyedList(other_klist)`: shares the values list and copies the index.
+
+    Reading and writing:
+
+    - Read with `row['a']`, `row.get('a', default)`, `'a' in row` or `row.items()`. A list of
+      keys, as in `row[['a', 'b']]`, returns a list of values and skips keys that are missing.
+    - Assigning to an existing key replaces the value in the list.
+    - Assigning to a new key adds the key, and adds the value to the end of the list. If the
+      list is a row of a Daf, that row is now longer than the others.
+    - Deleting a key removes its value from the list.
+    - A KeyedList that shares an index copies it before it adds a key. So adding a key to
+      one row does not give that key to the other rows.
+
+    Speed:
+
+    Looping over a table as KeyedLists can be faster than looping over dicts, even if you
+    never assign to a row. All the rows share one index, so no row builds its own. The gain
+    grows with the number of columns. In a test with 50,000 rows of 400 columns, reading
+    one field in a loop took 0.047 s with KeyedLists and 0.583 s with dicts. With 5 columns
+    the two were about even.
+
+    Because a KeyedList points into the table, assigning to it changes the table. If you
+    need a copy, use `to_dict()`, or loop with `iter_dict()` on the Daf.
+
+    Examples:
+        >>> values = [1, 2, 3]
+        >>> klist = KeyedList(['a', 'b', 'c'], values)
+        >>> klist['b']
+        2
+        >>> klist['b'] = 20
+        >>> values
+        [1, 20, 3]
+        >>> klist.to_dict()
+        {'a': 1, 'b': 20, 'c': 3}
+        >>> klist.get('z', 0)
+        0
+
+        A row of a Daf is a KeyedList that points at the row in the table:
+
+        >>> from daffodil.daf import Daf
+        >>> daf = Daf(cols=['x', 'y'], lol=[[1, 2], [3, 4]])
+        >>> for row in daf.iter_klist():
+        ...     row['y'] = 0
+        >>> daf.lol
+        [[1, 0], [3, 0]]
+    """
+    """
     KeyedList is a custom data structure in Python that combines the functionality of a dictionary and a list,
     optimized for efficient indexing and manipulation of data. 
     
@@ -359,6 +432,62 @@ class KeyedListEncoder(json.JSONEncoder):
 
 class KeyedIndex:
     """
+    The index of keys that KeyedLists share. Each key maps to the position of its value.
+
+    A KeyedIndex turns a key into the position of its value in a list. A table uses one for
+    its column names. Every [KeyedList][daffodil.keyedlist.KeyedList] row of that table can
+    point at the same KeyedIndex, so no row has to build its own.
+
+    Keys must be unique. They can be of mixed types, if they are hashable. You can add a key
+    at the end with `append()`. You can't delete a key or insert one in the middle. To
+    change anything else, build a new KeyedIndex.
+
+    You can create one from:
+
+    - a list or tuple of keys.
+    - a dict. Its keys are used, and its values are ignored.
+    - a keys view.
+    - a KeyedList, which gives a copy of its index.
+    - another KeyedIndex. This shares the index with no copy. Appending to one changes both.
+
+    Anything else, such as a generator, is rejected.
+
+    Examples:
+        >>> kidx = KeyedIndex(["a", "b", "c"])
+        >>> kidx["b"]
+        1
+        >>> "c" in kidx
+        True
+        >>> len(kidx)
+        3
+        >>> kidx.append("d")
+        >>> kidx["d"]
+        3
+        >>> kidx.get("x") is None
+        True
+        >>> kidx.get("x", -1)
+        -1
+        >>> kidx.to_dict()
+        {'a': 0, 'b': 1, 'c': 2, 'd': 3}
+
+        Keys can be of mixed types, but they must be unique:
+
+        >>> KeyedIndex(["a", 1, (2, 3)])[(2, 3)]
+        2
+        >>> KeyedIndex(["a", "b", "a"])
+        Traceback (most recent call last):
+            ...
+        ValueError: Duplicate keys not allowed in KeyedIndex
+        >>> kidx.append("b")
+        Traceback (most recent call last):
+            ...
+        ValueError: Duplicate key: b
+        >>> KeyedIndex(k for k in "ab")
+        Traceback (most recent call last):
+            ...
+        TypeError: Unsupported type for KeyedIndex: generator. Expected list, tuple, dict, or dict_keys.
+    """
+    """
     KeyedIndex: compiled index over a sequence of UNIQUE keys.
 
     Semantics:
@@ -373,7 +502,7 @@ class KeyedIndex:
         - dict        (uses dict.keys())
         - dict_keys   (keys view)
         - KeyedList   (uses its own .hd)
-        - KeyedIndex  (copies the other index's keys)
+        - KeyedIndex  (shares the other index, with no copy. Appending to one changes both.)
 
     Unsupported:
         - arbitrary iterables (explicit rejection to avoid ambiguity)
@@ -469,8 +598,8 @@ class KeyedIndex:
     >>> kidx = KeyedIndex(["a", "b"])
     >>> kidx.get("b")
     1
-    >>> kidx.get("x")
-    None
+    >>> kidx.get("x") is None
+    True
     >>> kidx.get("x", -1)
     -1
 

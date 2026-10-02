@@ -65,6 +65,11 @@ all prior releases. Plans for future moved to ROADMAP.md.
   match their signatures.
 - Docstrings for `retmode`, `itermode`, `iter_dict`, `iter_klist`, `iter_list` and `__iter__`
   were rewritten to explain what each is for, with examples that are run as doctests.
+- KeyedList and KeyedIndex have new docstrings, which are the one place that explains how
+  KeyedList rows work. The Daf docstrings link to them. They have their own page in the docs.
+  The older text stays as the second string. Two errors in the old KeyedIndex text were fixed:
+  an example that printed `None` where nothing is printed, and a line that said a KeyedIndex
+  built from another one copies it, when it shares it.
 
 ### Changed
 - Library code no longer calls `breakpoint()` on error paths. It raises a specific error

@@ -354,13 +354,9 @@ class Daf:
         'dict' is the default. Each row is a new dict of column name to value. The values are
         copied into it, so changing it does not change the Daf.
 
-        'keyedlist' gives each row as a KeyedList. It points at the row's own list in the Daf
-        instead of copying the values. So assigning to it changes the Daf.
-
-        All the KeyedList rows of one loop share a single index of the column names. So
-        reading from them can be faster than building a dict for each row, even if you never
-        assign. The gain grows with the number of columns. In a test with 400 columns,
-        reading one field was about 12 times faster. With 5 columns the two are about even.
+        'keyedlist' gives each row as a [KeyedList][daffodil.keyedlist.KeyedList]. It points
+        into the table instead of copying it. See there for how it works, what changes the
+        Daf, and when it is faster.
 
         The mode is used by `for row in daf`, and by methods that loop over the rows, such as
         `reduce()`. The methods `iter_dict()`, `iter_klist()` and `iter_list()` ignore it and
@@ -436,10 +432,10 @@ class Daf:
 
     def iter_klist(self) -> Iterator[KeyedList]:
         """
-        Loop over the rows as KeyedLists, whatever the itermode is.
+        Loop over the rows as [KeyedList][daffodil.keyedlist.KeyedList] objects, whatever the
+        itermode is.
 
-        A KeyedList is read by column name, like a dict. It points at the row's own list in
-        the Daf instead of copying the values, so assigning to it changes the Daf.
+        See [KeyedList][daffodil.keyedlist.KeyedList] for how these rows work.
 
         Returns:
             Iterator[KeyedList]: Each row as a KeyedList.

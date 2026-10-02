@@ -8,6 +8,7 @@ nav:
   - Home: index.md
   - API:
       - Daf: api/daf.md
+      - KeyedList: api/keyedlist.md
 
 markdown_extensions:
   - admonition

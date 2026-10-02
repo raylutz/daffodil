@@ -152,6 +152,12 @@ Source code is in src/daffodil and tests are in tests.
   underscores turn text into italics.
 - Keep a second string after the docstring as it is. If it holds useful information, move
   that into the real docstring.
+- Explain each concept once, on its primary page, and link to it from everywhere else. For
+  example, KeyedList is explained in the KeyedList docstring. Other docstrings say one
+  sentence and link with `[KeyedList][daffodil.keyedlist.KeyedList]`. Don't repeat the
+  explanation, because the copies drift apart.
+- Docstrings use the Google style. A NumPy style heading such as `Examples` over a line of
+  dashes is not parsed, and its examples show as plain text.
 
 ## Names
 
