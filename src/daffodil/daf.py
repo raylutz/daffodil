@@ -104,7 +104,7 @@ from daffodil.keyedlist import KeyedIndex
 
 import typing
 from typing import List, Dict, Any, Tuple, Optional, Union, cast, Type, Callable, Generic, TypeVar  # noqa: F401
-from collections.abc import Iterable, Collection, Sequence, Iterator              # noqa: F401
+from collections.abc import Iterable, Collection, Sequence, Iterator, Hashable    # noqa: F401
 
 
 #T_Daf = Type['Daf']
@@ -291,7 +291,7 @@ class Daf:
     # basic attributes and methods
 
     @property
-    def retmode(self):
+    def retmode(self) -> str:
         """
         What a selection like `daf[row, col]` returns: a Daf, or plain values.
 
@@ -329,7 +329,7 @@ class Daf:
         return self._retmode
 
     @retmode.setter
-    def retmode(self, new_retmode):
+    def retmode(self, new_retmode: str) -> None:
         """
         Set the return mode.
 
@@ -344,7 +344,7 @@ class Daf:
             raise ValueError("Invalid retmode")
 
     @property
-    def itermode(self):
+    def itermode(self) -> str:
         """
         What each row is when you loop over a Daf: a dict, or a KeyedList.
 
@@ -383,7 +383,7 @@ class Daf:
         return self._itermode
 
     @itermode.setter
-    def itermode(self, new_itermode):
+    def itermode(self, new_itermode: str) -> None:
         """
         Set the iterator mode.
 
@@ -472,7 +472,7 @@ class Daf:
             # self._iter_index = 0
             # raise StopIteration
 
-    def __bool__(self):
+    def __bool__(self) -> bool:
         """
         Evaluate truthiness of the Daf instance.
 
@@ -486,7 +486,7 @@ class Daf:
         return bool(self.num_cols())
 
 
-    def __format__(self, format_spec):
+    def __format__(self, format_spec: str) -> str:
         """
         Format a value from Daf instance.
 
@@ -506,7 +506,7 @@ class Daf:
         return self.__str__()
 
 
-    def __eq__(self, other):
+    def __eq__(self, other: object) -> bool:
         """
         Compare this Daf instance with another.
 
@@ -542,7 +542,7 @@ class Daf:
         return "\n"+self.md_daf_table_snippet()
 
 
-    def __contains__(self, key) -> bool:
+    def __contains__(self, key: Any) -> bool:
         """
         Check if a key exists in the Daf.
 
@@ -595,7 +595,7 @@ class Daf:
         return result
 
 
-    def __len__(self):
+    def __len__(self) -> int:
         """
         Return number of rows.
 
@@ -605,7 +605,7 @@ class Daf:
         return self.num_rows()
 
 
-    def num_rows(self):
+    def num_rows(self) -> int:
         """
         Return number of rows.
 
@@ -619,7 +619,7 @@ class Daf:
         return len(self.lol)
 
 
-    def len(self):
+    def len(self) -> int:
         """
         Return number of rows.
 
@@ -702,7 +702,7 @@ class Daf:
         return self
 
 
-    def shape(self):
+    def shape(self) -> Tuple[int, int]:
         """
         Return shape of the Daf.
 
@@ -764,7 +764,7 @@ class Daf:
     #===========================
     # column names
     @staticmethod
-    def _build_hd(keys: T_cs):
+    def _build_hd(keys: T_cs) -> T_di:
         """
         Build header dictionary from keys (internal).
 
@@ -786,7 +786,7 @@ class Daf:
         return dict(zip(keys, range(len(keys))))
 
 
-    def columns(self):
+    def columns(self) -> T_ls:
         """
         Return column names.
 
@@ -797,7 +797,7 @@ class Daf:
         return list(self.hd.keys())
 
 
-    def _cols_to_hd(self, cols: T_cs):
+    def _cols_to_hd(self, cols: T_cs) -> None:
         """
         Rebuild internal header dictionary from column list.
 
@@ -956,7 +956,7 @@ class Daf:
         # return self
 
 
-    def rename_cols(self, from_to_dict: T_ds):
+    def rename_cols(self, from_to_dict: T_ds) -> 'Daf':
         """
         Rename columns using a mapping.
 
@@ -979,7 +979,7 @@ class Daf:
         return self
 
 
-    def set_cols(self, new_cols: Optional[T_ls]=None, sanitize_cols: bool=True, unnamed_prefix: str='col'):
+    def set_cols(self, new_cols: Optional[T_ls]=None, sanitize_cols: bool=True, unnamed_prefix: str='col') -> 'Daf':
         """
         Set column names for the Daf.
 
@@ -1080,7 +1080,7 @@ class Daf:
             *,
             silent_error: bool=True,
             force_kd_rebuild: bool=False,
-            ):
+            ) -> 'Daf':
         """
         Set or reset the keyfield used for indexing. Index built lazily when needed.
 
@@ -1176,7 +1176,7 @@ class Daf:
             self._kd = {}
 
 
-    def _rebuild_kd_if_invalidated(self):
+    def _rebuild_kd_if_invalidated(self) -> 'Daf':
         """
         Rebuild key dictionary if it has been invalidated if keyfield is valid.
 
@@ -1243,7 +1243,7 @@ class Daf:
         return kd
 
 
-    def _get_keyval(self, data_item):
+    def _get_keyval(self, data_item: T_ma) -> Any:
         """
         Extract key value from a data item.
 
@@ -1254,7 +1254,7 @@ class Daf:
             Internal
         """
         if isinstance(self.keyfield, (str, int)):
-            keyval = data_item[self.keyfield]
+            keyval = data_item[self.keyfield]   # type: ignore[index]  # an int keyfield is a key, not a position
         elif isinstance(self.keyfield, (tuple, list)):
             keyval = tuple((data_item[key_tup] for key_tup in self.keyfield))
         return keyval
@@ -1473,7 +1473,7 @@ class Daf:
 
         return self
 
-    def flatten(self, convert_bool_to_int=True, use_pyon: bool = True):
+    def flatten(self, convert_bool_to_int: bool=True, use_pyon: bool = True) -> 'Daf':
         """
         Convert list and dict cells to PYON text, and optionally bools to ints.
 
@@ -2175,7 +2175,7 @@ class Daf:
 
     #==== CSV
     @classmethod
-    def from_csv(cls, source: str | Path, **kwargs):
+    def from_csv(cls, source: str | Path, **kwargs: Any) -> 'Daf':
         """
         Load CSV from file, URL, or S3.
 
@@ -2327,7 +2327,7 @@ class Daf:
         return my_daf
 
     @classmethod
-    def from_dirlist(cls, dirpath: str|Path, schema: 'Daf' | None):
+    def from_dirlist(cls, dirpath: str|Path, schema: 'Daf' | None) -> None:
         """
         Create daf from directory listing, using optional schema if specified.
 
@@ -2486,7 +2486,7 @@ class Daf:
 
 
     @staticmethod
-    def buff_to_file(buff: T_buff, file_path: str | Path, fmt:str='.csv'):
+    def buff_to_file(buff: T_buff, file_path: str | Path, fmt:str='.csv') -> str:
         """
         Write buffer to file.
 
@@ -2509,7 +2509,7 @@ class Daf:
             schema: type | None = None,
             recursive: bool = True,
             file_pat: str | None = None,
-        ):
+        ) -> 'Daf':
         """
         Create a Daf from a local filesystem directory listing.
 
@@ -3018,7 +3018,7 @@ class Daf:
     #===========================
     # append
 
-    def append(self, data_item: Union['Daf', T_loda, T_da, T_la, KeyedList], respect_kd: bool=False):
+    def append(self, data_item: Union['Daf', T_loda, T_da, T_la, KeyedList], respect_kd: bool=False) -> 'Daf':
         """
         Append data to the Daf.
 
@@ -3092,7 +3092,7 @@ class Daf:
         return self
 
 
-    def concat(self, other_instance: 'Daf'):
+    def concat(self, other_instance: 'Daf') -> Optional['Daf']:
         """
         Concatenate another Daf into this one.
 
@@ -3113,7 +3113,7 @@ class Daf:
         """
 
         if not other_instance:
-            return
+            return None
 
         diagnose = False
 
@@ -3156,7 +3156,7 @@ class Daf:
 
         return self
 
-    def extend(self, records_lod: T_loda):
+    def extend(self, records_lod: T_loda) -> 'Daf':
         """
         Append multiple records from list-of-dicts.
 
@@ -3204,7 +3204,7 @@ class Daf:
         return self
 
 
-    def record_append(self, record: Union[T_da, KeyedList], respect_kd=True):
+    def record_append(self, record: Union[T_da, KeyedList], respect_kd: bool=True) -> 'Daf':
         """
         Append a single record, optionally respecting the keyfield.
 
@@ -3335,7 +3335,7 @@ class Daf:
     #=========================
     # remove records per keyfield; drop cols
 
-    def remove_key(self, keyval: Optional[Union[str, int, T_la, T_ta]], silent_error=False) -> 'Daf':
+    def remove_key(self, keyval: Optional[Union[str, int, T_la, T_ta]], silent_error: bool=False) -> 'Daf':
         """
         Remove a record by key.
 
@@ -3362,7 +3362,7 @@ class Daf:
         return self.select_krows(krows=keyval, inverse=True, silent_error=silent_error)
 
 
-    def remove_keylist(self, keylist: T_ls, silent_error=False) -> 'Daf':
+    def remove_keylist(self, keylist: T_ls, silent_error: bool=False) -> 'Daf':
         """
         Remove multiple records by key list.
 
@@ -3542,7 +3542,7 @@ class Daf:
         return irows, icols
 
 
-    def _adjust_return_val(self, retmode: str = ''):
+    def _adjust_return_val(self, retmode: str = '') -> Any:
         """
         Adjust return value based on retmode.
 
@@ -5040,7 +5040,7 @@ class Daf:
         return result_la
 
 
-    def drop_cols(self, exclude_cols: Optional[T_ls]=None):
+    def drop_cols(self, exclude_cols: Optional[T_ls]=None) -> Optional['Daf']:
         """ given a list of colnames, cols, remove them from daf array
             alters the daf and creates a copy of all data.
 
@@ -5058,7 +5058,7 @@ class Daf:
             keep_idxs_li: T_li = [self.hd[col] for col in self.hd if col not in exclude_cols]
 
         else:
-            return
+            return None
 
         for irow, la in enumerate(self.lol):
             la = [la[idx] for idx in keep_idxs_li]
@@ -5158,7 +5158,7 @@ class Daf:
     #=========================
     #   modify records
 
-    def assign_record(self, record: T_da):
+    def assign_record(self, record: T_da) -> None:
         """ Assign one record in daf using the key using a single T_da dict.
 
             TODO Upate to accept KeyedList
@@ -5185,7 +5185,7 @@ class Daf:
             self.append(record)
 
 
-    def assign_record_irow(self, irow: int=-1, record: Optional[T_da]=None):
+    def assign_record_irow(self, irow: int=-1, record: Optional[T_da]=None) -> None:
         """ Assign one record in daf using the iloc using a single T_da dict.
 
             TODO Update to accept KeyedList
@@ -5204,7 +5204,7 @@ class Daf:
 
 
     #@deprecated("Use 'my_daf[keylist] = record' syntax")
-    def update_by_keylist(self, keylist: Optional[T_ls]=None, record: Optional[T_da]=None):
+    def update_by_keylist(self, keylist: Optional[T_ls]=None, record: Optional[T_da]=None) -> Optional['Daf']:
         """ Update selected records in daf by keylist using record
             only update those columns that have dict keys
             but keep all other dict items intact in that row if not updated.
@@ -5215,7 +5215,7 @@ class Daf:
         """
 
         if record is None or not self.lol or not self.hd or not self.keyfield or not keylist:
-            return
+            return None
 
         self._rebuild_kd_if_invalidated()
 
@@ -5228,7 +5228,7 @@ class Daf:
         return self
 
 
-    def update_record_irow(self, irow: int=-1, record: Optional[T_da]=None):
+    def update_record_irow(self, irow: int=-1, record: Optional[T_da]=None) -> None:
         """ Update one record in daf at iloc using a single T_da dict,
             and only update those columns that have dict keys
             but keep all other dict items intact in that row.
@@ -5262,7 +5262,7 @@ class Daf:
             icol: int=-1,
             col_la: Optional[T_la]=None,
             default: Any=''
-            ):
+            ) -> None:
         """ modify icol by index using col_la
             use default if col_la not long enough to fill all cells.
             Also, if col_la not provided, use default to fill all cells in the column.
@@ -5286,7 +5286,7 @@ class Daf:
             col_la:     Optional[T_la]=None,
             colname:    str='',
             default:    Any=''
-            ):
+            ) -> 'Daf':
         """ insert column col_la at icol, shifting other column data.
             use default if la not long enough
             If icol==-1, insert column at right end.
@@ -5310,7 +5310,7 @@ class Daf:
         return self
 
 
-    def insert_irow(self, irow: int=-1, row: Optional[Union[T_la, T_da]]=None, default: Any=''):
+    def insert_irow(self, irow: int=-1, row: Optional[Union[T_la, T_da]]=None, default: Any='') -> 'Daf':
         """ insert row row_la at irow, shifting other rows down.
             use default if la not long enough
             If irow > len(daf), insert row at the end.
@@ -5336,7 +5336,7 @@ class Daf:
         return self
 
 
-    def assign_col(self, colname: str, la: Optional[T_la]=None, default: Any=''):
+    def assign_col(self, colname: str, la: Optional[T_la]=None, default: Any='') -> 'Daf':
         """ modify col by colname using la
             use default if la not long enough.
             test exists in test_daf.py
@@ -5367,7 +5367,7 @@ class Daf:
             col_la:     Optional[T_la]=None,    # column to insert
             icol:       int=-1,                 # insert at end by default
             default:    Any='',
-            ):
+            ) -> Optional['Daf']:
 
         """ add col by colname and set to la at icol
             if la is not long enough for a full column, use the default.
@@ -5378,7 +5378,7 @@ class Daf:
         """
 
         if not colname:
-            return
+            return None
         if not col_la:
             col_la = []             # perflint-reviewed (use-tuple-over-list)
 
@@ -5393,7 +5393,7 @@ class Daf:
         return self
 
 
-    def insert_idx_col(self, colname='idx', icol:int=0, startat:int=0) -> 'Daf':
+    def insert_idx_col(self, colname: str='idx', icol:int=0, startat:int=0) -> 'Daf':
         """ insert an index column at column icol with name colname with indexes starting at 'startat'
             unit tested
         """
@@ -5406,7 +5406,7 @@ class Daf:
         return self
 
 
-    def set_col_irows(self, colname: str, irows: T_li, val: Any):
+    def set_col_irows(self, colname: str, irows: T_li, val: Any) -> 'Daf':
         """ set a given icol and list of irows to val
 
             Equivalent to my_daf[irows, colname] = val
@@ -5426,7 +5426,7 @@ class Daf:
         return self
 
 
-    def set_icol(self, icol: int, val: Any):
+    def set_icol(self, icol: int, val: Any) -> 'Daf':
 
         """ Equivalent to my_daf[:, icol] = val
 
@@ -5440,7 +5440,7 @@ class Daf:
         return self
 
 
-    def set_icol_irows(self, icol: int, irows: T_li, val: Any):
+    def set_icol_irows(self, icol: int, irows: T_li, val: Any) -> None:
         """ set a given icol and list of irows to val
 
             Equivalent to my_daf[irows, icol] = val
@@ -5459,7 +5459,7 @@ class Daf:
     #=========================
     # find/replace
 
-    def find_replace(self, find_pat, replace_val):
+    def find_replace(self, find_pat: str, replace_val: Any) -> None:
         """ scan cells in daf and if match is found, replace the cell with pattern """
 
         for row_la in self.lol:
@@ -5619,7 +5619,7 @@ class Daf:
     #=========================
     #   apply formulas
 
-    def apply_formulas(self, formulas_daf: 'Daf'):
+    def apply_formulas(self, formulas_daf: 'Daf') -> None:
         r""" apply an array of formulas to the data in daf
 
         formulas must have the same shape as self daf instance.
@@ -5940,7 +5940,8 @@ class Daf:
         return result_daf
 
 
-    def update_row(row, da):
+    @staticmethod
+    def update_row(row: T_ma, da: T_da) -> T_ma:
         row.update(da)
         return row
 
@@ -5953,7 +5954,7 @@ class Daf:
             rowkeys:    Union[T_la, T_lota] | None=None,  # list of rowkeys to include.
                         # the above changed from keylist to avoid confusion with KeyedList
             **kwargs:   Any,
-            ):
+            ) -> None:
         """
         Apply a function to each 'row', 'row_klist', 'col', or 'table' in the daf.
 
@@ -6276,10 +6277,10 @@ class Daf:
 
         if indirect_col:
             # reuse existing indirect semantics via wrapper
-            def _iter_rows():
+            def _iter_rows() -> Iterator['_IndirectRowView']:
                 for row_kl in self.iter_klist():
                     yield _IndirectRowView(row_kl, indirect_col)
-            row_iter = _iter_rows()
+            row_iter: Iterator[Any] = _iter_rows()
         else:
             # prefer KeyedList iteration for zero-copy
             row_iter = self.iter_klist()
@@ -7319,7 +7320,7 @@ class Daf:
         return result_dodaf
 
 
-    def set_col2_from_col1_using_regex_select(self, col1: str, col2: str='', regex: str=''):
+    def set_col2_from_col1_using_regex_select(self, col1: str, col2: str='', regex: str='') -> None:
 
         """ given two cols that already exist, apply regex select to col1 to create col2
             regex should include parens that enclose the desired portion of col1.
@@ -7499,7 +7500,7 @@ class Daf:
 
 
 
-    def apply_to_col(self, col: str, func: Callable, **kwargs):
+    def apply_to_col(self, col: str, func: Callable, **kwargs: Any) -> None:
 
         self[:, col] = list(map(func, self.col(col), **kwargs))
 
@@ -7677,7 +7678,7 @@ class Daf:
 
 
     @staticmethod
-    def sum_dodis(this_dodi: T_dodi, accum_dodi: T_dodi):
+    def sum_dodis(this_dodi: T_dodi, accum_dodi: T_dodi) -> None:
         """ add values for matching keys in this_dodi and accum_dodi.
             sum cases where the keys are the same.
         """
@@ -8284,7 +8285,7 @@ class Daf:
         keyfield = self.keyfield   # okay to set now with lazy kd generation.
 
         # Helper function to fetch a record by key, with silent error
-        def fetch_record(daf: 'Daf', mykey: Union[str, int]):
+        def fetch_record(daf: 'Daf', mykey: Union[str, int]) -> T_da:
             return daf.select_record(mykey, silent_error=True)
 
         # Track matched keys for outer joins
@@ -8709,7 +8710,7 @@ class DafIterator(Generic[DafIterRtype]):
         # one index of the column names, shared by every KeyedList row of this loop.
         self._kidx: Optional[KeyedIndex] = KeyedIndex(cast(dict, this_daf.hd)) if rtype == KeyedList else None
 
-    def __iter__(self):
+    def __iter__(self) -> 'DafIterator[DafIterRtype]':
         return self
 
     def __next__(self) -> DafIterRtype:
@@ -8750,35 +8751,35 @@ class _IndirectRowView:
     (dict or KeyedList) and the indirect dict.
     """
 
-    def __init__(self, row, indirect_col=None):
+    def __init__(self, row: T_ma, indirect_col: Optional[str] = None):
         self.row = row
         self.indirect = (
             daf_utils.get_indirect_da(row, indirect_col)
             if indirect_col else None
         )
 
-    def __getitem__(self, key):
+    def __getitem__(self, key: Hashable) -> Any:
 
         if key in self.row:
-            return self.row[key]
+            return self.row[key]     # type: ignore[index]  # keys are strings
 
         if self.indirect and key in self.indirect:
             return self.indirect[key]
 
         return ''
 
-    def get(self, key, default=''):
+    def get(self, key: Hashable, default: Any='') -> Any:
 
         if key in self.row:
-            return self.row.get(key, default)
+            return self.row.get(key, default)     # type: ignore[call-overload]  # keys are strings
 
         if self.indirect:
-            return self.indirect.get(key, default)
+            return self.indirect.get(key, default)     # type: ignore[call-overload]  # keys are strings
 
         return default
 
 
-    def keys(self):
+    def keys(self) -> Iterable[Hashable]:
         if not self.indirect:
             return self.row.keys()
 
@@ -8787,14 +8788,14 @@ class _IndirectRowView:
             ]
 
 
-    def values(self):
+    def values(self) -> Iterable[Any]:
         if not self.indirect:
             return self.row.values()
 
         return (self[key] for key in self.keys())
 
 
-    def items(self):
+    def items(self) -> Iterable[Tuple[Hashable, Any]]:
         if not self.indirect:
             return self.row.items()
 

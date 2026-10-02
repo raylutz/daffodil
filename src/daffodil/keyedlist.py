@@ -346,7 +346,7 @@ class KeyedList:
             return default
 
 
-    def update(self, other: Union['KeyedList', Dict[TKey, Any]]) -> None:
+    def update(self, other: Union['KeyedList', Dict[Any, Any]]) -> None:
         # this could allow direct updating.
         for key, value in other.items():
             self[key] = value
