@@ -84,7 +84,9 @@ all prior releases. Plans for future moved to ROADMAP.md.
   - `json_encode` raises ValueError for NaN or Infinity. It used to write NaN, which is not
     valid JSON.
 - Errors are no longer hidden:
-  - `reduce` and sum_da pass on errors from the reduction function.
+  - `reduce` passes on errors from the reduction function. A new silent_error parameter,
+    False by default, skips the failing rows instead.
+  - `sum_da` passes on errors other than the non-numeric values it already skips.
   - `create_index_at_cursor` raises on failure. It used to return False.
   - `write_buff_to_fp`, len_slice and slice_to_range pass on the original error.
 - Assigning a list or a Daf into part of a Daf copies values only where the source and the

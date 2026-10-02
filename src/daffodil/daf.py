@@ -6745,6 +6745,7 @@ class Daf:
             cols:           T_cs|None=None,                    # columns included in the reduce operation.
             initial_da:     T_ma|None=None,
             indirect_col:   str = '',                                   # indirect_col is required for lol array.
+            silent_error:   bool = False,                               # if True, skip rows where func raises.
             **kwargs:       Any,
             ) -> Union[T_ma, T_la]:
         """
@@ -6757,6 +6758,9 @@ class Daf:
             It should take a row dictionary and any additional parameters.
             by (str): either 'row', 'col' or 'table'
                 if by == 'table', function should create a new Daf instance.
+            silent_error (bool): For 'row' and 'sparse_row'. If False, an error raised by func
+                stops the reduction. If True, that row is skipped and the reduction goes on.
+                Use with care: a result may then be missing rows, with no sign of it.
             **kwargs: Additional parameters to pass to the function.
 
         Returns:
@@ -6789,7 +6793,11 @@ class Daf:
                 reduction_ma = dict.fromkeys(cols_iter, 0)
 
             for row_ma in self:
-                reduction_ma = func(row_ma, reduction_ma, cols=cols_iter, **kwargs)
+                try:
+                    reduction_ma = func(row_ma, reduction_ma, cols=cols_iter, **kwargs)
+                except Exception:
+                    if not silent_error:
+                        raise
 
                 # def count_values_da(row_da: T_da, reduction_da: T_da, cols: Iterable, omit_nulls: bool=False) -> T_dodi:
                 # def sum_da         (row_da: T_da, reduction_da: T_da, cols: Iterable, astype: Optional[Type]=None, diagnose:bool=False
@@ -6820,7 +6828,11 @@ class Daf:
                 #     indirect_da = daf_utils.safe_convert_json_to_obj(indirect_val)
                 # else:
                 #     indirect_da = indirect_val
-                reduction_ma = func(indirect_ma, reduction_ma, cols=cols, is_sparse=True, **kwargs)
+                try:
+                    reduction_ma = func(indirect_ma, reduction_ma, cols=cols, is_sparse=True, **kwargs)
+                except Exception:
+                    if not silent_error:
+                        raise
 
                 # def count_values_da(row_da: T_da, reduction_da: T_da, cols: Iterable, omit_nulls: bool=False) -> T_dodi:
                 # def sum_da         (row_da: T_da, reduction_da: T_da, cols: Iterable, astype: Optional[Type]=None, diagnose:bool=False

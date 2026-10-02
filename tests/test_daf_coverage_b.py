@@ -314,6 +314,20 @@ def test_reduce_sparse_row_func_exception_propagates():
         daf.reduce(_failing_reduction, by='sparse_row', indirect_col='j')
 
 
+def test_reduce_row_silent_error_skips_failing_rows():
+    def fail_on_two(row, acc, cols=None, **kwargs):
+        if row['a'] == 2:
+            raise ValueError('bad row')
+        return Daf.sum_da(row, acc, cols=cols)
+    daf = Daf(cols=['a'], lol=[[1], [2], [3]])
+    assert daf.reduce(fail_on_two, silent_error=True) == {'a': 4}
+
+
+def test_reduce_sparse_row_silent_error_skips_failing_rows():
+    daf = Daf(cols=['id', 'j'], lol=[['x', '{"p": 1}'], ['y', '{"q": 2}']])
+    assert daf.reduce(_failing_reduction, by='sparse_row', indirect_col='j', silent_error=True) == {}
+
+
 # =====================================================================
 # sum_da()
 # =====================================================================

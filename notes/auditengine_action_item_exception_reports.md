@@ -77,8 +77,8 @@ mode did they carry on, and these are the ones where that changes.
 
 | Place | Continue mode on main | Now |
 |---|---|---|
-| daf.py:6842 reduce | Row skipped, reduction went on | Error from the reduction function |
-| daf.py:6880 reduce, sparse rows | Row skipped, reduction went on | Error from the reduction function |
+| daf.py:6842 reduce | Row skipped, reduction went on | Error, or row skipped with silent_error=True |
+| daf.py:6880 reduce, sparse rows | Row skipped, reduction went on | Error, or row skipped with silent_error=True |
 | daf.py:6940, 7020, 7036 sum_da | Odd value skipped | The value's own error |
 | daf.py:7379 alter_daf_per_setting | Missing setting did nothing | KeyError, or nothing with silent_error=True |
 | daf_utils.py:126 json_encode | NaN written as NaN, not valid JSON | ValueError |
