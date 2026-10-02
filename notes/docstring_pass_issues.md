@@ -158,11 +158,13 @@ The date of the first entry is 2026-10-02.
         d[:] = 'x'          every row becomes the bare string 'x'
         d[[0, 1]] = [7,8,9] rows 0 and 1 are the same list object, so
                             a change to one shows in the other
+        d[:, 'v'] = 'x'     only the first row of v is set
+        d[:, 'v'] = 'xyz'   the letters x, y, z go to rows 0, 1, 2
         d[[0, 1]] = 5       correct, [[5,5,5],[5,5,5],...]
         d[2] = 'x'          correct, one row
 
-    Tests are in `tests/test_daf_setitem_rows.py`. Three are `xfail(strict=True)`.
-    The `__setitem__` docstring says assigning text to several whole rows
+    Tests are in `tests/test_daf_setitem_rows.py`. Four are `xfail(strict=True)`.
+    The `__setitem__` docstring says assigning text to rows or to a column
     does not work yet.
 44. `d[0] = {'v': 'q'}` sets the other cells of the row to NULL. It does not
     update only `v`. `update_record_irow()` is the method that merges. The

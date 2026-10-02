@@ -49,3 +49,17 @@ def test_setitem_list_to_several_rows_makes_independent_rows():
     assert d.lol[0] is not d.lol[1]
     d.lol[0][0] = 'X'
     assert d.lol[1][0] == 7
+
+
+@pytest.mark.xfail(strict=True, reason="BUG: daf.py set_irows_icols() same cause. d[:, 'v'] = 'x' sets only the "
+                   "first row, because the str is zipped with the rows as a list of characters.")
+def test_setitem_scalar_str_to_a_column():
+    d = _daf()
+    d[:, 'v'] = 'x'
+    assert d.col('v') == ['x', 'x', 'x']
+
+
+def test_setitem_list_to_a_column():
+    d = _daf()
+    d[:, 'v'] = ['x', 'y', 'z']
+    assert d.col('v') == ['x', 'y', 'z']

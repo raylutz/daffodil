@@ -3988,8 +3988,10 @@ class Daf:
         columns are not in the dict become NULL. See `set_irows_icols()` for what
         happens when the source and the selection differ in size.
 
-        Assigning text to several whole rows at once does not work yet. Assign to a
-        column instead, as in `my_daf[:, 'v'] = 'x'`.
+        Assigning text, a `str`, to several rows or to a column does not work yet. The
+        text is treated as a list of characters. `my_daf[:, 'v'] = 'x'` sets only the
+        first row, and `'xyz'` spreads its letters over the rows. Assign a list of
+        the same length instead, or one cell at a time. A number is not affected.
 
         If you change a keyfield cell, the key index is rebuilt when it is next needed.
 
