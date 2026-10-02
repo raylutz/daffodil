@@ -81,6 +81,8 @@ all prior releases. Plans for future moved to ROADMAP.md.
   built from another one copies it, when it shares it.
 
 ### Changed
+- Removed `Daf.from_dirlist()`. It was a stub with no code. It returned None. Nothing called
+  it. The feature lives in AuditEngine and can be added here later.
 - Library code no longer calls `breakpoint()` on error paths. It raises a specific error
   instead. The exceptions are daf_pdf.py and md_demo.py.
   - Before this, code with no breakpoint hook carried on after the breakpoint. It often failed

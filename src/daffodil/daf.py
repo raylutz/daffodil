@@ -2326,19 +2326,6 @@ class Daf:
 
         return my_daf
 
-    @classmethod
-    def from_dirlist(cls, dirpath: str|Path, schema: 'Daf' | None) -> None:
-        """
-        Create daf from directory listing, using optional schema if specified.
-
-        If a schema is specified, then if fields exist with default names, then
-            they will initialized from the file system. This allows an array
-            to be built incrementally, while specifying all columns in advance.
-        """
-
-        ...
-
-
     # DEPRECATED
     @classmethod
     def from_csv_file(
