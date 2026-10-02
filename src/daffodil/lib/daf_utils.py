@@ -146,6 +146,11 @@ def xlsx_to_csv(xlsx: bytes, sheetname: Optional[str]=None, add_trailing_blank_c
         xlsx2csv pads every row to the width of the widest row. This was checked for
         versions 0.8.2 and 0.8.6, with files made by xlsxwriter.
 
+        WARNING: This code depends on that padding. An earlier xlsx library did not pad
+        short rows, so the padding was done here, by add_trailing_columns_csv(). If the
+        library is changed or upgraded, test with a spreadsheet that has short rows. If
+        they are not padded, bring the padding back, or use Daf.force_rectangular().
+
         add_trailing_blank_cols is kept so existing calls still work. It is no longer used.
     """
     diagnose = False
@@ -163,6 +168,8 @@ def xlsx_to_csv(xlsx: bytes, sheetname: Optional[str]=None, add_trailing_blank_c
 
 def add_trailing_columns_csv(str_csv:str, num_rows:int = 3) -> str:
     """ Takes a csv file in string form and returns the modified csv with equal number of columns for all rows
+        No longer called by xlsx_to_csv(), because xlsx2csv pads rows itself. It was needed with
+        an earlier xlsx library that did not pad. See the warning in xlsx_to_csv().
         Note: This seems like a lot of extra work just to prepare for the csv to be parsed, when we are fully
                 parsing here just to add the columns.
         @@TODO -- The function add_trailing_columns_csv() should be DEPRECATED. It will be better to convert csv to lol, and then
