@@ -745,3 +745,25 @@ def test_noop_calls_return_self_for_chaining():
     assert daf.insert_col('') is daf
     assert daf.lol == [[1, 'a']]
     assert list(daf.hd) == ['id', 'name']
+
+
+def test_drop_cols_clears_the_keyfield_when_its_column_is_dropped():
+    daf = Daf(lol=[[1, 'a', 10], [2, 'b', 20]], cols=['id', 'v', 'n'], keyfield='id')
+    daf.drop_cols(['id'])
+    assert daf.columns() == ['v', 'n']
+    assert daf.keyfield == ''
+    assert daf.keys() == []
+
+
+def test_drop_cols_clears_a_composite_keyfield_when_one_column_is_dropped():
+    daf = Daf(lol=[[1, 'a', 10], [2, 'b', 20]], cols=['id', 'v', 'n'], keyfield=('id', 'v'))
+    daf.drop_cols(['v'])
+    assert daf.keyfield == ''
+
+
+def test_drop_cols_keeps_the_keyfield_when_another_column_is_dropped():
+    daf = Daf(lol=[[1, 'a', 10], [2, 'b', 20]], cols=['id', 'v', 'n'], keyfield='id')
+    daf.drop_cols(['v'])
+    assert daf.keyfield == 'id'
+    assert daf.keys() == [1, 2]
+    assert daf.select_record(2) == {'id': 2, 'n': 20}

@@ -171,7 +171,7 @@ The date of the first entry is 2026-10-02.
 45. Fixed with approval on 2026-10-02. `remove_dups()` with no argument clears the keyfield, and then returns every
     row as a duplicate. With an argument it sets the keyfield of the Daf as a
     side effect. It keeps the last row of each key.
-46. `drop_cols()` of the keyfield column leaves `keyfield` set to a column that
+46. Fixed with approval on 2026-10-02. `drop_cols()` of the keyfield column left `keyfield` set to a column that
     no longer exists.
 47. `select_cols()` returns the columns in the order of the Daf, not in the order
     asked for, unlike `select_kcols()` and `d[:, [...]]`. Names that are not

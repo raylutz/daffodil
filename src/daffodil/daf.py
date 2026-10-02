@@ -5956,8 +5956,9 @@ class Daf:
         `select_kcols()` to get a new Daf, instead.
 
         The column names and dtypes are updated. A name that is not a column is ignored.
-        If the keyfield is dropped, the key index is cleared but the keyfield is not.
-        Set it again with `set_keyfield()`. With no names, nothing happens.
+        If a column of the keyfield is dropped, the keyfield is cleared, as in the other
+        methods that remove a key column. Set it again with `set_keyfield()`. With no
+        names, nothing happens.
 
         Args:
             exclude_cols: The names of the columns to remove.
@@ -5990,8 +5991,12 @@ class Daf:
             new_dtypes = {col: typ for col, typ in self.dtypes.items() if col in kept_cols}
             self.dtypes = new_dtypes
 
-        if self.keyfield in exclude_cols:
-            self._invalidate_kd()
+        # a keyfield that lost a column can no longer find its rows, so clear it, as the other
+        # methods that remove a key column do.
+        key_cols = [self.keyfield] if isinstance(self.keyfield, (str, int)) else list(self.keyfield or [])
+        if key_cols and any(col in exclude_cols for col in key_cols):
+            self.keyfield = ''
+            self._kd = {}       # _invalidate_kd() leaves the index alone when there is no keyfield.
 
         return self
 

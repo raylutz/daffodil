@@ -144,6 +144,10 @@ all prior releases. Plans for future moved to ROADMAP.md.
   git-tracked) moved out of `src/` to a gitignored, local-only `deprecated/` folder.
 
 ### Fixed
+- `drop_cols()` left the keyfield set to a column that was gone, so key lookups returned empty
+  results or raised `KeyError`. It missed a composite keyfield too. It now clears the keyfield
+  when any column of it is dropped, as `select_cols()`, `rename_cols()` and `set_cols()` do.
+  Three tests added.
 - `remove_dups()` changed the Daf it was called on. It set the keyfield of the Daf to the
   argument. Called with no argument on a keyed Daf, it cleared the keyfield and returned every
   row as a duplicate. Without a keyfield it did the same, with no error. It now uses the
