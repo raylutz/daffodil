@@ -102,7 +102,7 @@ Behavior in continue mode doesn't get worse here. The error is just clearer.
 | daf.py:7391 alter_daf_per_setting | UnboundLocalError | The error from from_lod |
 | daf.py:8252 join | UnboundLocalError | The error from select_where |
 | daf_utils.py:105 NpEncoder.default | TypeError | Same |
-| daf_utils.py:373 safe_regex_select | UnboundLocalError | ValueError |
+| daf_utils.py:373 safe_regex_select | UnboundLocalError | IndexError |
 | daf_utils.py:425 safe_regex_replace | See note below | ValueError |
 | daf_utils.py:520 convert_type_value | UnboundLocalError | TypeError |
 | daf_utils.py:1714 len_slice | UnboundLocalError | TypeError |

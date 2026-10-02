@@ -77,7 +77,7 @@ def test_safe_regex_select_bytes_and_default():
 
 
 def test_safe_regex_select_no_capture_group_raises():
-    with pytest.raises(ValueError, match='no capture group'):
+    with pytest.raises(IndexError, match='no such group'):
         utils.safe_regex_select(r'abc', 'xxabcxx', default='dflt')
 
 
