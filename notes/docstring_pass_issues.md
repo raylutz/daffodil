@@ -221,7 +221,7 @@ The date of the first entry is 2026-10-02.
 
 ## Group 7: formulas, apply, reduce, grouping, sums, counts, joins, pivots, Markdown
 
-61. `apply_in_place(by='row')` stores the values of the returned dict by
+61. Fixed with approval on 2026-10-02. `apply_in_place(by='row')` stored the values of the returned dict by
     position. A dict with the keys in another order puts values in the wrong
     columns. A shorter dict makes a shorter row. A longer dict makes a longer
     row. Real output for columns g, x, y and row `['a', 1, 10]`:

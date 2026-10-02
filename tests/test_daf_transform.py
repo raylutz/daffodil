@@ -384,3 +384,35 @@ def test_join_shared_fields_avoids_suffixing():
     result = left.join(right, how='inner', shared_fields=['val'])
     assert result.lol == [[1, 'a', 5]]
     assert list(result.hd.keys()) == ['id', 'name', 'val']
+
+
+def test_apply_in_place_by_row_writes_back_by_name():
+    daf = Daf(lol=[['a', 1, 10], ['b', 2, 20]], cols=['g', 'x', 'y'])
+    daf.apply_in_place(lambda row: {'y': row['y'], 'g': row['g'], 'x': row['x'] + 1})
+    assert daf.lol == [['a', 2, 10], ['b', 3, 20]]
+
+
+def test_apply_in_place_by_row_missing_key_keeps_value():
+    daf = Daf(lol=[['a', 1, 10], ['b', 2, 20]], cols=['g', 'x', 'y'])
+    daf.apply_in_place(lambda row: {'y': row['y'] + 1})
+    assert daf.lol == [['a', 1, 11], ['b', 2, 21]]
+
+
+def test_apply_in_place_by_row_extra_key_is_ignored():
+    daf = Daf(lol=[['a', 1, 10]], cols=['g', 'x', 'y'])
+    daf.apply_in_place(lambda row: {**row, 'new': 5})
+    assert daf.lol == [['a', 1, 10]]
+    assert daf.columns() == ['g', 'x', 'y']
+
+
+def test_apply_in_place_by_row_changing_the_key_rebuilds_the_index():
+    daf = Daf(lol=[['a', 1], ['b', 2]], cols=['g', 'x'], keyfield='g')
+    daf.apply_in_place(lambda row: {**row, 'g': row['g'].upper()})
+    assert daf.keys() == ['A', 'B']
+
+
+def test_apply_in_place_by_row_with_keyedlist_itermode():
+    daf = Daf(lol=[['a', 1], ['b', 2]], cols=['g', 'x'])
+    daf.itermode = 'keyedlist'
+    daf.apply_in_place(lambda row: {'x': row['x'] * 10})
+    assert daf.lol == [['a', 10], ['b', 20]]

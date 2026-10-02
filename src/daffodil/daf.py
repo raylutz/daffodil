@@ -7236,14 +7236,15 @@ class Daf:
         """
         Apply a function to each row and store the results in this Daf.
 
-        With `by='row'` the function gets each row as a dict. It must return a row. The
-        values of the returned dict are stored as the new row, in the order of its
-        keys, so the keys must be the columns in their order. A dict that is
-        shorter, longer or in a different order puts values in the wrong columns.
+        With `by='row'` the function gets each row as a dict. It must return a dict.
+        Its values are written back by column name. A column that the dict lacks
+        keeps its value, and a key that is not a column is ignored. The order of
+        the keys does not matter, and the row keeps its length.
 
         With `by='row_klist'` the function gets each row as a
         [KeyedList][daffodil.keyedlist.KeyedList]. It changes the row and returns
-        nothing. It cannot put values in the wrong column.
+        nothing. This suits large tables. Add or delete no keys in the KeyedList,
+        because that changes the length of the row, not the columns.
 
         The key index is rebuilt when it is next needed. Use `apply()` to get a new Daf.
 
@@ -7278,13 +7279,20 @@ class Daf:
 
             self._rebuild_kd_if_invalidated()
 
-            for idx, row_da in enumerate(self):
+            hd = self.hd
+            for row_la, row_da in zip(self.lol, self):
                 if rowkeys_list_or_dict and self.keyfield and row_da[cast(str, self.keyfield)] not in rowkeys_list_or_dict:
                     continue
                 transformed_row_da = func(row_da, **kwargs)
                 if transformed_row_da is None:
                     raise ValueError("apply_in_place: func must return a row for by='row' (None is only valid for by='row_klist')")
-                self.lol[idx] = list(transformed_row_da.values())
+                # write the returned values back by column name. The row keeps its length and its
+                # column order. A name that is not a column is ignored. A column that is not
+                # returned keeps its value.
+                for colname, val in transformed_row_da.items():
+                    icol = hd.get(colname)
+                    if icol is not None:
+                        row_la[icol] = val
 
         elif by == 'row_klist':
 

@@ -144,6 +144,11 @@ all prior releases. Plans for future moved to ROADMAP.md.
   git-tracked) moved out of `src/` to a gitignored, local-only `deprecated/` folder.
 
 ### Fixed
+- `apply_in_place(by='row')` stored the values of the returned dict by position. A dict with
+  the keys in another order put values in the wrong columns, a shorter dict made a short row,
+  and a longer dict made a long row. The values are now written back by column name. A column
+  that the dict lacks keeps its value, and a key that is not a column is ignored. Five tests
+  added.
 - Assigning a `str` to several rows or to a column corrupted the table. `d[[0, 1]] = 'x'` and
   `d[:] = 'x'` stored the bare string as each row. `d[:, 'v'] = 'x'` set only the first row,
   and `'xyz'` spread its letters over the rows. A `str` or `bytes` is now one value. A list
