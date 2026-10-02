@@ -7243,8 +7243,12 @@ class Daf:
 
         With `by='row_klist'` the function gets each row as a
         [KeyedList][daffodil.keyedlist.KeyedList]. It changes the row and returns
-        nothing, so no dict is built for each row. In a test on 200,000 rows it was
-        slower than `row`, 0.31 s against 0.25 s. Add or delete no keys in the
+        nothing, so no dict is built for each row. The cost of `row` grows with the
+        number of columns, because each row is turned into a dict of all its columns.
+        The cost of `row_klist` does not. In a test that changed one column, the two
+        took the same time at about 6 columns. At 1,000 columns and 2,000 rows,
+        `row_klist` took 0.005 s and `row` took 0.245 s. With 3 columns and 200,000
+        rows, `row` was faster, 0.25 s against 0.30 s. Add or delete no keys in the
         KeyedList, because that changes the length of the row, not the columns.
 
         The key index is rebuilt when it is next needed. Use `apply()` to get a new Daf.
