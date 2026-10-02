@@ -683,3 +683,67 @@ def test_unpack_indirect_missing_indirect_col_raises():
     daf = Daf(cols=['id'], lol=[['r1']])
     with pytest.raises(RuntimeError, match='nope not found'):
         daf_module.unpack_indirect(daf, indirect_col='nope', cols=['id'], default='D')
+
+
+#===========================
+# concat / append / extend with respect_kd
+
+def _kdaf(lol, keyfield='id'):
+    return Daf(lol=lol, cols=['id', 'v'], keyfield=keyfield)
+
+
+def test_concat_default_keeps_duplicate_keys():
+    a = _kdaf([[1, 'a1'], [2, 'a2']])
+    b = _kdaf([[2, 'b2'], [3, 'b3']], '')
+    assert a.concat(b).lol == [[1, 'a1'], [2, 'a2'], [2, 'b2'], [3, 'b3']]
+
+
+def test_concat_respect_kd_upserts():
+    a = _kdaf([[1, 'a1'], [2, 'a2']])
+    b = _kdaf([[2, 'b2'], [3, 'b3']], '')
+    assert a.concat(b, respect_kd=True) is a
+    assert a.lol == [[1, 'a1'], [2, 'b2'], [3, 'b3']]
+    assert a.select_record(3) == {'id': 3, 'v': 'b3'}
+
+
+def test_concat_respect_kd_last_duplicate_wins():
+    a = _kdaf([[1, 'a1']])
+    b = _kdaf([[2, 'x'], [2, 'y']], '')
+    a.concat(b, respect_kd=True)
+    assert a.lol == [[1, 'a1'], [2, 'y']]
+
+
+def test_concat_respect_kd_composite_key():
+    a = Daf(lol=[[1, 'x', 'p'], [1, 'y', 'q']], cols=['a', 'b', 'c'], keyfield=('a', 'b'))
+    b = Daf(lol=[[1, 'y', 'Z'], [2, 'x', 'n']], cols=['a', 'b', 'c'])
+    a.concat(b, respect_kd=True)
+    assert a.lol == [[1, 'x', 'p'], [1, 'y', 'Z'], [2, 'x', 'n']]
+
+
+def test_concat_respect_kd_without_keyfield_appends():
+    a = _kdaf([[1, 'a1']], '')
+    b = _kdaf([[1, 'b1']], '')
+    assert a.concat(b, respect_kd=True).lol == [[1, 'a1'], [1, 'b1']]
+
+
+def test_concat_respect_kd_keyfield_mismatch():
+    with pytest.raises(ValueError):
+        _kdaf([[1, 'a']]).concat(_kdaf([[1, 'b']], 'v'), respect_kd=True)
+
+
+def test_concat_empty_returns_self():
+    a = _kdaf([[1, 'a1']])
+    assert a.concat(Daf()) is a
+    assert a.lol == [[1, 'a1']]
+
+
+def test_append_daf_honors_respect_kd():
+    b = _kdaf([[2, 'b2']], '')
+    assert _kdaf([[2, 'a2']]).append(b).lol == [[2, 'a2'], [2, 'b2']]
+    assert _kdaf([[2, 'a2']]).append(b, respect_kd=True).lol == [[2, 'b2']]
+
+
+def test_extend_respect_kd():
+    recs = [{'id': 2, 'v': 'x'}, {'id': 5, 'v': 'y'}]
+    assert _kdaf([[1, 'a'], [2, 'b']]).extend(recs).lol == [[1, 'a'], [2, 'b'], [2, 'x'], [5, 'y']]
+    assert _kdaf([[1, 'a'], [2, 'b']]).extend(recs, respect_kd=True).lol == [[1, 'a'], [2, 'x'], [5, 'y']]

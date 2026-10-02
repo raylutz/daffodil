@@ -9,6 +9,10 @@ all prior releases. Plans for future moved to ROADMAP.md.
 
 ## [Unreleased]
 ### Added
+- `Daf.concat()` and `Daf.extend()` take `respect_kd`, as `append()` already did. With
+  `respect_kd=True` a row whose key exists is replaced and the other rows are appended.
+  This gives a bulk upsert, and composite keys work. The default is unchanged. Tests added
+  for overlap, composite keys, empty input and a keyfield mismatch.
 - `Daf.is_rectangular()` / `Daf.force_rectangular()` -- verify and, if needed, fix a `Daf`
   whose rows don't all have the same length. `is_rectangular()` checks every row (against
   `len(hd)` if columns are defined, else against each other), unlike `num_cols()`, which only
@@ -128,6 +132,10 @@ all prior releases. Plans for future moved to ROADMAP.md.
   git-tracked) moved out of `src/` to a gitignored, local-only `deprecated/` folder.
 
 ### Fixed
+- `append(Daf, respect_kd=True)` ignored `respect_kd` and left duplicate keys. It now passes
+  the flag to `concat()`. `extend()` ignored it too. `concat()` returns the Daf instead of
+  None when the other Daf is empty. Its docstring said it kept one record per key, which
+  was not true by default. The docstrings now say what happens.
 - `manifest_reduce` lost the data columns from each chunk. It collected the chunk results in
   a table that had the manifest's columns. It now keeps the chunks' columns.
 - `count_values_da` changed the caller's rows. It stored a row's list or dict, then added to

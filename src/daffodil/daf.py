@@ -3059,7 +3059,7 @@ class Daf:
         elif isinstance(data_item, list):
             if isinstance(data_item[0], dict):
                 # lod type
-                self.extend(data_item)
+                self.extend(data_item, respect_kd=respect_kd)
             else:
                 # simple list.
                 if self.hd:
@@ -3082,7 +3082,7 @@ class Daf:
                 self.record_append(da, respect_kd=respect_kd)  # <-- this takes care of respecing the row kd.
 
         elif isinstance(data_item, Daf):  # type: ignore
-            self.concat(data_item)
+            self.concat(data_item, respect_kd=respect_kd)
         else:
             raise RuntimeError    # pragma: no cover
 
@@ -3092,33 +3092,46 @@ class Daf:
         return self
 
 
-    def concat(self, other_instance: 'Daf') -> Optional['Daf']:
+    def concat(self, other_instance: 'Daf', respect_kd: bool=False) -> 'Daf':
         """
-        Concatenate another Daf into this one.
+        Add the rows of another Daf to the end of this one.
+
+        Use this to combine two tables with the same columns. By default every row is
+        appended, so a key that exists in both tables appears twice afterwards. Pass
+        `respect_kd=True` to get an upsert instead.
 
         Args:
-            other_instance: Daf to append.
+            other_instance: Daf whose rows are added. It is not changed.
+            respect_kd: If False, append every row without looking at the keys. If True,
+                replace the row that has the same key and append the rows with new keys.
+
+        Returns:
+            This Daf, which has been changed in place. The rows are deep copies.
+
+        Raises:
+            KeyError: The column names of the two Daf instances differ.
+            ValueError: With `respect_kd=True`, both Daf instances have a keyfield and the
+                keyfields differ.
 
         Notes:
-            Modifies the current instance. Columns must match.
-        """
+            The columns must be equal, including their order.
+            With `respect_kd=True`, this Daf's keyfield decides the key. If it has no
+            keyfield, the rows are simply appended.
+            A key repeated in the other Daf replaces the earlier row, so the last one wins.
+            If the other Daf is empty, nothing happens.
 
-        """Concatenate records from the passed Daf instance into self.
-
-        This directly modifies self.
-        - If keyfield is '', insert without respecting the key value.
-        - Otherwise, allow only one record per key.
-        - Columns must be equal.
-        - Test exists in test_daf.py.
+        Examples:
+            >>> a = Daf(lol=[[1, 'a1'], [2, 'a2']], cols=['id', 'v'], keyfield='id')
+            >>> b = Daf(lol=[[2, 'b2'], [3, 'b3']], cols=['id', 'v'])
+            >>> a.concat(b).lol
+            [[1, 'a1'], [2, 'a2'], [2, 'b2'], [3, 'b3']]
+            >>> a = Daf(lol=[[1, 'a1'], [2, 'a2']], cols=['id', 'v'], keyfield='id')
+            >>> a.concat(b, respect_kd=True).lol
+            [[1, 'a1'], [2, 'b2'], [3, 'b3']]
         """
 
         if not other_instance:
-            return None
-
-        diagnose = False
-
-        if diagnose:  # pragma: no cover
-            print(f"self=\n{self}\ndaf=\n{other_instance}")
+            return self
 
         if not self.lol and not self.hd:
             self.hd = copy.deepcopy(other_instance.hd)
@@ -3140,40 +3153,62 @@ class Daf:
                   f"other_instance:\n({list(other_instance.hd.keys())})\n"
                   f"missing_list:\n{missing_list}\n"
                   f"extra_list:\n{extra_list}\n")
-            # breakpoint()  # Permanent assertion break
-            # pass
             raise KeyError(error_str)
+
+        if respect_kd and self.keyfield:
+            if other_instance.keyfield and other_instance.keyfield != self.keyfield:
+                raise ValueError(f"concat: keyfield mismatch: {self.keyfield!r} versus {other_instance.keyfield!r}")
+
+            self._rebuild_kd_if_invalidated()
+            kd = self._kd
+            lol = self.lol
+            if isinstance(self.keyfield, (str, int)):
+                key_idx = self.hd[cast(str, self.keyfield)]
+                for rec_la in other_instance.lol:
+                    rec_la = copy.deepcopy(rec_la)
+                    keyval = rec_la[key_idx]
+                    if keyval in kd:
+                        lol[kd[keyval]] = rec_la
+                    else:
+                        kd[keyval] = len(lol)
+                        lol.append(rec_la)
+            else:
+                key_idxs = [self.hd[cast(str, key)] for key in self.keyfield]
+                for rec_la in other_instance.lol:
+                    rec_la = copy.deepcopy(rec_la)
+                    keyval = tuple(rec_la[i] for i in key_idxs)
+                    if keyval in kd:
+                        lol[kd[keyval]] = rec_la  # type: ignore[index]
+                    else:
+                        kd[keyval] = len(lol)  # type: ignore[index]  # composite key is a tuple
+                        lol.append(rec_la)
+            return self
 
         # Append deep-copied rows to avoid referencing issues
         for rec_la in other_instance.lol:
             self.lol.append(copy.deepcopy(rec_la))
 
-        #self._rebuild_kd()  # Only if the keyfield is set.
         self._invalidate_kd()    # use lazy kd rebuilding
-
-        if diagnose:  # pragma: no cover
-            print(f"result=\n{self}")
 
         return self
 
-    def extend(self, records_lod: T_loda) -> 'Daf':
+    def extend(self, records_lod: T_loda, respect_kd: bool=False) -> 'Daf':
         """
-        Append multiple records from list-of-dicts.
+        Append multiple records from a list of dicts.
 
         Args:
             records_lod: Records to append.
+            respect_kd: If False, append every record without looking at the keys. If True,
+                replace the row that has the same key and append the records with new keys.
+
+        Returns:
+            This Daf, which has been changed in place.
 
         Notes:
-            Modifies the current instance.
-            Will overwrite records with the same key, if keyfield is set.
+            If this Daf is empty, it adopts the columns of the first record.
+            Without `respect_kd`, a key that already exists is added a second time.
+            Use `respect_kd=True` when the keyfield must stay unique.
         """
-
-        """ append lod of records into daf
-            This directly modifies daf
-            if keyfield is '', then insert without respect to the key value
-            otherwise, allow only one record per key.
-            test exists in test_daf.py
-         """
 
         if not records_lod or len(records_lod) == 1 and not records_lod[0]:
             # edge case of one record which is empty.
@@ -3190,16 +3225,10 @@ class Daf:
             return self
 
         for record_da in records_lod:
-            # this test done inside record_append()
-            # if not record_da:
-                # # do not append any records that are empty.
-                # continue
+            self.record_append(record_da, respect_kd=respect_kd)
 
-            # the following will either append or insert
-            # depending on the keyvalue.
-            self.record_append(record_da, respect_kd=False)
-
-        self._invalidate_kd() # use lazy kd building.
+        if not respect_kd:
+            self._invalidate_kd() # use lazy kd building.
 
         return self
 
