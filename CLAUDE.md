@@ -138,6 +138,18 @@ Source code is in src/daffodil and tests are in tests.
 - The build prints warnings for docstrings that don't match their signatures. Fix them
   when you edit that function.
 
+### Parameters and types in the docs
+
+- The parameter table in the docs comes from the signature. The type and the default are read
+  from it, so don't repeat them in the docstring. That removes a source of drift.
+- Every parameter and every return value must be annotated. A missing annotation leaves a
+  blank in the table. Use the T_ aliases.
+- A parameter shows in the table only if the docstring has an Args entry for it. Write one
+  short line for each: `name: what it does`. Put anything longer in the main description, or
+  link to the page that explains it.
+- Put the return type in the signature too. In Returns, say what the value means, not its
+  type.
+
 ### Writing a docstring
 
 - A docstring must teach. Say what the thing is, what it is for, when to use it and when
