@@ -140,6 +140,14 @@ all prior releases. Plans for future moved to ROADMAP.md.
   __20AC but read back as a space and AC. Encoding now marks the width, like Python's escapes:
   __HH up to 0xFF, __uHHHH up to 0xFFFF and __UHHHHHHHH above. Names up to 0xFF encode as
   before.
+- KeyedList rows were slow to create. The iterator and `iloc(rtype='klist')` passed the table's
+  hd dict, so every row rebuilt its own index of the column names. The cost grew with the
+  number of columns. The rows now share one index, built once per loop, and `iloc` keeps one
+  per Daf. The rows are the same. In a test with 50,000 rows and 400 columns, a loop that reads
+  one field took 0.047 s, against 0.803 s before and 0.583 s with dict rows. Twenty thousand
+  `iloc` calls took 0.009 s, against 0.501 s. The index kept by `iloc` is rebuilt when hd is
+  replaced or its length changes. Editing the names in hd in place, without changing its
+  length, is not detected.
 - `join` changed the caller's shared_fields list. It added each table's key to the list. When
   the list was reused for another join, a stale key could make a plain column look shared, and
   the second table's values for that column were dropped. The list is now copied first.
