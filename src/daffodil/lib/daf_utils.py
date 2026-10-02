@@ -197,11 +197,18 @@ def add_trailing_columns_csv(str_csv:str, num_rows:int = 3) -> str:
     return buff_out.getvalue()
 
 
+_MISSING = object()
+
+
 def is_d1_in_d2(d1: T_ma, d2: T_ma) -> bool:
     # true if all the fields in d1 are in d2.
     # d2 may have additional fields.
+    # d1 and d2 may be dicts or KeyedLists. The KeyedList items() is an iterator, which does not support <=.
 
-    return d1.items() <= d2.items()
+    if isinstance(d1, dict) and isinstance(d2, dict):
+        return d1.items() <= d2.items()
+
+    return all(d2.get(key, _MISSING) == val for key, val in d1.items())     # type: ignore[call-overload]
 
     
 def assign_col_in_lol_at_icol(icol: int=-1, col_la: Optional[T_la]=None, lol: Optional[T_lola]=None, default:Any='') -> T_lola:

@@ -311,6 +311,9 @@ class KeyedList:
     def __iter__(self) -> Iterator[TKey]:
         return iter(self.hd)
 
+    def __contains__(self, key: object) -> bool:
+        return key in self.hd
+
     def keys(self) -> KeysView[TKey]:
         return self.hd.keys()
 

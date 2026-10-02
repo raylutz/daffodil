@@ -166,6 +166,13 @@ all prior releases. Plans for future moved to ROADMAP.md.
   every row to the widest row, so that step did nothing. It is no longer called. The
   add_trailing_blank_cols parameter stays and is ignored. `add_trailing_columns_csv` also no
   longer fails on a short file.
+- `is_d1_in_d2` failed with a TypeError when a row was a KeyedList. A KeyedList's `items()` is an
+  iterator, and iterators can't be compared with `<=`. So `select_by_dict` and
+  `select_first_row_by_dict` failed in keyedlist iteration mode. This was so since 0.5.10. Two
+  dicts still use the fast comparison. Anything else is checked key by key.
+- `key in klist` on a KeyedList scanned every key. It now checks the index. At 400 columns that
+  took 4.8 microseconds before, and about 0.07 now. An unhashable key, as in `['a'] in klist`,
+  now raises TypeError, as it does for a dict.
 - The list comparison helper now accepts tuples. It used to fail with UnboundLocalError.
 - Found and fixed several real bugs during the mypy pass (each verified against the full 1294-test
   suite before/after): `daf_utils.py` used `time.sleep` in `write_buff_to_s3path()`/

@@ -86,3 +86,57 @@ def test_deleting_a_key_from_each_row_in_a_loop():
     for row in daf:
         del row['b']
     assert daf.lol == [[1], [3]]
+
+
+# --- is_d1_in_d2 and select_by_dict work with KeyedList rows ---
+
+def test_is_d1_in_d2_with_keyedlist_rows():
+    from daffodil.keyedlist import KeyedList
+    from daffodil.lib import daf_utils
+    small = {'a': 1}
+    big_dict = {'a': 1, 'b': 2}
+    big_klist = KeyedList({'a': 1, 'b': 2})
+    assert daf_utils.is_d1_in_d2(small, big_dict)
+    assert daf_utils.is_d1_in_d2(small, big_klist)
+    assert daf_utils.is_d1_in_d2(KeyedList(small), big_klist)
+    assert daf_utils.is_d1_in_d2(KeyedList(small), big_dict)
+    assert not daf_utils.is_d1_in_d2({'a': 2}, big_klist)
+    assert not daf_utils.is_d1_in_d2({'z': 1}, big_klist)
+    assert not daf_utils.is_d1_in_d2(KeyedList({'a': 1, 'z': 0}), big_klist)
+
+
+def test_is_d1_in_d2_missing_key_is_not_a_match_for_a_none_value():
+    from daffodil.keyedlist import KeyedList
+    from daffodil.lib import daf_utils
+    assert not daf_utils.is_d1_in_d2({'z': None}, KeyedList({'a': 1}))
+    assert daf_utils.is_d1_in_d2({'z': None}, KeyedList({'z': None}))
+
+
+def test_select_by_dict_in_keyedlist_mode():
+    daf = Daf(cols=['a', 'b'], lol=[[1, 2], [3, 4], [1, 9]], itermode='keyedlist')
+    assert daf.select_by_dict({'a': 1}).lol == [[1, 2], [1, 9]]
+    assert daf.select_by_dict({'a': 1}, inverse=True).lol == [[3, 4]]
+
+
+def test_select_first_row_by_dict_in_keyedlist_mode():
+    daf = Daf(cols=['a', 'b'], lol=[[1, 2], [3, 4], [1, 9]], itermode='keyedlist')
+    row = daf.select_first_row_by_dict({'a': 1})
+    assert dict(zip(row.keys(), row.values())) == {'a': 1, 'b': 2}
+
+
+# --- 'key in klist' uses the index ---
+
+def test_keyedlist_contains():
+    from daffodil.keyedlist import KeyedList
+    klist = KeyedList({'a': 1, 'b': 2})
+    assert 'a' in klist
+    assert 'z' not in klist
+    klist['z'] = 0
+    assert 'z' in klist
+
+
+def test_keyedlist_contains_unhashable_key_raises_like_a_dict():
+    import pytest
+    from daffodil.keyedlist import KeyedList
+    with pytest.raises(TypeError):
+        ['a'] in KeyedList({'a': 1})
