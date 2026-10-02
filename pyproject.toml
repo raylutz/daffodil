@@ -51,4 +51,8 @@ dev = [
     "requests>=2.32.5",
     "xlsxwriter>=3.2.9",
     "pytest-cov>=7.1.0",
+    "mkdocs<2",
+    "mkdocs-material>=9.7.7",
+    "mkdocstrings[python]>=0.30.1",
+    "ruff>=0.16.10",
 ]

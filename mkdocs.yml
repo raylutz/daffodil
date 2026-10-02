@@ -1,4 +1,5 @@
 site_name: Daffodil
+docs_dir: docsite
 
 theme:
   name: material
@@ -17,3 +18,8 @@ plugins:
           options:
             show_signature: true
             separate_signature: true
+            show_source: false
+            members_order: source
+            docstring_style: google
+            docstring_options:
+              returns_named_value: false

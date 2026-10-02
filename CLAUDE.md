@@ -123,6 +123,21 @@ Source code is in src/daffodil and tests are in tests.
 - Record notable changes in CHANGELOG.md under Unreleased. Include coverage changes with
   before and after percentages.
 
+## Documentation
+
+- The API reference is built from docstrings with mkdocs, Material and mkdocstrings. The
+  settings are in mkdocs.yml, and the page sources are in docsite/. The folder docs/ is
+  not used yet. The plan is to rename docsite to docs later.
+- Build it with `uv run mkdocs build -d <folder>`. Build into a scratch folder, not the
+  repo. The folder site/ is ignored by git.
+- mkdocs is pinned below version 2. Version 2 drops plugins, so the setup would stop working.
+- Ruff is only a dev tool here. mkdocstrings uses it to wrap long signatures in the docs. It
+  is not used to reformat code.
+- Docstrings use the Google style, with Args, Returns and Raises sections. Only the first
+  string in a function is a docstring. A second string after it is ignored by the tools.
+- The build prints warnings for docstrings that don't match their signatures. Fix them
+  when you edit that function.
+
 ## Names
 
 - Column and table names must not contain a double underscore. It is reserved for the

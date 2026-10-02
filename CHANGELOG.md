@@ -58,6 +58,12 @@ all prior releases. Plans for future moved to ROADMAP.md.
 - Dev tools: added requests, xlsxwriter and pytest-cov. The tests already needed the first two.
 - Added CLAUDE.md, and a startup hook that runs `uv sync`.
 
+- Documentation: the start of a generated API reference. The page sources are in docsite/,
+  and mkdocs.yml points to them. The first page covers the Daf class, built from its
+  docstrings. mkdocs, Material, mkdocstrings and Ruff were added to the dev tools, with mkdocs
+  pinned below version 2. The build still prints 29 warnings about docstrings that don't
+  match their signatures.
+
 ### Changed
 - Library code no longer calls `breakpoint()` on error paths. It raises a specific error
   instead. The exceptions are daf_pdf.py and md_demo.py.
