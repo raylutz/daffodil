@@ -270,8 +270,6 @@ class Daf:
             if len(cols) != len(self.hd):
                 cols = daf_utils._sanitize_cols(cols=cols)
                 self._cols_to_hd(cols)
-                if len(cols) != len(self.hd):
-                    raise AttributeError("cols not unique")
 
         # if self.hd and dtypes:
             # effective_dtypes = {col: dtypes.get(col, str) for col in self.hd}
