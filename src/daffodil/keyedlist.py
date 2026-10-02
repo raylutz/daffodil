@@ -124,6 +124,10 @@ class KeyedList:
             
     """
 
+    # True while hd is a KeyedIndex adopted from elsewhere, and may be shared with other KeyedLists.
+    # The index is copied before the first new key is added, so no other KeyedList sees that key.
+    _hd_shared: bool = False
+
     def __init__(self, 
             arg1: Optional[Union[Dict[Any, Any], List[Any], 'KeyedList', 'KeyedIndex']] = None, 
             arg2: Optional[List[Any]] = None,
@@ -173,6 +177,7 @@ class KeyedList:
                 raise ValueError("hd and values must have the same length")
             self.hd = arg1              # reuse, DO NOT rebuild
             self._values = arg2         # direct reference
+            self._hd_shared = True      # copied before a key is added
             return
 
         elif arg1 is None and arg2 is None:
@@ -199,6 +204,9 @@ class KeyedList:
     
     def __setitem__(self, key, value):
         if key not in self.hd:
+            if self._hd_shared:
+                self.hd = KeyedIndex(list(self.hd))     # a copy, so other KeyedLists do not get the key
+                self._hd_shared = False
             # extend hd
             self.hd.append(key)
             # self.hd[key] = len(self.hd)
@@ -221,6 +229,7 @@ class KeyedList:
         del new_keys[index]
 
         self.hd = KeyedIndex(new_keys)
+        self._hd_shared = False
 
 
     def __len__(self):

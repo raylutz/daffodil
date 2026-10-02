@@ -145,7 +145,9 @@ all prior releases. Plans for future moved to ROADMAP.md.
   number of columns. The rows now share one index, built once per loop, and `iloc` keeps one
   per Daf. The rows are the same. In a test with 50,000 rows and 400 columns, a loop that reads
   one field took 0.047 s, against 0.803 s before and 0.583 s with dict rows. Twenty thousand
-  `iloc` calls took 0.009 s, against 0.501 s. The index kept by `iloc` is rebuilt when hd is
+  `iloc` calls took 0.009 s, against 0.501 s. A KeyedList that adopts a shared index copies
+  it before it adds a key, so a row that adds a key does not change the other rows. The index
+  kept by `iloc` is rebuilt when hd is
   replaced or its length changes. Editing the names in hd in place, without changing its
   length, is not detected.
 - `join` changed the caller's shared_fields list. It added each table's key to the list. When

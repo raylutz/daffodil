@@ -57,3 +57,32 @@ def test_iloc_klist_values_are_the_rows_own_list():
     daf = _daf()
     daf.iloc(1, rtype='klist')['c'] = 99
     assert daf.lol[1] == [4, 5, 99]
+
+
+# --- adding or deleting a key on a row must not change the other rows ---
+
+def test_adding_a_key_to_each_row_in_a_loop():
+    daf = Daf(cols=['a', 'b'], lol=[[1, 2], [3, 4], [5, 6]], itermode='keyedlist')
+    for row in daf:
+        row['total'] = row['a'] + row['b']
+    assert daf.lol == [[1, 2, 3], [3, 4, 7], [5, 6, 11]]
+
+
+def test_adding_a_key_to_one_row_leaves_the_other_rows_alone():
+    rows = list(_daf().iter_klist())
+    rows[0]['extra'] = 0
+    assert list(rows[0].keys()) == ['a', 'b', 'c', 'extra']
+    assert list(rows[1].keys()) == ['a', 'b', 'c']
+
+
+def test_adding_a_key_to_an_iloc_row_leaves_the_shared_index_alone():
+    daf = _daf()
+    daf.iloc(0, rtype='klist')['extra'] = 0
+    assert list(daf.iloc(1, rtype='klist').keys()) == ['a', 'b', 'c']
+
+
+def test_deleting_a_key_from_each_row_in_a_loop():
+    daf = Daf(cols=['a', 'b'], lol=[[1, 2], [3, 4]], itermode='keyedlist')
+    for row in daf:
+        del row['b']
+    assert daf.lol == [[1], [3]]

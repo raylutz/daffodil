@@ -258,3 +258,33 @@ def test_keyedindex_index_method():
 def test_keyedindex_to_dict():
     kidx = KeyedIndex(['a', 'b'])
     assert kidx.to_dict() == {'a': 0, 'b': 1}
+
+
+# --- a KeyedList that adopts a shared KeyedIndex must not change it when adding a key ---
+
+def test_adding_a_key_does_not_change_a_shared_index():
+    from daffodil.keyedlist import KeyedList, KeyedIndex
+    hd = KeyedIndex(['a', 'b'])
+    first, second = KeyedList(hd, [1, 2]), KeyedList(hd, [3, 4])
+    first['c'] = 5
+    assert list(first.keys()) == ['a', 'b', 'c']
+    assert list(second.keys()) == ['a', 'b']
+    assert list(hd.keys()) == ['a', 'b']
+
+
+def test_adding_a_second_key_does_not_copy_the_index_again():
+    from daffodil.keyedlist import KeyedList, KeyedIndex
+    klist = KeyedList(KeyedIndex(['a']), [1])
+    klist['b'] = 2
+    own = klist.hd
+    klist['c'] = 3
+    assert klist.hd is own
+    assert klist.to_dict() == {'a': 1, 'b': 2, 'c': 3}
+
+
+def test_a_keyedlist_that_built_its_own_index_still_extends_it():
+    from daffodil.keyedlist import KeyedList
+    klist = KeyedList({'a': 1})
+    own = klist.hd
+    klist['b'] = 2
+    assert klist.hd is own
