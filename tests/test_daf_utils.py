@@ -553,19 +553,21 @@ def test_add_trailing_columns_csv_pads_short_rows():
     assert result == 'a,b,c\n1,2,\n3,4,5\n'
 
 
-@pytest.mark.xfail(
-    reason=(
-        "add_trailing_columns_csv does max(len(next(reader)) for _ in range(num_rows)) (num_rows "
-        "defaults to 3) to sample the first num_rows rows for the max column count -- but if the "
-        "CSV has fewer than num_rows rows total, the extra next(reader) call raises an uncaught "
-        "StopIteration. Affects xlsx_to_csv's default add_trailing_blank_cols=True path for any "
-        "short file (< 3 rows). The function's own docstring already flags it as @@TODO DEPRECATED."
-    ),
-    strict=True,
-)
 def test_add_trailing_columns_csv_fewer_rows_than_sample_size():
-    result = utils.add_trailing_columns_csv('a,b,c\n1,2\n')
-    assert result == 'a,b,c\n1,2,\n'
+    assert utils.add_trailing_columns_csv('a,b,c\n1,2\n') == 'a,b,c\n1,2,\n'
+    assert utils.add_trailing_columns_csv('a,b,c\n') == 'a,b,c\n'
+    assert utils.add_trailing_columns_csv('') == ''
+
+
+def test_xlsx_to_csv_header_only_and_two_rows():
+    assert utils.xlsx_to_csv(_make_xlsx_bytes([['a', 'b', 'c']])) == b'a,b,c\n'
+    assert utils.xlsx_to_csv(_make_xlsx_bytes([['a', 'b', 'c'], [1, 2]])) == b'a,b,c\n1,2,\n'
+
+
+def test_xlsx_to_csv_pads_every_row_without_the_padding_step():
+    # xlsx2csv itself pads every row to the widest row.
+    rows = [['a', 'b', 'c'], [1, 2], [3, 4, 5], [6]]
+    assert utils.xlsx_to_csv(_make_xlsx_bytes(rows)) == b'a,b,c\n1,2,\n3,4,5\n6,,\n'
 
 
 # =====================================================================

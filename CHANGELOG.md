@@ -54,8 +54,6 @@ all prior releases. Plans for future moved to ROADMAP.md.
   test_daf_utils_coverage.py and test_daf_pdf.py. The PDF file is only a smoke test, since
   daf_pdf is experimental.
 - The remaining uncovered lines are dead code, debug-only branches, daf_pdf.py and md_demo.py.
-- One known bug is still open. It has a test marked as an expected failure.
-  - Adding trailing columns to a CSV fails when the file has fewer than 3 rows.
 - tests/conftest.py makes a test fail if it reaches `breakpoint()`.
 - Dev tools: added requests, xlsxwriter and pytest-cov. The tests already needed the first two.
 - Added CLAUDE.md, and a startup hook that runs `uv sync`.
@@ -140,6 +138,11 @@ all prior releases. Plans for future moved to ROADMAP.md.
 - `join` on a composite key failed with an AssertionError that had no message. It now raises
   KeyError saying join is not supported for complex keys. The check runs once, at the start of
   the join.
+- `xlsx_to_csv` failed with StopIteration for a spreadsheet with fewer than 3 rows, such as a
+  header only. It called `add_trailing_columns_csv`, which sampled 3 rows. xlsx2csv already pads
+  every row to the widest row, so that step did nothing. It is no longer called. The
+  add_trailing_blank_cols parameter stays and is ignored. `add_trailing_columns_csv` also no
+  longer fails on a short file.
 - The list comparison helper now accepts tuples. It used to fail with UnboundLocalError.
 - Found and fixed several real bugs during the mypy pass (each verified against the full 1294-test
   suite before/after): `daf_utils.py` used `time.sleep` in `write_buff_to_s3path()`/

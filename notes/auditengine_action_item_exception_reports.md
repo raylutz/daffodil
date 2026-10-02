@@ -167,3 +167,15 @@ Steps:
    and use them in the matching escape and unescape functions.
 2. Check for saved SQLite files whose names contain characters above 0xFF. Their stored names
    use the old form, and would not match the new encoding.
+
+## 8. Check for add_trailing_columns_csv
+
+On 2026-10-02, `xlsx_to_csv` stopped calling `add_trailing_columns_csv()`, because xlsx2csv
+already pads every row. The function is still in daf_utils.py, with its short-file crash fixed.
+
+Steps:
+
+1. Search AuditEngine for `add_trailing_columns_csv`, including any `daf_utils.` prefix.
+2. If AuditEngine does not use it, report back so it can be deleted from daffodil.
+3. If it does, say what for. If any spreadsheet from AuditEngine's sources comes out of
+   `xlsx_to_csv` with rows of uneven width, report that too. The test used xlsxwriter files only.

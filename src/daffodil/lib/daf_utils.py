@@ -5,6 +5,7 @@
 import io
 import os
 import csv
+import itertools
 import re
 import math
 import operator
@@ -140,9 +141,12 @@ def test_strbool(val: Union[bool, str, int, None, object]) -> bool:
     
         
 def xlsx_to_csv(xlsx: bytes, sheetname: Optional[str]=None, add_trailing_blank_cols: bool=True) -> bytes:
-    """ convert xlsx file in a buffer to csv file in a buffer. 
-        Additional blank columns are added so all rows have the same number of values.
-        xlsx2csv returns minimal records, stopping when the last value is filled.
+    """ convert xlsx file in a buffer to csv file in a buffer.
+
+        xlsx2csv pads every row to the width of the widest row. This was checked for
+        versions 0.8.2 and 0.8.6, with files made by xlsxwriter.
+
+        add_trailing_blank_cols is kept so existing calls still work. It is no longer used.
     """
     diagnose = False
     
@@ -154,13 +158,6 @@ def xlsx_to_csv(xlsx: bytes, sheetname: Optional[str]=None, add_trailing_blank_c
     if diagnose:
         sts(f"Conversion to buff_out completed: {len(buff_out.getvalue())} bytes.", 3)
 
-    buff_out.seek(0)
-    if add_trailing_blank_cols:
-        if diagnose:
-            sts("Adding trailing columns...", 3)
-        buff_out = io.StringIO(add_trailing_columns_csv(buff_out.getvalue()))
-        if diagnose:
-            sts(f"Trailing Columns added: {len(buff_out.getvalue())} bytes.", 3)
     return buff_out.getvalue().encode('utf-8')
 
 
@@ -178,7 +175,8 @@ def add_trailing_columns_csv(str_csv:str, num_rows:int = 3) -> str:
     reader = csv.reader(buff)
 
     # Get max number of columns
-    max_col = max([len(next(reader)) for _ in range(num_rows)])
+    sample_lola = list(itertools.islice(reader, num_rows))      # fewer if the file is short
+    max_col = max((len(row) for row in sample_lola), default=0)
     buff.seek(0)
     buff_out = io.StringIO()
     writer = csv.writer(buff_out, quoting=csv.QUOTE_MINIMAL, dialect='unix')
