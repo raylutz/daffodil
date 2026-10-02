@@ -403,7 +403,7 @@ def test_write_buff_to_fp_empty_buff_not_written(tmp_path):
 # --- len_slice / slice_to_range ---
 
 def test_len_slice_bad_bounds_raises():
-    with pytest.raises(TypeError):
+    with pytest.raises(TypeError, match='slice bounds must be integers'):
         utils.len_slice(slice('a', 'b'), 5)
 
 

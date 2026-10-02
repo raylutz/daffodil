@@ -1681,7 +1681,10 @@ def len_slice(slice_obj: slice, tot_len: int=0):
         
     start, stop, step = slice_obj.start or 0, slice_obj.stop or tot_len, slice_obj.step or 1
     
-    return (stop - start + step - 1) // step
+    try:
+        return (stop - start + step - 1) // step
+    except TypeError as exc_info:
+        raise TypeError(f"len_slice(): slice bounds must be integers, got {slice_obj}") from exc_info
     
 
 def len_rowcol_spec(ispec: Union[slice, int, range, T_li, None], tot_len: int) -> int:

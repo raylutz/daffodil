@@ -73,6 +73,12 @@ This applies to code comments, the changelog, docs and chat.
 - Or it can be set to continue, for example when running in AWS Lambda. Then the code after
   the breakpoint runs. So that code must do something reasonable, never something
   catastrophic.
+- A breakpoint that stays should be followed by a raise. Otherwise, continuing often fails a
+  few lines later with UnboundLocalError, which hides the real problem.
+  - Inside an except clause, a bare `raise` re-raises the original error, and its traceback
+    still points at the line that failed.
+  - Outside an except clause, a bare `raise` gives RuntimeError. Raise a named error there,
+    such as `raise ValueError(...)`.
 - Daffodil itself now raises errors instead. See the daffodil part below.
 
 ## Commits
@@ -142,8 +148,11 @@ Source code is in src/daffodil and tests are in tests.
   an unsupported type.
 - Many of these errors are mistakes in the calling code, such as a wrong column name. No one
   will write a handler for them. The goal is to stop at the mistake while developing.
-- So prefer Python's own error where it already happens. Don't wrap a lookup just to reword
-  the message. A plain KeyError still names the missing key.
+- Use Python's own error for a direct lookup of a name the caller gave, such as a column
+  name. A plain KeyError already names it, so don't wrap it just to reword the message.
+- Use a custom error when the failure is deep inside daffodil. Python's message there, such
+  as "unsupported operand type(s)", doesn't tell the caller what they did wrong. Say what
+  was wrong in daffodil terms, and name the function.
 - To stop at the failing line with all locals, use post-mortem debugging. For example, run
   `python -m pdb -c continue script.py`, or `pytest --pdb`.
 - When re-raising inside an except clause, use `raise ... from exc_info`.

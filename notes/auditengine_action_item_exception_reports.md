@@ -105,7 +105,7 @@ Behavior in continue mode doesn't get worse here. The error is just clearer.
 | daf_utils.py:373 safe_regex_select | UnboundLocalError | ValueError |
 | daf_utils.py:425 safe_regex_replace | See note below | ValueError |
 | daf_utils.py:520 convert_type_value | UnboundLocalError | TypeError |
-| daf_utils.py:1714 len_slice | UnboundLocalError | TypeError |
+| daf_utils.py:1714 len_slice | UnboundLocalError | TypeError saying bounds must be integers |
 
 Note on safe_regex_replace: with a bad first pattern, continue mode gave UnboundLocalError.
 With a bad later pattern, it silently applied the previous pattern again.
