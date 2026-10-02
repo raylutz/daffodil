@@ -358,18 +358,28 @@ def test_set_irows_icols_none_irows_is_noop():
     assert daf.lol == [[1, 2, 3], [4, 5, 6], [7, 8, 9]]
 
 
-def test_set_irows_icols_column_list_wrong_length_raises():
+def test_set_irows_icols_short_column_list_fills_what_fits():
     daf = _daf3()
-    with pytest.raises(ValueError, match='1 values given for 3 rows'):
-        daf.set_irows_icols([0, 1, 2], 1, [100])
-    assert daf.lol == _daf3().lol
+    daf.set_irows_icols([0, 1, 2], 1, [100])
+    assert daf.lol == [[1, 100, 3], [4, 5, 6], [7, 8, 9]]
 
 
-def test_set_irows_icols_row_list_wrong_length_raises():
+def test_set_irows_icols_long_column_list_ignores_extra():
     daf = _daf3()
-    with pytest.raises(ValueError, match='1 values given for 2 columns'):
-        daf.set_irows_icols([0, 1], [0, 1], [100])
-    assert daf.lol == _daf3().lol
+    daf.set_irows_icols([0, 1], 1, [100, 200, 300])
+    assert daf.lol == [[1, 100, 3], [4, 200, 6], [7, 8, 9]]
+
+
+def test_set_irows_icols_short_row_list_fills_what_fits():
+    daf = _daf3()
+    daf.set_irows_icols([0, 1], [0, 1], [100])
+    assert daf.lol == [[100, 2, 3], [100, 5, 6], [7, 8, 9]]
+
+
+def test_set_irows_icols_long_row_list_ignores_extra():
+    daf = _daf3()
+    daf.set_irows_icols([0, 1], [0, 1], [100, 200, 300])
+    assert daf.lol == [[100, 200, 3], [100, 200, 6], [7, 8, 9]]
 
 
 def test_set_irows_icols_single_row_from_daf():
@@ -385,11 +395,9 @@ def test_set_irows_icols_multi_row_from_daf():
     assert daf.lol == [[10, 20, 30], [40, 50, 60], [7, 8, 9]]
 
 
-def test_set_irows_icols_smaller_daf_value_raises_indexerror():
-    # rows copied before the error keep their new values.
+def test_set_irows_icols_fewer_daf_rows_fills_what_fits():
     daf = _daf3()
-    with pytest.raises(IndexError):
-        daf.set_irows_icols([0, 1], None, Daf(lol=[[10, 20, 30]], cols=['a', 'b', 'c']))
+    daf.set_irows_icols([0, 1], None, Daf(lol=[[10, 20, 30]], cols=['a', 'b', 'c']))
     assert daf.lol == [[10, 20, 30], [4, 5, 6], [7, 8, 9]]
 
 
@@ -419,11 +427,9 @@ def test_setitem_block_from_larger_daf_copies_top_left():
     assert daf.lol == [[10, 20, 3], [40, 50, 6], [7, 8, 9]]
 
 
-def test_setitem_block_from_smaller_daf_raises_indexerror():
-    # cells copied before the error keep their new values.
+def test_setitem_block_from_smaller_daf_fills_top_left():
     daf = _daf3()
-    with pytest.raises(IndexError):
-        daf[0:2, 0:2] = Daf(lol=[[10]], cols=['x'])
+    daf[0:2, 0:2] = Daf(lol=[[10]], cols=['x'])
     assert daf.lol == [[10, 2, 3], [4, 5, 6], [7, 8, 9]]
 
 

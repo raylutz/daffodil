@@ -67,6 +67,15 @@ This applies to code comments, the changelog, docs and chat.
 - Record notable changes in CHANGELOG.md under Unreleased. Include coverage changes with
   before and after percentages.
 
+## Performance over guard rails
+
+- Daffodil is for people who want speed. Don't add checks to the normal path to protect
+  against user mistakes. Users who need a check can do it themselves first.
+- For rare cases, pick a cheap and reasonable behavior instead of adding a check. For
+  example, assigning a list or Daf copies only where source and target overlap.
+- Let Python raise its own errors where it already would. Add an explicit raise only where a
+  mistake would otherwise pass silently and corrupt data, and keep it off the normal path.
+
 ## Errors, not breakpoint()
 
 - Library code raises a specific error instead of calling `breakpoint()`. For example, use

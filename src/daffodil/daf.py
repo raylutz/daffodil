@@ -3561,13 +3561,16 @@ class Daf:
         Returns:
             Daf: Self.
 
-        Assigning a Daf:
-            A single cell holds the Daf object itself.
-            For a larger region, the Daf's values are copied in, starting at its top-left
-            corner. Its retmode does not matter.
-            If the Daf is larger than the region, only the part that fits is copied.
-            If the Daf is smaller than the region, IndexError is raised. Cells copied
-            before the error keep their new values.
+        Assigning a list or a Daf:
+            Values are copied only where the source and the region overlap. Nothing is
+            checked and no error is raised for a size mismatch.
+            A smaller source fills the top-left of the region. The rest is unchanged.
+            A larger source fills the region. The extra values are ignored.
+            Check sizes beforehand if a mismatch matters.
+
+            A list fills one column, or is applied to every selected row of a block.
+            A Daf is copied as a block, from its top-left corner. Its retmode does not
+            matter. A single cell holds the Daf object itself.
         """
         """ set rows and cols in given daf.
 
@@ -3653,8 +3656,8 @@ class Daf:
                 for irow in irows:
                     self.lol[irow] = value  # type: ignore[call-overload]
             elif isinstance(value, type(self)):
-                for source_row, irow in enumerate(irows):
-                    self.lol[irow] = list(value.lol[source_row])
+                for source_row, irow in zip(value.lol, irows):
+                    self.lol[irow] = list(source_row)
             else:
                 # set the same value in the row for all columns.
                 for irow in irows:
@@ -3673,14 +3676,12 @@ class Daf:
                     self.assign_record_irow(irow, record=value)
 
             elif isinstance(value, (list, Sequence)):
-                if len(value) != len(irows):
-                    raise ValueError(f"set_irows_icols(): {len(value)} values given for {len(irows)} rows")
-                for source_idx, irow in enumerate(irows):
-                    self.lol[irow][icol] = value[source_idx]
+                for source_val, irow in zip(value, irows):
+                    self.lol[irow][icol] = source_val
 
             elif isinstance(value, type(self)):
-                for source_idx, irow in enumerate(irows):
-                    self.lol[irow][icol] = value.lol[source_idx][0]
+                for source_row, irow in zip(value.lol, irows):
+                    self.lol[irow][icol] = source_row[0]
 
             else:
                 # set the same value in the row for all selected columns.
@@ -3697,16 +3698,14 @@ class Daf:
 
             elif isinstance(value, (list, Sequence)):
                 # the same list of values is applied to each selected row.
-                if len(value) != len(icols):
-                    raise ValueError(f"set_irows_icols(): {len(value)} values given for {len(icols)} columns")
                 for irow in irows:
-                    for source_col, icol in enumerate(icols):
-                        self.lol[irow][icol] = value[source_col]
+                    for source_val, icol in zip(value, icols):
+                        self.lol[irow][icol] = source_val
 
             elif isinstance(value, type(self)):
-                for source_row, irow in enumerate(irows):
-                    for source_col, icol in enumerate(icols):
-                        self.lol[irow][icol] = value.lol[source_row][source_col]
+                for source_row, irow in zip(value.lol, irows):
+                    for source_val, icol in zip(source_row, icols):
+                        self.lol[irow][icol] = source_val
 
             else:
                 # set the same value in the row for all selected columns.

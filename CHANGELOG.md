@@ -72,9 +72,7 @@ all prior releases. Plans for future moved to ROADMAP.md.
 - New errors for a missing name:
   - `sort_by_colname` and sort_by_colnames raise KeyError for an unknown column.
   - `alter_daf_per_setting` raises KeyError for an unknown setting.
-- New errors for a value of the wrong size:
-  - Assigning a list or a Daf that doesn't fit the target region raises ValueError.
-  - Selecting a column slice from rows of uneven length raises IndexError.
+- Selecting a column slice from rows of uneven length raises IndexError.
 - New errors for bad input:
   - `safe_regex_select` raises ValueError when the regex has no capture group.
   - `safe_regex_replace` raises ValueError for a pattern with too many separators.
@@ -87,11 +85,14 @@ all prior releases. Plans for future moved to ROADMAP.md.
   - `reduce` and sum_da pass on errors from the reduction function.
   - `create_index_at_cursor` raises on failure. It used to return False.
   - `write_buff_to_fp`, len_slice and slice_to_range pass on the original error.
-- Assigning a Daf into part of another Daf now copies its values. Before, the cells were
-  filled with Daf objects.
+- Assigning a list or a Daf into part of a Daf copies values only where the source and the
+  region overlap. There is no size check and no error.
+  - A smaller source fills the top-left of the region. The rest is unchanged.
+  - A larger source fills the region. The extra values are ignored.
+  - Before, a short list hit a breakpoint for each missing value, and a long list was cut
+    off.
+- Assigning a Daf now copies its values. Before, the cells were filled with Daf objects.
   - The copy starts at the Daf's top-left corner. Its retmode does not matter.
-  - A larger Daf is copied only as far as the region goes.
-  - A smaller Daf raises IndexError. Cells copied before the error keep their new values.
   - A single cell still holds a whole Daf.
 - `mypy` (added to `mypy.ini`'s scope, now fully clean: 217 -> 0 errors) run across all of
   `src/daffodil` for the first time. Most fixes were mechanical (missing/narrow annotations,
