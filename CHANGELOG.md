@@ -122,7 +122,7 @@ all prior releases. Plans for future moved to ROADMAP.md.
   - The header then had 2 names, while each row still had 3 values.
   - The third value stayed in the data but had no name. Code that works by column name
     could not see it.
-  - Now the suffix is added again until the name is free. Here the third column is a_2_2.
+  - This now raises KeyError.
 - `record_append` failed with UnboundLocalError for a mapping that isn't a dict, such as a
   read-only mapping.
 - The list comparison helper now accepts tuples. It used to fail with UnboundLocalError.

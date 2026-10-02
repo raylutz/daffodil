@@ -1738,7 +1738,7 @@ def _sanitize_cols(cols: T_cs, unnamed_prefix='Unnamed') -> list:
     """ make sure there are no blanks and columns are unique.
         if missing, substitute with {unnamed_prefix}{col_idx}
         if duplicated, substitute with prior_name_{col_idx}
-        if that name is also taken, add _{col_idx} again until it is unique.
+        if that name is also taken, raise KeyError.
     """
     
     if cols:
@@ -1753,8 +1753,9 @@ def _sanitize_cols(cols: T_cs, unnamed_prefix='Unnamed') -> list:
             else:
                 # if not unique, add _NNN after the name.
                 new_col = f"{col}_{idx}"
-                while new_col in col_hd:
-                    new_col = f"{new_col}_{idx}"
+                if new_col in col_hd:
+                    raise KeyError(f"_sanitize_cols(): renaming duplicate column '{col}' to '{new_col}' "
+                                   f"collides with an existing column")
                 col_hd[new_col] = idx
         return list(col_hd.keys())
 

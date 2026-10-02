@@ -23,11 +23,10 @@ def test_init_sanitize_cols_duplicates():
     assert daf.columns() == ['a', 'a_1', 'a_1_2', 'Unnamed3']
 
 
-def test_init_sanitize_cols_collision_keeps_renaming():
-    # the duplicate 'a' at idx 2 would become 'a_2', which is taken, so it becomes 'a_2_2'.
-    daf = Daf(cols=['a_2', 'a', 'a'], lol=[[1, 2, 3]])
-    assert daf.columns() == ['a_2', 'a', 'a_2_2']
-    assert daf.to_lod() == [{'a_2': 1, 'a': 2, 'a_2_2': 3}]
+def test_init_sanitize_cols_collision_raises():
+    # renaming the duplicate 'a' at idx 2 to 'a_2' would collide with the existing 'a_2'.
+    with pytest.raises(KeyError, match="'a_2'"):
+        Daf(cols=['a_2', 'a', 'a'])
 
 
 # --- _default_iterator / iter_list
