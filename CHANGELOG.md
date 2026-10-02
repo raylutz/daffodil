@@ -54,8 +54,7 @@ all prior releases. Plans for future moved to ROADMAP.md.
   test_daf_utils_coverage.py and test_daf_pdf.py. The PDF file is only a smoke test, since
   daf_pdf is experimental.
 - The remaining uncovered lines are dead code, debug-only branches, daf_pdf.py and md_demo.py.
-- Three known bugs are still open. Each has a test marked as an expected failure.
-  - The join translator adds to the caller's shared_fields list.
+- Two known bugs are still open. Each has a test marked as an expected failure.
   - A join on a composite key fails with a bare AssertionError.
   - Adding trailing columns to a CSV fails when the file has fewer than 3 rows.
 - tests/conftest.py makes a test fail if it reaches `breakpoint()`.
@@ -136,6 +135,9 @@ all prior releases. Plans for future moved to ROADMAP.md.
   __20AC but read back as a space and AC. Encoding now marks the width, like Python's escapes:
   __HH up to 0xFF, __uHHHH up to 0xFFFF and __UHHHHHHHH above. Names up to 0xFF encode as
   before.
+- `join` changed the caller's shared_fields list. It added each table's key to the list. When
+  the list was reused for another join, a stale key could make a plain column look shared, and
+  the second table's values for that column were dropped. The list is now copied first.
 - The list comparison helper now accepts tuples. It used to fail with UnboundLocalError.
 - Found and fixed several real bugs during the mypy pass (each verified against the full 1294-test
   suite before/after): `daf_utils.py` used `time.sleep` in `write_buff_to_s3path()`/

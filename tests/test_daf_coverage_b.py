@@ -538,12 +538,27 @@ def test_derive_join_translator_daf_tuple_shared_fields_and_other_keyfield():
     ]
 
 
-@pytest.mark.xfail(strict=True, reason="BUG: derive_join_translator_daf appends the keyfields to "
-                   "the caller's shared_fields list in place (daf.py:8129, 8134)")
 def test_derive_join_translator_daf_does_not_mutate_shared_fields():
     shared = ['zz']
     Daf.derive_join_translator_daf('id', 'oid', ['id'], ['oid'], shared_fields=shared)
     assert shared == ['zz']
+
+
+def test_join_reused_shared_fields_list_is_not_changed():
+    # a key left behind in a reused list would make a plain column 'k' look shared in the next join.
+    shared = ['x']
+    a = Daf(cols=['k', 'v'], lol=[[1, 'a1']], keyfield='k', name='A')
+    b = Daf(cols=['k', 'v'], lol=[[1, 'b1']], keyfield='k', name='B')
+    a.join(b, shared_fields=shared)
+    assert shared == ['x']
+    c = Daf(cols=['id', 'k', 'v'], lol=[[1, 'c_k', 'c1']], keyfield='id', name='C')
+    d = Daf(cols=['id', 'k', 'v'], lol=[[1, 'd_k', 'd1']], keyfield='id', name='D')
+    assert c.join(d, shared_fields=shared).lol == [[1, 'c_k', 'c1', 'd_k', 'd1']]
+
+
+def test_derive_join_translator_daf_accepts_tuple_shared_fields():
+    translator = Daf.derive_join_translator_daf('k', 'k', ['k', 'a'], ['k', 'a'], shared_fields=('a',))
+    assert translator.num_rows() == 2
 
 
 # =====================================================================

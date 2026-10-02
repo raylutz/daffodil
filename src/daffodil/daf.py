@@ -8071,17 +8071,13 @@ class Daf:
             Source Daf objects:
         """
 
-        shared_fields   = shared_fields or []       
+        shared_fields   = list(shared_fields or [])     # a copy, so the caller's list is not changed.
         omit_other_cols = omit_other_cols or []
 
         if self_keyfield and self_keyfield not in shared_fields:
-            shared_fields = list(shared_fields) if not isinstance(shared_fields, list) else shared_fields
-            shared_fields = cast(list, shared_fields)
             shared_fields.append(self_keyfield)
 
         if other_keyfield and other_keyfield not in shared_fields:
-            shared_fields = list(shared_fields) if not isinstance(shared_fields, list) else shared_fields
-            shared_fields = cast(list, shared_fields)
             shared_fields.append(other_keyfield)
 
         # to_dn_if_list()'s T_ca return type is broader (str|int|tuple keys, untyped dict) than
