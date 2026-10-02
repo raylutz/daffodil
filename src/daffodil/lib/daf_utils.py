@@ -349,7 +349,10 @@ def safe_regex_select(regex:Union[str, bytes], s:str, default:str='', flags=0) -
     
     match = re.search(regex_str, s, flags=flags)
     if match:
-        valstr = match.group(1)   # IndexError if the regex has no capture group.
+        try:
+            valstr = match.group(1)   # type: ignore
+        except IndexError as exc_info:
+            raise ValueError(f"safe_regex_select(): regex '{regex_str}' has no capture group") from exc_info
         return valstr.strip()
     else:
         return default

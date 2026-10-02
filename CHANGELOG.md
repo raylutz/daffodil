@@ -76,7 +76,7 @@ all prior releases. Plans for future moved to ROADMAP.md.
     missing setting do nothing too.
 - Selecting a column slice from rows of uneven length raises IndexError.
 - New errors for bad input:
-  - `safe_regex_select` raises Python's own IndexError when the regex has no capture group.
+  - `safe_regex_select` raises ValueError when the regex has no capture group.
   - `safe_regex_replace` raises ValueError for a pattern with too many separators.
   - `convert_type_value` and test_strbool raise TypeError for an unsupported type.
   - `json_encode` raises ValueError for NaN or Infinity. It used to write NaN, which is not
