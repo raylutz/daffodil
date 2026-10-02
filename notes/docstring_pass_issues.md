@@ -127,3 +127,23 @@ The date of the first entry is 2026-10-02.
     annotation of `keyval` allows a tuple.
 41. `remove_key(None, silent_error=True)` raises `TypeError`. The flag does not
     cover it.
+
+## Group 5: indexing (serious, found 2026-10-02)
+
+42. SERIOUS. Column slices with a negative number, or a stop of 0, give wrong
+    data or an error. The cause is `select_icols()` at `daf.py` line 4720:
+    `range(slice.start or 0, slice.stop or num_cols, slice.step or 1)`.
+    Real output for a table with columns id, v and n:
+
+        d[:, -2:]     columns v, n, id, v_3, n_4 (five columns, data repeated)
+        d[:, :-1]     no columns
+        d[:, 1:-1]    IndexError
+        d[:, ::-1]    IndexError
+        d[:, 0:0]     all three columns
+        d[:, -3:-1]   id, v (correct)
+
+    Row slices are correct, and so is assigning to a column slice. Only reading
+    a column slice is wrong. Python's `slice.indices()` gives the right answer
+    for every one of these. Seven tests are in `tests/test_daf_select_icols.py`.
+    Five of them are marked `xfail(strict=True)` with a reason that starts
+    with BUG.
