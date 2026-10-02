@@ -5505,10 +5505,7 @@ class Daf:
         if not self or len(self) <= 1:
             return self
 
-        try:
-            colidx = self.hd[colname]
-        except KeyError as exc_info:
-            raise KeyError(f"sort_by_colname(): column '{colname}' not found") from exc_info
+        colidx = self.hd[colname]
 
         self.lol = daf_utils.sort_lol_by_col(self.lol, colidx, reverse=reverse, length_priority=length_priority)
         self._invalidate_kd()    # use lazy kd rebuilding
@@ -5532,10 +5529,7 @@ class Daf:
         if not self or len(self) <= 1:
             return self
 
-        try:
-            colidxs = [self.hd[colname] for colname in colnames]
-        except KeyError as exc_info:
-            raise KeyError(f"sort_by_colnames(): column {exc_info} not found") from exc_info
+        colidxs = [self.hd[colname] for colname in colnames]
 
         self.lol = daf_utils.sort_lol_by_cols(self.lol, colidxs, reverse=reverse, length_priority=length_priority)
         #self._rebuild_kd()

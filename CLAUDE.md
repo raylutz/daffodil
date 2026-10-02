@@ -120,6 +120,12 @@ Source code is in src/daffodil and tests are in tests.
 - Library code raises a specific error instead of calling `breakpoint()`. For example, use
   KeyError for a missing column, ValueError for a value of the wrong shape and TypeError for
   an unsupported type.
+- Many of these errors are mistakes in the calling code, such as a wrong column name. No one
+  will write a handler for them. The goal is to stop at the mistake while developing.
+- So prefer Python's own error where it already happens. Don't wrap a lookup just to reword
+  the message. A plain KeyError still names the missing key.
+- To stop at the failing line with all locals, use post-mortem debugging. For example, run
+  `python -m pdb -c continue script.py`, or `pytest --pdb`.
 - When re-raising inside an except clause, use `raise ... from exc_info`.
 - tests/conftest.py makes any test fail if it reaches `breakpoint()`. This catches new ones.
   daf_pdf.py and md_demo.py still contain some.

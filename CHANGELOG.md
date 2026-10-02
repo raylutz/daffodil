@@ -70,7 +70,7 @@ all prior releases. Plans for future moved to ROADMAP.md.
   - Before this, code with no breakpoint hook carried on after the breakpoint. It often failed
     later with UnboundLocalError, or returned partial results without any warning.
 - New errors for a missing name:
-  - `sort_by_colname` and sort_by_colnames raise KeyError for an unknown column.
+  - `sort_by_colname` and sort_by_colnames raise Python's own KeyError for an unknown column.
   - `alter_daf_per_setting` raises KeyError for an unknown setting.
 - Selecting a column slice from rows of uneven length raises IndexError.
 - New errors for bad input:
