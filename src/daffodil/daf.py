@@ -348,13 +348,14 @@ class Daf:
         """
         What each row is when you loop over a Daf: a dict, or a KeyedList.
 
-        'dict' is the default. Each row is a new dict of column name to value. It is a copy,
-        so changing it does not change the Daf.
+        Your code reads a row the same way in both modes, by column name, as in `row['qty']`.
+        The difference is what the row is.
 
-        'keyedlist' gives each row as a KeyedList. You read it by column name, like a dict.
-        But it is a view of the row inside the Daf, so assigning to it changes the Daf.
+        'dict' is the default. Each row is a new dict of column name to value. The values are
+        copied into it, so changing it does not change the Daf.
 
-        Use 'dict' to read data. Use 'keyedlist' when a loop should update the rows in place.
+        'keyedlist' gives each row as a KeyedList. It points at the row's own list in the Daf
+        instead of copying the values. So assigning to it changes the Daf.
 
         The mode is used by `for row in daf`, and by methods that loop over the rows, such as
         `reduce()`. The methods `iter_dict()`, `iter_klist()` and `iter_list()` ignore it and
@@ -432,8 +433,8 @@ class Daf:
         """
         Loop over the rows as KeyedLists, whatever the itermode is.
 
-        A KeyedList is read by column name, like a dict. It is a view of the row inside the
-        Daf, so assigning to it changes the Daf.
+        A KeyedList is read by column name, like a dict. It points at the row's own list in
+        the Daf instead of copying the values, so assigning to it changes the Daf.
 
         Returns:
             Iterator[KeyedList]: Each row as a KeyedList.
