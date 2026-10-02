@@ -408,7 +408,7 @@ def test_len_slice_bad_bounds_raises():
 
 
 def test_slice_to_range_non_int_start_raises():
-    with pytest.raises(TypeError):
+    with pytest.raises(TypeError, match='slice bounds must be integers'):
         utils.slice_to_range(slice('a', 5), 10)
 
 

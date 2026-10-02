@@ -84,7 +84,7 @@ mode did they carry on, and these are the ones where that changes.
 | daf_utils.py:126 json_encode | NaN written as NaN, not valid JSON | ValueError |
 | daf_utils.py:150 test_strbool | Odd type gave False | TypeError |
 | daf_utils.py:1655 write_buff_to_fp | Write failed silently, path returned | The OSError |
-| daf_utils.py:1747 slice_to_range | Bad slice gave None | TypeError |
+| daf_utils.py:1747 slice_to_range | Bad slice gave None | TypeError saying bounds must be integers |
 | daf_sql.py:225 create_index_at_cursor | Returned False | The sqlite error |
 
 ### 4b. Continue mode crashed or raised anyway

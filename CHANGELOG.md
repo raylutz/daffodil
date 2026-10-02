@@ -88,8 +88,8 @@ all prior releases. Plans for future moved to ROADMAP.md.
     False by default, skips the failing rows instead.
   - `sum_da` passes on errors other than the non-numeric values it already skips.
   - `create_index_at_cursor` raises on failure. It used to return False.
-  - `write_buff_to_fp` and slice_to_range pass on the original error.
-  - `len_slice` raises TypeError saying the slice bounds must be integers.
+  - `write_buff_to_fp` passes on the original error.
+  - `len_slice` and slice_to_range raise TypeError saying the slice bounds must be integers.
 - Assigning a list or a Daf into part of a Daf copies values only where the source and the
   region overlap. There is no size check and no error.
   - A smaller source fills the top-left of the region. The rest is unchanged.

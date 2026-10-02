@@ -1707,12 +1707,14 @@ def len_rowcol_spec(ispec: Union[slice, int, range, T_li, None], tot_len: int) -
 def slice_to_range(slice_obj, length):
     if slice_obj == slice(None, None, None):
         return range(length)
-    else:
+    try:
         if slice_obj.stop is None:
             stop = length
         else:
             stop = min(slice_obj.stop, length)
         return range(slice_obj.start or 0, stop, slice_obj.step or 1)
+    except TypeError as exc_info:
+        raise TypeError(f"slice_to_range(): slice bounds must be integers, got {slice_obj}") from exc_info
 
 
 def _calculate_single_column_name(index: int) -> str:
