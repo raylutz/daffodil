@@ -482,9 +482,11 @@ def test_kcols_to_icols_with_hd():
 
 # --- _basic_get_record ---
 
-def test_basic_get_record_no_hd_generates_spreadsheet_names():
+def test_basic_get_record_no_hd_raises_and_does_not_name_the_columns():
     daf = Daf(lol=[[1, 'a']])
-    assert daf._basic_get_record(0) == {'A': 1, 'B': 'a'}
+    with pytest.raises(KeysDisabledError, match='set_cols'):
+        daf._basic_get_record(0)
+    assert daf.columns() == []
 
 
 def test_basic_get_record_with_include_cols():
@@ -793,9 +795,14 @@ def test_icol_on_a_daf_with_no_rows_is_empty():
     assert Daf(cols=['a']).icol(3) == []
 
 
-def test_iloc_no_cols_generates_spreadsheet_names():
+def test_iloc_no_cols_raises_for_dict_and_klist_and_works_for_list():
     daf = Daf(lol=[[1, 'a']])
-    assert daf.iloc(0) == {'A': 1, 'B': 'a'}
+    with pytest.raises(KeysDisabledError, match='set_cols'):
+        daf.iloc(0)
+    with pytest.raises(KeysDisabledError, match='set_cols'):
+        daf.iloc(0, rtype='klist')
+    assert daf.iloc(0, rtype='list') == [1, 'a']
+    assert daf.set_cols().iloc(0) == {'A': 1, 'B': 'a'}
 
 
 def test_noop_calls_return_self_for_chaining():
@@ -1838,7 +1845,7 @@ def test_dict_views_of_a_daf_with_no_names_raise_a_clear_error(call):
 def test_list_views_of_a_daf_with_no_names_still_work():
     daf = _unnamed_daf()
     assert list(daf.iter_list()) == [[1, 'a', 10], [2, 'b', 20]]
-    assert daf.to_md().splitlines()[0].startswith('| A')
+    assert daf.to_md().splitlines()[0] == '| 1 | a | 10 |'
 
 
 def test_naming_the_columns_makes_the_dict_views_work():
@@ -1851,3 +1858,22 @@ def test_an_empty_daf_has_empty_dict_views():
     assert Daf().to_lod() == []
     assert list(Daf()) == []
     assert Daf().to_cols_dol() == {}
+
+
+def test_row_getters_of_a_daf_with_no_names_raise():
+    daf = Daf(lol=[[1, 'a']])
+    for call in (lambda d: d.to_dict(), lambda d: d.irow(0), lambda d: d.to_klist(0), lambda d: d.iloc(-1)):
+        with pytest.raises(KeysDisabledError, match='set_cols'):
+            call(daf)
+    assert daf.columns() == []             # nothing was made up, and the Daf was not changed.
+
+
+def test_row_getters_of_an_empty_daf_are_empty():
+    assert Daf().to_dict() == {}
+    assert Daf().iloc(0) == {}
+    assert Daf().irow(0) == {}
+
+
+def test_to_md_of_a_daf_with_no_names_has_no_header_and_no_separator():
+    assert Daf(lol=[[1, 'a']]).to_md() == '| 1 | a |\n'
+    assert Daf(lol=[[1, 'a']], cols=['id', 'v']).to_md().splitlines()[0] == '| id | v |'

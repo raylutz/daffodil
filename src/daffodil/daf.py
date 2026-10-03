@@ -5324,13 +5324,11 @@ class Daf:
         """ return a record at irow as dict
             include only "include_cols" if it is defined
             note, this requires that hd is defined.
-            if no column header exists, this will generate a new one using spreadsheet convention.
 
             TODO Update to return KeyedList as an option.
         """
         if not self.hd:
-            cols = daf_utils._generate_spreadsheet_column_names_list(num_cols=self.num_cols())
-            self.set_cols(cols)
+            raise KeysDisabledError("Getting a row as a dict needs column names. This Daf has none. Call set_cols() to name them.")
 
         if include_cols:
             return {col:self.lol[irow][self.hd[col]] for col in include_cols if col in self.hd}
@@ -5576,12 +5574,13 @@ class Daf:
 
         Use it on the result of a selection, as in `my_daf[1].to_dict()`. A column is
         not turned into a dict. Use `to_list()` for that. An empty Daf gives an empty
-        dict.
+        dict. A Daf with no column names raises `KeysDisabledError`.
 
         Returns:
             The row, as a dict that maps column names to values.
 
         Raises:
+            KeysDisabledError: The Daf has a row and no column names.
             ValueError: The Daf has more than one row.
 
         Examples:
@@ -5668,8 +5667,9 @@ class Daf:
 
         A negative position counts from the end, so `-1` is the last row. A position that
         is out of range raises `IndexError`. A Daf with no rows, and a row with no cells,
-        give an empty dict, or an empty KeyedList. With no column names, the keys are
-        spreadsheet names such as `A`.
+        give an empty dict, or an empty KeyedList. A dict or a KeyedList needs column
+        names, so a Daf that has rows and no column names raises `KeysDisabledError`. Name
+        them with `set_cols()`, or ask for `rtype='list'`.
 
         Args:
             irow: The row position.
@@ -5681,6 +5681,7 @@ class Daf:
 
         Raises:
             IndexError: The position is out of range, for a Daf that has rows.
+            KeysDisabledError: `rtype` is `dict` or `klist`, and the Daf has rows and no column names.
             ValueError: `rtype` is not one of the three names.
 
         Examples:
@@ -5710,15 +5711,16 @@ class Daf:
             else:
                 return KeyedList()
 
+        if rtype in ('klist', 'dict') and not self.hd:
+            raise KeysDisabledError(
+                "Getting a row as a dict or a KeyedList needs column names. This Daf has none. "
+                "Call set_cols() to name them, or ask for rtype='list'.")
+
         if rtype == 'klist':
             return KeyedList(self._get_kidx(), self.lol[irow])
 
         elif rtype == 'dict':
-            if self.hd:
-                return self._basic_get_record(irow, include_cols)
-
-            colnames = daf_utils._generate_spreadsheet_column_names_list(num_cols=len(self.lol[irow]))
-            return dict(zip(colnames, self.lol[irow]))
+            return self._basic_get_record(irow, include_cols)
 
         elif rtype == 'list':
             return list(self.lol[irow])
@@ -10869,12 +10871,10 @@ class Daf:
             embedded_header = daf_lol[0]
             data_lol = daf_lol[1:]
         elif daf_lol:
-            # Daffodil arrays may have no header at all (a bare lol). Conjure
-            # spreadsheet-style column names (A, B, C, ...) so the rendered table has
-            # a header row, since Daf.from_md() requires a header + separator row.
-            embedded_header = daf_utils._generate_spreadsheet_column_names_list(len(daf_lol[0]))
+            # Daffodil arrays may have no header at all (a bare lol). No names are made up,
+            # so the rendered table has no header row.
+            embedded_header = None
             data_lol = daf_lol
-            header_exists = True
         else:
             embedded_header = None
             data_lol = daf_lol

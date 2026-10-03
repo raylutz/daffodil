@@ -95,7 +95,9 @@ The date of the first entry is 2026-10-02.
     Fixed with approval on 2026-10-03, option D. `from_lot()` makes no names without `cols`, as
     `Daf(lol=...)` does. A Daf with rows and no names raises `KeysDisabledError` from `to_lod()` and from the
     dict and KeyedList iterators, and so from `to_cols_dol()`, `select_where()` and `select_by_dict()`.
-    Still open: `iloc()`, `to_dict()` and `to_md()` make spreadsheet names on the fly for such a Daf.
+    Then the same rule on 2026-10-03: `iloc()` with `rtype` of `dict` or `klist`, and so `irow()`, `to_klist()`
+    and `to_dict()`, raise for a Daf with rows and no names. `to_md()` has no header row for it. Open: `from_md()`
+    cannot read a table with no header row. A strict xfail test records it.
 28. `from_directory()` prints its elapsed time to standard output. It never
     lists folders, so the `is_dir` column is always 0. A schema that leaves out
     standard fields drops those columns.

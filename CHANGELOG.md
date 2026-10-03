@@ -116,6 +116,11 @@ all prior releases. Plans for future moved to ROADMAP.md.
   with a message that names `set_cols()`, from `to_lod()` and from the dict and KeyedList iterators, so also from
   `to_cols_dol()`, `select_where()` and `select_by_dict()`. These gave `[{}, {}]`, `{}`, an empty result or a
   confusing `ValueError`. `iter_list()` and an empty Daf are not affected. 13 tests added.
+- One rule for a Daf with rows and no column names: names exist only if someone gave them. `iloc()` with
+  `rtype` of `dict` or `klist`, and so `irow()`, `to_klist()` and `to_dict()`, now raise `KeysDisabledError`.
+  They made up the names `A`, `B`, `C`, and `_basic_get_record()` also changed the Daf by calling `set_cols()`.
+  `to_md()` has no header row for such a Daf, and made up a header. `rtype='list'` still works. A strict xfail
+  test records that `from_md()` cannot read a table with no header row. 5 tests changed or added.
 - `append()` and `extend()` say what they add by keyword. `append(lol=[[2, 'b'], [3, 'c']])` and
   `extend(lol=...)` add several rows, each a list in column order. `append(la=[...])` adds one row, even if its
   items are lists. A positional list is one row, as before. A list with more values than there are columns now
