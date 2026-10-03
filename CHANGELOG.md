@@ -161,6 +161,10 @@ all prior releases. Plans for future moved to ROADMAP.md.
   git-tracked) moved out of `src/` to a gitignored, local-only `deprecated/` folder.
 
 ### Fixed
+- `daf_to_lol_summary()` and `to_md()` with only `max_cols` added a row of `...` under the header,
+  though no row was hidden. The slice `[-0:]` also made `max_rows=1` show every row. A limit of 0
+  now means no row limit. An odd `max_rows` keeps the extra row at the start, so 3 shows 3 data rows
+  and not 2. Even limits are unchanged. Tests added.
 - `transpose()` without `include_header` named its cols `key`, `A`, `B`, with one name too many. The first
   source row sat under `key`, each later row under the wrong name, and the last name had no data.
   The default cols are now `A`, `B`, `C`, one for each source row. With `include_header=True` they

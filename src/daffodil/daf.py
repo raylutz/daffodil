@@ -10715,9 +10715,9 @@ class Daf:
         Make a list of lists for display, with the column names first.
 
         If there are more rows or columns than the limits, the first and last are
-        kept and the middle is replaced by `...`. Set both limits or neither. With only
-        `max_cols`, a row of `...` is added under the header by mistake. The rows are
-        not copied.
+        kept and the middle is replaced by `...`. The limit is the number of data rows
+        kept, and an odd limit keeps the extra row at the start. A limit of 0 means no
+        limit, so with only `max_cols` all the rows are kept. The rows are not copied.
 
         Args:
             max_rows: The most rows to keep. 0 for no limit.
@@ -10749,15 +10749,16 @@ class Daf:
         num_rows    = self.num_rows()
         num_cols    = self.num_cols()
 
-        if max_rows and num_rows <= max_rows:
+        if not max_rows or num_rows <= max_rows:
             # Get all the rows, but potentially limit columns
             result_lol = daf_utils.reduce_lol_cols(result_lol, max_cols=max_cols)
 
         else:
-            # Get the first and last portion of rows
+            # Get the first and last portion of rows. An odd limit gives the extra row to the first part.
+            # The last part is cut from the front, because a slice of [-0:] would be every row.
 
-            first_lol   = self.lol[:max_rows//2]
-            last_lol    = self.lol[-(max_rows//2):]
+            first_lol   = self.lol[:(max_rows + 1)//2]
+            last_lol    = self.lol[num_rows - max_rows//2:]
             divider_lol = [['...'] * num_cols]
 
             result_lol  = [colnames_ls] + first_lol + divider_lol + last_lol

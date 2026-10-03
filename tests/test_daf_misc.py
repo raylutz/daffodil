@@ -1077,3 +1077,41 @@ def test_transpose_include_header_default_cols_start_with_key():
 def test_transpose_explicit_new_cols_unchanged():
     daf = Daf(lol=[[1, 'a'], [2, 'b']], cols=['id', 'v'])
     assert daf.transpose(new_cols=['r0', 'r1']).columns() == ['r0', 'r1']
+
+
+# daf_to_lol_summary row and col limits
+
+def _summary_ids(max_rows, max_cols=0, num_rows=8):
+    daf = Daf(lol=[[i, f'n{i}'] for i in range(num_rows)], cols=['id', 'name'])
+    return [row[0] for row in daf.daf_to_lol_summary(max_rows=max_rows, max_cols=max_cols)[1:]]
+
+
+def test_summary_only_max_cols_keeps_all_rows_with_no_divider():
+    daf = Daf(lol=[[i, f'n{i}', i * 2, f'x{i}'] for i in range(8)], cols=['id', 'name', 'val', 'tag'])
+    result = daf.daf_to_lol_summary(max_rows=0, max_cols=2)
+    assert result[0] == ['id', '...', 'tag']
+    assert [row[0] for row in result[1:]] == list(range(8))
+
+
+def test_summary_max_rows_one_keeps_first_row_and_divider():
+    assert _summary_ids(1) == [0, '...']
+
+
+def test_summary_even_limit_unchanged():
+    assert _summary_ids(2) == [0, '...', 7]
+    assert _summary_ids(4) == [0, 1, '...', 6, 7]
+
+
+def test_summary_odd_limit_keeps_extra_row_at_start():
+    assert _summary_ids(3) == [0, 1, '...', 7]
+    assert _summary_ids(5) == [0, 1, 2, '...', 6, 7]
+
+
+def test_summary_limit_at_or_over_row_count_keeps_all_rows():
+    assert _summary_ids(8) == list(range(8))
+    assert _summary_ids(9) == list(range(8))
+
+
+def test_to_md_only_max_cols_has_no_divider_row():
+    daf = Daf(lol=[[i, f'n{i}', i * 2, f'x{i}'] for i in range(3)], cols=['id', 'name', 'val', 'tag'])
+    assert daf.to_md(max_cols=2).splitlines()[2].startswith('|  0')

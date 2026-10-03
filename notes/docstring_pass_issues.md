@@ -258,6 +258,9 @@ The date of the first entry is 2026-10-02.
 68. `to_md(max_cols=2)` with no `max_rows` adds a row of `...` under the header.
     The cause is in `daf_to_lol_summary()`, which treats `max_rows=0` as a
     limit of zero.
+    Fixed with approval on 2026-10-03. A limit of 0 now means no limit. The slice
+    `[-0:]` also gave every row for `max_rows=1`. An odd limit now keeps the extra
+    row at the start.
 69. `from_md()` raises `RuntimeError` for a table with no header and separator
     rows. Its old text said the header is optional. The values come back as text.
 70. Code that cannot run: `apply(by='col')` raises before the code under it. The
