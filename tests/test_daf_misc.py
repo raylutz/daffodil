@@ -228,6 +228,19 @@ def test_set_cols_too_few_raises():
         daf.set_cols(['only_one'])
 
 
+def test_set_cols_too_many_raises():
+    daf = Daf(lol=[[1, 'a']], cols=['id', 'name'])
+    with pytest.raises(AttributeError):
+        daf.set_cols(['a', 'b', 'c'])
+    assert daf.columns() == ['id', 'name']
+
+
+def test_set_cols_any_length_on_empty_daf():
+    daf = Daf(cols=['a', 'b'])
+    daf.set_cols(['x', 'y', 'z'])
+    assert daf.columns() == ['x', 'y', 'z']
+
+
 def test_set_cols_always_resets_keyfield():
     # deliberate design decision: renaming columns always resets keyfield to '' rather than
     # attempting to remap it to a new name, even when a column logically corresponding to the

@@ -1141,7 +1141,7 @@ class Daf:
             This Daf, which has been changed.
 
         Raises:
-            AttributeError: There are fewer names than columns.
+            AttributeError: The number of names is not the number of columns.
 
         Examples:
             >>> Daf(lol=[[1, 2, 3]]).set_cols().columns()
@@ -1158,7 +1158,7 @@ class Daf:
         elif sanitize_cols:
             new_cols = daf_utils._sanitize_cols(new_cols, unnamed_prefix=unnamed_prefix)
 
-        if num_cols and len(new_cols) < num_cols:
+        if num_cols and len(new_cols) != num_cols:
             raise AttributeError("Length of new_cols not the same as existing cols")
 
         # Renaming columns always resets the keyfield to '' rather than attempting to remap it

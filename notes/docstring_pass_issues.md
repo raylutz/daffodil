@@ -12,6 +12,7 @@ The date of the first entry is 2026-10-02.
    `c.lol.append(...)` on the copy.
 2. `set_cols()` accepts more names than columns (line 1121). A 2 column Daf
    given 3 names gets a 3 entry `hd` while the rows still hold 2 values.
+   Fixed with approval on 2026-10-03. It now raises `AttributeError`.
 3. `set_cols()` raises `AttributeError` for too few names. `ValueError` fits
    the other errors in the class.
 4. `set_keyfield()` stores a name that is not a column (line 1313) unless

@@ -152,6 +152,9 @@ all prior releases. Plans for future moved to ROADMAP.md.
   git-tracked) moved out of `src/` to a gitignored, local-only `deprecated/` folder.
 
 ### Fixed
+- `set_cols()` accepted more names than columns. The header was then longer than the rows, and
+  `to_lod()` dropped the extra names without a word. It now raises `AttributeError`, as it
+  already did for too few names. An empty Daf still accepts any list. Tests added.
 - `to_donpa(default=...)` had no effect. The value reached `col()`, which uses it only for the
   `indirect_col` case. It now replaces each NULL, None and NaN cell as the column is read, in the
   arrays only, and the Daf is not changed. A column with blanks stays numeric when the default
