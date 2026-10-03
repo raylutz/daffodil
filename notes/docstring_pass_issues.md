@@ -10,6 +10,8 @@ The date of the first entry is 2026-10-02.
    Appending a row to the copy changes the original. Adding a name to the
    copy's `hd` changes the original. Output: original had 2 rows, 3 after
    `c.lol.append(...)` on the copy.
+   Resolved with approval on 2026-10-03. The default stays shallow. `copy(level=)` adds
+   `sortable` and `editable`, and the docstring has the table of safe actions.
 2. `set_cols()` accepts more names than columns (line 1121). A 2 column Daf
    given 3 names gets a 3 entry `hd` while the rows still hold 2 values.
    Fixed with approval on 2026-10-03. It now raises `AttributeError`.

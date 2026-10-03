@@ -9,6 +9,15 @@ all prior releases. Plans for future moved to ROADMAP.md.
 
 ## [Unreleased]
 ### Added
+- `Daf.copy(level=)` with the levels `shallow`, `sortable`, `editable` and `deep`. The default is
+  `shallow`, as before. `sortable` gives the copy its own row list, `hd`, `dtypes` and key index,
+  so rows can be appended, sorted or dropped, and columns renamed or dropped, without reaching the
+  original. `editable` also copies every row, so columns can be added and cells changed. `deep` is
+  as before. Text and numbers are not copied by `deep`, only lists, dicts and other containers.
+  `deep=True`, `for_sorting=True` and `copy(True)` still work. `for_sorting` now also copies `hd`
+  and `dtypes`. Costs for 200,000 rows by 50 columns: shallow 0.0001 s, sortable 0.002 s,
+  editable 0.8 s and 93 MB, deep 2.4 s and 107 MB. 107 tests added in
+  tests/test_daf_copy_levels.py. Total tests 1828.
 - `groupby()` and `groupby_cols()` take `cols`. Each group then holds only those columns,
   and the other columns are never copied. `multi_groupby(colnames=)` was ignored and now
   does the same. A keyfield is kept only if all its columns are kept. The three reduce

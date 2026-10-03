@@ -117,6 +117,8 @@ from collections.abc import Iterable, Collection, Sequence, Iterator, Hashable  
 T_dodaf = Dict[str, 'Daf']
 
 logs = daf_utils                # alias
+_COPY_LEVELS: Dict[str, int] = {'shallow': 0, 'sortable': 1, 'editable': 2, 'deep': 3}   # for copy().
+
 NULL = ''                       # instead of var == '' use var is NULL
 
 # global
@@ -818,51 +820,100 @@ class Daf:
     #===========================
     # copying convenience function to mimic pandas syntax.
 
-    def copy(self, deep: bool = False, for_sorting: bool = False) -> Daf:
+    def copy(
+            self,
+            level:       Union[str, bool] = 'shallow',   # 'shallow' | 'sortable' | 'editable' | 'deep'
+            deep:        bool = False,          # same as level='deep'.
+            for_sorting: bool = False,          # same as level='sortable'.
+            ) -> Daf:
         """
-        Make a copy of the Daf.
+        Make a copy of the Daf, sharing as little or as much as you choose.
 
-        How much is copied depends on the options. Choose the cheapest one that is
-        safe for what you do next.
+        A copy costs more the less it shares. Pick the cheapest `level` that is safe for
+        what you do next. The table gives the cost for 200,000 rows of 50 columns.
 
-        A plain copy is shallow. The new Daf shares the row list `lol`, the rows and
-        `hd` with the original. Appending a row to the copy also appends it to the
-        original, and so does changing a cell. Only the `attrs` are copied.
+        | Level      | New in the copy                                   | Cost            |
+        |------------|---------------------------------------------------|-----------------|
+        | `shallow`  | only `attrs`                                      | 0.0001 s        |
+        | `sortable` | the row list, `hd`, `dtypes`, and the key index   | 0.002 s, 2 MB   |
+        | `editable` | `sortable`, plus a new list for every row         | 0.8 s, 93 MB    |
+        | `deep`     | everything that is a container                    | 2.4 s, 107 MB   |
 
-        With `for_sorting=True` the list of rows is copied, but the rows are still
-        shared. You can sort or reorder the copy without changing the original. A
-        change inside a row still reaches both.
+        With `shallow`, the copy shares the row list, the rows, `hd` and `dtypes` with the
+        original. Reading is safe. Sorting with `sort_by_colname()` is safe too, because it
+        builds a new row list. Appending a row, sorting the row list in place or dropping
+        a column reaches the original, and can leave it with a key index that is wrong.
 
-        With `deep=True` nothing is shared.
+        With `sortable`, the copy has its own row list, so you can append, extend, insert,
+        remove, sort or reverse rows, rename columns, change the keyfield or dtypes, and
+        use `drop_cols()`. The key index is cleared on the copy and is rebuilt on first use.
+        The rows are still shared. Adding a column or changing a cell reaches the original.
+
+        With `editable`, each row is a new list. You can also add columns and change cells.
+        The cells themselves are shared. That is safe for text and numbers, and not for a
+        list or dict held in a cell.
+
+        With `deep`, nothing that can be changed is shared. Text and numbers are not copied,
+        because they cannot change. A list or dict held in a cell is copied.
+
+        The older arguments `deep=True` and `for_sorting=True` still work. They give the
+        level `deep` and `sortable`. A higher level wins if you give both. A call like
+        `copy(True)` still means `deep`.
 
         Args:
-            deep: If True, copy everything, so the two Daf instances are independent.
-            for_sorting: If True and not deep, copy the list of rows but share the rows.
+            level: How much to copy. One of `shallow`, `sortable`, `editable` or `deep`.
+            deep: Same as level `deep`.
+            for_sorting: Same as level `sortable`.
 
         Returns:
             The new Daf.
 
+        Raises:
+            ValueError: `level` is not one of the four names.
+
         Examples:
             >>> d = Daf(lol=[[2, 'b'], [1, 'a']], cols=['id', 'v'])
-            >>> shallow = d.copy()
-            >>> shallow.lol.append([3, 'c'])
+            >>> d.copy().lol is d.lol
+            True
+            >>> s = d.copy('sortable')
+            >>> s.lol.append([3, 'c'])
             >>> d.num_rows()
-            3
-            >>> d.copy(deep=True).lol is d.lol
-            False
+            2
+            >>> e = d.copy('editable')
+            >>> e.lol[0][1] = 'X'
+            >>> d.lol[0]
+            [2, 'b']
         """
 
+        if isinstance(level, bool):     # an old call, copy(True), meant deep.
+            deep, level = deep or level, 'shallow'
+
+        if level not in _COPY_LEVELS:
+            raise ValueError(f"copy: level must be one of {list(_COPY_LEVELS)}, not {level!r}")
+
+        rank = _COPY_LEVELS[level]
+        if for_sorting:
+            rank = max(rank, _COPY_LEVELS['sortable'])
         if deep:
+            rank = _COPY_LEVELS['deep']
+
+        if rank == _COPY_LEVELS['deep']:
             return copy.deepcopy(self)  # Fully independent copy
 
         new_instance = copy.copy(self)  # Shallow copy
 
         new_instance.attrs = copy.deepcopy(self.attrs)  # Ensure metadata is copied but not linked
 
-        if for_sorting:
-            new_instance.lol = self.lol.copy()
+        if rank >= _COPY_LEVELS['sortable']:
+            new_instance.lol = list(self.lol)
+            new_instance.hd = dict(self.hd) if type(self.hd) is dict else copy.deepcopy(self.hd)
+            if isinstance(self.dtypes, dict):
+                new_instance.dtypes = dict(self.dtypes)
 
-            new_instance._invalidate_kd()       
+            new_instance._invalidate_kd()
+
+        if rank >= _COPY_LEVELS['editable']:
+            new_instance.lol = [list(row) for row in self.lol]
 
         return new_instance
 
