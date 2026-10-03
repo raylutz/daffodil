@@ -1625,9 +1625,8 @@ class TestDaf(unittest.TestCase):
         daf = Daf(cols=cols, lol=lol, keyfield='col1', dtypes={'col1': int, 'col2': str})
 
         row_idx = 4
-        record_da = daf.iloc(row_idx)
-
-        self.assertEqual(record_da, {})
+        with self.assertRaises(IndexError):
+            daf.iloc(row_idx)
 
     def test_iloc_negative_row_idx(self):
         cols = ['col1', 'col2']
@@ -1637,7 +1636,7 @@ class TestDaf(unittest.TestCase):
         row_idx = -1
         record_da = daf.irow(row_idx)
 
-        self.assertEqual(record_da, {})
+        self.assertEqual(record_da, {'col1': 3, 'col2': 'c'})
 
     def test_irow_existing_row_idx(self):
         cols = ['col1', 'col2']
@@ -1655,9 +1654,8 @@ class TestDaf(unittest.TestCase):
         daf = Daf(cols=cols, lol=lol, keyfield='col1', dtypes={'col1': int, 'col2': str})
 
         row_idx = 4
-        record_da = daf.iloc(row_idx)
-
-        self.assertEqual(record_da, {})
+        with self.assertRaises(IndexError):
+            daf.iloc(row_idx)
 
     def test_irow_negative_row_idx(self):
         cols = ['col1', 'col2']
@@ -1667,7 +1665,7 @@ class TestDaf(unittest.TestCase):
         row_idx = -1
         record_da = daf.irow(row_idx)
 
-        self.assertEqual(record_da, {})
+        self.assertEqual(record_da, {'col1': 3, 'col2': 'c'})
 
     # select_by_dict_to_lod
     def test_select_by_dict_to_lod_existing_selector_da(self):
@@ -2375,9 +2373,8 @@ class TestDaf(unittest.TestCase):
         lol = [[1, 'a', True], [2, 'b', False], [3, 'c', True]]
         daf = Daf(cols=cols, lol=lol, keyfield='col1', dtypes={'col1': int, 'col2': str, 'col3': bool})
 
-        result_la = daf.icol_to_la(3)
-
-        self.assertEqual(result_la, [])
+        with self.assertRaises(IndexError):
+            daf.icol_to_la(3)
 
     def test_icol_to_la_empty_daf(self):
         daf = Daf()

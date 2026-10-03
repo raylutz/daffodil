@@ -741,15 +741,47 @@ def test_iloc_list():
     assert daf.iloc(0, rtype='list') == [1, 'a']
 
 
-def test_iloc_negative_returns_empty():
-    daf = Daf(lol=[[1, 'a']], cols=['id', 'name'])
-    assert daf.iloc(-1) == {}
+def test_iloc_negative_counts_from_the_end():
+    daf = Daf(lol=[[1, 'a'], [2, 'b']], cols=['id', 'name'])
+    assert daf.iloc(-1) == {'id': 2, 'name': 'b'}
+    assert daf.iloc(-2) == {'id': 1, 'name': 'a'}
+    assert daf.iloc(-1, rtype='list') == [2, 'b']
+    assert daf.iloc(-1, rtype='klist').to_dict() == {'id': 2, 'name': 'b'}
 
 
-def test_iloc_out_of_range_returns_empty():
+def test_iloc_out_of_range_raises_indexerror():
     daf = Daf(lol=[[1, 'a']], cols=['id', 'name'])
-    assert daf.iloc(99) == {}
-    assert daf.iloc(99, rtype='klist').to_dict() == {}
+    for position in (1, 99, -2, -99):
+        with pytest.raises(IndexError):
+            daf.iloc(position)
+    with pytest.raises(IndexError):
+        daf.iloc(99, rtype='klist')
+
+
+def test_iloc_on_a_daf_with_no_rows_is_empty():
+    assert Daf().iloc(0) == {}
+    assert Daf().iloc(-1) == {}
+    assert Daf().to_dict() == {}
+    assert Daf(cols=['a']).iloc(5, rtype='klist').to_dict() == {}
+
+
+def test_icol_negative_counts_from_the_end():
+    daf = Daf(lol=[[1, 'a', 10], [2, 'b', 20]], cols=['id', 'v', 'n'])
+    assert daf.icol(-1) == [10, 20]
+    assert daf.icol(-3) == [1, 2]
+    assert daf.icol_to_la(-2, unique=True) == ['a', 'b']
+
+
+def test_icol_out_of_range_raises_indexerror():
+    daf = Daf(lol=[[1, 'a']], cols=['id', 'v'])
+    for position in (2, 99, -3):
+        with pytest.raises(IndexError):
+            daf.icol(position)
+
+
+def test_icol_on_a_daf_with_no_rows_is_empty():
+    assert Daf().icol(0) == []
+    assert Daf(cols=['a']).icol(3) == []
 
 
 def test_iloc_no_cols_generates_spreadsheet_names():

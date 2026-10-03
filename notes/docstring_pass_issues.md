@@ -203,6 +203,9 @@ The date of the first entry is 2026-10-02.
     `RuntimeError`. `select_record()` and `select_by_dict()` now say what failed.
 50. `iloc(-1)` returns `{}` and `icol(-1)` returns `[]`, while `d[-1]` and
     `d[:, -1]` count from the end.
+    Fixed with approval on 2026-10-03, option C. A negative position counts from the end. An out of
+    range position raises `IndexError`. A Daf with no rows still gives an empty result. Affects
+    `iloc()`, `irow()`, `to_klist()`, `icol()` and `icol_to_la()`.
 51. The old second string of `to_list()` said that a table with several rows
     and columns gives an empty list. The code raises `ValueError`. The old
     `to_dict()` text named an `include_cols` argument that it does not have.

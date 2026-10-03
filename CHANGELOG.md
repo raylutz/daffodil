@@ -111,6 +111,11 @@ all prior releases. Plans for future moved to ROADMAP.md.
   built from another one copies it, when it shares it.
 
 ### Changed
+- `iloc()`, `irow()`, `to_klist()`, `icol()` and `icol_to_la()` now treat a position as a list does. A negative
+  position counts from the end, so `iloc(-1)` is the last row and `icol(-1)` the last column. A position that is
+  out of range raises `IndexError`. Before, both gave an empty dict or an empty list. A Daf with no rows still
+  gives an empty result, so `Daf().to_dict()` is still `{}`. Code that tested for the empty answer to detect
+  the end of the table must change. Tests changed or added: 6 changed, 6 added.
 - The README has a table of which selectors share the rows of the original and which copy them. A test
   checks the table. The docstring of `select_records_daf()` says that it shares the rows. 12 tests added.
 - The README said that appending a row whose key exists overwrites it, for all kinds of appending. Only

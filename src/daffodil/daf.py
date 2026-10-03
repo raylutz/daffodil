@@ -5511,14 +5511,17 @@ class Daf:
         Get one row as a [KeyedList][daffodil.keyedlist.KeyedList].
 
         The KeyedList shares the row and the column names with the Daf, so it costs
-        little. A position that is out of range, or a negative one, gives an empty
-        KeyedList.
+        little. A negative position counts from the end. A position that is out of range
+        raises `IndexError`. A Daf with no rows gives an empty KeyedList.
 
         Args:
             irow: The row position.
 
         Returns:
             The row.
+
+        Raises:
+            IndexError: The position is out of range, for a Daf that has rows.
 
         Examples:
             >>> d = Daf(lol=[[1, 'a', 10], [2, 'b', 20], [3, 'c', 30]], cols=['id', 'v', 'n'], keyfield='id')
@@ -5539,7 +5542,11 @@ class Daf:
             include_cols: Only these columns are included.
 
         Returns:
-            The row as a dict. A position that is out of range gives an empty dict.
+            The row as a dict. A negative position counts from the end. A Daf with no rows
+            gives an empty dict.
+
+        Raises:
+            IndexError: The position is out of range, for a Daf that has rows.
 
         Examples:
             >>> d = Daf(lol=[[1, 'a', 10], [2, 'b', 20], [3, 'c', 30]], cols=['id', 'v', 'n'], keyfield='id')
@@ -5566,9 +5573,10 @@ class Daf:
         """
         Get one row by position, as a dict, a KeyedList or a list.
 
-        A negative position, or one that is out of range, gives an empty dict, or an
-        empty KeyedList. It does not count from the end. Use the row selector `[-1]`
-        for that. With no column names, the keys are spreadsheet names such as `A`.
+        A negative position counts from the end, so `-1` is the last row. A position that
+        is out of range raises `IndexError`. A Daf with no rows, and a row with no cells,
+        give an empty dict, or an empty KeyedList. With no column names, the keys are
+        spreadsheet names such as `A`.
 
         Args:
             irow: The row position.
@@ -5579,6 +5587,7 @@ class Daf:
             The row.
 
         Raises:
+            IndexError: The position is out of range, for a Daf that has rows.
             ValueError: `rtype` is not one of the three names.
 
         Examples:
@@ -5588,7 +5597,7 @@ class Daf:
             >>> d.iloc(1, rtype='list')
             [2, 'b', 20]
             >>> d.iloc(-1)
-            {}
+            {'id': 3, 'v': 'c', 'n': 30}
         """
         """ Select one record from daf using the idx and return as a single T_da dict
             test exists in test_daf.py
@@ -5596,7 +5605,13 @@ class Daf:
             rtype can be 'dict', 'klist', or 'list'  <-- should be astype
 
         """
-        if irow < 0 or irow >= len(self.lol) or not self.lol or not self.lol[irow]:
+        if self.lol:
+            if irow < 0:
+                irow += len(self.lol)           # count from the end, as a list does.
+            if irow < 0 or irow >= len(self.lol):
+                raise IndexError(f"iloc: row position {irow} is out of range for {len(self.lol)} rows.")
+
+        if not self.lol or not self.lol[irow]:
             if rtype == 'dict':
                 return {}
             else:
@@ -6074,7 +6089,8 @@ class Daf:
         """
         Get one column as a list, by position.
 
-        A position that is negative or out of range gives an empty list.
+        A negative position counts from the end, so `-1` is the last column. A position
+        that is out of range raises `IndexError`. A Daf with no rows gives an empty list.
 
         Args:
             icol: The column position.
@@ -6082,10 +6098,15 @@ class Daf:
         Returns:
             The values of the column.
 
+        Raises:
+            IndexError: The position is out of range, for a Daf that has rows.
+
         Examples:
             >>> d = Daf(lol=[[1, 'a', 10], [2, 'b', 20], [3, 'c', 30]], cols=['id', 'v', 'n'], keyfield='id')
             >>> d.icol(1)
             ['a', 'b', 'c']
+            >>> d.icol(-1)
+            [10, 20, 30]
         """
 
         return self.icol_to_la(icol)
@@ -6095,7 +6116,8 @@ class Daf:
         """
         Get one column as a list, by position, with options.
 
-        A position that is negative or out of range gives an empty list.
+        A negative position counts from the end, so `-1` is the last column. A position
+        that is out of range raises `IndexError`. A Daf with no rows gives an empty list.
 
         Args:
             icol: The column position.
@@ -6104,10 +6126,19 @@ class Daf:
 
         Returns:
             The values of the column.
+
+        Raises:
+            IndexError: The position is out of range, for a Daf that has rows.
         """
 
-        if icol < 0 or not self or icol >= self.num_cols():
+        if not self:
             return []
+
+        num_cols = self.num_cols()
+        if icol < 0:
+            icol += num_cols                    # count from the end, as a list does.
+        if icol < 0 or icol >= num_cols:
+            raise IndexError(f"icol: column position {icol} is out of range for {num_cols} columns.")
 
         if omit_nulls:
             result_la = [la[icol] for la in self.lol if la[icol] is not NULL]
