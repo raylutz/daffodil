@@ -570,7 +570,7 @@ def test_join_outer_diagnose(capsys):
     a = Daf(cols=['id', 'name'], lol=[[1, 'A'], [2, 'B']], keyfield='id')
     b = Daf(cols=['id', 'sal'], lol=[[1, 10], [3, 30]], keyfield='id')
     result = a.join(b, how='outer', diagnose=True)
-    assert result.lol == [[1, 'A', 10], [2, 'B', None], [3, None, 30]]
+    assert result.lol == [[1, 'A', 10], [2, 'B', ''], [3, '', 30]]
     out = capsys.readouterr().out
     assert "Initiating join" in out
     assert "Translator Daf" in out
@@ -626,7 +626,7 @@ def test_join_records_requires_names_for_more_than_two_sources():
 def test_join_records_skips_sources_not_in_join_names():
     tr = _three_source_translator()
     assert Daf.join_records([{'x': 1}, {'y': 2}], tr, ['d1', 'd2']) == {'x': 1, 'y': 2}
-    assert Daf.join_records([{'x': 1}, None], tr, ['d1', 'd2']) == {'x': 1, 'y': None}
+    assert Daf.join_records([{'x': 1}, None], tr, ['d1', 'd2']) == {'x': 1, 'y': ''}
 
 
 # =====================================================================

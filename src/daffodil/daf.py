@@ -10324,6 +10324,7 @@ class Daf:
         custom_translator_daf: 'Daf' | None = None,         # provide a custom translater to provide all naming details.
         diagnose: bool = False,                             # Enable diagnostic logging.
         name: str='',                                       # name for the joined instance.
+        fill: Any = NULL,                                   # value for cells that have no match.
     ) -> 'Daf':
         """
         Join two Daf instances on their keyfields, as in SQL.
@@ -10344,7 +10345,8 @@ class Daf:
         names. For other names use `custom_translator_daf`, which you can start from
         `derive_join_translator()`.
 
-        When a key has no match, its cells from the other side are `None`, not NULL.
+        When a key has no match, its cells from the other side are NULL, the empty string. Pass
+        `fill=None` to get `None` there, as earlier versions did.
         The keyfield of the result is the keyfield of this Daf. The result is a new Daf.
 
         Args:
@@ -10355,6 +10357,7 @@ class Daf:
             custom_translator_daf: A translator that sets all the names.
             diagnose: If True, print progress messages.
             name: The name of the result.
+            fill: The value for cells that have no match.
 
         Returns:
             The joined Daf.
@@ -10370,6 +10373,8 @@ class Daf:
             >>> a.join(b).lol
             [[1, 'Alice', 50]]
             >>> a.join(b, how='left').lol
+            [[1, 'Alice', 50], [2, 'Bob', '']]
+            >>> a.join(b, how='left', fill=None).lol
             [[1, 'Alice', 50], [2, 'Bob', None]]
         """
         if how not in ("inner", "left", "right", "outer"):
@@ -10428,6 +10433,7 @@ class Daf:
                     [row_da, other_row_da],
                     translator_daf,
                     join_names_ls,
+                    fill,
                 )
                 result_daf.append(combined_record)
             elif how in ("left", "outer"):
@@ -10435,6 +10441,7 @@ class Daf:
                     [row_da, None],
                     translator_daf,
                     join_names_ls,
+                    fill,
                 )
                 result_daf.append(combined_record)
 
@@ -10448,6 +10455,7 @@ class Daf:
                     [None, other_row_da],
                     translator_daf,
                     join_names_ls,
+                    fill,
                 )
                 result_daf.append(combined_record)
 
@@ -10469,18 +10477,22 @@ class Daf:
                                         #  required only if there are more than two source_names specified in the translator.
                                         # this is used when a single translator is used for chained joins.
 
+        fill: Any = NULL,               # value for a column that the record does not have.
+
         ) -> T_da:
 
         """
         Combine one record from each table into one record, using a translator.
 
         This is a static method, and the step that `join()` repeats. A record may be
-        None, which gives None for the columns of that side.
+        None, which gives `fill` for the columns of that side. A column that a record
+        does not have also gets `fill`.
 
         Args:
             records: The two records, in the order of the source names.
             translator_daf: The translator, as from `derive_join_translator()`.
             join_names_ls: The two source names. Needed only if the translator names more than two sources.
+            fill: The value for a column that has no record, or that the record lacks. NULL by default.
 
         Returns:
             The combined record, as a dict.
@@ -10513,7 +10525,7 @@ class Daf:
                         combined_record[resolved_col] = record[source_colname]
                         break
                 else:
-                    combined_record[resolved_col] = None
+                    combined_record[resolved_col] = fill
                 continue
 
             # Handle all other columns
@@ -10521,9 +10533,9 @@ class Daf:
 
             if rec_da is not None:
                 rec_da = cast(T_da, rec_da)
-                combined_record[resolved_col] = rec_da.get(source_colname, None)
+                combined_record[resolved_col] = rec_da.get(source_colname, fill)
             else:
-                combined_record[resolved_col] = None
+                combined_record[resolved_col] = fill
 
         return combined_record
 

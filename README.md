@@ -916,9 +916,9 @@ but with additional flexibility for customization.
 
 ### Join Types
 - **Inner Join**: Includes only rows with matching keys in both tables.
-- **Left Join**: Includes all rows from the left table and matching rows from the right table. Missing values in the right table are filled with `None`.
-- **Right Join**: Includes all rows from the right table and matching rows from the left table. Missing values in the left table are filled with `None`.
-- **Outer Join**: Includes all rows from both tables, filling missing values with `None`.
+- **Left Join**: Includes all rows from the left table and matching rows from the right table. Missing values in the right table are filled with NULL, the empty string. Pass `fill=None` to use `None`.
+- **Right Join**: Includes all rows from the right table and matching rows from the left table. Missing values in the left table are filled with NULL, the empty string. Pass `fill=None` to use `None`.
+- **Outer Join**: Includes all rows from both tables, filling missing values with NULL, the empty string. Pass `fill=None` to use `None`.
 
 ### Daf Join API
 #### Usage

@@ -1496,3 +1496,44 @@ def test_selector_row_sharing_matches_the_readme_table(call, shared):
         result = next(iter(result.values()))
     result.lol[0][1] = 'CHANGED'
     assert (daf.lol[0][1] == 'CHANGED' or any(row[1] == 'CHANGED' for row in daf.lol)) is shared
+
+
+# join fills a missing match with NULL, or with the fill value
+
+def _join_pair():
+    left = Daf(lol=[[1, 'x'], [2, 'y']], cols=['id', 'v'], keyfield='id')
+    right = Daf(lol=[[2, 'p'], [3, 'q']], cols=['id', 'w'], keyfield='id')
+    return left, right
+
+
+def test_join_fills_a_missing_match_with_null_by_default():
+    from daffodil.daf import NULL
+    left, right = _join_pair()
+    result = left.join(right, how='outer')
+    assert result.lol == [[1, 'x', ''], [2, 'y', 'p'], [3, '', 'q']]
+    assert result.lol[0][2] is NULL
+    assert left.join(right, how='left').lol == [[1, 'x', ''], [2, 'y', 'p']]
+    assert left.join(right, how='right').lol == [[2, 'y', 'p'], [3, '', 'q']]
+
+
+def test_join_fill_none_gives_the_old_result():
+    left, right = _join_pair()
+    assert left.join(right, how='outer', fill=None).lol == [[1, 'x', None], [2, 'y', 'p'], [3, None, 'q']]
+
+
+def test_join_fill_with_any_value():
+    left, right = _join_pair()
+    assert left.join(right, how='left', fill=0).lol == [[1, 'x', 0], [2, 'y', 'p']]
+
+
+def test_join_inner_has_no_fill():
+    left, right = _join_pair()
+    assert left.join(right, fill=None).lol == [[2, 'y', 'p']]
+
+
+def test_join_records_fill():
+    translator = Daf(cols=['resolved_colname', 'source_name', 'source_colname', 'is_keyfield'],
+                     lol=[['id', 'a', 'id', True], ['v', 'a', 'v', False], ['w', 'b', 'w', False]])
+    assert Daf.join_records([{'id': 1, 'v': 'x'}, None], translator, ['a', 'b']) == {'id': 1, 'v': 'x', 'w': ''}
+    assert Daf.join_records([{'id': 1, 'v': 'x'}, None], translator, ['a', 'b'], fill=None) == {'id': 1, 'v': 'x', 'w': None}
+    assert Daf.join_records([{'id': 1}, {'id': 1}], translator, ['a', 'b'], fill='?') == {'id': 1, 'v': '?', 'w': '?'}

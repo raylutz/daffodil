@@ -111,6 +111,10 @@ all prior releases. Plans for future moved to ROADMAP.md.
   built from another one copies it, when it shares it.
 
 ### Changed
+- `join()` fills the cells of a missing match with NULL, the empty string, as the rest of the library does for
+  a missing value. It filled them with `None`. The new argument `fill` sets the value, so `fill=None` gives the
+  old result. `join_records()` has the same argument and default. A joined table now prints blanks and not the
+  word None. Code that tested `is None` on a join result must change. 12 tests changed, 5 added.
 - `iloc()`, `irow()`, `to_klist()`, `icol()` and `icol_to_la()` now treat a position as a list does. A negative
   position counts from the end, so `iloc(-1)` is the last row and `icol(-1)` the last column. A position that is
   out of range raises `IndexError`. Before, both gave an empty dict or an empty list. A Daf with no rows still

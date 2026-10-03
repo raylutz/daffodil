@@ -381,19 +381,19 @@ def test_join_inner():
 def test_join_left():
     left, right = _make_join_dafs()
     result = left.join(right, how='left')
-    assert result.lol == [[1, 'a', 100], [2, 'b', 200], [3, 'c', None]]
+    assert result.lol == [[1, 'a', 100], [2, 'b', 200], [3, 'c', '']]
 
 
 def test_join_right():
     left, right = _make_join_dafs()
     result = left.join(right, how='right')
-    assert result.lol == [[1, 'a', 100], [2, 'b', 200], [4, None, 400]]
+    assert result.lol == [[1, 'a', 100], [2, 'b', 200], [4, '', 400]]
 
 
 def test_join_outer():
     left, right = _make_join_dafs()
     result = left.join(right, how='outer')
-    assert result.lol == [[1, 'a', 100], [2, 'b', 200], [3, 'c', None], [4, None, 400]]
+    assert result.lol == [[1, 'a', 100], [2, 'b', 200], [3, 'c', ''], [4, '', 400]]
 
 
 def test_join_invalid_how_raises():

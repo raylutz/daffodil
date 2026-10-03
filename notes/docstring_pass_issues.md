@@ -277,6 +277,8 @@ The date of the first entry is 2026-10-02.
     Fixed with approval on 2026-10-03. Blank, None and NaN cells now count as 0.
 65. `join()` fills a missing match with `None`. The README says the same. The
     rule for the rest of the library is NULL, the empty string.
+    Fixed with approval on 2026-10-03, option D. A missing match is NULL. `fill=None` gives the old
+    result. `join_records()` has the same `fill`.
 66. `transpose()` without `include_header` names the columns `key`, `A`, `B`.
     The data has no key column, so there is one name too many, and the names
     are shifted from the data. Passing `new_cols` avoids it.

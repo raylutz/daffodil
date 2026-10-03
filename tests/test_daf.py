@@ -4561,8 +4561,8 @@ class TestJoinRecords(unittest.TestCase):
             "id": 1,
             "name": "Alice",
             "status": "active",
-            "address": None,
-            "salary": None
+            "address": '',
+            "salary": ''
         }
         self.assertEqual(result, expected)
 
@@ -4572,8 +4572,8 @@ class TestJoinRecords(unittest.TestCase):
         result = Daf.join_records(records, self.translator_daf)
         expected = {
             "id": 1,
-            "name": None,
-            "status": None,
+            "name": '',
+            "status": '',
             "address": "123 Main St",
             "salary": 50000
         }
@@ -4584,11 +4584,11 @@ class TestJoinRecords(unittest.TestCase):
 
         result = Daf.join_records(records, self.translator_daf)
         expected = {
-            "id": None,
-            "name": None,
-            "status": None,
-            "address": None,
-            "salary": None
+            "id": '',
+            "name": '',
+            "status": '',
+            "address": '',
+            "salary": ''
         }
         self.assertEqual(result, expected)
 
@@ -4600,9 +4600,9 @@ class TestJoinRecords(unittest.TestCase):
         expected = {
             "id": 1,
             "name": "Alice",
-            "status": None,
+            "status": '',
             "address": "123 Main St",
-            "salary": None
+            "salary": ''
         }
         self.assertEqual(result, expected)
 
@@ -4771,7 +4771,7 @@ class TestDafJoin(unittest.TestCase):
         expected = Daf.from_lod(
             [
                 {"id": 1, "name": "Alice", "status": "active", "address": "123 Main St", "salary": 50000},
-                {"id": 2, "name": "Bob", "status": "inactive", "address": None, "salary": None},
+                {"id": 2, "name": "Bob", "status": "inactive", "address": '', "salary": ''},
                 {"id": 3, "name": "Charlie", "status": "active", "address": "456 Elm St", "salary": 70000}
             ],
             keyfield="id"
@@ -4784,7 +4784,7 @@ class TestDafJoin(unittest.TestCase):
             [
                 {"id": 1, "name": "Alice", "status": "active", "address": "123 Main St", "salary": 50000},
                 {"id": 3, "name": "Charlie", "status": "active", "address": "456 Elm St", "salary": 70000},
-                {"id": 4, "name": None, "status": None, "address": "789 Oak St", "salary": 60000}
+                {"id": 4, "name": '', "status": '', "address": "789 Oak St", "salary": 60000}
             ],
             keyfield="id"
         )
@@ -4795,9 +4795,9 @@ class TestDafJoin(unittest.TestCase):
         expected = Daf.from_lod(
             [
                 {"id": 1, "name": "Alice",   "status": "active",   "address": "123 Main St", "salary": 50000},
-                {"id": 2, "name": "Bob",     "status": "inactive", "address": None,          "salary": None},
+                {"id": 2, "name": "Bob",     "status": "inactive", "address": '',          "salary": ''},
                 {"id": 3, "name": "Charlie", "status": "active",   "address": "456 Elm St",  "salary": 70000},
-                {"id": 4, "name": None,      "status": None,       "address": "789 Oak St",  "salary": 60000}
+                {"id": 4, "name": '',      "status": '',       "address": "789 Oak St",  "salary": 60000}
             ],
             keyfield="id"
         )
