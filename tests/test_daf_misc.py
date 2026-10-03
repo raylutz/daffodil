@@ -1629,3 +1629,59 @@ def test_insert_irow_none_and_minus_one_add_at_the_end():
     assert _pos_daf().insert_irow(None, [9, 'z']).lol[-1] == [9, 'z']
     assert _pos_daf().insert_irow(-1, [9, 'z']).lol[-1] == [9, 'z']
     assert _pos_daf().insert_irow(1, [9, 'z']).lol[1] == [9, 'z']
+
+
+# select_cols keeps the order given, and raises for an unknown name
+
+def _cols_daf() -> Daf:
+    return Daf(lol=[[1, 'a', 10], [2, 'b', 20]], cols=['id', 'v', 'n'], keyfield='id',
+               dtypes={'id': int, 'v': str, 'n': int})
+
+
+def test_select_cols_keeps_the_order_given():
+    result = _cols_daf().select_cols(['n', 'id'])
+    assert result.columns() == ['n', 'id']
+    assert result.lol == [[10, 1], [20, 2]]
+    assert result.dtypes == {'n': int, 'id': int}
+    assert result.keyfield == 'id'
+    assert result.lol == _cols_daf().select_kcols(['n', 'id']).lol
+
+
+def test_select_cols_unknown_name_raises_keyerror():
+    with pytest.raises(KeyError):
+        _cols_daf().select_cols(['n', 'nope'])
+    with pytest.raises(KeyError):
+        _cols_daf().select_cols(['nope'], exclude_cols=['nope'])
+
+
+def test_select_cols_a_name_given_twice_is_used_once():
+    assert _cols_daf().select_cols(['n', 'id', 'n']).columns() == ['n', 'id']
+
+
+def test_select_cols_exclude_cols_keeps_table_order_and_ignores_unknown_names():
+    assert _cols_daf().select_cols(exclude_cols=['v']).columns() == ['id', 'n']
+    assert _cols_daf().select_cols(exclude_cols=['v', 'nope']).columns() == ['id', 'n']
+    assert _cols_daf().select_cols(exclude_cols='v').columns() == ['id', 'n']
+
+
+def test_select_cols_cols_and_exclude_cols_together():
+    assert _cols_daf().select_cols(['n', 'v', 'id'], exclude_cols=['v']).columns() == ['n', 'id']
+
+
+def test_select_cols_single_name_and_all_columns():
+    assert _cols_daf().select_cols('n').columns() == ['n']
+    assert _cols_daf().select_cols().columns() == ['id', 'v', 'n']
+
+
+def test_select_cols_dropping_the_keyfield_clears_it():
+    assert _cols_daf().select_cols(['n', 'v']).keyfield == ''
+
+
+def test_select_cols_everything_excluded_gives_rows_with_no_columns():
+    result = _cols_daf().select_cols(exclude_cols=['id', 'v', 'n'])
+    assert result.lol == [[], []] and result.columns() == []
+
+
+def test_select_cols_daf_with_no_columns():
+    assert Daf().select_cols(['a']).lol == []
+    assert Daf(lol=[[1, 2]]).select_cols().lol == [[]]

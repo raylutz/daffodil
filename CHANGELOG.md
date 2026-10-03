@@ -111,6 +111,11 @@ all prior releases. Plans for future moved to ROADMAP.md.
   built from another one copies it, when it shares it.
 
 ### Changed
+- `select_cols()` keeps the columns in the order of `cols`, as `select_kcols()` and `my_daf[:, cols]` do. It
+  used the order of the Daf. A name in `cols` that is not a column raises `KeyError`. It was ignored. A name given
+  twice is used once. With no `cols`, the order is that of the Daf, and `exclude_cols` ignores names that are not
+  columns, as before. It is also much faster for wide tables, because it no longer searches a list for each cell
+  of each row. For 2,000 rows and 1,000 columns, keeping 500 of them took 0.068 s, against 4.116 s. 9 tests added.
 - `set_col_irows()` raises `KeyError` with the name for a column that is not found. It did nothing. The
   docstring now says the method is deprecated, because `my_daf[irows, colname] = value` does the same. The
   five comments that pointed at GitHub issue 7 were removed. 2 tests changed or added.

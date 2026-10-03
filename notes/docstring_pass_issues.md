@@ -189,6 +189,8 @@ The date of the first entry is 2026-10-02.
 47. `select_cols()` returns the columns in the order of the Daf, not in the order
     asked for, unlike `select_kcols()` and `d[:, [...]]`. Names that are not
     columns give rows with no columns.
+    Fixed with approval on 2026-10-03, option D. It keeps the order given, and a name that is not a
+    column raises `KeyError`. It was also very slow for wide tables, and is now much faster.
 48. Row sharing differs between selectors. `select_where()`, `split_where()` and
     `select_irows()` share the rows. `select_by_dict()` copies them.
     `select_irows([], invert=True)` makes a deep copy.

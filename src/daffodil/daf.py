@@ -6212,61 +6212,64 @@ class Daf:
         """
         Make a new Daf with only some columns, chosen by name.
 
-        The columns stay in the order of this Daf, not in the order of `cols`. Use
-        `select_kcols()` if you want the order you give. With no arguments all columns
-        are kept. A name that is not a column is ignored, so a list of unknown names
-        gives rows with no columns.
+        The columns come in the order of `cols`, as with `select_kcols()` and
+        `my_daf[:, cols]`. A name given twice is used once. A name that is not a column
+        raises `KeyError`. With no `cols`, all columns are kept, in the order of this
+        Daf. Then `exclude_cols` leaves out the columns you name. A name in
+        `exclude_cols` that is not a column is ignored.
 
         This copies data, so it is not cheap. For `apply` and `reduce`, use their
-        `cols` argument instead. The keyfield carries over if its column is kept.
+        `cols` argument instead. The keyfield carries over if its column is kept. A Daf
+        with no column names gives rows with no columns.
 
         Args:
-            cols: The names of the columns to keep. If empty, all columns.
+            cols: The names of the columns to keep, in the order you want. If empty, all columns.
             exclude_cols: The names of the columns to leave out.
 
         Returns:
             The new Daf.
 
+        Raises:
+            KeyError: A name in `cols` is not a column.
+
         Examples:
             >>> d = Daf(lol=[[1, 'a', 10], [2, 'b', 20], [3, 'c', 30]], cols=['id', 'v', 'n'], keyfield='id')
             >>> d.select_cols(['n', 'id']).columns()
-            ['id', 'n']
+            ['n', 'id']
             >>> d.select_cols(exclude_cols=['v']).columns()
             ['id', 'n']
         """
 
-        if not cols:
-            cols = []                       # perflint-reviewed (use-tuple-over-list)
-        if not exclude_cols:
-            exclude_cols = []               # perflint-reviewed (use-tuple-over-list)
+        if not self.hd:
+            return Daf(lol=[[] for _ in self.lol])
 
-        desired_cols = self.calc_cols(
-            include_cols=cols,
-            exclude_cols=exclude_cols
-            )
+        if isinstance(cols, str):
+            cols = [cols]
+        if isinstance(exclude_cols, str):
+            exclude_cols = [exclude_cols]
+        exclude_set = set(exclude_cols) if exclude_cols else set()
 
-        selected_cols_li = [self.hd[col] for col in desired_cols if col in self.hd]
+        if cols:
+            for col in cols:
+                self.hd[col]                # a KeyError for a name that is not a column.
+            new_cols = [col for col in dict.fromkeys(cols) if col not in exclude_set]
+        else:
+            new_cols = [col for col in self.hd if col not in exclude_set]
+
+        idxs = [self.hd[col] for col in new_cols]
 
         # select from the array and create a new object.
-        # this is time consuming.
-        new_lol = []
-        for irow, la in enumerate(self.lol):
-            la = [la[col_idx] for col_idx in range(len(la)) if col_idx in selected_cols_li]
-            new_lol.append(la)
+        new_lol = [[la[idx] for idx in idxs] for la in self.lol]
 
-        old_cols = self.columns()
-        new_cols = [old_cols[idx] for idx in range(len(old_cols)) if idx in selected_cols_li]
         if self.dtypes:
-            dtypes   = {col: typ for col, typ in self.dtypes.items() if col in new_cols}
+            dtypes = {col: self.dtypes[col] for col in new_cols if col in self.dtypes}
         else:
             dtypes = None
 
         new_keyfield = self.keyfield \
             if self.keyfield and isinstance(self.keyfield, str) and self.keyfield in new_cols else ''
 
-        new_daf = Daf(lol=new_lol, cols=new_cols, dtypes=dtypes, keyfield=new_keyfield)
-
-        return(new_daf)
+        return Daf(lol=new_lol, cols=new_cols, dtypes=dtypes, keyfield=new_keyfield)
 
 
     # def from_selected_cols(self, cols: Optional[T_ls]=None, exclude_cols: Optional[T_ls]=None) -> 'Daf':
