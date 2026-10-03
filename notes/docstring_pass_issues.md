@@ -89,6 +89,7 @@ The date of the first entry is 2026-10-02.
     `IndexError`. A longer list loses its extra values without a message.
 26. `to_dod()` on a Daf with no keyfield raises a bare `KeyError('')`. The
     message does not say the keyfield is missing.
+    Fixed with approval on 2026-10-03. It raises `KeysDisabledError` for a Daf with rows and no keyfield.
 27. `from_lot()` names columns `col_0`, `col_1`. `set_cols()` and
     `from_googlesheet()` name them `A`, `B`. The two defaults differ.
 28. `from_directory()` prints its elapsed time to standard output. It never
@@ -193,6 +194,8 @@ The date of the first entry is 2026-10-02.
     missing column. `select_record(silent_error=False)` raises `KeyError()` with
     no key in it. `select_by_dict(expectmax=)` raises `LookupError()` with no
     message. Elsewhere a missing key gives `KeyError` with the key.
+    Fixed with approval on 2026-10-03. `col()` raises `ColumnNotFoundError`, a `KeyError` and also a
+    `RuntimeError`. `select_record()` and `select_by_dict()` now say what failed.
 50. `iloc(-1)` returns `{}` and `icol(-1)` returns `[]`, while `d[-1]` and
     `d[:, -1]` count from the end.
 51. The old second string of `to_list()` said that a table with several rows

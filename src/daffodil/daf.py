@@ -133,6 +133,9 @@ class DaffodilError(Exception):
 class KeysDisabledError(DaffodilError, LookupError):
     """Row-key lookups are unavailable because keyfield is unset/disabled."""
 
+class ColumnNotFoundError(DaffodilError, KeyError, RuntimeError):
+    """A column name is not in the Daf. It is a `KeyError`, and also a `RuntimeError`, which older code may catch."""
+
 class Daf:
     """
     A table of data, stored as a list of rows.
@@ -2313,7 +2316,7 @@ class Daf:
 
         The keyfield column is left out of the inner dicts by default. Pass
         `remove_keyfield=False` to keep it there too. The Daf must have a keyfield.
-        Without one, a `KeyError` is raised.
+        Without one, a `KeysDisabledError` is raised, unless the Daf has no rows.
 
         Args:
             remove_keyfield: If True, do not repeat the key inside each inner dict.
@@ -2322,7 +2325,7 @@ class Daf:
             A dict that maps each key to a dict of that row.
 
         Raises:
-            KeyError: The Daf has no keyfield.
+            KeysDisabledError: The Daf has no keyfield.
 
         Examples:
             >>> d = Daf(lol=[[1, 'a']], cols=['id', 'v'], keyfield='id')
@@ -2351,6 +2354,9 @@ class Daf:
             If remove_keyfield=True (default) dod2 will be produced, else dod1.
 
         """
+        if self and not self.keyfield:
+            raise KeysDisabledError("to_dod(): the Daf has no keyfield.")
+
         # lod_to_dod() does a single dict-key lookup per row (da[keyfield]), which only makes
         # sense for a simple str keyfield, not daf's own broader composite (tuple/list) keyfield
         # support -- this method is only meaningful when self.keyfield is a plain str.
@@ -3275,7 +3281,8 @@ class Daf:
             no default, because the array is built from numbers.
 
         Raises:
-            RuntimeError: A name in `colnames` is not a column.
+            ColumnNotFoundError: A name in `colnames` is not a column. This is a `KeyError`,
+                and also a `RuntimeError`.
 
         Examples:
             >>> Daf(lol=[[1, 'a'], [2, 'b']], cols=['id', 'v']).to_donpa(['id'])['id'].tolist()
@@ -5201,7 +5208,7 @@ class Daf:
         if silent_error:
             return {}
 
-        raise KeyError
+        raise KeyError(key)
 
 
     def _basic_get_record(self, irow: int, include_cols: Optional[T_ls]=None) -> T_da:
@@ -5657,7 +5664,7 @@ class Daf:
         result_lol = [list(d2.values()) for d2 in self if inverse ^ daf_utils.is_d1_in_d2(d1=selector_da, d2=d2)]
 
         if expectmax != -1 and len(result_lol) > expectmax:
-            raise LookupError
+            raise LookupError(f"select_by_dict(): {len(result_lol)} rows match, more than expectmax={expectmax}.")
             # breakpoint() #perm
             # pass
 
@@ -5957,7 +5964,9 @@ class Daf:
             The values of the column.
 
         Raises:
-            RuntimeError: The column is not found and `silent_error` is False, or the name is empty.
+            ColumnNotFoundError: The column is not found and `silent_error` is False. This is a
+                `KeyError`, and also a `RuntimeError`, which this method raised in earlier versions.
+            RuntimeError: The name is empty.
 
         Examples:
             >>> d = Daf(lol=[[1, 'a', 10], [2, 'b', 20], [3, 'c', 30]], cols=['id', 'v', 'n'], keyfield='id')
@@ -6012,7 +6021,9 @@ class Daf:
             The values of the column.
 
         Raises:
-            RuntimeError: The column is not found and `silent_error` is False, or the name is empty.
+            ColumnNotFoundError: The column is not found and `silent_error` is False. This is a
+                `KeyError`, and also a `RuntimeError`, which this method raised in earlier versions.
+            RuntimeError: The name is empty.
         """
 
         if not colname:
@@ -6045,7 +6056,7 @@ class Daf:
         else:
             if silent_error:
                 return []
-            raise RuntimeError(f"colname {colname} not defined in this daf. Use silent_error to return [] in this case.")
+            raise ColumnNotFoundError(colname)
 
         return result_la
 

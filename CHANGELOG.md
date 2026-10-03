@@ -111,6 +111,12 @@ all prior releases. Plans for future moved to ROADMAP.md.
   built from another one copies it, when it shares it.
 
 ### Changed
+- Missing key and column errors are more consistent. `col()` and `to_donpa()` raise the new
+  `ColumnNotFoundError` for a column that is not there. It is a `KeyError`, as for any lookup of a name, and
+  also a `RuntimeError`, so code that caught the old error still works. `select_record(silent_error=False)`
+  raises `KeyError` with the key in it. `select_by_dict(expectmax=)` raises `LookupError` with the number of
+  rows and the limit. `to_dod()` on a Daf with rows and no keyfield raises `KeysDisabledError`, as `d[key]`
+  does, and not a `KeyError` with an empty name. An empty Daf still gives an empty dict. Tests added.
 - Removed `Daf.from_dirlist()`. It was a stub with no code. It returned None. Nothing called
   it. The feature lives in AuditEngine and can be added here later.
 - Library code no longer calls `breakpoint()` on error paths. It raises a specific error

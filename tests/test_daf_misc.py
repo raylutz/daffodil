@@ -1297,3 +1297,51 @@ def test_explicit_keyfield_beats_schema_daf_keyfield():
     assert daf.columns() == ['a', 'b']
     assert daf.keyfield == 'b'
     assert Daf(schema=schema_daf).keyfield == 'a'
+
+
+# missing key and column errors
+
+from daffodil.daf import ColumnNotFoundError, KeysDisabledError
+
+
+def _keyed_daf() -> Daf:
+    return Daf(lol=[[1, 'a'], [2, 'b'], [2, 'c']], cols=['id', 'v'], keyfield='id')
+
+
+def test_col_missing_column_is_keyerror_and_runtimeerror():
+    daf = _keyed_daf()
+    for exc_type in (ColumnNotFoundError, KeyError, RuntimeError):
+        with pytest.raises(exc_type) as info:
+            daf.col('nope')
+        assert 'nope' in str(info.value)
+
+
+def test_col_missing_column_silent_error_returns_empty_list():
+    assert _keyed_daf().col('nope', silent_error=True) == []
+
+
+def test_to_donpa_unknown_column_is_columnnotfound():
+    with pytest.raises(ColumnNotFoundError):
+        _keyed_daf().to_donpa(['nope'])
+
+
+def test_select_record_missing_key_names_the_key():
+    with pytest.raises(KeyError) as info:
+        _keyed_daf().select_record(99, silent_error=False)
+    assert info.value.args == (99,)
+    assert _keyed_daf().select_record(99) == {}
+
+
+def test_select_by_dict_expectmax_message_has_counts():
+    with pytest.raises(LookupError, match=r"2 rows match, more than expectmax=1"):
+        _keyed_daf().select_by_dict({'id': 2}, expectmax=1)
+
+
+def test_to_dod_without_keyfield_raises_keysdisabled():
+    daf = Daf(lol=[[1, 'a']], cols=['id', 'v'])
+    with pytest.raises(KeysDisabledError, match='to_dod'):
+        daf.to_dod()
+
+
+def test_to_dod_empty_daf_without_keyfield_is_empty_dict():
+    assert Daf().to_dod() == {}
