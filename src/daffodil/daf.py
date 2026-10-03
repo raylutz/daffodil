@@ -7002,8 +7002,9 @@ class Daf:
         Warning: the formulas are run with `eval()`. Never use formulas from a source
         you do not trust.
 
-        An error in a formula prints the cell and the formula, and is raised again.
-        The `retmode` of this Daf is then left as `val`.
+        An error in a formula prints the cell and the formula, and is raised again. The
+        `retmode` of this Daf is restored, but the cells that were already changed stay
+        changed.
 
         Args:
             formulas_daf: The formulas, with the same shape as this Daf.
@@ -7044,32 +7045,33 @@ class Daf:
         prior_retmode = self.retmode
         self.retmode = self.RETMODE_VAL
 
-        while lol_changed:
-            lol_changed = False
-            loop_count += 1
-            if loop_count > loop_limit:
-                raise RuntimeError("apply_formulas is resulting in excessive evaluation loops.")      # perflint-reviewed (loop-invariant-statement)
+        try:
+            while lol_changed:
+                lol_changed = False
+                loop_count += 1
+                if loop_count > loop_limit:
+                    raise RuntimeError("apply_formulas is resulting in excessive evaluation loops.")      # perflint-reviewed (loop-invariant-statement)
 
-            for irow in range(len(self.lol)):
-                for icol in range(self.num_cols()):
-                    cell_formula = parsed_formulas_daf.lol[irow][icol]          # perflint-reviewed (loop-invariant-statement)
-                    if not cell_formula:
-                        # no formula provided -- do nothing
-                        continue
-                    try:
-                        new_value = eval(cell_formula)
-                    except Exception as exc_info:
-                        print(f"Error in formula for cell [{irow},{icol}]: '{cell_formula}': '{exc_info}'")
-                        raise
+                for irow in range(len(self.lol)):
+                    for icol in range(self.num_cols()):
+                        cell_formula = parsed_formulas_daf.lol[irow][icol]          # perflint-reviewed (loop-invariant-statement)
+                        if not cell_formula:
+                            # no formula provided -- do nothing
+                            continue
+                        try:
+                            new_value = eval(cell_formula)
+                        except Exception as exc_info:
+                            print(f"Error in formula for cell [{irow},{icol}]: '{cell_formula}': '{exc_info}'")
+                            raise
 
-                    if new_value != self.lol[irow][icol]:
-                        # update the value in the array, and set lol_changed flag
-                        self.lol[irow][icol] = new_value
-                        lol_changed = True
-                    else:
-                        continue
-
-        self.retmode = prior_retmode
+                        if new_value != self.lol[irow][icol]:
+                            # update the value in the array, and set lol_changed flag
+                            self.lol[irow][icol] = new_value
+                            lol_changed = True
+                        else:
+                            continue
+        finally:
+            self.retmode = prior_retmode
 
         #self._rebuild_kd()
         self._invalidate_kd()

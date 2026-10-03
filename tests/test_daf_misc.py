@@ -1222,3 +1222,31 @@ def test_sum_np_does_not_change_the_daf():
     daf = Daf(lol=[[1, '']], cols=['x', 'y'])
     daf.sum_np()
     assert daf.lol == [[1, '']]
+
+
+# apply_formulas restores retmode after an error
+
+def test_apply_formulas_restores_retmode_after_formula_error(capsys):
+    daf = Daf(cols=['A', 'B'], lol=[[1, 2], [3, 4]])
+    formulas = Daf(cols=['A', 'B'], lol=[['', '$d[0,0]+nope'], ['', '']])
+    assert daf.retmode == Daf.RETMODE_OBJ
+    with pytest.raises(NameError):
+        daf.apply_formulas(formulas)
+    assert daf.retmode == Daf.RETMODE_OBJ
+    assert 'Error in formula for cell [0,1]' in capsys.readouterr().out
+    assert isinstance(daf[0], Daf)
+
+
+def test_apply_formulas_restores_retmode_after_circular_formulas():
+    daf = Daf(cols=['A', 'B'], lol=[[1, 2], [3, 4]])
+    formulas = Daf(cols=['A', 'B'], lol=[['$d[1,1]+1', ''], ['', '$d[0,0]+1']])
+    with pytest.raises(RuntimeError, match='excessive evaluation loops'):
+        daf.apply_formulas(formulas)
+    assert daf.retmode == Daf.RETMODE_OBJ
+
+
+def test_apply_formulas_restores_retmode_after_success():
+    daf = Daf(cols=['A', 'B'], lol=[[1, 2]])
+    daf.apply_formulas(Daf(cols=['A', 'B'], lol=[['', '$d[0,0]+10']]))
+    assert daf.lol == [[1, 11]]
+    assert daf.retmode == Daf.RETMODE_OBJ

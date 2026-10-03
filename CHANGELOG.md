@@ -164,6 +164,9 @@ all prior releases. Plans for future moved to ROADMAP.md.
   git-tracked) moved out of `src/` to a gitignored, local-only `deprecated/` folder.
 
 ### Fixed
+- `apply_formulas()` left `retmode` as `val` after a formula error or after formulas that never settle,
+  so later row reads gave lists and not Daf objects. The `retmode` is now restored on every exit.
+  Cells that were already changed stay changed. Tests added.
 - `sum_np()` raised a NumPy error for a blank cell, and the message named no column. A blank, None or
   NaN cell now counts as 0, as in `sum()`. The columns are read with `to_donpa(default=0)`. A column
   of text raises `TypeError` that names the column. An unknown name still raises `KeyError`. For
