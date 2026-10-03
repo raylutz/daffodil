@@ -2989,28 +2989,34 @@ class Daf:
             schema: type | None = None,
             recursive: bool = True,
             file_pat: str | None = None,
+            include_dirs: bool = False,
         ) -> 'Daf':
         """
         Make a Daf that lists the files in a folder.
 
         Each row describes one file. The columns are the path, the folder, the name,
         the name without its extension, the extension, the size in bytes, and the
-        modified and created times. There is also an `is_dir` column, which is always
-        0 because folders are not listed. Paths use `/` on every system.
+        modified and changed times. On Linux and macOS the `ctime` is the time of the last
+        change to the file's metadata, such as its permissions, not the time it was
+        created. Paths use `/` on every system.
+
+        With `include_dirs=True`, the folders are listed too, each before the files in the
+        same folder. A folder has an `is_dir` of 1, a size of 0 and no extension. Without
+        it, no folder is listed and `is_dir` is always 0.
 
         The `schema` chooses the columns of the result. A `@schemaclass` that lists
         only some of the fields above keeps only those. Other columns of the schema
         get their defaults. The new Daf has no keyfield. Files that cannot be read
         are skipped.
 
-        The method prints the time it took, which you may not want in a script.
         Only local folders are supported.
 
         Args:
             source: The folder to list.
             schema: A `@schemaclass` that chooses the columns. If None, the built in one is used.
             recursive: If True, list files in all sub folders. Otherwise only the folder itself.
-            file_pat: A regular expression. Only file names that match it are listed. Case is ignored.
+            file_pat: A regular expression. Only names that match it are listed. Case is ignored.
+            include_dirs: If True, list the folders as well as the files.
 
         Returns:
             The new Daf.
@@ -3018,11 +3024,8 @@ class Daf:
 
         import os
         import re
-        import time
 
         from daffodil.lib.schemaclass import schemaclass, SchemaBase
-
-        start = time.time()
 
         #=========================
         # default schema
@@ -3075,15 +3078,15 @@ class Daf:
 
             full_source = str(source)
 
-            basename_ls = [
-                name for name in os.listdir(full_source)
-                if not os.path.isdir(os.path.join(full_source, name))
-            ]
+            names_ls = os.listdir(full_source)
+            dirname_ls = [name for name in names_ls if os.path.isdir(os.path.join(full_source, name))]
+            dirname_set = set(dirname_ls)
+            basename_ls = [name for name in names_ls if name not in dirname_set]
 
             walker = [
                 (
                     full_source,
-                    cast(List[str], []),
+                    dirname_ls,
                     basename_ls,
                 )
             ]
@@ -3092,11 +3095,14 @@ class Daf:
         # process files
         #=========================
 
-        for dirpath, _, basename_ls in walker:
+        for dirpath, dirname_ls, basename_ls in walker:
 
             dirpath = normalize_path(dirpath)
 
-            for basename in basename_ls:
+            entries_lot: List[Tuple[str, int]] = [(name, 1) for name in dirname_ls] if include_dirs else []
+            entries_lot += [(name, 0) for name in basename_ls]
+
+            for basename, is_dir in entries_lot:
 
                 if file_pat:
 
@@ -3116,7 +3122,10 @@ class Daf:
 
                     continue
 
-                rootname, extension = os.path.splitext(basename)
+                if is_dir:
+                    rootname, extension = basename, ''
+                else:
+                    rootname, extension = os.path.splitext(basename)
 
                 row_da = daf_obj.default_record()
 
@@ -3126,18 +3135,14 @@ class Daf:
                 row_da['rootname']  = rootname
                 row_da['extension'] = extension
 
-                row_da['size']      = stat_result.st_size
+                row_da['size']      = 0 if is_dir else stat_result.st_size
 
                 row_da['mtime']     = stat_result.st_mtime
                 row_da['ctime']     = stat_result.st_ctime
 
-                row_da['is_dir']    = 0
+                row_da['is_dir']    = is_dir
 
                 daf_obj.append(row_da)
-
-        print(
-            f"from_directory(): total time {time.time() - start:.4f}",
-        )
 
         return daf_obj
 

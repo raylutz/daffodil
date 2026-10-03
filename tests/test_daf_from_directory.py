@@ -112,3 +112,55 @@ def test_from_directory_accepts_path_object(tmp_path):
     (tmp_path / 'a.txt').write_text('hi')
     result = Daf.from_directory(tmp_path)  # tmp_path is already a Path object
     assert result.num_rows() == 1
+
+
+# include_dirs, and no printing
+
+def _make_tree(tmp_path):
+    (tmp_path / 'a.txt').write_text('hi')
+    (tmp_path / 'v1.2').mkdir()
+    (tmp_path / 'v1.2' / 'b.csv').write_text('yo!')
+    return tmp_path
+
+
+def test_from_directory_does_not_print(tmp_path, capsys):
+    Daf.from_directory(_make_tree(tmp_path))
+    assert capsys.readouterr().out == ''
+
+
+def test_from_directory_default_lists_only_files_with_is_dir_zero(tmp_path):
+    result = Daf.from_directory(_make_tree(tmp_path))
+    assert sorted(result.col('basename')) == ['a.txt', 'b.csv']
+    assert set(result.col('is_dir')) == {0}
+
+
+def test_from_directory_include_dirs_recursive(tmp_path):
+    result = Daf.from_directory(_make_tree(tmp_path), include_dirs=True)
+    rows = {rec['basename']: rec for rec in result.to_lod()}
+    assert sorted(rows) == ['a.txt', 'b.csv', 'v1.2']
+    assert rows['v1.2']['is_dir'] == 1
+    assert rows['v1.2']['size'] == 0
+    assert rows['v1.2']['extension'] == ''
+    assert rows['v1.2']['rootname'] == 'v1.2'
+    assert rows['b.csv']['is_dir'] == 0 and rows['b.csv']['size'] == 3
+
+
+def test_from_directory_include_dirs_lists_folders_before_files_in_same_folder(tmp_path):
+    result = Daf.from_directory(_make_tree(tmp_path), include_dirs=True)
+    top = [rec['basename'] for rec in result.to_lod() if rec['dirpath'] == tmp_path.as_posix()]
+    assert top == ['v1.2', 'a.txt']
+
+
+def test_from_directory_include_dirs_not_recursive(tmp_path):
+    result = Daf.from_directory(_make_tree(tmp_path), recursive=False, include_dirs=True)
+    assert sorted(result.col('basename')) == ['a.txt', 'v1.2']
+
+
+def test_from_directory_not_recursive_without_include_dirs_skips_folders(tmp_path):
+    result = Daf.from_directory(_make_tree(tmp_path), recursive=False)
+    assert result.col('basename') == ['a.txt']
+
+
+def test_from_directory_file_pat_applies_to_folder_names(tmp_path):
+    result = Daf.from_directory(_make_tree(tmp_path), include_dirs=True, file_pat=r'^v1')
+    assert result.col('basename') == ['v1.2']

@@ -9,6 +9,9 @@ all prior releases. Plans for future moved to ROADMAP.md.
 
 ## [Unreleased]
 ### Added
+- `Daf.from_directory(include_dirs=)`. With `True`, folders are listed as well as files. Each has an
+  `is_dir` of 1, a size of 0 and no extension, and comes before the files in its folder. The default is
+  unchanged, so no folder is listed and `is_dir` is 0. The `file_pat` now applies to folder names too.
 - `Daf.copy(level=)` with the levels `shallow`, `sortable`, `editable` and `deep`. The default is
   `shallow`, as before. `sortable` gives the copy its own row list, `hd`, `dtypes` and key index,
   so rows can be appended, sorted or dropped, and columns renamed or dropped, without reaching the
@@ -161,6 +164,8 @@ all prior releases. Plans for future moved to ROADMAP.md.
   git-tracked) moved out of `src/` to a gitignored, local-only `deprecated/` folder.
 
 ### Fixed
+- `from_directory()` printed its elapsed time on every call. The print is removed. The docstring also
+  said `ctime` is the creation time. On Linux and macOS it is the time of the last metadata change.
 - `remove_key()` with a composite keyfield read a bare key tuple as a range, and raised a `KeyError` that
   named the first part of the key. A tuple as long as the keyfield, with no tuples inside it, is now
   one key, so `remove_key(('a', 1))` works. A tuple of key tuples is still a range, a list of key

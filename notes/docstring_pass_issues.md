@@ -93,6 +93,8 @@ The date of the first entry is 2026-10-02.
 28. `from_directory()` prints its elapsed time to standard output. It never
     lists folders, so the `is_dir` column is always 0. A schema that leaves out
     standard fields drops those columns.
+    Fixed with approval on 2026-10-03. The print is removed. `include_dirs=True` lists
+    folders with `is_dir` of 1. The `ctime` text in the docstring was corrected.
 29. Fixed with approval on 2026-10-03. `to_donpa(default=...)` had no effect on NULL cells. In `col_to_la()` the
     `default` is used only with `indirect_col`. `to_pandas_df(use_donpa=True,
     default=...)` passes it on, so it has no effect there either.
