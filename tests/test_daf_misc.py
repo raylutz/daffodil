@@ -1411,3 +1411,27 @@ def test_readme_examples_for_dropping_rows_and_columns_work():
     assert daf.select_krows(krows=2, inverse=True).lol == [[1, 'a'], [3, 'c']]
     assert daf.select_krows(krows=[1, 3], inverse=True).lol == [[2, 'b']]
     assert daf.select_kcols(['v'], inverse=True).columns() == ['id']
+
+
+# the respect_kd defaults, as the README and docstrings describe them
+
+def _dup_key_daf() -> Daf:
+    return Daf(lol=[[1, 'a'], [2, 'b']], cols=['id', 'v'], keyfield='id')
+
+
+def test_append_extend_concat_add_a_duplicate_key_by_default():
+    assert _dup_key_daf().append({'id': 2, 'v': 'NEW'}).lol == [[1, 'a'], [2, 'b'], [2, 'NEW']]
+    assert _dup_key_daf().append([2, 'NEW']).lol == [[1, 'a'], [2, 'b'], [2, 'NEW']]
+    assert _dup_key_daf().extend([{'id': 2, 'v': 'NEW'}]).lol == [[1, 'a'], [2, 'b'], [2, 'NEW']]
+    other = Daf(lol=[[2, 'NEW']], cols=['id', 'v'])
+    assert _dup_key_daf().concat(other).lol == [[1, 'a'], [2, 'b'], [2, 'NEW']]
+
+
+def test_record_append_replaces_a_duplicate_key_by_default():
+    assert _dup_key_daf().record_append({'id': 2, 'v': 'NEW'}).lol == [[1, 'a'], [2, 'NEW']]
+    assert _dup_key_daf().record_append({'id': 2, 'v': 'NEW'}, respect_kd=False).lol == [[1, 'a'], [2, 'b'], [2, 'NEW']]
+
+
+def test_respect_kd_true_replaces_a_duplicate_key():
+    assert _dup_key_daf().append({'id': 2, 'v': 'NEW'}, respect_kd=True).lol == [[1, 'a'], [2, 'NEW']]
+    assert _dup_key_daf().extend([{'id': 2, 'v': 'NEW'}], respect_kd=True).lol == [[1, 'a'], [2, 'NEW']]

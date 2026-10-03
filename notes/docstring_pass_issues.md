@@ -126,6 +126,8 @@ The date of the first entry is 2026-10-02.
     NULL, with no message.
 37. `append()` defaults to `respect_kd=False`, and `record_append()` defaults to
     `respect_kd=True`. The same word has the opposite default in the two methods.
+    Resolved with approval on 2026-10-03, by documentation only. The defaults stay as they are.
+    The Args lines say which default each method has.
 38. `append()` has a branch for a `KeyedList` that is never reached, because an
     earlier branch already takes `dict` and `KeyedList` together.
 39. `remove_key()` and `remove_keylist()` do not remove anything. They return a
@@ -203,6 +205,8 @@ The date of the first entry is 2026-10-02.
     `to_dict()` text named an `include_cols` argument that it does not have.
 52. The README says appending a row whose key exists overwrites it. The default
     is `respect_kd=False`, which adds a second row.
+    Fixed with approval on 2026-10-03. The README now says `append()` adds a second row, and that
+    `record_append()` is the one that replaces by default.
 53. The names of the flags differ: `inverse` in `select_krows()` and
     `select_kcols()`, `invert` in `select_irows()`, and `flip` in
     `select_icols()` and `select_kcols()`.

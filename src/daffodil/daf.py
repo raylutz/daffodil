@@ -3618,7 +3618,7 @@ class Daf:
 
         Args:
             data_item: The row or rows to add.
-            respect_kd: If True, replace the row that has the same key. Otherwise add it.
+            respect_kd: If True, replace the row that has the same key. If False, the default, add it.
 
         Returns:
             This Daf, which has been changed.
@@ -3696,7 +3696,7 @@ class Daf:
 
         Args:
             other_instance: Daf whose rows are added. It is not changed.
-            respect_kd: If False, append every row without looking at the keys. If True,
+            respect_kd: If False, the default, append every row without looking at the keys. If True,
                 replace the row that has the same key and append the rows with new keys.
 
         Returns:
@@ -3799,7 +3799,7 @@ class Daf:
 
         Args:
             records_lod: The records, as dicts.
-            respect_kd: If True, replace the row that has the same key. Otherwise add it.
+            respect_kd: If True, replace the row that has the same key. If False, the default, add it.
 
         Returns:
             This Daf, which has been changed.
@@ -3850,7 +3850,7 @@ class Daf:
 
         Args:
             record: The row, as a dict or a [KeyedList][daffodil.keyedlist.KeyedList].
-            respect_kd: If True, replace the row that has the same key. Otherwise add it.
+            respect_kd: If True, the default, replace the row that has the same key. Otherwise add it.
 
         Returns:
             This Daf, which has been changed.

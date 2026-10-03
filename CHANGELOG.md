@@ -111,6 +111,11 @@ all prior releases. Plans for future moved to ROADMAP.md.
   built from another one copies it, when it shares it.
 
 ### Changed
+- The README said that appending a row whose key exists overwrites it, for all kinds of appending. Only
+  `record_append()` does that by default. `append()`, `extend()` and `concat()` add a second row, which is
+  faster, and replace the row with `respect_kd=True`. The README and the `respect_kd` lines of the four
+  methods now say so. No behavior changed. For 100,000 rows one at a time, `append()` took 0.176 s and 0.295 s with
+  `respect_kd=True`. Three tests added.
 - `select_irows()` takes `inverse`, the name every other selector uses. The old `invert` is still
   accepted. The README examples for dropping rows and columns used `invert=` with `select_krows()` and
   `select_kcols()`, which raised `TypeError`. They now use `inverse=`. The three examples are checked in a

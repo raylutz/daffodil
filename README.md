@@ -707,11 +707,13 @@ Here are some examples.
 ### appending and row/column manipulation    
     
 #### append a single row provided as a dictionary.
-Please note that if a keyfield is set, and if the key already exists in the array, then
-it will be overwritten with new data rather than adding a new row. This behavior is consistent
-with all types of appending.
+If a keyfield is set and the key already exists, `append()` adds a second row with that key,
+because that is the fastest. Pass `respect_kd=True` to replace the row that has the key instead.
+`extend()` and `concat()` work the same way, and default to adding. `record_append()` is the one
+exception. It replaces the row by default, and `respect_kd=False` makes it add.
 
     my_daf.append(row)
+    my_daf.append(row, respect_kd=True)         # replace the row with the same key.
     
 #### append multiple rows as a list of dictionaries.
 
