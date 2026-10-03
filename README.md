@@ -693,6 +693,7 @@ Here are some examples.
 |:----------------------------------------------------------|:------------------------------------------------------------------------------|
 |`my_daf[irow] = list`                                      | assign the entire row at index irow to the list provided                      |
 |`my_daf[irow] = value`                                     | assign the entire row at index row to the single value provided.              |
+|`my_daf[irow] = dict`                                      | assign the entire row, placing values by column name. Columns the dict lacks become NULL. Use `update_record_irow()` or `my_daf[irow, colname] = value` to change only some cells. |
 |`my_daf[irow, icol] = value`                               | set cell irow, icol to value, where irow, icol are integers.                  |
 |`my_daf[irow, start:end] = value`                          | set a value in cells in row irow, from columns start to end.                  |
 |`my_daf[irow, start:end] = list`                           | set values from a list in cells in row irow, from columns start to end.       |
@@ -1005,7 +1006,7 @@ Below is a sample of equivalent functions between Pandas and Daffodil. Please no
 |`df.to_records()`                                  |`daf.to_lod(); .to_dod()`                  |convert from array to records in list-of-dict (or dict-of-dict) format.  |
 |`df.to_markdown()`                                 |`daf.to_md()`                              |convert to markdown representation. default presentation in Daf  |
 |`df.assign()`                                      |`daf[:, n] = new_col`                      |assign new values to a column  |
-| -- (not available?)                               |`daf[rowname or idx] = dict`               |assign new values to a row and respect column names as dict keys  |
+| -- (not available?)                               |`daf[rowname or idx] = dict`               |assign the whole row, placing values by column name. Missing columns become NULL.  |
 |`df[df[colname] > 5]`                              |`daf.select_where(lambda row: row[colname] > 5)`           |select rows where the value in colname > 5   |
 |`df.rename(renaming dict)`                         |`daf.rename_cols(); daf.set_cols(); daf.set_rowkeys()`     |Daf allows renaming rows when keyfield=''  |
 |`df.reset_index`                                   |`daf.set_keyfield(''); daf.set_rowkeys()`  |similar in operation.   |

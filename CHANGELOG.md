@@ -111,6 +111,8 @@ all prior releases. Plans for future moved to ROADMAP.md.
   built from another one copies it, when it shares it.
 
 ### Changed
+- The README says that `my_daf[irow] = dict` replaces the whole row, and that columns the dict lacks become NULL. It
+  said only that column names are respected. It points to `update_record_irow()` for changing some cells.
 - `select_cols()` keeps the columns in the order of `cols`, as `select_kcols()` and `my_daf[:, cols]` do. It
   used the order of the Daf. A name in `cols` that is not a column raises `KeyError`. It was ignored. A name given
   twice is used once. With no `cols`, the order is that of the Daf, and `exclude_cols` ignores names that are not
