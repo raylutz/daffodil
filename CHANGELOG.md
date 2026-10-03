@@ -161,6 +161,10 @@ all prior releases. Plans for future moved to ROADMAP.md.
   git-tracked) moved out of `src/` to a gitignored, local-only `deprecated/` folder.
 
 ### Fixed
+- `transpose()` without `include_header` named its cols `key`, `A`, `B`, with one name too many. The first
+  source row sat under `key`, each later row under the wrong name, and the last name had no data.
+  The default cols are now `A`, `B`, `C`, one for each source row. With `include_header=True` they
+  still start with `key`. A `new_cols` you pass is unchanged. Tests added.
 - `set_cols()` accepted more names than columns. The header was then longer than the rows, and
   `to_lod()` dropped the extra names without a word. It now raises `AttributeError`, as it
   already did for too few names. A Daf with no columns still accepts any list. Tests added.

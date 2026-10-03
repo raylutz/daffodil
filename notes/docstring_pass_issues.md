@@ -250,6 +250,7 @@ The date of the first entry is 2026-10-02.
 66. `transpose()` without `include_header` names the columns `key`, `A`, `B`.
     The data has no key column, so there is one name too many, and the names
     are shifted from the data. Passing `new_cols` avoids it.
+    Fixed with approval on 2026-10-03. The default cols are now `A`, `B`, `C`.
 67. Fixed with approval on 2026-10-02. `narrow_to_wide()` assumed that rows of one id are next to each other. If
     they are not, it loses columns without a message. Its `wide_cols` argument is
     not used. The old `wide_to_narrow()` docstring named `value_cols` and

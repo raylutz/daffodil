@@ -9986,13 +9986,14 @@ class Daf:
         The result has one row for each column of this Daf. With `include_header=True`,
         the first column of the result holds the column names of this Daf, and the
         names given in `new_cols` or the default names must then include that column.
-        The default names are `key`, then `A`, `B` and so on. Without `include_header`
-        pass `new_cols` that has one name for each row of this Daf, or the names will
-        be one too many. The data is copied.
+        The default cols are `A`, `B` and so on, one for each row of this Daf. With
+        `include_header=True` they start with `key`. If you pass `new_cols`, give one
+        name for each row of this Daf, plus one with `include_header`. The data is
+        copied.
 
         Args:
             new_keyfield: The keyfield of the result.
-            new_cols: The names of the columns of the result.
+            new_cols: The cols of the result.
             include_header: If True, the column names become the first column.
 
         Returns:
@@ -10002,11 +10003,17 @@ class Daf:
             >>> d = Daf(lol=[[1, 'a'], [2, 'b']], cols=['id', 'v'])
             >>> d.transpose(include_header=True).lol
             [['id', 1, 2], ['v', 'a', 'b']]
+            >>> d.transpose().columns()
+            ['A', 'B']
+            >>> d.transpose(include_header=True).columns()
+            ['key', 'A', 'B']
         """
         import numpy as np
 
         if not new_cols:
-            new_cols = ['key'] + daf_utils._generate_spreadsheet_column_names_list(num_cols=len(self.lol))
+            new_cols = daf_utils._generate_spreadsheet_column_names_list(num_cols=len(self.lol))
+            if include_header:
+                new_cols = ['key'] + new_cols
 
         # transpose the array
         # new_lol = [list(row) for row in zip(*self.lol)]

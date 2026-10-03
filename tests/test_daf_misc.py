@@ -1055,3 +1055,25 @@ def test_from_cols_dol_single_column_and_numpy_arrays():
     assert Daf.from_cols_dol({'A': [1, 2]}).lol == [[1], [2]]
     daf = Daf.from_cols_dol({'A': np.array([1, 2]), 'B': np.array([3, 4])})
     assert daf.lol == [[1, 3], [2, 4]]
+
+
+# transpose default cols
+
+def test_transpose_default_cols_one_per_source_row():
+    daf = Daf(lol=[[1, 'a'], [2, 'b'], [3, 'c']], cols=['id', 'v'])
+    result = daf.transpose()
+    assert result.columns() == ['A', 'B', 'C']
+    assert result.lol == [[1, 2, 3], ['a', 'b', 'c']]
+    assert result.to_lod() == [{'A': 1, 'B': 2, 'C': 3}, {'A': 'a', 'B': 'b', 'C': 'c'}]
+
+
+def test_transpose_include_header_default_cols_start_with_key():
+    daf = Daf(lol=[[1, 'a'], [2, 'b'], [3, 'c']], cols=['id', 'v'])
+    result = daf.transpose(include_header=True)
+    assert result.columns() == ['key', 'A', 'B', 'C']
+    assert result.lol == [['id', 1, 2, 3], ['v', 'a', 'b', 'c']]
+
+
+def test_transpose_explicit_new_cols_unchanged():
+    daf = Daf(lol=[[1, 'a'], [2, 'b']], cols=['id', 'v'])
+    assert daf.transpose(new_cols=['r0', 'r1']).columns() == ['r0', 'r1']
