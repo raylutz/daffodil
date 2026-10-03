@@ -6351,33 +6351,50 @@ class Daf:
         return self
 
 
-    def assign_record_irow(self, irow: int=-1, record: Optional[T_da]=None) -> 'Daf':
+    def assign_record_irow(self, irow: Optional[int]=None, record: Optional[T_da]=None) -> 'Daf':
         """
         Put one row in the Daf by position, replacing the row there.
 
         The row is a dict. The whole row is replaced, and the cells of columns that
-        the dict lacks become NULL. With the default position, which is negative, or
-        with a position beyond the end, the row is added at the end instead. Use
-        `update_record_irow()` to change only some cells.
+        the dict lacks become NULL. Use `update_record_irow()` to change only some cells.
+
+        With the default position, `None`, the row is added at the end. So it is with a
+        position beyond the last row, and with any position when the Daf has no rows.
+        A negative position counts from the end, as in a list, so `-1` replaces the last
+        row. This is also what `my_daf[-1] = {...}` does.
 
         Args:
-            irow: The row position. A negative or too large position adds the row at the end.
+            irow: The row position. None, the default, adds the row at the end.
             record: The row, as a dict. If None, nothing happens.
 
         Returns:
             This Daf, which has been changed.
+
+        Raises:
+            IndexError: A negative position is before the first row, for a Daf that has rows.
 
         Examples:
             >>> d = Daf(lol=[[1, 'a', 10], [2, 'b', 20], [3, 'c', 30]], cols=['id', 'v', 'n'], keyfield='id')
             >>> _ = d.assign_record_irow(1, {'v': 'q'})
             >>> d.lol[1]
             ['', 'q', '']
+            >>> _ = d.assign_record_irow(-1, {'id': 9})
+            >>> d.lol[-1]
+            [9, '', '']
+            >>> _ = d.assign_record_irow(record={'id': 10})
+            >>> d.lol[-1], len(d)
+            ([10, '', ''], 4)
         """
 
         if record is None:
             return self
 
-        if irow < 0 or irow >= len(self.lol):
+        if irow is not None and irow < 0 and self.lol:
+            irow += len(self.lol)               # count from the end, as a list does.
+            if irow < 0:
+                raise IndexError(f"assign_record_irow(): row position {irow - len(self.lol)} is before the first row.")
+
+        if irow is None or irow < 0 or irow >= len(self.lol):
             self.append(record)
         else:
             #normal_record_da = Daf.normalize_record_da(record_da, cols=self.columns(), dtypes=self.dtypes)
@@ -6428,10 +6445,11 @@ class Daf:
         Change some cells in the row at a position.
 
         Only the columns that are keys of the dict are changed. Other cells keep their
-        values. A position that is out of range does nothing.
+        values. A negative position counts from the end, as in a list, so the default,
+        `-1`, is the last row. A position that is out of range does nothing.
 
         Args:
-            irow: The row position.
+            irow: The row position. -1, the default, is the last row.
             record: The new values, as a dict of column name and value. Names that are not columns are ignored.
 
         Returns:
@@ -6442,10 +6460,16 @@ class Daf:
             >>> _ = d.update_record_irow(1, {'v': 'q'})
             >>> d.lol[1]
             [2, 'q', 20]
+            >>> _ = d.update_record_irow(record={'n': 99})
+            >>> d.lol[-1]
+            [3, 'c', 99]
         """
 
         if record is None or not self.lol or not self.hd:
             return self
+
+        if irow < 0:
+            irow += len(self.lol)               # count from the end, as a list does.
 
         if irow < 0 or irow >= len(self.lol):
             return self
@@ -6566,16 +6590,19 @@ class Daf:
         return self
 
 
-    def insert_irow(self, irow: int=-1, row: Optional[Union[T_la, T_da]]=None, default: Any='') -> 'Daf':
+    def insert_irow(self, irow: Optional[int]=None, row: Optional[Union[T_la, T_da]]=None, default: Any='') -> 'Daf':
         """
         Insert a row at a position and move the later rows down.
 
         The row is a list of values, or a dict that is placed by column name. A short
-        list is filled out with `default`. A position beyond the last row adds the row
-        at the end. The key index is rebuilt when it is next needed.
+        list is filled out with `default`. With the default position, `None`, or with a
+        position beyond the last row, the row is added at the end. A negative position,
+        such as `-1`, also adds it at the end. This differs from `list.insert()`, which
+        puts the item before the last one. Prefer `None`. The key index is rebuilt when
+        it is next needed.
 
         Args:
-            irow: The row position. -1 adds the row at the end.
+            irow: The row position. None, the default, adds the row at the end.
             row: The row, as a list or a dict.
             default: The value for cells that a short list does not reach.
 
@@ -6606,7 +6633,7 @@ class Daf:
         else:
             raise TypeError(f"insert_irow(): row must be a list or a dict, not {type(row).__name__}.")
 
-        self.lol = daf_utils.insert_row_in_lol_at_irow(irow=irow, row_la=row_la, lol=self.lol, default=default)
+        self.lol = daf_utils.insert_row_in_lol_at_irow(irow=-1 if irow is None else irow, row_la=row_la, lol=self.lol, default=default)
 
         self._invalidate_kd()    # use lazy kd rebuilding
         #self._rebuild_kd()

@@ -231,6 +231,11 @@ The date of the first entry is 2026-10-02.
     beyond the end, and its default position is -1. A caller who passes a bad
     position adds a row without a message. `update_record_irow()` ignores a
     bad position.
+    Changed with approval on 2026-10-03, option C. `None` is the default position and adds a row at the
+    end. A negative position counts from the end, so `-1` replaces the last row, as `d[-1] = [...]` did.
+    `update_record_irow(-1)` now reaches the last row. `insert_irow()` takes `None`, and `-1` still adds at the
+    end. A position beyond the last row still adds a row. A position that is out of range for
+    `update_record_irow()` still does nothing.
 56. `insert_irow(0, 'zz')` raises `UnboundLocalError`, because a row that is
     neither a list nor a dict leaves `row_la` unset.
     Fixed with approval on 2026-10-03. It raises `TypeError` that names the method.

@@ -111,6 +111,15 @@ all prior releases. Plans for future moved to ROADMAP.md.
   built from another one copies it, when it shares it.
 
 ### Changed
+- Row positions in `assign_record_irow()`, `update_record_irow()` and `insert_irow()`. The default position of
+  `assign_record_irow()` and `insert_irow()` is now `None`, which adds the row at the end. A negative
+  position counts from the end, as in a list, in `assign_record_irow()` and `update_record_irow()`. So
+  `assign_record_irow(-1, rec)` and `my_daf[-1] = {...}` now replace the last row, and before they added a row.
+  `my_daf[-1] = [...]` already replaced the last row, so a dict and a list now agree. A position before the
+  first row raises `IndexError`. A position beyond the last row still adds a row. `update_record_irow()` with
+  its default `-1` updated nothing, and now updates the last row. `insert_irow(-1, row)` still adds at the end.
+  Code that passed `-1` to add a row with `assign_record_irow()` must pass `None` or leave the position out.
+  11 tests added.
 - `join()` fills the cells of a missing match with NULL, the empty string, as the rest of the library does for
   a missing value. It filled them with `None`. The new argument `fill` sets the value, so `fill=None` gives the
   old result. `join_records()` has the same argument and default. A joined table now prints blanks and not the

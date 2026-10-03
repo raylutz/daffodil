@@ -1553,3 +1553,70 @@ def test_insert_irow_list_and_dict_still_work():
     daf = Daf(lol=[[1, 'a']], cols=['id', 'v'])
     daf.insert_irow(0, [0, 'z']).insert_irow(-1, {'id': 9})
     assert daf.lol == [[0, 'z'], [1, 'a'], [9, '']]
+
+
+# row positions: None adds at the end, a negative position counts from the end
+
+def _pos_daf() -> Daf:
+    return Daf(lol=[[1, 'a'], [2, 'b'], [3, 'c']], cols=['id', 'v'], keyfield='id')
+
+
+def test_assign_record_irow_none_adds_at_the_end():
+    assert _pos_daf().assign_record_irow(None, {'id': 9, 'v': 'z'}).lol == [[1, 'a'], [2, 'b'], [3, 'c'], [9, 'z']]
+    assert _pos_daf().assign_record_irow(record={'id': 9, 'v': 'z'}).lol == [[1, 'a'], [2, 'b'], [3, 'c'], [9, 'z']]
+
+
+def test_assign_record_irow_negative_counts_from_the_end():
+    assert _pos_daf().assign_record_irow(-1, {'id': 9, 'v': 'z'}).lol == [[1, 'a'], [2, 'b'], [9, 'z']]
+    assert _pos_daf().assign_record_irow(-3, {'id': 9, 'v': 'z'}).lol == [[9, 'z'], [2, 'b'], [3, 'c']]
+
+
+def test_assign_record_irow_before_the_first_row_raises():
+    daf = _pos_daf()
+    with pytest.raises(IndexError):
+        daf.assign_record_irow(-4, {'id': 9, 'v': 'z'})
+    assert len(daf) == 3
+
+
+def test_assign_record_irow_beyond_the_end_adds_a_row():
+    assert _pos_daf().assign_record_irow(3, {'id': 9, 'v': 'z'}).lol[-1] == [9, 'z']
+    assert _pos_daf().assign_record_irow(99, {'id': 9, 'v': 'z'}).lol[-1] == [9, 'z']
+    assert len(_pos_daf().assign_record_irow(99, {'id': 9, 'v': 'z'})) == 4
+
+
+def test_assign_record_irow_on_a_daf_with_no_rows_adds_a_row():
+    daf = Daf(cols=['id', 'v'])
+    daf.assign_record_irow(-1, {'id': 1, 'v': 'a'})
+    assert daf.lol == [[1, 'a']]
+
+
+def test_setitem_negative_row_with_dict_replaces_like_a_list():
+    by_dict = _pos_daf()
+    by_dict[-1] = {'id': 9, 'v': 'z'}
+    by_list = _pos_daf()
+    by_list[-1] = [9, 'z']
+    assert by_dict.lol == by_list.lol == [[1, 'a'], [2, 'b'], [9, 'z']]
+
+
+def test_setitem_row_beyond_the_end_with_dict_still_adds_a_row():
+    daf = _pos_daf()
+    daf[5] = {'id': 9, 'v': 'z'}
+    assert daf.lol[-1] == [9, 'z'] and len(daf) == 4
+
+
+def test_update_record_irow_default_and_negative_reach_the_last_row():
+    assert _pos_daf().update_record_irow(record={'v': 'Z'}).lol[-1] == [3, 'Z']
+    assert _pos_daf().update_record_irow(-1, {'v': 'Z'}).lol[-1] == [3, 'Z']
+    assert _pos_daf().update_record_irow(-3, {'v': 'Z'}).lol[0] == [1, 'Z']
+
+
+def test_update_record_irow_out_of_range_still_does_nothing():
+    assert _pos_daf().update_record_irow(3, {'v': 'Z'}).lol == _pos_daf().lol
+    assert _pos_daf().update_record_irow(-4, {'v': 'Z'}).lol == _pos_daf().lol
+
+
+def test_insert_irow_none_and_minus_one_add_at_the_end():
+    assert _pos_daf().insert_irow(row=[9, 'z']).lol[-1] == [9, 'z']
+    assert _pos_daf().insert_irow(None, [9, 'z']).lol[-1] == [9, 'z']
+    assert _pos_daf().insert_irow(-1, [9, 'z']).lol[-1] == [9, 'z']
+    assert _pos_daf().insert_irow(1, [9, 'z']).lol[1] == [9, 'z']
