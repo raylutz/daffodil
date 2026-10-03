@@ -909,3 +909,91 @@ def test_apply_replace_regex_with_an_unknown_column_adds_no_column():
     daf = _named()
     daf.apply_replace_regex('nope', 't', replace_regex='/a/b/')
     assert daf.columns() == ['id', 's']
+
+
+# from_csv_buff include_cols
+
+_CSV = 'a,b,c\n1,2,3\n4,5,6\n'
+
+
+def test_from_csv_buff_include_cols_keeps_the_listed_columns_in_that_order():
+    daf = Daf.from_csv_buff(_CSV, include_cols=['c', 'a'])
+    assert daf.columns() == ['c', 'a']
+    assert daf.lol == [['3', '1'], ['6', '4']]
+
+
+def test_from_csv_buff_include_cols_one_column():
+    daf = Daf.from_csv_buff(_CSV, include_cols=['b'])
+    assert daf.columns() == ['b']
+    assert daf.lol == [['2'], ['5']]
+
+
+def test_from_csv_buff_include_cols_as_a_single_name():
+    daf = Daf.from_csv_buff(_CSV, include_cols='b')
+    assert daf.columns() == ['b']
+
+
+def test_from_csv_buff_include_cols_unknown_name_raises_and_names_it():
+    with pytest.raises(KeyError, match="'zz'"):
+        Daf.from_csv_buff(_CSV, include_cols=['a', 'zz'])
+
+
+def test_from_csv_buff_include_cols_with_noheader_raises():
+    with pytest.raises(ValueError, match='noheader'):
+        Daf.from_csv_buff(_CSV, include_cols=['a'], noheader=True)
+
+
+def test_from_csv_buff_include_cols_from_bytes():
+    daf = Daf.from_csv_buff(_CSV.encode(), include_cols=['b', 'c'])
+    assert daf.lol == [['2', '3'], ['5', '6']]
+
+
+def test_from_csv_buff_include_cols_from_a_stream_of_lines():
+    lines = iter(['a,b,c\n', '1,2,3\n', '4,5,6\n'])
+    daf = Daf.from_csv_buff(lines, include_cols=['c'])
+    assert daf.lol == [['3'], ['6']]
+
+
+def test_from_csv_buff_include_cols_with_dtypes_and_keyfield():
+    daf = Daf.from_csv_buff(_CSV, include_cols=['c', 'a'], dtypes={'a': int, 'b': int, 'c': int}, keyfield='a')
+    assert daf.lol == [[3, 1], [6, 4]]
+    assert daf.keys() == [1, 4]
+
+
+def test_from_csv_buff_include_cols_short_row_gives_null_and_blank_row_stays_empty():
+    daf = Daf.from_csv_buff('a,b,c\n1,2,3\n4\n\n7,8,9\n', include_cols=['a', 'c'])
+    assert daf.lol[0] == ['1', '3']
+    assert daf.lol[1] == ['4', '']
+    assert daf.lol[-1] == ['7', '9']
+
+
+def test_from_csv_buff_include_cols_quoted_fields_and_user_format():
+    text = '# a comment\na,b\n"x,y",2\n'
+    daf = Daf.from_csv_buff(text, include_cols=['a'], user_format=True)
+    assert daf.lol == [['x,y']]
+
+
+def test_from_csv_buff_include_cols_repeated_header_name_uses_the_first():
+    daf = Daf.from_csv_buff('a,a,b\n1,2,3\n', include_cols=['a'])
+    assert daf.lol == [['1']]
+
+
+def test_from_csv_buff_include_cols_header_only_file():
+    daf = Daf.from_csv_buff('a,b\n', include_cols=['b'])
+    assert daf.columns() == ['b']
+    assert daf.num_rows() == 0
+
+
+def test_from_csv_with_include_cols_reads_a_file(tmp_path):
+    path = tmp_path / 'x.csv'
+    path.write_text(_CSV)
+    daf = Daf.from_csv(path, include_cols=['b'])
+    assert daf.lol == [['2'], ['5']]
+    daf2 = Daf.from_csv_file(str(path), include_cols=['c', 'b'])
+    assert daf2.lol == [['3', '2'], ['6', '5']]
+
+
+def test_from_csv_buff_include_cols_gives_the_same_rows_as_selecting_afterwards():
+    wide = 'c0,c1,c2,c3,c4\n' + '\n'.join(','.join(str(r * 5 + i) for i in range(5)) for r in range(20)) + '\n'
+    cols = ['c4', 'c1', 'c3']
+    assert Daf.from_csv_buff(wide, include_cols=cols).lol == Daf.from_csv_buff(wide)[:, cols].lol

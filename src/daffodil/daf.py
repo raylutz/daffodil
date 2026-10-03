@@ -2659,11 +2659,17 @@ class Daf:
             user_format: If True, skip comment lines and blank lines.
             sep: The character that separates fields.
             unflatten: If True, read list and dict columns from their text.
-            include_cols: Accepted, but it has no effect.
+            include_cols: Keep only these columns, in this order. The cells of the other
+                columns are never kept, so a wide file costs little memory.
             name: Name of the new Daf.
 
         Returns:
             The new Daf.
+
+        Raises:
+            KeyError: A name in `include_cols` is not in the header of the file.
+            ValueError: `include_cols` is given with `noheader=True`, because the names
+                of the columns come from the header.
 
         Examples:
             >>> d = Daf.from_csv_buff('id,v\n1,a\n2,"b,c"\n')
@@ -2671,6 +2677,9 @@ class Daf:
             (['id', 'v'], [['1', 'a'], ['2', 'b,c']])
             >>> Daf.from_csv_buff('id,v\n1,a\n', dtypes={'id': int, 'v': str}).lol
             [[1, 'a']]
+            >>> d = Daf.from_csv_buff('a,b,c\n1,2,3\n4,5,6\n', include_cols=['c', 'a'])
+            >>> d.columns(), d.lol
+            (['c', 'a'], [['3', '1'], ['6', '4']])
         """
 
         """
@@ -2697,6 +2706,9 @@ class Daf:
         Returns:
             Daf: The loaded Daf array.
         """
+
+        if include_cols and noheader:
+            raise ValueError("from_csv_buff: include_cols needs the header row to find the columns, so noheader must be False.")
 
         # in the case of bytes, this will set up a conversion of the stream.
         # Converts bytes into a file-like object without reading everything at once.
@@ -2750,7 +2762,8 @@ class Daf:
             user_format: If True, skip comment lines and blank lines.
             sep: The character that separates fields.
             unflatten: If True, read list and dict columns from their text.
-            include_cols: Accepted, but it has no effect.
+            include_cols: Keep only these columns, in this order. The cells of the other
+                columns are never kept, so a wide file costs little memory.
             name: Name of the new Daf.
 
         Returns:

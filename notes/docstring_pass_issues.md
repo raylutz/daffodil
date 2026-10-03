@@ -65,7 +65,7 @@ The date of the first entry is 2026-10-02.
 
 ## Group 3: conversions to and from other forms
 
-20. `from_csv_buff(include_cols=...)` and `from_csv_file(include_cols=...)` have
+20. Fixed with approval on 2026-10-03. `from_csv_buff(include_cols=...)` and `from_csv_file(include_cols=...)` had
     no effect. The argument reaches `buff_csv_to_lol()` in `daf_utils.py`, which
     never uses it. All columns are read. The old docstrings said it includes
     only the columns given.

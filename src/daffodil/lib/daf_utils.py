@@ -1445,6 +1445,8 @@ def buff_csv_to_lol(
         buff (Union[bytes, str, Iterator[str]]): CSV data as bytes, string, or stream.
         user_format (bool): Whether to preprocess the CSV (remove comments, blank lines).
         sep (str): CSV field separator.
+        include_cols (list): Keep only these columns, in this order. The first row is read as the
+            header. Each row is cut down as it is read, so a stream never holds the other columns.
 
     Returns:
         list: Full CSV stored in memory as a list of lists (LoL).
@@ -1537,6 +1539,9 @@ def buff_csv_to_lol(
     # Use csv.reader to process the CSV stream.
     csv_reader = csv.reader(cast(Iterable[str], buff), delimiter=sep, quoting=csv.QUOTE_MINIMAL)
 
+    if include_cols:
+        return _read_selected_cols(csv_reader, include_cols)
+
     if diagnose:
         data_lol = []
         for i, row in enumerate(csv_reader):
@@ -1545,6 +1550,55 @@ def buff_csv_to_lol(
                 print(f"Processed {i} rows...")  # Progress tracking
     else:
         data_lol = list(csv_reader)
+
+    return data_lol
+
+
+def _read_selected_cols(csv_reader: Iterator[List[str]], include_cols: Union[str, List[str]]) -> list:
+    """ Read the rows from csv_reader, keeping only the columns named in include_cols.
+
+        The first row is the header. The columns are returned in the order of include_cols,
+        with the header row first. Each row is cut down as it is read, so the cells of the
+        other columns are never kept. This holds for a stream too.
+
+        An empty row stays empty. A row that is too short gives NULL for the cells it lacks.
+        A name that is not in the header raises KeyError. Where the header repeats a name,
+        the first one is used.
+    """
+    if isinstance(include_cols, str):
+        include_cols = [include_cols]
+
+    header_la = next(csv_reader, None)
+    if header_la is None:
+        return []
+
+    first_idx_d: Dict[str, int] = {}
+    for idx, name in enumerate(header_la):
+        first_idx_d.setdefault(name, idx)
+
+    missing = [name for name in include_cols if name not in first_idx_d]
+    if missing:
+        raise KeyError(f"include_cols: not in the header of the file: {missing}")
+
+    idxs = [first_idx_d[name] for name in include_cols]
+
+    if len(idxs) == 1:
+        only_idx = idxs[0]
+        pick: Callable[[List[str]], List[str]] = lambda row: [row[only_idx]]
+    else:
+        getter = operator.itemgetter(*idxs)
+        pick = lambda row: list(getter(row))
+
+    data_lol: list = [list(include_cols)]
+
+    for row in csv_reader:
+        try:
+            data_lol.append(pick(row))
+        except IndexError:
+            if row:
+                data_lol.append([row[idx] if idx < len(row) else '' for idx in idxs])
+            else:
+                data_lol.append([])
 
     return data_lol
 

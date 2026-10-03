@@ -144,6 +144,13 @@ all prior releases. Plans for future moved to ROADMAP.md.
   git-tracked) moved out of `src/` to a gitignored, local-only `deprecated/` folder.
 
 ### Fixed
+- `include_cols` in `from_csv_buff()`, `from_csv_file()` and `from_csv()` had no effect, so every
+  column was read. It now keeps only the listed columns, in the order listed. Each row is cut
+  down as it is read, so a stream never holds the other columns. For a 2,000 row by 1,000
+  column stream with 3 columns kept, the peak memory was 0.8 MB, not 129.0 MB. Reading from a
+  string took 0.177 s, not 0.230 s, and the path without `include_cols` is the same. A name
+  that is not in the header raises `KeyError`. With `noheader=True` it raises `ValueError`. A
+  short row gives NULL for the cells it lacks. Fourteen tests added.
 - Several methods added a value to the rows without adding a column name, so the rows had more
   values than `columns()` had names. The CSV writer, `to_lod()` and `to_pandas_df()` then lost the
   value, and `d[:, 2]` raised `IndexError`. `annotate_daf()` with a field that is not a column,
