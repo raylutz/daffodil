@@ -196,7 +196,7 @@ def test_append_daf_concat():
 
 def test_append_unsupported_type_raises():
     daf = Daf(lol=[[1, 'a']], cols=['id', 'name'])
-    with pytest.raises(RuntimeError):
+    with pytest.raises(TypeError, match='append'):
         daf.append(42)
 
 

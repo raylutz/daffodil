@@ -3589,19 +3589,33 @@ class Daf:
     #===========================
     # append
 
-    def append(self, data_item: Union['Daf', T_loda, T_da, T_la, KeyedList], respect_kd: bool=False) -> 'Daf':
+    def append(self,
+            data_item:  Union['Daf', T_loda, T_da, T_la, KeyedList, None] = None,
+            respect_kd: bool = False,
+            *,
+            lol:        Optional[T_lola] = None,
+            la:         Optional[T_la] = None,
+            ) -> 'Daf':
         """
         Add one row, or several, to the end of the Daf.
 
         This is the general way to add data. What it does depends on what you give it.
+        Give exactly one of `data_item`, `lol` and `la`.
 
         A dict or a [KeyedList][daffodil.keyedlist.KeyedList] is one row. It is placed
         by column name, so its keys may be in any order. A missing key gets NULL. A key
         that is not a column is dropped.
 
         A list of values is one row, in column order. A short list is padded with NULL.
-        Extra values are dropped. With no columns defined, the list is added as it is.
-        A list of lists is not a list of rows. It becomes one row whose cells are lists.
+        A list with more values than there are columns raises `ValueError`. With no
+        columns defined, the list is added as it is. A list of lists given as
+        `data_item` is therefore one row whose cells are lists, which fits only if there
+        are enough columns.
+
+        To say what you mean, use the keywords. `lol` is several rows, each a list in
+        column order, as in `append(lol=[[2, 'b'], [3, 'c']])`. `la` is one row, even if
+        its items are lists, as in `append(la=[[2, 'b'], [3, 'c']])`. Each row of `lol`
+        follows the length rule above.
 
         A list of dicts is several rows. See `extend()`.
 
@@ -3619,9 +3633,15 @@ class Daf:
         Args:
             data_item: The row or rows to add.
             respect_kd: If True, replace the row that has the same key. If False, the default, add it.
+            lol: Several rows, each a list of values in column order.
+            la: One row, as a list of values in column order. Its items are not read as rows.
 
         Returns:
             This Daf, which has been changed.
+
+        Raises:
+            TypeError: More than one of `data_item`, `lol` and `la` is given, or `data_item` is not a supported type.
+            ValueError: A list has more values than there are columns.
 
         Examples:
             >>> d = Daf(lol=[[1, 'a']], cols=['id', 'v'], keyfield='id')
@@ -3629,8 +3649,10 @@ class Daf:
             [[1, 'a'], [2, 'b']]
             >>> d.append([3, 'c']).lol
             [[1, 'a'], [2, 'b'], [3, 'c']]
+            >>> d.append(lol=[[4, 'd'], [5, 'e']]).lol
+            [[1, 'a'], [2, 'b'], [3, 'c'], [4, 'd'], [5, 'e']]
             >>> d.append({'id': 2, 'v': 'new'}, respect_kd=True).lol
-            [[1, 'a'], [2, 'new'], [3, 'c']]
+            [[1, 'a'], [2, 'new'], [3, 'c'], [4, 'd'], [5, 'e']]
         """
 
         """ general append method can handle appending one record as T_da or T_la, many records as T_loda or T_daf
@@ -3639,6 +3661,17 @@ class Daf:
         # test exists in test_daf.py for all three cases
 
         diagnose = False
+
+        if (data_item is not None) + (lol is not None) + (la is not None) > 1:
+            raise TypeError("append(): give only one of data_item, lol and la.")
+
+        if lol is not None:
+            return self.extend(lol=lol, respect_kd=respect_kd)
+
+        if la is not None:
+            if not la:
+                return self
+            return self._append_row_la(la, respect_kd)
 
         if not data_item:
             return self
@@ -3655,33 +3688,37 @@ class Daf:
                 # lod type
                 self.extend(data_item, respect_kd=respect_kd)
             else:
-                # simple list.
-                if self.hd:
-                    # columns are defined, and keyfield might also be defined
-                    # create a dict.
-                    da = dict(zip(self.hd.keys(), data_item))
-                    self.record_append(da, respect_kd=respect_kd)  # <-- this takes care of respecing the row kd (invalidating)
-                else:
-                    # no columns defined, therefore just append to lol.
-                    self.lol.append(data_item)
-
-        elif isinstance(data_item, KeyedList):
-            # hd matches.
-            if self.hd == data_item.hd:
-                self.lol.append(data_item.values())
-                self._invalidate_kd()
-
-            else:
-                da = data_item.to_dict()
-                self.record_append(da, respect_kd=respect_kd)  # <-- this takes care of respecing the row kd.
+                self._append_row_la(data_item, respect_kd)
 
         elif isinstance(data_item, Daf):  # type: ignore
             self.concat(data_item, respect_kd=respect_kd)
+
         else:
-            raise RuntimeError    # pragma: no cover
+            raise TypeError(f"append(): data_item must be a dict, KeyedList, list or Daf, not {type(data_item).__name__}.")
 
         if diagnose:
             logs.sts(f"{logs.prog_loc()} append done. Elapsed: {(time.time() - start_time):.10f}", 3)
+
+        return self
+
+
+    def _append_row_la(self, row_la: T_la, respect_kd: bool) -> 'Daf':
+        """
+        Add one row that is given as a list of values in column order. Internal use.
+
+        A list with more values than the columns raises `ValueError`. A short list is padded
+        with NULL. With no columns defined, the list is added as it is.
+        """
+        if self.hd:
+            if len(row_la) > len(self.hd):
+                raise ValueError(f"append(): the list has {len(row_la)} values for {len(self.hd)} columns.")
+            # columns are defined, and keyfield might also be defined
+            # create a dict.
+            da = dict(zip(self.hd.keys(), row_la))
+            self.record_append(da, respect_kd=respect_kd)  # <-- this takes care of respecing the row kd (invalidating)
+        else:
+            # no columns defined, therefore just append to lol.
+            self.lol.append(row_la)
 
         return self
 
@@ -3786,13 +3823,24 @@ class Daf:
 
         return self
 
-    def extend(self, records_lod: T_loda, respect_kd: bool=False) -> 'Daf':
+    def extend(self,
+            records_lod:    Optional[T_loda] = None,
+            respect_kd:     bool = False,
+            *,
+            lol:            Optional[T_lola] = None,
+            ) -> 'Daf':
         """
-        Append several records that are given as a list of dicts.
+        Append several records, given as a list of dicts or as a list of lists.
 
-        Each dict is a row, placed by column name, as in `append()`. A Daf with no
-        columns takes them from the first dict. An empty list, or a list that holds
-        one empty dict, adds nothing.
+        Give a list of dicts as `records_lod`. Each dict is a row, placed by column name,
+        as in `append()`. A Daf with no columns takes them from the first dict. An empty
+        list, or a list that holds one empty dict, adds nothing.
+
+        Give a list of lists as `lol`, as in `extend(lol=[[2, 'b'], [3, 'c']])`. Each list is a row, in
+        column order. A short list is padded with NULL. A list with more values than there
+        are columns raises `ValueError`, and then no row is added. A Daf with no columns
+        takes the lists as they are. The keyword says that these are several rows, and not
+        one row whose cells are lists. For that, see `append(la=...)`.
 
         Without `respect_kd`, a key that already exists is added again. Use
         `respect_kd=True` when the keyfield must stay unique.
@@ -3800,15 +3848,28 @@ class Daf:
         Args:
             records_lod: The records, as dicts.
             respect_kd: If True, replace the row that has the same key. If False, the default, add it.
+            lol: The rows, as lists of values in column order.
 
         Returns:
             This Daf, which has been changed.
+
+        Raises:
+            TypeError: Both `records_lod` and `lol` are given, or a row of `lol` is not a list.
+            ValueError: A row of `lol` has more values than there are columns.
 
         Examples:
             >>> d = Daf(lol=[[1, 'a']], cols=['id', 'v'], keyfield='id')
             >>> d.extend([{'id': 2, 'v': 'b'}, {'id': 1, 'v': 'new'}], respect_kd=True).lol
             [[1, 'new'], [2, 'b']]
+            >>> d.extend(lol=[[3, 'c'], [4]]).lol
+            [[1, 'new'], [2, 'b'], [3, 'c'], [4, '']]
         """
+
+        if records_lod is not None and lol is not None:
+            raise TypeError("extend(): give only one of records_lod and lol.")
+
+        if lol is not None:
+            return self._extend_lol(lol, respect_kd)
 
         if not records_lod or len(records_lod) == 1 and not records_lod[0]:
             # edge case of one record which is empty.
@@ -3818,7 +3879,6 @@ class Daf:
             # new daf, adopt structure of lod.
             # but there is only one header and data is lol
             # this saves space.
-
             self.hd = {col_name: index for index, col_name in enumerate(records_lod[0].keys())}
             self.lol = [list(record_da.values()) for record_da in records_lod]
             self._invalidate_kd() # use lazy kd building.
@@ -3829,6 +3889,37 @@ class Daf:
 
         if not respect_kd:
             self._invalidate_kd() # use lazy kd building.
+
+        return self
+
+
+    def _extend_lol(self, lol: T_lola, respect_kd: bool) -> 'Daf':
+        """
+        Add several rows that are lists of values in column order. Internal use.
+
+        Every row is checked before any row is added. A short row is padded with NULL.
+        """
+        if not lol:
+            return self
+
+        num_cols = len(self.hd)
+
+        for row_la in lol:
+            if not isinstance(row_la, list):
+                raise TypeError(f"extend(): each row of lol must be a list, not {type(row_la).__name__}.")
+            if num_cols and len(row_la) > num_cols:
+                raise ValueError(f"extend(): a row has {len(row_la)} values for {num_cols} columns.")
+
+        if respect_kd and self.keyfield and num_cols:
+            for row_la in lol:
+                self.record_append(dict(zip(self.hd, row_la)), respect_kd=True)
+            return self
+
+        if num_cols:
+            lol = [row_la + [NULL] * (num_cols - len(row_la)) if len(row_la) < num_cols else row_la for row_la in lol]
+
+        self.lol.extend(lol)
+        self._invalidate_kd()       # use lazy kd building.
 
         return self
 

@@ -1685,3 +1685,116 @@ def test_select_cols_everything_excluded_gives_rows_with_no_columns():
 def test_select_cols_daf_with_no_columns():
     assert Daf().select_cols(['a']).lol == []
     assert Daf(lol=[[1, 2]]).select_cols().lol == [[]]
+
+
+# append and extend with lists: lol= is several rows, la= is one row
+
+def _two_col_daf() -> Daf:
+    return Daf(lol=[[1, 'a']], cols=['id', 'v'])
+
+
+def test_append_lol_adds_several_rows():
+    assert _two_col_daf().append(lol=[[2, 'b'], [3, 'c']]).lol == [[1, 'a'], [2, 'b'], [3, 'c']]
+    assert _two_col_daf().append(lol=[[2, 'b'], [3, 'c'], [4, 'd']]).lol == [[1, 'a'], [2, 'b'], [3, 'c'], [4, 'd']]
+
+
+def test_append_la_adds_one_row_even_if_its_items_are_lists():
+    result = _two_col_daf().append(la=[[2, 'b'], [3, 'c']])
+    assert result.lol == [[1, 'a'], [[2, 'b'], [3, 'c']]]
+
+
+def test_append_la_with_more_values_than_columns_raises():
+    daf = _two_col_daf()
+    with pytest.raises(ValueError, match='3 values for 2 columns'):
+        daf.append(la=[[2, 'b'], [3, 'c'], [4, 'd']])
+    assert daf.lol == [[1, 'a']]
+
+
+def test_append_positional_list_longer_than_the_columns_raises():
+    daf = _two_col_daf()
+    with pytest.raises(ValueError, match='append'):
+        daf.append([[2, 'b'], [3, 'c'], [4, 'd']])
+    with pytest.raises(ValueError):
+        daf.append([2, 'b', 'EXTRA'])
+    assert daf.lol == [[1, 'a']]
+
+
+def test_append_short_list_is_padded_with_null():
+    assert _two_col_daf().append([2]).lol == [[1, 'a'], [2, '']]
+    assert _two_col_daf().append(la=[2]).lol == [[1, 'a'], [2, '']]
+
+
+def test_append_list_with_no_columns_is_added_as_it_is():
+    daf = Daf()
+    daf.append([1, 2, 3])
+    daf.append([4, 5, 6, 7])
+    assert daf.lol == [[1, 2, 3], [4, 5, 6, 7]]
+
+
+def test_append_more_than_one_of_data_item_lol_la_raises():
+    with pytest.raises(TypeError, match='only one'):
+        _two_col_daf().append([2, 'b'], lol=[[3, 'c']])
+    with pytest.raises(TypeError):
+        _two_col_daf().append(lol=[[3, 'c']], la=[2, 'b'])
+
+
+def test_append_unsupported_types_raise_typeerror():
+    for bad in [(2, 'b'), 'zz', 5, {2, 3}, range(2)]:
+        if not bad:
+            continue
+        with pytest.raises(TypeError, match='append'):
+            _two_col_daf().append(bad)
+
+
+def test_append_nothing_adds_nothing():
+    daf = _two_col_daf()
+    daf.append().append([]).append({}).append(lol=[]).append(la=[])
+    assert daf.lol == [[1, 'a']]
+
+
+def test_extend_lol_adds_rows_in_column_order():
+    daf = _two_col_daf().extend(lol=[[2, 'b'], [3]])
+    assert daf.lol == [[1, 'a'], [2, 'b'], [3, '']]
+
+
+def test_extend_lol_too_long_row_raises_and_adds_nothing():
+    daf = _two_col_daf()
+    with pytest.raises(ValueError, match='extend'):
+        daf.extend(lol=[[2, 'b'], [3, 'c', 'x']])
+    assert daf.lol == [[1, 'a']]
+
+
+def test_extend_lol_row_that_is_not_a_list_raises():
+    with pytest.raises(TypeError, match='extend'):
+        _two_col_daf().extend(lol=[[2, 'b'], {'id': 3}])
+
+
+def test_extend_both_records_lod_and_lol_raises():
+    with pytest.raises(TypeError, match='only one'):
+        _two_col_daf().extend([{'id': 2}], lol=[[3, 'c']])
+
+
+def test_extend_lol_respect_kd_replaces_the_row_with_the_same_key():
+    daf = Daf(lol=[[1, 'a'], [2, 'b']], cols=['id', 'v'], keyfield='id')
+    daf.extend(lol=[[2, 'NEW'], [3, 'c']], respect_kd=True)
+    assert daf.lol == [[1, 'a'], [2, 'NEW'], [3, 'c']]
+    assert Daf(lol=[[1, 'a']], cols=['id', 'v'], keyfield='id').extend(lol=[[1, 'dup']]).lol == [[1, 'a'], [1, 'dup']]
+
+
+def test_extend_lol_keeps_the_key_index_valid():
+    daf = Daf(lol=[[1, 'a']], cols=['id', 'v'], keyfield='id')
+    daf.keys()
+    daf.extend(lol=[[2, 'b']])
+    assert daf.keys() == [1, 2]
+    assert daf.select_record(2) == {'id': 2, 'v': 'b'}
+
+
+def test_extend_lol_on_an_empty_daf_with_no_columns():
+    daf = Daf()
+    daf.extend(lol=[[1, 2], [3, 4]])
+    assert daf.lol == [[1, 2], [3, 4]]
+
+
+def test_extend_list_of_dicts_still_works():
+    assert _two_col_daf().extend([{'id': 2, 'v': 'b'}]).lol == [[1, 'a'], [2, 'b']]
+    assert _two_col_daf().append([{'id': 2, 'v': 'b'}, {'id': 3, 'v': 'c'}]).lol == [[1, 'a'], [2, 'b'], [3, 'c']]

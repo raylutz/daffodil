@@ -122,14 +122,19 @@ The date of the first entry is 2026-10-02.
 35. `append()` takes a list of lists as one row whose cells are lists. It does
     not take it as several rows. `append([[3,'c'],[4,'d']])` adds the row
     `[[3,'c'],[4,'d']]`. Only a list of dicts is read as several rows.
+    Fixed with approval on 2026-10-03. `append(lol=...)` adds several rows. `append(la=...)` adds one row
+    and does not read its items as rows. `extend(lol=...)` adds several rows.
 36. `append(list)` drops values beyond the columns and pads short lists with
     NULL, with no message.
+    Fixed with approval on 2026-10-03. A list with more values than the columns raises `ValueError`.
+    A short list is still padded with NULL.
 37. `append()` defaults to `respect_kd=False`, and `record_append()` defaults to
     `respect_kd=True`. The same word has the opposite default in the two methods.
     Resolved with approval on 2026-10-03, by documentation only. The defaults stay as they are.
     The Args lines say which default each method has.
 38. `append()` has a branch for a `KeyedList` that is never reached, because an
     earlier branch already takes `dict` and `KeyedList` together.
+    Fixed on 2026-10-03. The branch that could not run was deleted. An unsupported type raises `TypeError`.
 39. `remove_key()` and `remove_keylist()` do not remove anything. They return a
     new Daf, and the names suggest an in place change. The new Daf shares the
     surviving rows with the original.
