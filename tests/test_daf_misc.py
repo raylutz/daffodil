@@ -1250,3 +1250,50 @@ def test_apply_formulas_restores_retmode_after_success():
     daf.apply_formulas(Daf(cols=['A', 'B'], lol=[['', '$d[0,0]+10']]))
     assert daf.lol == [[1, 11]]
     assert daf.retmode == Daf.RETMODE_OBJ
+
+
+# an explicit keyfield is kept when a schema supplies the cols
+
+from daffodil.lib.schemaclass import schemaclass, SchemaBase
+
+
+@schemaclass
+class _KeyedSchema(SchemaBase):
+    __keyfield__ = 'ballot_id'
+    ballot_id: str = ''
+    contest: str = ''
+    votes: int = 0
+
+
+@schemaclass
+class _UnkeyedSchema(SchemaBase):
+    ballot_id: str = ''
+    contest: str = ''
+
+
+def test_schema_keyfield_used_when_none_given():
+    assert Daf(schema=_KeyedSchema).keyfield == 'ballot_id'
+
+
+def test_explicit_keyfield_beats_schema_keyfield():
+    daf = Daf(schema=_KeyedSchema, keyfield='contest')
+    assert daf.columns() == ['ballot_id', 'contest', 'votes']
+    assert daf.keyfield == 'contest'
+
+
+def test_explicit_keyfield_kept_when_schema_has_none():
+    assert Daf(schema=_UnkeyedSchema, keyfield='contest').keyfield == 'contest'
+
+
+def test_explicit_keyfield_with_cols_and_schema_unchanged():
+    daf = Daf(schema=_KeyedSchema, keyfield='contest', cols=['ballot_id', 'contest', 'votes'])
+    assert daf.keyfield == 'contest'
+
+
+def test_explicit_keyfield_beats_schema_daf_keyfield():
+    schema_daf = Daf(cols=['Name', 'dtype'], lol=[['a', 'str'], ['b', 'int']])
+    schema_daf.attrs['keyfield'] = 'a'
+    daf = Daf(schema=schema_daf, keyfield='b')
+    assert daf.columns() == ['a', 'b']
+    assert daf.keyfield == 'b'
+    assert Daf(schema=schema_daf).keyfield == 'a'

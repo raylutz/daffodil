@@ -164,6 +164,10 @@ all prior releases. Plans for future moved to ROADMAP.md.
   git-tracked) moved out of `src/` to a gitignored, local-only `deprecated/` folder.
 
 ### Fixed
+- An explicit `keyfield` was lost when a schema supplied the cols, as in
+  `Daf(schema=B, keyfield='contest')`. The keyfield was cleared, and then the schema's `__keyfield__` was
+  adopted, or none. The explicit keyfield now wins, as the README says. This was so for a schemaclass
+  and for a schema Daf. Passing `cols` as well already worked. Tests added.
 - `apply_formulas()` left `retmode` as `val` after a formula error or after formulas that never settle,
   so later row reads gave lists and not Daf objects. The `retmode` is now restored on every exit.
   Cells that were already changed stay changed. Tests added.

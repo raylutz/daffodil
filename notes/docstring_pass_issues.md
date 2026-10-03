@@ -46,6 +46,7 @@ The date of the first entry is 2026-10-02.
     `set_cols()`, and `set_cols()` clears the keyfield. The README says the
     schema keyfield is used only if none was given. Passing `cols` too keeps
     the explicit keyfield.
+    Fixed with approval on 2026-10-03, in both the schemaclass path and the schema Daf path.
 13. The README schema example uses a plain class. Since the apply_schema change
     on 2026-10-02, `Daf(schema=PlainClass)` raises `TypeError`. Before, it was
     silently ignored and no columns were defined. The example needs

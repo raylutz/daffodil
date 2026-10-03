@@ -120,7 +120,9 @@ def _apply_schema(
             and 'Name' in schema_cols
             ):
 
+            keyfield = self.keyfield            # set_cols() clears the keyfield, so keep one the caller gave.
             self.set_cols(schema_Name_ls)
+            self.keyfield = keyfield
 
             #self._rebuild_hd() Done inside the function above.
 
@@ -229,7 +231,9 @@ def _attach_schema(self: 'Daf', schema: type) -> 'Daf':
 
     if not self.hd:
 
+        keyfield = self.keyfield            # set_cols() clears the keyfield, so keep one the caller gave.
         self.set_cols(schema.get_columns())
+        self.keyfield = keyfield
 
         # self._rebuild_hd()   done above.
 
