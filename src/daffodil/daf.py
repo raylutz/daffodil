@@ -7631,19 +7631,79 @@ class Daf:
         return result_daf
 
 
+    def _cols_scope(self, cols: Optional[T_cs]) -> Tuple[List[str], List[int], bool]:
+        """
+        Work out which columns a grouping keeps: their names, their positions, and whether that is all of them.
+
+        With no `cols`, all columns are kept. A name that is not a column raises `KeyError`. Internal use.
+        """
+        if not cols:
+            return list(self.hd), list(range(len(self.hd))), True
+
+        names = list(cols)
+        idxs = [self.hd[name] for name in names]
+
+        return names, idxs, names == list(self.hd)
+
+
+    def _reduce_scope(self, by: str, reduce_cols: Optional[T_cs], kwargs: Dict[str, Any]) -> Optional[T_ls]:
+        """
+        Work out the columns that the groups need for a reduction, or None for all columns.
+
+        Only a reduction by row, or by sparse row, looks at just the columns in `reduce_cols`.
+        For a sparse row the `indirect_col` is kept as well. A name that is not a column is
+        left out, as `reduce()` does. If none are columns, all columns are kept. Internal use.
+        """
+        if not reduce_cols or by not in ('row', 'sparse_row'):
+            return None
+
+        names = [col for col in reduce_cols if col in self.hd]
+
+        indirect_col = kwargs.get('indirect_col')
+        if names and indirect_col and indirect_col in self.hd and indirect_col not in names:
+            names.append(indirect_col)
+
+        return names or None
+
+
+    def _new_group_daf(self, rows: T_lola, names: T_ls, all_cols: bool) -> 'Daf':
+        """
+        Make the Daf for one group, with the layout of this Daf, or of the columns kept.
+
+        The keyfield is kept only if every column of it is kept. The dtypes are cut to the
+        columns kept. Internal use.
+        """
+        group_daf = self.clone_empty(lol=rows, cols=names)
+
+        if not all_cols:
+            if self.dtypes:
+                group_daf.dtypes = {col: typ for col, typ in self.dtypes.items() if col in names}
+
+            key_cols = [self.keyfield] if isinstance(self.keyfield, (str, int)) else list(self.keyfield or [])
+            if not all(key_col in names for key_col in key_cols):
+                group_daf.keyfield = ''
+
+        return group_daf
+
+
     def groupby(
             self,
             colname: str='',
             colnames: Optional[T_ls]=None,
             omit_nulls: bool=False,         # do not group to values in column that are null ('')
+            cols: Optional[T_cs]=None,
             ) -> Union[Dict[str, 'Daf'], Dict[Tuple[str, ...], 'Daf']]:
 
         """
         Split the Daf into several Daf instances, one for each value of a column.
 
         The result is a dict. Each key is a value found in the column, in the order
-        first seen. Each value is a Daf of the rows that have it, with all columns.
-        The rows are new lists, so changing a cell in a group does not change this Daf.
+        first seen. Each value is a Daf of the rows that have it, with all columns, or
+        only the columns in `cols`. The rows are new lists, so changing a cell in a group
+        does not change this Daf.
+
+        Use `cols` when you need only a few of many columns. The other columns are never
+        copied, and this Daf is not changed. It is much faster for a wide table.
 
         With several columns, as a list, the keys are tuples of their values. See
         `groupby_cols()`. With `omit_nulls`, rows that have an empty value in the
@@ -7653,76 +7713,100 @@ class Daf:
             colname: The column to group by.
             colnames: Several columns to group by. Use this or `colname`.
             omit_nulls: If True, leave out rows that have an empty value.
+            cols: The columns that each group keeps, in this order. If None, all columns.
+                A keyfield is kept only if all its columns are kept.
 
         Returns:
             A dict that maps each value, or tuple of values, to a Daf.
+
+        Raises:
+            KeyError: The group column, or a name in `cols`, is not a column.
 
         Examples:
             >>> d = Daf(lol=[['a', 1, 10], ['b', 2, 20], ['a', 3, 30]], cols=['g', 'x', 'y'])
             >>> groups = d.groupby('g')
             >>> list(groups), groups['a'].lol
             (['a', 'b'], [['a', 1, 10], ['a', 3, 30]])
+            >>> d.groupby('g', cols=['y'])['a'].lol
+            [[10], [30]]
         """
 
         if isinstance(colname, list) and not colnames:
-            return self.groupby_cols(colnames=colname)
+            return self.groupby_cols(colnames=colname, cols=cols)
         elif colnames and not colname:
             if len(colnames) > 1:
-                return self.groupby_cols(colnames=colnames)
+                return self.groupby_cols(colnames=colnames, cols=cols)
             else:
                 colname = colnames[0]
                 # can continue below.
 
-        result_dodaf: Dict[str, 'Daf'] = {}
+        if not self.lol:
+            return {}
 
-        for da in self:
-            fieldval = da[colname]
+        names, idxs, all_cols = self._cols_scope(cols)
+        group_idx = self.hd[colname]
+
+        groups: Dict[Any, T_lola] = {}
+
+        for row_la in self.lol:
+            fieldval = row_la[group_idx]
             if omit_nulls and fieldval is NULL:
                 continue
 
-            if fieldval not in result_dodaf:
-                result_dodaf[fieldval] = self.clone_empty()
+            group_lol = groups.get(fieldval)
+            if group_lol is None:
+                group_lol = groups[fieldval] = []
 
-            this_daf = result_dodaf[fieldval]
-            this_daf._basic_append(da)
-            result_dodaf[fieldval] = this_daf
+            group_lol.append(list(row_la) if all_cols else [row_la[idx] for idx in idxs])
 
-        return result_dodaf
+        return {fieldval: self._new_group_daf(group_lol, names, all_cols) for fieldval, group_lol in groups.items()}
 
 
-    def groupby_cols(self, colnames: T_ls) -> Dict[Tuple[str, ...], 'Daf']:
+    def groupby_cols(self, colnames: T_ls, cols: Optional[T_cs]=None) -> Dict[Tuple[str, ...], 'Daf']:
 
         """
         Split the Daf by the values of several columns.
 
         The result is a dict. Each key is a tuple of the values in the columns, even
-        for one column. Each value is a Daf of the rows that have them. The rows are
-        not copied.
+        for one column. Each value is a Daf of the rows that have them, with all
+        columns, or only the columns in `cols`. With all columns, the rows are not
+        copied. With `cols`, they are new lists of the columns kept, and the other
+        columns are never copied.
 
         Args:
             colnames: The columns to group by.
+            cols: The columns that each group keeps, in this order. If None, all columns.
+                A keyfield is kept only if all its columns are kept.
 
         Returns:
             A dict that maps each tuple of values to a Daf.
+
+        Raises:
+            KeyError: A name in `colnames` or `cols` is not a column.
 
         Examples:
             >>> d = Daf(lol=[['a', 1, 10], ['b', 2, 20], ['a', 3, 30]], cols=['g', 'x', 'y'])
             >>> list(d.groupby_cols(['g']))
             [('a',), ('b',)]
+            >>> d.groupby_cols(['g'], cols=['y'])[('a',)].lol
+            [[10], [30]]
         """
 
-        result_dodaf: Dict[Tuple[str, ...], 'Daf'] = {}
+        names, idxs, all_cols = self._cols_scope(cols)
+        group_idxs = [self.hd[colname] for colname in colnames]
 
-        for kla in self.iter_klist():
-            fieldval_tuple = tuple(kla[colname] for colname in colnames)        # perflint-reviewed (loop-invariant-statement)
-            if fieldval_tuple not in result_dodaf:
-                result_dodaf[fieldval_tuple] = this_daf = self.clone_empty()
-            else:
-                this_daf = result_dodaf[fieldval_tuple]
+        groups: Dict[Tuple[Any, ...], T_lola] = {}
 
-            this_daf.record_append(kla, respect_kd=False)
+        for row_la in self.lol:
+            fieldval_tuple = tuple([row_la[idx] for idx in group_idxs])
 
-        return result_dodaf
+            group_lol = groups.get(fieldval_tuple)
+            if group_lol is None:
+                group_lol = groups[fieldval_tuple] = []
+
+            group_lol.append(row_la if all_cols else [row_la[idx] for idx in idxs])
+
+        return {fieldval_tuple: self._new_group_daf(group_lol, names, all_cols) for fieldval_tuple, group_lol in groups.items()}
 
 
     def group_where(
@@ -7834,6 +7918,10 @@ class Daf:
         then the `reduce_cols`. It has no keyfield. For each group, `func` is used as in
         `reduce()`.
 
+        With `reduce_cols`, and `by` of `row` or `sparse_row`, each group holds only those
+        columns, and the `indirect_col` if there is one. A function that reads another
+        column of the row will not find it.
+
         For example, group by gender, religion and zip code, and sum the counts of
         several causes in each group. The number of rows is the number of combinations
         that occur.
@@ -7940,7 +8028,8 @@ class Daf:
         if diagnose:  # pragma: no cover
             daf_utils.sts(f"Starting groupby_cols() of {len(self):,} records.", 3)
 
-        grouped_tdodaf = self.groupby_cols(groupby_colnames)
+        scope = self._reduce_scope(by, reduce_cols, kwargs)     # the groups hold only the columns that are reduced.
+        grouped_tdodaf = self.groupby_cols(groupby_colnames, cols=scope)
 
         if diagnose:  # pragma: no cover
             daf_utils.sts(f"Total of {len(grouped_tdodaf):,} groups. Reduction starting.", 3)
@@ -7987,6 +8076,12 @@ class Daf:
         column. The columns in `reduce_cols` hold the reduced values. Other columns are
         empty. For each group, `func` is used as in `reduce()`.
 
+        With `reduce_cols`, and `by` of `row` or `sparse_row`, each group holds only those
+        columns, and the `indirect_col` if there is one. The other columns are never copied,
+        which is much faster for a wide table. A function that reads another column of the
+        row will not find it. The result still has all the columns of this Daf, and the
+        columns that are not reduced are empty.
+
         Args:
             colname: The column to group by.
             func: The reduction function. See `reduce()`.
@@ -8008,7 +8103,8 @@ class Daf:
             logs.sts(f"{logs.prog_loc()} starting groupby '{colname}' operation", 3)
         # groupby(colname=<str>) (colnames not passed) always takes the Dict[str, 'Daf']
         # branch, never the tuple-keyed Dict[Tuple[str, ...], 'Daf'] one.
-        grouped_dodaf = cast(T_dodaf, self.groupby(colname))
+        scope = self._reduce_scope(by, reduce_cols, kwargs)     # the groups hold only the columns that are reduced.
+        grouped_dodaf = cast(T_dodaf, self.groupby(colname, cols=scope))
         result_daf = Daf.reduce_dodaf_to_daf(
             func            = func,             # function reduces one grouped daf to one record.
             colname         = colname,
@@ -8016,6 +8112,7 @@ class Daf:
             reduce_cols     = list(reduce_cols) if reduce_cols is not None else None,
             by              = by,
             diagnose        = diagnose,
+            all_cols        = self.columns() if scope else None,    # the rows keep all the columns, as for whole groups.
             **kwargs,
             )
         return result_daf
@@ -8032,54 +8129,66 @@ class Daf:
         Group the rows by each of several columns, one column at a time.
 
         The result is a dict of dicts. The first key is the column. The second key is a
-        value in that column. Each innermost value is a Daf of the rows that have it.
+        value in that column. Each innermost value is a Daf of the rows that have it,
+        with all columns, or only the columns in `colnames`.
         This is not a grouping by combinations. Use `groupby_cols()` for that.
         The groups are not reduced. The rows are new lists, so changing a cell in a group
         does not change this Daf.
 
+        Use `colnames` when you need only a few of many columns. The other columns are never
+        copied, and this Daf is not changed. It is much faster for a wide table.
+
         Args:
-            groupby_colnames: The columns to group by.
-            colnames: Not used.
+            groupby_colnames: The columns to group by, one at a time.
+            colnames: The columns that each group keeps, in this order. If None, all columns.
+                A keyfield is kept only if all its columns are kept.
             omit_nulls: If True, leave out rows that have an empty value.
 
         Returns:
             A dict that maps each column to a dict of value and Daf.
+
+        Raises:
+            KeyError: A group column, or a name in `colnames`, is not a column.
 
         Examples:
             >>> d = Daf(lol=[['a', 1, 10], ['b', 2, 20], ['a', 3, 30]], cols=['g', 'x', 'y'])
             >>> groups = d.multi_groupby(['g', 'x'])
             >>> list(groups), list(groups['g'])
             (['g', 'x'], ['a', 'b'])
+            >>> d.multi_groupby(['g'], colnames=['y'])['g']['a'].lol
+            [[10], [30]]
         """
+
         if isinstance(groupby_colnames, str):
             groupby_colnames = [groupby_colnames]
 
-        result_dododaf: Dict[str, Dict[str, 'Daf']] = {}
+        if not self.lol:
+            return {}
 
-        # the following makes a single pass through Daf array, and
-        # allocates the record to one daf for each colname, for each colvalue.
-        # these daf arrays are not reduced here.
+        names, idxs, all_cols = self._cols_scope(colnames)
+        group_idxs = [(col, self.hd[col]) for col in groupby_colnames]
 
-        # (TODO this loop would be better to iterate through list items rather than dicts.)
+        grouped: Dict[str, Dict[Any, T_lola]] = {}
 
-        for da in self:
-            for col in groupby_colnames:
-                if col not in result_dododaf:
-                    result_dododaf[col] = {}
+        for row_la in self.lol:
+            for col, group_idx in group_idxs:
+                col_groups = grouped.get(col)
+                if col_groups is None:
+                    col_groups = grouped[col] = {}
 
-                fieldval = da[col]
+                fieldval = row_la[group_idx]
                 if omit_nulls and fieldval is NULL:
                     continue
 
-                if fieldval not in result_dododaf[col]:
-                    result_dododaf[col][fieldval] = self.clone_empty()
+                group_lol = col_groups.get(fieldval)
+                if group_lol is None:
+                    group_lol = col_groups[fieldval] = []
 
-                this_daf = result_dododaf[col][fieldval]
-                this_daf.record_append(da)
-                result_dododaf[col][fieldval] = this_daf
+                group_lol.append(list(row_la) if all_cols else [row_la[idx] for idx in idxs])
 
-        return result_dododaf
-
+        return {col: {fieldval: self._new_group_daf(group_lol, names, all_cols)
+                            for fieldval, group_lol in col_groups.items()}
+                        for col, col_groups in grouped.items()}
 
 
     @staticmethod
@@ -8091,6 +8200,7 @@ class Daf:
             grouped_dodaf:  T_dodaf,
             reduce_cols:    Optional[T_la]=None,    # columns included in the reduce operation, None = all except for colname.
             diagnose:       bool=False,
+            all_cols:       Optional[T_ls]=None,    # the columns of the result, if the groups hold only some of them.
             **kwargs:       Any,
             ) -> 'Daf':
         """
@@ -8106,6 +8216,9 @@ class Daf:
             grouped_dodaf: A dict that maps each value to a Daf.
             reduce_cols: The columns to reduce. All columns except `colname` if None.
             diagnose: If True, print progress messages.
+            all_cols: The columns of the result, in order. Use it when each group holds only
+                some columns, so that the rows have the same columns as for whole groups. The
+                columns that are not reduced are then empty.
             **kwargs: Keyword arguments passed on to the function.
 
         Returns:
@@ -8148,6 +8261,9 @@ class Daf:
             # add colname:colval to the dict, as it is removed by the reduction func.
             reduction_da[colname] = colval
 
+            if all_cols:
+                reduction_da = {col: reduction_da.get(col, NULL) for col in all_cols}
+
             if diagnose:
                 logs.sts(f"Post add colname:colval to the dict: {Daf.from_lod([cast(T_da, reduction_da)])=}", 3)
 
@@ -8178,6 +8294,11 @@ class Daf:
         result is a dict. Each key is a column. Each value is a Daf with one row for
         each value of that column, and that column as its keyfield.
 
+        With `reduce_cols`, and `by` of `row` or `sparse_row`, each group holds only those
+        columns, and the `indirect_col` if there is one. A function that reads another
+        column of the row will not find it. The result still has all the columns of this
+        Daf, and the columns that are not reduced are empty.
+
         Args:
             colnames: The columns to group by, one at a time.
             func: The reduction function. See `reduce()`.
@@ -8197,10 +8318,12 @@ class Daf:
 
         if diagnose:
             logs.stsloc(f"starting multi-groupby '{colnames}' operation", 3)
-        multi_grouped_dododaf = self.multi_groupby(colnames)
+        scope = self._reduce_scope(by, reduce_cols, kwargs)     # the groups hold only the columns that are reduced.
+        multi_grouped_dododaf = self.multi_groupby(colnames, colnames=scope)
 
         result_dodaf: T_dodaf = {}
         reduce_cols_la = list(reduce_cols) if reduce_cols is not None else None
+        result_cols = self.columns() if scope else None         # the rows keep all the columns, as for whole groups.
 
         for colname, grouped_dodaf in multi_grouped_dododaf.items():
 
@@ -8210,6 +8333,7 @@ class Daf:
                 grouped_dodaf   = grouped_dodaf,
                 reduce_cols     = reduce_cols_la,
                 diagnose        = diagnose,
+                all_cols        = result_cols,
                 **kwargs,
                 )
         if diagnose:

@@ -9,6 +9,14 @@ all prior releases. Plans for future moved to ROADMAP.md.
 
 ## [Unreleased]
 ### Added
+- `groupby()` and `groupby_cols()` take `cols`. Each group then holds only those columns,
+  and the other columns are never copied. `multi_groupby(colnames=)` was ignored and now
+  does the same. A keyfield is kept only if all its columns are kept. The three reduce
+  methods group only `reduce_cols` and the `indirect_col` for `by` of `row` or `sparse_row`.
+  Results are unchanged on 47 before and after scenarios. A function that reads another
+  column of the row will not find it. Timing for 2,000 rows by 1,000 columns, seconds:
+  `groupby_reduce()` with 3 reduce columns 0.252 to 0.005, `multi_groupby()` with 3 columns
+  0.129 to 0.007. Tests added in tests/test_daf_group_scope.py. Total coverage 96%.
 - `Daf.concat()` and `Daf.extend()` take `respect_kd`, as `append()` already did. With
   `respect_kd=True` a row whose key exists is replaced and the other rows are appended.
   This gives a bulk upsert, and composite keys work. The default is unchanged. Tests added

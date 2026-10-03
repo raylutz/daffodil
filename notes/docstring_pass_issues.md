@@ -257,7 +257,9 @@ The date of the first entry is 2026-10-02.
 69. `from_md()` raises `RuntimeError` for a table with no header and separator
     rows. Its old text said the header is optional. The values come back as text.
 70. Code that cannot run: `apply(by='col')` raises before the code under it. The
-    argument `colnames` of `multi_groupby()` is not used. `manifest_apply()`
+    argument `colnames` of `multi_groupby()` was not used. Fixed with approval on
+    2026-10-03, along with a `cols` argument for `groupby()` and `groupby_cols()`.
+    `multi_groupby_reduce()` ignores `by`. `manifest_apply()`
     works only with `by='table'`, because `apply()` returns a Daf for other
     values and the method expects a tuple.
 71. The `dtype` and `format` items of `gen_stats_daf()` are not used.
