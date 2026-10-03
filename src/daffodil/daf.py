@@ -3975,11 +3975,13 @@ class Daf:
         `d = d.remove_key(2)`.
 
         The new Daf shares the surviving rows with this Daf. Changing a cell in one
-        changes it in the other. Call `copy()` with `deep=True` if you need rows that
+        changes it in the other. Call `copy()` with `level='editable'` if you need rows that
         are independent.
 
-        For a composite keyfield, put the key tuple inside a list, as in
-        `remove_key([(1, 'a')])`. A bare tuple is read as a range of keys, not as one key.
+        A tuple is a range of keys, as in `remove_key((2, 3))`. With a composite keyfield, a
+        tuple as long as the keyfield, with no tuples inside it, is one key, as in
+        `remove_key(('a', 1))`. A tuple of key tuples is a range, and a list of key tuples
+        is a list of keys.
 
         Args:
             keyval: The key of the row to leave out.
@@ -3998,11 +4000,19 @@ class Daf:
             [[2, 'b']]
             >>> d.num_rows()
             2
+            >>> c = Daf(lol=[['a', 1], ['a', 2]], cols=['g', 'n'], keyfield=('g', 'n'))
+            >>> c.remove_key(('a', 1)).lol
+            [['a', 2]]
         """
 
         # test exists in test_daf.py
         if not self.keyfield:
             raise KeysDisabledError("Key lookups are disabled (keyfield is unset).")
+
+        if (isinstance(keyval, tuple) and isinstance(self.keyfield, (tuple, list))
+                and len(keyval) == len(self.keyfield)
+                and not any(isinstance(item, (tuple, list)) for item in keyval)):
+            keyval = [keyval]       # a composite key, not a range.
 
         return self.select_krows(krows=keyval, inverse=True, silent_error=silent_error)
 

@@ -130,6 +130,8 @@ The date of the first entry is 2026-10-02.
 40. `remove_key((1, 'a'))` with a composite key raises `KeyError: 1`, because a
     bare tuple is read as a range. Only `remove_key([(1, 'a')])` works. The
     annotation of `keyval` allows a tuple.
+    Fixed with approval on 2026-10-03. A tuple as long as a composite keyfield, with no tuples
+    inside it, is now one key.
 41. `remove_key(None, silent_error=True)` raises `TypeError`. The flag does not
     cover it.
 

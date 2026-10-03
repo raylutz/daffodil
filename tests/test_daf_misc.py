@@ -1143,3 +1143,42 @@ def test_json_round_trip_then_apply_dtypes_for_list_column():
 def test_json_unknown_dtype_name_comes_back_as_text():
     again = Daf.from_json('{"lol": [["x"]], "hd": {"a": 0}, "dtypes": {"a": "date"}}')
     assert again.dtypes == {'a': 'date'}
+
+
+# remove_key with a composite keyfield
+
+def _composite_daf() -> Daf:
+    return Daf(lol=[['a', 1, 'x'], ['a', 2, 'y'], ['b', 1, 'z'], ['b', 2, 'w']],
+               cols=['g', 'n', 'v'], keyfield=('g', 'n'))
+
+
+def test_remove_key_composite_bare_tuple_is_one_key():
+    result = _composite_daf().remove_key(('a', 1))
+    assert result.lol == [['a', 2, 'y'], ['b', 1, 'z'], ['b', 2, 'w']]
+
+
+def test_remove_key_composite_list_of_tuples_is_list_of_keys():
+    result = _composite_daf().remove_key([('a', 1), ('b', 2)])
+    assert result.lol == [['a', 2, 'y'], ['b', 1, 'z']]
+
+
+def test_remove_key_composite_tuple_of_tuples_is_a_range():
+    result = _composite_daf().remove_key((('a', 2), ('b', 1)))
+    assert result.lol == [['a', 1, 'x'], ['b', 2, 'w']]
+
+
+def test_remove_key_composite_missing_key_raises_or_is_ignored():
+    with pytest.raises(KeyError):
+        _composite_daf().remove_key(('c', 9))
+    assert len(_composite_daf().remove_key(('c', 9), silent_error=True)) == 4
+
+
+def test_remove_key_single_keyfield_tuple_is_still_a_range():
+    daf = Daf(lol=[[1, 'x'], [2, 'y'], [3, 'z'], [4, 'w']], cols=['id', 'v'], keyfield='id')
+    assert daf.remove_key((2, 3)).lol == [[1, 'x'], [4, 'w']]
+
+
+def test_to_json_leaves_a_dict_of_dtypes_alone():
+    daf = Daf(lol=[[1]], cols=['a'], dtypes={'a': int})
+    daf.to_json()
+    assert daf.dtypes == {'a': int}

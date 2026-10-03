@@ -161,6 +161,10 @@ all prior releases. Plans for future moved to ROADMAP.md.
   git-tracked) moved out of `src/` to a gitignored, local-only `deprecated/` folder.
 
 ### Fixed
+- `remove_key()` with a composite keyfield read a bare key tuple as a range, and raised a `KeyError` that
+  named the first part of the key. A tuple as long as the keyfield, with no tuples inside it, is now
+  one key, so `remove_key(('a', 1))` works. A tuple of key tuples is still a range, a list of key
+  tuples is a list of keys, and a single column keyfield is unchanged. Tests added.
 - `from_json()` read the dtypes `list` and `dict` back as the text `'list'` and `'dict'`, so a saved
   table could not be converted with `apply_dtypes()` after reloading. Both are now read back as types.
   Other names, such as `date`, still come back as text. `to_json()` also set the dtypes of the Daf to an
