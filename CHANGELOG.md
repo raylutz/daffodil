@@ -196,6 +196,8 @@ all prior releases. Plans for future moved to ROADMAP.md.
   git-tracked) moved out of `src/` to a gitignored, local-only `deprecated/` folder.
 
 ### Fixed
+- `insert_irow()` with a row that is not a list or a dict, or with no row, raised `UnboundLocalError`. It
+  now raises `TypeError` that names the method and the type it got. 6 tests added.
 - An explicit `keyfield` was lost when a schema supplied the cols, as in
   `Daf(schema=B, keyfield='contest')`. The keyfield was cleared, and then the schema's `__keyfield__` was
   adopted, or none. The explicit keyfield now wins, as the README says. This was so for a schemaclass

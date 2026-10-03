@@ -1537,3 +1537,19 @@ def test_join_records_fill():
     assert Daf.join_records([{'id': 1, 'v': 'x'}, None], translator, ['a', 'b']) == {'id': 1, 'v': 'x', 'w': ''}
     assert Daf.join_records([{'id': 1, 'v': 'x'}, None], translator, ['a', 'b'], fill=None) == {'id': 1, 'v': 'x', 'w': None}
     assert Daf.join_records([{'id': 1}, {'id': 1}], translator, ['a', 'b'], fill='?') == {'id': 1, 'v': '?', 'w': '?'}
+
+
+# insert_irow rejects a row that is not a list or a dict
+
+@pytest.mark.parametrize('bad_row', ['zz', 5, None, (1, 'a'), {1, 2}])
+def test_insert_irow_bad_row_raises_typeerror(bad_row):
+    daf = Daf(lol=[[1, 'a']], cols=['id', 'v'])
+    with pytest.raises(TypeError, match='insert_irow'):
+        daf.insert_irow(0, bad_row)
+    assert daf.lol == [[1, 'a']]
+
+
+def test_insert_irow_list_and_dict_still_work():
+    daf = Daf(lol=[[1, 'a']], cols=['id', 'v'])
+    daf.insert_irow(0, [0, 'z']).insert_irow(-1, {'id': 9})
+    assert daf.lol == [[0, 'z'], [1, 'a'], [9, '']]

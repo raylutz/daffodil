@@ -6582,6 +6582,9 @@ class Daf:
         Returns:
             This Daf, which has been changed.
 
+        Raises:
+            TypeError: The row is not a list or a dict. This includes the default, None.
+
         Examples:
             >>> d = Daf(lol=[[1, 'a', 10], [2, 'b', 20], [3, 'c', 30]], cols=['id', 'v', 'n'], keyfield='id')
             >>> d.insert_irow(1, {'id': 9, 'v': 'z'}).lol
@@ -6599,6 +6602,9 @@ class Daf:
             row_da = row
             # create normalize list
             row_la = [row_da.get(col, '') for col in self.hd]
+
+        else:
+            raise TypeError(f"insert_irow(): row must be a list or a dict, not {type(row).__name__}.")
 
         self.lol = daf_utils.insert_row_in_lol_at_irow(irow=irow, row_la=row_la, lol=self.lol, default=default)
 

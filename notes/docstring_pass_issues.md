@@ -233,6 +233,7 @@ The date of the first entry is 2026-10-02.
     bad position.
 56. `insert_irow(0, 'zz')` raises `UnboundLocalError`, because a row that is
     neither a list nor a dict leaves `row_la` unset.
+    Fixed with approval on 2026-10-03. It raises `TypeError` that names the method.
 57. `find_replace()` replaces the whole cell when the pattern matches anywhere
     in it. The name suggests a substitution inside the text. It also returns
     None, while the other mutating methods return the Daf.
