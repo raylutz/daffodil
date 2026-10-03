@@ -111,6 +111,14 @@ all prior releases. Plans for future moved to ROADMAP.md.
   built from another one copies it, when it shares it.
 
 ### Changed
+- `append()` and `extend()` say what they add by keyword. `append(lol=[[2, 'b'], [3, 'c']])` and
+  `extend(lol=...)` add several rows, each a list in column order. `append(la=[...])` adds one row, even if its
+  items are lists. A positional list is one row, as before. A list with more values than there are columns now
+  raises `ValueError`. Before, the extra values were dropped without a message, and a list of lists with more
+  items than columns lost rows that way. A short list is still padded with NULL, and a Daf with no columns takes
+  a list as it is. `extend(lol=...)` checks every row first, so a bad row adds nothing. Giving more than one of
+  `data_item`, `lol` and `la` raises `TypeError`, and so does a type that `append()` does not support, which
+  raised `RuntimeError` with no message. A branch of `append()` that could not run was removed. 28 tests added.
 - The README says that `my_daf[irow] = dict` replaces the whole row, and that columns the dict lacks become NULL. It
   said only that column names are respected. It points to `update_record_irow()` for changing some cells.
 - `select_cols()` keeps the columns in the order of `cols`, as `select_kcols()` and `my_daf[:, cols]` do. It
