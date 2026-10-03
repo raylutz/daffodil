@@ -1435,3 +1435,32 @@ def test_record_append_replaces_a_duplicate_key_by_default():
 def test_respect_kd_true_replaces_a_duplicate_key():
     assert _dup_key_daf().append({'id': 2, 'v': 'NEW'}, respect_kd=True).lol == [[1, 'a'], [2, 'NEW']]
     assert _dup_key_daf().extend([{'id': 2, 'v': 'NEW'}], respect_kd=True).lol == [[1, 'a'], [2, 'NEW']]
+
+
+# row sharing of the selectors, as the README table says
+
+def _share_daf() -> Daf:
+    return Daf(lol=[[1, 'a'], [2, 'b'], [3, 'c']], cols=['id', 'v'], keyfield='id')
+
+
+@pytest.mark.parametrize('call, shared', [
+    (lambda d: d.select_irows([0, 1]),                                  True),
+    (lambda d: d[0:2],                                                  True),
+    (lambda d: d.select_krows([1, 2]),                                  True),
+    (lambda d: d.select_records_daf([1, 2]),                            True),
+    (lambda d: d.remove_key(3),                                         True),
+    (lambda d: d.select_where(lambda row: row['id'] < 3),               True),
+    (lambda d: d.groupby_cols(['v']),                                   True),
+    (lambda d: d.copy(),                                                True),
+    (lambda d: d.select_by_dict({'id': 1}),                             False),
+    (lambda d: d.groupby('v'),                                          False),
+    (lambda d: d.select_cols(['id', 'v']),                              False),
+    (lambda d: d.copy('editable'),                                      False),
+    ])
+def test_selector_row_sharing_matches_the_readme_table(call, shared):
+    daf = _share_daf()
+    result = call(daf)
+    if isinstance(result, dict):
+        result = next(iter(result.values()))
+    result.lol[0][1] = 'CHANGED'
+    assert (daf.lol[0][1] == 'CHANGED' or any(row[1] == 'CHANGED' for row in daf.lol)) is shared

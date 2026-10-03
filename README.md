@@ -704,6 +704,22 @@ Here are some examples.
 |`my_daf[start:end, colname] = list`                        | assign a partial column colname to list provided from rows start to end.      |
 
 
+### do selectors copy the rows?
+
+Most selectors of rows share the row lists with the original. That is cheap, and it means that
+changing a cell in the result changes it in the original. A few selectors copy the rows.
+
+| Selector                                                         | Rows in the result            |
+|:-----------------------------------------------------------------|:------------------------------|
+| `select_irows`, `d[rows]`, `select_krows`, `select_records_daf`  | shared                        |
+| `remove_key`, `remove_keylist`, `select_where`, `split_where`    | shared                        |
+| `groupby_cols`, `group_where`, `copy()`                          | shared                        |
+| `select_irows([], inverse=True)`                                 | copied, deeply (slow)         |
+| `select_by_dict`, `groupby`, `multi_groupby`                     | copied (new row lists)        |
+| `select_cols`, `select_kcols`, `select_icols`                    | copied (new row lists)        |
+
+Use `copy(level='editable')` first if you need to change cells without touching the original.
+
 ### appending and row/column manipulation    
     
 #### append a single row provided as a dictionary.

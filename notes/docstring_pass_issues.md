@@ -192,6 +192,9 @@ The date of the first entry is 2026-10-02.
 48. Row sharing differs between selectors. `select_where()`, `split_where()` and
     `select_irows()` share the rows. `select_by_dict()` copies them.
     `select_irows([], invert=True)` makes a deep copy.
+    Documented with approval on 2026-10-03: a table in the README, and a test of it. Changes to
+    `select_irows([], inverse=True)` and `select_by_dict()` wait for a review of AuditEngine. Also
+    found: `select_records_daf([], inverse=True)` returns a Daf that uses this Daf's row list itself.
 49. Missing keys raise different errors. `col()` raises `RuntimeError` for a
     missing column. `select_record(silent_error=False)` raises `KeyError()` with
     no key in it. `select_by_dict(expectmax=)` raises `LookupError()` with no

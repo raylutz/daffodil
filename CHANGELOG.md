@@ -111,6 +111,8 @@ all prior releases. Plans for future moved to ROADMAP.md.
   built from another one copies it, when it shares it.
 
 ### Changed
+- The README has a table of which selectors share the rows of the original and which copy them. A test
+  checks the table. The docstring of `select_records_daf()` says that it shares the rows. 12 tests added.
 - The README said that appending a row whose key exists overwrites it, for all kinds of appending. Only
   `record_append()` does that by default. `append()`, `extend()` and `concat()` add a second row, which is
   faster, and replace the row with `respect_kd=True`. The README and the `respect_kd` lines of the four

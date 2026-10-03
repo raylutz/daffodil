@@ -5267,6 +5267,10 @@ class Daf:
         This is `select_krows()` with a friendlier answer for an empty list of keys.
         No keys gives an empty Daf, or all the rows if `inverse` is True.
 
+        The rows are shared with this Daf, as in `select_krows()`. With no keys and
+        `inverse` True, the new Daf even uses the row list of this Daf itself, so adding
+        a row to one adds it to the other.
+
         Args:
             keys_ls: The keys of the rows.
             inverse: If True, drop the selected rows and keep the others.
