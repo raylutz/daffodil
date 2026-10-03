@@ -251,6 +251,7 @@ The date of the first entry is 2026-10-02.
 64. `sum_np()` is described as accepting blanks. A blank, which is `''`, makes
     NumPy raise `TypeError`. `sum()` raises `ValueError` for a text column unless
     the column is left out with `colnames_ls`.
+    Fixed with approval on 2026-10-03. Blank, None and NaN cells now count as 0.
 65. `join()` fills a missing match with `None`. The README says the same. The
     rule for the rest of the library is NULL, the empty string.
 66. `transpose()` without `include_header` names the columns `key`, `A`, `B`.

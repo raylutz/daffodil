@@ -164,6 +164,10 @@ all prior releases. Plans for future moved to ROADMAP.md.
   git-tracked) moved out of `src/` to a gitignored, local-only `deprecated/` folder.
 
 ### Fixed
+- `sum_np()` raised a NumPy error for a blank cell, and the message named no column. A blank, None or
+  NaN cell now counts as 0, as in `sum()`. The columns are read with `to_donpa(default=0)`. A column
+  of text raises `TypeError` that names the column. An unknown name still raises `KeyError`. For
+  200,000 rows by 10 columns the call took 0.153 s, against 0.112 s before. Tests added.
 - `from_directory()` printed its elapsed time on every call. The print is removed. The docstring also
   said `ctime` is the creation time. On Linux and macOS it is the time of the last metadata change.
 - `remove_key()` with a composite keyfield read a bare key tuple as a range, and raised a `KeyError` that

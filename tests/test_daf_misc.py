@@ -1182,3 +1182,43 @@ def test_to_json_leaves_a_dict_of_dtypes_alone():
     daf = Daf(lol=[[1]], cols=['a'], dtypes={'a': int})
     daf.to_json()
     assert daf.dtypes == {'a': int}
+
+
+# sum_np
+
+def test_sum_np_blank_none_and_nan_count_as_zero():
+    daf = Daf(lol=[[1, 10, 1.5], [2, '', None], [3, 30, float('nan')]], cols=['x', 'y', 'z'])
+    assert daf.sum_np() == {'x': 6, 'y': 40, 'z': 1.5}
+
+
+def test_sum_np_keeps_int_totals_as_int():
+    result = Daf(lol=[[1], [2]], cols=['x']).sum_np()
+    assert result == {'x': 3} and isinstance(result['x'], int)
+
+
+def test_sum_np_subset_of_columns():
+    daf = Daf(lol=[[1, 'a', 5], [2, 'b', 6]], cols=['x', 't', 'n'])
+    assert daf.sum_np(['n', 'x']) == {'n': 11, 'x': 3}
+
+
+def test_sum_np_text_column_raises_and_names_the_column():
+    daf = Daf(lol=[[1, 'a'], [2, 'b']], cols=['x', 't'])
+    with pytest.raises(TypeError, match="column 't'"):
+        daf.sum_np()
+    assert daf.sum_np(['x']) == {'x': 3}
+
+
+def test_sum_np_unknown_column_raises_keyerror():
+    with pytest.raises(KeyError):
+        Daf(lol=[[1]], cols=['x']).sum_np(['nope'])
+
+
+def test_sum_np_empty_daf():
+    assert Daf().sum_np() == {}
+    assert Daf(cols=['a']).sum_np() == {}
+
+
+def test_sum_np_does_not_change_the_daf():
+    daf = Daf(lol=[[1, '']], cols=['x', 'y'])
+    daf.sum_np()
+    assert daf.lol == [[1, '']]

@@ -9659,9 +9659,9 @@ class Daf:
         """
         Total the columns with NumPy, and return a dict of the totals.
 
-        This needs NumPy. Use `colnames_ls` to pass only the columns that hold numbers.
-        A column with text or empty cells makes NumPy raise an error, so this
-        does not skip empty cells as `sum()` does.
+        This needs NumPy. A blank, `None` or NaN cell counts as 0, as it does in `sum()`.
+        Use `colnames_ls` to pass only the columns that hold numbers. A column that holds
+        text raises `TypeError` and names the column.
 
         Args:
             colnames_ls: The columns to total. All if None.
@@ -9669,35 +9669,38 @@ class Daf:
         Returns:
             A dict that maps each column name to its total. An empty Daf gives an empty dict.
 
+        Raises:
+            KeyError: A name in `colnames_ls` is not a column.
+            TypeError: A column holds text or other values that cannot be added.
+
         Examples:
             >>> Daf(lol=[[1, 10], [2, 20]], cols=['x', 'y']).sum_np()
             {'x': 3, 'y': 30}
+            >>> Daf(lol=[[1, 10], [2, '']], cols=['x', 'y']).sum_np()
+            {'x': 3, 'y': 10}
         """
         # unit tests exist
-        #   need tests for blanks and subsetting columns.
 
         import numpy as np
 
         if not self:
             return {}
 
-        if colnames_ls is None:
-            to_sum_daf = self
-            colnames_ls = self.columns()
-        else:
-            to_sum_daf = self[:, list(colnames_ls)]
-            """ given a list of colnames, create a new daf of those cols.
-                creates as new daf
-            """
+        colnames_ls = self.columns() if colnames_ls is None else list(colnames_ls)
 
-        # convert those columns to an numpy array.
-        nparray = to_sum_daf.to_numpy()
+        for colname in colnames_ls:
+            self.hd[colname]        # a KeyError for a name that is not a column.
 
-        # sum the columns in the array.
-        sum_columns = np.sum(nparray, axis=0)
+        donpa = self.to_donpa(colnames_ls, default=0)
 
-        #convert to a dictionary.
-        sums_d = dict(zip(colnames_ls, sum_columns.tolist()))
+        sums_d = {}
+        for colname in colnames_ls:
+            try:
+                sums_d[colname] = np.sum(donpa[colname]).item()
+            except TypeError as exc_info:
+                raise TypeError(
+                    f"sum_np(): column '{colname}' holds text or other values that cannot be added."
+                    ) from exc_info
 
         return sums_d
 
