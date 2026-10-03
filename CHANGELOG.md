@@ -111,6 +111,10 @@ all prior releases. Plans for future moved to ROADMAP.md.
   built from another one copies it, when it shares it.
 
 ### Changed
+- `select_irows()` takes `inverse`, the name every other selector uses. The old `invert` is still
+  accepted. The README examples for dropping rows and columns used `invert=` with `select_krows()` and
+  `select_kcols()`, which raised `TypeError`. They now use `inverse=`. The three examples are checked in a
+  test. 5 tests added.
 - Ten in place methods that returned `None` now return the Daf, as the other in place methods do, so
   calls can be chained: `assign_record()`, `assign_record_irow()`, `update_record_irow()`,
   `assign_icol()`, `set_icol_irows()`, `find_replace()`, `apply_to_col()`, `apply_in_place()`,

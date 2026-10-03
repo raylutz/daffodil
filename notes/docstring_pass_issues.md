@@ -206,6 +206,10 @@ The date of the first entry is 2026-10-02.
 53. The names of the flags differ: `inverse` in `select_krows()` and
     `select_kcols()`, `invert` in `select_irows()`, and `flip` in
     `select_icols()` and `select_kcols()`.
+    Corrected on 2026-10-03: `flip` is not an exclusion flag. It turns the selected columns
+    into rows. Only `inverse` and `invert` mean the same. Fixed with approval on 2026-10-03.
+    `select_irows()` takes `inverse` and still accepts `invert`. The README used `invert`
+    for `select_krows()` and `select_kcols()`, which raised `TypeError`. It now uses `inverse`.
 
 ## Group 6: assigning, inserting, replacing and sorting
 

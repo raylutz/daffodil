@@ -4879,9 +4879,9 @@ class Daf:
         return self.select_icols(icols, flip=flip)
 
 
-    def select_irows(self, irows: Union[slice, int, T_li, range, T_lor, Iterable, None], invert: bool=False) -> 'Daf':
+    def select_irows(self, irows: Union[slice, int, T_li, range, T_lor, Iterable, None], inverse: bool=False, invert: bool=False) -> 'Daf':
         """
-        Select rows by position. Those rows are kept, or dropped if `invert` is True.
+        Select rows by position. Those rows are kept, or dropped if `inverse` is True.
 
         This is the same as `my_daf[rows]`, with a choice to drop rows. It is cheap.
         The new Daf holds the same row lists as this one, so changing a cell in
@@ -4890,7 +4890,8 @@ class Daf:
 
         Args:
             irows: A position, a slice, a range, a list of positions, or a list of ranges.
-            invert: If True, drop the selected rows and keep the others.
+            inverse: If True, drop the selected rows and keep the others.
+            invert: The old name of `inverse`, still accepted.
 
         Returns:
             The new Daf.
@@ -4902,6 +4903,8 @@ class Daf:
             >>> d = Daf(lol=[[1, 'a', 10], [2, 'b', 20], [3, 'c', 30]], cols=['id', 'v', 'n'], keyfield='id')
             >>> d.select_irows(1).lol
             [[2, 'b', 20]]
+            >>> d.select_irows(1, inverse=True).lol
+            [[1, 'a', 10], [3, 'c', 30]]
             >>> d.select_irows(1, invert=True).lol
             [[1, 'a', 10], [3, 'c', 30]]
             >>> d.select_irows(slice(1, None)).lol
@@ -4916,21 +4919,23 @@ class Daf:
 
             returns a new daf instance cloned from the original.
         """
+        inverse = inverse or invert     # invert is the old name.
+
         row_sliced_lol = self.lol
 
         no_rows_specified = bool(not isinstance(irows, int) and not irows)
 
-        if not self.lol or no_rows_specified and not invert:
+        if not self.lol or no_rows_specified and not inverse:
             return self.clone_empty()
 
         if no_rows_specified:
-            if invert:
+            if inverse:
                 return self.copy(deep=True)
             else:
                 return self.clone_empty()
 
         if isinstance(irows, int):
-            if not invert:
+            if not inverse:
                 # simple single row selection
                 try:
                     row_sliced_lol = [self.lol[irows]]
@@ -4949,7 +4954,7 @@ class Daf:
                 # is_list_of_type() isn't a TypeGuard -- confirmed at runtime that every element
                 # is int, mypy just can't narrow irows: T_li | T_lor from that call itself.
                 irows_li = cast(T_li, irows)
-                if not invert:
+                if not inverse:
                     # short-circuits on the first mismatch rather than materializing/comparing
                     # two full-length lists, so a non-natural-order irows (the common case)
                     # bails out almost immediately rather than doing O(num_rows) work regardless
@@ -4969,21 +4974,21 @@ class Daf:
 
             elif daf_utils.is_list_of_type(irows, range):
                 rows_lor = cast(T_lor, irows)    # just a name change
-                if not invert:
+                if not inverse:
                     row_sliced_lol = [self.lol[i] for irange in rows_lor for i in irange]
                 else:
                     row_sliced_lol = [self.lol[i] for i in range(len(self.lol)) if not any(i in r for r in rows_lor)]
 
         elif irows and isinstance(irows, (range, Iterable)):
             irows_ii = cast(Iterable[int], irows)
-            if not invert:
+            if not inverse:
                 row_sliced_lol = [self.lol[i] for i in irows_ii]
             else:
                 row_sliced_lol = [self.lol[i] for i in range(len(self.lol)) if i not in irows_ii]
 
         elif isinstance(irows, slice):
             slice_spec = irows
-            if not invert:
+            if not inverse:
                 row_sliced_lol = self.lol[slice_spec]
             else:
                 slice_range = daf_utils.slice_to_range(slice_spec, len(self.lol))
@@ -5857,11 +5862,11 @@ class Daf:
         # irows of the last record of each key. These are the unique records.
         unique_irows = list(kd.values())
 
-        unique_daf = self.select_irows(irows=unique_irows, invert=False)
+        unique_daf = self.select_irows(irows=unique_irows, inverse=False)
         unique_daf.keyfield = key_cols
 
         # all the other records are duplicates.
-        dups_daf = self.select_irows(irows=unique_irows, invert=True)
+        dups_daf = self.select_irows(irows=unique_irows, inverse=True)
         dups_daf.keyfield = key_cols
 
         return unique_daf, dups_daf

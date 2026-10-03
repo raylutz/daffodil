@@ -1378,3 +1378,36 @@ def test_in_place_methods_can_be_chained():
     daf = _chain_daf()
     result = daf.assign_icol(1, ['x', 'y']).find_replace('x', 'X').drop_cols(['id'])
     assert result.lol == [['X'], ['y']]
+
+
+# select_irows takes inverse, and still accepts the old name invert
+
+def _rows_daf() -> Daf:
+    return Daf(lol=[[1, 'a'], [2, 'b'], [3, 'c']], cols=['id', 'v'], keyfield='id')
+
+
+def test_select_irows_inverse_drops_the_selected_rows():
+    assert _rows_daf().select_irows([0, 2], inverse=True).lol == [[2, 'b']]
+    assert _rows_daf().select_irows(1, inverse=True).lol == [[1, 'a'], [3, 'c']]
+    assert _rows_daf().select_irows(slice(0, 2), inverse=True).lol == [[3, 'c']]
+
+
+def test_select_irows_old_name_invert_still_works():
+    assert _rows_daf().select_irows([0, 2], invert=True).lol == [[2, 'b']]
+    assert _rows_daf().select_irows(1, invert=True).lol == [[1, 'a'], [3, 'c']]
+
+
+def test_select_irows_inverse_positional():
+    assert _rows_daf().select_irows([0], True).lol == [[2, 'b'], [3, 'c']]
+
+
+def test_select_irows_empty_selection_with_inverse_keeps_all_rows():
+    assert _rows_daf().select_irows([], inverse=True).lol == [[1, 'a'], [2, 'b'], [3, 'c']]
+    assert _rows_daf().select_irows([], invert=True).lol == [[1, 'a'], [2, 'b'], [3, 'c']]
+
+
+def test_readme_examples_for_dropping_rows_and_columns_work():
+    daf = _rows_daf()
+    assert daf.select_krows(krows=2, inverse=True).lol == [[1, 'a'], [3, 'c']]
+    assert daf.select_krows(krows=[1, 3], inverse=True).lol == [[2, 'b']]
+    assert daf.select_kcols(['v'], inverse=True).columns() == ['id']

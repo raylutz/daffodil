@@ -742,12 +742,12 @@ syntax, but it is similar to syntax used by R.
 
 #### drop a record using keyfield
 
-    new_daf = select_krows(krows=keyval, invert=True)
+    new_daf = my_daf.select_krows(krows=keyval, inverse=True)
     
     
 #### remove multiple records using multiple keys in a list.
     
-    new_daf = my_daf.select_krows(krows=keylist, invert=True)
+    new_daf = my_daf.select_krows(krows=keylist, inverse=True)
 
 ### selecting records without using keyfield
 
@@ -815,7 +815,7 @@ or
 #### drop columns by list of colnames
 This operation is not efficient and should be avoided.
 
-    my_daf.select_kcols(colnames_ls, invert=True)
+    my_daf.select_kcols(colnames_ls, inverse=True)
     
 #### return dict of sums of columns specified or those specified in dtypes as int or float if numeric_only is True.
 
