@@ -235,10 +235,16 @@ def test_set_cols_too_many_raises():
     assert daf.columns() == ['id', 'name']
 
 
-def test_set_cols_any_length_on_empty_daf():
-    daf = Daf(cols=['a', 'b'])
+def test_set_cols_any_length_on_daf_without_columns():
+    daf = Daf()
     daf.set_cols(['x', 'y', 'z'])
     assert daf.columns() == ['x', 'y', 'z']
+
+
+def test_set_cols_too_many_raises_on_empty_daf_with_cols():
+    daf = Daf(cols=['a', 'b'])
+    with pytest.raises(AttributeError):
+        daf.set_cols(['x', 'y', 'z'])
 
 
 def test_set_cols_always_resets_keyfield():
