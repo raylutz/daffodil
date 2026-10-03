@@ -151,13 +151,15 @@ def _to_pandas_df(
 
     Giving `default` replaces empty and None cells in the Daf itself, before the
     conversion. That changes the Daf you called it on. Copy it first if you need
-    it unchanged. `default` cannot be used with `use_csv`.
+    it unchanged. `default` cannot be used with `use_csv`. With `use_donpa`, the default
+    replaces the cells in the arrays only. The Daf is not changed, and it goes to every
+    included column, as `defaulting_cols` is not used on that route.
 
     Args:
         cols: Names, or positions, of the columns to include. If None, all columns.
         use_csv: If True, convert by way of CSV text.
         use_donpa: If True, convert by way of `to_donpa()`. This suits numeric columns.
-        default: Value that replaces empty and None cells. This changes the Daf.
+        default: Value that replaces empty and None cells. This changes the Daf, except with `use_donpa`.
         defaulting_cols: The columns that `default` applies to. If None, all included columns.
 
     Returns:

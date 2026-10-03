@@ -3205,14 +3205,32 @@ class Daf:
 
         Args:
             colnames: The columns to include. If None, all columns.
-            default: Passed to `col()`. It does not replace NULL cells.
+            default: A value that replaces each NULL, None and NaN cell, in the arrays only.
+                The Daf is not changed. It applies to every column in `colnames`, so
+                give only the numeric columns, or a text column gets it too.
 
         Returns:
             A dict that maps each column name to an array.
 
+        Notes:
+            A column that mixes numbers and NULL becomes a text array, because NumPy
+            has one type for an array. Give a numeric `default` to keep it numeric.
+            A column with a `default` is also faster to make than one with blanks and
+            no default, because the array is built from numbers.
+
+        Raises:
+            RuntimeError: A name in `colnames` is not a column.
+
         Examples:
             >>> Daf(lol=[[1, 'a'], [2, 'b']], cols=['id', 'v']).to_donpa(['id'])['id'].tolist()
             [1, 2]
+            >>> d = Daf(lol=[[1, 5], [2, ''], [None, 7]], cols=['n', 'm'])
+            >>> d.to_donpa(['m'])['m'].tolist()
+            ['5', '', '7']
+            >>> d.to_donpa(['n', 'm'], default=0)['m'].tolist()
+            [5, 0, 7]
+            >>> d.lol
+            [[1, 5], [2, ''], [None, 7]]
         """
         """
         Convert specified columns of the Daffodil table to a dict of NumPy arrays (donpa).
@@ -3233,7 +3251,15 @@ class Daf:
             colnames = self.columns()
 
         import numpy as np
-        donpa = {col: np.array(self.col(col, default=default)) for col in colnames}
+
+        if default is _MISSING:
+            return {col: np.array(self.col(col)) for col in colnames}
+
+        # replace the missing cells as the column is read, so that NumPy sees only numbers.
+        donpa = {}
+        for col in colnames:
+            donpa[col] = np.array([default if (val is NULL or val is None or val != val) else val
+                                    for val in self.col(col)])
 
         return donpa
 

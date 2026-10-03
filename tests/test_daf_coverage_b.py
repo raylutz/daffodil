@@ -774,3 +774,57 @@ def test_apply_to_col_rebuilds_the_key_index_for_the_keyfield():
     daf = Daf(lol=[[1, 'a'], [2, 'b']], cols=['id', 'v'], keyfield='id')
     daf.apply_to_col('id', lambda value: value * 10)
     assert daf.keys() == [10, 20]
+
+
+# to_donpa
+
+def _donpa_daf():
+    return Daf(lol=[[1, 5, 'a'], [2, '', ''], [None, 7, 'c']], cols=['n', 'm', 't'])
+
+
+def test_to_donpa_without_default_is_as_before():
+    donpa = _donpa_daf().to_donpa()
+    assert donpa['m'].tolist() == ['5', '', '7']
+    assert donpa['n'].tolist() == [1, 2, None]
+    assert donpa['t'].tolist() == ['a', '', 'c']
+
+
+def test_to_donpa_default_replaces_null_none_and_nan_and_keeps_numbers_numeric():
+    np = pytest.importorskip('numpy')
+    daf = Daf(lol=[[1, 5], [2, ''], [None, float('nan')]], cols=['n', 'm'])
+    donpa = daf.to_donpa(['n', 'm'], default=0)
+    assert donpa['n'].tolist() == [1, 2, 0]
+    assert donpa['m'].tolist() == [5, 0, 0]
+    assert donpa['m'].dtype.kind == 'i'
+    nan_donpa = daf.to_donpa(['n'], default=np.nan)
+    assert nan_donpa['n'].dtype.kind == 'f'
+    assert np.isnan(nan_donpa['n'][2])
+
+
+def test_to_donpa_default_does_not_change_the_daf():
+    daf = _donpa_daf()
+    daf.to_donpa(default=0)
+    assert daf.lol == [[1, 5, 'a'], [2, '', ''], [None, 7, 'c']]
+
+
+def test_to_donpa_default_applies_only_to_the_columns_asked_for():
+    donpa = _donpa_daf().to_donpa(['n', 'm'], default=0)
+    assert list(donpa) == ['n', 'm']
+
+
+def test_to_donpa_default_none_is_a_value():
+    donpa = Daf(lol=[[1], ['']], cols=['n']).to_donpa(default=None)
+    assert donpa['n'].tolist() == [1, None]
+
+
+def test_to_donpa_unknown_column_raises():
+    with pytest.raises(RuntimeError):
+        _donpa_daf().to_donpa(['zz'])
+
+
+def test_to_pandas_df_use_donpa_default_replaces_in_the_arrays_only():
+    pytest.importorskip('pandas')
+    daf = Daf(lol=[[1, ''], [2, 3]], cols=['n', 'm'])
+    df = daf.to_pandas_df(use_donpa=True, default=0)
+    assert df.values.tolist() == [[1, 0], [2, 3]]
+    assert daf.lol == [[1, ''], [2, 3]]

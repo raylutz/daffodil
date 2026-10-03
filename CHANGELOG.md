@@ -144,6 +144,13 @@ all prior releases. Plans for future moved to ROADMAP.md.
   git-tracked) moved out of `src/` to a gitignored, local-only `deprecated/` folder.
 
 ### Fixed
+- `to_donpa(default=...)` had no effect. The value reached `col()`, which uses it only for the
+  `indirect_col` case. It now replaces each NULL, None and NaN cell as the column is read, in the
+  arrays only, and the Daf is not changed. A column with blanks stays numeric when the default
+  is a number. Before, NumPy made it a text array. With 1 in 20 cells blank, it takes 0.155 s,
+  not 0.345 s, for 200,000 rows by 10 columns, and 0.216 s, not 0.491 s, for 2,000 rows by 1,000
+  columns. With no default, the code is the same as before. `to_pandas_df(use_donpa=True,
+  default=...)` now gets the replacement too. Seven tests added.
 - `from_cols_dol()` used the length of the first list. A shorter list raised `IndexError`, and a
   longer list lost its extra values without a message. It now raises `ValueError` that names the
   column and both lengths. It builds the rows with `zip`, which is also faster: 0.104 s, not
