@@ -1686,7 +1686,7 @@ class Daf:
             ...         bad.append(value)
             ...         return ''
             >>> d = Daf(lol=[['1'], ['x'], ['3']], cols=['n'])
-            >>> d.apply_to_col('n', to_int)
+            >>> _ = d.apply_to_col('n', to_int)
             >>> d.dtypes = {'n': int}
             >>> d.lol, bad
             ([[1], [''], [3]], ['x'])
@@ -6264,7 +6264,7 @@ class Daf:
     #=========================
     #   modify records
 
-    def assign_record(self, record: T_da) -> None:
+    def assign_record(self, record: T_da) -> 'Daf':
         """
         Put one row in the Daf by its key, replacing a row that has the same key.
 
@@ -6277,12 +6277,15 @@ class Daf:
         Args:
             record: The row, as a dict. It must have the keyfield.
 
+        Returns:
+            This Daf, which has been changed.
+
         Raises:
             KeysDisabledError: The Daf has no keyfield.
 
         Examples:
             >>> d = Daf(lol=[[1, 'a', 10], [2, 'b', 20], [3, 'c', 30]], cols=['id', 'v', 'n'], keyfield='id')
-            >>> d.assign_record({'id': 2, 'v': 'new'})
+            >>> _ = d.assign_record({'id': 2, 'v': 'new'})
             >>> d.lol
             [[1, 'a', 10], [2, 'new', ''], [3, 'c', 30]]
         """
@@ -6305,8 +6308,10 @@ class Daf:
             # otherwise add it, and invalidate kd.
             self.append(record)
 
+        return self
 
-    def assign_record_irow(self, irow: int=-1, record: Optional[T_da]=None) -> None:
+
+    def assign_record_irow(self, irow: int=-1, record: Optional[T_da]=None) -> 'Daf':
         """
         Put one row in the Daf by position, replacing the row there.
 
@@ -6319,21 +6324,26 @@ class Daf:
             irow: The row position. A negative or too large position adds the row at the end.
             record: The row, as a dict. If None, nothing happens.
 
+        Returns:
+            This Daf, which has been changed.
+
         Examples:
             >>> d = Daf(lol=[[1, 'a', 10], [2, 'b', 20], [3, 'c', 30]], cols=['id', 'v', 'n'], keyfield='id')
-            >>> d.assign_record_irow(1, {'v': 'q'})
+            >>> _ = d.assign_record_irow(1, {'v': 'q'})
             >>> d.lol[1]
             ['', 'q', '']
         """
 
         if record is None:
-            return
+            return self
 
         if irow < 0 or irow >= len(self.lol):
             self.append(record)
         else:
             #normal_record_da = Daf.normalize_record_da(record_da, cols=self.columns(), dtypes=self.dtypes)
             self.lol[irow] = [record.get(col, '') for col in self.hd]
+
+        return self
 
 
     #@deprecated("Use 'my_daf[keylist] = record' syntax")
@@ -6373,7 +6383,7 @@ class Daf:
         return self
 
 
-    def update_record_irow(self, irow: int=-1, record: Optional[T_da]=None) -> None:
+    def update_record_irow(self, irow: int=-1, record: Optional[T_da]=None) -> 'Daf':
         """
         Change some cells in the row at a position.
 
@@ -6384,26 +6394,32 @@ class Daf:
             irow: The row position.
             record: The new values, as a dict of column name and value. Names that are not columns are ignored.
 
+        Returns:
+            This Daf, which has been changed.
+
         Examples:
             >>> d = Daf(lol=[[1, 'a', 10], [2, 'b', 20], [3, 'c', 30]], cols=['id', 'v', 'n'], keyfield='id')
-            >>> d.update_record_irow(1, {'v': 'q'})
+            >>> _ = d.update_record_irow(1, {'v': 'q'})
             >>> d.lol[1]
             [2, 'q', 20]
         """
 
         if record is None or not self.lol or not self.hd:
-            return
+            return self
 
         if irow < 0 or irow >= len(self.lol):
-            return
+            return self
 
         # see https://github.com/raylutz/daffodil/issues/7
         for colname, val in record.items():
             if colname in self.hd:
                 self.lol[irow][self.hd[colname]] = record[colname]          # perflint-reviewed (loop-invariant-statement)
+
             # icol = self.hd.get(colname, -1)
             # if icol >= 0:
                 # self.lol[irow][icol] = record_da[colname]
+
+        return self
 
 
     def assign_icol(
@@ -6411,7 +6427,7 @@ class Daf:
             icol: int=-1,
             col_la: Optional[T_la]=None,
             default: Any=''
-            ) -> None:
+            ) -> 'Daf':
         """
         Fill a column by position with the values of a list.
 
@@ -6425,9 +6441,12 @@ class Daf:
             col_la: The values, one for each row.
             default: The value for rows that the list does not reach.
 
+        Returns:
+            This Daf, which has been changed.
+
         Examples:
             >>> d = Daf(lol=[[1, 'a', 10], [2, 'b', 20], [3, 'c', 30]], cols=['id', 'v', 'n'], keyfield='id')
-            >>> d.assign_icol(1, ['x', 'y'], default='D')
+            >>> _ = d.assign_icol(1, ['x', 'y'], default='D')
             >>> d.col('v')
             ['x', 'y', 'D']
         """
@@ -6438,6 +6457,8 @@ class Daf:
         if self.hd and self.lol and len(self.lol[0]) > len(self.hd):
             # a column was added at the right. Name it, so the names match the data.
             self._cols_to_hd(list(self.hd) + [self._new_colname()])
+
+        return self
 
     def _new_colname(self) -> str:
         """
@@ -6723,7 +6744,7 @@ class Daf:
         return self
 
 
-    def set_icol_irows(self, icol: int, irows: T_li, val: Any) -> None:
+    def set_icol_irows(self, icol: int, irows: T_li, val: Any) -> 'Daf':
         """
         Set one value in the given rows of a column, by position.
 
@@ -6735,9 +6756,12 @@ class Daf:
             irows: The row positions.
             val: The value to set.
 
+        Returns:
+            This Daf, which has been changed.
+
         Examples:
             >>> d = Daf(lol=[[1, 'a', 10], [2, 'b', 20], [3, 'c', 30]], cols=['id', 'v', 'n'], keyfield='id')
-            >>> d.set_icol_irows(1, [0, 9, -1], 'Z')
+            >>> _ = d.set_icol_irows(1, [0, 9, -1], 'Z')
             >>> d.col('v')
             ['Z', 'b', 'c']
         """
@@ -6748,11 +6772,13 @@ class Daf:
 
             self.lol[irow][icol] = val
 
+        return self
+
 
     #=========================
     # find/replace
 
-    def find_replace(self, find_pat: str, replace_val: Any) -> None:
+    def find_replace(self, find_pat: str, replace_val: Any) -> 'Daf':
         """
         Replace every cell that matches a pattern, in place.
 
@@ -6766,9 +6792,12 @@ class Daf:
             find_pat: A regular expression.
             replace_val: The value that replaces a matching cell.
 
+        Returns:
+            This Daf, which has been changed.
+
         Examples:
             >>> d = Daf(lol=[[1, 'a', 10], [2, 'b', 20], [3, 'c', 30]], cols=['id', 'v', 'n'], keyfield='id')
-            >>> d.find_replace(r'^[ab]$', 'HIT')
+            >>> _ = d.find_replace(r'^[ab]$', 'HIT')
             >>> d.col('v')
             ['HIT', 'HIT', 'c']
         """
@@ -6779,6 +6808,8 @@ class Daf:
                     row_la[i] = replace_val
 
         self._invalidate_kd()
+
+        return self
 
 
     def replace_in_columns(
@@ -6990,7 +7021,7 @@ class Daf:
     #=========================
     #   apply formulas
 
-    def apply_formulas(self, formulas_daf: 'Daf') -> None:
+    def apply_formulas(self, formulas_daf: 'Daf') -> 'Daf':
         """
         Fill cells from spreadsheet like formulas, in place.
 
@@ -7020,6 +7051,9 @@ class Daf:
         Args:
             formulas_daf: The formulas, with the same shape as this Daf.
 
+        Returns:
+            This Daf, which has been changed.
+
         Raises:
             RuntimeError: The shapes differ, or the formulas never settle.
 
@@ -7030,7 +7064,7 @@ class Daf:
             ...     ['', '', 'sum($d[$r,:$c])'],
             ...     ['', '', 'sum($d[$r,:$c])'],
             ...     ['sum($d[:$r,$c])', 'sum($d[:$r,$c])', 'sum($d[:$r,$c])']])
-            >>> d.apply_formulas(f)
+            >>> _ = d.apply_formulas(f)
             >>> d.lol
             [[1, 2, 3], [4, 5, 9], [7, 8, 15], [12, 15, 27]]
         """
@@ -7040,7 +7074,7 @@ class Daf:
         # This issue will not become a concern unless the number of formulas is substantial.
 
         if not self:
-            return
+            return self
 
         if self.shape() != formulas_daf.shape():
             raise RuntimeError("apply_formulas requires data arrays of the same shape.")
@@ -7086,6 +7120,8 @@ class Daf:
 
         #self._rebuild_kd()
         self._invalidate_kd()
+
+        return self
 
 
     def _parse_formulas(self) -> 'Daf':
@@ -7429,7 +7465,7 @@ class Daf:
             rowkeys:    Union[T_la, T_lota] | None=None,  # list of rowkeys to include.
                         # the above changed from keylist to avoid confusion with KeyedList
             **kwargs:   Any,
-            ) -> None:
+            ) -> 'Daf':
         """
         Apply a function to each row and store the results in this Daf.
 
@@ -7456,16 +7492,19 @@ class Daf:
             rowkeys: Keys of the rows to include. All rows if None. The Daf needs a keyfield.
             **kwargs: Keyword arguments passed on to the function.
 
+        Returns:
+            This Daf, which has been changed.
+
         Raises:
             ValueError: With `by='row'` the function returned None.
             NotImplementedError: `by` is not `row` or `row_klist`.
 
         Examples:
             >>> d = Daf(lol=[['a', 1, 10], ['b', 2, 20], ['a', 3, 30]], cols=['g', 'x', 'y'])
-            >>> d.apply_in_place(lambda row: {**row, 'y': row['y'] + 1})
+            >>> _ = d.apply_in_place(lambda row: {**row, 'y': row['y'] + 1})
             >>> d.col('y')
             [11, 21, 31]
-            >>> d.apply_in_place(lambda row: row.__setitem__('y', 0), by='row_klist')
+            >>> _ = d.apply_in_place(lambda row: row.__setitem__('y', 0), by='row_klist')
             >>> d.col('y')
             [0, 0, 0]
         """
@@ -7511,7 +7550,10 @@ class Daf:
         # Rebuild the internal data structure (if needed)
         # note, this should not be necessary. apply_in_place should not modify the keyfield column.
         self._invalidate_kd()   # use lazy rebuilding of kd.
+
         # self._rebuild_kd()
+
+        return self
 
 
     # def reduce(
@@ -9187,7 +9229,7 @@ class Daf:
         return result_dodaf
 
 
-    def set_col2_from_col1_using_regex_select(self, col1: str, col2: str='', regex: str='') -> None:
+    def set_col2_from_col1_using_regex_select(self, col1: str, col2: str='', regex: str='') -> 'Daf':
 
         r"""
         Fill a column with the part of another column that a regex selects, in place.
@@ -9201,9 +9243,12 @@ class Daf:
             col2: The column to write. Defaults to `col1`.
             regex: A regular expression with one group.
 
+        Returns:
+            This Daf, which has been changed.
+
         Examples:
             >>> d = Daf(lol=[[1, 'ab12'], [2, 'cd34']], cols=['id', 's'])
-            >>> d.set_col2_from_col1_using_regex_select('s', regex=r'(\d+)')
+            >>> _ = d.set_col2_from_col1_using_regex_select('s', regex=r'(\d+)')
             >>> d.col('s')
             ['12', '34']
         """
@@ -9221,6 +9266,8 @@ class Daf:
             self.insert_col(col2)       # a new column, so the result has a place to go.
 
         self.apply_in_place(lambda row_da: set_row_col2_from_col1_using_regex_select(row_da, col1, col2, regex))
+
+        return self
 
 
     def apply_replace_regex(self, col: str, col2: str='', replace_regex: str='') -> 'Daf':
@@ -9362,7 +9409,7 @@ class Daf:
 
 
 
-    def apply_to_col(self, col: str, func: Callable, **kwargs: Any) -> None:
+    def apply_to_col(self, col: str, func: Callable, **kwargs: Any) -> 'Daf':
 
         """
         Replace each value of a column by the result of a function, in place.
@@ -9372,12 +9419,15 @@ class Daf:
             func: A function that takes a value and returns the new value.
             **kwargs: Keyword arguments passed on to the function with each value.
 
+        Returns:
+            This Daf, which has been changed.
+
         Examples:
             >>> d = Daf(lol=[[1, 5], [2, 6]], cols=['a', 'b'])
-            >>> d.apply_to_col('b', lambda value: value * 2)
+            >>> _ = d.apply_to_col('b', lambda value: value * 2)
             >>> d.col('b')
             [10, 12]
-            >>> d.apply_to_col('b', lambda value, factor: value * factor, factor=10)
+            >>> _ = d.apply_to_col('b', lambda value, factor: value * factor, factor=10)
             >>> d.col('b')
             [100, 120]
         """
@@ -9389,6 +9439,8 @@ class Daf:
 
         if col == self.keyfield or not isinstance(self.keyfield, str):
             self._invalidate_kd()
+
+        return self
 
     # for example:
     #   my_daf.apply_to_col(col='colname', func=lambda x: re.sub(r'^\D+', '', x))

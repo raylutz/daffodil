@@ -99,8 +99,9 @@ def test_sort_by_colnames_single_row_is_noop():
 # apply_formulas()
 # =====================================================================
 
-def test_apply_formulas_empty_daf_returns_none():
-    assert Daf().apply_formulas(Daf()) is None
+def test_apply_formulas_empty_daf_returns_itself():
+    daf = Daf()
+    assert daf.apply_formulas(Daf()) is daf
 
 
 def test_apply_formulas_shape_mismatch_raises():

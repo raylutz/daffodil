@@ -111,6 +111,12 @@ all prior releases. Plans for future moved to ROADMAP.md.
   built from another one copies it, when it shares it.
 
 ### Changed
+- Ten in place methods that returned `None` now return the Daf, as the other in place methods do, so
+  calls can be chained: `assign_record()`, `assign_record_irow()`, `update_record_irow()`,
+  `assign_icol()`, `set_icol_irows()`, `find_replace()`, `apply_to_col()`, `apply_in_place()`,
+  `apply_formulas()` and `set_col2_from_col1_using_regex_select()`. Code that ignored the result is not
+  affected. A Daf with no rows is falsy, so `if d.find_replace(...)` would now read differently. The
+  doctests of these methods now assign the result, so the output is not shown. 16 tests added.
 - Missing key and column errors are more consistent. `col()` and `to_donpa()` raise the new
   `ColumnNotFoundError` for a column that is not there. It is a `KeyError`, as for any lookup of a name, and
   also a `RuntimeError`, so code that caught the old error still works. `select_record(silent_error=False)`

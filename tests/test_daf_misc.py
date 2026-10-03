@@ -1345,3 +1345,36 @@ def test_to_dod_without_keyfield_raises_keysdisabled():
 
 def test_to_dod_empty_daf_without_keyfield_is_empty_dict():
     assert Daf().to_dod() == {}
+
+
+# in place methods return the Daf, so calls can be chained
+
+def _chain_daf() -> Daf:
+    return Daf(lol=[[1, 'a'], [2, 'b']], cols=['id', 'v'], keyfield='id')
+
+
+@pytest.mark.parametrize('call', [
+    lambda d: d.assign_record({'id': 3, 'v': 'c'}),
+    lambda d: d.assign_record({'id': 1, 'v': 'z'}),
+    lambda d: d.assign_record_irow(0, {'id': 1, 'v': 'z'}),
+    lambda d: d.assign_record_irow(0, None),
+    lambda d: d.update_record_irow(0, {'v': 'z'}),
+    lambda d: d.update_record_irow(99, {'v': 'z'}),
+    lambda d: d.update_record_irow(0, None),
+    lambda d: d.assign_icol(1, ['x', 'y']),
+    lambda d: d.set_icol_irows(1, [0], 'q'),
+    lambda d: d.find_replace('a', 'Q'),
+    lambda d: d.apply_to_col('v', str.upper),
+    lambda d: d.apply_in_place(lambda row: row, by='row'),
+    lambda d: d.apply_formulas(Daf(cols=['id', 'v'], lol=[['', ''], ['', '']])),
+    lambda d: d.set_col2_from_col1_using_regex_select('v', 'v', '(.)'),
+    ])
+def test_in_place_methods_return_the_same_daf(call):
+    daf = _chain_daf()
+    assert call(daf) is daf
+
+
+def test_in_place_methods_can_be_chained():
+    daf = _chain_daf()
+    result = daf.assign_icol(1, ['x', 'y']).find_replace('x', 'X').drop_cols(['id'])
+    assert result.lol == [['X'], ['y']]

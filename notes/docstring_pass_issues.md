@@ -228,6 +228,9 @@ The date of the first entry is 2026-10-02.
 59. `assign_record()`, `assign_record_irow()`, `update_record_irow()`,
     `assign_icol()` and `set_icol_irows()` return None. The methods that
     do the same kind of change elsewhere return the Daf.
+    Fixed with approval on 2026-10-03. All ten in place methods that returned None now return
+    the Daf. This includes `find_replace()` from item 57, and `apply_formulas()`,
+    `apply_in_place()`, `apply_to_col()` and the regex method.
 60. `sort_by_colname()` raises `TypeError` for a column that mixes None and
     numbers. NULL, which is the empty string, mixed with numbers does the same. A
     column of text with NULL sorts the NULL first.
