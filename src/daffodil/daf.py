@@ -3473,13 +3473,11 @@ class Daf:
         the attrs and the display columns. With `concise=True`, the parts that are
         empty are left out. Use `from_json()` to read it back.
 
-        Types are written by name. Only `int`, `float`, `str` and `bool` are read back
-        as types. Other names, such as `list`, come back as text.
+        Types are written by name. Only `int`, `float`, `str`, `bool`, `list` and `dict`
+        are read back as types. Other names, such as `date`, come back as text.
 
         Cells must be JSON values. A tuple comes back as a list, and a set raises a
         `TypeError`. A NaN is written as `NaN`, which some JSON readers reject.
-
-        If the Daf has no dtypes, they are set to an empty dict as a side effect.
 
         Args:
             concise: If True, leave out the parts that are empty.
@@ -3496,12 +3494,9 @@ class Daf:
         #   v.__name__          -- the type’s name as a string
         #   else str(v)         -- if the type is already a string, for example.
         
-        if self.dtypes is None:
-            self.dtypes = {}
-
         dtypes_str = {
             k: (v.__name__ if isinstance(v, type) else str(v))
-                for k, v in self.dtypes.items()
+                for k, v in (self.dtypes or {}).items()
             }
         # Serialize Daf object to a JSON-compatible dictionary
         daf_dict = {
@@ -3528,7 +3523,9 @@ class Daf:
         'float':    float,
         'str':      str,
         'bool':     bool,
-        # Add more types as needed
+        'list':     list,
+        'dict':     dict,
+        # Add more types as needed, if apply_dtypes() can convert to them.
     }
 
     @classmethod

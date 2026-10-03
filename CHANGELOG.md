@@ -161,6 +161,10 @@ all prior releases. Plans for future moved to ROADMAP.md.
   git-tracked) moved out of `src/` to a gitignored, local-only `deprecated/` folder.
 
 ### Fixed
+- `from_json()` read the dtypes `list` and `dict` back as the text `'list'` and `'dict'`, so a saved
+  table could not be converted with `apply_dtypes()` after reloading. Both are now read back as types.
+  Other names, such as `date`, still come back as text. `to_json()` also set the dtypes of the Daf to an
+  empty dict as a side effect when they were None. It now leaves the Daf alone. Tests added.
 - `daf_to_lol_summary()` and `to_md()` with only `max_cols` added a row of `...` under the header,
   though no row was hidden. The slice `[-0:]` also made `max_rows=1` show every row. A limit of 0
   now means no row limit. An odd `max_rows` keeps the extra row at the start, so 3 shows 3 data rows

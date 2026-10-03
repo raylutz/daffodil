@@ -103,9 +103,11 @@ The date of the first entry is 2026-10-02.
 31. `to_json()` writes dtypes by name, but `from_json()` knows only `int`,
     `float`, `str` and `bool`. A `list` or `dict` dtype comes back as the text
     `'list'`. The round trip loses it.
+    Fixed with approval on 2026-10-03. `list` and `dict` are now read back as types.
 32. `to_json()` sets `self.dtypes = {}` when dtypes is None. That is a side
     effect of a method that should only read. A NaN is written as `NaN`, which
     is not valid JSON. A tuple cell comes back as a list.
+    Fixed with approval on 2026-10-03. The table is no longer changed.
 33. `from_pandas_df()` ignores its `dtypes` argument. With `use_csv=True` it also
     loses `name`. For a Series the dtypes dict has the key `col`, not the
     index labels used as column names.

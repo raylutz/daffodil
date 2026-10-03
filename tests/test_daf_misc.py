@@ -1115,3 +1115,31 @@ def test_summary_limit_at_or_over_row_count_keeps_all_rows():
 def test_to_md_only_max_cols_has_no_divider_row():
     daf = Daf(lol=[[i, f'n{i}', i * 2, f'x{i}'] for i in range(3)], cols=['id', 'name', 'val', 'tag'])
     assert daf.to_md(max_cols=2).splitlines()[2].startswith('|  0')
+
+
+# to_json dtypes
+
+def test_to_json_does_not_change_missing_dtypes():
+    daf = Daf(lol=[[1]], cols=['a'])
+    assert daf.dtypes is None
+    daf.to_json()
+    assert daf.dtypes is None
+
+
+def test_json_round_trip_keeps_list_and_dict_dtypes():
+    daf = Daf(lol=[[1, [1, 2], {'k': 1}, 'x', 1.5, True]], cols=list('abcdef'),
+              dtypes={'a': int, 'b': list, 'c': dict, 'd': str, 'e': float, 'f': bool})
+    again = Daf.from_json(daf.to_json())
+    assert again.dtypes == daf.dtypes
+    assert again.lol == daf.lol
+
+
+def test_json_round_trip_then_apply_dtypes_for_list_column():
+    daf = Daf(lol=[['1', '[1, 2]']], cols=['a', 'b'], dtypes={'a': int, 'b': list})
+    again = Daf.from_json(daf.to_json())
+    assert again.apply_dtypes().lol == [[1, [1, 2]]]
+
+
+def test_json_unknown_dtype_name_comes_back_as_text():
+    again = Daf.from_json('{"lol": [["x"]], "hd": {"a": 0}, "dtypes": {"a": "date"}}')
+    assert again.dtypes == {'a': 'date'}
