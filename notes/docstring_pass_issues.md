@@ -296,3 +296,10 @@ The date of the first entry is 2026-10-02.
     `apply_replace_regex('s', 't')` now leave the table unchanged. Before, they
     added a value to each row and no column name. Both docstrings now say that
     `col2` must be a column. Item 7 covers what they should do.
+
+## Found on 2026-10-03
+
+77. Row sharing differs between the grouping methods, which extends item 48.
+    `groupby()` and `multi_groupby()` copy the rows. `groupby_cols()` and
+    `group_where()` share them. The `groupby()` docstring said it shares them. It
+    now says it copies.

@@ -7643,7 +7643,7 @@ class Daf:
 
         The result is a dict. Each key is a value found in the column, in the order
         first seen. Each value is a Daf of the rows that have it, with all columns.
-        The rows are not copied, so changing a cell in a group changes it here too.
+        The rows are new lists, so changing a cell in a group does not change this Daf.
 
         With several columns, as a list, the keys are tuples of their values. See
         `groupby_cols()`. With `omit_nulls`, rows that have an empty value in the
@@ -8034,7 +8034,8 @@ class Daf:
         The result is a dict of dicts. The first key is the column. The second key is a
         value in that column. Each innermost value is a Daf of the rows that have it.
         This is not a grouping by combinations. Use `groupby_cols()` for that.
-        The groups are not reduced.
+        The groups are not reduced. The rows are new lists, so changing a cell in a group
+        does not change this Daf.
 
         Args:
             groupby_colnames: The columns to group by.
