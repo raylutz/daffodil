@@ -81,7 +81,7 @@ The date of the first entry is 2026-10-02.
 24. Fixed with approval on 2026-10-02 for the extra keys. `from_lod()` takes the columns from the first dict only. A later dict with
     an extra key loses that value without a message. Empty dicts and non dict
     items are skipped without a message, so rows can be lost.
-25. `from_cols_dol()` uses the length of the first list. A shorter list raises
+25. Fixed with approval on 2026-10-03. `from_cols_dol()` used the length of the first list. A shorter list raises
     `IndexError`. A longer list loses its extra values without a message.
 26. `to_dod()` on a Daf with no keyfield raises a bare `KeyError('')`. The
     message does not say the keyfield is missing.

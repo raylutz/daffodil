@@ -2317,9 +2317,9 @@ class Daf:
         """
         Make a Daf from a dict of lists, where each list is a column.
 
-        All lists should be as long as the first one. If a list is shorter, an
-        `IndexError` is raised. If it is longer, the extra values are dropped without
-        a message.
+        All the lists must be as long as each other. If one differs in length from the
+        first, a `ValueError` is raised, because the rows could not be made without
+        losing values or guessing them.
 
         Args:
             cols_dol: Maps a column name to the list of its values.
@@ -2328,6 +2328,9 @@ class Daf:
 
         Returns:
             The new Daf.
+
+        Raises:
+            ValueError: A list has a different length from the first.
 
         Examples:
             >>> d = Daf.from_cols_dol({'A': [1, 2, 3], 'B': [4, 5, 6]})
@@ -2354,12 +2357,15 @@ class Daf:
 
         cols = list(cols_dol.keys())
 
-        lol = []
-        for irow in range(len(cols_dol[cols[0]])):
-            row = []
-            for col in cols:
-                row.append(cols_dol[col][irow])
-            lol.append(row)
+        num_rows = len(cols_dol[cols[0]])
+        for col in cols:
+            if len(cols_dol[col]) != num_rows:
+                raise ValueError(
+                    f"from_cols_dol: column '{col}' has {len(cols_dol[col])} values, "
+                    f"but column '{cols[0]}' has {num_rows}.")
+
+        # zip turns the columns into rows in C.
+        lol = [list(row) for row in zip(*cols_dol.values())]
 
         # following invalidates kd for lazy rebuilding.
         return cls(cols=cols, lol=lol, keyfield=keyfield, dtypes=dtypes)

@@ -997,3 +997,42 @@ def test_from_csv_buff_include_cols_gives_the_same_rows_as_selecting_afterwards(
     wide = 'c0,c1,c2,c3,c4\n' + '\n'.join(','.join(str(r * 5 + i) for i in range(5)) for r in range(20)) + '\n'
     cols = ['c4', 'c1', 'c3']
     assert Daf.from_csv_buff(wide, include_cols=cols).lol == Daf.from_csv_buff(wide)[:, cols].lol
+
+
+# from_cols_dol
+
+def test_from_cols_dol_equal_lists():
+    daf = Daf.from_cols_dol({'A': [1, 2, 3], 'B': [4, 5, 6]})
+    assert daf.columns() == ['A', 'B']
+    assert daf.lol == [[1, 4], [2, 5], [3, 6]]
+
+
+def test_from_cols_dol_shorter_list_raises_and_names_the_column():
+    with pytest.raises(ValueError, match="column 'B' has 1 values, but column 'A' has 2"):
+        Daf.from_cols_dol({'A': [1, 2], 'B': [3]})
+
+
+def test_from_cols_dol_longer_list_raises():
+    with pytest.raises(ValueError, match="column 'B' has 2 values, but column 'A' has 1"):
+        Daf.from_cols_dol({'A': [1], 'B': [3, 4]})
+
+
+def test_from_cols_dol_rows_are_new_lists_and_keyfield_and_dtypes_work():
+    daf = Daf.from_cols_dol({'id': [1, 2], 'v': ['a', 'b']}, keyfield='id', dtypes={'id': int, 'v': str})
+    assert daf.keys() == [1, 2]
+    assert daf.select_record(2) == {'id': 2, 'v': 'b'}
+    assert daf.lol[0] is not daf.lol[1]
+
+
+def test_from_cols_dol_empty_and_empty_lists():
+    assert Daf.from_cols_dol({}).shape() == (0, 0)
+    daf = Daf.from_cols_dol({'A': [], 'B': []})
+    assert daf.columns() == ['A', 'B']
+    assert daf.num_rows() == 0
+
+
+def test_from_cols_dol_single_column_and_numpy_arrays():
+    np = pytest.importorskip('numpy')
+    assert Daf.from_cols_dol({'A': [1, 2]}).lol == [[1], [2]]
+    daf = Daf.from_cols_dol({'A': np.array([1, 2]), 'B': np.array([3, 4])})
+    assert daf.lol == [[1, 3], [2, 4]]

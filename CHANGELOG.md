@@ -144,6 +144,10 @@ all prior releases. Plans for future moved to ROADMAP.md.
   git-tracked) moved out of `src/` to a gitignored, local-only `deprecated/` folder.
 
 ### Fixed
+- `from_cols_dol()` used the length of the first list. A shorter list raised `IndexError`, and a
+  longer list lost its extra values without a message. It now raises `ValueError` that names the
+  column and both lengths. It builds the rows with `zip`, which is also faster: 0.104 s, not
+  0.255 s, for 200,000 rows and 10 columns. Six tests added.
 - `include_cols` in `from_csv_buff()`, `from_csv_file()` and `from_csv()` had no effect, so every
   column was read. It now keeps only the listed columns, in the order listed. Each row is cut
   down as it is read, so a stream never holds the other columns. For a 2,000 row by 1,000
