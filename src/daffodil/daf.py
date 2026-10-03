@@ -3913,7 +3913,6 @@ class Daf:
 
             self._rebuild_kd_if_invalidated()
 
-            # the following, see https://github.com/raylutz/daffodil/issues/7
             if keyval in self._kd:
                 self.lol[self._kd[keyval]] = rec_la
             else:
@@ -6340,7 +6339,6 @@ class Daf:
 
         self._rebuild_kd_if_invalidated()
 
-        # for the following, see https://github.com/raylutz/daffodil/issues/7
         if keyval in self._kd:
             # assign the record, normalize the fields.
             self.lol[self._kd[keyval]] = [record.get(col, '') for col in self.hd]
@@ -6474,7 +6472,6 @@ class Daf:
         if irow < 0 or irow >= len(self.lol):
             return self
 
-        # see https://github.com/raylutz/daffodil/issues/7
         for colname, val in record.items():
             if colname in self.hd:
                 self.lol[irow][self.hd[colname]] = record[colname]          # perflint-reviewed (loop-invariant-statement)
@@ -6718,7 +6715,6 @@ class Daf:
         if not col_la:
             col_la = []             # perflint-reviewed (use-tuple-over-list)
 
-        # see https://github.com/raylutz/daffodil/issues/7
         if colname in self.hd:
             # column already exists. ignore icol, overwrite data.
             self.assign_col(colname, col_la, default)
@@ -6759,8 +6755,9 @@ class Daf:
         """
         Set one value in the given rows of a named column.
 
-        This is `my_daf[irows, colname] = value`. A column name that is not found does
-        nothing. Row positions that are out of range are skipped.
+        This is deprecated. Use `my_daf[irows, colname] = value`, which does the same. A
+        column name that is not found raises `KeyError`. Row positions that are out of
+        range are skipped.
 
         Args:
             colname: The column name.
@@ -6770,17 +6767,16 @@ class Daf:
         Returns:
             This Daf, which has been changed.
 
+        Raises:
+            KeyError: The column name is not found.
+
         Examples:
             >>> d = Daf(lol=[[1, 'a', 10], [2, 'b', 20], [3, 'c', 30]], cols=['id', 'v', 'n'], keyfield='id')
             >>> d.set_col_irows('v', [0, 2], 'Z').col('v')
             ['Z', 'b', 'Z']
         """
 
-        # see https://github.com/raylutz/daffodil/issues/7
-        try:
-            icol = self.hd[colname]
-        except KeyError:
-            return self
+        icol = self.hd[colname]
 
         self.set_icol_irows(icol, irows, val)
 

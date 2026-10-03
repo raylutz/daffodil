@@ -111,6 +111,9 @@ all prior releases. Plans for future moved to ROADMAP.md.
   built from another one copies it, when it shares it.
 
 ### Changed
+- `set_col_irows()` raises `KeyError` with the name for a column that is not found. It did nothing. The
+  docstring now says the method is deprecated, because `my_daf[irows, colname] = value` does the same. The
+  five comments that pointed at GitHub issue 7 were removed. 2 tests changed or added.
 - Row positions in `assign_record_irow()`, `update_record_irow()` and `insert_irow()`. The default position of
   `assign_record_irow()` and `insert_irow()` is now `None`, which adds the row at the end. A negative
   position counts from the end, as in a list, in `assign_record_irow()` and `update_record_irow()`. So

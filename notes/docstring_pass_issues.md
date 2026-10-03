@@ -245,6 +245,10 @@ The date of the first entry is 2026-10-02.
 58. `set_col_irows()` ignores a column name that is not found. `set_icol()`
     raises `IndexError` for a bad column. Several of these methods are marked
     `DEPRECATE?` in their old text.
+    Fixed with approval on 2026-10-03. `set_col_irows()` raises `KeyError` for a name that is not a
+    column, and is marked deprecated in its docstring. `my_daf[irows, colname] = value` does the same.
+    The five comments that pointed at GitHub issue 7 were removed. `update_record_irow()` still ignores names that
+    are not columns, and a position out of range.
 59. `assign_record()`, `assign_record_irow()`, `update_record_irow()`,
     `assign_icol()` and `set_icol_irows()` return None. The methods that
     do the same kind of change elsewhere return the Daf.

@@ -706,11 +706,20 @@ def test_set_col_irows_basic():
     assert daf.lol == [[1, 100], [3, 4]]
 
 
-def test_set_col_irows_missing_col_noop():
+def test_set_col_irows_missing_col_raises_keyerror():
     daf = Daf(lol=[[1, 2]], cols=['a', 'b'])
-    result = daf.set_col_irows('missing', [0], 100)
-    assert result is daf
+    with pytest.raises(KeyError) as info:
+        daf.set_col_irows('missing', [0], 100)
+    assert info.value.args == ('missing',)
     assert daf.lol == [[1, 2]]
+
+
+def test_set_col_irows_does_the_same_as_indexing():
+    by_method = Daf(lol=[[1, 2], [3, 4], [5, 6]], cols=['a', 'b'])
+    by_index = Daf(lol=[[1, 2], [3, 4], [5, 6]], cols=['a', 'b'])
+    by_method.set_col_irows('b', [0, 2], 99)
+    by_index[[0, 2], 'b'] = 99
+    assert by_method.lol == by_index.lol == [[1, 99], [3, 4], [5, 99]]
 
 
 def test_apply_to_col_basic():
