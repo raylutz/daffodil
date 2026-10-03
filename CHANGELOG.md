@@ -111,6 +111,11 @@ all prior releases. Plans for future moved to ROADMAP.md.
   built from another one copies it, when it shares it.
 
 ### Changed
+- `from_lot()` without `cols` gives a Daf with no column names, as `Daf(lol=...)` does. It named them `col_0`,
+  `col_1`. Use `set_cols()` for names. A Daf that has rows and no column names now raises `KeysDisabledError`,
+  with a message that names `set_cols()`, from `to_lod()` and from the dict and KeyedList iterators, so also from
+  `to_cols_dol()`, `select_where()` and `select_by_dict()`. These gave `[{}, {}]`, `{}`, an empty result or a
+  confusing `ValueError`. `iter_list()` and an empty Daf are not affected. 13 tests added.
 - `append()` and `extend()` say what they add by keyword. `append(lol=[[2, 'b'], [3, 'c']])` and
   `extend(lol=...)` add several rows, each a list in column order. `append(la=[...])` adds one row, even if its
   items are lists. A positional list is one row, as before. A list with more values than there are columns now

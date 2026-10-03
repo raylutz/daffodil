@@ -131,7 +131,7 @@ class DaffodilError(Exception):
     """Base exception for Daffodil."""
 
 class KeysDisabledError(DaffodilError, LookupError):
-    """Row-key lookups are unavailable because keyfield is unset/disabled."""
+    """Row-key lookups are unavailable because keyfield is unset/disabled, or a lookup by column name is unavailable because the Daf has no column names."""
 
 class ColumnNotFoundError(DaffodilError, KeyError, RuntimeError):
     """A column name is not in the Daf. It is a `KeyError`, and also a `RuntimeError`, which older code may catch."""
@@ -2155,8 +2155,9 @@ class Daf:
         """
         Make a Daf from a list of tuples, one tuple for each row.
 
-        Without `cols` the columns are named `col_0`, `col_1` and so on. This differs
-        from `set_cols()`, which makes spreadsheet names such as `A` and `B`.
+        Without `cols` the Daf has no column names, as with `Daf(lol=...)`. Call
+        `set_cols()` to give it spreadsheet names such as `A` and `B`, or to name them. A
+        Daf with no names cannot give its rows as dicts or KeyedList objects.
 
         Args:
             records_lot: The rows, as tuples.
@@ -2175,7 +2176,9 @@ class Daf:
             >>> Daf.from_lot([(1, 'a'), (2, 'b')], cols=['id', 'v']).lol
             [[1, 'a'], [2, 'b']]
             >>> Daf.from_lot([(1, 'a')]).columns()
-            ['col_0', 'col_1']
+            []
+            >>> Daf.from_lot([(1, 'a')]).set_cols().columns()
+            ['A', 'B']
         """
         """
         Create Daf instance from LOT (list of tuples), adopting given column names or generating default ones.
@@ -2197,15 +2200,12 @@ class Daf:
         if not records_lot:
             return cls(keyfield=keyfield, dtypes=dtypes)
 
-        if cols is None:
-            # Generate default column names if none are provided
-            cols = [f'col_{i}' for i in range(len(records_lot[0]))]
-
         if dtypes is None:
             dtypes = {}
 
-        # Check for mismatch between column names and tuple length
-        if any(len(row) != len(cols) for row in records_lot):
+        # Check for mismatch between column names and tuple length, or between the tuples.
+        num_cols = len(cols) if cols is not None else len(records_lot[0])
+        if any(len(row) != num_cols for row in records_lot):
             raise ValueError("Each tuple in records_lot must have the same number of elements as the columns.")
 
         # Convert LOT to LOL (list of lists) for Daf
@@ -2235,6 +2235,9 @@ class Daf:
 
         if not self:
             return []
+
+        if not self.hd:
+            raise KeysDisabledError("to_lod(): the Daf has no column names. Call set_cols() to name them.")
 
         cols = self.columns()
         result_lod = [dict(zip(cols, la)) for la in self.lol]
@@ -11107,6 +11110,10 @@ class DafIterator(Generic[DafIterRtype]):
     def __init__(self, this_daf: Daf, rtype: Type[DafIterRtype] = dict):  # type: ignore[assignment]
         # every real caller (iter_dict/iter_klist/iter_list below) passes rtype explicitly;
         # mypy just can't verify a single concrete default satisfies a constrained TypeVar.
+        if rtype is not list and this_daf.lol and not this_daf.hd:
+            raise KeysDisabledError(
+                "Iterating the rows as dicts or KeyedList objects needs column names. This Daf has none. "
+                "Call set_cols() to name them, or use iter_list().")
         self.this_daf = this_daf
         self.rtype: Type[DafIterRtype] = rtype
         self._index = 0

@@ -1798,3 +1798,56 @@ def test_extend_lol_on_an_empty_daf_with_no_columns():
 def test_extend_list_of_dicts_still_works():
     assert _two_col_daf().extend([{'id': 2, 'v': 'b'}]).lol == [[1, 'a'], [2, 'b']]
     assert _two_col_daf().append([{'id': 2, 'v': 'b'}, {'id': 3, 'v': 'c'}]).lol == [[1, 'a'], [2, 'b'], [3, 'c']]
+
+
+# a Daf with no column names: from_lot makes none, and dict views raise a clear error
+
+from daffodil.daf import KeysDisabledError
+
+
+def _unnamed_daf() -> Daf:
+    return Daf.from_lot([(1, 'a', 10), (2, 'b', 20)])
+
+
+def test_from_lot_without_cols_has_no_column_names():
+    daf = _unnamed_daf()
+    assert daf.columns() == []
+    assert daf.lol == [[1, 'a', 10], [2, 'b', 20]]
+    assert daf.set_cols().columns() == ['A', 'B', 'C']
+
+
+def test_from_lot_tuples_of_different_lengths_raise():
+    with pytest.raises(ValueError):
+        Daf.from_lot([(1, 'a'), (2, 'b', 'c')])
+
+
+@pytest.mark.parametrize('call', [
+    lambda d: d.to_lod(),
+    lambda d: list(d.iter_dict()),
+    lambda d: list(d.iter_klist()),
+    lambda d: [row for row in d],
+    lambda d: d.to_cols_dol(),
+    lambda d: d.select_where(lambda row: True),
+    lambda d: d.select_by_dict({'A': 1}),
+    ])
+def test_dict_views_of_a_daf_with_no_names_raise_a_clear_error(call):
+    with pytest.raises(KeysDisabledError, match='set_cols'):
+        call(_unnamed_daf())
+
+
+def test_list_views_of_a_daf_with_no_names_still_work():
+    daf = _unnamed_daf()
+    assert list(daf.iter_list()) == [[1, 'a', 10], [2, 'b', 20]]
+    assert daf.to_md().splitlines()[0].startswith('| A')
+
+
+def test_naming_the_columns_makes_the_dict_views_work():
+    daf = _unnamed_daf().set_cols(['id', 'v', 'n'])
+    assert daf.to_lod() == [{'id': 1, 'v': 'a', 'n': 10}, {'id': 2, 'v': 'b', 'n': 20}]
+    assert list(daf.iter_dict())[0] == {'id': 1, 'v': 'a', 'n': 10}
+
+
+def test_an_empty_daf_has_empty_dict_views():
+    assert Daf().to_lod() == []
+    assert list(Daf()) == []
+    assert Daf().to_cols_dol() == {}

@@ -83,7 +83,7 @@ def test_copy_for_sorting_independent_lol_reference():
 def test_from_lot_basic():
     lot = [(1, 'Alice', 30), (2, 'Bob', 25)]
     daf = Daf.from_lot(lot)
-    assert list(daf.hd.keys()) == ['col_0', 'col_1', 'col_2']
+    assert daf.columns() == []
     assert daf.lol == [[1, 'Alice', 30], [2, 'Bob', 25]]
 
 

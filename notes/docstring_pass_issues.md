@@ -92,6 +92,10 @@ The date of the first entry is 2026-10-02.
     Fixed with approval on 2026-10-03. It raises `KeysDisabledError` for a Daf with rows and no keyfield.
 27. `from_lot()` names columns `col_0`, `col_1`. `set_cols()` and
     `from_googlesheet()` name them `A`, `B`. The two defaults differ.
+    Fixed with approval on 2026-10-03, option D. `from_lot()` makes no names without `cols`, as
+    `Daf(lol=...)` does. A Daf with rows and no names raises `KeysDisabledError` from `to_lod()` and from the
+    dict and KeyedList iterators, and so from `to_cols_dol()`, `select_where()` and `select_by_dict()`.
+    Still open: `iloc()`, `to_dict()` and `to_md()` make spreadsheet names on the fly for such a Daf.
 28. `from_directory()` prints its elapsed time to standard output. It never
     lists folders, so the `is_dir` column is always 0. A schema that leaves out
     standard fields drops those columns.
