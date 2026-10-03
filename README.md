@@ -735,6 +735,17 @@ exception. It replaces the row by default, and `respect_kd=False` makes it add.
 #### append multiple rows as a list of dictionaries.
 
     my_daf.append(lod)
+
+#### append a single row as a list of values, in column order.
+A short list is padded with NULL. A list with more values than there are columns raises `ValueError`.
+
+    my_daf.append([2, 'b'])
+    my_daf.append(la=[2, 'b'])                  # the same, and says that it is one row.
+
+#### append multiple rows as a list of lists. Use the keyword, so that it is not read as one row.
+
+    my_daf.append(lol=[[2, 'b'], [3, 'c']])
+    my_daf.extend(lol=[[2, 'b'], [3, 'c']])     # the same.
     
 #### concatenate other_daf as additional rows.
 

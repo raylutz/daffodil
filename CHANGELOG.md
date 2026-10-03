@@ -118,7 +118,7 @@ all prior releases. Plans for future moved to ROADMAP.md.
   items than columns lost rows that way. A short list is still padded with NULL, and a Daf with no columns takes
   a list as it is. `extend(lol=...)` checks every row first, so a bad row adds nothing. Giving more than one of
   `data_item`, `lol` and `la` raises `TypeError`, and so does a type that `append()` does not support, which
-  raised `RuntimeError` with no message. A branch of `append()` that could not run was removed. 28 tests added.
+  raised `RuntimeError` with no message. A branch of `append()` that could not run was removed. The README shows the keywords. 28 tests added.
 - The README says that `my_daf[irow] = dict` replaces the whole row, and that columns the dict lacks become NULL. It
   said only that column names are respected. It points to `update_record_irow()` for changing some cells.
 - `select_cols()` keeps the columns in the order of `cols`, as `select_kcols()` and `my_daf[:, cols]` do. It
