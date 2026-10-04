@@ -435,3 +435,6 @@ The date of the first entry is 2026-10-02.
     behavior and to document it. The docstrings now say so, and point to `is_rectangular()` and `force_rectangular()`. The
     cost of a check was measured at 0.6% to 1.5% of a read. An opt-in `check_rectangular` and a `NotRectangularError` that
     subclasses `ValueError` were considered and not made.
+89. `from_md()` raises `RuntimeError` for a table with no header row, which is also not a table that Python-Markdown renders. A
+    Daf with no column names is written by `to_md()` with the names `A`, `B` and read back with those names. The owner decided on
+    2026-10-04 to keep the behavior and to document it. A `noheader` keyword was considered and not made.

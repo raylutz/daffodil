@@ -463,7 +463,12 @@ def _from_md(cls, md_str: str) -> 'Daf': # -> "Daf":
     Only the first table in the text is read. Text before it, such as headings and
     prose, is skipped. A table row starts and ends with `|`. The table must have
     a header row and then a separator row such as `| -: | -: |`. The columns are
-    the header cells.
+    the header cells. A table with no header row is not read, and raises `RuntimeError`.
+
+    A Daf with rows and no column names is written by `to_md()` with the spreadsheet
+    names `A`, `B` and so on in the header. Reading that text gives a Daf with those
+    names, so the round trip adds column names. The text of a table cannot tell these
+    names from names that you chose.
 
     A footer line that starts with `%% daf ` and follows the table may give the
     keyfield and name, as `to_md(include_summary=True)` writes. Every cell is read as
@@ -485,6 +490,8 @@ def _from_md(cls, md_str: str) -> 'Daf': # -> "Daf":
         >>> d = Daf.from_md(text)
         >>> d.lol, d.keyfield, d.name
         ([['1', 'a'], ['2', 'b']], 'id', 'nm')
+        >>> Daf.from_md(Daf(lol=[[1, 'a']]).to_md()).columns()
+        ['A', 'B']
     """
 
     if not md_str:
