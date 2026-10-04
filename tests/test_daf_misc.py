@@ -1407,7 +1407,7 @@ def _chain_daf() -> Daf:
     lambda d: d.assign_record_irow(0, {'id': 1, 'v': 'z'}),
     lambda d: d.assign_record_irow(0, None),
     lambda d: d.update_record_irow(0, {'v': 'z'}),
-    lambda d: d.update_record_irow(99, {'v': 'z'}),
+    lambda d: d.update_record_irow(1, {'v': 'z'}),
     lambda d: d.update_record_irow(0, None),
     lambda d: d.assign_icol(1, ['x', 'y']),
     lambda d: d.set_icol_irows(1, [0], 'q'),
@@ -1626,9 +1626,18 @@ def test_update_record_irow_default_and_negative_reach_the_last_row():
     assert _pos_daf().update_record_irow(-3, {'v': 'Z'}).lol[0] == [1, 'Z']
 
 
-def test_update_record_irow_out_of_range_still_does_nothing():
-    assert _pos_daf().update_record_irow(3, {'v': 'Z'}).lol == _pos_daf().lol
-    assert _pos_daf().update_record_irow(-4, {'v': 'Z'}).lol == _pos_daf().lol
+def test_update_record_irow_out_of_range_raises_and_changes_nothing():
+    for position in (3, 99, -4, -99):
+        daf = _pos_daf()
+        with pytest.raises(IndexError, match=f'position {position} is out of range for 3 rows'):
+            daf.update_record_irow(position, {'v': 'Z'})
+        assert daf.lol == _pos_daf().lol
+
+
+def test_update_record_irow_with_nothing_to_update_changes_nothing():
+    assert Daf().update_record_irow(0, {'v': 'Z'}).lol == []
+    assert Daf(lol=[[1]]).update_record_irow(0, {'v': 'Z'}).lol == [[1]]        # no column names
+    assert _pos_daf().update_record_irow(0, None).lol == _pos_daf().lol
 
 
 def test_insert_irow_none_and_minus_one_add_at_the_end():

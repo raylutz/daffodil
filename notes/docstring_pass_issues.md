@@ -255,6 +255,8 @@ The date of the first entry is 2026-10-02.
     `update_record_irow(-1)` now reaches the last row. `insert_irow()` takes `None`, and `-1` still adds at the
     end. A position beyond the last row still adds a row. A position that is out of range for
     `update_record_irow()` still does nothing.
+    Then, on 2026-10-04, `update_record_irow()` raises `IndexError` for a position that is out of range, with approval.
+    An update is a mutation, so a bad position should be seen.
 56. `insert_irow(0, 'zz')` raises `UnboundLocalError`, because a row that is
     neither a list nor a dict leaves `row_la` unset.
     Fixed with approval on 2026-10-03. It raises `TypeError` that names the method.

@@ -117,6 +117,9 @@ all prior releases. Plans for future moved to ROADMAP.md.
   built from another one copies it, when it shares it.
 
 ### Changed
+- `update_record_irow()` raises `IndexError` for a position that is out of range, and changes nothing. It did nothing,
+  without a message. A Daf with no rows or no columns, and a record of `None`, still change nothing. A position
+  found from the key index, as in `update_by_keylist()`, is never out of range. 2 tests changed or added.
 - Converting text to `bool`, in `apply_dtypes()` and `convert_type_value()`, recognizes the words `false`, `no`, `n`,
   `f` and `off`, which gave 1, and `true`, `yes`, `y`, `t` and `on`, in lower case, capitalized and upper case, as well
   as `0`, `1`, `0.0`, `1.0` and the empty text. Any other text is kept as it was, as it is for `int` and `float`, so a

@@ -2332,7 +2332,8 @@ class TestDaf(unittest.TestCase):
         daf = Daf(cols=cols, lol=lol, keyfield='col1', dtypes={'col1': int, 'col2': str})
 
         record_da = {'col1': 4, 'col2': 'd'}
-        daf.update_record_irow(irow=5, record=record_da)
+        with self.assertRaises(IndexError):
+            daf.update_record_irow(irow=5, record=record_da)
 
         self.assertEqual(daf.lol, lol)
 

@@ -6555,7 +6555,8 @@ class Daf:
 
         Only the columns that are keys of the dict are changed. Other cells keep their
         values. A negative position counts from the end, as in a list, so the default,
-        `-1`, is the last row. A position that is out of range does nothing.
+        `-1`, is the last row. A position that is out of range raises `IndexError`, and
+        nothing is changed. A Daf with no rows or no columns, and a record of `None`, change nothing.
 
         Args:
             irow: The row position. -1, the default, is the last row.
@@ -6563,6 +6564,9 @@ class Daf:
 
         Returns:
             This Daf, which has been changed.
+
+        Raises:
+            IndexError: The position is out of range, for a Daf that has rows and columns.
 
         Examples:
             >>> d = Daf(lol=[[1, 'a', 10], [2, 'b', 20], [3, 'c', 30]], cols=['id', 'v', 'n'], keyfield='id')
@@ -6577,11 +6581,12 @@ class Daf:
         if record is None or not self.lol or not self.hd:
             return self
 
+        position = irow
         if irow < 0:
             irow += len(self.lol)               # count from the end, as a list does.
 
         if irow < 0 or irow >= len(self.lol):
-            return self
+            raise IndexError(f"update_record_irow(): row position {position} is out of range for {len(self.lol)} rows.")
 
         for colname, val in record.items():
             if colname in self.hd:
