@@ -112,6 +112,9 @@ The date of the first entry is 2026-10-02.
     treat the text as a docstring. It was None. The docstring is now first.
     Both Google Sheet methods use the placeholder path
     `path/to/your/service_account.json`, so they cannot work as shipped.
+    Resolved with approval on 2026-10-04. Both methods take a required `service_account_file` argument and raise
+    `NotImplementedError`. The draft code, with the placeholder path, is in the commit e9e69fd. The script
+    tests/daf_googlesheets_demo.py is not a test and uses the old `Pydf` name.
 31. `to_json()` writes dtypes by name, but `from_json()` knows only `int`,
     `float`, `str` and `bool`. A `list` or `dict` dtype comes back as the text
     `'list'`. The round trip loses it.

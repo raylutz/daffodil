@@ -3336,143 +3336,43 @@ class Daf:
     #==== Googlesheets
 
     @classmethod
-    def from_googlesheet(cls, spreadsheet_id: str, sheetname: str = 'Sheet1') -> 'Daf':
+    def from_googlesheet(cls, spreadsheet_id: str, sheetname: str = 'Sheet1', *, service_account_file: str) -> 'Daf':
         """
-        Read a Google Sheet into a Daf. This is unfinished.
+        Read a Google Sheet into a Daf. This is not implemented yet.
 
-        The sheet is read with the Google API. The path of the service account file in
-        the source is a placeholder, `path/to/your/service_account.json`. Edit it
-        before you use this method. The columns are named `A`, `B` and so on, and the
-        first row of the sheet is data.
+        It raises `NotImplementedError`. The method is a placeholder for the interface, which
+        takes the path of a service account file. An earlier draft read the sheet with the
+        Google API, but it could not be tested here, and it had a placeholder path in its source.
+        The draft is in the history of the repository, in the commit e9e69fd.
 
         Args:
             spreadsheet_id: The ID of the Google Sheet.
             sheetname: The name of the sheet.
+            service_account_file: The path of the Google service account file with the credentials.
 
-        Returns:
-            The new Daf.
+        Raises:
+            NotImplementedError: Always.
         """
+        raise NotImplementedError("from_googlesheet() is not implemented yet.")
 
-        from googleapiclient.discovery import build
-        from google.oauth2 import service_account
+    def to_googlesheet(self, spreadsheet_id: str, sheetname: str = 'Sheet1', *, service_account_file: str) -> 'Daf':
         """
-        Create Daf from a Google Sheet.
+        Write the Daf to a Google Sheet. This is not implemented yet.
 
-        Args:
-            spreadsheet_id: Google Sheets ID.
-            sheetname: Sheet name.
-
-        Returns:
-            Daf: New instance.
-        """
-        """
-        Read data from a Google Sheet specified by its ID.
-        
-        Args:
-            spreadsheet_id (str): The ID of the Google Sheet.
-            
-        Returns:
-            Daf instance
-            
-        # NOT OPERATIONAL
-            
-        """
-
-        # Set up credentials for the Google Sheets API
-        SCOPES = ['https://www.googleapis.com/auth/spreadsheets']
-        SERVICE_ACCOUNT_FILE = 'path/to/your/service_account.json'
-
-        creds = service_account.Credentials.from_service_account_file(SERVICE_ACCOUNT_FILE, scopes=SCOPES)
-        service = build('sheets', 'v4', credentials=creds)
-
-        # Specify the range from which to read data (all values)
-        range_name = sheetname
-
-        # Call the Sheets API to get values from the specified range
-        result = service.spreadsheets().values().get(
-            spreadsheetId=spreadsheet_id,
-            range=range_name
-        ).execute()
-
-        lol = result.get('values', [])
-
-        # if not lol:
-            # print('No data found in the Google Sheet.')
-            # return None
-        # else:
-            # return values
-
-        #num_rows = len(lol)
-        num_cols = 0 if not lol else len(lol[0])
-
-        cols = daf_utils._generate_spreadsheet_column_names_list(num_cols)
-
-        gs_daf = cls(cols=cols, lol=lol)
-
-        return gs_daf
-
-
-    def to_googlesheet(self, spreadsheet_id: str, sheetname: str = 'Sheet1') -> 'Daf':
-        """
-        Write the Daf to a Google Sheet. This is unfinished.
-
-        The rows are written without the column names, starting at cell A1. The path
-        of the service account file in the source is a placeholder,
-        `path/to/your/service_account.json`. Edit it before you use this method.
-        A message is printed when the write is done.
+        It raises `NotImplementedError`. The method is a placeholder for the interface, which
+        takes the path of a service account file. An earlier draft wrote the rows with the Google
+        API, but it could not be tested here, and it had a placeholder path in its source. The draft
+        is in the history of the repository, in the commit e9e69fd.
 
         Args:
             spreadsheet_id: The ID of the Google Sheet.
             sheetname: The name of the sheet.
+            service_account_file: The path of the Google service account file with the credentials.
 
-        Returns:
-            This Daf.
+        Raises:
+            NotImplementedError: Always.
         """
-        """ export data from daf structure to googlesheet. """
-        # NOT OPERATIONAL
-
-        from googleapiclient.discovery import build
-        from google.oauth2 import service_account
-
-        # Set up credentials for the Google Sheets API
-        SCOPES = ['https://www.googleapis.com/auth/spreadsheets']       # this might be okay.
-        SERVICE_ACCOUNT_FILE = 'path/to/your/service_account.json'      # probably wrong.
-
-        creds = service_account.Credentials.from_service_account_file(SERVICE_ACCOUNT_FILE, scopes=SCOPES)
-        service = build('sheets', 'v4', credentials=creds)
-
-        # Define your list of lists array (Daf)
-        # self.lol
-
-        # Define the range where you want to write the data (e.g., Sheet1!A1:C4)
-        # get the column name of the last column in the array.
-        num_cols = self.num_cols()
-        last_col_idx = num_cols - 1
-        last_spreadsheet_colname = daf_utils._calculate_single_column_name(last_col_idx)
-
-        range_name = f"{sheetname}!A1:{last_spreadsheet_colname}{len(self.lol)}"
-
-        # Build the request body
-        body = {
-            'values': self.lol
-        }
-
-        # Call the Sheets API to update the data in the specified range
-        request = service.spreadsheets().values().update(
-            spreadsheetId=spreadsheet_id,
-            range=range_name,
-            valueInputOption='RAW',     # Question: does this provide formulas or just numbers.
-            body=body
-        )
-
-        response = request.execute()
-        # parse response and detect if there was an error.
-
-        response = response     # fool linter
-
-        print('Data successfully written to Google Sheets.')
-
-        return self
+        raise NotImplementedError("to_googlesheet() is not implemented yet.")
 
     #===========================
     # JSON compatible representation.

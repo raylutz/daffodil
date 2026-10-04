@@ -117,6 +117,11 @@ all prior releases. Plans for future moved to ROADMAP.md.
   built from another one copies it, when it shares it.
 
 ### Changed
+- `from_googlesheet()` and `to_googlesheet()` take a required `service_account_file` argument, and raise
+  `NotImplementedError`. They had the placeholder path `path/to/your/service_account.json` in the source, so they
+  could not be used without editing the library, and they could not be tested here. The draft code is in the
+  commit e9e69fd. The two mocked tests are replaced by 4 tests of the new behavior. This also removes two of the
+  mypy import errors.
 - `from_csv_file()`, which is deprecated, now calls `from_csv()`. It reads the file as UTF-8, where it used the
   encoding of the machine, and a file that cannot be read raises `RuntimeError`, where it printed a message and
   returned None. Code that tests the result for None must change. 2 tests changed or added.

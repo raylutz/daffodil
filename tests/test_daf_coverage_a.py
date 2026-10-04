@@ -208,91 +208,32 @@ def test_to_donpa_all_columns():
     np.testing.assert_array_equal(donpa['b'], np.array([2, 4]))
 
 
-# --- from_googlesheet / to_googlesheet (mocked google api modules)
+# --- from_googlesheet / to_googlesheet: not implemented yet
 
-def _install_fake_google(monkeypatch, values=None):
-    calls = {}
-
-    class _Req:
-        def __init__(self, result):
-            self.result = result
-
-        def execute(self):
-            return self.result
-
-    class _Values:
-        def get(self, **kwargs):
-            calls['get'] = kwargs
-            return _Req({'values': values or []})
-
-        def update(self, **kwargs):
-            calls['update'] = kwargs
-            return _Req({'updatedCells': 1})
-
-    class _Sheets:
-        def values(self):
-            return _Values()
-
-    class _Service:
-        def spreadsheets(self):
-            return _Sheets()
-
-    def build(api, version, credentials=None):
-        calls['build'] = (api, version, credentials)
-        return _Service()
-
-    class _Credentials:
-        @staticmethod
-        def from_service_account_file(path, scopes=None):
-            calls['creds'] = (path, scopes)
-            return 'CREDS'
-
-    discovery = types.ModuleType('googleapiclient.discovery')
-    discovery.build = build
-    gapi = types.ModuleType('googleapiclient')
-    gapi.discovery = discovery
-    service_account = types.ModuleType('google.oauth2.service_account')
-    service_account.Credentials = _Credentials
-    oauth2 = types.ModuleType('google.oauth2')
-    oauth2.service_account = service_account
-    google = types.ModuleType('google')
-    google.oauth2 = oauth2
-
-    monkeypatch.setitem(sys.modules, 'googleapiclient', gapi)
-    monkeypatch.setitem(sys.modules, 'googleapiclient.discovery', discovery)
-    monkeypatch.setitem(sys.modules, 'google', google)
-    monkeypatch.setitem(sys.modules, 'google.oauth2', oauth2)
-    monkeypatch.setitem(sys.modules, 'google.oauth2.service_account', service_account)
-    return calls
+def test_from_googlesheet_is_not_implemented():
+    with pytest.raises(NotImplementedError, match='from_googlesheet'):
+        Daf.from_googlesheet('SHEET_ID', sheetname='Data', service_account_file='creds.json')
 
 
-def test_from_googlesheet_mocked(monkeypatch):
-    calls = _install_fake_google(monkeypatch, values=[['1', '2', '3'], ['4', '5', '6']])
-    daf = Daf.from_googlesheet('SHEET_ID', sheetname='Data')
-    assert calls['get'] == {'spreadsheetId': 'SHEET_ID', 'range': 'Data'}
-    assert calls['build'] == ('sheets', 'v4', 'CREDS')
-    assert daf.columns() == ['A', 'B', 'C']
-    assert daf.lol == [['1', '2', '3'], ['4', '5', '6']]
+def test_to_googlesheet_is_not_implemented():
+    with pytest.raises(NotImplementedError, match='to_googlesheet'):
+        _daf3().to_googlesheet('SHEET_ID', sheetname='Out', service_account_file='creds.json')
 
 
-def test_from_googlesheet_mocked_empty(monkeypatch):
-    _install_fake_google(monkeypatch, values=[])
-    daf = Daf.from_googlesheet('SHEET_ID')
-    assert daf.lol == []
-    assert daf.columns() == []
+def test_googlesheet_methods_need_the_service_account_file_argument():
+    with pytest.raises(TypeError, match='service_account_file'):
+        Daf.from_googlesheet('SHEET_ID')               # type: ignore[call-arg]
+    with pytest.raises(TypeError, match='service_account_file'):
+        _daf3().to_googlesheet('SHEET_ID')             # type: ignore[call-arg]
 
 
-def test_to_googlesheet_mocked(monkeypatch, capsys):
-    calls = _install_fake_google(monkeypatch)
-    daf = _daf3()
-    result = daf.to_googlesheet('SHEET_ID', sheetname='Out')
-    assert result is daf
-    upd = calls['update']
-    assert upd['spreadsheetId'] == 'SHEET_ID'
-    assert upd['range'] == 'Out!A1:C3'
-    assert upd['valueInputOption'] == 'RAW'
-    assert upd['body'] == {'values': daf.lol}
-    assert 'successfully' in capsys.readouterr().out
+def test_googlesheet_methods_do_not_import_the_google_packages():
+    import sys
+    before = {name for name in sys.modules if name.startswith(('googleapiclient', 'google.oauth2'))}
+    with pytest.raises(NotImplementedError):
+        Daf.from_googlesheet('SHEET_ID', service_account_file='creds.json')
+    after = {name for name in sys.modules if name.startswith(('googleapiclient', 'google.oauth2'))}
+    assert after == before
 
 
 # --- record_append
