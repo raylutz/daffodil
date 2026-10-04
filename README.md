@@ -707,8 +707,9 @@ Here are some examples.
 
 ### do selectors copy the rows?
 
-Most selectors of rows share the row lists with the original. That is cheap, and it means that
-changing a cell in the result changes it in the original. A few selectors copy the rows.
+Most selectors of rows return a shallow new Daf. That is a new Daf object with a new list of rows, and
+every row in it is the same list as in the original. It is cheap, and it means that changing a cell
+in the result changes it in the original. A few selectors copy the rows.
 
 | Selector                                                         | Rows in the result            |
 |:-----------------------------------------------------------------|:------------------------------|

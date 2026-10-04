@@ -4886,8 +4886,9 @@ class Daf:
 
         This is the same as `my_daf[keys]`, with a choice to drop rows and to ignore
         keys that are not found. It works with integer keys, which brackets cannot.
-        The rows are shared with this Daf. Use `copy()` if you need to change them
-        independently.
+        The result is a shallow new Daf. It is a new Daf with a new list of rows, and
+        each row is the same list as in this Daf. Use `copy()` if you need to change
+        them independently.
 
         A bare tuple means an inclusive range of keys, so `(1, 2)` is the rows from key
         1 through key 2. For a composite keyfield, give a list of tuples.
@@ -4983,8 +4984,9 @@ class Daf:
         Select rows by position. Those rows are kept, or dropped if `inverse` is True.
 
         This is the same as `my_daf[rows]`, with a choice to drop rows. It is cheap.
-        The new Daf holds the same row lists as this one, so changing a cell in
-        the result changes it here too. The exception is dropping an empty selection,
+        The result is a shallow new Daf. It is a new Daf with a new list of rows, and
+        each row is the same list as in this Daf, so changing a cell in the result
+        changes it here too. The exception is dropping an empty selection,
         which makes a deep copy. The keyfield, dtypes and column names carry over.
 
         Args:
