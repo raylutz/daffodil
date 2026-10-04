@@ -345,7 +345,7 @@ def test_buff_to_file_writes_local_file():
 
 
 # =====================================================================
-# from_csv_file (deprecated; silently returns None on error)
+# from_csv_file (deprecated; it calls from_csv)
 # =====================================================================
 
 def test_from_csv_file_basic():
@@ -357,6 +357,25 @@ def test_from_csv_file_basic():
         assert daf.lol == [['1', 'a']]
 
 
-def test_from_csv_file_missing_file_returns_none():
-    result = Daf.from_csv_file('/tmp/this_does_not_exist_xyz_daffodil_test.csv')
-    assert result is None
+def test_from_csv_file_missing_file_raises_runtimeerror():
+    with pytest.raises(RuntimeError, match='Failed to read local file'):
+        Daf.from_csv_file('/tmp/this_does_not_exist_xyz_daffodil_test.csv')
+
+
+def test_from_csv_file_reads_utf8_and_gives_the_same_result_as_from_csv():
+    with tempfile.TemporaryDirectory() as d:
+        p = os.path.join(d, 'u.csv')
+        with open(p, 'w', encoding='utf-8') as f:
+            f.write('id,name\n1,Zo\u00eb\n2,\u00c5ngstr\u00f6m\n')
+        assert Daf.from_csv_file(p).lol == [['1', 'Zo\u00eb'], ['2', '\u00c5ngstr\u00f6m']]
+        assert Daf.from_csv_file(p, keyfield='id', name='n').lol == Daf.from_csv(p, keyfield='id', name='n').lol
+        assert Daf.from_csv_file(p, keyfield='id', name='n').keyfield == 'id'
+
+
+def test_from_csv_file_passes_its_arguments_on():
+    with tempfile.TemporaryDirectory() as d:
+        p = os.path.join(d, 's.csv')
+        with open(p, 'w', encoding='utf-8') as f:
+            f.write('id;name;n\n1;a;5\n')
+        daf = Daf.from_csv_file(p, sep=';', include_cols=['n', 'id'], dtypes={'n': int, 'id': int})
+        assert daf.columns() == ['n', 'id'] and daf.lol == [[5, 1]]

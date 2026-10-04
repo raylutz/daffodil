@@ -2819,12 +2819,13 @@ class Daf:
             unflatten: bool=True,                   # unflatten fields that are defined as dict or list.
             include_cols: Optional[T_ls]=None,      # include only the columns specified. noheader must be false.
             name: str = '',                         # name attribute of the Daf array created.
-            ) -> Optional['Daf']:                   # New daf instance, or None on a read error (see below)
+            ) -> 'Daf':                             # New daf instance.
         """
         Read a CSV file into a Daf. Deprecated, use `from_csv()`.
 
-        Unlike `from_csv()`, a file that cannot be read prints a message and returns
-        None. It does not raise an error. The file is read with the default encoding.
+        This now calls `from_csv()`, so it reads the file as UTF-8, and a file that cannot be
+        read raises `RuntimeError`. It used to print a message and return None, and to read
+        the file with the encoding of the machine.
 
         Args:
             filepath: Path of the file.
@@ -2839,7 +2840,10 @@ class Daf:
             name: Name of the new Daf.
 
         Returns:
-            The new Daf, or None if the file could not be read.
+            The new Daf.
+
+        Raises:
+            RuntimeError: The file cannot be read or parsed.
         """
         """ Read a csv file directly into a daf array in memory, per arguments.
 
@@ -2858,16 +2862,9 @@ class Daf:
 
         """
 
-        try:
-            with open(filepath) as f:
-                csv_buff = f.read()
-        except Exception as err:
-            print(f"Error reading the file: {err}")
-            return None
-
         # following invalidates kd for lazy rebuilding.
-        return Daf.from_csv_buff(
-            csv_buff    = csv_buff,                 # The CSV data as bytes or string.
+        return Daf.from_csv(
+            filepath,                               # The CSV file.
             keyfield    = keyfield,                 # field to use as unique key, if not ''
             dtypes      = dtypes,                   # dictionary of types to apply if set.
             noheader    = noheader,                 # if True, do not try to initialize columns in header dict.

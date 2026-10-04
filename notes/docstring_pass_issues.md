@@ -82,6 +82,8 @@ The date of the first entry is 2026-10-02.
 23. `from_csv_file()` prints a message and returns None when the file cannot be
     read. It is marked deprecated. It also reads with the default encoding,
     while `from_csv()` uses UTF-8.
+    Fixed with approval on 2026-10-04, option B. It calls `from_csv()`. It reads UTF-8, and a file that cannot be
+    read raises `RuntimeError`. It is still deprecated.
 24. Fixed with approval on 2026-10-02 for the extra keys. `from_lod()` takes the columns from the first dict only. A later dict with
     an extra key loses that value without a message. Empty dicts and non dict
     items are skipped without a message, so rows can be lost.

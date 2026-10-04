@@ -117,6 +117,9 @@ all prior releases. Plans for future moved to ROADMAP.md.
   built from another one copies it, when it shares it.
 
 ### Changed
+- `from_csv_file()`, which is deprecated, now calls `from_csv()`. It reads the file as UTF-8, where it used the
+  encoding of the machine, and a file that cannot be read raises `RuntimeError`, where it printed a message and
+  returned None. Code that tests the result for None must change. 2 tests changed or added.
 - `update_record_irow()` raises `IndexError` for a position that is out of range, and changes nothing. It did nothing,
   without a message. A Daf with no rows or no columns, and a record of `None`, still change nothing. A position
   found from the key index, as in `update_by_keylist()`, is never out of range. 2 tests changed or added.
