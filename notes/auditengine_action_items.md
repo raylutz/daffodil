@@ -3,7 +3,9 @@
 Collected on 2026-10-04. These are changes in AuditEngine, not in daffodil.
 
 1. Change the bool count columns in `BIF.py` to int.
-2. Pass `cols=` at `pdf_image_indexer2.py:74`, because `from_lod()` raises `ValueError` for a key that only a later dict has.
+2. Check the `from_lod()` call at `pdf_image_indexer2.py:74`. If its dicts always have the same keys, nothing needs to change.
+   If a later dict can have a key that the first dict lacks, `from_lod()` now raises `ValueError` and says to pass `cols=`.
+   Before, that key was dropped without any error. Pass `cols=` with all the columns that you want.
 3. Fix the reversed `.index` at `args.py:1007`.
 4. Fix the malformed JSON in the GA_Dekalb JOB CSV.
 5. Use `select_by_dict()` in place of `select_where()` where the test is equality on one or more columns. It is about 12 times
