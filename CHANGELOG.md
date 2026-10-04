@@ -291,6 +291,9 @@ all prior releases. Plans for future moved to ROADMAP.md.
   returned the list object of the original. An append to the result was an append to the original, and the key index
   of the original was left wrong. The rows are still shared, as with every other selector. `copy()` still shares the
   list, as its `shallow` level says. Approved on 2026-10-04. 20 tests added in `tests/test_daf_shared_rows.py`.
+- Docs: `from_csv_buff()` and `from_csv()` say that the length of each row is not checked, and point to
+  `is_rectangular()` and `force_rectangular()`. Decided on 2026-10-04 to keep the readers without a check. The check
+  would cost 0.6% to 1.5% of a read.
 - `select_by_dict()` is about 40 times faster. It compares the cells by position, and does not turn each row into a dict.
   For 200,000 rows by 50 columns it took 0.53 s and now takes 0.012 s. The rows it returns are the same, and a Daf with
   rows and no column names still raises `KeysDisabledError`. 22 tests added in `tests/test_daf_select_by_dict.py`,

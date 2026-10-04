@@ -430,3 +430,8 @@ The date of the first entry is 2026-10-02.
     one was an append to the other. Each now returns its own row list, with the rows shared. Two places in `daf.py` changed.
     Approved by the owner on 2026-10-04. No test relied on the alias. AuditEngine should check for a caller that did, see
     `auditengine_action_items.md`.
+88. `from_csv_buff()` and `from_csv()` do not check the length of rows. A short row fails later with `IndexError`, and a
+    long row loses its extra cell in `iter_dict()` without any sign. The owner decided on 2026-10-04 to keep the original
+    behavior and to document it. The docstrings now say so, and point to `is_rectangular()` and `force_rectangular()`. The
+    cost of a check was measured at 0.6% to 1.5% of a read. An opt-in `check_rectangular` and a `NotRectangularError` that
+    subclasses `ValueError` were considered and not made.

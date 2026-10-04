@@ -2629,7 +2629,7 @@ class Daf:
 
         Every value is read as text. Give `dtypes`, or call `apply_dtypes()`, to
         convert them. The other keyword arguments, such as `keyfield`, are those of
-        `from_csv_buff()`.
+        `from_csv_buff()`. The length of each row is not checked. See `from_csv_buff()`.
 
         Args:
             source: A file path, an `http` address or an `s3://` name.
@@ -2726,6 +2726,12 @@ class Daf:
         `dtypes` is given. Then the cells are converted, and list and dict columns
         are read from their text unless `unflatten` is False.
 
+        The length of each row is not checked, so that a read costs no more than it must.
+        A row with a missing cell, or with an extra one from an unquoted comma, is kept as
+        it is, and a later call may fail with an error that does not mention it. If you do
+        not trust the source, call `is_rectangular()`. It looks at every row. To pad short
+        rows, call `force_rectangular()`. It raises `ValueError` for a row that is too long.
+
         Args:
             csv_buff: The CSV, as text, bytes or an iterator of lines.
             keyfield: Column, or tuple or list of columns, whose values identify rows.
@@ -2755,6 +2761,11 @@ class Daf:
             >>> d = Daf.from_csv_buff('a,b,c\n1,2,3\n4,5,6\n', include_cols=['c', 'a'])
             >>> d.columns(), d.lol
             (['c', 'a'], [['3', '1'], ['6', '4']])
+            >>> d = Daf.from_csv_buff('id,v\n1,a\n2\n')
+            >>> d.is_rectangular()
+            False
+            >>> d.force_rectangular().lol
+            [['1', 'a'], ['2', '']]
         """
 
         """
