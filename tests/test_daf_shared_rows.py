@@ -188,3 +188,43 @@ def test_select_by_dict_is_a_live_view_for_values():
     s = d.select_by_dict({'v': 'b'})
     s.set_icol(1, 'Z')
     assert d.lol == [[1, 'a'], [2, 'Z'], [3, 'c']]
+
+
+# selectors return their own row list, also when every row is selected
+
+def _four() -> Daf:
+    return Daf(lol=[[1, 'a'], [2, 'b'], [3, 'c'], [4, 'd']], cols=['id', 'v'], keyfield='id')
+
+
+ALL_ROWS_CALLS = {
+    'select_irows list of all':     lambda d: d.select_irows([0, 1, 2, 3]),
+    'select_irows range':           lambda d: d.select_irows(range(4)),
+    'select_irows slice':           lambda d: d.select_irows(slice(None)),
+    'select_irows nothing inverse': lambda d: d.select_irows([], inverse=True),
+    'getitem list of all':          lambda d: d[[0, 1, 2, 3]],
+    'getitem slice':                lambda d: d[:],
+    'select_krows all keys':        lambda d: d.select_krows([1, 2, 3, 4]),
+    'select_krows nothing inverse': lambda d: d.select_krows([], inverse=True),
+    'select_records_daf inverse':   lambda d: d.select_records_daf([], inverse=True),
+    'select_where all':             lambda d: d.select_where(lambda r: True),
+}
+
+
+@pytest.mark.parametrize('name', list(ALL_ROWS_CALLS))
+def test_a_selection_of_every_row_has_its_own_row_list_and_shares_the_rows(name):
+    d = _four()
+    s = ALL_ROWS_CALLS[name](d)
+    assert s.lol == d.lol
+    assert s.lol is not d.lol
+    assert all(a is b for a, b in zip(s.lol, d.lol))
+
+
+@pytest.mark.parametrize('name', list(ALL_ROWS_CALLS))
+def test_appending_to_a_selection_of_every_row_leaves_the_original_alone(name):
+    d = _four()
+    d.keys()
+    s = ALL_ROWS_CALLS[name](d)
+    s.append([5, 'e'])
+    assert len(d) == 4 and len(s) == 5
+    assert 5 not in d.keys()
+    assert d.select_record(4)['v'] == 'd'

@@ -4999,6 +4999,9 @@ class Daf:
                 slice_range = daf_utils.slice_to_range(slice_spec, len(self.lol))
                 row_sliced_lol = [self.lol[i] for i in range(len(self.lol)) if i not in slice_range]
 
+        if row_sliced_lol is self.lol:
+            row_sliced_lol = list(self.lol)     # a shallow new Daf: its own row list, rows shared.
+
         new_daf = self.clone_empty(lol=row_sliced_lol)
 
         return new_daf
@@ -5296,7 +5299,7 @@ class Daf:
         # rudamentary special cases:
         if not keys_ls:
             if inverse:
-                return self.clone_empty(lol=self.lol)
+                return self.clone_empty(lol=list(self.lol))
             else:
                 return self.clone_empty()
 

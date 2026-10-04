@@ -286,6 +286,11 @@ all prior releases. Plans for future moved to ROADMAP.md.
   every kind of input. For 200,000 rows by 50 columns `select_where()` went from 0.214 s to 0.148 s. The docstring
   of `select_where()` points to `select_by_dict()` for a test that only compares columns. 16 tests added in
   `tests/test_keyedlist_construction_and_lookup.py`.
+- Selectors return their own row list when every row is selected. `select_irows()` with a list of every row in order,
+  `d[:]`, `select_krows()` with every key and with nothing and `inverse`, and `select_records_daf([], inverse=True)`
+  returned the list object of the original. An append to the result was an append to the original, and the key index
+  of the original was left wrong. The rows are still shared, as with every other selector. `copy()` still shares the
+  list, as its `shallow` level says. Approved on 2026-10-04. 20 tests added in `tests/test_daf_shared_rows.py`.
 - `select_by_dict()` is about 40 times faster. It compares the cells by position, and does not turn each row into a dict.
   For 200,000 rows by 50 columns it took 0.53 s and now takes 0.012 s. The rows it returns are the same, and a Daf with
   rows and no column names still raises `KeysDisabledError`. 22 tests added in `tests/test_daf_select_by_dict.py`,

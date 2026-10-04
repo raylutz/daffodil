@@ -409,9 +409,8 @@ The date of the first entry is 2026-10-02.
     new data and cannot. Only changes of shape copy shared rows first: the inserts, and `assign_icol()` when it adds a column.
     A first version of this item copied rows in the value writers too. It was reverted the same day. A prototype of
     a KeyedList that copies a shared row on its first write was tried and dropped for the same reason.
-    Still open: `select_irows()` with a list of every row in order, `d[:]`, `select_krows()` with every key and
-    `select_records_daf([], inverse=True)` return the same row list object as the original, so an append to one is an
-    append to the other. A fix is `list(self.lol)` at two places. It waits for a review of AuditEngine callers.
+    The aliased row lists were fixed the same day, see item 87.
+
 83. `select_by_dict()` copied its rows. The reporting code in AuditEngine selects with it and then calls `insert_idx_col()`.
     The roles were reversed: the select copied and the insert wrote into shared rows. With item 81 the insert copies
     when it must, so the select can share. Decided by the owner on 2026-10-04. This resolves A2 of the impact review. The README table
@@ -426,3 +425,8 @@ The date of the first entry is 2026-10-02.
 86. `select_where_idxs()` iterated the Daf, so its function got a dict in the default itermode. Its docstring said
     KeyedList, as for `select_where()`. It now uses `iter_klist()`. About 3 times faster. Approved by the owner on 2026-10-04.
     AuditEngine uses it once, with a test of `row['so_ind']`, which works with both row types.
+87. `select_irows()` with a list of every row in order, `d[:]`, `select_krows()` with every key and with nothing and
+    `inverse`, and `select_records_daf([], inverse=True)` returned the same row list object as the original. An append to
+    one was an append to the other. Each now returns its own row list, with the rows shared. Two places in `daf.py` changed.
+    Approved by the owner on 2026-10-04. No test relied on the alias. AuditEngine should check for a caller that did, see
+    `auditengine_action_items.md`.

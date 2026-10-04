@@ -12,6 +12,6 @@ Collected on 2026-10-04. These are changes in AuditEngine, not in daffodil.
      cell as stored, so text `'5'` does not match 5.
    - `inverse=True` is the negation of the whole match, not `!=` on each field.
    - `select_where()` raises `KeyError` for a column that does not exist. `select_by_dict()` returns no rows.
-6. Review the calls that select rows and then append to, sort or pop the result, and the calls that select every row.
-   Daffodil may change `select_irows()` with every row in order, `d[:]`, `select_krows()` with every key and
-   `select_records_daf([], inverse=True)` to return their own row list.
+6. Daffodil now returns its own row list from `select_irows()` with every row in order, `d[:]`, `select_krows()` with every
+   key, and `select_records_daf([], inverse=True)`. Look for a call that selects every row and then appends to, sorts or
+   pops the result, and expects the original to change too. Such a caller would now change only the result.
