@@ -2726,6 +2726,9 @@ class Daf:
         `dtypes` is given. Then the cells are converted, and list and dict columns
         are read from their text unless `unflatten` is False.
 
+        Empty text, or a source with no rows, gives an empty Daf with no columns, as
+        `from_md()` does. Check `len()` of the result if an empty source would be an error.
+
         The length of each row is not checked, so that a read costs no more than it must.
         A row with a missing cell, or with an extra one from an unquoted comma, is kept as
         it is, and a later call may fail with an error that does not mention it. If you do
@@ -2809,8 +2812,8 @@ class Daf:
             data_lol.pop()
 
         cols = []
-        if not noheader:
-            cols = data_lol.pop(0)        # return the first item and shorten the list.
+        if not noheader and data_lol:
+            cols = data_lol.pop(0)        # return the first item and shorten the list. No rows gives an empty Daf.
 
         # following invalidates kd for lazy rebuilding.
         my_daf = cls(lol=data_lol, cols=cols, keyfield=keyfield, dtypes=dtypes, name=name)

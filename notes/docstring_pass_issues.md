@@ -438,3 +438,7 @@ The date of the first entry is 2026-10-02.
 89. `from_md()` raises `RuntimeError` for a table with no header row, which is also not a table that Python-Markdown renders. A
     Daf with no column names is written by `to_md()` with the names `A`, `B` and read back with those names. The owner decided on
     2026-10-04 to keep the behavior and to document it. A `noheader` keyword was considered and not made.
+90. `from_csv_buff('')` raised `IndexError: pop from empty list`, and `from_csv()` of an empty file raised `RuntimeError`
+    that said the file could not be read. An empty source now gives an empty Daf with no columns, as `from_md('')` and
+    `from_csv_buff('', noheader=True)` did. Approved by the owner on 2026-10-04. A caller that wants an error for an empty
+    file can test `len()` of the result.
