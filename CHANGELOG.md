@@ -326,6 +326,12 @@ all prior releases. Plans for future moved to ROADMAP.md.
   copies. It is a live view for values. Decided on 2026-10-04. The deep copy was not needed, because `insert_col()`
   and `insert_idx_col()` now copy shared rows first. The report code that selects and then inserts an index column keeps
   working, and the original is not changed. Tests: 4 in `tests/test_daf_shared_rows.py`.
+- Docs: the 47 methods that kept an old second string after the real docstring were read, and the points that the real docstring
+  lacked were moved in, after each one was run. `isin()` says that its list of bools must not be used as a column selector,
+  because a list of bools is read as positions. `set_keyfield()` says that a Daf with columns and no rows can have a keyfield.
+  `to_csv_buff()` says how a dict with keys that are not text is written. `krows_to_irows()` gives the cost of the first lookup,
+  which builds the key index. `select_icols()` gives the cost of `flip=True` against select and `transpose()`. `append()` says that
+  None and empty values add nothing. The old strings are kept, as the rule says. No code changed.
 - Docs: 26 methods of `Daf` got an `Examples:` section, and each example was run: `iter_dict`, `iter_klist`, `iter_list`,
   `num_rows`, `len`, `from_excel_buff`, `from_csv_file`, `buff_to_file`, `from_directory`, `from_googlesheet`,
   `to_googlesheet`, `krows_to_irows`, `kcols_to_icols`, `select_records_daf`, `irow_la`, `col_to_la`, `icol_to_la`,

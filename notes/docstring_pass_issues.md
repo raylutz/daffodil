@@ -473,3 +473,16 @@ The date of the first entry is 2026-10-02.
     API page.
 97. `unpack_indirect()` was removed on 2026-10-04, with its 3 tests, because the owner said that the accessor for indirect columns made it
     obsolete. It closes finding (b) of item 96. `daf_doc.txt` still lists it. That file is an old generated listing of `daf.py`.
+98. Docs audit, item 3, on 2026-10-04. 47 methods keep a second string after the docstring, not 43. Most repeat the real docstring
+    and were left alone. Moved in after a run: `isin`, `set_keyfield`, `to_csv_buff`, `krows_to_irows`, `select_icols`, `append`.
+    Found while checking, and not changed:
+    (a) `my_daf[:, mask]` with a list of bools reads the bools as positions. `Daf(lol=[[1, 2, 3]], cols=['a', 'b', 'c'])[:, [False, True, False]]`
+        gives the columns `['a', 'b', 'a_2']`. The old text of `isin()` showed masks as a way to select columns, with `columns().isin(...)`
+        and `~`. Neither works, because `columns()` is a list and has no `isin`, and `~` fails for a list.
+    (b) The old strings of `to_list()` and `to_numpy()` describe the parameters `irow`, `icol` and `dtype`, which these methods no longer have.
+        The one of `to_list()` says that a table with several rows and columns gives an empty list. It raises `ValueError`.
+    (c) The old string of `clone_empty()` says that `attrs` are not carried over. They are deep copied.
+    (d) The old string of `from_dod()` says that a Daf is 1/3 the size of a dod. For 5,000 rows of 5 int columns I measured a Daf
+        at 0.9 of the dod, with `objsize`. The claim was not moved in.
+    (e) The old string of `from_csv_buff()` says that it streams. A test with 300,000 rows gave the same peak memory from text and from
+        an iterator of lines, because the table dominates. The claim was not moved in.
