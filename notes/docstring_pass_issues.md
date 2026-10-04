@@ -453,3 +453,7 @@ The date of the first entry is 2026-10-02.
     messages name the method and say what is missing. `assign_record()` needs a keyfield and says so. The `(no kd)` message
     now says that the key index is empty, which happens for a Daf with no rows. Transpose does not carry a kd in this
     version. `transpose()` gives an empty kd and no keyfield. The design intent for that is not recorded here.
+93. The docs audit on 2026-10-04 found 15 public methods of `KeyedList` and `KeyedIndex` with no docstring. They were hidden from
+    the API page. Each now has a docstring and tested examples. Still in `keyedlist.py`: `astype_la()` has an old style
+    docstring and is not on the API page, and the second strings after the docstrings of `KeyedList` and `KeyedIndex` are
+    still there. `KeyedListEncoder.default()` and `to_json()` appear unused in daffodil.

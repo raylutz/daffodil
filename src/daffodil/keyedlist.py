@@ -264,7 +264,27 @@ class KeyedList:
     
     def __getitem__(self, key: Union[TKey, List[TKey]]) -> Any:
         """
-            indexing can use a scalar key or a list of keys, which returns a list.
+        Get the value for a key, or a list of values for a list of keys.
+
+        Args:
+            key: A key, or a list of keys.
+
+        Returns:
+            The value. For a list of keys, a list of values in that order. A key of the list that is
+            missing is skipped, so the list can be shorter.
+
+        Raises:
+            KeyError: A single key is not found.
+            ValueError: The key is not a list and cannot be hashed.
+
+        Examples:
+            >>> klist = KeyedList(['a', 'b', 'c'], [1, 2, 3])
+            >>> klist['b']
+            2
+            >>> klist[['c', 'a']]
+            [3, 1]
+            >>> klist[['a', 'zz']]
+            [1]
         """
         
         try:
@@ -282,6 +302,29 @@ class KeyedList:
             raise ValueError
     
     def __setitem__(self, key: TKey, value: Any) -> None:
+        """
+        Set the value for a key, as `row[key] = value`.
+
+        A key that exists gets the new value in the list that this KeyedList points at. If
+        that list is a row of a Daf, the Daf changes. A key that is new is added at the end of
+        the keys, and its value at the end of the list, so a row of a Daf is then longer than
+        the others. The index is copied before it gets a new key, so other KeyedLists that
+        shared it do not get the key.
+
+        Args:
+            key: The key.
+            value: The value.
+
+        Examples:
+            >>> row = [1, 2]
+            >>> klist = KeyedList(['a', 'b'], row)
+            >>> klist['b'] = 20
+            >>> klist['c'] = 30
+            >>> row
+            [1, 20, 30]
+            >>> list(klist)
+            ['a', 'b', 'c']
+        """
         if key not in self.hd:
             if self._hd_shared:
                 self.hd = KeyedIndex(list(self.hd))     # a copy, so other KeyedLists do not get the key
@@ -296,6 +339,26 @@ class KeyedList:
 
     
     def __delitem__(self, key: TKey) -> None:
+        """
+        Delete a key and its value, as `del row[key]`.
+
+        The value is removed from the list that this KeyedList points at, and the later
+        values move down. If that list is a row of a Daf, the row is then shorter than the
+        others. The index is rebuilt, and this KeyedList no longer shares it.
+
+        Args:
+            key: The key to delete.
+
+        Raises:
+            KeyError: The key is not found.
+
+        Examples:
+            >>> row = [1, 2, 3]
+            >>> klist = KeyedList(['a', 'b', 'c'], row)
+            >>> del klist['b']
+            >>> row, list(klist)
+            ([1, 3], ['a', 'c'])
+        """
         # index = self.hd.pop(key)
         # del self._values[index]
                 
@@ -312,18 +375,93 @@ class KeyedList:
 
 
     def __len__(self) -> int:
+        """
+        Get the number of values.
+
+        Returns:
+            The number of values in the list that this KeyedList points at.
+
+        Examples:
+            >>> len(KeyedList(['a', 'b'], [1, 2]))
+            2
+        """
         return len(self._values)
     
     def __iter__(self) -> Iterator[TKey]:
+        """
+        Loop over the keys, as a dict does.
+
+        Returns:
+            An iterator of the keys, in the order of their values.
+
+        Examples:
+            >>> list(KeyedList(['a', 'b'], [1, 2]))
+            ['a', 'b']
+        """
         return iter(self.hd)
 
     def __contains__(self, key: object) -> bool:
+        """
+        Test whether a key is one of the keys, as `key in row`.
+
+        Args:
+            key: The key to look for.
+
+        Returns:
+            True if the key is found.
+
+        Examples:
+            >>> 'a' in KeyedList(['a', 'b'], [1, 2])
+            True
+            >>> 'z' in KeyedList(['a', 'b'], [1, 2])
+            False
+        """
         return key in self.hd
 
     def keys(self) -> KeysView[TKey]:
+        """
+        Get the keys, in the order of their values.
+
+        This is a keys view of the index itself. When the index is shared with other
+        KeyedLists, as it is for the rows of a Daf, it is not a copy. For a list of the
+        keys, use `list(row.keys())`.
+
+        Returns:
+            The keys.
+
+        Examples:
+            >>> KeyedList(['a', 'b'], [1, 2]).keys()
+            dict_keys(['a', 'b'])
+        """
         return self.hd.keys()
 
     def set_values(self, new_values: List[Any]) -> None:
+        """
+        Point this KeyedList at a different list of values.
+
+        This replaces the list that the KeyedList adopted. It does not write into the old
+        list. If the old list was a row of a Daf, the row is not changed, and this KeyedList
+        stops being a view of it. The new list is adopted, not copied. To change the values
+        in the old list, assign to the keys.
+
+        Args:
+            new_values: The new list of values, one for each key.
+
+        Raises:
+            TypeError: `new_values` is not a list. A tuple is not accepted.
+            ValueError: The list does not have one value for each key.
+
+        Examples:
+            >>> row = [1, 2]
+            >>> klist = KeyedList(['a', 'b'], row)
+            >>> klist.set_values([10, 20])
+            >>> klist.values(), row
+            ([10, 20], [1, 2])
+            >>> klist.set_values([1])
+            Traceback (most recent call last):
+                ...
+            ValueError: values length must match keys
+        """
         if not isinstance(new_values, list):
             raise TypeError
 
@@ -334,6 +472,41 @@ class KeyedList:
 
 
     def values(self, astype: Optional[Union[Callable, str, type]] = None) -> List[Any]:
+        """
+        Get the values as a list.
+
+        With no `astype`, or with `list`, this is the list that the KeyedList adopted, not
+        a copy. If it is a row of a Daf, changing it changes the Daf. With any other
+        `astype` it is a new list, and the original is not changed.
+
+        Args:
+            astype: How to convert each value. A type such as `int`, a function, or one of
+                the names `'int'`, `'str'`, `'float'` and `'bool'`. None does not convert.
+
+        Returns:
+            The values.
+
+        Raises:
+            ValueError: `astype` is a name that is not supported, or a value cannot be
+                converted by `int` or `float`. Another converter raises its own error.
+
+        Examples:
+            >>> klist = KeyedList(['a', 'b'], ['1', '2'])
+            >>> klist.values()
+            ['1', '2']
+            >>> klist.values(int)
+            [1, 2]
+            >>> klist.values('float')
+            [1.0, 2.0]
+            >>> klist.values() is klist.values()
+            True
+            >>> klist.values(int) is klist.values(int)
+            False
+            >>> klist.values('date')
+            Traceback (most recent call last):
+                ...
+            ValueError: astype not supported: date
+        """
         # fast path: return underlying list
         if astype is None or astype is list:
             return self._values
@@ -342,10 +515,45 @@ class KeyedList:
 
 
     def items(self) -> Iterator[Tuple[TKey, Any]]:
+        """
+        Loop over the (key, value) pairs, as `dict.items()` does.
+
+        This is an iterator, not a view. It can be used once. To keep the pairs, use
+        `list(row.items())`.
+
+        Returns:
+            An iterator of (key, value) tuples.
+
+        Examples:
+            >>> list(KeyedList(['a', 'b'], [1, 2]).items())
+            [('a', 1), ('b', 2)]
+            >>> pairs = KeyedList(['a'], [1]).items()
+            >>> list(pairs), list(pairs)
+            ([('a', 1)], [])
+        """
         return zip(self.hd, self._values)
 
 
     def get(self, key: TKey, default: Any = None) -> Any:
+        """
+        Get the value for a key, or a default if the key is not found.
+
+        Args:
+            key: The key.
+            default: What to return if the key is not found.
+
+        Returns:
+            The value, or `default`.
+
+        Raises:
+            TypeError: The key cannot be hashed, such as a list. Unlike `row[...]`, a list
+                of keys is not accepted here.
+
+        Examples:
+            >>> klist = KeyedList(['a'], [1])
+            >>> klist.get('a'), klist.get('z'), klist.get('z', 0)
+            (1, None, 0)
+        """
         try:
             return self._values[self.hd[key]]
         except KeyError:
@@ -353,14 +561,58 @@ class KeyedList:
 
 
     def update(self, other: Union['KeyedList', Dict[Any, Any]]) -> None:
+        """
+        Set many keys from a dict or from another KeyedList.
+
+        Each key of `other` is assigned as in `row[key] = value`. A key that exists gets
+        the new value in the list. A key that is new is added at the end of the keys and of
+        the list. If the list is a row of a Daf, that row is then longer than the others,
+        so use `update()` only with keys that exist. `other` is not changed.
+
+        Args:
+            other: A dict or a KeyedList.
+
+        Examples:
+            >>> klist = KeyedList(['a', 'b'], [1, 2])
+            >>> klist.update({'b': 20, 'c': 30})
+            >>> klist.to_dict()
+            {'a': 1, 'b': 20, 'c': 30}
+        """
         # this could allow direct updating.
         for key, value in other.items():
             self[key] = value
     
     def to_dict(self) -> Dict[TKey, Any]:
+        """
+        Make a dict of the keys and values.
+
+        The dict is independent of this KeyedList. Later writes to the row do not change
+        it, and changing it does not change the row. The values are not copied deeply, so a
+        list or dict held in a cell is the same object in both.
+
+        Returns:
+            A new dict.
+
+        Examples:
+            >>> klist = KeyedList(['a', 'b'], [1, 2])
+            >>> as_dict = klist.to_dict()
+            >>> klist['a'] = 99
+            >>> as_dict
+            {'a': 1, 'b': 2}
+        """
         return dict(self.items())
     
     def __repr__(self) -> str:
+        """
+        Show the keys and values as a dict.
+
+        Returns:
+            The text of the dict.
+
+        Examples:
+            >>> KeyedList(['a', 'b'], [1, 2])
+            {'a': 1, 'b': 2}
+        """
         return repr(dict(self.items()))
         
     def __bool__(self) -> bool:
@@ -382,6 +634,24 @@ class KeyedList:
         
 
     def to_json(self) -> str:
+        """
+        Make a JSON string that holds the keys and the values.
+
+        The text has the marker `__KeyedList__`, the keys with their positions under `hd`,
+        and the `values`. Every value must be one that `json` can write. JSON keys are text,
+        so a key that is not a string, such as an int, comes back from `from_json()` as a
+        string.
+
+        Returns:
+            The JSON text.
+
+        Raises:
+            TypeError: A value cannot be written as JSON.
+
+        Examples:
+            >>> KeyedList(['a', 'b'], [1, 'x']).to_json()
+            '{"__KeyedList__": true, "hd": {"a": 0, "b": 1}, "values": [1, "x"]}'
+        """
         # Serialize KeyedList object to a JSON-compatible dictionary
         # NOTE: to_json/from_json appear unused elsewhere in daffodil (Daf.to_json/from_json
         # serialize lol/hd directly and do not call these). Fixed anyway since the risk is low.
@@ -389,6 +659,28 @@ class KeyedList:
 
     @classmethod
     def from_json(cls, json_str: str) -> 'KeyedList':
+        """
+        Make a KeyedList from the text that `to_json()` writes.
+
+        Args:
+            json_str: The JSON text.
+
+        Returns:
+            The new KeyedList. It has its own list of values.
+
+        Raises:
+            ValueError: The text is not JSON, or the JSON does not have the `__KeyedList__`
+                marker.
+
+        Examples:
+            >>> klist = KeyedList(['a', 'b'], [1, 'x'])
+            >>> KeyedList.from_json(klist.to_json()).to_dict()
+            {'a': 1, 'b': 'x'}
+            >>> KeyedList.from_json('{"a": 1}')
+            Traceback (most recent call last):
+                ...
+            ValueError: Invalid JSON string for KeyedList
+        """
         # Deserialize JSON string into a KeyedList object
         obj_dict = json.loads(json_str)
         if "__KeyedList__" in obj_dict and obj_dict["__KeyedList__"]:
@@ -433,6 +725,15 @@ class KeyedListEncoder(json.JSONEncoder):
     # a Daf's lol (KeyedList is a transient row wrapper, not stored cell content).
     # Fixed anyway since the risk is low.
     def default(self, obj: Any) -> Any:
+        """
+        Make a KeyedList ready for `json.dumps()`. Any other object goes to the default encoder.
+
+        Args:
+            obj: The object that `json` cannot write by itself.
+
+        Returns:
+            For a KeyedList, a dict with the marker `__KeyedList__`, its `hd` and its `values`.
+        """
         if isinstance(obj, KeyedList):
             return {"__KeyedList__": True, "hd": obj.hd.to_dict(), "values": obj._values}
         return super().default(obj)
@@ -682,26 +983,99 @@ class KeyedIndex:
     # --- core lookup ---
 
     def __getitem__(self, key: TKey) -> int:
+        """
+        Get the position of a key, as `kidx[key]`.
+
+        Args:
+            key: The key.
+
+        Returns:
+            The position of its value in the list.
+
+        Raises:
+            KeyError: The key is not found.
+        """
         return self._index[key]
 
     def __contains__(self, key: object) -> bool:
+        """
+        Test whether a key is in the index, as `key in kidx`.
+
+        Args:
+            key: The key to look for.
+
+        Returns:
+            True if the key is found.
+        """
         return key in self._index
 
     def get(self, key: TKey, default: Optional[int] = None) -> Optional[int]:
+        """
+        Get the position of a key, or a default if the key is not found.
+
+        Args:
+            key: The key.
+            default: What to return if the key is not found.
+
+        Returns:
+            The position, or `default`.
+
+        Examples:
+            >>> kidx = KeyedIndex(['a', 'b'])
+            >>> kidx.get('b'), kidx.get('z'), kidx.get('z', -1)
+            (1, None, -1)
+        """
         return self._index.get(key, default)
 
     def index(self, key: TKey) -> int:
+        """
+        Get the position of a key. This is the same as `kidx[key]`.
+
+        Args:
+            key: The key.
+
+        Returns:
+            The position of its value in the list.
+
+        Raises:
+            KeyError: The key is not found.
+
+        Examples:
+            >>> KeyedIndex(['a', 'b']).index('b')
+            1
+        """
         return self._index[key]
 
     # --- size / truth ---
 
     def __len__(self) -> int:
+        """
+        Get the number of keys.
+
+        Returns:
+            The number of keys.
+        """
         return len(self._index)
 
     def __bool__(self) -> bool:
+        """
+        Test whether the index has any keys.
+
+        Returns:
+            False for an empty index.
+        """
         return bool(self._index)
 
     def __eq__(self, other: object) -> bool:
+        """
+        Compare with another KeyedIndex. They are equal if they have the same keys at the same positions.
+
+        Args:
+            other: The object to compare with.
+
+        Returns:
+            True or False for a KeyedIndex. For any other type, `NotImplemented`, so Python tries the other side.
+        """
         if isinstance(other, KeyedIndex):
             return self._index == other._index
             
@@ -710,14 +1084,52 @@ class KeyedIndex:
     # --- key access ---
 
     def keys(self) -> KeysView[TKey]:
+        """
+        Get the keys, in the order of their positions.
+
+        Returns:
+            A keys view of the index itself, not a copy.
+
+        Examples:
+            >>> KeyedIndex(['a', 'b']).keys()
+            dict_keys(['a', 'b'])
+        """
         return self._index.keys()
 
     def __iter__(self) -> Iterator[TKey]:
+        """
+        Loop over the keys, in the order of their positions.
+
+        Returns:
+            An iterator of the keys.
+        """
         return iter(self._index)
 
     # --- mutation (append only) ---
 
     def append(self, key: TKey) -> None:
+        """
+        Add a key at the end. Its position is the number of keys before it.
+
+        This changes every KeyedList and KeyedIndex that shares this index. A KeyedList
+        that adds a key through `row[key] = value` copies a shared index first, so it does not.
+
+        Args:
+            key: The new key.
+
+        Raises:
+            ValueError: The key is already in the index.
+
+        Examples:
+            >>> kidx = KeyedIndex(['a', 'b'])
+            >>> kidx.append('c')
+            >>> kidx['c']
+            2
+            >>> kidx.append('a')
+            Traceback (most recent call last):
+                ...
+            ValueError: Duplicate key: a
+        """
         if key in self._index:
             raise ValueError(f"Duplicate key: {key}")
         self._index[key] = len(self._index)
@@ -725,8 +1137,24 @@ class KeyedIndex:
     # --- utilities ---
 
     def to_dict(self) -> Dict[TKey, int]:
+        """
+        Make a dict of each key and its position.
+
+        Returns:
+            A new dict. Changing it does not change the index.
+
+        Examples:
+            >>> KeyedIndex(['a', 'b']).to_dict()
+            {'a': 0, 'b': 1}
+        """
         return dict(self._index)
 
     def __repr__(self) -> str:
+        """
+        Show the keys and their positions as a dict.
+
+        Returns:
+            The text of the dict.
+        """
         return repr(self._index)
 

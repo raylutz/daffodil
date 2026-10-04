@@ -318,6 +318,12 @@ all prior releases. Plans for future moved to ROADMAP.md.
   copies. It is a live view for values. Decided on 2026-10-04. The deep copy was not needed, because `insert_col()`
   and `insert_idx_col()` now copy shared rows first. The report code that selects and then inserts an index column keeps
   working, and the original is not changed. Tests: 4 in `tests/test_daf_shared_rows.py`.
+- Docs: the 15 public methods of `KeyedList` and `KeyedIndex` that had no docstring now have one, with `Args`, `Returns`,
+  `Raises` and examples that were run: `keys`, `values`, `items`, `get`, `update`, `set_values`, `to_dict`, `to_json`,
+  `from_json`, and `get`, `index`, `keys`, `append` and `to_dict` of `KeyedIndex`. The dunder methods got short ones too.
+  The API page of `KeyedList` showed 4 members, because mkdocstrings hides members without a docstring. It now shows 31.
+  The docs say that `set_values()` points at a new list and does not write into the old one, that `del row[key]`
+  shortens a Daf row, and that `to_json()` turns int keys into text. 21 doctests added. No code changed.
 - A selection is a live view for values. Changing values through it changes the original, by cell, column,
   `apply_in_place()`, `update_record_irow()` or a KeyedList loop. Decided on 2026-10-04. Only changes of shape copy shared
   rows first. `assign_icol()` copies only when it adds a column. The `sortable` copy level is still not safe for
