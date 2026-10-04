@@ -121,3 +121,36 @@ def test_to_pandas_df_use_csv_with_default_raises():
     daf = Daf(lol=[[1, ''], [2, 'x']], cols=['id', 'val'])
     with pytest.raises(NotImplementedError):
         daf.to_pandas_df(use_csv=True, default=0)
+
+
+# from_pandas_df: name in the CSV path, dtypes of a Series, deprecated dtypes argument
+
+def test_from_pandas_df_use_csv_keeps_the_name():
+    import pandas as pd
+    df = pd.DataFrame({'id': [1, 2], 'v': ['a', 'b']})
+    assert Daf.from_pandas_df(df, name='mine', use_csv=True).name == 'mine'
+    assert Daf.from_pandas_df(df, name='mine').name == 'mine'
+
+
+def test_from_pandas_df_series_dtypes_are_keyed_by_the_labels():
+    import pandas as pd
+    daf = Daf.from_pandas_df(pd.Series({'p': 1, 'q': 'z', 'r': 2.5}))
+    assert daf.columns() == ['p', 'q', 'r']
+    assert daf.dtypes == {'p': int, 'q': str, 'r': float}
+    assert daf.lol == [[1, 'z', 2.5]]
+
+
+def test_from_pandas_df_dtypes_argument_is_deprecated_and_not_used():
+    import pandas as pd
+    df = pd.DataFrame({'id': [1, 2], 'v': ['a', 'b']})
+    with pytest.warns(DeprecationWarning, match='dtypes'):
+        daf = Daf.from_pandas_df(df, dtypes={'id': str, 'v': str})
+    assert daf.dtypes == {'id': int, 'v': str}
+
+
+def test_from_pandas_df_without_dtypes_gives_no_warning():
+    import pandas as pd
+    import warnings
+    with warnings.catch_warnings():
+        warnings.simplefilter('error')
+        Daf.from_pandas_df(pd.DataFrame({'a': [1]}))

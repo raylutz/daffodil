@@ -257,6 +257,9 @@ all prior releases. Plans for future moved to ROADMAP.md.
   git-tracked) moved out of `src/` to a gitignored, local-only `deprecated/` folder.
 
 ### Fixed
+- `from_pandas_df()` lost `name` when `use_csv=True`. The dtypes of a Series were keyed `col` and not by the labels
+  that become the column names. The `dtypes` argument does nothing, and is now deprecated. It gives a
+  `DeprecationWarning` and will be removed. 4 tests added.
 - `insert_irow()` with a row that is not a list or a dict, or with no row, raised `UnboundLocalError`. It
   now raises `TypeError` that names the method and the type it got. 6 tests added.
 - An explicit `keyfield` was lost when a schema supplied the cols, as in

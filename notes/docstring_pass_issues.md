@@ -121,6 +121,8 @@ The date of the first entry is 2026-10-02.
 33. `from_pandas_df()` ignores its `dtypes` argument. With `use_csv=True` it also
     loses `name`. For a Series the dtypes dict has the key `col`, not the
     index labels used as column names.
+    Fixed with approval on 2026-10-04, option B. `name` is kept with `use_csv=True`, and the dtypes of a Series are
+    keyed by its labels. The `dtypes` argument is deprecated and gives a `DeprecationWarning`. It will be removed.
 34. `buff_to_file()` and several `from_*` methods had no `Returns` text.
 
 ## Group 4: appending and removing rows

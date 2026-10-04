@@ -77,8 +77,8 @@ def _from_pandas_df(
     The values become plain Python values. The column names come from the
     DataFrame. The index is not kept. The dtypes are worked out from the Pandas
     dtypes, but the values are not converted to them. A Series becomes one row,
-    with the index labels as column names. Its dtypes dict is keyed `col`, which
-    does not match those names.
+    with the index labels as column names. Its dtypes are the Python types of its
+    values, one for each label.
 
     With `use_csv=True` the DataFrame is turned into CSV text first, and that is
     read back. This can be faster for some frames.
@@ -88,7 +88,8 @@ def _from_pandas_df(
         keyfield: Column, or tuple or list of columns, whose values identify rows.
         name: Name of the new Daf.
         use_csv: If True, convert by way of CSV text.
-        dtypes: Accepted, but it is not used. The dtypes come from `df`.
+        dtypes: Deprecated, and it is not used. The dtypes come from `df`. It will be removed. A
+            `DeprecationWarning` is given if it is passed.
 
     Returns:
         The new Daf.
@@ -102,7 +103,13 @@ def _from_pandas_df(
         [[1, 'a'], [2, 'b']]
     """
     import pandas as pd     # type: ignore
-    
+    import warnings
+
+    if dtypes is not None:
+        warnings.warn("from_pandas_df(): the dtypes argument is deprecated and is not used. "
+                      "The dtypes come from the DataFrame. It will be removed.",
+                      DeprecationWarning, stacklevel=2)
+
     python_dtypes = dtypes_dict_from_dataframe(df)
 
     if isinstance(df, pd.Series) or not use_csv:
@@ -111,6 +118,7 @@ def _from_pandas_df(
             rowdict = df.to_dict()
             cols = list(rowdict.keys())
             lol = [list(rowdict.values())]
+            python_dtypes = {label: (type(value) if value is not None else str) for label, value in rowdict.items()}
         else:
             cols = list(df.columns)
             lol = df.values.tolist()
@@ -127,6 +135,7 @@ def _from_pandas_df(
     return cls.from_csv_buff(
         csv_buff=csv_buff,
         keyfield=keyfield,
+        name=name,
         dtypes=python_dtypes,    
         unflatten=False,  
         )
