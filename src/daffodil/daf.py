@@ -317,9 +317,9 @@ class Daf:
         else:
             if isinstance(cols, str):
                 cols = [cols]
-            # cols will be sanitized only if necessary.
+            # cols will be sanitized only if necessary: for repeated names, or for a blank name.
             self._cols_to_hd(cols)
-            if len(cols) != len(self.hd):
+            if len(cols) != len(self.hd) or NULL in self.hd:
                 cols = daf_utils._sanitize_cols(cols=cols)
                 self._cols_to_hd(cols)
 
@@ -1172,7 +1172,7 @@ class Daf:
         return self
 
 
-    def set_cols(self, new_cols: Optional[T_ls]=None, sanitize_cols: bool=True, unnamed_prefix: str='col') -> 'Daf':
+    def set_cols(self, new_cols: Optional[T_ls]=None, sanitize_cols: bool=True, unnamed_prefix: str='Unnamed') -> 'Daf':
         """
         Set the column names, in place.
 
@@ -1180,7 +1180,7 @@ class Daf:
         column. Without a list, the names are A, B, C and so on, like a spreadsheet.
 
         With `sanitize_cols` on, a repeated name gets a suffix, so `['a', 'a']` becomes
-        `['a', 'a_1']`. An empty name becomes the prefix and its position, like `col2`.
+        `['a', 'a_1']`. An empty name becomes the prefix and its position, like `Unnamed2`.
         The dtypes are renamed by position as well.
 
         The keyfield is cleared. Call `set_keyfield()` afterwards to turn key lookups
@@ -1189,7 +1189,7 @@ class Daf:
         Args:
             new_cols: The names, in order. If None, spreadsheet names are made.
             sanitize_cols: If True, make the names valid and unique.
-            unnamed_prefix: The start of a name made for an empty one.
+            unnamed_prefix: The start of a name made for an empty one. `Unnamed` says there is no name.
 
         Returns:
             This Daf, which has been changed.
@@ -1201,7 +1201,7 @@ class Daf:
             >>> Daf(lol=[[1, 2, 3]]).set_cols().columns()
             ['A', 'B', 'C']
             >>> Daf(lol=[[1, 2, 3]]).set_cols(['a', 'a', '']).columns()
-            ['a', 'a_1', 'col2']
+            ['a', 'a_1', 'Unnamed2']
         """
 
         num_cols = self.num_cols() or len(self.hd)
@@ -2552,12 +2552,16 @@ class Daf:
         # following invalidates kd for lazy rebuilding.
         rows_daf = cls.from_lod(lod, dtypes=dtypes)
 
-        # this transposes the entire dataframe, including the column names, which become the first column
-        # in the new orientation, then adds the new column names, if provided. Otherwise they will be
-        # defined as ['key', 'A', 'B', ...]
-        cols_daf = rows_daf.transpose(new_keyfield = keyfield, new_cols = cols, include_header = True)
+        # this transposes the data, and puts the keys of the dicts in the first column. The keys are
+        # taken from the dicts and not from the column names of rows_daf, because those names are
+        # made valid and unique, and a key such as '' would come back as 'Unnamed1'. The keys are data here.
+        # The column names are those given, or else ['key', 'A', 'B', ...]
+        if not cols:
+            cols = ['key'] + daf_utils._generate_spreadsheet_column_names_list(num_cols=len(lod))
 
-        return cols_daf
+        cols_lol = [[key] + list(values) for key, values in zip(lod[0].keys(), zip(*rows_daf.lol))]
+
+        return cls(lol=cols_lol, cols=cols, keyfield=keyfield)
 
 
     #==== Excel

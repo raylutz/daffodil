@@ -111,6 +111,13 @@ all prior releases. Plans for future moved to ROADMAP.md.
   built from another one copies it, when it shares it.
 
 ### Changed
+- A blank column name always becomes `Unnamed` plus its position. The constructor renamed blank names only when
+  two names collided, so a single blank stayed `''`, and `set_cols()` used the prefix `col`, as in `col1`. Both now
+  use `Unnamed`, which says that there is no name, is unique and is unlikely to be a real name. The argument
+  `unnamed_prefix` of `set_cols()` still sets the prefix. `from_md()` already did this for a header with blanks.
+- `value_counts_daf()`, `dict_to_md()` and `from_lod_to_cols()` changed a blank key into `Unnamed1`, once blank names
+  are renamed, because the keys of the dicts went through the column names. They now keep the key as data. This also
+  means that a blank key was never counted wrongly. 9 tests added.
 - `from_lot()` without `cols` gives a Daf with no column names, as `Daf(lol=...)` does. It named them `col_0`,
   `col_1`. Use `set_cols()` for names. A Daf that has rows and no column names now raises `KeysDisabledError`,
   with a message that names `set_cols()`, from `to_lod()` and from the dict and KeyedList iterators, so also from

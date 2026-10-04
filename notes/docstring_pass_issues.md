@@ -369,3 +369,13 @@ The date of the first entry is 2026-10-02.
     `groupby()` and `multi_groupby()` copy the rows. `groupby_cols()` and
     `group_where()` share them. The `groupby()` docstring said it shares them. It
     now says it copies.
+
+## Found on 2026-10-04
+
+78. The constructor renamed a blank column name only when two names collided. A single blank stayed `''`, and
+    `set_cols()` used `col1` where the constructor used `Unnamed1`. Fixed with approval on 2026-10-04. Both use
+    `Unnamed` plus the position. `Unnamed` is also the marker that `profile_ls_to_lr()` looks for in a merged heading.
+79. `from_lod_to_cols()`, and so `value_counts_daf()` and `dict_to_md()`, took the keys of the dicts from the column
+    names of an intermediate Daf. With blank names renamed, a blank key became `Unnamed1`. It is data, so the keys
+    are now taken from the dicts. Other places where a value becomes a column name, such as `narrow_to_wide()`, were
+    not checked with a blank value.

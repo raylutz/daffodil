@@ -1877,3 +1877,51 @@ def test_row_getters_of_an_empty_daf_are_empty():
 def test_to_md_of_a_daf_with_no_names_writes_a_spreadsheet_header():
     assert Daf(lol=[[1, 'a']]).to_md() == '| A | B |\n| -: | -: |\n| 1 | a |\n'
     assert Daf(lol=[[1, 'a']], cols=['id', 'v']).to_md().splitlines()[0] == '| id | v |'
+
+
+# a blank column name always becomes Unnamed plus its position
+
+def test_constructor_renames_a_single_blank_name():
+    assert Daf(lol=[[1, 2, 3]], cols=['B', '', 'C']).columns() == ['B', 'Unnamed1', 'C']
+
+
+def test_constructor_renames_several_blank_names():
+    assert Daf(lol=[[1, 2, 3, 4]], cols=['id', '', 'v', '']).columns() == ['id', 'Unnamed1', 'v', 'Unnamed3']
+
+
+def test_constructor_leaves_names_without_blanks_alone():
+    assert Daf(lol=[[1, 2]], cols=['a', 'b']).columns() == ['a', 'b']
+    assert Daf(lol=[[1, 2]], cols=['a', 'a']).columns() == ['a', 'a_1']
+
+
+def test_set_cols_blank_names_use_unnamed_and_the_prefix_can_be_changed():
+    assert Daf(lol=[[1, 2, 3, 4]]).set_cols(['id', '', 'v', '']).columns() == ['id', 'Unnamed1', 'v', 'Unnamed3']
+    assert Daf(lol=[[1, 2, 3]]).set_cols(['a', '', 'c'], unnamed_prefix='col').columns() == ['a', 'col1', 'c']
+
+
+def test_from_md_blank_header_cells_use_unnamed():
+    text = "| id |   | v |\n| -: | -: | -: |\n| 1 | 2 | 3 |\n"
+    assert Daf.from_md(text).columns() == ['id', 'Unnamed1', 'v']
+
+
+# values that are used as keys of a dict keep their value, such as a blank
+
+def test_value_counts_daf_keeps_a_blank_value():
+    daf = Daf(cols=['a'], lol=[['x'], [''], ['x'], ['y']])
+    assert daf.value_counts_daf('a').lol == [['x', 2], ['', 1], ['y', 1]]
+
+
+def test_from_lod_to_cols_keeps_a_blank_key():
+    daf = Daf.from_lod_to_cols([{'': 1, 'B': 2}, {'': 4, 'B': 5}], cols=['Feature', 'T1', 'T2'])
+    assert daf.lol == [['', 1, 4], ['B', 2, 5]]
+    assert daf.columns() == ['Feature', 'T1', 'T2']
+
+
+def test_from_lod_to_cols_default_names():
+    daf = Daf.from_lod_to_cols([{'A': 1}, {'A': 2}])
+    assert daf.columns() == ['key', 'A', 'B']
+    assert daf.lol == [['A', 1, 2]]
+
+
+def test_dict_to_md_keeps_a_blank_key():
+    assert Daf.dict_to_md({'': 1, 'b': 2}).splitlines()[2].split('|')[1].strip() == ''
