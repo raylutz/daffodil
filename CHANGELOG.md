@@ -257,6 +257,9 @@ all prior releases. Plans for future moved to ROADMAP.md.
   git-tracked) moved out of `src/` to a gitignored, local-only `deprecated/` folder.
 
 ### Fixed
+- `apply_formulas()` left the key index as it was after a formula error, though earlier formulas had already changed
+  cells. A lookup then found the old key in the changed row, and did not find the new key. The index is now
+  rebuilt when it is next needed, on every exit. 2 tests added.
 - `from_pandas_df()` lost `name` when `use_csv=True`. The dtypes of a Series were keyed `col` and not by the labels
   that become the column names. The `dtypes` argument does nothing, and is now deprecated. It gives a
   `DeprecationWarning` and will be removed. 4 tests added.

@@ -303,7 +303,7 @@ The date of the first entry is 2026-10-02.
     warns about this. After a formula error, it prints the error, raises it,
     and leaves `retmode` as `val`.
     Fixed with approval on 2026-10-03. `retmode` is restored after an error. The cells
-    already changed stay changed. The stale key index after an error is not handled.
+    already changed stay changed. The key index is now also invalidated after an error, with approval on 2026-10-04.
 64. `sum_np()` is described as accepting blanks. A blank, which is `''`, makes
     NumPy raise `TypeError`. `sum()` raises `ValueError` for a text column unless
     the column is left out with `colnames_ls`.

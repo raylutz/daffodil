@@ -7249,8 +7249,8 @@ class Daf:
         you do not trust.
 
         An error in a formula prints the cell and the formula, and is raised again. The
-        `retmode` of this Daf is restored, but the cells that were already changed stay
-        changed.
+        `retmode` of this Daf is restored, and the key index is rebuilt when it is next
+        needed. The cells that were already changed stay changed.
 
         Args:
             formulas_daf: The formulas, with the same shape as this Daf.
@@ -7321,9 +7321,9 @@ class Daf:
                             continue
         finally:
             self.retmode = prior_retmode
+            self._invalidate_kd()       # cells may have changed, even if there was an error.
 
         #self._rebuild_kd()
-        self._invalidate_kd()
 
         return self
 

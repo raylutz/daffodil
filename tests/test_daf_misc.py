@@ -1980,3 +1980,26 @@ def test_sort_by_colnames_as_str_uses_the_second_column_for_ties():
     daf = Daf(lol=[[1, 'b'], [None, 'z'], [1, 'a'], [None, 'y']], cols=['n', 't'])
     daf.sort_by_colnames(['n', 't'], as_str=True)
     assert daf.lol == [[None, 'y'], [None, 'z'], [1, 'a'], [1, 'b']]
+
+
+# apply_formulas invalidates the key index even when a formula fails
+
+def test_apply_formulas_error_leaves_the_key_index_matching_the_changed_cells():
+    daf = Daf(cols=['id', 'n'], lol=[[1, 10], [2, 20], [3, 30]], keyfield='id')
+    daf.keys()
+    formulas = Daf(cols=['id', 'n'], lol=[['$d[0,0]+100', ''], ['', ''], ['', 'nope+1']])
+    with pytest.raises(NameError):
+        daf.apply_formulas(formulas)
+    assert daf.lol == [[101, 10], [2, 20], [3, 30]]
+    assert daf.keys() == [101, 2, 3]
+    assert daf.select_record(101) == {'id': 101, 'n': 10}
+    assert daf.select_record(1) == {}
+
+
+def test_apply_formulas_circular_error_also_invalidates_the_key_index():
+    daf = Daf(cols=['id', 'n'], lol=[[1, 2], [3, 4]], keyfield='id')
+    daf.keys()
+    formulas = Daf(cols=['id', 'n'], lol=[['$d[1,0]+1', ''], ['$d[0,0]+1', '']])
+    with pytest.raises(RuntimeError):
+        daf.apply_formulas(formulas)
+    assert set(daf.keys()) == {row[0] for row in daf.lol}
