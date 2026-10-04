@@ -273,9 +273,11 @@ def test_to_md_cols_basic():
     assert '1' in result and 'a' in result
 
 
-def test_to_md_bare_lol_has_no_header_row():
+def test_to_md_bare_lol_writes_a_spreadsheet_header_and_does_not_name_the_daf():
     daf = Daf(lol=[[1, 'a'], [2, 'b']])  # no cols at all
-    assert daf.to_md() == '| 1 | a |\n| 2 | b |\n'
+    result = daf.to_md()
+    assert result.splitlines()[:2] == ['| A | B |', '| -: | -: |']
+    assert daf.columns() == []
 
 
 def test_to_md_bare_lol_empty_returns_empty_string():
@@ -295,14 +297,12 @@ def test_from_md_round_trip():
     assert list(restored.hd.keys()) == ['id', 'letter']
 
 
-@pytest.mark.xfail(strict=True, reason="BUG: from_md() cannot read a table with no header row, which to_md() makes "
-                   "for a Daf with no column names. daf_md.py _from_md.")
 def test_from_md_round_trip_bare_lol_no_header():
     original = Daf(lol=[[1, 'a'], [2, 'b']])  # no cols
     md_str = original.to_md()
     restored = Daf.from_md(md_str)
     assert restored.lol == [['1', 'a'], ['2', 'b']]
-    assert restored.columns() == []
+    assert list(restored.hd.keys()) == ['A', 'B']
 
 
 def test_from_md_with_header_and_separator():

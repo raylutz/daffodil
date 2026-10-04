@@ -119,8 +119,10 @@ all prior releases. Plans for future moved to ROADMAP.md.
 - One rule for a Daf with rows and no column names: names exist only if someone gave them. `iloc()` with
   `rtype` of `dict` or `klist`, and so `irow()`, `to_klist()` and `to_dict()`, now raise `KeysDisabledError`.
   They made up the names `A`, `B`, `C`, and `_basic_get_record()` also changed the Daf by calling `set_cols()`.
-  `to_md()` has no header row for such a Daf, and made up a header. `rtype='list'` still works. A strict xfail
-  test records that `from_md()` cannot read a table with no header row. 5 tests changed or added.
+  `rtype='list'` still works. `to_md()` still writes spreadsheet names in the header of such a Daf, because a
+  Markdown table needs a header row and a separator row, and `from_md()` needs them too. A test with the
+  Python-Markdown tables extension, which MkDocs uses, showed that a table with no header row is not rendered
+  as a table. The names are in the text only, and the Daf is not given names. 5 tests changed or added.
 - `append()` and `extend()` say what they add by keyword. `append(lol=[[2, 'b'], [3, 'c']])` and
   `extend(lol=...)` add several rows, each a list in column order. `append(la=[...])` adds one row, even if its
   items are lists. A positional list is one row, as before. A list with more values than there are columns now

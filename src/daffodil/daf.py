@@ -10871,10 +10871,13 @@ class Daf:
             embedded_header = daf_lol[0]
             data_lol = daf_lol[1:]
         elif daf_lol:
-            # Daffodil arrays may have no header at all (a bare lol). No names are made up,
-            # so the rendered table has no header row.
-            embedded_header = None
+            # Daffodil arrays may have no header at all (a bare lol). A Markdown table needs a
+            # header row and a separator row, and Daf.from_md() requires them, so write
+            # spreadsheet-style names (A, B, C, ...) in the header. The names are for the
+            # text only. The Daf is not given names.
+            embedded_header = daf_utils._generate_spreadsheet_column_names_list(len(daf_lol[0]))
             data_lol = daf_lol
+            header_exists = True
         else:
             embedded_header = None
             data_lol = daf_lol

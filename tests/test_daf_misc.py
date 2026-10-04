@@ -1845,7 +1845,7 @@ def test_dict_views_of_a_daf_with_no_names_raise_a_clear_error(call):
 def test_list_views_of_a_daf_with_no_names_still_work():
     daf = _unnamed_daf()
     assert list(daf.iter_list()) == [[1, 'a', 10], [2, 'b', 20]]
-    assert daf.to_md().splitlines()[0] == '| 1 | a | 10 |'
+    assert daf.to_md().splitlines()[0] == '| A | B | C  |'
 
 
 def test_naming_the_columns_makes_the_dict_views_work():
@@ -1874,6 +1874,6 @@ def test_row_getters_of_an_empty_daf_are_empty():
     assert Daf().irow(0) == {}
 
 
-def test_to_md_of_a_daf_with_no_names_has_no_header_and_no_separator():
-    assert Daf(lol=[[1, 'a']]).to_md() == '| 1 | a |\n'
+def test_to_md_of_a_daf_with_no_names_writes_a_spreadsheet_header():
+    assert Daf(lol=[[1, 'a']]).to_md() == '| A | B |\n| -: | -: |\n| 1 | a |\n'
     assert Daf(lol=[[1, 'a']], cols=['id', 'v']).to_md().splitlines()[0] == '| id | v |'
