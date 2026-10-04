@@ -8024,12 +8024,30 @@ class Daf:
             func: Gets a loaded Daf. Returns a dict that describes the result and the new Daf.
             load_func: Loads the chunk that a manifest row describes.
             save_func: Saves a new Daf, given the dict that describes it.
-            by: Must be `table`.
+            by: Must be `table`. The default is `row`, which applies `func` to each row, so always pass `by='table'`.
             cols: Passed to `func` as the keyword `cols`.
             **kwargs: Keyword arguments passed on to `func`.
 
         Returns:
             The manifest of the result chunks.
+
+        Examples:
+            >>> chunks = {'a': Daf(cols=['n'], lol=[[1], [2]]), 'b': Daf(cols=['n'], lol=[[10]])}
+            >>> saved = []
+            >>> def load(spec):
+            ...     return chunks[spec['chunk']]
+            >>> def double(daf, cols=None):
+            ...     new = Daf(cols=['n'], lol=[[row[0] * 2] for row in daf.lol])
+            ...     return {'rows': len(new)}, new
+            >>> def save(spec, daf):
+            ...     saved.append(daf.lol)
+            ...     return 'saved'
+            >>> manifest = Daf(cols=['chunk'], lol=[['a'], ['b']])
+            >>> result = manifest.manifest_apply(double, load, save, by='table')
+            >>> result.columns(), result.lol
+            (['rows'], [[2], [1]])
+            >>> saved
+            [[[2], [4]], [[20]]]
         """
 
         result_manifest_daf = Daf()
@@ -8742,6 +8760,12 @@ class Daf:
 
         Returns:
             The Daf with one row for each group.
+
+        Examples:
+            >>> groups = {'a': Daf(lol=[[1], [2]], cols=['n']), 'b': Daf(lol=[[3]], cols=['n'])}
+            >>> result = Daf.reduce_dodaf_to_daf('g', Daf.sum_da, groups)
+            >>> result.columns(), result.lol, result.keyfield
+            (['n', 'g'], [[3, 'a'], [3, 'b']], 'g')
         """
 
         if diagnose:
@@ -9620,6 +9644,18 @@ class Daf:
 
         Raises:
             ValueError: No `colnames` are given.
+
+        Examples:
+            >>> d = Daf(lol=[['a', 'x', 1], ['a', 'y', 2], ['b', 'x', 3]], cols=['g', 'k', 'n'])
+            >>> sums = d.multi_groupsum(colnames=['g', 'k'], reduce_cols=['n'])
+            >>> sums['g'].lol
+            [['a', '', 3], ['b', '', 3]]
+            >>> sums['k'].lol
+            [['', 'x', 4], ['', 'y', 2]]
+            >>> d.multi_groupsum()
+            Traceback (most recent call last):
+                ...
+            ValueError: multi_groupsum: colnames is required
         """
 
         if colnames is None:
@@ -10336,6 +10372,13 @@ class Daf:
 
         Returns:
             A dict that maps each column to a dict of value and count.
+
+        Examples:
+            >>> d = Daf(lol=[['a', 'x', 1], ['a', 'y', 2], ['b', 'x', 3]], cols=['g', 'k', 'n'])
+            >>> d.valuecounts_for_colnames_ls_selectedby_colname(['k'], 'g', 'a')
+            {'k': {'x': 1, 'y': 1}}
+            >>> d.valuecounts_for_colnames_ls_selectedby_colname(['g', 'k'], 'g', 'a')
+            {'g': {'a': 2}, 'k': {'x': 1, 'y': 1}}
         """
 
 
@@ -10609,6 +10652,19 @@ class Daf:
 
         Returns:
             The translator Daf. Its keyfield is `resolved_colname`.
+
+        Examples:
+            >>> tr = Daf.derive_join_translator_daf('id', 'id', ['id', 'v'], ['id', 'w'], 'L', 'R')
+            >>> tr.columns()
+            ['resolved_colname', 'source_name', 'source_colname', 'is_keyfield']
+            >>> tr.lol
+            [['id', 'L', 'id', True], ['v', 'L', 'v', False], ['w', 'R', 'w', False]]
+            >>> tagged = Daf.derive_join_translator_daf('id', 'id', ['id', 'v'], ['id', 'w'], 'L', 'R', tag_other=True)
+            >>> tagged.col('resolved_colname')
+            ['id', 'v', 'w_R']
+            >>> omitted = Daf.derive_join_translator_daf('id', 'id', ['id', 'v'], ['id', 'w', 'x'], 'L', 'R', omit_other_cols=['x'])
+            >>> omitted.col('resolved_colname')
+            ['id', 'v', 'w']
         """
 
         shared_fields   = list(shared_fields or [])     # a copy, so the caller's list is not changed.
@@ -10860,6 +10916,15 @@ class Daf:
 
         Raises:
             ValueError: The translator names more than two sources and `join_names_ls` is not given.
+
+        Examples:
+            >>> tr = Daf.derive_join_translator_daf('id', 'id', ['id', 'v'], ['id', 'w'], 'L', 'R')
+            >>> Daf.join_records([{'id': 1, 'v': 'a'}, {'id': 1, 'w': 'b'}], tr)
+            {'id': 1, 'v': 'a', 'w': 'b'}
+            >>> Daf.join_records([{'id': 1, 'v': 'a'}, None], tr)
+            {'id': 1, 'v': 'a', 'w': ''}
+            >>> Daf.join_records([{'id': 1, 'v': 'a'}, None], tr, fill=0)
+            {'id': 1, 'v': 'a', 'w': 0}
         """
         combined_record = {}
 
@@ -11029,6 +11094,16 @@ class Daf:
 
         Returns:
             The Markdown text.
+
+        Examples:
+            >>> d = Daf(lol=[[1, 'a'], [2, 'b']], cols=['x', 'y'])
+            >>> print(d.md_daf_table_snippet(), end='')
+            | x | y |
+            | -: | -: |
+            | 1 | a |
+            | 2 | b |
+            <BLANKLINE>
+            %% daf rows=2; cols=2; keyfield=''; name=''
         """
 
         return self.to_md(
@@ -11160,8 +11235,9 @@ class Daf:
         """
         Make a Markdown table in which each row of the Daf is a column.
 
-        There is no header. The first column holds the column names of the Daf. Use it
-        for a Daf with few rows and many columns.
+        There is no header row and no separator row. The first column holds the column names of the Daf.
+        Use it for a Daf with few rows and many columns. Some Markdown renderers, such as Python-Markdown,
+        show this text as plain text, because they need a header and a separator row to make a table.
 
         Args:
             max_rows: The most rows to show. 0 for all.
@@ -11175,6 +11251,12 @@ class Daf:
 
         Returns:
             The Markdown text.
+
+        Examples:
+            >>> d = Daf(lol=[[1, 'a'], [2, 'b']], cols=['x', 'y'])
+            >>> print(d.to_md_cols(), end='')
+            | x | 1 | 2 |
+            | y | a | b |
         """
 
         daf_lol = self.daf_to_lol_summary(max_rows=max_rows, max_cols=max_cols, disp_cols=disp_cols)
@@ -11220,6 +11302,14 @@ class Daf:
 
         Returns:
             The rows, with a header row first if there are column names.
+
+        Examples:
+            >>> d = Daf(lol=[[1, 'a'], [2, 'b']], cols=['x', 'y'])
+            >>> d.daf_to_lol_summary()
+            [['x', 'y'], [1, 'a'], [2, 'b']]
+            >>> big = Daf(lol=[[i, i] for i in range(20)], cols=['x', 'y'])
+            >>> big.daf_to_lol_summary(max_rows=4)
+            [['x', 'y'], [0, 0], [1, 1], ['...', '...'], [18, 18], [19, 19]]
         """
 
         if disp_cols:

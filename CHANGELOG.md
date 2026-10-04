@@ -322,6 +322,14 @@ all prior releases. Plans for future moved to ROADMAP.md.
   copies. It is a live view for values. Decided on 2026-10-04. The deep copy was not needed, because `insert_col()`
   and `insert_idx_col()` now copy shared rows first. The report code that selects and then inserts an index column keeps
   working, and the original is not changed. Tests: 4 in `tests/test_daf_shared_rows.py`.
+- Docs: 26 methods of `Daf` got an `Examples:` section, and each example was run: `iter_dict`, `iter_klist`, `iter_list`,
+  `num_rows`, `len`, `from_excel_buff`, `from_csv_file`, `buff_to_file`, `from_directory`, `from_googlesheet`,
+  `to_googlesheet`, `krows_to_irows`, `kcols_to_icols`, `select_records_daf`, `irow_la`, `col_to_la`, `icol_to_la`,
+  `manifest_apply`, `reduce_dodaf_to_daf`, `multi_groupsum`, `valuecounts_for_colnames_ls_selectedby_colname`,
+  `derive_join_translator_daf`, `join_records`, `md_daf_table_snippet`, `to_md_cols` and `daf_to_lol_summary`. The docstring of
+  `select_records_daf()` said that, with no keys and `inverse`, the result uses the row list of the original. That was
+  true before the fix of 2026-10-04 and is no longer. `manifest_apply()` says that `by` must be `table` and that its default
+  is `row`, which does not work. `to_md_cols()` says that Python-Markdown shows its text as plain text. 26 doctests added.
 - Docs: the 15 public methods of `KeyedList` and `KeyedIndex` that had no docstring now have one, with `Args`, `Returns`,
   `Raises` and examples that were run: `keys`, `values`, `items`, `get`, `update`, `set_values`, `to_dict`, `to_json`,
   `from_json`, and `get`, `index`, `keys`, `append` and `to_dict` of `KeyedIndex`. The dunder methods got short ones too.

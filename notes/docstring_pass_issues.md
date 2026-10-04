@@ -464,3 +464,10 @@ The date of the first entry is 2026-10-02.
 95. `astype_la()` in `keyedlist.py` now keeps an empty (NULL) cell, as `daf_utils.astype_la()` does. Approved by the owner on
     2026-10-04. `KeyedList.values(int)` on a row with a missing cell returned an error before. It is still a copy of the `daf_utils`
     function, because of the circular import. A test compares the two. It was renamed to `_astype_la` the same day, with the owner's approval.
+96. Docs audit, item 2, on 2026-10-04: 26 `Daf` methods got examples. Not done: `retmode` and `itermode` are flagged only
+    because of their setters, whose getters have examples. `from_googlesheet()` and `to_googlesheet()` always raise, so they have no
+    Returns. Open for the owner: (a) `manifest_apply()` has the default `by='row'`, but its docstring says `by` must be `table`. With
+    the default, a function written for a table fails with `AttributeError: 'dict' object has no attribute 'lol'`. (b) The
+    module function `unpack_indirect()` at the end of `daf.py` is not attached to `Daf`. Only a test calls it, as
+    `daf_module.unpack_indirect()`. Its docstring example calls `daf.flatten_indirect()`, which does not exist. It is not on the
+    API page.
