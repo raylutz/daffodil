@@ -117,6 +117,12 @@ all prior releases. Plans for future moved to ROADMAP.md.
   built from another one copies it, when it shares it.
 
 ### Changed
+- Converting text to `bool`, in `apply_dtypes()` and `convert_type_value()`, recognizes the words `false`, `no`, `n`,
+  `f` and `off`, which gave 1, and `true`, `yes`, `y`, `t` and `on`, in lower case, capitalized and upper case, as well
+  as `0`, `1`, `0.0`, `1.0` and the empty text. Any other text is kept as it was, as it is for `int` and `float`, so a
+  value such as `maybe` is no longer made true without a message. Before, everything except six values gave 1. None and
+  NaN still give 0, and other values are true unless they are 0. The result is still the int 0 or 1. A column that held
+  1 for text that is not a bool word now holds that text. 7 test groups added.
 - `remove_key()` and `remove_keylist()` are marked deprecated in their docstrings and in the README. Their behavior is
   unchanged. They return a shallow new Daf, and `select_krows(..., inverse=True)` does the same.
 - A blank column name from parsing a header always becomes `Unnamed` plus its position. The constructor renamed

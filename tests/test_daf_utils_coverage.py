@@ -502,3 +502,49 @@ def test_convert_type_value_big_int_text_keeps_every_digit():
     from daffodil.lib.daf_utils import convert_type_value
     assert convert_type_value('9007199254740993', int) == 9007199254740993
     assert convert_type_value('12345678901234567890', int) == 12345678901234567890
+
+
+# converting text to bool: words are recognized, other text is kept, as for int and float
+
+import pytest
+
+from daffodil.lib.daf_utils import convert_type_value, get_converter
+
+
+@pytest.mark.parametrize('word', ['false', 'False', 'FALSE', 'no', 'No', 'NO', 'n', 'N', 'f', 'F',
+                                  'off', 'Off', 'OFF', '0', '0.0', ''])
+def test_bool_false_words_give_zero(word):
+    assert convert_type_value(word, bool) == 0
+    assert get_converter(bool)(word) == 0
+
+
+@pytest.mark.parametrize('word', ['true', 'True', 'TRUE', 'yes', 'Yes', 'YES', 'y', 'Y', 't', 'T',
+                                  'on', 'On', 'ON', '1', '1.0'])
+def test_bool_true_words_give_one(word):
+    assert convert_type_value(word, bool) == 1
+    assert get_converter(bool)(word) == 1
+
+
+@pytest.mark.parametrize('text', ['maybe', 'x', 'nan', '2', 'nope', ' no ', 'yes!'])
+def test_bool_other_text_is_kept(text):
+    assert convert_type_value(text, bool) == text
+
+
+def test_bool_none_nan_and_non_text_values():
+    assert convert_type_value(None, bool) == 0
+    assert convert_type_value(float('nan'), bool) == 0
+    assert convert_type_value(True, bool) == 1 and convert_type_value(False, bool) == 0
+    assert convert_type_value(0, bool) == 0 and convert_type_value(5, bool) == 1
+    assert convert_type_value(0.0, bool) == 0 and convert_type_value(2.5, bool) == 1
+
+
+def test_bool_result_is_an_int_not_a_bool():
+    assert type(convert_type_value('yes', bool)) is int
+    assert type(convert_type_value(True, bool)) is int
+
+
+def test_apply_dtypes_converts_a_column_of_yes_and_no():
+    from daffodil.daf import Daf
+    daf = Daf(lol=[['yes'], ['no'], ['n'], ['maybe'], ['']], cols=['ok'], dtypes={'ok': bool})
+    daf.apply_dtypes()
+    assert daf.col('ok') == [1, 0, 0, 'maybe', 0]

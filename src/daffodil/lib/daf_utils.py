@@ -538,10 +538,31 @@ def _convert_str(val: Any) -> Any:
     return f"{val}"
 
 
+def _bool_words() -> Dict[Any, int]:
+    """ The text that means false or true, in the usual spellings, so that each cell is one dict lookup. """
+    words: Dict[Any, int] = {'': 0, '0': 0, '0.0': 0, '1': 1, '1.0': 1}
+    for word in ('false', 'no', 'n', 'f', 'off'):
+        for spelling in (word, word.capitalize(), word.upper()):
+            words[spelling] = 0
+    for word in ('true', 'yes', 'y', 't', 'on'):
+        for spelling in (word, word.capitalize(), word.upper()):
+            words[spelling] = 1
+    return words
+
+
+_BOOL_WORDS: Dict[Any, int] = _bool_words()
+
+
 def _convert_bool(val: Any) -> Any:
-    """ convert one value to 0 or 1. See convert_type_value(). """
-    # null string means None or NAN
-    return 0 if val in ('0', '', None, False, 'False', 'FALSE') or val != val else 1
+    """ convert one value to 0 or 1. See convert_type_value().
+        None and NAN are 0. Text that is not one of the words in _BOOL_WORDS is returned as it was. """
+    if val is None or val != val:               # None or NAN
+        return 0
+
+    if isinstance(val, str):
+        return _BOOL_WORDS.get(val, val)
+
+    return 1 if val else 0
 
 
 _CONVERTERS: Dict[Any, Callable[[Any], Any]] = {
@@ -571,8 +592,9 @@ def convert_type_value(val: Any, desired_type: Type[T], unflatten: bool=True) ->
         At this point, desired type must be the origin of any type definitions, such as int, str, float, list, dict, set, tuple.
 
         If there is no value, value retured is ''
-        If type is bool, value is 0 or 1 (integers), but source can be '0', '1', '', None, True, False
-        If an int or float cannot be made from the text, the text is returned as it was.
+        If type is bool, value is 0 or 1 (integers), but source can be '0', '1', '', None, True, False, or the
+        words true, false, yes, no, y, n, t, f, on and off, in lower case, capitalized or upper case.
+        If an int, float or bool cannot be made from the text, the text is returned as it was.
         Text with a decimal point or an exponent is converted to int by way of a float. Any
         other text is converted to int directly, so every digit of a large number is kept.
     """

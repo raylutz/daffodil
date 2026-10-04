@@ -344,6 +344,9 @@ The date of the first entry is 2026-10-02.
     The likely intent is to pass them to `func`.
 73. `convert_type_value()`: `'false'` and `'no'` convert to the `bool` value 1,
     `'inf'` to `int` raises `OverflowError`, and `'1.9'` to `int` gives 1.
+    Fixed with approval on 2026-10-04, option C, for `bool`. The words `false`, `no`, `n`, `f` and `off`, and
+    the true words, in lower case, capitalized and upper case, are recognized. Other text is kept. `'inf'` to `int`
+    was fixed on 2026-10-02, and keeps the text.
 74. Fixed with approval on 2026-10-02. SERIOUS for ids. `convert_type_value()` turns a text number into an `int`
     with `int(float(val))`. Above 2 to the power 53 a float cannot hold every
     digit, so the number is silently changed. Real output:
