@@ -111,10 +111,11 @@ all prior releases. Plans for future moved to ROADMAP.md.
   built from another one copies it, when it shares it.
 
 ### Changed
-- A blank column name always becomes `Unnamed` plus its position. The constructor renamed blank names only when
-  two names collided, so a single blank stayed `''`, and `set_cols()` used the prefix `col`, as in `col1`. Both now
-  use `Unnamed`, which says that there is no name, is unique and is unlikely to be a real name. The argument
-  `unnamed_prefix` of `set_cols()` still sets the prefix. `from_md()` already did this for a header with blanks.
+- A blank column name from parsing a header always becomes `Unnamed` plus its position. The constructor renamed
+  blank names only when two names collided, so a single blank stayed `''`. `Unnamed` says that there is no name, is
+  unique and is unlikely to be a real name, and `profile_ls_to_lr()` looks for it. `from_md()` already did this.
+  `set_cols()` keeps the short prefix `col`, as in `col1`, because its names are printed and are given by you. The
+  argument `unnamed_prefix` of `set_cols()` sets another.
 - `value_counts_daf()`, `dict_to_md()` and `from_lod_to_cols()` changed a blank key into `Unnamed1`, once blank names
   are renamed, because the keys of the dicts went through the column names. They now keep the key as data. This also
   means that a blank key was never counted wrongly. 9 tests added.

@@ -1172,7 +1172,7 @@ class Daf:
         return self
 
 
-    def set_cols(self, new_cols: Optional[T_ls]=None, sanitize_cols: bool=True, unnamed_prefix: str='Unnamed') -> 'Daf':
+    def set_cols(self, new_cols: Optional[T_ls]=None, sanitize_cols: bool=True, unnamed_prefix: str='col') -> 'Daf':
         """
         Set the column names, in place.
 
@@ -1180,7 +1180,9 @@ class Daf:
         column. Without a list, the names are A, B, C and so on, like a spreadsheet.
 
         With `sanitize_cols` on, a repeated name gets a suffix, so `['a', 'a']` becomes
-        `['a', 'a_1']`. An empty name becomes the prefix and its position, like `Unnamed2`.
+        `['a', 'a_1']`. An empty name becomes the prefix and its position, like `col2`. The
+        prefix is short, because these names are printed. Names that come from parsing a header, in the
+        constructor and in `from_md()`, use `Unnamed` instead, which says that there is no name.
         The dtypes are renamed by position as well.
 
         The keyfield is cleared. Call `set_keyfield()` afterwards to turn key lookups
@@ -1189,7 +1191,7 @@ class Daf:
         Args:
             new_cols: The names, in order. If None, spreadsheet names are made.
             sanitize_cols: If True, make the names valid and unique.
-            unnamed_prefix: The start of a name made for an empty one. `Unnamed` says there is no name.
+            unnamed_prefix: The start of a name made for an empty one.
 
         Returns:
             This Daf, which has been changed.
@@ -1201,7 +1203,7 @@ class Daf:
             >>> Daf(lol=[[1, 2, 3]]).set_cols().columns()
             ['A', 'B', 'C']
             >>> Daf(lol=[[1, 2, 3]]).set_cols(['a', 'a', '']).columns()
-            ['a', 'a_1', 'Unnamed2']
+            ['a', 'a_1', 'col2']
         """
 
         num_cols = self.num_cols() or len(self.hd)

@@ -1894,9 +1894,9 @@ def test_constructor_leaves_names_without_blanks_alone():
     assert Daf(lol=[[1, 2]], cols=['a', 'a']).columns() == ['a', 'a_1']
 
 
-def test_set_cols_blank_names_use_unnamed_and_the_prefix_can_be_changed():
-    assert Daf(lol=[[1, 2, 3, 4]]).set_cols(['id', '', 'v', '']).columns() == ['id', 'Unnamed1', 'v', 'Unnamed3']
-    assert Daf(lol=[[1, 2, 3]]).set_cols(['a', '', 'c'], unnamed_prefix='col').columns() == ['a', 'col1', 'c']
+def test_set_cols_blank_names_use_the_short_prefix_col_and_the_prefix_can_be_changed():
+    assert Daf(lol=[[1, 2, 3, 4]]).set_cols(['id', '', 'v', '']).columns() == ['id', 'col1', 'v', 'col3']
+    assert Daf(lol=[[1, 2, 3]]).set_cols(['a', '', 'c'], unnamed_prefix='Unnamed').columns() == ['a', 'Unnamed1', 'c']
 
 
 def test_from_md_blank_header_cells_use_unnamed():

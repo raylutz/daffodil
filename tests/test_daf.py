@@ -424,14 +424,14 @@ class TestDaf(unittest.TestCase):
         daf = Daf(cols=['col1', 'col2', 'col3'])
         new_cols = ['A', 'A', '']
         daf.set_cols(new_cols)
-        self.assertEqual(daf.columns(), ['A', 'A_1', 'Unnamed2'])
+        self.assertEqual(daf.columns(), ['A', 'A_1', 'col2'])
     
     def test_set_cols_sanitize_dif_prefix(self):
         # sanitizing function, different prefix
         daf = Daf(cols=['col1', 'col2', 'col3'])
         new_cols = ['A', 'A', '']
-        daf.set_cols(new_cols, unnamed_prefix='col')
-        self.assertEqual(daf.columns(), ['A', 'A_1', 'col2'])
+        daf.set_cols(new_cols, unnamed_prefix='Unnamed')
+        self.assertEqual(daf.columns(), ['A', 'A_1', 'Unnamed2'])
     
 
 
