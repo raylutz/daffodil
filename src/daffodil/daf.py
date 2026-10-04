@@ -219,7 +219,8 @@ class Daf:
             cols: Column names. These win over `hd` and `dtypes`.
             dtypes: Type for each column, used when converting from strings.
             schema: A `@schemaclass` or a schema Daf that supplies columns and defaults.
-            keyfield: Column, or tuple or list of columns, whose values identify rows.
+            keyfield: Column, or tuple or list of columns, whose values identify rows. A name that is not a column is
+                stored without an error, and then key lookups find nothing. See `set_keyfield()`.
             name: Free text name of this Daf.
             use_copy: If True, deep copy `lol` instead of adopting it.
             disp_cols: Column names to show when the Daf is printed.
@@ -2729,6 +2730,10 @@ class Daf:
         Empty text, or a source with no rows, gives an empty Daf with no columns, as
         `from_md()` does. Check `len()` of the result if an empty source would be an error.
 
+        A `keyfield` that is not a column of the file is stored without an error, and key
+        lookups then find nothing. Check the names, or call `set_keyfield()` with
+        `silent_error=False`.
+
         The length of each row is not checked, so that a read costs no more than it must.
         A row with a missing cell, or with an extra one from an unquoted comma, is kept as
         it is, and a later call may fail with an error that does not mention it. If you do
@@ -4550,7 +4555,7 @@ class Daf:
             The row positions.
 
         Raises:
-            KeysDisabledError: There is no keyfield and no key index.
+            KeysDisabledError: There is no keyfield and no key index, or the keyfield is not a column.
             KeyError: A key is not found and `silent_error` is False.
         """
         """
@@ -4576,6 +4581,9 @@ class Daf:
                 # return []
 
         self._rebuild_kd_if_invalidated()    # Only rebuilds when keyfield is set and `_kd` is empty.
+
+        if not self._kd and self.keyfield and not self._is_keyfield_valid():
+            raise KeysDisabledError(self._keyfield_not_a_column_message())
 
         return type(self).gkeys_to_idxs(
                     keydict         = self._kd,
@@ -6590,6 +6598,19 @@ class Daf:
             self._cols_to_hd(list(self.hd) + [self._new_colname()])
 
         return self
+
+    def _keyfield_not_a_column_message(self) -> str:
+        """
+        Say why key lookups fail when the keyfield is set but is not made of columns of this Daf.
+
+        Internal use. It is called only on the failure path.
+        """
+        if not self.hd:
+            return (f"Key lookups are disabled: the keyfield {self.keyfield!r} is set, but this Daf has no column names. "
+                    f"Call set_cols() to name them.")
+        return (f"Key lookups are disabled: the keyfield {self.keyfield!r} is not a column of this Daf. "
+                f"The columns are {list(self.hd)}. Use set_keyfield() to choose one.")
+
 
     def _own_rows(self) -> None:
         """

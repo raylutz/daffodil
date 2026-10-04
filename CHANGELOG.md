@@ -291,6 +291,10 @@ all prior releases. Plans for future moved to ROADMAP.md.
   returned the list object of the original. An append to the result was an append to the original, and the key index
   of the original was left wrong. The rows are still shared, as with every other selector. `copy()` still shares the
   list, as its `shallow` level says. Approved on 2026-10-04. 20 tests added in `tests/test_daf_shared_rows.py`.
+- `select_krows()` says why key lookups fail when the keyfield is not a column of the Daf. It said `Key lookups are disabled (no kd)`.
+  The message names the keyfield and lists the columns. The error class is the same, and a Daf that works is not slowed.
+  The constructor and `from_csv_buff()` document that a keyfield that is not a column is stored without an error, as
+  `set_keyfield()` does. Decided on 2026-10-04. 7 tests added in `tests/test_daf_keyfield_not_a_column.py`.
 - `from_csv_buff()` and `from_csv()` give an empty Daf with no columns for empty text, bytes, an empty iterator or an empty
   file, as `from_md('')` does. They raised `IndexError: pop from empty list`, and `from_csv()` reported that as a failure
   to read the file. Decided on 2026-10-04. 11 tests added in `tests/test_daf_csv_empty.py`.

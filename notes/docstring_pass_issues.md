@@ -442,3 +442,8 @@ The date of the first entry is 2026-10-02.
     that said the file could not be read. An empty source now gives an empty Daf with no columns, as `from_md('')` and
     `from_csv_buff('', noheader=True)` did. Approved by the owner on 2026-10-04. A caller that wants an error for an empty
     file can test `len()` of the result.
+91. A `keyfield` that is not a column is stored without an error by the constructor, the builders and `set_keyfield()`
+    unless `silent_error=False` is given. A lookup then said `Key lookups are disabled (no kd)`, and `keys()` and
+    `select_record()` gave empty results. The owner decided on 2026-10-04 to keep the rule and to document it, and to make
+    the error of `select_krows()` say what is wrong. Still unclear: a Daf with no rows and a valid keyfield also gives
+    `Key lookups are disabled (no kd)`. `keys()` and `select_record()` still give empty results for an unknown keyfield.
