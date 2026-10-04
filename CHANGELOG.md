@@ -277,6 +277,10 @@ all prior releases. Plans for future moved to ROADMAP.md.
   and a header of two columns. Shared rows are now copied first, so the other Daf is not changed. The method still
   changes this Daf and returns it. Approved on 2026-10-04. Tests: `tests/test_daf_shared_rows.py`. The `sortable` copy
   level is now safe for these methods. A shallow copy shares the row list itself, which is not detected.
+- `select_where_idxs()` gives its function a KeyedList for each row, as `select_where()` does. It gave a dict when the
+  `itermode` was dict, which is the default, and its docstring said KeyedList. It is about 3 times faster. A function
+  that reads `row['name']` works as before. A function that uses a dict-only method on the row, such as `items()`,
+  does not. 7 tests added in `tests/test_daf_select_where_idxs.py`.
 - Loops over KeyedList rows are about 30% faster, and so is `select_where()`. `KeyedList` tests the case that a Daf loop
   uses first in its constructor, and tries one hashable key first when it reads a value. The results are the same for
   every kind of input. For 200,000 rows by 50 columns `select_where()` went from 0.214 s to 0.148 s. The docstring

@@ -423,3 +423,6 @@ The date of the first entry is 2026-10-02.
     `__getitem__` ran two type tests before the lookup. Both now try the usual case first. The results are
     identical on a probe of 21 inputs. `select_where()` is 30% faster. Approved by the owner on 2026-10-04. A new
     method that tests one column was not added, because `select_by_dict()` is about 40 times faster for that.
+86. `select_where_idxs()` iterated the Daf, so its function got a dict in the default itermode. Its docstring said
+    KeyedList, as for `select_where()`. It now uses `iter_klist()`. About 3 times faster. Approved by the owner on 2026-10-04.
+    AuditEngine uses it once, with a test of `row['so_ind']`, which works with both row types.

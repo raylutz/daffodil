@@ -5833,13 +5833,18 @@ class Daf:
         """
         Get the positions of the rows for which a function is true.
 
-        The function gets each row, as in `select_where()`.
+        The function gets each row as a [KeyedList][daffodil.keyedlist.KeyedList], whatever the
+        `itermode` is, as in `select_where()`. Read cells by column name, as in `row['n']`.
+        For a test that only compares columns to values, `select_by_dict()` is faster.
 
         Args:
             where: A function that takes a row and returns True to keep it.
 
         Returns:
             The row positions.
+
+        Raises:
+            KeysDisabledError: The Daf has rows and no column names.
 
         Examples:
             >>> d = Daf(lol=[[1, 'a', 10], [2, 'b', 20], [3, 'c', 30]], cols=['id', 'v', 'n'], keyfield='id')
@@ -5859,7 +5864,7 @@ class Daf:
         """
         # unit test exists.
 
-        return [idx for idx, row in enumerate(self) if where(row)]
+        return [idx for idx, row_kl in enumerate(self.iter_klist()) if where(row_kl)]
 
 
     def remove_dups(self, keyfield: Union[str, T_ta, T_la]='') -> Tuple['Daf', 'Daf']:  # unique_daf, duplicates_daf
