@@ -5837,6 +5837,9 @@ class Daf:
         `itermode` is, as in `select_where()`. Read cells by column name, as in `row['n']`.
         For a test that only compares columns to values, `select_by_dict()` is faster.
 
+        The positions are a snapshot. Inserting, removing or sorting rows makes them point
+        to other rows. Use them right away. To keep a reference to a row for longer, keep its key.
+
         Args:
             where: A function that takes a row and returns True to keep it.
 
