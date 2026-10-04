@@ -780,6 +780,9 @@ syntax, but it is similar to syntax used by R.
     
     new_daf = my_daf.select_krows(krows=keylist, inverse=True)
 
+`remove_key()` and `remove_keylist()` do the same as these two lines. They are deprecated. They return a
+shallow new Daf and do not change `my_daf`.
+
 ### selecting records without using keyfield
 
 #### select records based on a conditional expression.

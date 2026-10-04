@@ -4081,6 +4081,8 @@ class Daf:
         """
         Make a new Daf without the row that has the given key.
 
+        This is deprecated. Use `select_krows(key, inverse=True)`, which does the same.
+
         This does not remove the row from this Daf. It returns a new Daf that leaves
         the row out, and this Daf is unchanged. Keep the result, as in
         `d = d.remove_key(2)`.
@@ -4131,6 +4133,8 @@ class Daf:
     def remove_keylist(self, keylist: T_ls, silent_error: bool=False) -> 'Daf':
         """
         Make a new Daf without the rows that have the given keys.
+
+        This is deprecated. Use `select_krows(keys, inverse=True)`, which does the same.
 
         This does not remove the rows from this Daf. It returns a new Daf that leaves
         them out, and this Daf is unchanged. See `remove_key()` for how the rows are

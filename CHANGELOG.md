@@ -117,6 +117,8 @@ all prior releases. Plans for future moved to ROADMAP.md.
   built from another one copies it, when it shares it.
 
 ### Changed
+- `remove_key()` and `remove_keylist()` are marked deprecated in their docstrings and in the README. Their behavior is
+  unchanged. They return a shallow new Daf, and `select_krows(..., inverse=True)` does the same.
 - A blank column name from parsing a header always becomes `Unnamed` plus its position. The constructor renamed
   blank names only when two names collided, so a single blank stayed `''`. `Unnamed` says that there is no name, is
   unique and is unlikely to be a real name, and `profile_ls_to_lr()` looks for it. `from_md()` already did this.

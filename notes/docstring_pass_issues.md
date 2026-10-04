@@ -144,6 +144,8 @@ The date of the first entry is 2026-10-02.
 39. `remove_key()` and `remove_keylist()` do not remove anything. They return a
     new Daf, and the names suggest an in place change. The new Daf shares the
     surviving rows with the original.
+    Resolved on 2026-10-04, option C. Both are marked deprecated in their docstrings, and their behavior is
+    unchanged. They are `select_krows(..., inverse=True)`. No method that removes rows by key in place was added.
 40. `remove_key((1, 'a'))` with a composite key raises `KeyError: 1`, because a
     bare tuple is read as a range. Only `remove_key([(1, 'a')])` works. The
     annotation of `keyval` allows a tuple.
