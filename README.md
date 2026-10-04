@@ -771,20 +771,14 @@ syntax, but it is similar to syntax used by R.
     new_daf = my_daf[keyvalue_list]
     
 
-#### drop a record using keyfield, in place.
-
-    my_daf.drop_krows(keyval)
-
-#### drop multiple records using multiple keys in a list, in place.
-
-    my_daf.drop_krows(keylist)
-
-#### get a shallow new Daf without those records, leaving my_daf as it is.
+#### drop a record using keyfield
 
     new_daf = my_daf.select_krows(krows=keyval, inverse=True)
+    
+    
+#### remove multiple records using multiple keys in a list.
+    
     new_daf = my_daf.select_krows(krows=keylist, inverse=True)
-
-`remove_key()` and `remove_keylist()` do the same as the two lines above. They are deprecated.
 
 ### selecting records without using keyfield
 
