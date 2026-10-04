@@ -277,6 +277,11 @@ all prior releases. Plans for future moved to ROADMAP.md.
   and a header of two columns. Shared rows are now copied first, so the other Daf is not changed. The method still
   changes this Daf and returns it. Approved on 2026-10-04. Tests: `tests/test_daf_shared_rows.py`. The `sortable` copy
   level is now safe for these methods. A shallow copy shares the row list itself, which is not detected.
+- Loops over KeyedList rows are about 30% faster, and so is `select_where()`. `KeyedList` tests the case that a Daf loop
+  uses first in its constructor, and tries one hashable key first when it reads a value. The results are the same for
+  every kind of input. For 200,000 rows by 50 columns `select_where()` went from 0.214 s to 0.148 s. The docstring
+  of `select_where()` points to `select_by_dict()` for a test that only compares columns. 16 tests added in
+  `tests/test_keyedlist_construction_and_lookup.py`.
 - `select_by_dict()` is about 40 times faster. It compares the cells by position, and does not turn each row into a dict.
   For 200,000 rows by 50 columns it took 0.53 s and now takes 0.012 s. The rows it returns are the same, and a Daf with
   rows and no column names still raises `KeysDisabledError`. 22 tests added in `tests/test_daf_select_by_dict.py`,

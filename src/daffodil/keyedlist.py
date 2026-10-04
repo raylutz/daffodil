@@ -207,6 +207,16 @@ class KeyedList:
             default: Optional[Union[int, str, float]] = None,
             ):
             
+        if isinstance(arg1, KeyedIndex) and isinstance(arg2, list):
+            # Case: hd + row (critical for reference semantics). This is the case that Daf iteration uses
+            # for every row, so it is tested first.
+            if len(arg1) != len(arg2):
+                raise ValueError("hd and values must have the same length")
+            self.hd = arg1              # reuse, DO NOT rebuild
+            self._values = arg2         # direct reference
+            self._hd_shared = True      # copied before a key is added
+            return
+
         if isinstance(arg1, dict):
             if arg2 is None:
                 # Case 1: from_dict
@@ -244,15 +254,6 @@ class KeyedList:
             self._values = arg1._values
             return
             
-        elif isinstance(arg1, KeyedIndex) and isinstance(arg2, list):
-            # Case: hd + row (critical for reference semantics)
-            if len(arg1) != len(arg2):
-                raise ValueError("hd and values must have the same length")
-            self.hd = arg1              # reuse, DO NOT rebuild
-            self._values = arg2         # direct reference
-            self._hd_shared = True      # copied before a key is added
-            return
-
         elif arg1 is None and arg2 is None:
             # Case 6, Empty - return a functional empty keyedlist, like {}
             self.hd = KeyedIndex()
@@ -266,6 +267,11 @@ class KeyedList:
             indexing can use a scalar key or a list of keys, which returns a list.
         """
         
+        try:
+            return self._values[self.hd[key]]       # type: ignore[index]  # a list key raises TypeError, handled below.
+        except TypeError:
+            pass                                    # a list of keys, or a key that cannot be hashed.
+
         if isinstance(key, list):
             return [self._values[self.hd[onekey]] for onekey in key if onekey in self.hd]
             

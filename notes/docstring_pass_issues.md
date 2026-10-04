@@ -419,3 +419,7 @@ The date of the first entry is 2026-10-02.
 84. `select_by_dict()` built a dict or KeyedList for every row to compare one or two fields. It now compares the cells
     by position. Same results on 10,800 comparisons, about 40 times faster. Approved by the owner on 2026-10-04.
     A first draft of the faster loop failed on an empty selector. The comparison found it before it went into the library.
+85. KeyedList loops were slow because `KeyedList.__init__` tried the hd plus row case after six other cases, and
+    `__getitem__` ran two type tests before the lookup. Both now try the usual case first. The results are
+    identical on a probe of 21 inputs. `select_where()` is 30% faster. Approved by the owner on 2026-10-04. A new
+    method that tests one column was not added, because `select_by_dict()` is about 40 times faster for that.
