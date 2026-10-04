@@ -514,7 +514,7 @@ class KeyedList:
         if astype is None or astype is list:
             return self._values
 
-        return astype_la(self._values, astype)
+        return _astype_la(self._values, astype)
 
 
     def items(self) -> Iterator[Tuple[TKey, Any]]:
@@ -696,7 +696,7 @@ NULL = ''       # a missing value is the empty string, as in daf.py. Test it wit
 _ASTYPE_BY_NAME: Dict[str, Callable] = {'int': int, 'str': str, 'float': float, 'bool': bool}
 
 
-def astype_la(la: T_la, astype: Optional[Union[Callable, str, type]]=None) -> T_la:
+def _astype_la(la: T_la, astype: Optional[Union[Callable, str, type]]=None) -> T_la:
     """
     Convert each value of a list, and keep a missing value as it is.
 
@@ -716,9 +716,9 @@ def astype_la(la: T_la, astype: Optional[Union[Callable, str, type]]=None) -> T_
         ValueError: `astype` is a name that is not supported, or is not callable.
 
     Examples:
-        >>> astype_la(['1', '', '3'], int)
+        >>> _astype_la(['1', '', '3'], int)
         [1, '', 3]
-        >>> astype_la(['1.5'], 'float')
+        >>> _astype_la(['1.5'], 'float')
         [1.5]
     """
     if astype is None:

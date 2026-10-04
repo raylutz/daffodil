@@ -463,4 +463,4 @@ The date of the first entry is 2026-10-02.
     imported from `keyedlist.py` without a circular import, because `daf_types` imports `KeyedList`.
 95. `astype_la()` in `keyedlist.py` now keeps an empty (NULL) cell, as `daf_utils.astype_la()` does. Approved by the owner on
     2026-10-04. `KeyedList.values(int)` on a row with a missing cell returned an error before. It is still a copy of the `daf_utils`
-    function, because of the circular import. A test compares the two. Not done: renaming it to `_astype_la`.
+    function, because of the circular import. A test compares the two. It was renamed to `_astype_la` the same day, with the owner's approval.

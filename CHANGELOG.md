@@ -330,7 +330,8 @@ all prior releases. Plans for future moved to ROADMAP.md.
   shortens a Daf row, and that `to_json()` turns int keys into text. 21 doctests added. No code changed.
 - `KeyedList.values(astype)` keeps an empty cell, which is NULL, as it is. It raised `ValueError` for `int` and `float`, and
   turned `''` into `False` for `bool`, where `daf_utils.astype_la()` and the rest of daffodil keep NULL. Decided on 2026-10-04.
-  `KeyedList` has its own copy of `astype_la()` because it cannot import `daf_utils` without a circular import. 24 tests
+  `KeyedList` has its own copy of `astype_la()` because it cannot import `daf_utils` without a circular import. It is
+  now named `_astype_la()` in `keyedlist.py`, because it is internal. `daf_utils.astype_la()` keeps its name. 24 tests
   added in `tests/test_keyedlist_astype_null.py`.
 - A selection is a live view for values. Changing values through it changes the original, by cell, column,
   `apply_in_place()`, `update_record_irow()` or a KeyedList loop. Decided on 2026-10-04. Only changes of shape copy shared

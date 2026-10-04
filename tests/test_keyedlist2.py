@@ -2,13 +2,13 @@
 #
 # Supplementary pytest-style tests for keyedlist.py, targeting coverage gaps not
 # exercised by the existing (unittest-style) test_keyedlist.py: constructor branches,
-# error paths, KeyedIndex edge cases, and astype_la.
+# error paths, KeyedIndex edge cases, and _astype_la.
 
 import json
 
 import pytest
 
-from daffodil.keyedlist import KeyedList, KeyedIndex, astype_la
+from daffodil.keyedlist import KeyedList, KeyedIndex, _astype_la
 
 
 # --- KeyedList construction branches ---
@@ -174,45 +174,45 @@ def test_from_json_invalid_payload_raises():
         KeyedList.from_json(bad_json)
 
 
-# --- astype_la (module-level function) ---
+# --- _astype_la (module-level function) ---
 
 def test_astype_la_none_passthrough():
     la = [1, 2, 3]
-    assert astype_la(la, None) is la
+    assert _astype_la(la, None) is la
 
 
 def test_astype_la_callable():
-    assert astype_la([1, 2, 3], lambda x: x * 2) == [2, 4, 6]
+    assert _astype_la([1, 2, 3], lambda x: x * 2) == [2, 4, 6]
 
 
 def test_astype_la_type_object():
-    assert astype_la(['1', '2'], int) == [1, 2]
+    assert _astype_la(['1', '2'], int) == [1, 2]
 
 
 def test_astype_la_str_int():
-    assert astype_la(['1', '2'], 'int') == [1, 2]
+    assert _astype_la(['1', '2'], 'int') == [1, 2]
 
 
 def test_astype_la_str_str():
-    assert astype_la([1, 2], 'str') == ['1', '2']
+    assert _astype_la([1, 2], 'str') == ['1', '2']
 
 
 def test_astype_la_str_float():
-    assert astype_la(['1.5', '2.5'], 'float') == [1.5, 2.5]
+    assert _astype_la(['1.5', '2.5'], 'float') == [1.5, 2.5]
 
 
 def test_astype_la_str_bool():
-    assert astype_la([0, 1], 'bool') == [False, True]
+    assert _astype_la([0, 1], 'bool') == [False, True]
 
 
 def test_astype_la_unsupported_string_raises():
     with pytest.raises(ValueError):
-        astype_la([1, 2], 'not_a_type')
+        _astype_la([1, 2], 'not_a_type')
 
 
 def test_astype_la_unsupported_object_raises():
     with pytest.raises(ValueError):
-        astype_la([1, 2], 42)
+        _astype_la([1, 2], 42)
 
 
 # --- KeyedIndex gaps ---
