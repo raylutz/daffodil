@@ -477,7 +477,8 @@ class KeyedList:
 
         With no `astype`, or with `list`, this is the list that the KeyedList adopted, not
         a copy. If it is a row of a Daf, changing it changes the Daf. With any other
-        `astype` it is a new list, and the original is not changed.
+        `astype` it is a new list, and the original is not changed. An empty cell, which is
+        NULL in daffodil, is not converted. It stays as the empty string.
 
         Args:
             astype: How to convert each value. A type such as `int`, a function, or one of
@@ -498,6 +499,8 @@ class KeyedList:
             [1, 2]
             >>> klist.values('float')
             [1.0, 2.0]
+            >>> KeyedList(['a', 'b'], ['1', '']).values(int)
+            [1, '']
             >>> klist.values() is klist.values()
             True
             >>> klist.values(int) is klist.values(int)
@@ -688,37 +691,51 @@ class KeyedList:
         else:
             raise ValueError("Invalid JSON string for KeyedList")
 
-def astype_la(la: T_la, astype: Optional[Union[Callable, str, type]]=None) -> T_la:
-    """ fix the type according to astype spec if it is not None 
-            this function current duplicated in daf_utils
-    """        
+NULL = ''       # a missing value is the empty string, as in daf.py. Test it with `val is NULL`.
 
+_ASTYPE_BY_NAME: Dict[str, Callable] = {'int': int, 'str': str, 'float': float, 'bool': bool}
+
+
+def astype_la(la: T_la, astype: Optional[Union[Callable, str, type]]=None) -> T_la:
+    """
+    Convert each value of a list, and keep a missing value as it is.
+
+    An empty cell, which is NULL in daffodil, is not converted. So `int` of `'1'` and `''` gives
+    `1` and `''`, and does not fail. This is the same rule as `daf_utils.astype_la()`, which this
+    module cannot import without a circular import. Internal use, by `KeyedList.values()`.
+
+    Args:
+        la: The values.
+        astype: A type such as `int`, a function, or one of the names `'int'`, `'str'`, `'float'` and
+            `'bool'`. None returns the list as it is, not a copy.
+
+    Returns:
+        A new list, or `la` itself if `astype` is None.
+
+    Raises:
+        ValueError: `astype` is a name that is not supported, or is not callable.
+
+    Examples:
+        >>> astype_la(['1', '', '3'], int)
+        [1, '', 3]
+        >>> astype_la(['1.5'], 'float')
+        [1.5]
+    """
     if astype is None:
         return la
-        
-    if callable(astype) and not isinstance(astype, type): 
-        return [astype(val) for val in la]
-        
-    # Type provided (e.g., int, str, float, bool)
-    if isinstance(astype, type):
-        return [astype(val) for val in la]
 
     if isinstance(astype, str):
-        if astype == 'int':
-            return [int(val) for val in la]
-        elif astype == 'str':
-            return [str(val) for val in la]
-        elif astype == 'float':
-            return [float(val) for val in la]
-        elif astype == 'bool':
-            return [bool(val) for val in la]
-        else:
-            raise ValueError (f"astype not supported: {astype}")
-            
-    raise ValueError (f"astype not supported: {astype}")
+        convert = _ASTYPE_BY_NAME.get(astype)
+        if convert is None:
+            raise ValueError(f"astype not supported: {astype}")
+    elif callable(astype):
+        convert = astype
+    else:
+        raise ValueError(f"astype not supported: {astype}")
 
-        
-        
+    return [val if val is NULL else convert(val) for val in la]
+
+
 class KeyedIndex:
     """
     The index of keys that KeyedLists share. Each key maps to the position of its value.

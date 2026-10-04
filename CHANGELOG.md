@@ -328,6 +328,10 @@ all prior releases. Plans for future moved to ROADMAP.md.
   The API page of `KeyedList` showed 4 members, because mkdocstrings hides members without a docstring. It now shows 31.
   The docs say that `set_values()` points at a new list and does not write into the old one, that `del row[key]`
   shortens a Daf row, and that `to_json()` turns int keys into text. 21 doctests added. No code changed.
+- `KeyedList.values(astype)` keeps an empty cell, which is NULL, as it is. It raised `ValueError` for `int` and `float`, and
+  turned `''` into `False` for `bool`, where `daf_utils.astype_la()` and the rest of daffodil keep NULL. Decided on 2026-10-04.
+  `KeyedList` has its own copy of `astype_la()` because it cannot import `daf_utils` without a circular import. 24 tests
+  added in `tests/test_keyedlist_astype_null.py`.
 - A selection is a live view for values. Changing values through it changes the original, by cell, column,
   `apply_in_place()`, `update_record_irow()` or a KeyedList loop. Decided on 2026-10-04. Only changes of shape copy shared
   rows first. `assign_icol()` copies only when it adds a column. The `sortable` copy level is still not safe for
