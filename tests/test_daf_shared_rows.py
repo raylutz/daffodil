@@ -152,3 +152,39 @@ def test_value_writer_on_unshared_rows_changes_them_in_place(name):
     row_ids = [id(row) for row in d.lol]
     VALUE_WRITERS[name](d)
     assert [id(row) for row in d.lol] == row_ids
+
+
+# select_by_dict returns a shallow new Daf, and the report scenario
+
+def test_select_by_dict_shares_the_rows():
+    d = _daf()
+    s = d.select_by_dict({'v': 'b'})
+    assert s.lol == [[2, 'b']]
+    assert s.lol is not d.lol
+    assert s.lol[0] is d.lol[1]
+    assert s.keyfield == 'id'
+
+
+def test_select_by_dict_inverse_and_expectmax_still_work():
+    d = _daf()
+    assert d.select_by_dict({'v': 'b'}, inverse=True).lol == [[1, 'a'], [3, 'c']]
+    assert d.select_by_dict({'v': 'zz'}).lol == []
+    with pytest.raises(LookupError):
+        d.select_by_dict({'id': 1}, expectmax=0)
+
+
+def test_report_scenario_select_by_dict_then_insert_idx_col_leaves_the_original_alone():
+    d = _daf()
+    report_daf = d.select_by_dict({'v': 'b'}, inverse=True)
+    report_daf.insert_idx_col(colname='idx', icol=0)
+    assert report_daf.lol == [[0, 1, 'a'], [1, 3, 'c']]
+    assert list(report_daf.hd) == ['idx', 'id', 'v']
+    assert d.lol == [[1, 'a'], [2, 'b'], [3, 'c']]
+    assert list(d.hd) == ['id', 'v']
+
+
+def test_select_by_dict_is_a_live_view_for_values():
+    d = _daf()
+    s = d.select_by_dict({'v': 'b'})
+    s.set_icol(1, 'Z')
+    assert d.lol == [[1, 'a'], [2, 'Z'], [3, 'c']]

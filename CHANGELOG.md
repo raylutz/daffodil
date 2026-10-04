@@ -277,6 +277,10 @@ all prior releases. Plans for future moved to ROADMAP.md.
   and a header of two columns. Shared rows are now copied first, so the other Daf is not changed. The method still
   changes this Daf and returns it. Approved on 2026-10-04. Tests: `tests/test_daf_shared_rows.py`. The `sortable` copy
   level is now safe for these methods. A shallow copy shares the row list itself, which is not detected.
+- `select_by_dict()` returns a shallow new Daf, like the other row selectors. Its rows are the rows of the original, not
+  copies. It is a live view for values. Decided on 2026-10-04. The deep copy was not needed, because `insert_col()`
+  and `insert_idx_col()` now copy shared rows first. The report code that selects and then inserts an index column keeps
+  working, and the original is not changed. Tests: 4 in `tests/test_daf_shared_rows.py`.
 - A selection is a live view for values. Changing values through it changes the original, by cell, column,
   `apply_in_place()`, `update_record_irow()` or a KeyedList loop. Decided on 2026-10-04. Only changes of shape copy shared
   rows first. `assign_icol()` copies only when it adds a column. The `sortable` copy level is still not safe for

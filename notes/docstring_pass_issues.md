@@ -412,3 +412,7 @@ The date of the first entry is 2026-10-02.
     Still open: `select_irows()` with a list of every row in order, `d[:]`, `select_krows()` with every key and
     `select_records_daf([], inverse=True)` return the same row list object as the original, so an append to one is an
     append to the other. A fix is `list(self.lol)` at two places. It waits for a review of AuditEngine callers.
+83. `select_by_dict()` copied its rows. The reporting code in AuditEngine selects with it and then calls `insert_idx_col()`.
+    The roles were reversed: the select copied and the insert wrote into shared rows. With item 81 the insert copies
+    when it must, so the select can share. Decided by the owner on 2026-10-04. This resolves A2 of the impact review. The README table
+    and the `select_by_dict()` docstring now say shared.

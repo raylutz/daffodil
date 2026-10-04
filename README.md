@@ -715,8 +715,8 @@ in the result changes it in the original. A few selectors copy the rows.
 |:-----------------------------------------------------------------|:------------------------------|
 | `select_irows`, `d[rows]`, `select_krows`, `select_records_daf`  | shared, also when nothing is dropped |
 | `remove_key`, `remove_keylist`, `select_where`, `split_where`    | shared                        |
-| `groupby_cols`, `group_where`, `copy()`                          | shared                        |
-| `select_by_dict`, `groupby`, `multi_groupby`                     | copied (new row lists)        |
+| `groupby_cols`, `group_where`, `copy()`, `select_by_dict`        | shared                        |
+| `groupby`, `multi_groupby`                                       | copied (new row lists)        |
 | `select_cols`, `select_kcols`, `select_icols`                    | copied (new row lists)        |
 
 Use `copy(level='editable')` first if you need to change cells without touching the original.

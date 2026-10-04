@@ -1500,7 +1500,7 @@ def _share_daf() -> Daf:
     (lambda d: d.select_where(lambda row: row['id'] < 3),               True),
     (lambda d: d.groupby_cols(['v']),                                   True),
     (lambda d: d.copy(),                                                True),
-    (lambda d: d.select_by_dict({'id': 1}),                             False),
+    (lambda d: d.select_by_dict({'id': 1}),                             True),
     (lambda d: d.groupby('v'),                                          False),
     (lambda d: d.select_cols(['id', 'v']),                              False),
     (lambda d: d.copy('editable'),                                      False),

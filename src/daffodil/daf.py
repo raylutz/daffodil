@@ -5664,8 +5664,10 @@ class Daf:
 
         A row matches if each key of `selector_da` is a column whose value in that row
         equals the value given. With `inverse=True` the rows that do not match are
-        returned. The rows of the new Daf are new lists, so they can be changed
-        without changing this Daf.
+        returned. The new Daf is a shallow new Daf, a live view of this one. It has its own
+        row list, and its rows are the same lists as the rows of this Daf. Changing a value in
+        it changes this Daf. Adding a column with `insert_col()` or `insert_idx_col()` does not,
+        because those copy shared rows first. Use `copy('editable')` for rows of your own.
 
         Args:
             selector_da: The column names and the values they must have.
@@ -5692,7 +5694,7 @@ class Daf:
         """
         # test exists in test_daf.py
 
-        result_lol = [list(d2.values()) for d2 in self if inverse ^ daf_utils.is_d1_in_d2(d1=selector_da, d2=d2)]
+        result_lol = [row_la for row_la, d2 in zip(self.lol, self) if inverse ^ daf_utils.is_d1_in_d2(d1=selector_da, d2=d2)]
 
         if expectmax != -1 and len(result_lol) > expectmax:
             raise LookupError(f"select_by_dict(): {len(result_lol)} rows match, more than expectmax={expectmax}.")
