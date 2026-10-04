@@ -1,7 +1,6 @@
 # test_daf_coverage_b.py
 #
-# Coverage-driven tests for daf.py, second half of the file (methods from iloc() through
-# unpack_indirect()). Focuses on error paths, alternate branches (composite keyfields,
+# Coverage-driven tests for daf.py, second half of the file (methods from iloc() to the end). Focuses on error paths, alternate branches (composite keyfields,
 # indirect columns, diagnose=True logging) and rarely used helpers.
 
 import pytest
@@ -660,30 +659,6 @@ def test_value_counts_daf_sorted_total_omit_nulls():
     daf = Daf(cols=['a'], lol=[['y'], [''], ['x'], ['x']])
     result = daf.value_counts_daf('a', sort=True, include_total=True, omit_nulls=True)
     assert result.lol == [['x', 2], ['y', 1], [' **Total** ', 3]]
-
-
-# =====================================================================
-# unpack_indirect() (module-level function)
-# =====================================================================
-
-def test_unpack_indirect_flattens_indirect_and_defaults():
-    daf = Daf(cols=['id', 'j'], lol=[['r1', {'p': 1, 'q': 2}], ['r2', '{"p": 3}']])
-    result = daf_module.unpack_indirect(daf, indirect_col='j', cols=['id', 'p', 'q'],
-                                        default='D', silent_error=True)
-    assert result.columns() == ['id', 'p', 'q']
-    assert result.lol == [['r1', 1, 2], ['r2', 3, 'D']]
-
-
-def test_unpack_indirect_missing_col_raises_keyerror():
-    daf = Daf(cols=['id', 'j'], lol=[['r1', {'p': 1}]])
-    with pytest.raises(KeyError, match="Column 'q' not found"):
-        daf_module.unpack_indirect(daf, indirect_col='j', cols=['id', 'q'], default='D')
-
-
-def test_unpack_indirect_missing_indirect_col_raises():
-    daf = Daf(cols=['id'], lol=[['r1']])
-    with pytest.raises(RuntimeError, match='nope not found'):
-        daf_module.unpack_indirect(daf, indirect_col='nope', cols=['id'], default='D')
 
 
 #===========================

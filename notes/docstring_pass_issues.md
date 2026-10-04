@@ -471,3 +471,5 @@ The date of the first entry is 2026-10-02.
     module function `unpack_indirect()` at the end of `daf.py` is not attached to `Daf`. Only a test calls it, as
     `daf_module.unpack_indirect()`. Its docstring example calls `daf.flatten_indirect()`, which does not exist. It is not on the
     API page.
+97. `unpack_indirect()` was removed on 2026-10-04, with its 3 tests, because the owner said that the accessor for indirect columns made it
+    obsolete. It closes finding (b) of item 96. `daf_doc.txt` still lists it. That file is an old generated listing of `daf.py`.

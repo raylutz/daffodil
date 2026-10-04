@@ -121,6 +121,10 @@ all prior releases. Plans for future moved to ROADMAP.md.
   built from another one copies it, when it shares it.
 
 ### Removed
+- `unpack_indirect()` is removed from `daf.py`. It was a module function that was not attached to `Daf`, and only its 3 tests called
+  it. Its docstring example called `flatten_indirect()`, which does not exist. The accessor that makes a row read as one map
+  replaced it. `_IndirectRowView`, `get_indirect_da()` and `get_indirect_val()` are still used and are kept. Removed on 2026-10-04
+  at the request of the owner.
 - `KeyedListEncoder` is removed from `keyedlist.py`. Nothing in daffodil used it. It was a `json.JSONEncoder` for a KeyedList. `KeyedList.to_json()`
   and `from_json()` are kept. Removed on 2026-10-04 at the request of the owner, who found no use of it. Its 2 tests are removed too.
 
