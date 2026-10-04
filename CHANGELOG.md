@@ -293,7 +293,7 @@ all prior releases. Plans for future moved to ROADMAP.md.
   list, as its `shallow` level says. Approved on 2026-10-04. 20 tests added in `tests/test_daf_shared_rows.py`.
 - `from_csv_buff()` and `from_csv()` give an empty Daf with no columns for empty text, bytes, an empty iterator or an empty
   file, as `from_md('')` does. They raised `IndexError: pop from empty list`, and `from_csv()` reported that as a failure
-  to read the file. Decided on 2026-10-04. 8 tests added in `tests/test_daf_csv_empty.py`.
+  to read the file. Decided on 2026-10-04. 11 tests added in `tests/test_daf_csv_empty.py`.
 - Docs: `from_md()` says that a table with no header row is not read, and that a Daf with no column names comes back from
   `to_md()` and `from_md()` with the names `A`, `B` and so on. Decided on 2026-10-04 to keep the behavior.
 - Docs: `from_csv_buff()` and `from_csv()` say that the length of each row is not checked, and point to
