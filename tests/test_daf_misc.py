@@ -2012,3 +2012,20 @@ def test_apply_formulas_circular_error_also_invalidates_the_key_index():
     with pytest.raises(RuntimeError):
         daf.apply_formulas(formulas)
     assert set(daf.keys()) == {row[0] for row in daf.lol}
+
+
+def test_select_irows_inverse_of_nothing_shares_the_rows():
+    d = _rows_daf()
+    for result in (d.select_irows([], inverse=True), d.select_irows([], invert=True)):
+        assert result is not d
+        assert result.lol is not d.lol
+        assert result.lol == d.lol
+        assert result.lol[0] is d.lol[0]
+        assert result.keyfield == 'id'
+        assert result.hd == d.hd
+
+
+def test_select_irows_of_nothing_is_empty():
+    result = _rows_daf().select_irows([])
+    assert result.lol == []
+    assert result.keyfield == 'id'

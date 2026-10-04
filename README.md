@@ -713,10 +713,9 @@ in the result changes it in the original. A few selectors copy the rows.
 
 | Selector                                                         | Rows in the result            |
 |:-----------------------------------------------------------------|:------------------------------|
-| `select_irows`, `d[rows]`, `select_krows`, `select_records_daf`  | shared                        |
+| `select_irows`, `d[rows]`, `select_krows`, `select_records_daf`  | shared, also when nothing is dropped |
 | `remove_key`, `remove_keylist`, `select_where`, `split_where`    | shared                        |
 | `groupby_cols`, `group_where`, `copy()`                          | shared                        |
-| `select_irows([], inverse=True)`                                 | copied, deeply (slow)         |
 | `select_by_dict`, `groupby`, `multi_groupby`                     | copied (new row lists)        |
 | `select_cols`, `select_kcols`, `select_icols`                    | copied (new row lists)        |
 

@@ -9,6 +9,8 @@ all prior releases. Plans for future moved to ROADMAP.md.
 
 ## [Unreleased]
 ### Added
+- `select_irows([], inverse=True)` keeps all rows and now shares them, like every other `select_irows()` result. It
+  made a deep copy before. For 200,000 rows by 50 columns that took about 3 seconds.
 - `sort_by_colname()` and `sort_by_colnames()` take `as_str`. With `True` they sort by the text of each value, and
   None sorts as an empty cell, so a column that mixes numbers with None, blanks or text can be sorted. With
   `length_priority` whole numbers sort in numeric order. Negative and decimal numbers sort in text order. A column

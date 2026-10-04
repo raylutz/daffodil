@@ -4887,8 +4887,8 @@ class Daf:
         This is the same as `my_daf[rows]`, with a choice to drop rows. It is cheap.
         The result is a shallow new Daf. It is a new Daf with a new list of rows, and
         each row is the same list as in this Daf, so changing a cell in the result
-        changes it here too. The exception is dropping an empty selection,
-        which makes a deep copy. The keyfield, dtypes and column names carry over.
+        changes it here too. This is also so when the selection is empty and `inverse`
+        is True, which keeps all the rows. The keyfield, dtypes and column names carry over.
 
         Args:
             irows: A position, a slice, a range, a list of positions, or a list of ranges.
@@ -4932,7 +4932,7 @@ class Daf:
 
         if no_rows_specified:
             if inverse:
-                return self.copy(deep=True)
+                return self.clone_empty(lol=list(self.lol))     # drop nothing: a shallow new Daf, rows shared.
             else:
                 return self.clone_empty()
 

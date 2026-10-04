@@ -397,3 +397,6 @@ The date of the first entry is 2026-10-02.
     names of an intermediate Daf. With blank names renamed, a blank key became `Unnamed1`. It is data, so the keys
     are now taken from the dicts. Other places where a value becomes a column name, such as `narrow_to_wide()`, were
     not checked with a blank value.
+80. `select_irows([], inverse=True)` made a deep copy of every row, which took about 3 seconds for 200,000 rows by 50
+    columns. It now returns a new Daf with a new row list and shared rows, like the other selectors. Approved on
+    2026-10-04 after the AuditEngine impact review found no caller that depends on the copy. The review kept `select_by_dict` as it is, because AuditEngine edits those rows in place.

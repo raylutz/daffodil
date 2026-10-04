@@ -106,8 +106,8 @@ B25. to_donpa(default=...) replaces blank, None and NaN cells as it reads a colu
     name, and no longer by position. apply_dtypes() is faster. apply_to_col() passes keyword arguments to the
     function. drop_cols() clears a keyfield that was dropped. remove_dups() no longer changes the keyfield of
     the Daf. narrow_to_wide() handles ids that are not next to each other. Assigning a str to several rows
-    or to a column no longer corrupts the table. Column slices with negative numbers work. from_lod() keeps
-    keys that only a later dict has. from_cols_dol() uses the longest list. Methods that added a value without
+    or to a column no longer corrupts the table. Column slices with negative numbers work. from_lod() raises
+    ValueError for a key that only a later dict has, unless cols= is given. from_cols_dol() uses the longest list. Methods that added a value without
     a column name now add the name.
 
 ## Output format
