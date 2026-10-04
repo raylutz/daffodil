@@ -38,8 +38,8 @@ def test_a_valid_keyfield_still_works_and_still_raises_keyerror_for_a_missing_ke
         d.select_krows([9])
 
 
-def test_no_keyfield_still_gives_the_old_message():
-    with pytest.raises(KeysDisabledError, match='requires keyfield is set'):
+def test_no_keyfield_and_no_kd_says_so():
+    with pytest.raises(KeysDisabledError, match=r"select_krows\(\): key lookups are disabled, as the keyfield is not set and there is no key index"):
         Daf(lol=[[1, 2]], cols=['a', 'b']).select_krows([1])
 
 

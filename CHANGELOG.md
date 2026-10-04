@@ -291,6 +291,13 @@ all prior releases. Plans for future moved to ROADMAP.md.
   returned the list object of the original. An append to the result was an append to the original, and the key index
   of the original was left wrong. The rows are still shared, as with every other selector. `copy()` still shares the
   list, as its `shallow` level says. Approved on 2026-10-04. 20 tests added in `tests/test_daf_shared_rows.py`.
+- A Daf with a key index (kd) and no keyfield works with every key lookup. `krows_to_irows()` and `select_record()` honored
+  it. `select_krows()`, `select_records_daf()`, `remove_key()`, `remove_keylist()` and `keys()` raised `KeysDisabledError`
+  or gave an empty list, though the docstring of `select_records_daf()` says that a manual kd is enough. `assign_record()`
+  still needs a keyfield, because it reads the key from the record, and its message says so. The messages now name the
+  method and what is missing: `select_krows(): key lookups are disabled, as the keyfield is not set and there is no key
+  index (kd).` The `(no kd)` message, which was reached only for an empty key index, now says that the index is empty
+  and that a Daf with no rows has no keys. Decided on 2026-10-04. 16 tests added in `tests/test_daf_manual_kd.py`.
 - `select_krows()` says why key lookups fail when the keyfield is not a column of the Daf. It said `Key lookups are disabled (no kd)`.
   The message names the keyfield and lists the columns. The error class is the same, and a Daf that works is not slowed.
   The constructor and `from_csv_buff()` document that a keyfield that is not a column is stored without an error, as

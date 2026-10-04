@@ -131,7 +131,7 @@ class DaffodilError(Exception):
     """Base exception for Daffodil."""
 
 class KeysDisabledError(DaffodilError, LookupError):
-    """Row-key lookups are unavailable because keyfield is unset/disabled, or a lookup by column name is unavailable because the Daf has no column names."""
+    """Row-key lookups are unavailable because there is no keyfield and no key index (kd), or a lookup by column name is unavailable because the Daf has no column names."""
 
 class ColumnNotFoundError(DaffodilError, KeyError, RuntimeError):
     """A column name is not in the Daf. It is a `KeyError`, and also a `RuntimeError`, which older code may catch."""
@@ -1269,7 +1269,7 @@ class Daf:
             The keys.
 
         Raises:
-            KeysDisabledError: There is no keyfield and `silent_error` is False.
+            KeysDisabledError: There is no keyfield and no key index, and `silent_error` is False.
             ValueError: `astype` is neither `list` nor `view`.
 
         Examples:
@@ -1280,11 +1280,11 @@ class Daf:
 
         # test exists in test_daf.py
 
-        if not self.keyfield:
+        if not self.keyfield and not self._kd:
             if silent_error:
                 return [] if astype == 'list' else {}.keys()  # empty KeysView
             else:
-                raise KeysDisabledError("Key lookups are disabled (keyfield is unset).")
+                raise self._no_keys_error('keys')
 
         self._rebuild_kd_if_invalidated()
 
@@ -4023,7 +4023,7 @@ class Daf:
             The new Daf. It has the same keyfield.
 
         Raises:
-            KeysDisabledError: The Daf has no keyfield.
+            KeysDisabledError: The Daf has no keyfield and no key index.
             KeyError: The key is not found and `silent_error` is False.
 
         Examples:
@@ -4038,8 +4038,8 @@ class Daf:
         """
 
         # test exists in test_daf.py
-        if not self.keyfield:
-            raise KeysDisabledError("Key lookups are disabled (keyfield is unset).")
+        if not self.keyfield and not self._kd:
+            raise self._no_keys_error('remove_key')
 
         if (isinstance(keyval, tuple) and isinstance(self.keyfield, (tuple, list))
                 and len(keyval) == len(self.keyfield)
@@ -4067,7 +4067,7 @@ class Daf:
             The new Daf. It has the same keyfield.
 
         Raises:
-            KeysDisabledError: The Daf has no keyfield.
+            KeysDisabledError: The Daf has no keyfield and no key index.
             KeyError: A key is not found and `silent_error` is False.
 
         Examples:
@@ -4080,8 +4080,8 @@ class Daf:
         """
         # test exists in test_daf.py
 
-        if not self.keyfield:
-            raise KeysDisabledError("Key lookups are disabled (keyfield is unset).")
+        if not self.keyfield and not self._kd:
+            raise self._no_keys_error('remove_keylist')
 
         return self.select_krows(krows=keylist, inverse=True, silent_error=silent_error)
 
@@ -4574,7 +4574,7 @@ class Daf:
             # `raise` was missing here -- constructed but never raised, so this docstring's own
             # "raises KeysDisabledError if keyfield is not set" silently didn't happen; every
             # other identical message elsewhere in this file (e.g. select_krows()) does raise.
-            raise KeysDisabledError("Key lookups are disabled (keyfield is unset).")
+            raise self._no_keys_error('krows_to_irows')
             # if inverse:
                 # return range(len(self))
             # else:
@@ -4674,7 +4674,7 @@ class Daf:
             The positions, as a list or a slice.
 
         Raises:
-            KeysDisabledError: The dict is empty.
+            KeysDisabledError: The dict is empty, as it is for a Daf with no rows.
             KeyError: A key is not found and `silent_error` is False.
             TypeError: The keys are None, or a tuple of a length other than 1 or 2.
 
@@ -4692,7 +4692,7 @@ class Daf:
 
         # --- no key system ---
         if not keydict:
-            raise KeysDisabledError("Key lookups are disabled (no kd)")
+            raise KeysDisabledError(f"gkeys_to_idxs(): the {axis} index is empty, so there is nothing to look up. A Daf with no rows has no keys.")
 
         # --- invalid selector ---
         if gkeys is None:
@@ -4828,7 +4828,7 @@ class Daf:
             The new Daf.
 
         Raises:
-            KeysDisabledError: The Daf has no keyfield.
+            KeysDisabledError: The Daf has no keyfield and no key index.
             KeyError: A key is not found and `silent_error` is False.
 
         Examples:
@@ -4842,8 +4842,8 @@ class Daf:
         """
         self._rebuild_kd_if_invalidated()
 
-        if not self.keyfield:
-            raise KeysDisabledError("select_krows requires keyfield is set.")
+        if not self.keyfield and not self._kd:
+            raise self._no_keys_error('select_krows')
 
         irows = self.krows_to_irows(
             krows = krows,
@@ -5235,7 +5235,7 @@ class Daf:
         self._rebuild_kd_if_invalidated()
 
         if not self.keyfield and not self._kd:
-            raise KeysDisabledError("Key lookups are disabled (keyfield is unset and kd not defined).")
+            raise self._no_keys_error('select_record')
 
         if key in self._kd:
             return self._basic_get_record(self._kd[key])
@@ -6400,7 +6400,7 @@ class Daf:
         """
 
         if not self.keyfield:
-            raise KeysDisabledError("Key lookups are disabled (keyfield is unset).")
+            raise KeysDisabledError("assign_record(): the Daf needs a keyfield to read the key from the record.")
 
         # test if valid keyfield, produce an error if not.
         self._is_keyfield_valid()
@@ -6598,6 +6598,15 @@ class Daf:
             self._cols_to_hd(list(self.hd) + [self._new_colname()])
 
         return self
+
+    def _no_keys_error(self, who: str) -> 'KeysDisabledError':
+        """
+        Make the error for a key lookup on a Daf that has no keyfield and no key index.
+
+        A Daf with a key index (kd) and no keyfield can look up keys, so both must be missing. Internal use.
+        """
+        return KeysDisabledError(f"{who}(): key lookups are disabled, as the keyfield is not set and there is no key index (kd).")
+
 
     def _keyfield_not_a_column_message(self) -> str:
         """

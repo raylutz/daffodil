@@ -447,3 +447,9 @@ The date of the first entry is 2026-10-02.
     `select_record()` gave empty results. The owner decided on 2026-10-04 to keep the rule and to document it, and to make
     the error of `select_krows()` say what is wrong. Still unclear: a Daf with no rows and a valid keyfield also gives
     `Key lookups are disabled (no kd)`. `keys()` and `select_record()` still give empty results for an unknown keyfield.
+92. Item 91 left one inconsistency. A Daf with a key index (kd) and no keyfield is supported by the constructor, and
+    `krows_to_irows()` and `select_record()` honored it. `select_krows()`, `select_records_daf()`, `remove_key()`,
+    `remove_keylist()` and `keys()` did not. The owner decided on 2026-10-04 that they all honor it, and that the
+    messages name the method and say what is missing. `assign_record()` needs a keyfield and says so. The `(no kd)` message
+    now says that the key index is empty, which happens for a Daf with no rows. Transpose does not carry a kd in this
+    version. `transpose()` gives an empty kd and no keyfield. The design intent for that is not recorded here.
