@@ -120,6 +120,10 @@ all prior releases. Plans for future moved to ROADMAP.md.
   an example that printed `None` where nothing is printed, and a line that said a KeyedIndex
   built from another one copies it, when it shares it.
 
+### Removed
+- `KeyedListEncoder` is removed from `keyedlist.py`. Nothing in daffodil used it. It was a `json.JSONEncoder` for a KeyedList. `KeyedList.to_json()`
+  and `from_json()` are kept. Removed on 2026-10-04 at the request of the owner, who found no use of it. Its 2 tests are removed too.
+
 ### Changed
 - `from_googlesheet()` and `to_googlesheet()` take a required `service_account_file` argument, and raise
   `NotImplementedError`. They had the placeholder path `path/to/your/service_account.json` in the source, so they

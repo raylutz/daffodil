@@ -719,27 +719,6 @@ def astype_la(la: T_la, astype: Optional[Union[Callable, str, type]]=None) -> T_
 
         
         
-class KeyedListEncoder(json.JSONEncoder):
-    # NOTE: appears unused -- Daf.to_json() serializes lol/hd directly via plain json.dumps
-    # and never passes cls=KeyedListEncoder, and KeyedList cells are not actually stored in
-    # a Daf's lol (KeyedList is a transient row wrapper, not stored cell content).
-    # Fixed anyway since the risk is low.
-    def default(self, obj: Any) -> Any:
-        """
-        Make a KeyedList ready for `json.dumps()`. Any other object goes to the default encoder.
-
-        Args:
-            obj: The object that `json` cannot write by itself.
-
-        Returns:
-            For a KeyedList, a dict with the marker `__KeyedList__`, its `hd` and its `values`.
-        """
-        if isinstance(obj, KeyedList):
-            return {"__KeyedList__": True, "hd": obj.hd.to_dict(), "values": obj._values}
-        return super().default(obj)
-
-
-
 class KeyedIndex:
     """
     The index of keys that KeyedLists share. Each key maps to the position of its value.

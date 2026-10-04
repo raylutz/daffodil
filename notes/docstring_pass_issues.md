@@ -457,3 +457,7 @@ The date of the first entry is 2026-10-02.
     the API page. Each now has a docstring and tested examples. Still in `keyedlist.py`: `astype_la()` has an old style
     docstring and is not on the API page, and the second strings after the docstrings of `KeyedList` and `KeyedIndex` are
     still there. `KeyedListEncoder.default()` and `to_json()` appear unused in daffodil.
+94. `KeyedListEncoder` was removed on 2026-10-04. Nothing in daffodil used it, and the owner found no use of it elsewhere. Only its
+    2 tests used it. Open: `astype_la()` in `keyedlist.py` duplicates `daf_utils.astype_la()`, but does not keep an empty (NULL)
+    cell. `KeyedList.values(int)` raises `ValueError` for an empty cell. The `daf_utils` version keeps it. `daf_utils` cannot be
+    imported from `keyedlist.py` without a circular import, because `daf_types` imports `KeyedList`.

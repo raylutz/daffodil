@@ -2,13 +2,13 @@
 #
 # Supplementary pytest-style tests for keyedlist.py, targeting coverage gaps not
 # exercised by the existing (unittest-style) test_keyedlist.py: constructor branches,
-# error paths, KeyedIndex edge cases, astype_la, and KeyedListEncoder.
+# error paths, KeyedIndex edge cases, and astype_la.
 
 import json
 
 import pytest
 
-from daffodil.keyedlist import KeyedList, KeyedIndex, KeyedListEncoder, astype_la
+from daffodil.keyedlist import KeyedList, KeyedIndex, astype_la
 
 
 # --- KeyedList construction branches ---
@@ -213,21 +213,6 @@ def test_astype_la_unsupported_string_raises():
 def test_astype_la_unsupported_object_raises():
     with pytest.raises(ValueError):
         astype_la([1, 2], 42)
-
-
-# --- KeyedListEncoder ---
-
-def test_keyedlist_encoder_serializes_keyedlist():
-    klist = KeyedList(['a', 'b'], [1, 2])
-    encoded = json.dumps({'row': klist}, cls=KeyedListEncoder)
-    decoded = json.loads(encoded)
-    assert decoded['row']['__KeyedList__'] is True
-    assert decoded['row']['values'] == [1, 2]
-
-
-def test_keyedlist_encoder_passthrough_for_other_types():
-    with pytest.raises(TypeError):
-        json.dumps({'thing': object()}, cls=KeyedListEncoder)
 
 
 # --- KeyedIndex gaps ---
