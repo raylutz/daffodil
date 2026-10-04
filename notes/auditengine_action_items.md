@@ -21,3 +21,11 @@ AuditEngine owner to confirm and decide.
 6. Check for a call that selects every row and then appends to, sorts or pops the result, and expects the original to
    change too. Daffodil now returns its own row list from `select_irows()` with every row in order, `d[:]`,
    `select_krows()` with every key, and `select_records_daf([], inverse=True)`. Such a caller would now change only the result.
+7. In `chunktable.py`, `create_chunks()` appears not to have been migrated from pandas. It calls the deprecated `read_hunk_df()`,
+   `utils.split_df_into_chunks_lodf(hunki_df, max_chunk_size)`, `DB.save_data(..., rtype='df')` and the pandas `is_chunk_all_bmd()`.
+   The daffodil forms are already in the same file: `read_hunk_daf()`, `Daf.split_daf_into_chunks_lodaf()` and `is_daf_chunk_all_bmd()`.
+   `read_hunk_df()` is also still called near `cvr_votes_hunk_df`. Before switching, compare the chunk sizes of the two splits. The daffodil
+   split gives near-equal chunks, for example 250 rows with a maximum of 100 give sizes 84, 83 and 83.
+8. In `chunktable.py`, no code calls `manifest_apply()`, `manifest_reduce()` or `manifest_process()`. Check the rest of AuditEngine. If nothing
+   calls them, daffodil could remove them. They were written for an earlier chunk manifest idea. `split_daf_into_chunks_lodaf()` is
+   used twice in `chunktable.py` and stays.
