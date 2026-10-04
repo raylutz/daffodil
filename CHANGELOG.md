@@ -9,6 +9,11 @@ all prior releases. Plans for future moved to ROADMAP.md.
 
 ## [Unreleased]
 ### Added
+- `Daf.drop_krows(krows, silent_error=False)` removes the rows that have the given keys from the Daf, in place, and
+  returns it, as `drop_cols()` does for columns. It takes a key, a list of keys, a tuple that gives a range, or a
+  composite key. A Daf that shares rows with it is not changed. `remove_key()` and `remove_keylist()` are marked
+  deprecated in their docstrings. They return a shallow new Daf as before, and `select_krows(..., inverse=True)` does
+  the same. The README says what each one does. 8 tests added.
 - `sort_by_colname()` and `sort_by_colnames()` take `as_str`. With `True` they sort by the text of each value, and
   None sorts as an empty cell, so a column that mixes numbers with None, blanks or text can be sorted. With
   `length_priority` whole numbers sort in numeric order. Negative and decimal numbers sort in text order. A column

@@ -4077,9 +4077,64 @@ class Daf:
     #=========================
     # remove records per keyfield; drop cols
 
+    def drop_krows(self, krows: Optional[Union[str, int, T_la, T_ta]], silent_error: bool=False) -> 'Daf':
+        """
+        Remove the rows that have the given keys, from this Daf.
+
+        This is the in place counterpart of `select_krows(krows, inverse=True)`, as
+        `drop_cols()` is for columns. The Daf is changed and is returned. The rows that
+        stay are the same lists as before. A Daf that shares rows with this one, such as
+        the result of a selection, is not changed, because this Daf gets a new list of
+        rows. The key index is rebuilt when it is next needed.
+
+        `krows` is a key, a list of keys, or a tuple that gives an inclusive range of
+        keys. For a composite keyfield, a key is a tuple as long as the keyfield.
+        See `remove_key()` for how a tuple is read.
+
+        Args:
+            krows: The key or keys of the rows to remove.
+            silent_error: If True, keys that are not found are ignored.
+
+        Returns:
+            This Daf, which has been changed.
+
+        Raises:
+            KeysDisabledError: The Daf has no keyfield.
+            KeyError: A key is not found and `silent_error` is False.
+
+        Examples:
+            >>> d = Daf(lol=[[1, 'a'], [2, 'b'], [3, 'c']], cols=['id', 'v'], keyfield='id')
+            >>> d.drop_krows(2).lol
+            [[1, 'a'], [3, 'c']]
+            >>> d.drop_krows([1, 3]).lol
+            []
+        """
+
+        if not self.keyfield:
+            raise KeysDisabledError("Key lookups are disabled (keyfield is unset).")
+
+        if krows is None:
+            raise TypeError("drop_krows(): None is not a valid key selector.")
+
+        if isinstance(krows, tuple) and isinstance(self.keyfield, (tuple, list)) \
+                and len(krows) == len(self.keyfield) and not any(isinstance(item, (tuple, list)) for item in krows):
+            krows = [krows]            # a composite key, not a range.
+
+        if isinstance(krows, list) and not krows:
+            return self                 # no keys, nothing to remove.
+
+        self.lol = self.select_krows(krows=krows, inverse=True, silent_error=silent_error).lol
+        self._invalidate_kd()           # use lazy kd rebuilding
+
+        return self
+
+
     def remove_key(self, keyval: Optional[Union[str, int, T_la, T_ta]], silent_error: bool=False) -> 'Daf':
         """
         Make a new Daf without the row that has the given key.
+
+        This is deprecated. Use `select_krows(key, inverse=True)` for a shallow new
+        Daf without the row, or `drop_krows(key)` to remove the row from this Daf.
 
         This does not remove the row from this Daf. It returns a new Daf that leaves
         the row out, and this Daf is unchanged. Keep the result, as in
@@ -4131,6 +4186,9 @@ class Daf:
     def remove_keylist(self, keylist: T_ls, silent_error: bool=False) -> 'Daf':
         """
         Make a new Daf without the rows that have the given keys.
+
+        This is deprecated. Use `select_krows(keys, inverse=True)` for a shallow new
+        Daf without the rows, or `drop_krows(keys)` to remove the rows from this Daf.
 
         This does not remove the rows from this Daf. It returns a new Daf that leaves
         them out, and this Daf is unchanged. See `remove_key()` for how the rows are
