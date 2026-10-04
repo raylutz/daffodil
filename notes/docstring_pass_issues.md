@@ -404,3 +404,8 @@ The date of the first entry is 2026-10-02.
     with rows of three values and a header of two columns. AuditEngine calls `insert_idx_col()` on a selection and ignores
     the return value, so returning a new Daf would have broken it silently. Fixed on 2026-10-04 with approval: a Daf
     whose rows have a reference count above its own copies the rows first. Not yet checked: other methods that write into every row, and cell assignment.
+82. The same fix as item 81, for `assign_icol()`, `set_icol()`, `replace_in_columns()`, `apply_in_place()` and `strip()`.
+    `update_record_irow()` copies only the row it changes, using the reference count of that row. Approved on 2026-10-04.
+    Still open: `my_daf[i, col] = value`, `set_col_irows()` and `my_daf[:, col] = values`. Also open: `select_irows()` with a list
+    of every row in order returns the same row list object as the original, and `select_records_daf([], inverse=True)` does
+    too. An append to one of them is then also an append to the other.

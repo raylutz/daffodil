@@ -850,8 +850,10 @@ class Daf:
         With `sortable`, the copy has its own row list, so you can append, extend, insert,
         remove, sort or reverse rows, rename columns, change the keyfield or dtypes, and
         use `drop_cols()`. The key index is cleared on the copy and is rebuilt on first use.
-        The rows are still shared. Changing a cell reaches the original. Adding a column with
-        `insert_col()` or `assign_col()` does not, because they copy shared rows first.
+        The rows are still shared. Changing one cell with `my_daf[i, col] = value` reaches the original. The methods
+        that write a whole column or every row do not. They copy shared rows first. These are
+        `insert_col()`, `assign_col()`, `set_icol()`, `replace_in_columns()`, `apply_in_place()`
+        and `strip()`. So does `update_record_irow()`, which copies only its row.
 
         With `editable`, each row is a new list. You can also add columns and change cells.
         The cells themselves are shared. That is safe for text and numbers, and not for a
@@ -1931,6 +1933,8 @@ class Daf:
 
             each character in chrs treated seperately, such as strip('"()') removes quotes and parens.
         """
+
+        self._own_rows()
 
         for row_la in self.lol:
             for icol in range(len(row_la)):
@@ -6486,6 +6490,9 @@ class Daf:
         if irow < 0 or irow >= len(self.lol):
             raise IndexError(f"update_record_irow(): row position {position} is out of range for {len(self.lol)} rows.")
 
+        if daf_utils.row_is_shared(self.lol, irow):
+            self.lol[irow] = list(self.lol[irow])           # only this row is copied, and only if it is shared.
+
         for colname, val in record.items():
             if colname in self.hd:
                 self.lol[irow][self.hd[colname]] = record[colname]          # perflint-reviewed (loop-invariant-statement)
@@ -6527,6 +6534,8 @@ class Daf:
         """
         # from utilities import daf_utils
 
+        self._own_rows()
+
         self.lol = daf_utils.assign_col_in_lol_at_icol(icol, col_la, lol=self.lol, default=default)
 
         if self.hd and self.lol and len(self.lol[0]) > len(self.hd):
@@ -6534,6 +6543,17 @@ class Daf:
             self._cols_to_hd(list(self.hd) + [self._new_colname()])
 
         return self
+
+    def _own_rows(self) -> None:
+        """
+        Give this Daf its own copy of the rows if any row is shared with another Daf.
+
+        Call this before writing into rows. It is a lazy copy. Nothing is copied when the rows are not shared.
+        Internal use.
+        """
+        if daf_utils.rows_are_shared(self.lol):
+            self.lol = [list(row_la) for row_la in self.lol]
+
 
     def _new_colname(self) -> str:
         """
@@ -6587,8 +6607,7 @@ class Daf:
 
         # from utilities import daf_utils
 
-        if daf_utils.rows_are_shared(self.lol):
-            self.lol = [list(row_la) for row_la in self.lol]    # the insert must not change the rows of another Daf.
+        self._own_rows()        # the insert must not change the rows of another Daf.
 
         self.lol = daf_utils.insert_col_in_lol_at_icol(icol, col_la, lol=self.lol, default=default)
 
@@ -6834,6 +6853,8 @@ class Daf:
         """
 
 
+        self._own_rows()
+
         for irow in range(len(self.lol)):
             self.lol[irow][icol] = val
 
@@ -6962,6 +6983,8 @@ class Daf:
                         raise KeyError(f"Column name '{col}' not found in header.")
                 else:
                     raise TypeError(f"Column specifier must be str or int, got {type(col).__name__}")
+
+        self._own_rows()
 
         for row in self.lol:
             for col_idx in target_indices:
@@ -7635,6 +7658,8 @@ class Daf:
                                         isinstance(rowkeys, dict)
                                         or len(rowkeys) < 30
                                     ) else dict.fromkeys(rowkeys)
+
+        self._own_rows()
 
         if by == 'row':
 

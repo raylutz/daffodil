@@ -255,6 +255,22 @@ def rows_are_shared(lol: T_lola) -> bool:
     return any(refs > _OWN_REFS for refs in map(sys.getrefcount, lol))
 
 
+def _count_own_row_refs() -> int:
+    """ The reference count that rows_are_shared() style reads for one row, held only by its list. """
+    lol: T_lola = [[0]]
+    return sys.getrefcount(lol[0])
+
+
+_OWN_ROW_REFS: int = _count_own_row_refs()
+
+
+def row_is_shared(lol: T_lola, irow: int) -> bool:
+    """ True if the row at irow is also held by something else, such as the lol of another Daf.
+        This is the one-row form of rows_are_shared().
+    """
+    return sys.getrefcount(lol[irow]) > _OWN_ROW_REFS
+
+
 def insert_col_in_lol_at_icol(icol: int=-1, col_la: Optional[T_la]=None, lol: Optional[T_lola]=None, default: Any='') -> T_lola:
     """ insert col in lol.
         if icol == -1 or > len(lol[0]) then insert at right end.

@@ -277,6 +277,10 @@ all prior releases. Plans for future moved to ROADMAP.md.
   and a header of two columns. Shared rows are now copied first, so the other Daf is not changed. The method still
   changes this Daf and returns it. Approved on 2026-10-04. Tests: `tests/test_daf_shared_rows.py`. The `sortable` copy
   level is now safe for these methods. A shallow copy shares the row list itself, which is not detected.
+- `assign_icol()`, `set_icol()`, `replace_in_columns()`, `apply_in_place()` and `strip()` changed the rows of every Daf that
+  shared them. They now copy shared rows first, as the inserts do. `update_record_irow()` copies only the row it changes.
+  Approved on 2026-10-04. 26 tests added. Not changed: `my_daf[i, col] = value`, `set_col_irows()` and
+  `my_daf[:, col] = values`.
 - `apply_formulas()` left the key index as it was after a formula error, though earlier formulas had already changed
   cells. A lookup then found the old key in the changed row, and did not find the new key. The index is now
   rebuilt when it is next needed, on every exit. 2 tests added.
