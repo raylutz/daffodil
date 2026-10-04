@@ -721,7 +721,7 @@ in the result changes it in the original. A few selectors copy the rows.
 
 Use `copy(level='editable')` first if you need to change cells without touching the original.
 
-These methods are safe: `insert_col()`, `insert_icol()`, `insert_idx_col()`, `assign_col()`, `assign_icol()`, `set_icol()`, `replace_in_columns()`, `apply_in_place()` and `strip()`. If the rows are shared, the Daf first takes its own copies of the rows. This is a lazy copy. Nothing is copied when the rows are not shared. The check reads the reference count of each row, so it is fast. `update_record_irow()` copies only the row it changes. Changing one cell with `my_daf[i, col] = value` is not checked, and neither are `set_col_irows()` and a column assignment such as `my_daf[:, col] = values`.
+Changing values through a selection changes the original, by cell, by column, by `apply_in_place()` or by a KeyedList loop. A selection is a live view for editing. Build a new Daf with dict iteration or `apply()` if you do not want that. Adding a column is different, because it changes the shape of the rows. `insert_col()`, `insert_icol()`, `insert_idx_col()` and `assign_col()` with a new name take their own copies of shared rows first. This is a lazy copy. Nothing is copied when the rows are not shared. The check reads the reference count of each row, so it is fast.
 
 ### appending and row/column manipulation    
     

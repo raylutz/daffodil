@@ -54,12 +54,12 @@ ACTIONS = {
     'drop_cols':            (lambda c: c.drop_cols(['v']),                      'sortable'),
     'assign_col':           (lambda c: c.assign_col('new', [1, 2, 3]),          'sortable'),
     'insert_col':           (lambda c: c.insert_col('new2', [1, 2, 3], 1),      'sortable'),
-    'set_icol':             (lambda c: c.set_icol(1, 'X'),                      'sortable'),
+    'set_icol':             (lambda c: c.set_icol(1, 'X'),                      'editable'),
     'set_col_irows':        (lambda c: c.set_col_irows('v', [0], 'X'),          'editable'),
     'setitem':              (lambda c: c.__setitem__((0, 'v'), 'X'),            'editable'),
-    'replace_in_columns':   (lambda c: c.replace_in_columns(['v'], ' a ', 'Q'), 'sortable'),
-    'apply_in_place':       (lambda c: c.apply_in_place(lambda r: {**r, 'v': 'Z'}, by='row'), 'sortable'),
-    'strip':                (lambda c: c.strip(),                               'sortable'),
+    'replace_in_columns':   (lambda c: c.replace_in_columns(['v'], ' a ', 'Q'), 'editable'),
+    'apply_in_place':       (lambda c: c.apply_in_place(lambda r: {**r, 'v': 'Z'}, by='row'), 'editable'),
+    'strip':                (lambda c: c.strip(),                               'editable'),
     'cell_edit':            (lambda c: c.lol[0].__setitem__(1, 'X'),            'editable'),
 }
 
