@@ -2,6 +2,7 @@
 
 # copyright (c) 2024, 2025, 2026 Ray Lutz
 
+import sys
 import io
 import os
 import csv
@@ -234,6 +235,26 @@ def assign_col_in_lol_at_icol(icol: int=-1, col_la: Optional[T_la]=None, lol: Op
     return lol
         
         
+def _count_own_refs() -> int:
+    """ The reference count that a row shows when only its list holds it.
+        It is measured here, with the same call as in rows_are_shared(), so it does not depend on the Python version.
+    """
+    return next(map(sys.getrefcount, [[0]]))
+
+
+_OWN_REFS: int = _count_own_refs()
+
+
+def rows_are_shared(lol: T_lola) -> bool:
+    """ True if some row in lol is also held by something else, such as the lol of another Daf.
+        This reads the reference count of each row.
+        Another holder, such as a variable of the caller, is also counted.
+        So True can be a false alarm, which costs one extra copy.
+        False is reliable in CPython, which counts references.
+    """
+    return any(refs > _OWN_REFS for refs in map(sys.getrefcount, lol))
+
+
 def insert_col_in_lol_at_icol(icol: int=-1, col_la: Optional[T_la]=None, lol: Optional[T_lola]=None, default: Any='') -> T_lola:
     """ insert col in lol.
         if icol == -1 or > len(lol[0]) then insert at right end.

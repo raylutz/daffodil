@@ -400,3 +400,7 @@ The date of the first entry is 2026-10-02.
 80. `select_irows([], inverse=True)` made a deep copy of every row, which took about 3 seconds for 200,000 rows by 50
     columns. It now returns a new Daf with a new row list and shared rows, like the other selectors. Approved on
     2026-10-04 after the AuditEngine impact review found no caller that depends on the copy. The review kept `select_by_dict` as it is, because AuditEngine edits those rows in place.
+81. `insert_idx_col()` and `insert_col()` wrote into rows that other Dafs shared. After a selection, the insert left the original
+    with rows of three values and a header of two columns. AuditEngine calls `insert_idx_col()` on a selection and ignores
+    the return value, so returning a new Daf would have broken it silently. Fixed on 2026-10-04 with approval: a Daf
+    whose rows have a reference count above its own copies the rows first. Not yet checked: other methods that write into every row, and cell assignment.

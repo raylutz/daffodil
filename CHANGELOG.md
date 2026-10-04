@@ -9,6 +9,8 @@ all prior releases. Plans for future moved to ROADMAP.md.
 
 ## [Unreleased]
 ### Added
+- `rows_are_shared()` in `daf_utils` tells whether any row is also held by another list, by reading the reference count
+  of each row. Scanning 200,000 rows takes about 0.01 s. Copying them takes 0.75 s.
 - `select_irows([], inverse=True)` keeps all rows and now shares them, like every other `select_irows()` result. It
   made a deep copy before. For 200,000 rows by 50 columns that took about 3 seconds.
 - `sort_by_colname()` and `sort_by_colnames()` take `as_str`. With `True` they sort by the text of each value, and
@@ -270,6 +272,11 @@ all prior releases. Plans for future moved to ROADMAP.md.
   git-tracked) moved out of `src/` to a gitignored, local-only `deprecated/` folder.
 
 ### Fixed
+- `insert_icol()`, `insert_col()` and `insert_idx_col()`, and so `assign_col()` for a new column, changed the rows of
+  every Daf that shared them. After `s = d.select_irows([0, 1])`, `s.insert_idx_col()` left `d` with rows of three values
+  and a header of two columns. Shared rows are now copied first, so the other Daf is not changed. The method still
+  changes this Daf and returns it. Approved on 2026-10-04. Tests: `tests/test_daf_shared_rows.py`. The `sortable` copy
+  level is now safe for these methods. A shallow copy shares the row list itself, which is not detected.
 - `apply_formulas()` left the key index as it was after a formula error, though earlier formulas had already changed
   cells. A lookup then found the old key in the changed row, and did not find the new key. The index is now
   rebuilt when it is next needed, on every exit. 2 tests added.

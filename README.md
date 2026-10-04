@@ -721,6 +721,8 @@ in the result changes it in the original. A few selectors copy the rows.
 
 Use `copy(level='editable')` first if you need to change cells without touching the original.
 
+Adding a column with `insert_col()`, `insert_icol()`, `insert_idx_col()` or `assign_col()` is safe. If the rows are shared, the Daf first takes its own copies of the rows. The check reads the reference count of each row, so it is fast when nothing is shared. Changing a cell is not checked.
+
 ### appending and row/column manipulation    
     
 #### append a single row provided as a dictionary.

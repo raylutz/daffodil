@@ -850,7 +850,8 @@ class Daf:
         With `sortable`, the copy has its own row list, so you can append, extend, insert,
         remove, sort or reverse rows, rename columns, change the keyfield or dtypes, and
         use `drop_cols()`. The key index is cleared on the copy and is rebuilt on first use.
-        The rows are still shared. Adding a column or changing a cell reaches the original.
+        The rows are still shared. Changing a cell reaches the original. Adding a column with
+        `insert_col()` or `assign_col()` does not, because they copy shared rows first.
 
         With `editable`, each row is a new list. You can also add columns and change cells.
         The cells themselves are shared. That is safe for text and numbers, and not for a
@@ -6566,6 +6567,9 @@ class Daf:
         gets the next spreadsheet name, such as `C`, made unique. The dtypes are not
         changed. Use `set_keyfield()` if the column is to be the keyfield.
 
+        If the rows are shared with another Daf, as after a selection, this Daf first
+        takes its own copies of the rows. The other Daf is not changed.
+
         Args:
             icol: The column position. -1 adds the column at the right.
             col_la: The values, one for each row.
@@ -6582,6 +6586,9 @@ class Daf:
         """
 
         # from utilities import daf_utils
+
+        if daf_utils.rows_are_shared(self.lol):
+            self.lol = [list(row_la) for row_la in self.lol]    # the insert must not change the rows of another Daf.
 
         self.lol = daf_utils.insert_col_in_lol_at_icol(icol, col_la, lol=self.lol, default=default)
 
@@ -6706,6 +6713,10 @@ class Daf:
         the column is overwritten, and `icol` is ignored. An empty name does nothing.
         Use `set_keyfield()` if the column is to be the keyfield.
 
+        When a column is added and the rows are shared with another Daf, as after a
+        selection, this Daf first takes its own copies of the rows. The other Daf is
+        not changed.
+
         Args:
             colname: The name of the column.
             col_la: The values, one for each row.
@@ -6741,6 +6752,9 @@ class Daf:
     def insert_idx_col(self, colname: str='idx', icol:int=0, startat:int=0) -> 'Daf':
         """
         Insert a column of row numbers.
+
+        This is `insert_col()`, so rows shared with another Daf are copied first and
+        the other Daf is not changed.
 
         Args:
             colname: The name of the new column.
