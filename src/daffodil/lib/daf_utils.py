@@ -339,7 +339,18 @@ def convert_sizes_to_idx_ranges(sizes_list: List[int]) -> List[Tuple[int, int]]:
     return ranges_list
     
 
-def sort_lol_by_col(lol:T_lola, colidx: int=0, reverse: bool=False, length_priority:bool=True) -> T_lola:
+def _sort_text(value: Any) -> str:
+    """ The text of a value, for sorting by text. None is the empty string. """
+    return '' if value is None else str(value)
+
+
+def sort_lol_by_col(lol:T_lola, colidx: int=0, reverse: bool=False, length_priority:bool=True, as_str: bool=False) -> T_lola:
+    """ Sort the rows by one column. With as_str, sort by the text of each value, and None sorts as ''. """
+
+    if as_str:
+        if length_priority:
+            return sorted(lol, key=lambda x: (len(_sort_text(x[colidx])), _sort_text(x[colidx])), reverse=reverse)
+        return sorted(lol, key=lambda x: _sort_text(x[colidx]), reverse=reverse)
 
     if length_priority:
         return sorted(lol, key=lambda x: (len(x[colidx]), x[colidx]), reverse=reverse)
@@ -347,7 +358,14 @@ def sort_lol_by_col(lol:T_lola, colidx: int=0, reverse: bool=False, length_prior
         return sorted(lol, key=operator.itemgetter(colidx), reverse=reverse)
 
 
-def sort_lol_by_cols(lol: T_lola, colidxs: T_li, reverse: bool = False, length_priority: bool = True) -> T_lola:
+def sort_lol_by_cols(lol: T_lola, colidxs: T_li, reverse: bool = False, length_priority: bool = True, as_str: bool = False) -> T_lola:
+    """ Sort the rows by several columns. With as_str, sort by the text of each value, and None sorts as ''. """
+
+    if as_str:
+        if length_priority:
+            return sorted(lol, key=lambda x: [(len(_sort_text(x[idx])), _sort_text(x[idx])) for idx in colidxs], reverse=reverse)
+        return sorted(lol, key=lambda x: [_sort_text(x[idx]) for idx in colidxs], reverse=reverse)
+
     if length_priority:
         return sorted(lol, key=lambda x: [(len(x[idx]), x[idx]) for idx in colidxs], reverse=reverse)
     else:

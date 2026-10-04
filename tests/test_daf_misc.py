@@ -1925,3 +1925,58 @@ def test_from_lod_to_cols_default_names():
 
 def test_dict_to_md_keeps_a_blank_key():
     assert Daf.dict_to_md({'': 1, 'b': 2}).splitlines()[2].split('|')[1].strip() == ''
+
+
+# sorting columns that mix values: a clear error, and as_str=True
+
+def _mixed_daf() -> Daf:
+    return Daf(lol=[[3, 'b'], [None, 'a'], [1, 'c'], ['', 'd'], [10, 'e'], [2, 'f']], cols=['n', 't'])
+
+
+def test_sort_by_colname_mixed_column_raises_a_clear_error():
+    daf = _mixed_daf()
+    with pytest.raises(TypeError, match="sort_by_colname\\(\\): column 'n'.*as_str=True"):
+        daf.sort_by_colname('n')
+    assert [row[0] for row in daf.lol] == [3, None, 1, '', 10, 2]       # not changed
+
+
+def test_sort_by_colname_as_str_sorts_by_text_and_none_is_empty():
+    daf = _mixed_daf().sort_by_colname('n', as_str=True)
+    assert [row[0] for row in daf.lol] == [None, '', 1, 10, 2, 3]
+
+
+def test_sort_by_colname_as_str_with_length_priority_sorts_whole_numbers_numerically():
+    daf = _mixed_daf().sort_by_colname('n', as_str=True, length_priority=True)
+    assert [row[0] for row in daf.lol] == [None, '', 1, 2, 3, 10]
+
+
+def test_sort_by_colname_as_str_reverse():
+    daf = _mixed_daf().sort_by_colname('n', as_str=True, length_priority=True, reverse=True)
+    assert [row[0] for row in daf.lol] == [10, 3, 2, 1, None, '']
+
+
+def test_sort_by_colname_length_priority_on_real_numbers_raises_a_clear_error():
+    daf = Daf(lol=[[3], [10], [2]], cols=['n'])
+    with pytest.raises(TypeError, match='as_str=True'):
+        daf.sort_by_colname('n', length_priority=True)
+    assert daf.sort_by_colname('n', as_str=True, length_priority=True).col('n') == [2, 3, 10]
+
+
+def test_sort_by_colname_plain_cases_are_unchanged():
+    assert Daf(lol=[[2], [1.5], [3]], cols=['n']).sort_by_colname('n').col('n') == [1.5, 2, 3]
+    assert Daf(lol=[['b'], [''], ['a']], cols=['t']).sort_by_colname('t').col('t') == ['', 'a', 'b']
+    assert Daf(lol=[['10'], ['9']], cols=['t']).sort_by_colname('t', length_priority=True).col('t') == ['9', '10']
+
+
+def test_sort_by_colnames_mixed_column_raises_and_as_str_works():
+    daf = _mixed_daf()
+    with pytest.raises(TypeError, match="sort_by_colnames\\(\\).*as_str=True"):
+        daf.sort_by_colnames(['n', 't'])
+    daf.sort_by_colnames(['n', 't'], as_str=True, length_priority=True)
+    assert [row[0] for row in daf.lol] == [None, '', 1, 2, 3, 10]
+
+
+def test_sort_by_colnames_as_str_uses_the_second_column_for_ties():
+    daf = Daf(lol=[[1, 'b'], [None, 'z'], [1, 'a'], [None, 'y']], cols=['n', 't'])
+    daf.sort_by_colnames(['n', 't'], as_str=True)
+    assert daf.lol == [[None, 'y'], [None, 'z'], [1, 'a'], [1, 'b']]

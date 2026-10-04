@@ -9,6 +9,12 @@ all prior releases. Plans for future moved to ROADMAP.md.
 
 ## [Unreleased]
 ### Added
+- `sort_by_colname()` and `sort_by_colnames()` take `as_str`. With `True` they sort by the text of each value, and
+  None sorts as an empty cell, so a column that mixes numbers with None, blanks or text can be sorted. With
+  `length_priority` whole numbers sort in numeric order. Negative and decimal numbers sort in text order. A column
+  that cannot be compared now raises `TypeError` that names the method and the column, and points to `as_str`. It
+  raised Python's message. `length_priority` on real numbers raised `object of type 'int' has no len()`. The plain
+  sort is as fast as before. 9 tests added.
 - `Daf.from_directory(include_dirs=)`. With `True`, folders are listed as well as files. Each has an
   `is_dir` of 1, a size of 0 and no extension, and comes before the files in its folder. The default is
   unchanged, so no folder is listed and `is_dir` is 0. The `file_pat` now applies to folder names too.

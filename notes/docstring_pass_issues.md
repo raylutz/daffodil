@@ -273,6 +273,10 @@ The date of the first entry is 2026-10-02.
 60. `sort_by_colname()` raises `TypeError` for a column that mixes None and
     numbers. NULL, which is the empty string, mixed with numbers does the same. A
     column of text with NULL sorts the NULL first.
+    Fixed with approval on 2026-10-04, option C. A column that cannot be compared raises `TypeError` that names
+    the method and the column. `as_str=True` sorts by the text of the values, and None sorts as an empty cell. With
+    `length_priority` it sorts whole numbers in numeric order. `length_priority` on real numbers failed with `object
+    of type 'int' has no len()`, and now the error says to use `as_str`.
 
 ## Group 7: formulas, apply, reduce, grouping, sums, counts, joins, pivots, Markdown
 

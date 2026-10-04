@@ -7117,51 +7117,66 @@ class Daf:
     #=========================
     #   sort
 
-    def sort_by_colname(self, colname:str, *, reverse: bool=False, length_priority: bool=False) -> 'Daf':
+    def sort_by_colname(self, colname:str, *, reverse: bool=False, length_priority: bool=False, as_str: bool=False) -> 'Daf':
         """
         Sort the rows by one column, in place.
 
         Make a copy first if you need the original order. An empty cell sorts before
         a cell with content, unlike a spreadsheet. Values in the column must be
-        comparable with each other, so a column that mixes None and numbers raises
-        `TypeError`.
+        comparable with each other. A column that mixes None or text with numbers
+        raises `TypeError`, which names the column. Use `as_str=True` to sort by the text
+        of each value instead.
 
         With `length_priority`, a shorter text sorts before a longer one, so numbers
         that are stored as text sort as numbers. Without it, `'10'`, `'100'`, `'8'`
-        are in text order.
+        are in text order. `length_priority` needs text, so for real numbers use it
+        with `as_str=True`. Then whole numbers sort in numeric order, and negative and
+        decimal numbers sort in text order.
 
         Args:
             colname: The column to sort by.
             reverse: If True, sort from high to low.
             length_priority: If True, sort by length first, then by value.
+            as_str: If True, sort by the text of each value, and None sorts as an empty cell.
 
         Returns:
             This Daf, which has been changed.
 
         Raises:
             KeyError: The column name is not found.
+            TypeError: The column holds values that cannot be compared, and `as_str` is False.
 
         Examples:
             >>> d = Daf(lol=[['10'], ['99'], ['8'], ['100']], cols=['a'])
             >>> d.sort_by_colname('a', length_priority=True).col('a')
             ['8', '10', '99', '100']
+            >>> d = Daf(lol=[[10], [None], [2], ['']], cols=['n'])
+            >>> d.sort_by_colname('n', as_str=True, length_priority=True).col('n')
+            [None, '', 2, 10]
         """
         if not self or len(self) <= 1:
             return self
 
         colidx = self.hd[colname]
 
-        self.lol = daf_utils.sort_lol_by_col(self.lol, colidx, reverse=reverse, length_priority=length_priority)
+        try:
+            self.lol = daf_utils.sort_lol_by_col(self.lol, colidx, reverse=reverse, length_priority=length_priority, as_str=as_str)
+        except TypeError as exc_info:
+            raise TypeError(
+                f"sort_by_colname(): column '{colname}' holds values that cannot be compared, such as numbers "
+                f"with text or None. Use as_str=True to sort by the text of the values, or convert the column "
+                f"with apply_dtypes().") from exc_info
+
         self._invalidate_kd()    # use lazy kd rebuilding
         return self
 
 
-    def sort_by_colnames(self, colnames:T_ls, reverse: bool=False, length_priority: bool=False) -> 'Daf':
+    def sort_by_colnames(self, colnames:T_ls, reverse: bool=False, length_priority: bool=False, as_str: bool=False) -> 'Daf':
         """
         Sort the rows by several columns, in place.
 
         The first column is the main sort key. The others break ties. See
-        `sort_by_colname()` for the rules of ordering and for `length_priority`.
+        `sort_by_colname()` for the rules of ordering, for `length_priority` and for `as_str`.
         Calling `sort_by_colname()` for each column, last column first, gives the same
         order.
 
@@ -7169,12 +7184,14 @@ class Daf:
             colnames: The columns to sort by, main key first.
             reverse: If True, sort from high to low.
             length_priority: If True, sort by length first, then by value.
+            as_str: If True, sort by the text of each value, and None sorts as an empty cell.
 
         Returns:
             This Daf, which has been changed.
 
         Raises:
             KeyError: A column name is not found.
+            TypeError: A column holds values that cannot be compared, and `as_str` is False.
 
         Examples:
             >>> d = Daf(lol=[[2, 'b'], [1, 'z'], [1, 'a']], cols=['p', 'q'])
@@ -7186,7 +7203,14 @@ class Daf:
 
         colidxs = [self.hd[colname] for colname in colnames]
 
-        self.lol = daf_utils.sort_lol_by_cols(self.lol, colidxs, reverse=reverse, length_priority=length_priority)
+        try:
+            self.lol = daf_utils.sort_lol_by_cols(self.lol, colidxs, reverse=reverse, length_priority=length_priority, as_str=as_str)
+        except TypeError as exc_info:
+            raise TypeError(
+                f"sort_by_colnames(): one of the columns {list(colnames)} holds values that cannot be compared, "
+                f"such as numbers with text or None. Use as_str=True to sort by the text of the values, or convert "
+                f"the columns with apply_dtypes().") from exc_info
+
         #self._rebuild_kd()
         self._invalidate_kd()    # use lazy kd rebuilding
         return self
