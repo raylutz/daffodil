@@ -277,6 +277,10 @@ all prior releases. Plans for future moved to ROADMAP.md.
   and a header of two columns. Shared rows are now copied first, so the other Daf is not changed. The method still
   changes this Daf and returns it. Approved on 2026-10-04. Tests: `tests/test_daf_shared_rows.py`. The `sortable` copy
   level is now safe for these methods. A shallow copy shares the row list itself, which is not detected.
+- `select_by_dict()` is about 40 times faster. It compares the cells by position, and does not turn each row into a dict.
+  For 200,000 rows by 50 columns it took 0.53 s and now takes 0.012 s. The rows it returns are the same, and a Daf with
+  rows and no column names still raises `KeysDisabledError`. 22 tests added in `tests/test_daf_select_by_dict.py`,
+  including a comparison with the row by row rule.
 - `select_by_dict()` returns a shallow new Daf, like the other row selectors. Its rows are the rows of the original, not
   copies. It is a live view for values. Decided on 2026-10-04. The deep copy was not needed, because `insert_col()`
   and `insert_idx_col()` now copy shared rows first. The report code that selects and then inserts an index column keeps

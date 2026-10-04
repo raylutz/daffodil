@@ -416,3 +416,6 @@ The date of the first entry is 2026-10-02.
     The roles were reversed: the select copied and the insert wrote into shared rows. With item 81 the insert copies
     when it must, so the select can share. Decided by the owner on 2026-10-04. This resolves A2 of the impact review. The README table
     and the `select_by_dict()` docstring now say shared.
+84. `select_by_dict()` built a dict or KeyedList for every row to compare one or two fields. It now compares the cells
+    by position. Same results on 10,800 comparisons, about 40 times faster. Approved by the owner on 2026-10-04.
+    A first draft of the faster loop failed on an empty selector. The comparison found it before it went into the library.

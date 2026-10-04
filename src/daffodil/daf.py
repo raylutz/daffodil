@@ -5664,7 +5664,8 @@ class Daf:
 
         A row matches if each key of `selector_da` is a column whose value in that row
         equals the value given. With `inverse=True` the rows that do not match are
-        returned. The new Daf is a shallow new Daf, a live view of this one. It has its own
+        returned. The cells are compared by position, so no row is turned into a dict.
+        A Daf with rows and no column names raises `KeysDisabledError`. The new Daf is a shallow new Daf, a live view of this one. It has its own
         row list, and its rows are the same lists as the rows of this Daf. Changing a value in
         it changes this Daf. Adding a column with `insert_col()` or `insert_idx_col()` does not,
         because those copy shared rows first. Use `copy('editable')` for rows of your own.
@@ -5680,6 +5681,7 @@ class Daf:
 
         Raises:
             LookupError: More than `expectmax` rows match.
+            KeysDisabledError: The Daf has rows and no column names.
 
         Examples:
             >>> d = Daf(lol=[[1, 'a', 10], [2, 'b', 20], [3, 'c', 30]], cols=['id', 'v', 'n'], keyfield='id')
@@ -5694,7 +5696,25 @@ class Daf:
         """
         # test exists in test_daf.py
 
-        result_lol = [row_la for row_la, d2 in zip(self.lol, self) if inverse ^ daf_utils.is_d1_in_d2(d1=selector_da, d2=d2)]
+        # the cells are compared by position, so no row is turned into a dict or a KeyedList.
+        if self.lol and not self.hd:
+            raise KeysDisabledError("select_by_dict(): this Daf has no column names. Call set_cols() to name them.")
+
+        hd = self.hd
+        if any(col not in hd for col in selector_da):
+            result_lol = list(self.lol) if inverse else []          # an unknown column matches nothing.
+        else:
+            pairs = [(hd[col], val) for col, val in selector_da.items()]
+            if not pairs:
+                result_lol = [] if inverse else list(self.lol)      # an empty selector matches every row.
+            elif len(pairs) == 1:
+                icol, val = pairs[0]
+                result_lol = [row_la for row_la in self.lol if (row_la[icol] == val) is not inverse]
+            else:
+                icol, val = pairs[0]
+                rest = pairs[1:]
+                result_lol = [row_la for row_la in self.lol
+                              if (row_la[icol] == val and all(row_la[i] == v for i, v in rest)) is not inverse]
 
         if expectmax != -1 and len(result_lol) > expectmax:
             raise LookupError(f"select_by_dict(): {len(result_lol)} rows match, more than expectmax={expectmax}.")
