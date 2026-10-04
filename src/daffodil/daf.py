@@ -479,6 +479,15 @@ class Daf:
 
         Returns:
             Iterator[Dict[str, Any]]: Each row as a dict of column name to value.
+
+        Examples:
+            >>> d = Daf(cols=['x', 'y'], lol=[[1, 2], [3, 4]])
+            >>> list(d.iter_dict())
+            [{'x': 1, 'y': 2}, {'x': 3, 'y': 4}]
+            >>> for row in d.iter_dict():
+            ...     row['y'] = 0
+            >>> d.lol
+            [[1, 2], [3, 4]]
         """
         return DafIterator(self, dict)
 
@@ -492,6 +501,15 @@ class Daf:
 
         Returns:
             Iterator[KeyedList]: Each row as a KeyedList.
+
+        Examples:
+            >>> d = Daf(cols=['x', 'y'], lol=[[1, 2], [3, 4]])
+            >>> [row['x'] for row in d.iter_klist()]
+            [1, 3]
+            >>> for row in d.iter_klist():
+            ...     row['y'] = 0
+            >>> d.lol
+            [[1, 0], [3, 0]]
         """
         return DafIterator(self, KeyedList)
 
@@ -505,6 +523,15 @@ class Daf:
 
         Returns:
             Iterator[list]: Each row as a list.
+
+        Examples:
+            >>> d = Daf(cols=['x', 'y'], lol=[[1, 2], [3, 4]])
+            >>> [row[0] for row in d.iter_list()]
+            [1, 3]
+            >>> for row in d.iter_list():
+            ...     row[1] = 9
+            >>> d.lol
+            [[1, 9], [3, 9]]
         """
         return DafIterator(self, list)
 
@@ -712,6 +739,12 @@ class Daf:
 
         Returns:
             The number of rows.
+
+        Examples:
+            >>> Daf(cols=['x'], lol=[[1], [2], [3]]).num_rows()
+            3
+            >>> Daf().num_rows()
+            0
         """
  
         if not self.lol:
@@ -728,6 +761,11 @@ class Daf:
 
         Returns:
             The number of rows.
+
+        Examples:
+            >>> d = Daf(cols=['x'], lol=[[1], [2], [3]])
+            >>> d.len(), len(d)
+            (3, 3)
         """
         return self.num_rows()
 
@@ -2600,6 +2638,21 @@ class Daf:
 
         Returns:
             The new Daf.
+
+        Examples:
+            >>> import io, xlsxwriter
+            >>> buff = io.BytesIO()
+            >>> workbook = xlsxwriter.Workbook(buff, {'in_memory': True})
+            >>> sheet = workbook.add_worksheet()
+            >>> for irow, row in enumerate([['id', 'v'], [1, 'a'], [2, 'b']]):
+            ...     for icol, value in enumerate(row):
+            ...         _ = sheet.write(irow, icol, value)
+            >>> workbook.close()
+            >>> d = Daf.from_excel_buff(buff.getvalue(), keyfield='id')
+            >>> d.columns(), d.lol
+            (['id', 'v'], [['1', 'a'], ['2', 'b']])
+            >>> Daf.from_excel_buff(buff.getvalue(), dtypes={'id': int, 'v': str}).lol
+            [[1, 'a'], [2, 'b']]
         """
 
         # from utilities import xlsx_utils
@@ -2842,7 +2895,7 @@ class Daf:
             include_cols: Optional[T_ls]=None,      # include only the columns specified. noheader must be false.
             name: str = '',                         # name attribute of the Daf array created.
             ) -> 'Daf':                             # New daf instance.
-        """
+        r"""
         Read a CSV file into a Daf. Deprecated, use `from_csv()`.
 
         This now calls `from_csv()`, so it reads the file as UTF-8, and a file that cannot be
@@ -2866,6 +2919,14 @@ class Daf:
 
         Raises:
             RuntimeError: The file cannot be read or parsed.
+
+        Examples:
+            >>> import os, tempfile
+            >>> path = os.path.join(tempfile.mkdtemp(), 'x.csv')
+            >>> with open(path, 'w') as f:
+            ...     n = f.write('id,v\n1,a\n')
+            >>> Daf.from_csv_file(path).lol
+            [['1', 'a']]
         """
         """ Read a csv file directly into a daf array in memory, per arguments.
 
@@ -2995,7 +3056,7 @@ class Daf:
 
     @staticmethod
     def buff_to_file(buff: T_buff, file_path: str | Path, fmt:str='.csv') -> str:
-        """
+        r"""
         Write text or bytes to a file.
 
         This is a static method, so call it as `Daf.buff_to_file(buff, path)`. It is
@@ -3008,6 +3069,14 @@ class Daf:
 
         Returns:
             The path that was written.
+
+        Examples:
+            >>> import os, tempfile
+            >>> path = os.path.join(tempfile.mkdtemp(), 'x.csv')
+            >>> Daf.buff_to_file('id,v\n1,a\n', path) == path
+            True
+            >>> open(path).read()
+            'id,v\n1,a\n'
         """
         # write_buff_to_fp() does str-only operations on file_path (.startswith('s3'), a regex
         # substitution) that would raise AttributeError on a real Path object -- str() it here
@@ -3025,7 +3094,7 @@ class Daf:
             file_pat: str | None = None,
             include_dirs: bool = False,
         ) -> 'Daf':
-        """
+        r"""
         Make a Daf that lists the files in a folder.
 
         Each row describes one file. The columns are the path, the folder, the name,
@@ -3054,6 +3123,23 @@ class Daf:
 
         Returns:
             The new Daf.
+
+        Examples:
+            >>> import os, tempfile
+            >>> folder = tempfile.mkdtemp()
+            >>> os.mkdir(os.path.join(folder, 'sub'))
+            >>> for name in ('b.txt', 'a.csv', os.path.join('sub', 'c.csv')):
+            ...     with open(os.path.join(folder, name), 'w') as f:
+            ...         n = f.write('hello')
+            >>> d = Daf.from_directory(folder)
+            >>> sorted(d.col('basename')), d.col('size')
+            (['a.csv', 'b.txt', 'c.csv'], [5, 5, 5])
+            >>> Daf.from_directory(folder, recursive=False).col('basename')
+            ['b.txt', 'a.csv']
+            >>> sorted(Daf.from_directory(folder, file_pat=r'\.csv$').col('basename'))
+            ['a.csv', 'c.csv']
+            >>> sorted(Daf.from_directory(folder, include_dirs=True).col('basename'))
+            ['a.csv', 'b.txt', 'c.csv', 'sub']
         """
 
         import os
@@ -3374,6 +3460,12 @@ class Daf:
 
         Raises:
             NotImplementedError: Always.
+
+        Examples:
+            >>> Daf.from_googlesheet('some-id', service_account_file='key.json')
+            Traceback (most recent call last):
+                ...
+            NotImplementedError: from_googlesheet() is not implemented yet.
         """
         raise NotImplementedError("from_googlesheet() is not implemented yet.")
 
@@ -3393,6 +3485,12 @@ class Daf:
 
         Raises:
             NotImplementedError: Always.
+
+        Examples:
+            >>> Daf(cols=['x'], lol=[[1]]).to_googlesheet('some-id', service_account_file='key.json')
+            Traceback (most recent call last):
+                ...
+            NotImplementedError: to_googlesheet() is not implemented yet.
         """
         raise NotImplementedError("to_googlesheet() is not implemented yet.")
 
@@ -4557,6 +4655,24 @@ class Daf:
         Raises:
             KeysDisabledError: There is no keyfield and no key index, or the keyfield is not a column.
             KeyError: A key is not found and `silent_error` is False.
+
+        Examples:
+            >>> d = Daf(lol=[['r1', 'a', 10], ['r2', 'b', ''], ['r3', 'a', 30]], cols=['id', 'v', 'n'], keyfield='id')
+
+            >>> d.krows_to_irows('r2')
+            [1]
+            >>> d.krows_to_irows(['r3', 'r1'])
+            [2, 0]
+            >>> d.krows_to_irows(('r1', 'r2'))
+            slice(0, 2, 1)
+            >>> d.krows_to_irows(['r1'], inverse=True)
+            [1, 2]
+            >>> d.krows_to_irows(['zz'], silent_error=True)
+            []
+            >>> d.krows_to_irows(['zz'])
+            Traceback (most recent call last):
+                ...
+            KeyError: 'zz'
         """
         """
         If the keyfield is set, then the rows can be selected by providing a
@@ -4616,6 +4732,22 @@ class Daf:
 
         Raises:
             KeyError: A name is not found and `silent_error` is False.
+
+        Examples:
+            >>> d = Daf(lol=[['r1', 'a', 10], ['r2', 'b', ''], ['r3', 'a', 30]], cols=['id', 'v', 'n'], keyfield='id')
+
+            >>> d.kcols_to_icols('v')
+            [1]
+            >>> d.kcols_to_icols(['n', 'id'])
+            [2, 0]
+            >>> d.kcols_to_icols(('id', 'v'))
+            slice(0, 2, 1)
+            >>> d.kcols_to_icols('v', inverse=True)
+            [0, 2]
+            >>> d.kcols_to_icols('zz')
+            Traceback (most recent call last):
+                ...
+            KeyError: 'zz'
         """
         """
         If cols are defined is set, then the cols can be selected by providing a
@@ -5295,9 +5427,9 @@ class Daf:
         This is `select_krows()` with a friendlier answer for an empty list of keys.
         No keys gives an empty Daf, or all the rows if `inverse` is True.
 
-        The rows are shared with this Daf, as in `select_krows()`. With no keys and
-        `inverse` True, the new Daf even uses the row list of this Daf itself, so adding
-        a row to one adds it to the other.
+        The rows are shared with this Daf, as in `select_krows()`. The new Daf has its own
+        row list, also with no keys and `inverse` True, so adding a row to one does not
+        add it to the other.
 
         Args:
             keys_ls: The keys of the rows.
@@ -5310,6 +5442,17 @@ class Daf:
         Raises:
             KeysDisabledError: The Daf has no keyfield and no key index.
             KeyError: A key is not found and `silent_error` is False.
+
+        Examples:
+            >>> d = Daf(lol=[['r1', 'a', 10], ['r2', 'b', ''], ['r3', 'a', 30]], cols=['id', 'v', 'n'], keyfield='id')
+
+            >>> d.select_records_daf(['r3', 'r1']).lol
+            [['r3', 'a', 30], ['r1', 'a', 10]]
+            >>> d.select_records_daf([]).lol
+            []
+            >>> kept = d.select_records_daf([], inverse=True)
+            >>> kept.lol == d.lol, kept.lol is d.lol, kept.lol[0] is d.lol[0]
+            (True, False, True)
         """
 
         """ Select multiple records from daf using the keys and return as a single daf.
@@ -5343,6 +5486,20 @@ class Daf:
 
         Raises:
             IndexError: The position is out of range.
+
+        Examples:
+            >>> d = Daf(lol=[['r1', 'a', 10], ['r2', 'b', ''], ['r3', 'a', 30]], cols=['id', 'v', 'n'], keyfield='id')
+
+            >>> d.irow_la(1)
+            ['r2', 'b', '']
+            >>> row = d.irow_la(0)
+            >>> row[1] = 'Z'
+            >>> d.lol[0]
+            ['r1', 'Z', 10]
+            >>> d.irow_la(9)
+            Traceback (most recent call last):
+                ...
+            IndexError: list index out of range
         """
         return self.lol[irow]
 
@@ -6114,6 +6271,20 @@ class Daf:
             ColumnNotFoundError: The column is not found and `silent_error` is False. This is a
                 `KeyError`, and also a `RuntimeError`, which this method raised in earlier versions.
             RuntimeError: The name is empty.
+
+        Examples:
+            >>> d = Daf(lol=[['r1', 'a', 10], ['r2', 'b', ''], ['r3', 'a', 30]], cols=['id', 'v', 'n'], keyfield='id')
+
+            >>> d.col_to_la('v')
+            ['a', 'b', 'a']
+            >>> d.col_to_la('v', unique=True)
+            ['a', 'b']
+            >>> d.col_to_la('n', omit_nulls=True)
+            [10, 30]
+            >>> d.col_to_la('n', astype=str)
+            ['10', '', '30']
+            >>> d.col_to_la('zz', silent_error=True)
+            []
         """
 
         if not colname:
@@ -6195,6 +6366,20 @@ class Daf:
 
         Raises:
             IndexError: The position is out of range, for a Daf that has rows.
+
+        Examples:
+            >>> d = Daf(lol=[['r1', 'a', 10], ['r2', 'b', ''], ['r3', 'a', 30]], cols=['id', 'v', 'n'], keyfield='id')
+
+            >>> d.icol_to_la(1)
+            ['a', 'b', 'a']
+            >>> d.icol_to_la(-1)
+            [10, '', 30]
+            >>> d.icol_to_la(1, unique=True)
+            ['a', 'b']
+            >>> d.icol_to_la(5)
+            Traceback (most recent call last):
+                ...
+            IndexError: icol: column position 5 is out of range for 3 columns.
         """
 
         if not self:
