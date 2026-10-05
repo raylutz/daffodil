@@ -516,3 +516,10 @@ The date of the first entry is 2026-10-02.
 107. Removed on 2026-10-05 at the request of the owner: `Daf.isin()` and its 2 tests. The `select_where()` docstring no longer mentions it.
     The README rows that map the `isin()` of pandas to `select_krows()` and `select_where()` stay. The file `src/daffodil/daf_doc.txt` is
     a generated listing and still shows `isin()`. I did not edit it.
+108. Design decided on 2026-10-05 for `copy()` and `clone_empty()`. Nothing is implemented yet. The owner chose option 1 in each item.
+    (a) `copy()` takes bit flags for what is not shared, and the four level names stay as presets. A copy is always a new object of the same class.
+    (b) Without an argument, `copy()` uses a default set on the class. A subclass can set it to play safe. `clone_empty()` is a thin wrapper
+        over `copy()` and passes explicit bits, so the class default does not change it. It then keeps the class, the display settings and the schema.
+    (c) A copy has no name unless `name=` is given. The deep path follows the same rule.
+    (d) The method keeps the name `copy()`. The docs say that it shares by choice. Sharing is a design feature of daffodil, and not a leak.
+    Still to define: the name of the class default, the shipped default, and the names of the flags and presets.
