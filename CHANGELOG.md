@@ -8,6 +8,8 @@ Adoption of this format started in v0.5.10. Prior notes included in fixed sectio
 all prior releases. Plans for future moved to ROADMAP.md.
 
 ## [Unreleased]
+
+## [0.6.0] - (not yet released)
 ### Added
 - GitHub Actions workflows, at the request of the owner on 2026-10-05. `ci.yml` runs the tests, the doctests and the docs build on a push to `main` and on every pull request, and it never deploys.
   `deploy.yml` runs only on a push to the branch `full_deploy`. It checks that the commit is on `main`, that `pyproject.toml` and CHANGELOG.md agree on the version, and that the tag is new.

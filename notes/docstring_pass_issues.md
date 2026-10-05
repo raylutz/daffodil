@@ -559,4 +559,7 @@ The date of the first entry is 2026-10-02.
     The change closed a data bug in `from_lod_to_cols()`: with `dtypes` that named only later keys, the values were put under the wrong keys.
     `append()` and `extend()` also drop a key that is not a column, and that is documented.
 116. Added to the checks for AuditEngine on 2026-10-05: item 17 of notes/auditengine_action_items.md, for the calls of `from_lod()` that give `cols=` or `dtypes=`.
+117. On 2026-10-05 the changelog heading `Unreleased` became `[0.6.0] - (not yet released)`, with an empty `Unreleased` above it. The version is not tagged and not deployed.
+    Set the release date in the heading when the branch `full_deploy` is pushed. The deploy workflow needs a heading that starts with `## [0.6.0]`.
+    The owner pushed the work to `main` on the same day. Pushing to `main` runs only the tests and the docs build, and never deploys.
 
