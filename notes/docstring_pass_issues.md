@@ -506,3 +506,6 @@ The date of the first entry is 2026-10-02.
     docstring of `md_daf_table_snippet()`, which gives `repr()` and `str()`, now says it too, with an example. `columns()` still returns the names.
 104. Decided on 2026-10-05: no bool masks. Item 98(a) is closed with no code change. Use `select_where()` or `select_by_dict()` instead.
     `isin()` stays deprecated, and its docstring already warns about bool masks.
+105. Decided on 2026-10-05: the three `manifest_*` methods are marked legacy in their docstrings and in the README. No code change.
+    The README example of `manifest_apply()` is left as it was, and the note above it says the methods are legacy.
+    The example still lacks `load_func` and `save_func`. The AuditEngine check in notes/auditengine_action_items.md decides what happens to them.

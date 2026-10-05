@@ -132,6 +132,8 @@ all prior releases. Plans for future moved to ROADMAP.md.
 - `Daf.isin()` is deprecated. It was an early attempt to match the `isin()` of pandas. A list comprehension or `select_where()` does the
   same, and neither daffodil nor AuditEngine uses it. Only the docstring says so, and the method works as before. It will be removed.
   Decided on 2026-10-05 at the request of the owner. The docstring also warns that a list of bools is not a column selector.
+- `manifest_apply()`, `manifest_reduce()` and `manifest_process()` are marked legacy in their docstrings and in the README.
+  Decided on 2026-10-05. Only the docs changed, and the methods work as before.
 
 ### Changed
 - `from_googlesheet()` and `to_googlesheet()` take a required `service_account_file` argument, and raise

@@ -407,6 +407,9 @@ Or
 
         Daf.from_csv(file_path).apply_dtypes(dtypes=my_daf_dtypes).apply(transform_row).flatten().to_csv(file_path)
 
+Note: the manifest methods below are legacy. They are kept for now, and their design is under review.
+For new code, loop over the manifest rows yourself.
+
 And further extension of this pattern can apply the transformation to a set of csv files described by a chunk_manifest.
 The chunk manifest essentially provides metadata and instructions for accessing the source data, which may be many 1000s
 of chunks, each of which will fit in memory.
@@ -1008,7 +1011,7 @@ Below is a sample of equivalent functions between Pandas and Daffodil. Please no
 |`df.concat()`                                      |`daf.append()`                            |add one or many rows/cols   |
 | -- (deprecated)                                   |`daf.append()`                            |add one row    |
 |`df[colname]`                                      |`daf[:, colname]`                         |select one column   |
-|`df.apply()`  (not recommended)                    |`daf.apply()`, `.manifest_apply()`        |apply function to a row at a time.    |
+|`df.apply()`  (not recommended)                    |`daf.apply()`, `.manifest_apply()` (legacy)|apply function to a row at a time.    |
 |`df.map()`                                         |`daf.apply()`                             |any arbitrary python function can be applied  |
 |`df.agg()`                                         |`daf.reduce()`                            |reduce array to a record using arbitrary function  |
 |`df.transform()`                                   |`daf.apply(by='table')`                   |transform a table using a function producing a table   |
