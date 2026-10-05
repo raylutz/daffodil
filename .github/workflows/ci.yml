@@ -1,0 +1,44 @@
+# Runs the tests and the docs build. It never deploys.
+# It runs on a push to main and on every pull request. The deploy workflow also calls it.
+
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Tests on Python ${{ matrix.python-version }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.9", "3.10", "3.11", "3.12", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+      - name: Install
+        run: uv sync --python ${{ matrix.python-version }}
+      - name: Tests
+        run: uv run pytest -q -p no:cacheprovider
+      - name: Doctests
+        run: >
+          uv run pytest -q -p no:cacheprovider --doctest-modules src/daffodil
+          --ignore=src/daffodil/lib/daf_pdf.py --ignore=src/daffodil/lib/md_demo.py
+
+  docs:
+    name: Docs build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+      - name: Install
+        run: uv sync --python 3.12
+      - name: Build with warnings as errors
+        run: uv run mkdocs build --strict -d site

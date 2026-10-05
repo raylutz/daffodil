@@ -1,4 +1,6 @@
 site_name: Daffodil
+site_url: https://raylutz.github.io/daffodil/
+repo_url: https://github.com/raylutz/daffodil
 docs_dir: docsite
 
 theme:

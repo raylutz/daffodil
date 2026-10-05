@@ -1,0 +1,129 @@
+# The full deploy. It runs only when a commit is pushed to the branch full_deploy.
+# To release, push the commit that you want from main:   git push origin main:full_deploy
+#
+# Order: check the version, test, build, publish to PyPI, tag, deploy the docs.
+# Nothing is published unless every step before it has passed.
+#
+# One-time setup, done in the GitHub and PyPI web pages:
+#   - a secret named PYPI_API_TOKEN, a PyPI token for the project daffodil. Put it in the environment pypi.
+#   - an environment named pypi. A required reviewer on it is an optional last gate.
+#   - Settings, Pages, Source: GitHub Actions.
+
+name: Full deploy
+
+on:
+  push:
+    branches: [full_deploy]
+
+concurrency:
+  group: full-deploy
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    name: Check the version
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Read the version from pyproject.toml
+        id: version
+        run: |
+          VERSION=$(python -c "import tomllib; print(tomllib.load(open('pyproject.toml','rb'))['project']['version'])")
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "Version is $VERSION"
+      - name: The commit must be on main
+        run: |
+          git fetch origin main
+          git merge-base --is-ancestor "$GITHUB_SHA" origin/main || { echo "::error::This commit is not on main."; exit 1; }
+      - name: The changelog must have a heading for this version
+        run: grep -q "^## \[${{ steps.version.outputs.version }}\]" CHANGELOG.md || { echo "::error::CHANGELOG.md has no heading for ${{ steps.version.outputs.version }}."; exit 1; }
+      - name: The tag must not exist yet
+        run: |
+          if git ls-remote --exit-code --tags origin "refs/tags/v${{ steps.version.outputs.version }}" >/dev/null; then
+            echo "::error::The tag v${{ steps.version.outputs.version }} exists already. Change the version."; exit 1
+          fi
+
+  test:
+    name: Tests
+    needs: check
+    uses: ./.github/workflows/ci.yml
+
+  build:
+    name: Build
+    needs: [check, test]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+      - name: Build the wheel and the sdist
+        run: uv build
+      - name: Check the files
+        run: uvx twine check dist/*
+      - name: The built version must be the checked version
+        run: ls dist/daffodil-${{ needs.check.outputs.version }}-py3-none-any.whl dist/daffodil-${{ needs.check.outputs.version }}.tar.gz
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+  publish:
+    name: Publish to PyPI
+    needs: build
+    runs-on: ubuntu-latest
+    environment: pypi
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
+      - uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          password: ${{ secrets.PYPI_API_TOKEN }}
+
+  tag:
+    name: Tag the release
+    needs: [check, publish]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Create and push the tag
+        run: |
+          git config user.name "github-actions"
+          git config user.email "github-actions@users.noreply.github.com"
+          git tag -a "v${{ needs.check.outputs.version }}" -m "Version ${{ needs.check.outputs.version }}"
+          git push origin "v${{ needs.check.outputs.version }}"
+
+  docs:
+    name: Deploy the docs
+    needs: publish
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+      - run: uv sync --python 3.12
+      - run: uv run mkdocs build --strict -d site
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+      - id: deployment
+        uses: actions/deploy-pages@v4

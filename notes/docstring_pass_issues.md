@@ -545,3 +545,7 @@ The date of the first entry is 2026-10-02.
     The owner reversed it. With names already there, `set_cols()` follows the names by position, which is a little more than the option the owner approved.
     That option kept the keyfield only if its name was among the new names. For a table with names `['a', 'b']` and `set_cols(['b', 'a'])` it would have kept a key on the other column.
     The position rule keeps the key on the same data. The two rules agree when the Daf had no names yet, and when the names do not change.
+113. Deployment set up on 2026-10-05. The owner chose 0.6.0, a deploy by pushing to the branch `full_deploy`, and a PyPI token as a secret. Nothing is deployed from a push to `main`.
+    Checking Python 3.9 found that it has not worked on `main` for some time. Three modules fail at import, and one test fails after that. Four small edits fix it, and with them 2251 tests and 195 doctests pass.
+    The edits are not committed. They wait for the owner. The alternative is to raise `requires-python` to 3.10.
+

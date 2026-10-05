@@ -9,6 +9,10 @@ all prior releases. Plans for future moved to ROADMAP.md.
 
 ## [Unreleased]
 ### Added
+- GitHub Actions workflows, at the request of the owner on 2026-10-05. `ci.yml` runs the tests, the doctests and the docs build on a push to `main` and on every pull request, and it never deploys.
+  `deploy.yml` runs only on a push to the branch `full_deploy`. It checks that the commit is on `main`, that `pyproject.toml` and CHANGELOG.md agree on the version, and that the tag is new.
+  It then tests, builds, publishes to PyPI, tags `v` and the version, and deploys the docs to GitHub Pages. The version in `pyproject.toml` is now 0.6.0.
+  The workflow needs a secret `PYPI_API_TOKEN` in the environment `pypi`, and Pages set to deploy from Actions. `mkdocs.yml` has `site_url` and `repo_url`.
 - `rows_are_shared()` in `daf_utils` tells whether any row is also held by another list, by reading the reference count
   of each row. Scanning 200,000 rows takes about 0.01 s. Copying them takes 0.75 s.
 - `select_irows([], inverse=True)` keeps all rows and now shares them, like every other `select_irows()` result. It
