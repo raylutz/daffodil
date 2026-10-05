@@ -493,8 +493,12 @@ The date of the first entry is 2026-10-02.
 100. Requested on 2026-10-05: show a one pass selection against a set in place of a list of bools. `select_where()` now has examples with `in`,
     `not in`, `and`, `or`, a set built from another Daf, and the faster form with `col()` and `select_irows()`. I measured the one pass
     form as slower on a large Daf: 0.109 s against 0.020 s for 200,000 rows and 1,000 values. The docstring says so.
-101. Requested on 2026-10-05: the examples must not read the `lol` attribute. All 126 examples that did were changed. The usual form is `to_lod()`.
-    The two `flip=True` examples use `to_lota()`, because a flipped result has no column names, and `to_lod()` raises `KeysDisabledError` for it. A keyfield does not
-    help there, because a keyfield needs column names, and a flipped result has none. A row is read with `iloc()`. The examples of `copy()` and
-    `select_records_daf()` showed sharing by comparing the lists. They now show it by appending a row to a copy and by setting a cell. The README
-    had no `.lol`. The tests still use it. The rule is not written in CLAUDE.md.
+101. Requested on 2026-10-05: the examples must not read the `lol` attribute. All 126 examples that did were changed. First they used `to_lod()`. The owner then
+    said that the default `repr()` of a Daf is `to_md()`, limited to 10 rows, and that all example output should show it directly. A Daf result is now the bare
+    expression. A flipped result has no column names, and its repr shows the `A`, `B` header, so no special case is needed. A row is read with `iloc()`.
+    The examples of `copy()` and `select_records_daf()` showed sharing by comparing the lists. They now append a row to a copy and set a cell. The repr
+    starts with a blank line and has a blank line before the size line, so `pytest.ini` got `doctest_optionflags = NORMALIZE_WHITESPACE`. The README had no `.lol`.
+    The tests still use it. The rule is not written in CLAUDE.md.
+102. Found on 2026-10-05, not changed: a Daf with column names and no rows shows no header. `Daf(cols=['a', 'b'])` prints only
+    `%% daf rows=0; cols=0; keyfield=''; name=''`, though `columns()` returns both names. `num_cols()` reads the first row, so it gives 0. An empty result of
+    `select_records_daf([])` shows the same. The size line says `cols=0`.

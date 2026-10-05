@@ -99,8 +99,12 @@ def _from_pandas_df(
         >>> from daffodil.daf import Daf
         >>> df = pd.DataFrame({'id': [1, 2], 'v': ['a', 'b']})
         >>> d = Daf.from_pandas_df(df, keyfield='id')
-        >>> d.to_lod()
-        [{'id': 1, 'v': 'a'}, {'id': 2, 'v': 'b'}]
+        >>> d
+        | id | v |
+        | -: | -: |
+        |  1 | a |
+        |  2 | b |
+        %% daf rows=2; cols=2; keyfield='id'; name=''
     """
     import pandas as pd     # type: ignore
     import warnings
