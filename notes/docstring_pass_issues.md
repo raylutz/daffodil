@@ -504,3 +504,5 @@ The date of the first entry is 2026-10-02.
     `select_records_daf([])` shows the same. The size line says `cols=0`.
 103. The owner said on 2026-10-05 that an empty array has no columns and no rows, so item 102 is the design. `num_cols()` already said that it counts from the rows. The
     docstring of `md_daf_table_snippet()`, which gives `repr()` and `str()`, now says it too, with an example. `columns()` still returns the names.
+104. Decided on 2026-10-05: no bool masks. Item 98(a) is closed with no code change. Use `select_where()` or `select_by_dict()` instead.
+    `isin()` stays deprecated, and its docstring already warns about bool masks.
