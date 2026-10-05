@@ -562,4 +562,7 @@ The date of the first entry is 2026-10-02.
 117. On 2026-10-05 the changelog heading `Unreleased` became `[0.6.0] - (not yet released)`, with an empty `Unreleased` above it. The version is not tagged and not deployed.
     Set the release date in the heading when the branch `full_deploy` is pushed. The deploy workflow needs a heading that starts with `## [0.6.0]`.
     The owner pushed the work to `main` on the same day. Pushing to `main` runs only the tests and the docs build, and never deploys.
+118. The first CI run on `main`, on 2026-10-05, failed in the doctests of 3.10 and 3.11. The example of `from_directory()` listed two files in the order of the machine where it was written.
+    The CI machine listed them the other way. The example now sorts. The docstring says that the order is the order of the file system. The jobs for 3.12 and 3.13 were cancelled
+    after about 15 minutes of waiting for a runner, so they had not run. Doctests passed on 3.10, 3.11 and 3.13 on the machine of the session, and the file system order was the only difference.
 

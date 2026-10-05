@@ -3348,6 +3348,9 @@ class Daf:
         same folder. A folder has an `is_dir` of 1, a size of 0 and no extension. Without
         it, no folder is listed and `is_dir` is always 0.
 
+        The rows are in the order in which the file system lists the files. That order is
+        not sorted, and it differs between machines. Sort the result if the order matters.
+
         The `schema` chooses the columns of the result. A `@schemaclass` that lists
         only some of the fields above keeps only those. Other columns of the schema
         get their defaults. The new Daf has no keyfield. Files that cannot be read
@@ -3375,8 +3378,8 @@ class Daf:
             >>> d = Daf.from_directory(folder)
             >>> sorted(d.col('basename')), d.col('size')
             (['a.csv', 'b.txt', 'c.csv'], [5, 5, 5])
-            >>> Daf.from_directory(folder, recursive=False).col('basename')
-            ['b.txt', 'a.csv']
+            >>> sorted(Daf.from_directory(folder, recursive=False).col('basename'))
+            ['a.csv', 'b.txt']
             >>> sorted(Daf.from_directory(folder, file_pat=r'\.csv$').col('basename'))
             ['a.csv', 'c.csv']
             >>> sorted(Daf.from_directory(folder, include_dirs=True).col('basename'))

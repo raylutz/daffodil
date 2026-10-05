@@ -320,6 +320,8 @@ all prior releases. Plans for future moved to ROADMAP.md.
   git-tracked) moved out of `src/` to a gitignored, local-only `deprecated/` folder.
 
 ### Fixed
+- Docs: the `from_directory()` docstring says that the rows are in the order in which the file system lists the files, which is not sorted and differs between machines.
+  Its example no longer depends on that order. It did, and the first CI run on GitHub failed because of it, on 2026-10-05.
 - `insert_icol()`, `insert_col()` and `insert_idx_col()`, and so `assign_col()` for a new column, changed the rows of
   every Daf that shared them. After `s = d.select_irows([0, 1])`, `s.insert_idx_col()` left `d` with rows of three values
   and a header of two columns. Shared rows are now copied first, so the other Daf is not changed. The method still
