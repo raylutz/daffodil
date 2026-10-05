@@ -486,12 +486,12 @@ all prior releases. Plans for future moved to ROADMAP.md.
   for 521 test values, except for the two changes above. Nine tests added, and one that was marked as a bug now passes.
 - `apply_to_col()` passed its keyword arguments to `map()`, so any keyword argument raised
   `TypeError`. They are now passed to the function with each value. Three tests added.
-- `from_lod()` lost a value without a message when a later dict had a key that the first dict
-  did not have. It now raises `ValueError` that names the keys, and says to pass `cols=`. A
-  record that only lacks keys still gets NULL. The check compares the keys of each dict with a
-  set of the columns in C, and builds each row directly, so it takes about the same time or
-  less, for 10, 100 and 1,000 columns. It is not made when `cols` or `dtypes` is given.
-  Eight tests added.
+- `from_lod()` lost a value without a message when a later dict had a key that the first dict did not have. It now adds the key as a column at the right,
+  at the owner's request on 2026-10-05, and pads the rows before it with NULL. The columns are all the keys of all the dicts, in the order of their first appearance.
+  You do not have to look through the data first. A first version of this fix raised `ValueError` instead, and that version was never released. A record that only lacks keys
+  still gets NULL. With `cols` or `dtypes` given, the caller chose the columns, and other keys are still left out. The first dict may be empty. The keys of each dict are compared
+  with a set of the columns in C, and each row is built directly, so a uniform list takes the same time as before: 0.447 s for 200,000 dicts of 10 keys, against 0.449 s.
+  Padding is done once at the end, and only if a column was added.
 - `drop_cols()` left the keyfield set to a column that was gone, so key lookups returned empty
   results or raised `KeyError`. It missed a composite keyfield too. It now clears the keyfield
   when any column of it is dropped, as `select_cols()`, `rename_cols()` and `set_cols()` do.

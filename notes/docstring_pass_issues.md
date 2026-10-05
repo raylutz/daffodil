@@ -551,4 +551,9 @@ The date of the first entry is 2026-10-02.
 114. Decided on 2026-10-05: the legacy wording on `manifest_apply()`, `manifest_reduce()` and `manifest_process()` is removed from their docstrings, the README and the changelog. Item 105 is replaced.
     The review on the EC2 machine found that `manifest_process()` is used on the live ES&S path in AuditEngine, at `ess_cvr.py:257`. The thread did not say whether the other two are used.
     The README example of `manifest_apply()` still lacks `load_func` and `save_func`.
+115. Decided on 2026-10-05: `from_lod()` adds a column for a key that first appears in a later dict, where it raised `ValueError`. The error was never released. In 0.5.13 the value was dropped.
+    Option 1 of three was chosen: add the columns as they appear and pad the earlier rows once at the end. A prescan was the other way, and it costs an extra pass.
+    The time for 200,000 dicts of 10 keys is 0.447 s, the same as the 0.449 s of the version that raised. Eight tests were rewritten or added.
+    Open for the owner: with `cols` or `dtypes` given, keys that are not columns are still left out without an error. The owner proposed an error unless `ignore_extra_keys=True`.
+    `append()` and `extend()` also drop a key that is not a column, and that is documented.
 

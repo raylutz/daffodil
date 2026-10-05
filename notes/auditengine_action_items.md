@@ -106,3 +106,7 @@ Two findings that are in AuditEngine and not in daffodil:
 - `col()` now raises `KeyError`, which makes two existing `except KeyError` handlers work as written. `select_cols()` reorders three columns at `acre_utils.py:102`.
 
 Not checked: `pdf_image_indexer2.py:74` on real PDF archives, and the paths that the test suite does not reach.
+
+Update on 2026-10-05, after the review: `from_lod()` no longer raises for a key that first appears in a later dict. It adds a column. So the check in item 2, at
+`pdf_image_indexer2.py:74`, needs no change in AuditEngine. With `cols` or `dtypes` given, keys that are not columns are still left out.
+

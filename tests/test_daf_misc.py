@@ -827,24 +827,49 @@ def test_from_lod_later_dict_with_fewer_keys_gets_null():
     assert daf.lol == [[1, 2], [3, '']]
 
 
-def test_from_lod_later_dict_with_a_new_key_raises():
-    with pytest.raises(ValueError, match="'b'"):
-        Daf.from_lod([{'a': 1}, {'a': 3, 'b': 9}])
+def test_from_lod_later_dict_with_a_new_key_adds_a_column():
+    daf = Daf.from_lod([{'a': 1}, {'a': 3, 'b': 9}])
+    assert daf.columns() == ['a', 'b']
+    assert daf.lol == [[1, ''], [3, 9]]
 
 
-def test_from_lod_new_key_is_found_even_when_the_dict_lacks_an_old_key():
+def test_from_lod_columns_are_in_the_order_of_first_appearance_and_earlier_rows_are_padded():
+    daf = Daf.from_lod([{'a': 1}, {'a': 2, 'b': 5}, {'c': 9}, {'b': 7, 'a': 0, 'd': 4}])
+    assert daf.columns() == ['a', 'b', 'c', 'd']
+    assert daf.lol == [[1, '', '', ''], [2, 5, '', ''], ['', '', 9, ''], [0, 7, '', 4]]
+
+
+def test_from_lod_new_key_is_added_even_when_the_dict_lacks_an_old_key():
     # the same number of keys as the first dict, and one of them is new.
-    with pytest.raises(ValueError, match="'d'"):
-        Daf.from_lod([{'a': 1, 'b': 2, 'c': 3}, {'a': 1, 'c': 3, 'd': 9}])
+    daf = Daf.from_lod([{'a': 1, 'b': 2, 'c': 3}, {'a': 1, 'c': 3, 'd': 9}])
+    assert daf.columns() == ['a', 'b', 'c', 'd']
+    assert daf.lol == [[1, 2, 3, ''], [1, '', 3, 9]]
     # fewer keys than the first dict, and one of them is new.
-    with pytest.raises(ValueError, match="'d'"):
-        Daf.from_lod([{'a': 1, 'b': 2, 'c': 3}, {'a': 1, 'd': 9}])
+    daf = Daf.from_lod([{'a': 1, 'b': 2, 'c': 3}, {'a': 1, 'd': 9}])
+    assert daf.lol == [[1, 2, 3, ''], [1, '', '', 9]]
 
 
-def test_from_lod_error_names_the_extra_keys_only():
-    with pytest.raises(ValueError) as excinfo:
-        Daf.from_lod([{'a': 1}, {'a': 2, 'x': 1, 'y': 2}])
-    assert "['x', 'y']" in str(excinfo.value)
+def test_from_lod_the_first_dict_may_be_empty_or_not_a_dict():
+    daf = Daf.from_lod([{}, None, {'x': 1}, {'x': 2, 'y': 3}])
+    assert daf.columns() == ['x', 'y']
+    assert daf.lol == [[1, ''], [2, 3]]
+
+
+def test_from_lod_with_only_empty_items_has_no_rows_and_no_columns():
+    daf = Daf.from_lod([{}, None])
+    assert daf.columns() == [] and daf.lol == []
+
+
+def test_from_lod_uniform_keys_give_the_same_rows_as_before():
+    lod = [{'a': i, 'b': i * 2} for i in range(5)]
+    daf = Daf.from_lod(lod, keyfield='a')
+    assert daf.columns() == ['a', 'b'] and daf.lol == [[i, i * 2] for i in range(5)]
+    assert daf.select_krows([3]).lol == [[3, 6]]
+
+
+def test_from_lod_a_keyfield_that_first_appears_in_a_later_dict_is_found():
+    daf = Daf.from_lod([{'a': 1}, {'a': 2, 'id': 'x'}], keyfield='id')
+    assert daf.columns() == ['a', 'id'] and daf.keyfield == 'id'
 
 
 def test_from_lod_with_cols_drops_other_keys_on_purpose():

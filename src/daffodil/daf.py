@@ -2244,11 +2244,11 @@ class Daf:
         """
         Make a Daf from a list of dicts, one dict for each row.
 
-        Without `cols` or `dtypes`, the column names are the keys of the first dict. A
-        later dict that lacks a key gets NULL there. A later dict with a key that the
-        first dict does not have raises `ValueError`, because that value would be
-        lost. The error names the keys. Give `cols` with all the columns you want to
-        avoid it. Empty dicts and items that are not dicts are skipped.
+        Without `cols` or `dtypes`, the columns are all the keys of all the dicts, in the
+        order in which they first appear. The keys of the first dict come first. A dict
+        that lacks a key gets NULL there. A key that first appears in a later dict adds a
+        column at the right, and the rows before it get NULL there. You do not need to
+        look through the data first. Empty dicts and items that are not dicts are skipped.
 
         If `cols` is given, those are the columns. Otherwise the keys of `dtypes` are
         the columns. In both cases any other keys are left out, because you chose
@@ -2264,10 +2264,6 @@ class Daf:
         Returns:
             The new Daf.
 
-        Raises:
-            ValueError: A dict has a key that is not a column of the first dict, and
-                neither `cols` nor `dtypes` is given.
-
         Examples:
             >>> Daf.from_lod([{'a': 1, 'b': 2}, {'a': 3}])
             | a | b |
@@ -2275,6 +2271,13 @@ class Daf:
             | 1 | 2 |
             | 3 |   |
             %% daf rows=2; cols=2; keyfield=''; name=''
+            >>> Daf.from_lod([{'a': 1}, {'a': 2, 'b': 5}, {'c': 9}])
+            | a | b | c |
+            | -: | -: | -: |
+            | 1 |   |   |
+            | 2 | 5 |   |
+            |   |   | 9 |
+            %% daf rows=3; cols=3; keyfield=''; name=''
             >>> Daf.from_lod([{'a': 1, 'b': 2}], cols=['b', 'a'])
             | b | a |
             | -: | -: |
@@ -2310,22 +2313,32 @@ class Daf:
                     for record_da in records_lod if record_da and isinstance(record_da, dict)]
 
         else:
-            # the columns come from the first record. A later record may lack some of them, which
-            # are then NULL. A key that is not a column would be lost, so stop and say so.
-            # Checking the keys of each record against a set of the columns is done in C, and
-            # building the row directly avoids making a dict for each record.
-            cols = list(records_lod[0].keys())
-            colset = set(cols)
+            # the columns are the keys of all the records, in the order of their first appearance. A record
+            # that lacks a column has NULL there. A key that is new adds a column at the right. The rows that
+            # were built before are then shorter, and are padded once at the end. Nothing is padded, and no
+            # second pass is made, when the first record has all the keys. Checking the keys of each record
+            # against a set of the columns is done in C, and building the row directly avoids a dict per record.
+            cols    = []
+            colset: set[str]    = set()
+            lol     = []
+            grew    = False
 
-            lol = []
             for record_da in records_lod:
                 if record_da and isinstance(record_da, dict):
                     if not record_da.keys() <= colset:
-                        extra_keys = [key for key in record_da if key not in colset]
-                        raise ValueError(
-                            f"from_lod: a record has keys that are not columns of the first record: "
-                            f"{extra_keys[:5]}. Pass cols= with all the columns that you want.")
+                        for key in record_da:
+                            if key not in colset:
+                                cols.append(key)
+                                colset.add(key)
+                        if lol:
+                            grew = True
                     lol.append([record_da.get(col, NULL) for col in cols])
+
+            if grew:
+                num_cols = len(cols)
+                for row_la in lol:
+                    if len(row_la) < num_cols:
+                        row_la.extend([NULL] * (num_cols - len(row_la)))
 
         # following invalidates kd for lazy rebuilding.
         return cls(cols=cols, lol=lol, keyfield=keyfield, dtypes=dtypes, name=name)
