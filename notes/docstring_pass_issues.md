@@ -490,3 +490,6 @@ The date of the first entry is 2026-10-02.
     `select_where()` with a function replaced that use. Daffodil uses it nowhere, only its 2 tests, and the owner says AuditEngine does not use it.
     The deprecation is in the docstring only, as for `remove_key()`. The method works as before. The old second string of `isin()` still shows
     `columns().isin(...)`, which never worked, and is kept. Removal is for later.
+100. Requested on 2026-10-05: show a one pass selection against a set in place of a list of bools. `select_where()` now has examples with `in`,
+    `not in`, `and`, `or`, a set built from another Daf, and the faster form with `col()` and `select_irows()`. I measured the one pass
+    form as slower on a large Daf: 0.109 s against 0.020 s for 200,000 rows and 1,000 values. The docstring says so.

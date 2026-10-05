@@ -331,6 +331,10 @@ all prior releases. Plans for future moved to ROADMAP.md.
   copies. It is a live view for values. Decided on 2026-10-04. The deep copy was not needed, because `insert_col()`
   and `insert_idx_col()` now copy shared rows first. The report code that selects and then inserts an index column keeps
   working, and the original is not changed. Tests: 4 in `tests/test_daf_shared_rows.py`.
+- Docs: `select_where()` shows how to test a value against a set, or against the keys of another Daf, in one pass, with no list of bools. It
+  gives the cost: for a test on one column of 200,000 rows and 1,000 values, `select_where()` took 0.11 s and a comprehension over
+  `col()` with `select_irows()` took 0.02 s, so it shows both. The README table has a new row for the `isin()` of pandas. Requested on
+  2026-10-05.
 - Docs: the 47 methods that kept an old second string after the real docstring were read, and the points that the real docstring
   lacked were moved in, after each one was run. `isin()` says that its list of bools must not be used as a column selector,
   because a list of bools is read as positions. `set_keyfield()` says that a Daf with columns and no rows can have a keyfield.

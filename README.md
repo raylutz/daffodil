@@ -1024,6 +1024,7 @@ Below is a sample of equivalent functions between Pandas and Daffodil. Please no
 |`df.assign()`                                      |`daf[:, n] = new_col`                      |assign new values to a column  |
 | -- (not available?)                               |`daf[rowname or idx] = dict`               |assign the whole row, placing values by column name. Missing columns become NULL.  |
 |`df[df[colname] > 5]`                              |`daf.select_where(lambda row: row[colname] > 5)`           |select rows where the value in colname > 5   |
+|`df[df[colname].isin(values)]`                    |`daf.select_where(lambda row: row[colname] in values_set)` |select rows whose value is in a set, in one pass. No list of bools is built. Make the set once, before the call. |
 |`df.rename(renaming dict)`                         |`daf.rename_cols(); daf.set_cols(); daf.set_rowkeys()`     |Daf allows renaming rows when keyfield=''  |
 |`df.reset_index`                                   |`daf.set_keyfield(''); daf.set_rowkeys()`  |similar in operation.   |
 |`df.set_index`                                     |`daf.set_keyfield(keyfieldname)`           |Daf can use an existing column for the keyfield or can set the rowkeys independently  |
