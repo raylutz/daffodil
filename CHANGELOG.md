@@ -151,6 +151,11 @@ all prior releases. Plans for future moved to ROADMAP.md.
     drops `schema` and `disp_cols`, which cannot be cut to fit. It used to keep the dtypes whole and the keyfield as it was. With the same `cols`, everything is carried over.
     One private method, `_align_with_columns()`, decides this for every Daf made from another one. `groupby()` and its relatives use it through `clone_empty()`, and keep their dtypes.
     Every selector that calls it gets the same change.
+  - A keyfield that is not a column now raises `KeyError`, at the owner's request on 2026-10-05. This is in the constructor, in the builders such as
+    `from_csv_buff()`, and in `set_keyfield()`. It was stored without an error, and key lookups then found nothing. The old idea was that a keyfield could
+    be set before its column exists. A Daf with no column names yet can still be given one, so `Daf(keyfield='id')` followed by `append()` of dicts works.
+    `set_keyfield(silent_error=True)` still stores the name, and the default of `silent_error` is now False. After a direct edit of the attribute,
+    the lookup still says what is wrong. `join()` now gives a result with no keyfield when the left table is empty, where it gave a keyfield that was not a column.
   - The constructor now cuts `dtypes` to the names that are columns. Your dict is not changed. A dict that is already right is adopted as before.
     It costs about 1.6 microseconds for 50 columns, on top of 4. The `keyfield` is still stored when it is not a column.
   - The `COPY_` constants are new public names on `Daf`, and `T_copybits` is a new alias in `daf_types.py`. Tests are in tests/test_daf_copy_bits.py. Tests: 2202 before, 2231 after.

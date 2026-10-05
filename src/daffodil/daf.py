@@ -240,8 +240,7 @@ class Daf:
             cols: Column names. These win over `hd` and `dtypes`.
             dtypes: Type for each column, used when converting from strings. Entries for names that are not columns are left out.
             schema: A `@schemaclass` or a schema Daf that supplies columns and defaults.
-            keyfield: Column, or tuple or list of columns, whose values identify rows. A name that is not a column is
-                stored without an error, and then key lookups find nothing. See `set_keyfield()`.
+            keyfield: Column, or tuple or list of columns, whose values identify rows. Each must be a column. See `set_keyfield()`.
             name: Free text name of this Daf.
             use_copy: If True, deep copy `lol` instead of adopting it.
             disp_cols: Column names to show when the Daf is printed.
@@ -249,8 +248,13 @@ class Daf:
             itermode: Whether iteration yields dicts or KeyedList objects.
             attrs: Free form dict of extra information. Adopted, not copied.
 
+        A `keyfield` must be made of columns, or the Daf raises `KeyError`. A Daf with no column
+        names yet can still be given one, for the columns that come later, as in
+        `Daf(keyfield='id')` followed by `append()` of dicts.
+
         Raises:
             TypeError: `disp_cols` is not a list, a tuple or None.
+            KeyError: The `keyfield` is not a column, or one of its columns is not.
 
         Examples:
             >>> d = Daf(lol=[[1, 'a'], [2, 'b']], cols=['id', 'v'], keyfield='id')
@@ -354,6 +358,9 @@ class Daf:
                 # self.lol = daf_utils.apply_dtypes_to_hdlol((self.hd, self.lol), effective_dtypes, from_str=False)[1]
 
         self._align_with_columns()          # the dtypes can only name columns that exist.
+
+        if self.keyfield and self.hd and not self._is_keyfield_valid():
+            raise KeyError(f"Daf(): the keyfield {self.keyfield!r} is not a column. The columns are {list(self.hd)}.")
 
         # rebuild kd if possible, only if keyfield is defined.
         # Now using lazy kd building. Leave as {} if not manually defined.
@@ -1385,7 +1392,7 @@ class Daf:
             self, 
             keyfield: Union[str, T_ta, T_la]='', 
             *,
-            silent_error: bool=True,
+            silent_error: bool=False,
             force_kd_rebuild: bool=False,
             ) -> 'Daf':
         """
@@ -1397,23 +1404,23 @@ class Daf:
 
         The Daf must have column names first. With none, nothing happens.
 
-        A name that is not a column is stored anyway unless `silent_error` is False.
-        Then a `KeyError` is raised. A key that is not unique is not checked. A lookup
-        finds the last row that has it.
+        A name that is not a column raises `KeyError`. Pass `silent_error=True` to store it
+        anyway, as older versions did. Then key lookups find nothing. A key that is not
+        unique is not checked. A lookup finds the last row that has it.
 
         A Daf that has column names and no rows can have a keyfield. It applies to the rows that are
         added later.
 
         Args:
             keyfield: Column name, or a tuple or list of names. Empty to turn off.
-            silent_error: If False, raise an error for a name that is not a column.
+            silent_error: If True, store a name that is not a column, and do not raise.
             force_kd_rebuild: If True, build the key index now.
 
         Returns:
             This Daf, which has been changed.
 
         Raises:
-            KeyError: The keyfield is not a column and `silent_error` is False.
+            KeyError: The keyfield is not a column, and `silent_error` is not True.
 
         Examples:
             >>> d = Daf(lol=[[1, 'a'], [2, 'b']], cols=['id', 'v'])
@@ -1459,9 +1466,8 @@ class Daf:
             self._kd = {}
             return self
 
-        if not self._is_keyfield_valid(keyfield):
-            if not silent_error:
-                raise KeyError
+        if not silent_error and not self._is_keyfield_valid(keyfield):
+            raise KeyError(f"set_keyfield(): the keyfield {keyfield!r} is not a column. The columns are {list(self.hd)}.")
         self.keyfield = keyfield
         self._invalidate_kd()    # use lazy kd rebuilding
 
@@ -2925,9 +2931,7 @@ class Daf:
         Empty text, or a source with no rows, gives an empty Daf with no columns, as
         `from_md()` does. Check `len()` of the result if an empty source would be an error.
 
-        A `keyfield` that is not a column of the file is stored without an error, and key
-        lookups then find nothing. Check the names, or call `set_keyfield()` with
-        `silent_error=False`.
+        A `keyfield` that is not a column of the file raises `KeyError`.
 
         The length of each row is not checked, so that a read costs no more than it must.
         A row with a missing cell, or with an extra one from an unquoted comma, is kept as
@@ -2951,7 +2955,7 @@ class Daf:
             The new Daf.
 
         Raises:
-            KeyError: A name in `include_cols` is not in the header of the file.
+            KeyError: A name in `include_cols`, or the `keyfield`, is not in the header of the file.
             ValueError: `include_cols` is given with `noheader=True`, because the names
                 of the columns come from the header.
 
@@ -11391,8 +11395,10 @@ class Daf:
         resolved_colnames = eff_translator_daf.col("resolved_colname")
 
         # Prepare the resulting Daf
-        result_daf = Daf(cols=resolved_colnames, name=name, keyfield=self.keyfield)
-        keyfield = self.keyfield   # okay to set now with lazy kd generation.
+        result_daf = Daf(cols=resolved_colnames, name=name)
+        keyfield = self.keyfield
+        if keyfield and result_daf._is_keyfield_valid(keyfield):    # an empty table has no key column to give.
+            result_daf.keyfield = keyfield                          # okay to set now with lazy kd generation.
 
         # Helper function to fetch a record by key, with silent error
         def fetch_record(daf: 'Daf', mykey: Union[str, int]) -> T_da:

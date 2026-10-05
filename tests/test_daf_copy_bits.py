@@ -264,9 +264,9 @@ def test_constructor_names_columns_from_dtypes_when_there_are_no_cols():
     assert daf.columns() == ['a', 'b'] and daf.dtypes == {'a': int, 'b': int}
 
 
-def test_constructor_keeps_a_keyfield_that_is_not_a_column():
-    daf = Daf(lol=[[1, 2]], cols=['p', 'q'], keyfield='a')
-    assert daf.keyfield == 'a'
+def test_constructor_raises_keyerror_for_a_keyfield_that_is_not_a_column():
+    with pytest.raises(KeyError, match="keyfield 'a' is not a column"):
+        Daf(lol=[[1, 2]], cols=['p', 'q'], keyfield='a')
 
 
 def test_clone_empty_without_cols_keeps_dtypes_and_schema():

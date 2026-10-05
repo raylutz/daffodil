@@ -3827,7 +3827,7 @@ class TestDaf(unittest.TestCase):
 
     # from_lod_to_cols
     def test_from_lod_to_cols_empty_lod(self):
-        result = Daf.from_lod_to_cols([], cols=['A', 'B', 'C'], keyfield='Key')
+        result = Daf.from_lod_to_cols([], cols=['A', 'B', 'C'], keyfield='A')
         self.assertEqual(result.columns(), ['A', 'B', 'C'])
         self.assertEqual(result.lol, [])
 

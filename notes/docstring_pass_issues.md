@@ -536,3 +536,9 @@ The date of the first entry is 2026-10-02.
     `_new_group_daf()` lost its own cutting code. Same columns means everything is carried over. `set_cols()` is unchanged, because it renames the dtypes by position.
     Open for the owner: the constructor with `hd` and `dtypes` but no `cols` still replaces the given `hd` with the names of the dtypes.
     One choice of mine, for the owner to check. `copy(False)` uses the class setting.
+111. Decided on 2026-10-05, replacing the design of item 91. A `keyfield` that is not a column raises `KeyError` in the constructor, the builders and `set_keyfield()`.
+    The owner dropped the idea of setting a keyfield before its column exists. A Daf with no column names can still have a keyfield, for the columns that come later.
+    The full suite found two places that depended on the old behavior. `join()` built a result whose keyfield was not one of its columns when the left table was empty.
+    It now gives that result no keyfield. `test_from_lod_to_cols_empty_lod` passed a keyfield that was not a column, and it now passes one that is.
+    Four tests of item 91 were rewritten, and five were added. The lookup message `_keyfield_not_a_column_message()` stays for a direct edit of the attribute, and for a Daf with no names.
+    Open for the owner: `rename_cols()` clears the keyfield, though the key column still exists under its new name. It could follow the rename.
