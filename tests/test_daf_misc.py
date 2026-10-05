@@ -1,7 +1,7 @@
 # test_daf_misc.py
 #
 # Tests for the long tail of smaller Daf methods/properties: itermode/retmode properties,
-# dunder methods (__contains__, __str__, __repr__, __format__), isin, to_value, to_klist,
+# dunder methods (__contains__, __str__, __repr__, __format__), to_value, to_klist,
 # to_json, extend, drop_cols, set_cols, flatten, keys, select_where, dict_to_md, set_keyfield,
 # _rebuild_kd/_build_kd/_get_keyval, update_row, diff_da, sum, the valuecounts_for_* family,
 # set_icol/set_icol_irows/set_col_irows, apply_to_col, iloc, and the DafIterator /
@@ -92,20 +92,6 @@ def test_format_with_spec_on_single_cell():
 def test_format_no_spec_uses_str():
     daf = Daf(lol=[[1, 'a']], cols=['id', 'name'])
     assert format(daf) == str(daf)
-
-
-# =====================================================================
-# isin
-# =====================================================================
-
-def test_isin_basic():
-    assert Daf.isin([1, 2, 3, 4], [2, 4]) == [False, True, False, True]
-
-
-def test_isin_large_lists_uses_dict_fromkeys_path():
-    # exercises len(listlike1) > 10 and len(listlike2) > 30
-    result = Daf.isin(list(range(15)), list(range(35)))
-    assert result == [True] * 15
 
 
 # =====================================================================

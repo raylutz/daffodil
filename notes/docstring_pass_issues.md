@@ -513,3 +513,6 @@ The date of the first entry is 2026-10-02.
     No page is added and no helper docstrings are written for the docs. 34 functions without an underscore have no docstring.
     Open: `get_indirect_da()` and `get_indirect_val()` are still in the source. The owner said on 2026-10-05 that the indirect functions are obsolete.
     The owner said on 2026-10-05 to ignore the open parts: the `get_indirect_*` check, the site structure and the CLAUDE.md line. They are not planned.
+107. Removed on 2026-10-05 at the request of the owner: `Daf.isin()` and its 2 tests. The `select_where()` docstring no longer mentions it.
+    The README rows that map the `isin()` of pandas to `select_krows()` and `select_where()` stay. The file `src/daffodil/daf_doc.txt` is
+    a generated listing and still shows `isin()`. I did not edit it.

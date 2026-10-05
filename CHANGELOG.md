@@ -121,6 +121,9 @@ all prior releases. Plans for future moved to ROADMAP.md.
   built from another one copies it, when it shares it.
 
 ### Removed
+- `Daf.isin()` is removed. It was a static method that made a list of bools, from an early attempt to match the `isin()` of pandas.
+  A list comprehension or `select_where()` does the same. Neither daffodil nor AuditEngine used it. Its 2 tests are removed too.
+  It was deprecated and then removed on 2026-10-05 at the request of the owner.
 - `unpack_indirect()` is removed from `daf.py`. It was a module function that was not attached to `Daf`, and only its 3 tests called
   it. Its docstring example called `flatten_indirect()`, which does not exist. The accessor that makes a row read as one map
   replaced it. `_IndirectRowView`, `get_indirect_da()` and `get_indirect_val()` are still used and are kept. Removed on 2026-10-04
@@ -129,9 +132,6 @@ all prior releases. Plans for future moved to ROADMAP.md.
   and `from_json()` are kept. Removed on 2026-10-04 at the request of the owner, who found no use of it. Its 2 tests are removed too.
 
 ### Deprecated
-- `Daf.isin()` is deprecated. It was an early attempt to match the `isin()` of pandas. A list comprehension or `select_where()` does the
-  same, and neither daffodil nor AuditEngine uses it. Only the docstring says so, and the method works as before. It will be removed.
-  Decided on 2026-10-05 at the request of the owner. The docstring also warns that a list of bools is not a column selector.
 - `manifest_apply()`, `manifest_reduce()` and `manifest_process()` are marked legacy in their docstrings and in the README.
   Decided on 2026-10-05. Only the docs changed, and the methods work as before.
 

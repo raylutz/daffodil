@@ -1043,87 +1043,6 @@ class Daf:
         #self.hd = {col:idx for idx, col in enumerate(cols)}
 
 
-    @staticmethod
-    def isin(listlike1: Union[T_da, T_la], listlike2: Union[T_da, T_la]) -> T_lb:
-        """
-        Make a list of True and False, one per item of the first collection. Deprecated.
-
-        This is deprecated. Use a list comprehension, such as `[item in names for item in items]`,
-        which does the same, or `select_where()` with a function. It was an early attempt to match
-        the `isin()` of pandas. Daffodil does not use it, and it will be removed. `select_where()`
-        shows how to test values against a set in one pass.
-
-        An item is True if it is found in the second collection. This is a static
-        method, so call it as `Daf.isin(a, b)`. It is handy for picking or leaving out
-        columns by name.
-
-        Do not use the list of bools as a column selector, as in `my_daf[:, mask]`. A list of bools
-        is read as a list of positions, where False is 0 and True is 1, so the wrong columns are
-        chosen, and some more than once. To keep or leave out columns by name, make a list of the
-        names first, as in the example.
-
-        Args:
-            listlike1: The items to test, in order.
-            listlike2: The collection to look in.
-
-        Returns:
-            A list of bools, as long as `listlike1`.
-
-        Examples:
-            >>> Daf.isin(['a', 'b', 'c'], ['b'])
-            [False, True, False]
-            >>> [item in ['b'] for item in ['a', 'b', 'c']]
-            [False, True, False]
-            >>> d = Daf(lol=[[1, 2, 3]], cols=['a', 'b', 'c'])
-            >>> omit = Daf.isin(d.columns(), ['b'])
-            >>> d[:, [name for name, drop in zip(d.columns(), omit) if not drop]].columns()
-            ['a', 'c']
-        """
-
-        """ creates a boolean mask (list of bools) for each item in list1 which is in list2
-
-            this can be used particularly for omitting columns, like:
-
-                my_daf[:, ~my_daf.columns().isin(colnames_to_omit_list)]
-
-            can also be used to select columns
-
-                my_daf[:, my_daf.columns().isin(colnames_to_keep_list)]
-
-            but this is easier done by providing the list directly
-
-                my_daf[:, colnames_to_keep_list]
-
-            as long as the colnames are not numbers, because then the indexing will
-            assume they are column numbers. So this can be a workaround if the colnames
-            are numbers and using them directly can be confusing, but mainly it is used
-            to exclude columns. Can be also used for rows, but it is best to use
-            direct selection if possible.
-
-            This will directly select rows with the keys selected.
-
-                my_daf[rowkeys_to_keep_list]
-
-            But can also select with a boolean mask, but it is not as efficient.
-
-                my_daf[my_daf.keys().isin(rowkeys_to_keep_list)]
-
-            However, that may be good if you just want to exclude rows
-
-                my_daf[~my_daf.keys().isin(rowkeys_to_keep_list)]
-
-        """
-        searchable2: Union[Dict[Any, Any], T_la]
-        if isinstance(listlike2, list) and len(listlike1) > 10 and len(listlike2) > 30:
-            searchable2 = dict.fromkeys(listlike2)
-        else:
-            searchable2 = listlike2
-
-        bool_mask_lb = [col in searchable2 for col in listlike1]
-
-        return bool_mask_lb
-
-
     def calc_cols(self,
             include_cols: Optional[Iterable]=None,
             exclude_cols: Optional[Iterable]=None,
@@ -6277,7 +6196,7 @@ class Daf:
         carry over.
 
         To test a value against a list, a set or another table, write the test in the function.
-        There is no need to build a list of bools first, as the deprecated `isin()` did. Build a set
+        There is no need to build a list of bools first. Build a set
         of the values before the call, so that each lookup is fast and the set is built once. The
         function can use `and`, `or`, `not` and any other Python. It is called once for each row, so
         for a test on one column of a large Daf it is not the fastest way. A comprehension over
