@@ -2240,6 +2240,7 @@ class Daf:
             dtypes:         T_dtype_dict | None         = None, # set the data types for each column.
             name:           str                         = '',   # Optional name of the daffodil instance.
             cols:           T_ls | None                 = None, # Optionally use cols to define column names
+            ignore_extra_keys: bool                     = False,# With cols or dtypes, leave out keys that are not columns, and do not raise.
             ) -> 'Daf':
         """
         Make a Daf from a list of dicts, one dict for each row.
@@ -2251,8 +2252,10 @@ class Daf:
         look through the data first. Empty dicts and items that are not dicts are skipped.
 
         If `cols` is given, those are the columns. Otherwise the keys of `dtypes` are
-        the columns. In both cases any other keys are left out, because you chose
-        the columns.
+        the columns. You chose the columns, so a dict with a key that is not one of them
+        raises `ValueError`, which names the keys, because that value would be lost.
+        Pass `ignore_extra_keys=True` to leave such keys out on purpose, as when you
+        pick a few columns of wide records.
 
         Args:
             records_lod: The rows, as dicts.
@@ -2260,9 +2263,14 @@ class Daf:
             dtypes: Type for each column. When given, it also selects the columns.
             name: Name of the new Daf.
             cols: Column names to use, in order.
+            ignore_extra_keys: With `cols` or `dtypes`, leave out keys that are not columns, and do not raise.
 
         Returns:
             The new Daf.
+
+        Raises:
+            ValueError: `cols` or `dtypes` is given, a dict has a key that is not one of those columns,
+                and `ignore_extra_keys` is not True.
 
         Examples:
             >>> Daf.from_lod([{'a': 1, 'b': 2}, {'a': 3}])
@@ -2282,6 +2290,11 @@ class Daf:
             | b | a |
             | -: | -: |
             | 2 | 1 |
+            %% daf rows=1; cols=2; keyfield=''; name=''
+            >>> Daf.from_lod([{'a': 1, 'b': 2, 'c': 3}], cols=['a', 'b'], ignore_extra_keys=True)
+            | a | b |
+            | -: | -: |
+            | 1 | 2 |
             %% daf rows=1; cols=2; keyfield=''; name=''
         """
 
@@ -2305,12 +2318,25 @@ class Daf:
             return cls(cols=cols, keyfield=keyfield, dtypes=dtypes)
 
         if cols or dtypes:
-            # the caller chose the columns, so keys that are not columns are left out on purpose.
+            # the caller chose the columns. A key that is not one of them would be lost, so stop and say so,
+            # unless the caller said to leave such keys out. Each row is built directly, without a dict for each record.
             if not cols:
                 cols = list(dtypes.keys())
 
-            lol = [list(daf_utils.set_cols_da(record_da, cols).values())
-                    for record_da in records_lod if record_da and isinstance(record_da, dict)]
+            if ignore_extra_keys:
+                lol = [[record_da.get(col, NULL) for col in cols]
+                        for record_da in records_lod if record_da and isinstance(record_da, dict)]
+            else:
+                colset = set(cols)
+                lol = []
+                for record_da in records_lod:
+                    if record_da and isinstance(record_da, dict):
+                        if not record_da.keys() <= colset:
+                            extra_keys = [key for key in record_da if key not in colset]
+                            raise ValueError(
+                                f"from_lod: a record has keys that are not in cols or dtypes: {extra_keys[:5]}. "
+                                f"Add them to cols, or pass ignore_extra_keys=True to leave them out.")
+                        lol.append([record_da.get(col, NULL) for col in cols])
 
         else:
             # the columns are the keys of all the records, in the order of their first appearance. A record
@@ -2319,7 +2345,7 @@ class Daf:
             # second pass is made, when the first record has all the keys. Checking the keys of each record
             # against a set of the columns is done in C, and building the row directly avoids a dict per record.
             cols    = []
-            colset: set[str]    = set()
+            colset  = set()
             lol     = []
             grew    = False
 
@@ -2716,10 +2742,15 @@ class Daf:
             lod: The dicts. They should all have the same keys.
             cols: Column names, starting with the name of the column of keys.
             keyfield: Column whose values identify rows.
-            dtypes: Type for each column of the dicts, before the change.
+            dtypes: Type for each column of the dicts, before the change. It must name every key of the dicts.
 
         Returns:
             The new Daf.
+
+        Raises:
+            ValueError: `dtypes` is given and a dict has a key that it does not name. The keys would be
+                matched to the wrong values. The message mentions `ignore_extra_keys`, which this method does not take.
+                Name all the keys.
 
         Examples:
             >>> d = Daf.from_lod_to_cols([{'A': 1, 'B': 2}, {'A': 4, 'B': 5}], cols=['Feature', 'T1', 'T2'])

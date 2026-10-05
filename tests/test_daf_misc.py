@@ -872,14 +872,50 @@ def test_from_lod_a_keyfield_that_first_appears_in_a_later_dict_is_found():
     assert daf.columns() == ['a', 'id'] and daf.keyfield == 'id'
 
 
-def test_from_lod_with_cols_drops_other_keys_on_purpose():
-    daf = Daf.from_lod([{'a': 1, 'b': 2}, {'a': 3, 'b': 4, 'c': 5}], cols=['b', 'a'])
-    assert daf.lol == [[2, 1], [4, 3]]
+def test_from_lod_with_cols_raises_for_a_key_that_is_not_a_column():
+    with pytest.raises(ValueError) as excinfo:
+        Daf.from_lod([{'a': 1, 'b': 2}, {'a': 3, 'b': 4, 'c': 5, 'd': 6}], cols=['b', 'a'])
+    assert "['c', 'd']" in str(excinfo.value) and 'ignore_extra_keys' in str(excinfo.value)
 
 
-def test_from_lod_with_dtypes_drops_other_keys_on_purpose():
-    daf = Daf.from_lod([{'a': 1, 'b': 2}, {'a': 3, 'b': 4, 'c': 5}], dtypes={'a': int, 'b': int})
+def test_from_lod_with_dtypes_raises_for_a_key_that_is_not_a_column():
+    with pytest.raises(ValueError, match="'c'"):
+        Daf.from_lod([{'a': 1, 'b': 2}, {'a': 3, 'b': 4, 'c': 5}], dtypes={'a': int, 'b': int})
+
+
+def test_from_lod_with_cols_and_ignore_extra_keys_leaves_other_keys_out():
+    daf = Daf.from_lod([{'a': 1, 'b': 2}, {'a': 3, 'b': 4, 'c': 5}], cols=['b', 'a'], ignore_extra_keys=True)
+    assert daf.columns() == ['b', 'a'] and daf.lol == [[2, 1], [4, 3]]
+
+
+def test_from_lod_with_dtypes_and_ignore_extra_keys_leaves_other_keys_out():
+    daf = Daf.from_lod([{'a': 1, 'b': 2}, {'a': 3, 'b': 4, 'c': 5}], dtypes={'a': int, 'b': int}, ignore_extra_keys=True)
     assert daf.lol == [[1, 2], [3, 4]]
+
+
+def test_from_lod_with_cols_gives_null_for_a_key_that_a_dict_lacks_and_accepts_all_the_keys():
+    daf = Daf.from_lod([{'a': 1}, {'a': 2, 'b': 3}, {}, None], cols=['a', 'b'])
+    assert daf.lol == [[1, ''], [2, 3]]
+
+
+def test_from_lod_ignore_extra_keys_changes_nothing_when_there_are_no_extra_keys_or_no_cols():
+    lod = [{'a': 1}, {'a': 2, 'b': 3}]
+    assert Daf.from_lod(lod, ignore_extra_keys=True).lol == Daf.from_lod(lod).lol == [[1, ''], [2, 3]]
+
+
+def test_from_lod_to_cols_with_dtypes_that_leave_out_a_key_raises_and_does_not_mislabel_the_data():
+    # before, dtypes naming only y and z put the values of y under the key x, and those of z under y.
+    lod = [{'x': 1, 'y': 2, 'z': 3}, {'x': 4, 'y': 5, 'z': 6}]
+    with pytest.raises(ValueError, match="'x'"):
+        Daf.from_lod_to_cols(lod, dtypes={'y': int, 'z': int})
+    assert Daf.from_lod_to_cols(lod, dtypes={'x': int, 'y': int, 'z': int}).lol == [['x', 1, 4], ['y', 2, 5], ['z', 3, 6]]
+
+
+def test_from_dod_with_dtypes_that_leave_out_the_key_column_raises():
+    dod = {'r1': {'a': 1, 'b': 2}, 'r2': {'a': 3, 'b': 4}}
+    with pytest.raises(ValueError, match="'id'"):
+        Daf.from_dod(dod, keyfield='id', dtypes={'a': int, 'b': int})
+    assert Daf.from_dod(dod, keyfield='id', dtypes={'id': str, 'a': int, 'b': int}).lol == [['r1', 1, 2], ['r2', 3, 4]]
 
 
 def test_from_lod_skips_empty_and_non_dict_items():

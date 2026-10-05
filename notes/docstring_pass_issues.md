@@ -554,6 +554,9 @@ The date of the first entry is 2026-10-02.
 115. Decided on 2026-10-05: `from_lod()` adds a column for a key that first appears in a later dict, where it raised `ValueError`. The error was never released. In 0.5.13 the value was dropped.
     Option 1 of three was chosen: add the columns as they appear and pad the earlier rows once at the end. A prescan was the other way, and it costs an extra pass.
     The time for 200,000 dicts of 10 keys is 0.447 s, the same as the 0.449 s of the version that raised. Eight tests were rewritten or added.
-    Open for the owner: with `cols` or `dtypes` given, keys that are not columns are still left out without an error. The owner proposed an error unless `ignore_extra_keys=True`.
+    The owner then chose, also on 2026-10-05, that with `cols` or `dtypes` given a dict with another key raises `ValueError` unless `ignore_extra_keys=True`. The reason: daffodil shares data and is fast,
+    which makes it somewhat unsafe, and the owner wants these areas tightened. That path was also made faster, by building each row directly. 0.38 s with the check, against 0.43 s.
+    The change closed a data bug in `from_lod_to_cols()`: with `dtypes` that named only later keys, the values were put under the wrong keys.
     `append()` and `extend()` also drop a key that is not a column, and that is documented.
+116. Added to the checks for AuditEngine on 2026-10-05: item 17 of notes/auditengine_action_items.md, for the calls of `from_lod()` that give `cols=` or `dtypes=`.
 

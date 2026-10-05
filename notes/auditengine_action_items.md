@@ -109,4 +109,7 @@ Not checked: `pdf_image_indexer2.py:74` on real PDF archives, and the paths that
 
 Update on 2026-10-05, after the review: `from_lod()` no longer raises for a key that first appears in a later dict. It adds a column. So the check in item 2, at
 `pdf_image_indexer2.py:74`, needs no change in AuditEngine. With `cols` or `dtypes` given, keys that are not columns are still left out.
+17. Check every `from_lod(` call that gives `cols=` or `dtypes=`. A dict with a key that is not one of those columns now raises `ValueError`, and names the keys. It dropped the
+    value without a message before. If a call picks a few columns of wide records on purpose, pass `ignore_extra_keys=True`. The first review found no such call, and did not look for one.
+    How to look: search for `from_lod(` with `cols=` or `dtypes=`. Also search for `from_lod_to_cols(` with `dtypes=`, and `from_dod(` with `dtypes=`, which call `from_lod()`.
 
