@@ -371,8 +371,9 @@ class TestDaf(unittest.TestCase):
         from_to_dict = {'Col1': 'NewCol1', 'Col3': 'NewCol3'}
         daf.rename_cols(from_to_dict)
         
-        # Check if keyfield is updated correctly -- requires manual updating of keyfield
-        self.assertEqual(daf.keyfield, '')
+        # The keyfield follows the rename.
+        self.assertEqual(daf.keyfield, 'NewCol1')
+        self.assertEqual(daf.select_krows([2]).lol, [[2, 'B', False]])
         
 
     # set_cols
@@ -397,13 +398,11 @@ class TestDaf(unittest.TestCase):
         self.assertEqual(daf.hd, {'A': 0, 'B': 1})
     
     def test_set_cols_repair_keyfield(self):
-        # Renaming columns always resets the keyfield to '' (deliberate design decision: field
-        # renaming is rare, and the caller must explicitly call set_keyfield() afterward with
-        # the correct new column name rather than relying on automatic remapping).
+        # The keyfield follows the names by position.
         daf = Daf(cols=['col1', 'col2'], keyfield='col1')
         new_cols = ['A', 'B']
         daf.set_cols(new_cols)
-        self.assertEqual(daf.keyfield, '')
+        self.assertEqual(daf.keyfield, 'A')
     
     def test_set_cols_update_dtypes(self):
         # Test updating dtypes dictionary with new column names

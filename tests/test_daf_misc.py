@@ -233,14 +233,11 @@ def test_set_cols_too_many_raises_on_empty_daf_with_cols():
         daf.set_cols(['x', 'y', 'z'])
 
 
-def test_set_cols_always_resets_keyfield():
-    # deliberate design decision: renaming columns always resets keyfield to '' rather than
-    # attempting to remap it to a new name, even when a column logically corresponding to the
-    # old keyfield still exists. Field renaming is rare, and the caller must explicitly call
-    # set_keyfield() afterward with the correct new column name.
+def test_set_cols_keyfield_follows_the_new_names():
     daf = Daf(lol=[[1, 'a']], cols=['id', 'name'], keyfield='id')
     daf.set_cols(['new_id', 'new_name'])
-    assert daf.keyfield == ''
+    assert daf.keyfield == 'new_id'
+    assert daf.select_krows([1]).lol == [[1, 'a']]
 
 
 # =====================================================================

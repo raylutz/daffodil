@@ -1240,8 +1240,8 @@ class Daf:
         Names that are not in the mapping stay as they are. Names in the mapping that
         are not in the Daf are ignored. The dtypes are renamed too.
 
-        The keyfield is cleared, even if its column was not renamed. Call
-        `set_keyfield()` afterwards to turn key lookups back on.
+        The keyfield follows the rename. If its column is renamed, the keyfield has the
+        new name, and key lookups keep working.
 
         Args:
             from_to_dict: Maps old names to new names.
@@ -1253,17 +1253,43 @@ class Daf:
             >>> d = Daf(lol=[[1, 2]], cols=['a', 'b'])
             >>> d.rename_cols({'b': 'c'}).columns()
             ['a', 'c']
+            >>> k = Daf(lol=[[1, 'x']], cols=['id', 'v'], keyfield='id')
+            >>> k.rename_cols({'id': 'ident'}).keyfield
+            'ident'
         """
 
         # unit tests exist
 
-        self.hd         = {from_to_dict.get(col, col):idx for idx, col in enumerate(self.hd.keys())}
+        old_to_new      = {col: from_to_dict.get(col, col) for col in self.hd}
+        self.hd         = {new_col: idx for idx, new_col in enumerate(old_to_new.values())}
         if self.dtypes:
             self.dtypes = {from_to_dict.get(col, col):typ for col, typ in self.dtypes.items()}
-        self._invalidate_kd()
-        self.keyfield   = ''
+        self._remap_keyfield(old_to_new)
 
         return self
+
+
+    def _remap_keyfield(self, old_to_new: Dict[Any, str]) -> None:
+        """
+        Give the keyfield the new names of its columns, in place. Clear it if a key column has no new name.
+
+        A single name stays a single name, and a tuple or a list stays what it is. The key index
+        is cleared, so that it is rebuilt on first use. Internal use.
+
+        Args:
+            old_to_new: Maps each old column name to its new name.
+        """
+        keyfield = self.keyfield
+
+        if keyfield:
+            if isinstance(keyfield, (str, int)):
+                self.keyfield = old_to_new.get(keyfield, '')
+            elif all(key_col in old_to_new for key_col in keyfield):
+                self.keyfield = type(keyfield)(old_to_new[key_col] for key_col in keyfield)
+            else:
+                self.keyfield = ''
+
+        self._invalidate_kd()
 
 
     def set_cols(self, new_cols: Optional[T_ls]=None, sanitize_cols: bool=True, unnamed_prefix: str='col') -> 'Daf':
@@ -1279,8 +1305,10 @@ class Daf:
         constructor and in `from_md()`, use `Unnamed` instead, which says that there is no name.
         The dtypes are renamed by position as well.
 
-        The keyfield is cleared. Call `set_keyfield()` afterwards to turn key lookups
-        back on.
+        The keyfield follows the names, as the dtypes do. If its column gets a new name, the
+        keyfield has that name. If the Daf had no column names yet, the keyfield is kept
+        when it is one of the new names, so it can be given before the names are known.
+        Otherwise it is cleared.
 
         Args:
             new_cols: The names, in order. If None, spreadsheet names are made.
@@ -1298,6 +1326,12 @@ class Daf:
             ['A', 'B', 'C']
             >>> Daf(lol=[[1, 2, 3]]).set_cols(['a', 'a', '']).columns()
             ['a', 'a_1', 'col2']
+            >>> d = Daf(lol=[[1, 'x']], keyfield='id').set_cols(['id', 'v'])
+            >>> d.keyfield
+            'id'
+            >>> d = Daf(lol=[[1, 'x']], cols=['a', 'b'], keyfield='a').set_cols(['id', 'v'])
+            >>> d.keyfield
+            'id'
         """
 
         num_cols = self.num_cols() or len(self.hd)
@@ -1311,14 +1345,9 @@ class Daf:
         if num_cols and len(new_cols) != num_cols:
             raise AttributeError("Length of new_cols not the same as existing cols")
 
-        # Renaming columns always resets the keyfield to '' rather than attempting to remap it
-        # to the new name. Field renaming is rare, and the caller is expected to explicitly
-        # re-set the correct keyfield afterward (via set_keyfield()) rather than relying on
-        # automatic repair -- which would otherwise need to track which old column name
-        # corresponded to which new one, an error-prone correspondence to maintain silently.
-        self.keyfield = ''
-
-        self._invalidate_kd()
+        # The keyfield follows the names by position, as the dtypes do. With no names yet, it is kept if it is one of the new names.
+        old_cols = list(self.hd)
+        self._remap_keyfield(dict(zip(old_cols, new_cols)) if old_cols else {col: col for col in new_cols})
 
         # set new cols to the hd
         self._cols_to_hd(new_cols)

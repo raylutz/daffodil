@@ -156,6 +156,10 @@ all prior releases. Plans for future moved to ROADMAP.md.
     be set before its column exists. A Daf with no column names yet can still be given one, so `Daf(keyfield='id')` followed by `append()` of dicts works.
     `set_keyfield(silent_error=True)` still stores the name, and the default of `silent_error` is now False. After a direct edit of the attribute,
     the lookup still says what is wrong. `join()` now gives a result with no keyfield when the left table is empty, where it gave a keyfield that was not a column.
+  - `rename_cols()` and `set_cols()` now keep the keyfield, at the owner's request on 2026-10-05. They cleared it before. The keyfield takes the new name of its column.
+    `set_cols()` follows the names by position, as it does for the dtypes. If the Daf has no column names yet, it keeps a keyfield that is one of the new names,
+    so `Daf(lol=rows, keyfield='id')` followed by `set_cols(['id', 'v'])` works. A composite keyfield keeps its type. A key column with no new name clears it.
+    A new private method, `_remap_keyfield()`, does this. Three tests that expected the old clearing were rewritten, and 12 were added.
   - The constructor now cuts `dtypes` to the names that are columns. Your dict is not changed. A dict that is already right is adopted as before.
     It costs about 1.6 microseconds for 50 columns, on top of 4. The `keyfield` is still stored when it is not a column.
   - The `COPY_` constants are new public names on `Daf`, and `T_copybits` is a new alias in `daf_types.py`. Tests are in tests/test_daf_copy_bits.py. Tests: 2202 before, 2231 after.

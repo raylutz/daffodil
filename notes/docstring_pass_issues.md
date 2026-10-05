@@ -541,4 +541,7 @@ The date of the first entry is 2026-10-02.
     The full suite found two places that depended on the old behavior. `join()` built a result whose keyfield was not one of its columns when the left table was empty.
     It now gives that result no keyfield. `test_from_lod_to_cols_empty_lod` passed a keyfield that was not a column, and it now passes one that is.
     Four tests of item 91 were rewritten, and five were added. The lookup message `_keyfield_not_a_column_message()` stays for a direct edit of the attribute, and for a Daf with no names.
-    Open for the owner: `rename_cols()` clears the keyfield, though the key column still exists under its new name. It could follow the rename.
+112. Decided on 2026-10-05, with item 111. `rename_cols()` and `set_cols()` keep the keyfield. `set_cols()` was cleared on purpose before, and the old tests called that a design decision.
+    The owner reversed it. With names already there, `set_cols()` follows the names by position, which is a little more than the option the owner approved.
+    That option kept the keyfield only if its name was among the new names. For a table with names `['a', 'b']` and `set_cols(['b', 'a'])` it would have kept a key on the other column.
+    The position rule keeps the key on the same data. The two rules agree when the Daf had no names yet, and when the names do not change.
