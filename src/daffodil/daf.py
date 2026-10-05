@@ -91,7 +91,7 @@ from pathlib import Path
 
 from daffodil.lib.daf_types import T_ls, T_lola, T_di, T_loda, T_da, T_li, T_dtype_dict, \
                             T_dola, T_dodi, T_la, T_lota, T_doda, T_buff, T_ds, T_lb, T_rli, \
-                            T_ta, T_lor, T_kva, T_donpa, T_npa, T_lsi, T_cs, T_ca, T_ma, CopyBits  # noqa: F401
+                            T_ta, T_lor, T_kva, T_donpa, T_npa, T_lsi, T_cs, T_ca, T_ma, T_copybits  # noqa: F401
 
 import daffodil.lib.daf_utils    as daf_utils
 import daffodil.lib.daf_md       as md
@@ -117,13 +117,6 @@ from collections.abc import Iterable, Collection, Sequence, Iterator, Hashable  
 T_dodaf = Dict[str, 'Daf']
 
 logs = daf_utils                # alias
-_COPY_PRESETS: Dict[str, CopyBits] = {       # the names that copy() accepts, as sums of bits.
-    'shallow':  CopyBits.ATTRS,
-    'sortable': CopyBits.ATTRS | CopyBits.OUTER | CopyBits.HD | CopyBits.DTYPES | CopyBits.KD,
-    'editable': CopyBits.ATTRS | CopyBits.OUTER | CopyBits.HD | CopyBits.DTYPES | CopyBits.KD | CopyBits.ROWS,
-    'deep':     CopyBits.DEEP,
-}
-_CLONE_EMPTY_BITS: CopyBits = _COPY_PRESETS['sortable']     # what clone_empty() has of its own.
 
 NULL = ''                       # instead of var == '' use var is NULL
 
@@ -178,6 +171,23 @@ class Daf:
 
     ITERMODE_DICT = 'dict'
     ITERMODE_KEYEDLIST = 'keyedlist'
+
+    # The parts that copy() can give a copy of its own. Add them with |. A part without its bit is shared.
+    COPY_NONE   = 0     # nothing: the copy shares every part.
+    COPY_ATTRS  = 1     # the attrs dict, deep copied, and the disp_cols list.
+    COPY_OUTER  = 2     # the list that holds the rows. The rows themselves are still shared.
+    COPY_HD     = 4     # the header dict that maps a column name to its position.
+    COPY_DTYPES = 8     # the dtypes dict.
+    COPY_KD     = 16    # the key index, which is rebuilt on first use, and a keyfield that is a list.
+    COPY_ROWS   = 32    # a new list for every row. Text and numbers in the cells are not copied.
+
+    # The names that copy() accepts, as sums of the bits. The name 'deep' is not here, because it
+    # is a deep copy and cannot be combined with any bit.
+    _COPY_PRESETS: ClassVar[Dict[str, int]] = {
+        'shallow':  COPY_ATTRS,
+        'sortable': COPY_ATTRS | COPY_OUTER | COPY_HD | COPY_DTYPES | COPY_KD,
+        'editable': COPY_ATTRS | COPY_OUTER | COPY_HD | COPY_DTYPES | COPY_KD | COPY_ROWS,
+    }
 
     copy_level_default: ClassVar[Union[str, int]] = 'sortable'     # what copy() does when no level is given. See copy().
 
@@ -896,7 +906,7 @@ class Daf:
 
     def copy(
             self,
-            level:       Union[str, int, bool, None] = None,   # preset name, CopyBits, or None for copy_level_default
+            level:       Union[str, T_copybits, None] = None,  # a name, a sum of COPY_ bits, or None for copy_level_default
             name:        str  = '',                            # the name of the copy
             deep:        bool = False,                         # old argument: same as level 'deep'
             for_sorting: bool = False,                         # old argument: same as level 'sortable'
@@ -909,7 +919,7 @@ class Daf:
         fast, because nothing is copied that does not have to be. Pick the cheapest
         `level` that is safe for what you do next.
 
-        The level is one of four names, or a sum of [CopyBits][daffodil.lib.daf_types.CopyBits].
+        The level is one of four names, or a sum of the `COPY_` constants of `Daf`.
         Without a level, the class setting `copy_level_default` is used. It is `sortable`.
         To play safe everywhere, set it on a subclass, as in
         `class SafeDaf(Daf): copy_level_default = 'editable'`. The table gives the cost for
@@ -921,6 +931,23 @@ class Daf:
         | `sortable` | `shallow`, the row list, `hd`, `dtypes`, the key index | 0.002 s, 2 MB   |
         | `editable` | `sortable`, plus a new list for every row             | 0.5 s, 93 MB    |
         | `deep`     | everything that is a container                        | 4 s, 107 MB     |
+
+        To choose your own mix, add these constants of `Daf` with `|`. A part without its bit is
+        shared. A copy is always a new object, so there is no bit for that. The two bits `COPY_ROWS`
+        and `COPY_OUTER` imply others: `COPY_ROWS` adds `COPY_OUTER`, and `COPY_OUTER` adds
+        `COPY_KD`. They are added for you, because a row list that is copied while the key index
+        is shared would leave the index wrong for one of the two. The name `deep` cannot be
+        combined with any bit.
+
+        | Constant      | Value | Own in the copy                                           |
+        |---------------|------:|-----------------------------------------------------------|
+        | `COPY_NONE`   |     0 | nothing. Every part is shared.                            |
+        | `COPY_ATTRS`  |     1 | the `attrs` dict, deep copied, and the `disp_cols` list   |
+        | `COPY_OUTER`  |     2 | the list that holds the rows. The rows are still shared   |
+        | `COPY_HD`     |     4 | the header dict                                           |
+        | `COPY_DTYPES` |     8 | the dtypes dict                                           |
+        | `COPY_KD`     |    16 | the key index, and a `keyfield` that is a list            |
+        | `COPY_ROWS`   |    32 | a new list for every row                                  |
 
         With `shallow`, the copy shares the row list, the rows, `hd` and `dtypes` with the
         original. Reading is safe. Sorting with `sort_by_colname()` is safe too, because it
@@ -951,7 +978,7 @@ class Daf:
         `copy(True)` still means `deep`. `copy(False)` uses the class setting.
 
         Args:
-            level: A name, a sum of `CopyBits`, or None for the class setting `copy_level_default`.
+            level: A name, a sum of the `COPY_` constants, or None for the class setting `copy_level_default`.
             name: The name of the copy. It is empty if not given.
             deep: Same as level `deep`.
             for_sorting: Same as level `sortable`.
@@ -979,7 +1006,7 @@ class Daf:
             >>> e[0, 'v'] = 'X'
             >>> d.iloc(0)
             {'id': 2, 'v': 'b'}
-            >>> m = d.copy(CopyBits.OUTER | CopyBits.HD)
+            >>> m = d.copy(Daf.COPY_OUTER | Daf.COPY_HD)
             >>> m[0, 'v'] = 'Y'
             >>> d.iloc(0)
             {'id': 2, 'v': 'Y'}
@@ -991,48 +1018,46 @@ class Daf:
         if level is None:
             level = self.copy_level_default
 
-        if isinstance(level, str):
-            if level not in _COPY_PRESETS:
-                raise ValueError(f"copy: level must be one of {list(_COPY_PRESETS)}, not {level!r}")
-            bits = _COPY_PRESETS[level]
-        else:
-            bits = CopyBits(level)
-
-        if for_sorting:
-            bits |= _COPY_PRESETS['sortable']
-        if deep:
-            bits = CopyBits.DEEP
-
-        if bits & CopyBits.DEEP:
+        if deep or level == 'deep':
             new_daf = copy.deepcopy(self)       # fully independent copy
             new_daf.name = name
             return new_daf
 
-        if bits & CopyBits.ROWS:                # a copied row list must not share a key index.
-            bits |= CopyBits.OUTER
-        if bits & CopyBits.OUTER:
-            bits |= CopyBits.KD
+        if isinstance(level, str):
+            if level not in self._COPY_PRESETS:
+                raise ValueError(f"copy: level must be one of {[*self._COPY_PRESETS, 'deep']}, not {level!r}")
+            bits = self._COPY_PRESETS[level]
+        else:
+            bits = int(level)
+
+        if for_sorting:
+            bits |= self._COPY_PRESETS['sortable']
+
+        if bits & self.COPY_ROWS:               # a copied row list must not share a key index.
+            bits |= self.COPY_OUTER
+        if bits & self.COPY_OUTER:
+            bits |= self.COPY_KD
 
         new_daf = copy.copy(self)               # a new object, which shares everything so far.
         new_daf.name = name
 
-        if bits & CopyBits.ATTRS:
+        if bits & self.COPY_ATTRS:
             new_daf.attrs = copy.deepcopy(self.attrs)
             if isinstance(self.disp_cols, list):
                 new_daf.disp_cols = list(self.disp_cols)
 
-        if bits & CopyBits.ROWS:
+        if bits & self.COPY_ROWS:
             new_daf.lol = [list(row) for row in self.lol]
-        elif bits & CopyBits.OUTER:
+        elif bits & self.COPY_OUTER:
             new_daf.lol = list(self.lol)
 
-        if bits & CopyBits.HD:
+        if bits & self.COPY_HD:
             new_daf.hd = dict(self.hd) if type(self.hd) is dict else copy.deepcopy(self.hd)
 
-        if bits & CopyBits.DTYPES and isinstance(self.dtypes, dict):
+        if bits & self.COPY_DTYPES and isinstance(self.dtypes, dict):
             new_daf.dtypes = dict(self.dtypes)
 
-        if bits & CopyBits.KD:
+        if bits & self.COPY_KD:
             if isinstance(self.keyfield, list):
                 new_daf.keyfield = list(self.keyfield)
             if self.keyfield:
@@ -2082,7 +2107,7 @@ class Daf:
         if self is None:
             return Daf()
 
-        new_daf = self.copy(_CLONE_EMPTY_BITS, name=name)
+        new_daf = self.copy(self._COPY_PRESETS['sortable'], name=name)
 
         new_daf.lol = lol if lol is not None else []        # adopted, as in Daf().
 

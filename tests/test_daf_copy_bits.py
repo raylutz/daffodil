@@ -1,11 +1,10 @@
 # test_daf_copy_bits.py
-# Tests for the CopyBits flags of copy(), the class setting copy_level_default, the name of a copy,
+# Tests for the COPY_ bits of copy(), the class setting copy_level_default, the name of a copy,
 # and clone_empty(), which is copy() with the layout bits and no rows.
 
 import pytest
 
 from daffodil.daf import Daf
-from daffodil.lib.daf_types import CopyBits
 
 
 def make_daf() -> Daf:
@@ -28,7 +27,7 @@ def make_daf() -> Daf:
 
 def test_none_shares_everything_but_is_a_new_object():
     daf = make_daf()
-    copied = daf.copy(CopyBits.NONE)
+    copied = daf.copy(Daf.COPY_NONE)
     assert copied is not daf
     assert copied.lol is daf.lol and copied.hd is daf.hd and copied.dtypes is daf.dtypes
     assert copied.attrs is daf.attrs and copied.disp_cols is daf.disp_cols
@@ -37,11 +36,11 @@ def test_none_shares_everything_but_is_a_new_object():
 
 def test_each_bit_gives_only_its_own_part():
     daf = make_daf()
-    c = daf.copy(CopyBits.HD)
+    c = daf.copy(Daf.COPY_HD)
     assert c.hd is not daf.hd and c.lol is daf.lol and c.dtypes is daf.dtypes and c.attrs is daf.attrs
-    c = daf.copy(CopyBits.DTYPES)
+    c = daf.copy(Daf.COPY_DTYPES)
     assert c.dtypes is not daf.dtypes and c.hd is daf.hd and c.lol is daf.lol
-    c = daf.copy(CopyBits.ATTRS)
+    c = daf.copy(Daf.COPY_ATTRS)
     assert c.attrs is not daf.attrs and c.attrs == daf.attrs
     assert c.disp_cols is not daf.disp_cols and c.disp_cols == daf.disp_cols
     assert c.lol is daf.lol
@@ -49,14 +48,14 @@ def test_each_bit_gives_only_its_own_part():
 
 def test_outer_gives_own_row_list_and_shares_rows():
     daf = make_daf()
-    c = daf.copy(CopyBits.OUTER)
+    c = daf.copy(Daf.COPY_OUTER)
     assert c.lol is not daf.lol and c.lol[0] is daf.lol[0]
     assert c.hd is daf.hd
 
 
 def test_outer_implies_a_fresh_key_index():
     daf = make_daf()
-    c = daf.copy(CopyBits.OUTER)
+    c = daf.copy(Daf.COPY_OUTER)
     assert c._kd == {} and c._kd is not daf._kd
     c.append([4, 'd'])
     assert daf.num_rows() == 3
@@ -66,30 +65,36 @@ def test_outer_implies_a_fresh_key_index():
 
 def test_rows_implies_outer_and_key_index():
     daf = make_daf()
-    c = daf.copy(CopyBits.ROWS)
+    c = daf.copy(Daf.COPY_ROWS)
     assert c.lol is not daf.lol and c.lol[0] is not daf.lol[0]
     assert c._kd == {}
 
 
 def test_sum_of_bits_and_plain_int_are_accepted():
     daf = make_daf()
-    c = daf.copy(CopyBits.OUTER | CopyBits.HD)
+    c = daf.copy(Daf.COPY_OUTER | Daf.COPY_HD)
     assert c.lol is not daf.lol and c.hd is not daf.hd and c.dtypes is daf.dtypes
-    c = daf.copy(int(CopyBits.HD))
+    c = daf.copy(int(Daf.COPY_HD))
     assert c.hd is not daf.hd and c.lol is daf.lol
 
 
-def test_deep_bit_is_a_deep_copy():
+def test_deep_is_a_name_and_not_a_bit():
     daf = Daf(lol=[['abc', [1, 2]]], cols=['a', 'b'])
-    c = daf.copy(CopyBits.DEEP)
-    assert c.lol[0][1] is not daf.lol[0][1]
+    assert daf.copy('deep').lol[0][1] is not daf.lol[0][1]
+    assert not hasattr(Daf, 'COPY_DEEP')
+    assert 'deep' not in Daf._COPY_PRESETS
+
+
+def test_unknown_name_lists_the_four_names():
+    with pytest.raises(ValueError, match=r"shallow.*sortable.*editable.*deep"):
+        Daf().copy('medium')
 
 
 def test_presets_are_sums_of_bits():
     daf = make_daf()
-    for name, bits in [('shallow', CopyBits.ATTRS),
-                       ('sortable', CopyBits.ATTRS | CopyBits.OUTER | CopyBits.HD | CopyBits.DTYPES | CopyBits.KD),
-                       ('editable', CopyBits.ATTRS | CopyBits.OUTER | CopyBits.HD | CopyBits.DTYPES | CopyBits.KD | CopyBits.ROWS)]:
+    for name, bits in [('shallow', Daf.COPY_ATTRS),
+                       ('sortable', Daf.COPY_ATTRS | Daf.COPY_OUTER | Daf.COPY_HD | Daf.COPY_DTYPES | Daf.COPY_KD),
+                       ('editable', Daf.COPY_ATTRS | Daf.COPY_OUTER | Daf.COPY_HD | Daf.COPY_DTYPES | Daf.COPY_KD | Daf.COPY_ROWS)]:
         a, b = daf.copy(name), daf.copy(bits)
         assert (a.lol is daf.lol, a.hd is daf.hd, a.dtypes is daf.dtypes, a.attrs is daf.attrs) == \
                (b.lol is daf.lol, b.hd is daf.hd, b.dtypes is daf.dtypes, b.attrs is daf.attrs)
@@ -102,14 +107,14 @@ def test_presets_are_sums_of_bits():
 
 def test_list_keyfield_is_copied_with_the_key_index():
     daf = Daf(lol=[[1, 'a']], cols=['id', 'v'], keyfield=['id', 'v'])
-    c = daf.copy(CopyBits.KD)
+    c = daf.copy(Daf.COPY_KD)
     assert c.keyfield == daf.keyfield and c.keyfield is not daf.keyfield
-    assert daf.copy(CopyBits.NONE).keyfield is daf.keyfield
+    assert daf.copy(Daf.COPY_NONE).keyfield is daf.keyfield
 
 
 def test_adopted_key_index_without_keyfield_is_copied_not_cleared():
     daf = Daf(lol=[[1, 'a'], [2, 'b']], cols=['id', 'v'], kd={1: 0, 2: 1})
-    c = daf.copy(CopyBits.KD)
+    c = daf.copy(Daf.COPY_KD)
     assert c._kd == {1: 0, 2: 1} and c._kd is not daf._kd
 
 
@@ -132,9 +137,17 @@ def test_subclass_can_change_the_default():
     assert safe.copy('shallow').lol is safe.lol
 
 
+def test_default_can_be_deep():
+    class DeepDaf(Daf):
+        copy_level_default = 'deep'
+
+    daf = DeepDaf(lol=[[1, [2]]], cols=['a', 'b'])
+    assert daf.copy().lol[0][1] is not daf.lol[0][1]
+
+
 def test_default_can_be_a_sum_of_bits():
     class ViewDaf(Daf):
-        copy_level_default = CopyBits.ATTRS
+        copy_level_default = Daf.COPY_ATTRS
 
     daf = ViewDaf(lol=[[1, 'a']], cols=['id', 'v'])
     assert daf.copy().lol is daf.lol
@@ -144,7 +157,7 @@ def test_default_can_be_a_sum_of_bits():
 # the shell and the name
 # =====================================================================
 
-@pytest.mark.parametrize('level', ['shallow', 'sortable', 'editable', 'deep', CopyBits.NONE, CopyBits.ROWS])
+@pytest.mark.parametrize('level', ['shallow', 'sortable', 'editable', 'deep', Daf.COPY_NONE, Daf.COPY_ROWS])
 def test_copy_is_a_new_object_of_the_same_class_without_a_name(level):
     class Sub(Daf):
         pass

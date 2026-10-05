@@ -2,12 +2,6 @@
 
 ::: daffodil.daf.Daf
 
-## CopyBits
-
-The flags that choose what [`copy()`][daffodil.daf.Daf.copy] gives the copy of its own.
-
-::: daffodil.lib.daf_types.CopyBits
-
 ## Methods defined in helper modules
 
 These methods are attached to `Daf` from helper modules. This avoids circular

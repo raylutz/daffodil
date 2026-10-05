@@ -722,7 +722,7 @@ in the result changes it in the original. A few selectors copy the rows.
 | `groupby`, `multi_groupby`                                       | copied (new row lists)        |
 | `select_cols`, `select_kcols`, `select_icols`                    | copied (new row lists)        |
 
-A `copy()` shares the rows too, and it gives the copy its own row list, `hd`, `dtypes` and key index. Choose what else it owns with a level or with `CopyBits`.
+A `copy()` shares the rows too, and it gives the copy its own row list, `hd`, `dtypes` and key index. Choose what else it owns with a level name, or with a sum of the `Daf.COPY_` constants.
 Use `copy('editable')` first if you need to change cells without touching the original. The copy has no name unless you give one with `name=`.
 Set `copy_level_default` on a subclass to change what a plain `copy()` does.
 

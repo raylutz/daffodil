@@ -523,7 +523,8 @@ The date of the first entry is 2026-10-02.
     (c) A copy has no name unless `name=` is given. The deep path follows the same rule.
     (d) The method keeps the name `copy()`. The docs say that it shares by choice. Sharing is a design feature of daffodil, and not a leak.
     Still to define: the name of the class default, the shipped default, and the names of the flags and presets.
-109. Implemented on 2026-10-05, the design of item 108. The flags are `ATTRS`, `OUTER`, `HD`, `DTYPES`, `KD`, `ROWS` and `DEEP`, in `daf_types.py`.
-    The owner chose to put `disp_cols` under `ATTRS`, and a list `keyfield` under `KD`. The class setting is `copy_level_default`, and its value is `sortable`.
-    The bit `DEEP` is mine and was not in the design. It lets a sum of bits ask for a deep copy. Details are in CHANGELOG.md.
+109. Implemented on 2026-10-05, the design of item 108. The bits are the constants `COPY_ATTRS`, `COPY_OUTER`, `COPY_HD`, `COPY_DTYPES`, `COPY_KD` and `COPY_ROWS` on `Daf`.
+    The owner chose to put `disp_cols` under `COPY_ATTRS`, and a list `keyfield` under `COPY_KD`. The class setting is `copy_level_default`, and its value is `sortable`.
+    The owner chose plain constants over an enum, as OpenCV does, and names for the common sums, as pandas does. I first made an `IntFlag` class named `CopyBits`. It was removed
+    the same day. `deep` is a name only, because a deep copy cannot be combined with any bit. Details are in CHANGELOG.md.
     Two choices of mine, for the owner to check. `copy(False)` uses the class setting. `clone_empty(cols=...)` drops `schema` and `disp_cols`.

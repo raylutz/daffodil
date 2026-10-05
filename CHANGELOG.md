@@ -136,8 +136,8 @@ all prior releases. Plans for future moved to ROADMAP.md.
   Decided on 2026-10-05. Only the docs changed, and the methods work as before.
 
 ### Changed
-- `copy()` is redone, at the request of the owner, on 2026-10-05. It takes bit flags, `CopyBits`, for what the copy owns, and the four names
-  `shallow`, `sortable`, `editable` and `deep` stay as sums of them. A copy is always a new object of the same class. Sharing is by choice and
+- `copy()` is redone, at the request of the owner, on 2026-10-05. It takes a sum of the constants `Daf.COPY_ATTRS`, `COPY_OUTER`, `COPY_HD`, `COPY_DTYPES`, `COPY_KD` and `COPY_ROWS` for what the copy owns, and the four names
+  `shallow`, `sortable`, `editable` and `deep` stay. The first three are sums of the constants. `deep` is a name only, because it cannot be combined. A copy is always a new object of the same class. Sharing is by choice and
   is what makes daffodil fast. Without a level, the class setting `copy_level_default` is used.
   - The default is now `sortable`, which was `shallow`. A plain `copy()` now has its own row list, `hd`, `dtypes` and key index, and shares the rows. It costs
     0.002 s for 200,000 rows of 50 columns, against 0.00002 s. `append`, `drop_cols` and `insert_icol` on the copy no longer reach the original.
@@ -149,7 +149,7 @@ all prior releases. Plans for future moved to ROADMAP.md.
   - `clone_empty()` is now `copy()` with the layout bits, then no rows. It returns an object of the same class, and not a plain `Daf`. It keeps `md_max_rows`,
     `md_max_cols`, `disp_cols`, `schema`, retmode and itermode, which it dropped. With `cols` given it drops `schema` and `disp_cols`, which describe the old columns.
     Every selector that calls it gets the same change.
-  - `CopyBits` is a new public class in `daf_types.py`. Its tests are in tests/test_daf_copy_bits.py. Tests: 2202 before, 2229 after.
+  - The `COPY_` constants are new public names on `Daf`, and `T_copybits` is a new alias in `daf_types.py`. Tests are in tests/test_daf_copy_bits.py. Tests: 2202 before, 2231 after.
 - `from_googlesheet()` and `to_googlesheet()` take a required `service_account_file` argument, and raise
   `NotImplementedError`. They had the placeholder path `path/to/your/service_account.json` in the source, so they
   could not be used without editing the library, and they could not be tested here. The draft code is in the
