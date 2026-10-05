@@ -147,9 +147,12 @@ all prior releases. Plans for future moved to ROADMAP.md.
     with no keyfield is copied, not cleared.
   - `copy(False)` now uses the class setting. It used to mean `shallow`.
   - `clone_empty()` is now `copy()` with the layout bits, then no rows. It returns an object of the same class, and not a plain `Daf`. It keeps `md_max_rows`,
-    `md_max_cols`, `disp_cols`, `schema`, retmode and itermode, which it dropped. With `cols` given it drops `dtypes`, `schema` and `disp_cols`, which describe the old columns. It used to keep the dtypes then.
-    The keyfield is kept as it is. `groupby()` keeps its dtypes, and a test checks it.
+    `md_max_cols`, `disp_cols`, `schema`, retmode and itermode, which it dropped. With `cols` given that differ from the columns, it keeps the dtypes for the columns that remain, clears the keyfield if any key column is gone, and
+    drops `schema` and `disp_cols`, which cannot be cut to fit. It used to keep the dtypes whole and the keyfield as it was. With the same `cols`, everything is carried over.
+    One private method, `_align_with_columns()`, decides this for every Daf made from another one. `groupby()` and its relatives use it through `clone_empty()`, and keep their dtypes.
     Every selector that calls it gets the same change.
+  - The constructor now cuts `dtypes` to the names that are columns. Your dict is not changed. A dict that is already right is adopted as before.
+    It costs about 1.6 microseconds for 50 columns, on top of 4. The `keyfield` is still stored when it is not a column.
   - The `COPY_` constants are new public names on `Daf`, and `T_copybits` is a new alias in `daf_types.py`. Tests are in tests/test_daf_copy_bits.py. Tests: 2202 before, 2231 after.
 - `from_googlesheet()` and `to_googlesheet()` take a required `service_account_file` argument, and raise
   `NotImplementedError`. They had the placeholder path `path/to/your/service_account.json` in the source, so they

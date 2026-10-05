@@ -530,5 +530,9 @@ The date of the first entry is 2026-10-02.
     The owner said on 2026-10-05 that `dtypes`, `schema` and `disp_cols` are linked to the columns. So `clone_empty(cols=...)` drops all three, and keeps them when `cols` is not given.
     The first version of this change dropped the dtypes of every `groupby()` result, because `_new_group_daf()` passed `cols` even when all the columns were kept.
     No test caught it. It is fixed, and `test_groupby_results_keep_the_dtypes` covers it.
-    Open: with `cols` given, the keyfield is kept as it is, even if it is not one of the new columns. Key lookups then find nothing and do not raise.
+110. Decided on 2026-10-05: the attributes tied to the columns are aligned in one private method, `_align_with_columns()`. The owner chose to keep the dtypes that survive.
+    The dtypes keep the entries for columns that exist. With changed columns the keyfield is cleared if a key column is gone, and `schema` and `disp_cols` are dropped.
+    The constructor cuts the dtypes to the columns, and does not touch the keyfield. A keyfield that is not a column is still stored, as item 91 says.
+    `_new_group_daf()` lost its own cutting code. Same columns means everything is carried over. `set_cols()` is unchanged, because it renames the dtypes by position.
+    Open for the owner: the constructor with `hd` and `dtypes` but no `cols` still replaces the given `hd` with the names of the dtypes.
     One choice of mine, for the owner to check. `copy(False)` uses the class setting.

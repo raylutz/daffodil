@@ -212,13 +212,61 @@ def test_clone_empty_name_and_adopted_rows():
     assert daf.lol != rows
 
 
-def test_clone_empty_with_cols_drops_dtypes_schema_and_display_columns():
+def test_clone_empty_with_new_cols_keeps_surviving_dtypes_and_drops_schema_and_display_columns():
     daf = make_daf()
-    daf.schema = object()       # type: ignore[assignment]
+    marker = object()
+    daf.schema = marker         # type: ignore[assignment]
     c = daf.clone_empty(lol=[[1, 2]], cols=['p', 'q'])
     assert c.columns() == ['p', 'q']
-    assert c.dtypes is None and c.schema is None and c.disp_cols == []
+    assert c.dtypes == {} and c.schema is None and c.disp_cols == []
     assert daf.columns() == ['id', 'v'] and daf.disp_cols == ['id'] and daf.dtypes == {'id': int, 'v': str}
+    c = daf.clone_empty(lol=[[1]], cols=['v'])
+    assert c.dtypes == {'v': str} and c.schema is None and c.disp_cols == []
+
+
+def test_clone_empty_with_new_cols_clears_keyfield_only_if_a_key_column_is_gone():
+    daf = Daf(lol=[[1, 'a', 5]], cols=['id', 'v', 'n'], keyfield='id')
+    assert daf.clone_empty(lol=[[1, 5]], cols=['id', 'n']).keyfield == 'id'
+    assert daf.clone_empty(lol=[['a', 5]], cols=['v', 'n']).keyfield == ''
+    two = Daf(lol=[[1, 'a', 5]], cols=['id', 'v', 'n'], keyfield=('id', 'v'))
+    assert two.clone_empty(lol=[[1, 'a']], cols=['id', 'v']).keyfield == ('id', 'v')
+    assert two.clone_empty(lol=[[1, 5]], cols=['id', 'n']).keyfield == ''
+    assert two.keyfield == ('id', 'v')
+
+
+def test_clone_empty_with_the_same_cols_carries_everything_over():
+    daf = make_daf()
+    marker = object()
+    daf.schema = marker         # type: ignore[assignment]
+    c = daf.clone_empty(lol=[[9, 'z']], cols=['id', 'v'])
+    assert c.dtypes == daf.dtypes and c.schema is marker and c.disp_cols == ['id'] and c.keyfield == 'id'
+
+
+# =====================================================================
+# the constructor: dtypes can only name columns
+# =====================================================================
+
+def test_constructor_cuts_dtypes_to_the_columns_and_leaves_the_callers_dict_alone():
+    given = {'a': int, 'b': int, 'zzz': float}
+    daf = Daf(lol=[[1, 2]], cols=['a', 'b'], dtypes=given)
+    assert daf.dtypes == {'a': int, 'b': int}
+    assert given == {'a': int, 'b': int, 'zzz': float}
+
+
+def test_constructor_adopts_a_dtypes_dict_that_is_already_right():
+    given = {'a': int, 'b': int}
+    daf = Daf(lol=[[1, 2]], cols=['a', 'b'], dtypes=given)
+    assert daf.dtypes is given
+
+
+def test_constructor_names_columns_from_dtypes_when_there_are_no_cols():
+    daf = Daf(lol=[[1, 2]], dtypes={'a': int, 'b': int})
+    assert daf.columns() == ['a', 'b'] and daf.dtypes == {'a': int, 'b': int}
+
+
+def test_constructor_keeps_a_keyfield_that_is_not_a_column():
+    daf = Daf(lol=[[1, 2]], cols=['p', 'q'], keyfield='a')
+    assert daf.keyfield == 'a'
 
 
 def test_clone_empty_without_cols_keeps_dtypes_and_schema():
@@ -235,7 +283,9 @@ def test_groupby_results_keep_the_dtypes():
     for group in daf.groupby('g').values():
         assert group.dtypes == {'g': int, 'v': str, 'n': int} and group.keyfield == 'n'
     for group in daf.groupby('g', cols=['g', 'n']).values():
-        assert group.dtypes == {'g': int, 'n': int}
+        assert group.dtypes == {'g': int, 'n': int} and group.keyfield == 'n'
+    for group in daf.groupby('g', cols=['g', 'v']).values():
+        assert group.dtypes == {'g': int, 'v': str} and group.keyfield == ''
 
 
 def test_clone_empty_with_cols_makes_names_unique():

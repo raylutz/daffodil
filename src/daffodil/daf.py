@@ -223,6 +223,9 @@ class Daf:
         Daf, so changing one changes the other. The same holds for `hd`, `kd` and
         `attrs`. Pass `use_copy=True` to deep copy `lol` first.
 
+        The `dtypes` can only name columns. If `dtypes` has a name that is not a column, the Daf
+        keeps a new dict without it, and your dict is not changed. A dict that is already right is adopted.
+
         If `cols` is given, it sets the column names. If it is not given, the keys of
         `dtypes` set them. Otherwise `hd` is used. A name that is empty or repeated
         is made unique, so `['a', 'a']` becomes `['a', 'a_1']`.
@@ -235,7 +238,7 @@ class Daf:
             hd: Header dict that maps column name to position.
             kd: Key index to adopt when no keyfield is set.
             cols: Column names. These win over `hd` and `dtypes`.
-            dtypes: Type for each column, used when converting from strings.
+            dtypes: Type for each column, used when converting from strings. Entries for names that are not columns are left out.
             schema: A `@schemaclass` or a schema Daf that supplies columns and defaults.
             keyfield: Column, or tuple or list of columns, whose values identify rows. A name that is not a column is
                 stored without an error, and then key lookups find nothing. See `set_keyfield()`.
@@ -349,6 +352,8 @@ class Daf:
             # if self.num_cols():
 
                 # self.lol = daf_utils.apply_dtypes_to_hdlol((self.hd, self.lol), effective_dtypes, from_str=False)[1]
+
+        self._align_with_columns()          # the dtypes can only name columns that exist.
 
         # rebuild kd if possible, only if keyfield is defined.
         # Now using lazy kd building. Leave as {} if not manually defined.
@@ -2075,6 +2080,39 @@ class Daf:
     #===========================
     # initializers
 
+    def _align_with_columns(self, columns_changed: bool=False) -> None:
+        """
+        Make the attributes that are tied to the columns agree with the columns, in place.
+
+        The `dtypes`, the `keyfield`, the `schema` and `disp_cols` all describe columns, so
+        they must agree with `hd`. This is the one place that decides what stays. It is called
+        by the constructor and by the methods that make a Daf from another one. Internal use.
+
+        The `dtypes` keep only the entries for columns that exist, and a dict
+        that is already right is left as it is. This is all that is done when the columns
+        are the ones that the caller gave, because the caller's other values then stand.
+
+        With `columns_changed`, the columns are not the ones that the values were made for.
+        Then the `keyfield` is cleared if any of its columns is missing. The `schema` and the
+        `disp_cols` are dropped, because they cannot be cut to fit.
+
+        Args:
+            columns_changed: The columns are new, and the other attributes were inherited.
+        """
+        hd = self.hd
+
+        if isinstance(self.dtypes, dict) and not self.dtypes.keys() <= hd.keys():
+            self.dtypes = {col: typ for col, typ in self.dtypes.items() if col in hd}
+
+        if columns_changed:
+            if self.keyfield:
+                key_cols = [self.keyfield] if isinstance(self.keyfield, (str, int)) else list(self.keyfield)
+                if any(key_col not in hd for key_col in key_cols):
+                    self.keyfield = ''
+            self.schema    = None
+            self.disp_cols = []
+
+
     def clone_empty(self, lol: Optional[T_lola]=None, cols: Optional[T_ls]=None, name:str='') -> 'Daf':
         """
         Make a new Daf with the same layout and no rows.
@@ -2086,9 +2124,11 @@ class Daf:
 
         Give `lol` to fill the new Daf with rows. They are adopted, not copied.
 
-        If you give `cols`, the columns are new. The `dtypes`, the `schema` and the
-        `disp_cols` of the original describe the old columns, so they are not carried over
-        and the new Daf has none. The keyfield is kept as it is.
+        If you give `cols` that differ from the columns of the original, the columns are
+        new. The `dtypes` keep the entries for columns that are still there. The keyfield
+        is cleared if any of its columns is gone. The `schema` and the `disp_cols` describe
+        the old columns, so they are not carried over. If `cols` are the same as the
+        columns of the original, everything is carried over.
 
         Args:
             lol: Rows for the new Daf. If None, it has no rows.
@@ -2114,12 +2154,11 @@ class Daf:
         if cols:
             if isinstance(cols, str):
                 cols = [cols]
-            new_daf._cols_to_hd(cols)
-            if len(cols) != len(new_daf.hd) or NULL in new_daf.hd:
-                new_daf._cols_to_hd(daf_utils._sanitize_cols(cols=cols))
-            new_daf.dtypes    = None
-            new_daf.schema    = None
-            new_daf.disp_cols = []
+            if list(cols) != list(new_daf.hd):
+                new_daf._cols_to_hd(cols)
+                if len(cols) != len(new_daf.hd) or NULL in new_daf.hd:
+                    new_daf._cols_to_hd(daf_utils._sanitize_cols(cols=cols))
+                new_daf._align_with_columns(columns_changed=True)
 
         return new_daf
 
@@ -8673,20 +8712,10 @@ class Daf:
         """
         Make the Daf for one group, with the layout of this Daf, or of the columns kept.
 
-        The keyfield is kept only if every column of it is kept. The dtypes are cut to the
-        columns kept. Internal use.
+        When only some columns are kept, `clone_empty()` cuts the dtypes to them, and
+        clears the keyfield if any key column is not kept. Internal use.
         """
-        group_daf = self.clone_empty(lol=rows) if all_cols else self.clone_empty(lol=rows, cols=names)
-
-        if not all_cols:
-            if self.dtypes:
-                group_daf.dtypes = {col: typ for col, typ in self.dtypes.items() if col in names}
-
-            key_cols = [self.keyfield] if isinstance(self.keyfield, (str, int)) else list(self.keyfield or [])
-            if not all(key_col in names for key_col in key_cols):
-                group_daf.keyfield = ''
-
-        return group_daf
+        return self.clone_empty(lol=rows) if all_cols else self.clone_empty(lol=rows, cols=names)
 
 
     def groupby(
