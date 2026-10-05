@@ -494,7 +494,7 @@ all prior releases. Plans for future moved to ROADMAP.md.
   Padding is done once at the end, and only if a column was added.
   With `cols` or `dtypes` given, the caller chose the columns, and a dict with another key now raises `ValueError` that names the keys, at the owner's request on 2026-10-05.
   Before, the value was dropped without a message. The new keyword `ignore_extra_keys=True` leaves such keys out on purpose, as when you pick a few columns of wide records.
-  This path also builds each row directly, without a dict for each record: 0.38 s with the check for 200,000 dicts of 10 keys, against 0.43 s before.
+  This path also builds each row directly, without a dict for each record: 0.39 s with the check for 200,000 dicts of 10 keys, against 0.43 s before.
   `from_lod_to_cols()` and `from_dod()` call `from_lod()` with their `dtypes`. A `dtypes` for `from_lod_to_cols()` that leaves out a key now raises. Before, it dropped the key,
   and when the keys that it left out came first, it put the values under the wrong keys. `from_dod()` with `dtypes` that leave out the keyfield column raised `KeyError`, and now raises `ValueError`.
 - `drop_cols()` left the keyfield set to a column that was gone, so key lookups returned empty
