@@ -1020,7 +1020,11 @@ class Daf:
     @staticmethod
     def isin(listlike1: Union[T_da, T_la], listlike2: Union[T_da, T_la]) -> T_lb:
         """
-        Make a list of True and False, one per item of the first collection.
+        Make a list of True and False, one per item of the first collection. Deprecated.
+
+        This is deprecated. Use a list comprehension, such as `[item in names for item in items]`,
+        which does the same, or `select_where()` with a function. It was an early attempt to match
+        the `isin()` of pandas. Daffodil does not use it, and it will be removed.
 
         An item is True if it is found in the second collection. This is a static
         method, so call it as `Daf.isin(a, b)`. It is handy for picking or leaving out
@@ -1040,6 +1044,8 @@ class Daf:
 
         Examples:
             >>> Daf.isin(['a', 'b', 'c'], ['b'])
+            [False, True, False]
+            >>> [item in ['b'] for item in ['a', 'b', 'c']]
             [False, True, False]
             >>> d = Daf(lol=[[1, 2, 3]], cols=['a', 'b', 'c'])
             >>> omit = Daf.isin(d.columns(), ['b'])

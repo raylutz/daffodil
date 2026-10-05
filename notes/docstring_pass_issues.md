@@ -486,3 +486,7 @@ The date of the first entry is 2026-10-02.
         at 0.9 of the dod, with `objsize`. The claim was not moved in.
     (e) The old string of `from_csv_buff()` says that it streams. A test with 300,000 rows gave the same peak memory from text and from
         an iterator of lines, because the table dominates. The claim was not moved in.
+99. `Daf.isin()` was deprecated on 2026-10-05, at the request of the owner. It was an early attempt to match the `isin()` of pandas, and
+    `select_where()` with a function replaced that use. Daffodil uses it nowhere, only its 2 tests, and the owner says AuditEngine does not use it.
+    The deprecation is in the docstring only, as for `remove_key()`. The method works as before. The old second string of `isin()` still shows
+    `columns().isin(...)`, which never worked, and is kept. Removal is for later.

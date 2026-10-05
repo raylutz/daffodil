@@ -128,6 +128,11 @@ all prior releases. Plans for future moved to ROADMAP.md.
 - `KeyedListEncoder` is removed from `keyedlist.py`. Nothing in daffodil used it. It was a `json.JSONEncoder` for a KeyedList. `KeyedList.to_json()`
   and `from_json()` are kept. Removed on 2026-10-04 at the request of the owner, who found no use of it. Its 2 tests are removed too.
 
+### Deprecated
+- `Daf.isin()` is deprecated. It was an early attempt to match the `isin()` of pandas. A list comprehension or `select_where()` does the
+  same, and neither daffodil nor AuditEngine uses it. Only the docstring says so, and the method works as before. It will be removed.
+  Decided on 2026-10-05 at the request of the owner. The docstring also warns that a list of bools is not a column selector.
+
 ### Changed
 - `from_googlesheet()` and `to_googlesheet()` take a required `service_account_file` argument, and raise
   `NotImplementedError`. They had the placeholder path `path/to/your/service_account.json` in the source, so they
