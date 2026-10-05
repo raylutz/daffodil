@@ -11653,6 +11653,7 @@ class Daf:
             | 2 | b |
             <BLANKLINE>
             %% daf rows=2; cols=2; keyfield=''; name=''
+
             An empty Daf has no rows and no columns, so only the summary line shows. This is so even if it has column names:
 
             >>> Daf(cols=['x', 'y'])
