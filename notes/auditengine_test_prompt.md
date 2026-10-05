@@ -13,14 +13,17 @@ Work in a single thread. Describe what you see, and run the code to check a clai
 
 ## Part 1. Set up a separate environment
 
-1. Find how daffodil is installed now. Run `pip show -f daffodil` or `pip list -e`, and say which folder it points to and which
-   branch or commit that folder has. Do not change that folder.
-2. Make a scratch folder outside the repositories, for example `/tmp/daf_test`. Clone daffodil into it from `https://github.com/raylutz/daffodil`
-   and check out the branch `main`. Check that `pyproject.toml` says version 0.6.0. If it says something else, stop and tell me.
-3. Make two virtual environments with Python 3.11 in the scratch folder, `venv_old` and `venv_new`.
-   - In `venv_old`, install AuditEngine's own requirements, and install daffodil from the folder that the machine uses now, as a normal install and not an editable one.
-   - In `venv_new`, install the same requirements, and install daffodil from the scratch clone, as a normal install.
-   If AuditEngine itself installs daffodil as a requirement, install daffodil last, so that your choice wins. Check with `pip show daffodil` in each one.
+The daffodil repository is a sibling folder of this one. The machine may run its code through an editable install, so do not switch its branch,
+do not pull into it, and do not change any file in it. Only read from it, and fetch into it.
+
+1. Find how daffodil is installed now (`pip show -f daffodil`, or `pip list -e`). Say which folder it points to, and which branch or commit that folder has.
+2. In the sibling daffodil folder, run `git fetch origin`. This changes only the stored references. Then check that `origin/main` has version 0.6.0 in `pyproject.toml`
+   with `git show origin/main:pyproject.toml`. If it says something else, stop and tell me.
+3. Export `origin/main` to a scratch folder, outside both repositories: `mkdir -p /tmp/daf_new && git -C <sibling> archive origin/main | tar -x -C /tmp/daf_new`.
+4. Make two Python 3.11 virtual environments in the scratch folder, `venv_old` and `venv_new`. Install AuditEngine's requirements in both.
+   - In `venv_old`, install daffodil from the sibling folder as it is now, as a normal install and not an editable one. This is the version the machine runs.
+   - In `venv_new`, install daffodil from `/tmp/daf_new`, as a normal install.
+   Install daffodil last, so that your choice wins over AuditEngine's own requirements. Check with `pip show daffodil` in each one.
 
 ## Part 2. Run the AuditEngine tests in both
 
@@ -43,8 +46,8 @@ Keep a hit only if it is on a Daf, and not on a pandas object or a plain list. G
 4. `dtypes *=` and `clone_empty(` with `cols`. The constructor cuts the dtypes to the names that are columns. Look for code that reads `dtypes` and expects names that are not columns.
 5. `set_cols(` and `rename_cols(`. They now keep the keyfield, and it follows the new names. They cleared it before. Look for code that relies on the keyfield being empty afterward.
 6. `isin(`, `KeyedListEncoder`, `unpack_indirect` and `from_dirlist`. These were removed from daffodil. Keep only the calls on a Daf, not pandas.
-7. Read the sections Removed, Deprecated and Changed under Unreleased in `CHANGELOG.md` in the scratch clone of daffodil. Name any other change that AuditEngine uses.
-8. Read `notes/auditengine_action_items.md` in the scratch clone. It has 16 checks. For items 1 to 8, say what you find. They were written without seeing the AuditEngine code.
+7. Read the sections Removed, Deprecated and Changed under Unreleased in `CHANGELOG.md` in `/tmp/daf_new`. Name any other change that AuditEngine uses.
+8. Read `notes/auditengine_action_items.md` in `/tmp/daf_new`. It has 16 checks. For items 1 to 8, say what you find. They were written without seeing the AuditEngine code.
 
 ## Part 4. Report
 
