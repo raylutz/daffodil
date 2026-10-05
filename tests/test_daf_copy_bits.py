@@ -212,24 +212,32 @@ def test_clone_empty_name_and_adopted_rows():
     assert daf.lol != rows
 
 
-def test_clone_empty_with_cols_keeps_the_schema_like_the_dtypes_and_drops_display_columns():
+def test_clone_empty_with_cols_drops_dtypes_schema_and_display_columns():
+    daf = make_daf()
+    daf.schema = object()       # type: ignore[assignment]
+    c = daf.clone_empty(lol=[[1, 2]], cols=['p', 'q'])
+    assert c.columns() == ['p', 'q']
+    assert c.dtypes is None and c.schema is None and c.disp_cols == []
+    assert daf.columns() == ['id', 'v'] and daf.disp_cols == ['id'] and daf.dtypes == {'id': int, 'v': str}
+
+
+def test_clone_empty_without_cols_keeps_dtypes_and_schema():
     daf = make_daf()
     marker = object()
     daf.schema = marker         # type: ignore[assignment]
-    c = daf.clone_empty(lol=[[1, 2]], cols=['p', 'q'])
-    assert c.columns() == ['p', 'q']
-    assert c.schema is marker and c.dtypes == daf.dtypes
-    assert c.disp_cols == []
-    assert daf.columns() == ['id', 'v'] and daf.disp_cols == ['id']
+    c = daf.clone_empty()
+    assert c.dtypes == daf.dtypes and c.schema is marker
+
+
+def test_groupby_results_keep_the_dtypes():
+    daf = Daf(lol=[[1, 'x', 5], [1, 'y', 6], [2, 'z', 7]], cols=['g', 'v', 'n'],
+              dtypes={'g': int, 'v': str, 'n': int}, keyfield='n')
+    for group in daf.groupby('g').values():
+        assert group.dtypes == {'g': int, 'v': str, 'n': int} and group.keyfield == 'n'
+    for group in daf.groupby('g', cols=['g', 'n']).values():
+        assert group.dtypes == {'g': int, 'n': int}
 
 
 def test_clone_empty_with_cols_makes_names_unique():
     c = make_daf().clone_empty(lol=[[1, 2]], cols=['a', 'a'])
     assert c.columns() == ['a', 'a_1']
-
-
-def test_clone_empty_keeps_the_schema_without_cols():
-    daf = make_daf()
-    marker = object()
-    daf.schema = marker         # type: ignore[assignment]
-    assert daf.clone_empty().schema is marker

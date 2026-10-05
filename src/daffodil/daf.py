@@ -2086,9 +2086,9 @@ class Daf:
 
         Give `lol` to fill the new Daf with rows. They are adopted, not copied.
 
-        If you give `cols`, the layout is a new one. The `disp_cols` of the original
-        name the old columns, so they are not carried over. The keyfield, the dtypes and
-        the `schema` are kept as they are, because the schema is a fuller form of the dtypes.
+        If you give `cols`, the columns are new. The `dtypes`, the `schema` and the
+        `disp_cols` of the original describe the old columns, so they are not carried over
+        and the new Daf has none. The keyfield is kept as it is.
 
         Args:
             lol: Rows for the new Daf. If None, it has no rows.
@@ -2117,6 +2117,8 @@ class Daf:
             new_daf._cols_to_hd(cols)
             if len(cols) != len(new_daf.hd) or NULL in new_daf.hd:
                 new_daf._cols_to_hd(daf_utils._sanitize_cols(cols=cols))
+            new_daf.dtypes    = None
+            new_daf.schema    = None
             new_daf.disp_cols = []
 
         return new_daf
@@ -8674,7 +8676,7 @@ class Daf:
         The keyfield is kept only if every column of it is kept. The dtypes are cut to the
         columns kept. Internal use.
         """
-        group_daf = self.clone_empty(lol=rows, cols=names)
+        group_daf = self.clone_empty(lol=rows) if all_cols else self.clone_empty(lol=rows, cols=names)
 
         if not all_cols:
             if self.dtypes:
