@@ -509,3 +509,6 @@ The date of the first entry is 2026-10-02.
 105. Decided on 2026-10-05: the three `manifest_*` methods are marked legacy in their docstrings and in the README. No code change.
     The README example of `manifest_apply()` is left as it was, and the note above it says the methods are legacy.
     The example still lacks `load_func` and `save_func`. The AuditEngine check in notes/auditengine_action_items.md decides what happens to them.
+106. Decided on 2026-10-05: the `daf_utils` helpers are not part of the public docs. The site keeps showing `Daf` and `KeyedList` only.
+    No page is added and no helper docstrings are written for the docs. 34 functions without an underscore have no docstring.
+    Open: `get_indirect_da()` and `get_indirect_val()` are still in the source. The owner said on 2026-10-05 that the indirect functions are obsolete.
