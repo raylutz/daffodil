@@ -11637,6 +11637,10 @@ class Daf:
         `md_max_cols` columns, 10 by default. Longer text is shortened to 80
         characters.
 
+        If the Daf has no rows, it is empty, and it shows no header. The summary line says
+        `rows=0; cols=0`, because the number of columns is counted from the rows.
+        `columns()` still gives the names.
+
         Returns:
             The Markdown text.
 
@@ -11649,6 +11653,10 @@ class Daf:
             | 2 | b |
             <BLANKLINE>
             %% daf rows=2; cols=2; keyfield=''; name=''
+            An empty Daf has no rows and no columns, so only the summary line shows. This is so even if it has column names:
+
+            >>> Daf(cols=['x', 'y'])
+            %% daf rows=0; cols=0; keyfield=''; name=''
         """
 
         return self.to_md(

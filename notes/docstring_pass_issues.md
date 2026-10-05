@@ -499,6 +499,8 @@ The date of the first entry is 2026-10-02.
     The examples of `copy()` and `select_records_daf()` showed sharing by comparing the lists. They now append a row to a copy and set a cell. The repr
     starts with a blank line and has a blank line before the size line, so `pytest.ini` got `doctest_optionflags = NORMALIZE_WHITESPACE`. The README had no `.lol`.
     The tests still use it. The rule is not written in CLAUDE.md.
-102. Found on 2026-10-05, not changed: a Daf with column names and no rows shows no header. `Daf(cols=['a', 'b'])` prints only
+102. WITHDRAWN on 2026-10-05, see item 103. Found on 2026-10-05: a Daf with column names and no rows shows no header. `Daf(cols=['a', 'b'])` prints only
     `%% daf rows=0; cols=0; keyfield=''; name=''`, though `columns()` returns both names. `num_cols()` reads the first row, so it gives 0. An empty result of
     `select_records_daf([])` shows the same. The size line says `cols=0`.
+103. The owner said on 2026-10-05 that an empty array has no columns and no rows, so item 102 is the design. `num_cols()` already said that it counts from the rows. The
+    docstring of `md_daf_table_snippet()`, which gives `repr()` and `str()`, now says it too, with an example. `columns()` still returns the names.
