@@ -87,11 +87,12 @@ def test_original_is_safe_from_the_first_safe_level(level, action):
         assert snapshot(daf) != before or not is_consistent(daf)
 
 
-def test_default_level_is_shallow():
+def test_default_level_is_sortable():
     daf = make_daf()
     copied = daf.copy()
-    assert copied.lol is daf.lol
-    assert copied.hd is daf.hd
+    assert copied.lol is not daf.lol
+    assert copied.hd is not daf.hd
+    assert copied.lol[0] is daf.lol[0]
 
 
 def test_shallow_shares_everything_but_attrs():
@@ -148,7 +149,7 @@ def test_old_arguments_still_work():
     assert daf.copy(for_sorting=True).lol[0] is daf.lol[0]
     assert daf.copy(deep=True).lol[0] is not daf.lol[0]
     assert daf.copy(True).lol[0] is not daf.lol[0]
-    assert daf.copy(False).lol is daf.lol
+    assert daf.copy(False).lol is not daf.lol and daf.copy(False).lol[0] is daf.lol[0]
 
 
 def test_higher_level_wins_over_old_arguments():

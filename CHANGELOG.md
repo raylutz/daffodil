@@ -136,6 +136,20 @@ all prior releases. Plans for future moved to ROADMAP.md.
   Decided on 2026-10-05. Only the docs changed, and the methods work as before.
 
 ### Changed
+- `copy()` is redone, at the request of the owner, on 2026-10-05. It takes bit flags, `CopyBits`, for what the copy owns, and the four names
+  `shallow`, `sortable`, `editable` and `deep` stay as sums of them. A copy is always a new object of the same class. Sharing is by choice and
+  is what makes daffodil fast. Without a level, the class setting `copy_level_default` is used.
+  - The default is now `sortable`, which was `shallow`. A plain `copy()` now has its own row list, `hd`, `dtypes` and key index, and shares the rows. It costs
+    0.002 s for 200,000 rows of 50 columns, against 0.00002 s. `append`, `drop_cols` and `insert_icol` on the copy no longer reach the original.
+    `copy('shallow')` is still there for a copy that shares the row list. A subclass can set `copy_level_default = 'editable'` to play safe.
+  - A copy has no name unless `name=` is given. It used to keep the name of the original.
+  - `ATTRS` copies the `disp_cols` list as well as the `attrs`. A `keyfield` that is a list is copied with the key index. An adopted key index
+    with no keyfield is copied, not cleared.
+  - `copy(False)` now uses the class setting. It used to mean `shallow`.
+  - `clone_empty()` is now `copy()` with the layout bits, then no rows. It returns an object of the same class, and not a plain `Daf`. It keeps `md_max_rows`,
+    `md_max_cols`, `disp_cols`, `schema`, retmode and itermode, which it dropped. With `cols` given it drops `schema` and `disp_cols`, which describe the old columns.
+    Every selector that calls it gets the same change.
+  - `CopyBits` is a new public class in `daf_types.py`. Its tests are in tests/test_daf_copy_bits.py. Tests: 2202 before, 2229 after.
 - `from_googlesheet()` and `to_googlesheet()` take a required `service_account_file` argument, and raise
   `NotImplementedError`. They had the placeholder path `path/to/your/service_account.json` in the source, so they
   could not be used without editing the library, and they could not be tested here. The draft code is in the

@@ -7,6 +7,7 @@ from collections.abc  import KeysView, Iterable   # noqa: F401
 import pandas as pd                 # type: ignore
 import numpy  as np                 # type: ignore
 import datetime
+from enum import IntFlag
 
 from daffodil.keyedlist import KeyedList
 
@@ -175,4 +176,41 @@ T_corner_points = List[Optional[T_corner_points_one_p]]    # each page, options 
 T_buff = Union[bytes, str]
 
 
+class CopyBits(IntFlag):
+    """
+    The things that [`copy()`][daffodil.daf.Daf.copy] can give a copy of its own.
 
+    A copy is always a new Daf object of the same class. Each bit names one part that
+    the copy gets for itself. A part without its bit is shared with the original,
+    so a change made through one Daf shows in the other. Sharing is what makes
+    daffodil fast, so share as much as is safe for what you do next.
+
+    Add the bits with `|` to choose your own mix. The four names that `copy()`
+    accepts are sums of these bits, and are listed in the table of `copy()`.
+
+    Two bits imply others. `ROWS` adds `OUTER`, and `OUTER` adds `KD`. They are added
+    for you, because a row list that is copied while the key index is shared would
+    leave the index wrong for one of the two.
+
+    Attributes:
+        NONE: Nothing. The copy shares every part.
+        ATTRS: The `attrs` dict, deep copied, and the `disp_cols` list.
+        OUTER: The list that holds the rows. The rows themselves are still shared.
+        HD: The header dict that maps a column name to its position.
+        DTYPES: The dtypes dict.
+        KD: The key index, which is rebuilt on first use, and a `keyfield` that is a list.
+        ROWS: A new list for every row. Text and numbers in the cells are not copied.
+        DEEP: Everything, with `copy.deepcopy()`. The other bits are ignored.
+
+    Examples:
+        >>> int(CopyBits.OUTER | CopyBits.HD)
+        6
+    """
+    NONE   = 0
+    ATTRS  = 1
+    OUTER  = 2
+    HD     = 4
+    DTYPES = 8
+    KD     = 16
+    ROWS   = 32
+    DEEP   = 64

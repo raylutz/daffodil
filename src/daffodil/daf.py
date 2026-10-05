@@ -91,7 +91,7 @@ from pathlib import Path
 
 from daffodil.lib.daf_types import T_ls, T_lola, T_di, T_loda, T_da, T_li, T_dtype_dict, \
                             T_dola, T_dodi, T_la, T_lota, T_doda, T_buff, T_ds, T_lb, T_rli, \
-                            T_ta, T_lor, T_kva, T_donpa, T_npa, T_lsi, T_cs, T_ca, T_ma  # noqa: F401
+                            T_ta, T_lor, T_kva, T_donpa, T_npa, T_lsi, T_cs, T_ca, T_ma, CopyBits  # noqa: F401
 
 import daffodil.lib.daf_utils    as daf_utils
 import daffodil.lib.daf_md       as md
@@ -103,7 +103,7 @@ from daffodil.keyedlist import KeyedList
 from daffodil.keyedlist import KeyedIndex
 
 import typing
-from typing import List, Dict, Any, Tuple, Optional, Union, cast, Type, Callable, Generic, TypeVar  # noqa: F401
+from typing import List, Dict, Any, Tuple, Optional, Union, cast, Type, Callable, Generic, TypeVar, ClassVar  # noqa: F401
 from collections.abc import Iterable, Collection, Sequence, Iterator, Hashable    # noqa: F401
 
 
@@ -117,7 +117,13 @@ from collections.abc import Iterable, Collection, Sequence, Iterator, Hashable  
 T_dodaf = Dict[str, 'Daf']
 
 logs = daf_utils                # alias
-_COPY_LEVELS: Dict[str, int] = {'shallow': 0, 'sortable': 1, 'editable': 2, 'deep': 3}   # for copy().
+_COPY_PRESETS: Dict[str, CopyBits] = {       # the names that copy() accepts, as sums of bits.
+    'shallow':  CopyBits.ATTRS,
+    'sortable': CopyBits.ATTRS | CopyBits.OUTER | CopyBits.HD | CopyBits.DTYPES | CopyBits.KD,
+    'editable': CopyBits.ATTRS | CopyBits.OUTER | CopyBits.HD | CopyBits.DTYPES | CopyBits.KD | CopyBits.ROWS,
+    'deep':     CopyBits.DEEP,
+}
+_CLONE_EMPTY_BITS: CopyBits = _COPY_PRESETS['sortable']     # what clone_empty() has of its own.
 
 NULL = ''                       # instead of var == '' use var is NULL
 
@@ -172,6 +178,8 @@ class Daf:
 
     ITERMODE_DICT = 'dict'
     ITERMODE_KEYEDLIST = 'keyedlist'
+
+    copy_level_default: ClassVar[Union[str, int]] = 'sortable'     # what copy() does when no level is given. See copy().
 
 
     def __init__(self,
@@ -888,33 +896,42 @@ class Daf:
 
     def copy(
             self,
-            level:       Union[str, bool] = 'shallow',   # 'shallow' | 'sortable' | 'editable' | 'deep'
-            deep:        bool = False,          # same as level='deep'.
-            for_sorting: bool = False,          # same as level='sortable'.
-            ) -> Daf:
+            level:       Union[str, int, bool, None] = None,   # preset name, CopyBits, or None for copy_level_default
+            name:        str  = '',                            # the name of the copy
+            deep:        bool = False,                         # old argument: same as level 'deep'
+            for_sorting: bool = False,                         # old argument: same as level 'sortable'
+            ) -> 'Daf':
         """
-        Make a copy of the Daf, sharing as little or as much as you choose.
+        Make a copy of the Daf. You choose what the copy shares with the original.
 
-        A copy costs more the less it shares. Pick the cheapest `level` that is safe for
-        what you do next. The table gives the cost for 200,000 rows of 50 columns.
+        The copy is always a new object of the same class. What it holds is shared
+        with the original unless you ask for its own. Sharing is what makes daffodil
+        fast, because nothing is copied that does not have to be. Pick the cheapest
+        `level` that is safe for what you do next.
 
-        | Level      | New in the copy                                   | Cost            |
-        |------------|---------------------------------------------------|-----------------|
-        | `shallow`  | only `attrs`                                      | 0.0001 s        |
-        | `sortable` | the row list, `hd`, `dtypes`, and the key index   | 0.002 s, 2 MB   |
-        | `editable` | `sortable`, plus a new list for every row         | 0.8 s, 93 MB    |
-        | `deep`     | everything that is a container                    | 2.4 s, 107 MB   |
+        The level is one of four names, or a sum of [CopyBits][daffodil.lib.daf_types.CopyBits].
+        Without a level, the class setting `copy_level_default` is used. It is `sortable`.
+        To play safe everywhere, set it on a subclass, as in
+        `class SafeDaf(Daf): copy_level_default = 'editable'`. The table gives the cost for
+        200,000 rows of 50 columns.
+
+        | Level      | Own in the copy                                       | Cost            |
+        |------------|-------------------------------------------------------|-----------------|
+        | `shallow`  | `attrs` and `disp_cols`                               | 0.00002 s       |
+        | `sortable` | `shallow`, the row list, `hd`, `dtypes`, the key index | 0.002 s, 2 MB   |
+        | `editable` | `sortable`, plus a new list for every row             | 0.5 s, 93 MB    |
+        | `deep`     | everything that is a container                        | 4 s, 107 MB     |
 
         With `shallow`, the copy shares the row list, the rows, `hd` and `dtypes` with the
         original. Reading is safe. Sorting with `sort_by_colname()` is safe too, because it
         builds a new row list. Appending a row, sorting the row list in place or dropping
-        a column reaches the original, and can leave it with a key index that is wrong.
+        a column is seen by the original, and can leave it with a key index that is wrong.
 
         With `sortable`, the copy has its own row list, so you can append, extend, insert,
         remove, sort or reverse rows, rename columns, change the keyfield or dtypes, and
         use `drop_cols()`. The key index is cleared on the copy and is rebuilt on first use.
-        The rows are still shared. Changing values reaches the original, whichever way you do it. That makes a
-        selection a live view for editing. Adding a column does not reach the original.
+        The rows are still shared. Changing values is seen by the original, whichever way you do it.
+        That makes a selection a live view for editing. Adding a column is not seen by the original.
         `insert_col()`, `insert_icol()`, `insert_idx_col()` and `assign_col()` with a new name
         copy shared rows first.
 
@@ -925,12 +942,17 @@ class Daf:
         With `deep`, nothing that can be changed is shared. Text and numbers are not copied,
         because they cannot change. A list or dict held in a cell is copied.
 
+        The copy has no name unless you give one with `name`, so that two tables do not
+        claim to be the same one. The other settings, such as `md_max_rows`, the
+        `schema` and the retmode and itermode, are taken over. A `schema` is shared.
+
         The older arguments `deep=True` and `for_sorting=True` still work. They give the
         level `deep` and `sortable`. A higher level wins if you give both. A call like
-        `copy(True)` still means `deep`.
+        `copy(True)` still means `deep`. `copy(False)` uses the class setting.
 
         Args:
-            level: How much to copy. One of `shallow`, `sortable`, `editable` or `deep`.
+            level: A name, a sum of `CopyBits`, or None for the class setting `copy_level_default`.
+            name: The name of the copy. It is empty if not given.
             deep: Same as level `deep`.
             for_sorting: Same as level `sortable`.
 
@@ -938,55 +960,87 @@ class Daf:
             The new Daf.
 
         Raises:
-            ValueError: `level` is not one of the four names.
+            ValueError: `level` is a name that is not one of the four.
 
         Examples:
-            >>> d = Daf(lol=[[2, 'b'], [1, 'a']], cols=['id', 'v'])
-            >>> _ = d.copy().append([3, 'c'])
+            >>> d = Daf(lol=[[2, 'b'], [1, 'a']], cols=['id', 'v'], name='orig')
+            >>> c = d.copy(name='work')
+            >>> c.name, d.name
+            ('work', 'orig')
+            >>> _ = c.append([3, 'c'])
+            >>> d.num_rows()
+            2
+            >>> s = d.copy('shallow')
+            >>> _ = s.append([3, 'c'])
             >>> d.num_rows()
             3
             >>> d = Daf(lol=[[2, 'b'], [1, 'a']], cols=['id', 'v'])
-            >>> s = d.copy('sortable')
-            >>> _ = s.append([3, 'c'])
-            >>> d.num_rows()
-            2
             >>> e = d.copy('editable')
             >>> e[0, 'v'] = 'X'
             >>> d.iloc(0)
             {'id': 2, 'v': 'b'}
+            >>> m = d.copy(CopyBits.OUTER | CopyBits.HD)
+            >>> m[0, 'v'] = 'Y'
+            >>> d.iloc(0)
+            {'id': 2, 'v': 'Y'}
         """
 
         if isinstance(level, bool):     # an old call, copy(True), meant deep.
-            deep, level = deep or level, 'shallow'
+            deep, level = deep or level, None
 
-        if level not in _COPY_LEVELS:
-            raise ValueError(f"copy: level must be one of {list(_COPY_LEVELS)}, not {level!r}")
+        if level is None:
+            level = self.copy_level_default
 
-        rank = _COPY_LEVELS[level]
+        if isinstance(level, str):
+            if level not in _COPY_PRESETS:
+                raise ValueError(f"copy: level must be one of {list(_COPY_PRESETS)}, not {level!r}")
+            bits = _COPY_PRESETS[level]
+        else:
+            bits = CopyBits(level)
+
         if for_sorting:
-            rank = max(rank, _COPY_LEVELS['sortable'])
+            bits |= _COPY_PRESETS['sortable']
         if deep:
-            rank = _COPY_LEVELS['deep']
+            bits = CopyBits.DEEP
 
-        if rank == _COPY_LEVELS['deep']:
-            return copy.deepcopy(self)  # Fully independent copy
+        if bits & CopyBits.DEEP:
+            new_daf = copy.deepcopy(self)       # fully independent copy
+            new_daf.name = name
+            return new_daf
 
-        new_instance = copy.copy(self)  # Shallow copy
+        if bits & CopyBits.ROWS:                # a copied row list must not share a key index.
+            bits |= CopyBits.OUTER
+        if bits & CopyBits.OUTER:
+            bits |= CopyBits.KD
 
-        new_instance.attrs = copy.deepcopy(self.attrs)  # Ensure metadata is copied but not linked
+        new_daf = copy.copy(self)               # a new object, which shares everything so far.
+        new_daf.name = name
 
-        if rank >= _COPY_LEVELS['sortable']:
-            new_instance.lol = list(self.lol)
-            new_instance.hd = dict(self.hd) if type(self.hd) is dict else copy.deepcopy(self.hd)
-            if isinstance(self.dtypes, dict):
-                new_instance.dtypes = dict(self.dtypes)
+        if bits & CopyBits.ATTRS:
+            new_daf.attrs = copy.deepcopy(self.attrs)
+            if isinstance(self.disp_cols, list):
+                new_daf.disp_cols = list(self.disp_cols)
 
-            new_instance._invalidate_kd()
+        if bits & CopyBits.ROWS:
+            new_daf.lol = [list(row) for row in self.lol]
+        elif bits & CopyBits.OUTER:
+            new_daf.lol = list(self.lol)
 
-        if rank >= _COPY_LEVELS['editable']:
-            new_instance.lol = [list(row) for row in self.lol]
+        if bits & CopyBits.HD:
+            new_daf.hd = dict(self.hd) if type(self.hd) is dict else copy.deepcopy(self.hd)
 
-        return new_instance
+        if bits & CopyBits.DTYPES and isinstance(self.dtypes, dict):
+            new_daf.dtypes = dict(self.dtypes)
+
+        if bits & CopyBits.KD:
+            if isinstance(self.keyfield, list):
+                new_daf.keyfield = list(self.keyfield)
+            if self.keyfield:
+                new_daf._kd = {}                # a managed index is rebuilt on first use.
+            elif self._kd:
+                new_daf._kd = dict(self._kd)    # an adopted index cannot be rebuilt, so it is copied.
+
+        return new_daf
 
     #===========================
     # column names
@@ -2000,11 +2054,16 @@ class Daf:
         """
         Make a new Daf with the same layout and no rows.
 
-        The new Daf has the same column names, keyfield and dtypes. The dtypes dict is
-        copied, and the `attrs` are deep copied. The name, the key index and the
-        display settings are not carried over. Set them on the new Daf if you need them.
+        This is [`copy()`][daffodil.daf.Daf.copy] with the layout bits and then no rows. The
+        new Daf is an object of the same class. It has the same column names, keyfield,
+        dtypes, `attrs`, `schema` and display settings. It has its own `hd`, `dtypes`,
+        `attrs` and key index. The name is not carried over. Give `name` to set it.
 
         Give `lol` to fill the new Daf with rows. They are adopted, not copied.
+
+        If you give `cols`, the layout is a new one. The `schema` and the `disp_cols`
+        of the original describe the old columns, so they are not carried over. The
+        keyfield and the dtypes are kept as they are.
 
         Args:
             lol: Rows for the new Daf. If None, it has no rows.
@@ -2020,29 +2079,21 @@ class Daf:
             >>> c.columns(), c.keyfield, c.num_rows()
             (['id', 'v'], 'id', 0)
         """
-        """
-        Create a new empty Daf instance from self, adopting column names but not data.
-
-        - Adopts `keyfield` but does not adopt `kd` or `attrs` (metadata is not propagated).
-        - If `lol` is provided as an argument, it is used in the new Daf.
-        - This method creates a fresh instance with the same structure but no metadata.
-
-        If metadata needs to be propagated, it must be done manually:
-            new_daf.attrs = daf.attrs.copy()
-
-        Returns:
-            A new `Daf` instance with the same column structure but no data (or using passed data lol).
-        """
         if self is None:
             return Daf()
 
-        new_cols = cols if cols else self.columns()
+        new_daf = self.copy(_CLONE_EMPTY_BITS, name=name)
 
-        # the initialization below automatically invalidates kd for lazy rebuilding.
-        new_daf = Daf(cols=new_cols, lol=lol, keyfield=self.keyfield, dtypes=copy.copy(self.dtypes), name=name)
+        new_daf.lol = lol if lol is not None else []        # adopted, as in Daf().
 
-        # Ensure metadata attributes are deeply copied
-        new_daf.attrs = copy.deepcopy(self.attrs)
+        if cols:
+            if isinstance(cols, str):
+                cols = [cols]
+            new_daf._cols_to_hd(cols)
+            if len(cols) != len(new_daf.hd) or NULL in new_daf.hd:
+                new_daf._cols_to_hd(daf_utils._sanitize_cols(cols=cols))
+            new_daf.schema    = None
+            new_daf.disp_cols = []
 
         return new_daf
 

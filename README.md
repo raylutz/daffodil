@@ -722,7 +722,9 @@ in the result changes it in the original. A few selectors copy the rows.
 | `groupby`, `multi_groupby`                                       | copied (new row lists)        |
 | `select_cols`, `select_kcols`, `select_icols`                    | copied (new row lists)        |
 
-Use `copy(level='editable')` first if you need to change cells without touching the original.
+A `copy()` shares the rows too, and it gives the copy its own row list, `hd`, `dtypes` and key index. Choose what else it owns with a level or with `CopyBits`.
+Use `copy('editable')` first if you need to change cells without touching the original. The copy has no name unless you give one with `name=`.
+Set `copy_level_default` on a subclass to change what a plain `copy()` does.
 
 Changing values through a selection changes the original, by cell, by column, by `apply_in_place()` or by a KeyedList loop. A selection is a live view for editing. Build a new Daf with dict iteration or `apply()` if you do not want that. Adding a column is different, because it changes the shape of the rows. `insert_col()`, `insert_icol()`, `insert_idx_col()` and `assign_col()` with a new name take their own copies of shared rows first. This is a lazy copy. Nothing is copied when the rows are not shared. The check reads the reference count of each row, so it is fast.
 
