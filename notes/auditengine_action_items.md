@@ -68,3 +68,41 @@ version 0.6.0 accepts, because it needs 3.10 or later. Each item says how to loo
 16. The release notes in CHANGELOG.md, under Unreleased, list 129 entries. Many are fixes. The first eight items above and items 9 to 14 are the ones that
    the daffodil side expects to matter. Read the sections Removed, Deprecated and Changed once more with AuditEngine in mind. Add to this file any item that matters.
 
+
+## Results of the review on the EC2 machine, 2026-10-05
+
+The AuditEngine thread on the EC2 machine tested daffodil 0.6.0 against AuditEngine on Python 3.11. It changed nothing there. It read `origin/main`
+before the checks 9 to 16 were merged, so it saw only the first eight. Its result for each is below. The first paragraph is the summary.
+
+No test result changed. The AuditEngine suite gave 1060 passed, 2 failed and 1 skipped on both versions, compared one test at a time over 1063 tests.
+The two failures are on both versions. One is a stale fixture. The other fails only in the scratch environments, and points to the package pins and not to daffodil.
+The thread believes that the machine can take 0.6.0.
+
+Results for the first eight items:
+1. Confirmed. In the real file `contest_variants.csv` the columns hold counts from 0 to 6. Version 0.5.13 turns every count of 1 or more into 1. Version 0.6.0 gives
+   int 0 and 1 and the text of the larger counts, so a later sort or sum could raise `TypeError`. The call sites are `cmpcvr_report.py:93` and line 927.
+   The smallest change is to type those four columns int in `BIF.py`, as `schema.py:333` already says.
+2. Confirmed at `pdf_image_indexer2.py:74`, and not run on real data. It raises `ValueError` for a key that only a later page has. Passing `cols=` with the union of the keys avoids it.
+3. The `.index` at `args.py:1007` is reversed, but cannot be reached, because the keys of the dict are unique. Not a daffodil change.
+4. The malformed JSON is real, in `params/GA_Dekalb_20220524_clone/JOB_GA_Dekalb_20220524_clone.csv` at line 13. It fails the same way on both versions.
+5. There are 19 `select_where()` calls that test only equality. This is a speed opportunity and not a fault.
+6. Only `select_by_dict()` and `select_irows([], inverse=True)` changed how they share rows. Every in place edit on their results is safe. A cell edit through a
+   `select_by_dict()` result does reach the original, as designed. `parse_utils.py:2382` is such a write, and the result is the same.
+7. Confirmed. `create_chunks()` is still pandas. It is reached only from `operate.py:1537`, and 0.6.0 does not affect it.
+8. Wrong, and daffodil must not remove the methods. `manifest_process()` is used at `ess_cvr.py:257`, on the live ES&S preparse path. The thread did not say whether
+   `manifest_apply()` and `manifest_reduce()` are used.
+
+For items 9 to 14 the thread checked the call sites by reading the code and probing with real data, and found none that breaks:
+- `copy()`: the only plain copy is `evalvotes.py:267`, and it only reads its copy. The others are `copy(deep=True)`. The two reads of `name` are a log message and a join
+  that builds its translator from the same two tables.
+- Keyfields: 157 sites were classified. Each file that is loaded with a keyfield has that column in its real header, or is empty, which 0.6.0 allows.
+- AuditEngine has no subclass of `Daf`. `eif.py` sets `retmode='val'` six times and never selects from those tables.
+- The one column that is inserted after a load, at `archives.py:1040`, gives the same CSV on both versions.
+- None of the three `set_cols()` and `rename_cols()` sites has a keyfield to keep. A comment at `map_targets_ai.py:331` still says that `set_cols()` clears the keyfield. It does not now.
+- Every `isin(` is pandas. The other removed names are not used.
+
+Two findings that are in AuditEngine and not in daffodil:
+- `cmpcvr.py:652` calls `select_krows(krows=keys_ls, inverse=True)` under the comment "remove these rows" and discards the result. It never removed anything, on either version.
+- `col()` now raises `KeyError`, which makes two existing `except KeyError` handlers work as written. `select_cols()` reorders three columns at `acre_utils.py:102`.
+
+Not checked: `pdf_image_indexer2.py:74` on real PDF archives, and the paths that the test suite does not reach.
