@@ -65,6 +65,6 @@ version 0.6.0 accepts, because it needs 3.10 or later. Each item says how to loo
    How to look: search for `isin(`, `KeyedListEncoder`, `unpack_indirect` and `from_dirlist`.
 15. Check the AuditEngine test suite on the new version. Run it first with the daffodil that is installed now, and then with the new one, in a separate environment, so that
    nothing that runs is changed. The two results should be the same. The scripts for a test of this kind are in notes/auditengine_test_prompt.md.
-16. The release notes in CHANGELOG.md, under Unreleased, list about two hundred changes. Many are fixes. The first eight items above and items 9 to 14 are the ones that
+16. The release notes in CHANGELOG.md, under Unreleased, list 129 entries. Many are fixes. The first eight items above and items 9 to 14 are the ones that
    the daffodil side expects to matter. Read the sections Removed, Deprecated and Changed once more with AuditEngine in mind. Add to this file any item that matters.
 
