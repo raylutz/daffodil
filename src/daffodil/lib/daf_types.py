@@ -1,7 +1,6 @@
 # daf_types.py
 
 from typing import List, Dict, Any, Tuple, Type, Optional, Union, Set, TYPE_CHECKING, Callable, cast    # noqa: F401
-from typing import TypeAlias  # noqa: F401  # Python 3.10+
 from collections.abc  import KeysView, Iterable   # noqa: F401
 
 import pandas as pd                 # type: ignore

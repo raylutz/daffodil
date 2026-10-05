@@ -140,6 +140,10 @@ all prior releases. Plans for future moved to ROADMAP.md.
   Decided on 2026-10-05. Only the docs changed, and the methods work as before.
 
 ### Changed
+- The minimum Python is now 3.10, at the owner's request on 2026-10-05. It was 3.9, which has not worked for some time: three modules failed at import, and one test failed after that.
+  Pip on 3.9 keeps installing 0.5.13. Four small edits were made anyway, and they do not change anything on 3.10 or later. `daf_utils.py` and `daf_md.py` use postponed
+  annotations, `daf_types.py` no longer imports the unused `TypeAlias`, and `schemaclass()` reads `__dict__` for the annotations of each class. With them,
+  2251 tests pass on 3.9 when run by hand. CI tests 3.10, 3.11, 3.12 and 3.13. The lock file is smaller, because it no longer carries the packages for 3.9.
 - `copy()` is redone, at the request of the owner, on 2026-10-05. It takes a sum of the constants `Daf.COPY_ATTRS`, `COPY_OUTER`, `COPY_HD`, `COPY_DTYPES`, `COPY_KD` and `COPY_ROWS` for what the copy owns, and the four names
   `shallow`, `sortable`, `editable` and `deep` stay. The first three are sums of the constants. `deep` is a name only, because it cannot be combined. A copy is always a new object of the same class. Sharing is by choice and
   is what makes daffodil fast. Without a level, the class setting `copy_level_default` is used.

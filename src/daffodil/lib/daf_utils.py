@@ -1,3 +1,4 @@
+from __future__ import annotations
 # daf_utils.py
 
 # copyright (c) 2024, 2025, 2026 Ray Lutz

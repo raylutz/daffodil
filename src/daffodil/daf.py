@@ -111,7 +111,7 @@ from collections.abc import Iterable, Collection, Sequence, Iterator, Hashable  
 # No T_daf alias -- mypy does not treat a plain string-valued module attribute as an implicit
 # forward-reference type alias (confirmed directly; needs either a real class object, only
 # available after Daf is defined below, or a `TypeAlias`-annotated assignment, which needs
-# Python 3.10+ and this project targets >=3.9). Using the 'Daf' forward-reference string
+# Python 3.10+). Using the 'Daf' forward-reference string
 # literally at each use site instead avoids the whole issue.
 
 T_dodaf = Dict[str, 'Daf']

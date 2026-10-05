@@ -1,3 +1,4 @@
+from __future__ import annotations
 # daf_md.py -- markdown generation
 
 # copyright (c) 2025, 2026 Ray Lutz

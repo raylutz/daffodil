@@ -71,7 +71,7 @@ def schemaclass(cls: type[T]) -> type[T]:
             continue
 
         merged_ann.update(
-            getattr(base_cls, "__annotations__", {})
+            base_cls.__dict__.get("__annotations__", {})    # not getattr: before Python 3.10 that finds the base's.
         )
 
     ann = merged_ann

@@ -547,6 +547,4 @@ The date of the first entry is 2026-10-02.
     The position rule keeps the key on the same data. The two rules agree when the Daf had no names yet, and when the names do not change.
 113. Deployment set up on 2026-10-05. The owner chose 0.6.0, a deploy by pushing to the branch `full_deploy`, and a PyPI token as a secret. Nothing is deployed from a push to `main`.
     Checking Python 3.9 found that it has not worked on `main` for some time. Three modules fail at import, and one test fails after that. Four small edits fix it, and with them 2251 tests and 195 doctests pass.
-    The edits are saved as notes/py39_compat.patch and are not applied. They wait for the owner. Apply them with `git apply notes/py39_compat.patch`.
-    The alternative is to raise `requires-python` to 3.10.
-
+    The owner decided on 2026-10-05 to raise `requires-python` to 3.10 and to apply the four edits as well. 3.9 still passes by hand, with 2251 tests, and is not tested in CI.
