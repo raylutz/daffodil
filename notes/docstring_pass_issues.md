@@ -493,3 +493,8 @@ The date of the first entry is 2026-10-02.
 100. Requested on 2026-10-05: show a one pass selection against a set in place of a list of bools. `select_where()` now has examples with `in`,
     `not in`, `and`, `or`, a set built from another Daf, and the faster form with `col()` and `select_irows()`. I measured the one pass
     form as slower on a large Daf: 0.109 s against 0.020 s for 200,000 rows and 1,000 values. The docstring says so.
+101. Requested on 2026-10-05: the examples must not read the `lol` attribute. All 126 examples that did were changed. The usual form is `to_lod()`.
+    The two `flip=True` examples use `to_lota()`, because a flipped result has no column names, and `to_lod()` raises `KeysDisabledError` for it. A keyfield does not
+    help there, because a keyfield needs column names, and a flipped result has none. A row is read with `iloc()`. The examples of `copy()` and
+    `select_records_daf()` showed sharing by comparing the lists. They now show it by appending a row to a copy and by setting a cell. The README
+    had no `.lol`. The tests still use it. The rule is not written in CLAUDE.md.

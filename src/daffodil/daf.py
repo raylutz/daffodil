@@ -425,13 +425,13 @@ class Daf:
             >>> daf = Daf(cols=['x', 'y'], lol=[[1, 2], [3, 4]])
             >>> for row in daf:
             ...     row['y'] = 0
-            >>> daf.lol
-            [[1, 2], [3, 4]]
+            >>> daf.to_lod()
+            [{'x': 1, 'y': 2}, {'x': 3, 'y': 4}]
             >>> daf.itermode = 'keyedlist'
             >>> for row in daf:
             ...     row['y'] = 0
-            >>> daf.lol
-            [[1, 0], [3, 0]]
+            >>> daf.to_lod()
+            [{'x': 1, 'y': 0}, {'x': 3, 'y': 0}]
         """
         return self._itermode
 
@@ -486,8 +486,8 @@ class Daf:
             [{'x': 1, 'y': 2}, {'x': 3, 'y': 4}]
             >>> for row in d.iter_dict():
             ...     row['y'] = 0
-            >>> d.lol
-            [[1, 2], [3, 4]]
+            >>> d.to_lod()
+            [{'x': 1, 'y': 2}, {'x': 3, 'y': 4}]
         """
         return DafIterator(self, dict)
 
@@ -508,8 +508,8 @@ class Daf:
             [1, 3]
             >>> for row in d.iter_klist():
             ...     row['y'] = 0
-            >>> d.lol
-            [[1, 0], [3, 0]]
+            >>> d.to_lod()
+            [{'x': 1, 'y': 0}, {'x': 3, 'y': 0}]
         """
         return DafIterator(self, KeyedList)
 
@@ -530,8 +530,8 @@ class Daf:
             [1, 3]
             >>> for row in d.iter_list():
             ...     row[1] = 9
-            >>> d.lol
-            [[1, 9], [3, 9]]
+            >>> d.to_lod()
+            [{'x': 1, 'y': 9}, {'x': 3, 'y': 9}]
         """
         return DafIterator(self, list)
 
@@ -813,8 +813,8 @@ class Daf:
             ValueError: A row is longer than the number of columns. Nothing is changed.
 
         Examples:
-            >>> Daf(lol=[[1, 2], [3]], cols=['a', 'b']).force_rectangular().lol
-            [[1, 2], [3, '']]
+            >>> Daf(lol=[[1, 2], [3]], cols=['a', 'b']).force_rectangular().to_lod()
+            [{'a': 1, 'b': 2}, {'a': 3, 'b': ''}]
         """
         if not self.lol:
             return self
@@ -918,16 +918,18 @@ class Daf:
 
         Examples:
             >>> d = Daf(lol=[[2, 'b'], [1, 'a']], cols=['id', 'v'])
-            >>> d.copy().lol is d.lol
-            True
+            >>> _ = d.copy().append([3, 'c'])
+            >>> d.num_rows()
+            3
+            >>> d = Daf(lol=[[2, 'b'], [1, 'a']], cols=['id', 'v'])
             >>> s = d.copy('sortable')
-            >>> s.lol.append([3, 'c'])
+            >>> _ = s.append([3, 'c'])
             >>> d.num_rows()
             2
             >>> e = d.copy('editable')
-            >>> e.lol[0][1] = 'X'
-            >>> d.lol[0]
-            [2, 'b']
+            >>> e[0, 'v'] = 'X'
+            >>> d.iloc(0)
+            {'id': 2, 'v': 'b'}
         """
 
         if isinstance(level, bool):     # an old call, copy(True), meant deep.
@@ -1739,10 +1741,10 @@ class Daf:
 
         Examples:
             >>> d = Daf(lol=[['1', '2.5', 'x']], cols=['a', 'b', 'c'])
-            >>> d.apply_dtypes(dtypes={'a': int, 'b': float, 'c': str}).lol
-            [[1, 2.5, 'x']]
-            >>> Daf(lol=[['x', '']], cols=['a', 'b']).apply_dtypes(dtypes={'a': int, 'b': int}).lol
-            [['x', '']]
+            >>> d.apply_dtypes(dtypes={'a': int, 'b': float, 'c': str}).to_lod()
+            [{'a': 1, 'b': 2.5, 'c': 'x'}]
+            >>> Daf(lol=[['x', '']], cols=['a', 'b']).apply_dtypes(dtypes={'a': int, 'b': int}).to_lod()
+            [{'a': 'x', 'b': ''}]
 
             Your own conversion, here one that records the values that fail:
 
@@ -1756,8 +1758,8 @@ class Daf:
             >>> d = Daf(lol=[['1'], ['x'], ['3']], cols=['n'])
             >>> _ = d.apply_to_col('n', to_int)
             >>> d.dtypes = {'n': int}
-            >>> d.lol, bad
-            ([[1], [''], [3]], ['x'])
+            >>> d.to_lod(), bad
+            ([{'n': 1}, {'n': ''}, {'n': 3}], ['x'])
         """
 
         """ convert columns of daf array to the datatypes specified in self.dtypes or in passed parameter.
@@ -1861,8 +1863,8 @@ class Daf:
 
         Examples:
             >>> d = Daf(lol=[[[1, 2], True]], cols=['a', 'b'], dtypes={'a': list, 'b': bool})
-            >>> d.flatten().lol
-            [['[1, 2]', 1]]
+            >>> d.flatten().to_lod()
+            [{'a': '[1, 2]', 'b': 1}]
         """
         if not use_pyon:
             raise ValueError("flatten(): use_pyon=False is not supported. Cells are flattened to PYON.")
@@ -1988,8 +1990,8 @@ class Daf:
             This Daf, which has been changed.
 
         Examples:
-            >>> Daf(lol=[[' a ', 3, '("x")']], cols=['p', 'q', 'r']).strip(' ()"').lol
-            [['a', 3, 'x']]
+            >>> Daf(lol=[[' a ', 3, '("x")']], cols=['p', 'q', 'r']).strip(' ()"').to_lod()
+            [{'p': 'a', 'q': 3, 'r': 'x'}]
         """
         """ remove leading or trailing characters in the string chrs from each str value in the array.
             modifies in-place.  Ignores non str values.
@@ -2154,10 +2156,10 @@ class Daf:
                 neither `cols` nor `dtypes` is given.
 
         Examples:
-            >>> Daf.from_lod([{'a': 1, 'b': 2}, {'a': 3}]).lol
-            [[1, 2], [3, '']]
-            >>> Daf.from_lod([{'a': 1, 'b': 2}], cols=['b', 'a']).lol
-            [[2, 1]]
+            >>> Daf.from_lod([{'a': 1, 'b': 2}, {'a': 3}]).to_lod()
+            [{'a': 1, 'b': 2}, {'a': 3, 'b': ''}]
+            >>> Daf.from_lod([{'a': 1, 'b': 2}], cols=['b', 'a']).to_lod()
+            [{'b': 2, 'a': 1}]
         """
 
         """ Create Daf instance from loda type, adopting dict keys as column names
@@ -2241,8 +2243,8 @@ class Daf:
             ValueError: A tuple does not have as many items as there are columns.
 
         Examples:
-            >>> Daf.from_lot([(1, 'a'), (2, 'b')], cols=['id', 'v']).lol
-            [[1, 'a'], [2, 'b']]
+            >>> Daf.from_lot([(1, 'a'), (2, 'b')], cols=['id', 'v']).to_lod()
+            [{'id': 1, 'v': 'a'}, {'id': 2, 'v': 'b'}]
             >>> Daf.from_lot([(1, 'a')]).columns()
             []
             >>> Daf.from_lot([(1, 'a')]).set_cols().columns()
@@ -2342,8 +2344,8 @@ class Daf:
 
         Examples:
             >>> d = Daf.from_dod({'r0': {'x': 1}, 'r1': {'x': 2}})
-            >>> d.columns(), d.lol
-            (['rowkey', 'x'], [['r0', 1], ['r1', 2]])
+            >>> d.columns(), d.to_lod()
+            (['rowkey', 'x'], [{'rowkey': 'r0', 'x': 1}, {'rowkey': 'r1', 'x': 2}])
         """
 
         """ a dict of dict (dod) structure is very similar to a Daf table, but there is a slight difference.
@@ -2462,8 +2464,8 @@ class Daf:
 
         Examples:
             >>> d = Daf.from_cols_dol({'A': [1, 2, 3], 'B': [4, 5, 6]})
-            >>> d.lol
-            [[1, 4], [2, 5], [3, 6]]
+            >>> d.to_lod()
+            [{'A': 1, 'B': 4}, {'A': 2, 'B': 5}, {'A': 3, 'B': 6}]
         """
         """ Create Daf instance from cols_dol type, adopting dict keys as column names
             and creating columns from each value (list)
@@ -2572,8 +2574,8 @@ class Daf:
 
         Examples:
             >>> d = Daf.from_lod_to_cols([{'A': 1, 'B': 2}, {'A': 4, 'B': 5}], cols=['Feature', 'T1', 'T2'])
-            >>> d.lol
-            [['A', 1, 4], ['B', 2, 5]]
+            >>> d.to_lod()
+            [{'Feature': 'A', 'T1': 1, 'T2': 4}, {'Feature': 'B', 'T1': 2, 'T2': 5}]
         """
         r""" Create Daf instance from a list of dictionaries to be placed in columns
             where each column shares the same keys in the first column of the array.
@@ -2673,10 +2675,10 @@ class Daf:
             ...         _ = sheet.write(irow, icol, value)
             >>> workbook.close()
             >>> d = Daf.from_excel_buff(buff.getvalue(), keyfield='id')
-            >>> d.columns(), d.lol
-            (['id', 'v'], [['1', 'a'], ['2', 'b']])
-            >>> Daf.from_excel_buff(buff.getvalue(), dtypes={'id': int, 'v': str}).lol
-            [[1, 'a'], [2, 'b']]
+            >>> d.columns(), d.to_lod()
+            (['id', 'v'], [{'id': '1', 'v': 'a'}, {'id': '2', 'v': 'b'}])
+            >>> Daf.from_excel_buff(buff.getvalue(), dtypes={'id': int, 'v': str}).to_lod()
+            [{'id': 1, 'v': 'a'}, {'id': 2, 'v': 'b'}]
         """
 
         # from utilities import xlsx_utils
@@ -2725,8 +2727,8 @@ class Daf:
             >>> path = os.path.join(tempfile.mkdtemp(), 'x.csv')
             >>> with open(path, 'w') as f:
             ...     n = f.write('id,v\n1,a\n')
-            >>> Daf.from_csv(path).lol
-            [['1', 'a']]
+            >>> Daf.from_csv(path).to_lod()
+            [{'id': '1', 'v': 'a'}]
         """
         """
         Load a CSV file from a local file, URL, or S3 path into a Daf array.
@@ -2839,18 +2841,18 @@ class Daf:
 
         Examples:
             >>> d = Daf.from_csv_buff('id,v\n1,a\n2,"b,c"\n')
-            >>> d.columns(), d.lol
-            (['id', 'v'], [['1', 'a'], ['2', 'b,c']])
-            >>> Daf.from_csv_buff('id,v\n1,a\n', dtypes={'id': int, 'v': str}).lol
-            [[1, 'a']]
+            >>> d.columns(), d.to_lod()
+            (['id', 'v'], [{'id': '1', 'v': 'a'}, {'id': '2', 'v': 'b,c'}])
+            >>> Daf.from_csv_buff('id,v\n1,a\n', dtypes={'id': int, 'v': str}).to_lod()
+            [{'id': 1, 'v': 'a'}]
             >>> d = Daf.from_csv_buff('a,b,c\n1,2,3\n4,5,6\n', include_cols=['c', 'a'])
-            >>> d.columns(), d.lol
-            (['c', 'a'], [['3', '1'], ['6', '4']])
+            >>> d.columns(), d.to_lod()
+            (['c', 'a'], [{'c': '3', 'a': '1'}, {'c': '6', 'a': '4'}])
             >>> d = Daf.from_csv_buff('id,v\n1,a\n2\n')
             >>> d.is_rectangular()
             False
-            >>> d.force_rectangular().lol
-            [['1', 'a'], ['2', '']]
+            >>> d.force_rectangular().to_lod()
+            [{'id': '1', 'v': 'a'}, {'id': '2', 'v': ''}]
         """
 
         """
@@ -2949,8 +2951,8 @@ class Daf:
             >>> path = os.path.join(tempfile.mkdtemp(), 'x.csv')
             >>> with open(path, 'w') as f:
             ...     n = f.write('id,v\n1,a\n')
-            >>> Daf.from_csv_file(path).lol
-            [['1', 'a']]
+            >>> Daf.from_csv_file(path).to_lod()
+            [{'id': '1', 'v': 'a'}]
         """
         """ Read a csv file directly into a daf array in memory, per arguments.
 
@@ -3337,8 +3339,8 @@ class Daf:
 
         Examples:
             >>> import numpy as np
-            >>> Daf.from_numpy(np.array([[1, 2], [3, 4]]), cols=['a', 'b']).lol
-            [[1, 2], [3, 4]]
+            >>> Daf.from_numpy(np.array([[1, 2], [3, 4]]), cols=['a', 'b']).to_lod()
+            [{'a': 1, 'b': 2}, {'a': 3, 'b': 4}]
         """
         """
         Convert a Numpy dataframe to daf object
@@ -3434,8 +3436,8 @@ class Daf:
             ['5', '', '7']
             >>> d.to_donpa(['n', 'm'], default=0)['m'].tolist()
             [5, 0, 7]
-            >>> d.lol
-            [[1, 5], [2, ''], [None, 7]]
+            >>> d.to_lod()
+            [{'n': 1, 'm': 5}, {'n': 2, 'm': ''}, {'n': None, 'm': 7}]
         """
         """
         Convert specified columns of the Daffodil table to a dict of NumPy arrays (donpa).
@@ -3701,17 +3703,17 @@ class Daf:
 
         Examples:
             >>> d = Daf(lol=[[1, 'a']], cols=['id', 'v'], keyfield='id')
-            >>> d.append({'v': 'b', 'id': 2}).lol
-            [[1, 'a'], [2, 'b']]
-            >>> d.append([3, 'c']).lol
-            [[1, 'a'], [2, 'b'], [3, 'c']]
-            >>> d.append(lol=[[4, 'd'], [5, 'e']]).lol
-            [[1, 'a'], [2, 'b'], [3, 'c'], [4, 'd'], [5, 'e']]
-            >>> d.append({'id': 2, 'v': 'new'}, respect_kd=True).lol
-            [[1, 'a'], [2, 'new'], [3, 'c'], [4, 'd'], [5, 'e']]
+            >>> d.append({'v': 'b', 'id': 2}).to_lod()
+            [{'id': 1, 'v': 'a'}, {'id': 2, 'v': 'b'}]
+            >>> d.append([3, 'c']).to_lod()
+            [{'id': 1, 'v': 'a'}, {'id': 2, 'v': 'b'}, {'id': 3, 'v': 'c'}]
+            >>> d.append(lol=[[4, 'd'], [5, 'e']]).to_lod()
+            [{'id': 1, 'v': 'a'}, {'id': 2, 'v': 'b'}, {'id': 3, 'v': 'c'}, {'id': 4, 'v': 'd'}, {'id': 5, 'v': 'e'}]
+            >>> d.append({'id': 2, 'v': 'new'}, respect_kd=True).to_lod()
+            [{'id': 1, 'v': 'a'}, {'id': 2, 'v': 'new'}, {'id': 3, 'v': 'c'}, {'id': 4, 'v': 'd'}, {'id': 5, 'v': 'e'}]
             >>> e = Daf(lol=[[1, 'a']], cols=['id', 'v'])
-            >>> e.append(None).append({}).append([]).lol
-            [[1, 'a']]
+            >>> e.append(None).append({}).append([]).to_lod()
+            [{'id': 1, 'v': 'a'}]
         """
 
         """ general append method can handle appending one record as T_da or T_la, many records as T_loda or T_daf
@@ -3813,11 +3815,11 @@ class Daf:
         Examples:
             >>> a = Daf(lol=[[1, 'a1'], [2, 'a2']], cols=['id', 'v'], keyfield='id')
             >>> b = Daf(lol=[[2, 'b2'], [3, 'b3']], cols=['id', 'v'])
-            >>> a.concat(b).lol
-            [[1, 'a1'], [2, 'a2'], [2, 'b2'], [3, 'b3']]
+            >>> a.concat(b).to_lod()
+            [{'id': 1, 'v': 'a1'}, {'id': 2, 'v': 'a2'}, {'id': 2, 'v': 'b2'}, {'id': 3, 'v': 'b3'}]
             >>> a = Daf(lol=[[1, 'a1'], [2, 'a2']], cols=['id', 'v'], keyfield='id')
-            >>> a.concat(b, respect_kd=True).lol
-            [[1, 'a1'], [2, 'b2'], [3, 'b3']]
+            >>> a.concat(b, respect_kd=True).to_lod()
+            [{'id': 1, 'v': 'a1'}, {'id': 2, 'v': 'b2'}, {'id': 3, 'v': 'b3'}]
         """
 
         if not other_instance:
@@ -3918,10 +3920,10 @@ class Daf:
 
         Examples:
             >>> d = Daf(lol=[[1, 'a']], cols=['id', 'v'], keyfield='id')
-            >>> d.extend([{'id': 2, 'v': 'b'}, {'id': 1, 'v': 'new'}], respect_kd=True).lol
-            [[1, 'new'], [2, 'b']]
-            >>> d.extend(lol=[[3, 'c'], [4]]).lol
-            [[1, 'new'], [2, 'b'], [3, 'c'], [4, '']]
+            >>> d.extend([{'id': 2, 'v': 'b'}, {'id': 1, 'v': 'new'}], respect_kd=True).to_lod()
+            [{'id': 1, 'v': 'new'}, {'id': 2, 'v': 'b'}]
+            >>> d.extend(lol=[[3, 'c'], [4]]).to_lod()
+            [{'id': 1, 'v': 'new'}, {'id': 2, 'v': 'b'}, {'id': 3, 'v': 'c'}, {'id': 4, 'v': ''}]
         """
 
         if records_lod is not None and lol is not None:
@@ -4007,10 +4009,10 @@ class Daf:
 
         Examples:
             >>> d = Daf(lol=[[1, 'a'], [2, 'b']], cols=['id', 'v'], keyfield='id')
-            >>> d.record_append({'id': 2, 'v': 'new'}).lol
-            [[1, 'a'], [2, 'new']]
-            >>> d.record_append({'id': 2, 'v': 'dup'}, respect_kd=False).lol
-            [[1, 'a'], [2, 'new'], [2, 'dup']]
+            >>> d.record_append({'id': 2, 'v': 'new'}).to_lod()
+            [{'id': 1, 'v': 'a'}, {'id': 2, 'v': 'new'}]
+            >>> d.record_append({'id': 2, 'v': 'dup'}, respect_kd=False).to_lod()
+            [{'id': 1, 'v': 'a'}, {'id': 2, 'v': 'new'}, {'id': 2, 'v': 'dup'}]
         """
             # test exists in test_daf.py
 
@@ -4159,13 +4161,13 @@ class Daf:
 
         Examples:
             >>> d = Daf(lol=[[1, 'a'], [2, 'b']], cols=['id', 'v'], keyfield='id')
-            >>> d.remove_key(1).lol
-            [[2, 'b']]
+            >>> d.remove_key(1).to_lod()
+            [{'id': 2, 'v': 'b'}]
             >>> d.num_rows()
             2
             >>> c = Daf(lol=[['a', 1], ['a', 2]], cols=['g', 'n'], keyfield=('g', 'n'))
-            >>> c.remove_key(('a', 1)).lol
-            [['a', 2]]
+            >>> c.remove_key(('a', 1)).to_lod()
+            [{'g': 'a', 'n': 2}]
         """
 
         # test exists in test_daf.py
@@ -4203,11 +4205,11 @@ class Daf:
 
         Examples:
             >>> d = Daf(lol=[[1, 'a'], [2, 'b'], [3, 'c']], cols=['id', 'v'], keyfield='id')
-            >>> d.remove_keylist([1, 3]).lol
-            [[2, 'b']]
+            >>> d.remove_keylist([1, 3]).to_lod()
+            [{'id': 2, 'v': 'b'}]
             >>> d2 = Daf(lol=[[1, 'a', 0], [2, 'b', 1]], cols=['p', 'q', 'r'], keyfield=['p', 'q'])
-            >>> d2.remove_keylist([(1, 'a')]).lol
-            [[2, 'b', 1]]
+            >>> d2.remove_keylist([(1, 'a')]).to_lod()
+            [{'p': 2, 'q': 'b', 'r': 1}]
         """
         # test exists in test_daf.py
 
@@ -4268,18 +4270,18 @@ class Daf:
 
         Examples:
             >>> d = Daf(lol=[[1, 'a', 10], [2, 'b', 20], [3, 'c', 30]], cols=['id', 'v', 'n'], keyfield='id')
-            >>> d[1].lol
-            [[2, 'b', 20]]
-            >>> d[1:].lol
-            [[2, 'b', 20], [3, 'c', 30]]
-            >>> d[:, 'v'].lol
-            [['a'], ['b'], ['c']]
-            >>> d[[2, 0], ['n', 'id']].lol
-            [[30, 3], [10, 1]]
+            >>> d[1].to_lod()
+            [{'id': 2, 'v': 'b', 'n': 20}]
+            >>> d[1:].to_lod()
+            [{'id': 2, 'v': 'b', 'n': 20}, {'id': 3, 'v': 'c', 'n': 30}]
+            >>> d[:, 'v'].to_lod()
+            [{'v': 'a'}, {'v': 'b'}, {'v': 'c'}]
+            >>> d[[2, 0], ['n', 'id']].to_lod()
+            [{'n': 30, 'id': 3}, {'n': 10, 'id': 1}]
             >>> d[1, 'n'].to_value()
             20
-            >>> d[(1, 2), :].lol
-            [[1, 'a', 10], [2, 'b', 20]]
+            >>> d[(1, 2), :].to_lod()
+            [{'id': 1, 'v': 'a', 'n': 10}, {'id': 2, 'v': 'b', 'n': 20}]
         """
         irows, icols = self._parse_selectors(slice_spec)
 
@@ -4321,11 +4323,11 @@ class Daf:
             >>> d = Daf(lol=[[1, 'a', 10], [2, 'b', 20], [3, 'c', 30]], cols=['id', 'v', 'n'], keyfield='id')
             >>> d[1, 'v'] = 'z'
             >>> d[:, 'n'] = [1, 2, 3]
-            >>> d.lol
-            [[1, 'a', 1], [2, 'z', 2], [3, 'c', 3]]
+            >>> d.to_lod()
+            [{'id': 1, 'v': 'a', 'n': 1}, {'id': 2, 'v': 'z', 'n': 2}, {'id': 3, 'v': 'c', 'n': 3}]
             >>> d[0] = {'v': 'q'}
-            >>> d.lol[0]
-            ['', 'q', '']
+            >>> d.iloc(0)
+            {'id': '', 'v': 'q', 'n': ''}
         """
         irows, icols = self._parse_selectors(slice_spec)
         return self.set_irows_icols(irows=irows, icols=icols, value=value)
@@ -4513,10 +4515,10 @@ class Daf:
 
         Examples:
             >>> d = Daf(lol=[[1, 'a', 10], [2, 'b', 20], [3, 'c', 30]], cols=['id', 'v', 'n'])
-            >>> d.set_irows_icols([0, 1], [1, 2], 'Z').lol
-            [[1, 'Z', 'Z'], [2, 'Z', 'Z'], [3, 'c', 30]]
-            >>> d.set_irows_icols(2, None, ['x', 'y', 'z']).lol[2]
-            ['x', 'y', 'z']
+            >>> d.set_irows_icols([0, 1], [1, 2], 'Z').to_lod()
+            [{'id': 1, 'v': 'Z', 'n': 'Z'}, {'id': 2, 'v': 'Z', 'n': 'Z'}, {'id': 3, 'v': 'c', 'n': 30}]
+            >>> d.set_irows_icols(2, None, ['x', 'y', 'z']).iloc(2)
+            {'id': 'x', 'v': 'y', 'n': 'z'}
         """
         """ set rows and cols in given daf.
 
@@ -5002,12 +5004,12 @@ class Daf:
 
         Examples:
             >>> d = Daf(lol=[[1, 'a', 10], [2, 'b', 20], [3, 'c', 30]], cols=['id', 'v', 'n'], keyfield='id')
-            >>> d.select_krows([3, 1]).lol
-            [[3, 'c', 30], [1, 'a', 10]]
-            >>> d.select_krows([1, 2], inverse=True).lol
-            [[3, 'c', 30]]
-            >>> d.select_krows([1, 9], silent_error=True).lol
-            [[1, 'a', 10]]
+            >>> d.select_krows([3, 1]).to_lod()
+            [{'id': 3, 'v': 'c', 'n': 30}, {'id': 1, 'v': 'a', 'n': 10}]
+            >>> d.select_krows([1, 2], inverse=True).to_lod()
+            [{'id': 3, 'v': 'c', 'n': 30}]
+            >>> d.select_krows([1, 9], silent_error=True).to_lod()
+            [{'id': 1, 'v': 'a', 'n': 10}]
         """
         self._rebuild_kd_if_invalidated()
 
@@ -5056,12 +5058,12 @@ class Daf:
 
         Examples:
             >>> d = Daf(lol=[[1, 'a', 10], [2, 'b', 20], [3, 'c', 30]], cols=['id', 'v', 'n'], keyfield='id')
-            >>> d.select_kcols(['n', 'id']).lol
-            [[10, 1], [20, 2], [30, 3]]
+            >>> d.select_kcols(['n', 'id']).to_lod()
+            [{'n': 10, 'id': 1}, {'n': 20, 'id': 2}, {'n': 30, 'id': 3}]
             >>> d.select_kcols('v', inverse=True).columns()
             ['id', 'n']
-            >>> d.select_kcols('v', flip=True).lol
-            [['a', 'b', 'c']]
+            >>> d.select_kcols('v', flip=True).to_lota()
+            [('a', 'b', 'c')]
         """
         if not self.hd:
             raise KeysDisabledError("select_kcols requires hd.")
@@ -5097,14 +5099,14 @@ class Daf:
 
         Examples:
             >>> d = Daf(lol=[[1, 'a', 10], [2, 'b', 20], [3, 'c', 30]], cols=['id', 'v', 'n'], keyfield='id')
-            >>> d.select_irows(1).lol
-            [[2, 'b', 20]]
-            >>> d.select_irows(1, inverse=True).lol
-            [[1, 'a', 10], [3, 'c', 30]]
-            >>> d.select_irows(1, invert=True).lol
-            [[1, 'a', 10], [3, 'c', 30]]
-            >>> d.select_irows(slice(1, None)).lol
-            [[2, 'b', 20], [3, 'c', 30]]
+            >>> d.select_irows(1).to_lod()
+            [{'id': 2, 'v': 'b', 'n': 20}]
+            >>> d.select_irows(1, inverse=True).to_lod()
+            [{'id': 1, 'v': 'a', 'n': 10}, {'id': 3, 'v': 'c', 'n': 30}]
+            >>> d.select_irows(1, invert=True).to_lod()
+            [{'id': 1, 'v': 'a', 'n': 10}, {'id': 3, 'v': 'c', 'n': 30}]
+            >>> d.select_irows(slice(1, None)).to_lod()
+            [{'id': 2, 'v': 'b', 'n': 20}, {'id': 3, 'v': 'c', 'n': 30}]
         """
         """ select rows from daf and return a new instance.
             This is an efficient opeation. The array in the new instance
@@ -5224,12 +5226,12 @@ class Daf:
 
         Examples:
             >>> d = Daf(lol=[[1, 'a', 10], [2, 'b', 20], [3, 'c', 30]], cols=['id', 'v', 'n'], keyfield='id')
-            >>> d.select_icols([2, 0]).lol
-            [[10, 1], [20, 2], [30, 3]]
+            >>> d.select_icols([2, 0]).to_lod()
+            [{'n': 10, 'id': 1}, {'n': 20, 'id': 2}, {'n': 30, 'id': 3}]
             >>> d.select_icols(slice(-2, None)).columns()
             ['v', 'n']
-            >>> d.select_icols([0, 1], flip=True).lol
-            [[1, 2, 3], ['a', 'b', 'c']]
+            >>> d.select_icols([0, 1], flip=True).to_lota()
+            [(1, 2, 3), ('a', 'b', 'c')]
         """
 
         """ select cols from daf and return a new instance.
@@ -5487,13 +5489,19 @@ class Daf:
         Examples:
             >>> d = Daf(lol=[['r1', 'a', 10], ['r2', 'b', ''], ['r3', 'a', 30]], cols=['id', 'v', 'n'], keyfield='id')
 
-            >>> d.select_records_daf(['r3', 'r1']).lol
-            [['r3', 'a', 30], ['r1', 'a', 10]]
-            >>> d.select_records_daf([]).lol
+            >>> d.select_records_daf(['r3', 'r1']).to_lod()
+            [{'id': 'r3', 'v': 'a', 'n': 30}, {'id': 'r1', 'v': 'a', 'n': 10}]
+            >>> d.select_records_daf([]).to_lod()
             []
             >>> kept = d.select_records_daf([], inverse=True)
-            >>> kept.lol == d.lol, kept.lol is d.lol, kept.lol[0] is d.lol[0]
-            (True, False, True)
+            >>> kept.to_lod() == d.to_lod()
+            True
+            >>> _ = kept.append(['r4', 'd', 40])
+            >>> d.num_rows(), kept.num_rows()
+            (3, 4)
+            >>> kept[0, 'v'] = 'Q'
+            >>> d.iloc(0)['v']
+            'Q'
         """
 
         """ Select multiple records from daf using the keys and return as a single daf.
@@ -5535,8 +5543,8 @@ class Daf:
             ['r2', 'b', '']
             >>> row = d.irow_la(0)
             >>> row[1] = 'Z'
-            >>> d.lol[0]
-            ['r1', 'Z', 10]
+            >>> d.iloc(0)
+            {'id': 'r1', 'v': 'Z', 'n': 10}
             >>> d.irow_la(9)
             Traceback (most recent call last):
                 ...
@@ -5908,10 +5916,10 @@ class Daf:
 
         Examples:
             >>> d = Daf(lol=[[1, 'a', 10], [2, 'b', 20], [3, 'c', 30]], cols=['id', 'v', 'n'], keyfield='id')
-            >>> d.select_by_dict({'v': 'b'}).lol
-            [[2, 'b', 20]]
-            >>> d.select_by_dict({'v': 'b'}, inverse=True).lol
-            [[1, 'a', 10], [3, 'c', 30]]
+            >>> d.select_by_dict({'v': 'b'}).to_lod()
+            [{'id': 2, 'v': 'b', 'n': 20}]
+            >>> d.select_by_dict({'v': 'b'}, inverse=True).to_lod()
+            [{'id': 1, 'v': 'a', 'n': 10}, {'id': 3, 'v': 'c', 'n': 30}]
         """
 
         """ Selects rows in daf which match the fields specified in selector_da
@@ -6023,30 +6031,30 @@ class Daf:
 
         Examples:
             >>> d = Daf(lol=[[1, 'a', 10], [2, 'b', 20], [3, 'c', 30]], cols=['id', 'v', 'n'], keyfield='id')
-            >>> d.select_where(lambda row: row['n'] > 10).lol
-            [[2, 'b', 20], [3, 'c', 30]]
+            >>> d.select_where(lambda row: row['n'] > 10).to_lod()
+            [{'id': 2, 'v': 'b', 'n': 20}, {'id': 3, 'v': 'c', 'n': 30}]
             >>> d = Daf(lol=[[1, 'a', 10], [2, 'b', 20], [3, 'c', 30], [4, 'a', 40]], cols=['id', 'v', 'n'])
             >>> keep = {'a', 'c'}
-            >>> d.select_where(lambda row: row['v'] in keep).lol
-            [[1, 'a', 10], [3, 'c', 30], [4, 'a', 40]]
-            >>> d.select_where(lambda row: row['v'] not in keep).lol
-            [[2, 'b', 20]]
-            >>> d.select_where(lambda row: row['v'] in keep and row['n'] > 15).lol
-            [[3, 'c', 30], [4, 'a', 40]]
-            >>> d.select_where(lambda row: row['id'] % 2 == 0 or row['v'] == 'c').lol
-            [[2, 'b', 20], [3, 'c', 30], [4, 'a', 40]]
+            >>> d.select_where(lambda row: row['v'] in keep).to_lod()
+            [{'id': 1, 'v': 'a', 'n': 10}, {'id': 3, 'v': 'c', 'n': 30}, {'id': 4, 'v': 'a', 'n': 40}]
+            >>> d.select_where(lambda row: row['v'] not in keep).to_lod()
+            [{'id': 2, 'v': 'b', 'n': 20}]
+            >>> d.select_where(lambda row: row['v'] in keep and row['n'] > 15).to_lod()
+            [{'id': 3, 'v': 'c', 'n': 30}, {'id': 4, 'v': 'a', 'n': 40}]
+            >>> d.select_where(lambda row: row['id'] % 2 == 0 or row['v'] == 'c').to_lod()
+            [{'id': 2, 'v': 'b', 'n': 20}, {'id': 3, 'v': 'c', 'n': 30}, {'id': 4, 'v': 'a', 'n': 40}]
 
             The values can come from another Daf. Make the set once, outside the function:
 
             >>> other = Daf(lol=[['a'], ['c']], cols=['v'], keyfield='v')
             >>> other_keys = set(other.keys())
-            >>> d.select_where(lambda row: row['v'] in other_keys).lol
-            [[1, 'a', 10], [3, 'c', 30], [4, 'a', 40]]
+            >>> d.select_where(lambda row: row['v'] in other_keys).to_lod()
+            [{'id': 1, 'v': 'a', 'n': 10}, {'id': 3, 'v': 'c', 'n': 30}, {'id': 4, 'v': 'a', 'n': 40}]
 
             For a large Daf, the faster form picks the positions from the column:
 
-            >>> d.select_irows([irow for irow, v in enumerate(d.col('v')) if v in keep]).lol
-            [[1, 'a', 10], [3, 'c', 30], [4, 'a', 40]]
+            >>> d.select_irows([irow for irow, v in enumerate(d.col('v')) if v in keep]).to_lod()
+            [{'id': 1, 'v': 'a', 'n': 10}, {'id': 3, 'v': 'c', 'n': 30}, {'id': 4, 'v': 'a', 'n': 40}]
         """
         """
         Select rows in Daf based on the provided where condition
@@ -6149,8 +6157,8 @@ class Daf:
         Examples:
             >>> d = Daf(lol=[[1, 'a'], [2, 'b'], [1, 'c']], cols=['id', 'v'])
             >>> unique, dups = d.remove_dups('id')
-            >>> unique.lol, dups.lol
-            ([[1, 'c'], [2, 'b']], [[1, 'a']])
+            >>> unique.to_lod(), dups.to_lod()
+            ([{'id': 1, 'v': 'c'}, {'id': 2, 'v': 'b'}], [{'id': 1, 'v': 'a'}])
         """
         """
         If it is known that duplicates may exist in the array with respect to keyfield,
@@ -6208,8 +6216,8 @@ class Daf:
         Examples:
             >>> d = Daf(lol=[[1, 'a', 10], [2, 'b', 20], [3, 'c', 30]], cols=['id', 'v', 'n'], keyfield='id')
             >>> big, small = d.split_where(lambda row: row['n'] > 10)
-            >>> big.lol, small.lol
-            ([[2, 'b', 20], [3, 'c', 30]], [[1, 'a', 10]])
+            >>> big.to_lod(), small.to_lod()
+            ([{'id': 2, 'v': 'b', 'n': 20}, {'id': 3, 'v': 'c', 'n': 30}], [{'id': 1, 'v': 'a', 'n': 10}])
         """
         """
         Select rows in Daf based on the provided where condition,
@@ -6651,8 +6659,8 @@ class Daf:
         Examples:
             >>> d = Daf(lol=[[1, 'a', 10], [2, 'b', 20], [3, 'c', 30]], cols=['id', 'v', 'n'], keyfield='id')
             >>> _ = d.assign_record({'id': 2, 'v': 'new'})
-            >>> d.lol
-            [[1, 'a', 10], [2, 'new', ''], [3, 'c', 30]]
+            >>> d.to_lod()
+            [{'id': 1, 'v': 'a', 'n': 10}, {'id': 2, 'v': 'new', 'n': ''}, {'id': 3, 'v': 'c', 'n': 30}]
         """
 
         if not self.keyfield:
@@ -6700,14 +6708,14 @@ class Daf:
         Examples:
             >>> d = Daf(lol=[[1, 'a', 10], [2, 'b', 20], [3, 'c', 30]], cols=['id', 'v', 'n'], keyfield='id')
             >>> _ = d.assign_record_irow(1, {'v': 'q'})
-            >>> d.lol[1]
-            ['', 'q', '']
+            >>> d.iloc(1)
+            {'id': '', 'v': 'q', 'n': ''}
             >>> _ = d.assign_record_irow(-1, {'id': 9})
-            >>> d.lol[-1]
-            [9, '', '']
+            >>> d.iloc(-1)
+            {'id': 9, 'v': '', 'n': ''}
             >>> _ = d.assign_record_irow(record={'id': 10})
-            >>> d.lol[-1], len(d)
-            ([10, '', ''], 4)
+            >>> d.iloc(-1), len(d)
+            ({'id': 10, 'v': '', 'n': ''}, 4)
         """
 
         if record is None:
@@ -6746,8 +6754,8 @@ class Daf:
 
         Examples:
             >>> d = Daf(lol=[[1, 'a', 10], [2, 'b', 20], [3, 'c', 30]], cols=['id', 'v', 'n'], keyfield='id')
-            >>> d.update_by_keylist([1, 3, 9], {'v': 'q'}).lol
-            [[1, 'q', 10], [2, 'b', 20], [3, 'q', 30]]
+            >>> d.update_by_keylist([1, 3, 9], {'v': 'q'}).to_lod()
+            [{'id': 1, 'v': 'q', 'n': 10}, {'id': 2, 'v': 'b', 'n': 20}, {'id': 3, 'v': 'q', 'n': 30}]
         """
 
         if record is None or not self.lol or not self.hd or not self.keyfield or not keylist:
@@ -6786,11 +6794,11 @@ class Daf:
         Examples:
             >>> d = Daf(lol=[[1, 'a', 10], [2, 'b', 20], [3, 'c', 30]], cols=['id', 'v', 'n'], keyfield='id')
             >>> _ = d.update_record_irow(1, {'v': 'q'})
-            >>> d.lol[1]
-            [2, 'q', 20]
+            >>> d.iloc(1)
+            {'id': 2, 'v': 'q', 'n': 20}
             >>> _ = d.update_record_irow(record={'n': 99})
-            >>> d.lol[-1]
-            [3, 'c', 99]
+            >>> d.iloc(-1)
+            {'id': 3, 'v': 'c', 'n': 99}
         """
 
         if record is None or not self.lol or not self.hd:
@@ -6983,8 +6991,8 @@ class Daf:
 
         Examples:
             >>> d = Daf(lol=[[1, 'a', 10], [2, 'b', 20], [3, 'c', 30]], cols=['id', 'v', 'n'], keyfield='id')
-            >>> d.insert_irow(1, {'id': 9, 'v': 'z'}).lol
-            [[1, 'a', 10], [9, 'z', ''], [2, 'b', 20], [3, 'c', 30]]
+            >>> d.insert_irow(1, {'id': 9, 'v': 'z'}).to_lod()
+            [{'id': 1, 'v': 'a', 'n': 10}, {'id': 9, 'v': 'z', 'n': ''}, {'id': 2, 'v': 'b', 'n': 20}, {'id': 3, 'v': 'c', 'n': 30}]
         """
 
         # from utilities import daf_utils
@@ -7352,8 +7360,8 @@ class Daf:
 
         Examples:
             >>> d = Daf(lol=[[1, 'a', 10], [2, 'b', 20], [3, 'c', 30]], cols=['id', 'v', 'n'], keyfield='id')
-            >>> [part.lol for part in d.split_daf_into_ranges([(0, 2), (2, 3)])]
-            [[[1, 'a', 10], [2, 'b', 20]], [[3, 'c', 30]]]
+            >>> [part.to_lod() for part in d.split_daf_into_ranges([(0, 2), (2, 3)])]
+            [[{'id': 1, 'v': 'a', 'n': 10}, {'id': 2, 'v': 'b', 'n': 20}], [{'id': 3, 'v': 'c', 'n': 30}]]
         """
 
         chunks_lodaf = [self.select_irows(list(range(start, end))) for start,end in chunk_ranges]
@@ -7469,8 +7477,8 @@ class Daf:
 
         Examples:
             >>> d = Daf(lol=[[2, 'b'], [1, 'z'], [1, 'a']], cols=['p', 'q'])
-            >>> d.sort_by_colnames(['p', 'q']).lol
-            [[1, 'a'], [1, 'z'], [2, 'b']]
+            >>> d.sort_by_colnames(['p', 'q']).to_lod()
+            [{'p': 1, 'q': 'a'}, {'p': 1, 'q': 'z'}, {'p': 2, 'q': 'b'}]
         """
         if not self or len(self) <= 1:
             return self
@@ -7537,8 +7545,8 @@ class Daf:
             ...     ['', '', 'sum($d[$r,:$c])'],
             ...     ['sum($d[:$r,$c])', 'sum($d[:$r,$c])', 'sum($d[:$r,$c])']])
             >>> _ = d.apply_formulas(f)
-            >>> d.lol
-            [[1, 2, 3], [4, 5, 9], [7, 8, 15], [12, 15, 27]]
+            >>> d.to_lod()
+            [{'A': 1, 'B': 2, 'C': 3}, {'A': 4, 'B': 5, 'C': 9}, {'A': 7, 'B': 8, 'C': 15}, {'A': 12, 'B': 15, 'C': 27}]
         """
 
         # TODO: This algorithm is not optimal. Ideally, a dependency tree would be formed and
@@ -7692,8 +7700,8 @@ class Daf:
 
         Examples:
             >>> d = Daf(lol=[[1, 10], [3, 14], [6, 20]], cols=['a', 'n'])
-            >>> d.insert_dif_row(0).lol
-            [[1, 10], [-2, -4], [3, 14], [6, 20]]
+            >>> d.insert_dif_row(0).to_lod()
+            [{'a': 1, 'n': 10}, {'a': -2, 'n': -4}, {'a': 3, 'n': 14}, {'a': 6, 'n': 20}]
         """
 
         if irow2 is None:
@@ -7735,8 +7743,8 @@ class Daf:
 
         Examples:
             >>> d = Daf(lol=[[1, 10], [3, 14], [6, 20]], cols=['a', 'n'])
-            >>> d.insert_dif_rows().lol
-            [[1, 10], [-2, -4], [3, 14], [-3, -6], [6, 20]]
+            >>> d.insert_dif_rows().to_lod()
+            [{'a': 1, 'n': 10}, {'a': -2, 'n': -4}, {'a': 3, 'n': 14}, {'a': -3, 'n': -6}, {'a': 6, 'n': 20}]
         """
 
         reversed_irows_rli: Union[range, T_li]
@@ -7777,8 +7785,8 @@ class Daf:
         Examples:
             >>> a = Daf(lol=[[1, 'x'], [2, 'y']], cols=['id', 'v'], keyfield='id')
             >>> o = Daf(lol=[[1, 'P'], [2, 'Q']], cols=['id', 'w'], keyfield='id')
-            >>> a.annotate_daf(o, {'v': 'w'}).lol
-            [[1, 'P'], [2, 'Q']]
+            >>> a.annotate_daf(o, {'v': 'w'}).to_lod()
+            [{'id': 1, 'v': 'P'}, {'id': 2, 'v': 'Q'}]
         """
 
         my_keyfield = self.keyfield
@@ -7857,10 +7865,10 @@ class Daf:
 
         Examples:
             >>> d = Daf(lol=[['a', 1, 10], ['b', 2, 20], ['a', 3, 30]], cols=['g', 'x', 'y'])
-            >>> d.apply(lambda row: {'g': row['g'].upper(), 'z': row['y'] * 2}).lol
-            [['A', 20], ['B', 40], ['A', 60]]
-            >>> d.apply(lambda row: row if row['y'] > 15 else None).lol
-            [['b', 2, 20], ['a', 3, 30]]
+            >>> d.apply(lambda row: {'g': row['g'].upper(), 'z': row['y'] * 2}).to_lod()
+            [{'g': 'A', 'z': 20}, {'g': 'B', 'z': 40}, {'g': 'A', 'z': 60}]
+            >>> d.apply(lambda row: row if row['y'] > 15 else None).to_lod()
+            [{'g': 'b', 'x': 2, 'y': 20}, {'g': 'a', 'x': 3, 'y': 30}]
         """
         if by == 'table':
             # by contract (see docstring) func returns a 'Daf' when by='table', though this
@@ -8108,17 +8116,17 @@ class Daf:
             >>> def load(spec):
             ...     return chunks[spec['chunk']]
             >>> def double(daf, cols=None):
-            ...     new = Daf(cols=['n'], lol=[[row[0] * 2] for row in daf.lol])
+            ...     new = Daf(cols=['n'], lol=[[row['n'] * 2] for row in daf])
             ...     return {'rows': len(new)}, new
             >>> def save(spec, daf):
-            ...     saved.append(daf.lol)
+            ...     saved.append(daf.to_lod())
             ...     return 'saved'
             >>> manifest = Daf(cols=['chunk'], lol=[['a'], ['b']])
             >>> result = manifest.manifest_apply(double, load, save, by='table')
-            >>> result.columns(), result.lol
-            (['rows'], [[2], [1]])
+            >>> result.columns(), result.to_lod()
+            (['rows'], [{'rows': 2}, {'rows': 1}])
             >>> saved
-            [[[2], [4]], [[20]]]
+            [[{'n': 2}, {'n': 4}], [{'n': 20}]]
         """
 
         result_manifest_daf = Daf()
@@ -8221,8 +8229,8 @@ class Daf:
 
         Examples:
             >>> manifest = Daf(lol=[['c1'], ['c2']], cols=['chunk'])
-            >>> manifest.manifest_process(lambda spec: {'chunk': spec['chunk'], 'seen': True}).lol
-            [['c1', True], ['c2', True]]
+            >>> manifest.manifest_process(lambda spec: {'chunk': spec['chunk'], 'seen': True}).to_lod()
+            [{'chunk': 'c1', 'seen': True}, {'chunk': 'c2', 'seen': True}]
         """
 
         result_daf = Daf()
@@ -8333,10 +8341,10 @@ class Daf:
         Examples:
             >>> d = Daf(lol=[['a', 1, 10], ['b', 2, 20], ['a', 3, 30]], cols=['g', 'x', 'y'])
             >>> groups = d.groupby('g')
-            >>> list(groups), groups['a'].lol
-            (['a', 'b'], [['a', 1, 10], ['a', 3, 30]])
-            >>> d.groupby('g', cols=['y'])['a'].lol
-            [[10], [30]]
+            >>> list(groups), groups['a'].to_lod()
+            (['a', 'b'], [{'g': 'a', 'x': 1, 'y': 10}, {'g': 'a', 'x': 3, 'y': 30}])
+            >>> d.groupby('g', cols=['y'])['a'].to_lod()
+            [{'y': 10}, {'y': 30}]
         """
 
         if isinstance(colname, list) and not colnames:
@@ -8396,8 +8404,8 @@ class Daf:
             >>> d = Daf(lol=[['a', 1, 10], ['b', 2, 20], ['a', 3, 30]], cols=['g', 'x', 'y'])
             >>> list(d.groupby_cols(['g']))
             [('a',), ('b',)]
-            >>> d.groupby_cols(['g'], cols=['y'])[('a',)].lol
-            [[10], [30]]
+            >>> d.groupby_cols(['g'], cols=['y'])[('a',)].to_lod()
+            [{'y': 10}, {'y': 30}]
         """
 
         names, idxs, all_cols = self._cols_scope(cols)
@@ -8547,8 +8555,8 @@ class Daf:
 
         Examples:
             >>> d = Daf(lol=[['a', 1, 10], ['b', 2, 20], ['a', 3, 30]], cols=['g', 'x', 'y'])
-            >>> d.groupby_cols_reduce(['g'], Daf.sum_da, reduce_cols=['y']).lol
-            [['a', 40], ['b', 20]]
+            >>> d.groupby_cols_reduce(['g'], Daf.sum_da, reduce_cols=['y']).to_lod()
+            [{'g': 'a', 'y': 40}, {'g': 'b', 'y': 20}]
         """
         # unit test exists.
         """
@@ -8703,8 +8711,8 @@ class Daf:
 
         Examples:
             >>> d = Daf(lol=[['a', 1, 10], ['b', 2, 20], ['a', 3, 30]], cols=['g', 'x', 'y'])
-            >>> d.groupby_reduce('g', Daf.sum_da, reduce_cols=['y']).lol
-            [['a', '', 40], ['b', '', 20]]
+            >>> d.groupby_reduce('g', Daf.sum_da, reduce_cols=['y']).to_lod()
+            [{'g': 'a', 'x': '', 'y': 40}, {'g': 'b', 'x': '', 'y': 20}]
         """
 
         if diagnose:
@@ -8763,8 +8771,8 @@ class Daf:
             >>> groups = d.multi_groupby(['g', 'x'])
             >>> list(groups), list(groups['g'])
             (['g', 'x'], ['a', 'b'])
-            >>> d.multi_groupby(['g'], colnames=['y'])['g']['a'].lol
-            [[10], [30]]
+            >>> d.multi_groupby(['g'], colnames=['y'])['g']['a'].to_lod()
+            [{'y': 10}, {'y': 30}]
         """
 
         if isinstance(groupby_colnames, str):
@@ -8835,8 +8843,8 @@ class Daf:
         Examples:
             >>> groups = {'a': Daf(lol=[[1], [2]], cols=['n']), 'b': Daf(lol=[[3]], cols=['n'])}
             >>> result = Daf.reduce_dodaf_to_daf('g', Daf.sum_da, groups)
-            >>> result.columns(), result.lol, result.keyfield
-            (['n', 'g'], [[3, 'a'], [3, 'b']], 'g')
+            >>> result.columns(), result.to_lod(), result.keyfield
+            (['n', 'g'], [{'n': 3, 'g': 'a'}, {'n': 3, 'g': 'b'}], 'g')
         """
 
         if diagnose:
@@ -8926,8 +8934,8 @@ class Daf:
 
         Examples:
             >>> d = Daf(lol=[['a', 1, 10], ['b', 2, 20], ['a', 3, 30]], cols=['g', 'x', 'y'])
-            >>> d.multi_groupby_reduce(['g'], Daf.sum_da, reduce_cols=['y'])['g'].lol
-            [['a', '', 40], ['b', '', 20]]
+            >>> d.multi_groupby_reduce(['g'], Daf.sum_da, reduce_cols=['y'])['g'].to_lod()
+            [{'g': 'a', 'x': '', 'y': 40}, {'g': 'b', 'x': '', 'y': 20}]
         """
 
         if diagnose:
@@ -8985,8 +8993,8 @@ class Daf:
 
         Examples:
             >>> d = Daf(lol=[[1, 2], [3, 0]], cols=['a', 'b'])
-            >>> d.apply_colwise('ratio', lambda row: row['a'] / row['b'], default=-1.0).lol
-            [[1, 2, 0.5], [3, 0, -1.0]]
+            >>> d.apply_colwise('ratio', lambda row: row['a'] / row['b'], default=-1.0).to_lod()
+            [{'a': 1, 'b': 2, 'ratio': 0.5}, {'a': 3, 'b': 0, 'ratio': -1.0}]
         """
 
         if target_col not in self.columns():
@@ -9682,8 +9690,8 @@ class Daf:
 
         Examples:
             >>> d = Daf(lol=[['a', 1, 10], ['b', 2, 20], ['a', 3, 30]], cols=['g', 'x', 'y'])
-            >>> d.groupsum_daf('g', reduce_cols=['y']).lol
-            [['a', '', 40], ['b', '', 20]]
+            >>> d.groupsum_daf('g', reduce_cols=['y']).to_lod()
+            [{'g': 'a', 'x': '', 'y': 40}, {'g': 'b', 'x': '', 'y': 20}]
         """
 
         result_daf = self.groupby_reduce(colname=colname, func=self.__class__.sum_da, by=by, reduce_cols=reduce_cols)
@@ -9719,10 +9727,10 @@ class Daf:
         Examples:
             >>> d = Daf(lol=[['a', 'x', 1], ['a', 'y', 2], ['b', 'x', 3]], cols=['g', 'k', 'n'])
             >>> sums = d.multi_groupsum(colnames=['g', 'k'], reduce_cols=['n'])
-            >>> sums['g'].lol
-            [['a', '', 3], ['b', '', 3]]
-            >>> sums['k'].lol
-            [['', 'x', 4], ['', 'y', 2]]
+            >>> sums['g'].to_lod()
+            [{'g': 'a', 'k': '', 'n': 3}, {'g': 'b', 'k': '', 'n': 3}]
+            >>> sums['k'].to_lod()
+            [{'g': '', 'k': 'x', 'n': 4}, {'g': '', 'k': 'y', 'n': 2}]
             >>> d.multi_groupsum()
             Traceback (most recent call last):
                 ...
@@ -10596,8 +10604,8 @@ class Daf:
 
         Examples:
             >>> d = Daf(lol=[[1, 'a'], [2, 'b']], cols=['id', 'v'])
-            >>> d.transpose(include_header=True).lol
-            [['id', 1, 2], ['v', 'a', 'b']]
+            >>> d.transpose(include_header=True).to_lod()
+            [{'key': 'id', 'A': 1, 'B': 2}, {'key': 'v', 'A': 'a', 'B': 'b'}]
             >>> d.transpose().columns()
             ['A', 'B']
             >>> d.transpose(include_header=True).columns()
@@ -10728,8 +10736,8 @@ class Daf:
             >>> tr = Daf.derive_join_translator_daf('id', 'id', ['id', 'v'], ['id', 'w'], 'L', 'R')
             >>> tr.columns()
             ['resolved_colname', 'source_name', 'source_colname', 'is_keyfield']
-            >>> tr.lol
-            [['id', 'L', 'id', True], ['v', 'L', 'v', False], ['w', 'R', 'w', False]]
+            >>> tr.to_lod()
+            [{'resolved_colname': 'id', 'source_name': 'L', 'source_colname': 'id', 'is_keyfield': True}, {'resolved_colname': 'v', 'source_name': 'L', 'source_colname': 'v', 'is_keyfield': False}, {'resolved_colname': 'w', 'source_name': 'R', 'source_colname': 'w', 'is_keyfield': False}]
             >>> tagged = Daf.derive_join_translator_daf('id', 'id', ['id', 'v'], ['id', 'w'], 'L', 'R', tag_other=True)
             >>> tagged.col('resolved_colname')
             ['id', 'v', 'w_R']
@@ -10858,12 +10866,12 @@ class Daf:
         Examples:
             >>> a = Daf(lol=[[1, 'Alice'], [2, 'Bob']], cols=['id', 'name'], keyfield='id')
             >>> b = Daf(lol=[[1, 50], [3, 70]], cols=['id', 'salary'], keyfield='id')
-            >>> a.join(b).lol
-            [[1, 'Alice', 50]]
-            >>> a.join(b, how='left').lol
-            [[1, 'Alice', 50], [2, 'Bob', '']]
-            >>> a.join(b, how='left', fill=None).lol
-            [[1, 'Alice', 50], [2, 'Bob', None]]
+            >>> a.join(b).to_lod()
+            [{'id': 1, 'name': 'Alice', 'salary': 50}]
+            >>> a.join(b, how='left').to_lod()
+            [{'id': 1, 'name': 'Alice', 'salary': 50}, {'id': 2, 'name': 'Bob', 'salary': ''}]
+            >>> a.join(b, how='left', fill=None).to_lod()
+            [{'id': 1, 'name': 'Alice', 'salary': 50}, {'id': 2, 'name': 'Bob', 'salary': None}]
         """
         if how not in ("inner", "left", "right", "outer"):
             raise ValueError(f"Unsupported join type: {how}")
@@ -11063,8 +11071,8 @@ class Daf:
 
         Examples:
             >>> d = Daf(lol=[['x', 1, 2], ['y', 3, 4]], cols=['id', 'a', 'b'])
-            >>> d.wide_to_narrow(['id']).lol
-            [['x', 'a', 1], ['x', 'b', 2], ['y', 'a', 3], ['y', 'b', 4]]
+            >>> d.wide_to_narrow(['id']).to_lod()
+            [{'id': 'x', 'varname': 'a', 'value': 1}, {'id': 'x', 'varname': 'b', 'value': 2}, {'id': 'y', 'varname': 'a', 'value': 3}, {'id': 'y', 'varname': 'b', 'value': 4}]
         """
         if not isinstance(id_cols, list):
             raise TypeError("id_cols must be a list")
@@ -11117,10 +11125,10 @@ class Daf:
 
         Examples:
             >>> d = Daf(lol=[['x', 'a', 1], ['y', 'a', 3], ['x', 'b', 2], ['y', 'b', 4]], cols=['id', 'variable', 'value'])
-            >>> d.narrow_to_wide(['id']).lol
-            [['x', 1, 2], ['y', 3, 4]]
-            >>> d.narrow_to_wide(['id'], wide_cols=['b', 'a']).lol
-            [['x', 2, 1], ['y', 4, 3]]
+            >>> d.narrow_to_wide(['id']).to_lod()
+            [{'id': 'x', 'a': 1, 'b': 2}, {'id': 'y', 'a': 3, 'b': 4}]
+            >>> d.narrow_to_wide(['id'], wide_cols=['b', 'a']).to_lod()
+            [{'id': 'x', 'b': 2, 'a': 1}, {'id': 'y', 'b': 4, 'a': 3}]
         """
         if not self.lol:
             return Daf()
@@ -11479,8 +11487,8 @@ class Daf:
 
         Examples:
             >>> d = Daf(lol=[['a'], ['b'], ['a']], cols=['g'])
-            >>> d.value_counts_daf('g', sort=True).lol
-            [['a', 2], ['b', 1]]
+            >>> d.value_counts_daf('g', sort=True).to_lod()
+            [{'g': 'a', 'counts': 2}, {'g': 'b', 'counts': 1}]
         """
 
         value_counts_di   = self.valuecounts_for_colname(colname=colname, sort=sort, reverse=reverse)

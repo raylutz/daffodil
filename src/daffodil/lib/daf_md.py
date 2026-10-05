@@ -257,8 +257,8 @@ def _dodaf_from_md(cls, md_str: str, header_level: int = 2) -> Dict[str, Any]:  
         >>> from daffodil.daf import Daf
         >>> report = Daf.dodaf_to_md({'first': Daf(lol=[[1]], cols=['a'])})
         >>> back = Daf.dodaf_from_md(report)
-        >>> back['first'].lol, back['first'].name
-        ([['1']], 'first')
+        >>> back['first'].to_lod(), back['first'].name
+        ([{'a': '1'}], 'first')
     """
     if not md_str:
         return {}
@@ -488,8 +488,8 @@ def _from_md(cls, md_str: str) -> 'Daf': # -> "Daf":
         >>> from daffodil.daf import Daf
         >>> text = "| id | v |\n| -: | -: |\n|  1 | a |\n|  2 | b |\n\n%% daf rows=2; cols=2; keyfield='id'; name='nm'\n"
         >>> d = Daf.from_md(text)
-        >>> d.lol, d.keyfield, d.name
-        ([['1', 'a'], ['2', 'b']], 'id', 'nm')
+        >>> d.to_lod(), d.keyfield, d.name
+        ([{'id': '1', 'v': 'a'}, {'id': '2', 'v': 'b'}], 'id', 'nm')
         >>> Daf.from_md(Daf(lol=[[1, 'a']]).to_md()).columns()
         ['A', 'B']
     """
