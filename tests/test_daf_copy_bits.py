@@ -212,12 +212,14 @@ def test_clone_empty_name_and_adopted_rows():
     assert daf.lol != rows
 
 
-def test_clone_empty_with_cols_drops_schema_and_display_columns():
+def test_clone_empty_with_cols_keeps_the_schema_like_the_dtypes_and_drops_display_columns():
     daf = make_daf()
-    daf.schema = object()       # type: ignore[assignment]
+    marker = object()
+    daf.schema = marker         # type: ignore[assignment]
     c = daf.clone_empty(lol=[[1, 2]], cols=['p', 'q'])
     assert c.columns() == ['p', 'q']
-    assert c.schema is None and c.disp_cols == []
+    assert c.schema is marker and c.dtypes == daf.dtypes
+    assert c.disp_cols == []
     assert daf.columns() == ['id', 'v'] and daf.disp_cols == ['id']
 
 

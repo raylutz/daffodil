@@ -147,7 +147,7 @@ all prior releases. Plans for future moved to ROADMAP.md.
     with no keyfield is copied, not cleared.
   - `copy(False)` now uses the class setting. It used to mean `shallow`.
   - `clone_empty()` is now `copy()` with the layout bits, then no rows. It returns an object of the same class, and not a plain `Daf`. It keeps `md_max_rows`,
-    `md_max_cols`, `disp_cols`, `schema`, retmode and itermode, which it dropped. With `cols` given it drops `schema` and `disp_cols`, which describe the old columns.
+    `md_max_cols`, `disp_cols`, `schema`, retmode and itermode, which it dropped. With `cols` given it drops `disp_cols`, which name the old columns. It keeps `schema` and the dtypes as they are.
     Every selector that calls it gets the same change.
   - The `COPY_` constants are new public names on `Daf`, and `T_copybits` is a new alias in `daf_types.py`. Tests are in tests/test_daf_copy_bits.py. Tests: 2202 before, 2231 after.
 - `from_googlesheet()` and `to_googlesheet()` take a required `service_account_file` argument, and raise

@@ -527,4 +527,5 @@ The date of the first entry is 2026-10-02.
     The owner chose to put `disp_cols` under `COPY_ATTRS`, and a list `keyfield` under `COPY_KD`. The class setting is `copy_level_default`, and its value is `sortable`.
     The owner chose plain constants over an enum, as OpenCV does, and names for the common sums, as pandas does. I first made an `IntFlag` class named `CopyBits`. It was removed
     the same day. `deep` is a name only, because a deep copy cannot be combined with any bit. Details are in CHANGELOG.md.
-    Two choices of mine, for the owner to check. `copy(False)` uses the class setting. `clone_empty(cols=...)` drops `schema` and `disp_cols`.
+    The owner said that `schema` is a fuller form of `dtypes`, so `clone_empty(cols=...)` keeps it, as it keeps the dtypes. It drops only `disp_cols`.
+    Two choices of mine, for the owner to check. `copy(False)` uses the class setting. `clone_empty(cols=...)` drops `disp_cols`.
