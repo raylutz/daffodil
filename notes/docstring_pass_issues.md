@@ -548,3 +548,7 @@ The date of the first entry is 2026-10-02.
 113. Deployment set up on 2026-10-05. The owner chose 0.6.0, a deploy by pushing to the branch `full_deploy`, and a PyPI token as a secret. Nothing is deployed from a push to `main`.
     Checking Python 3.9 found that it has not worked on `main` for some time. Three modules fail at import, and one test fails after that. Four small edits fix it, and with them 2251 tests and 195 doctests pass.
     The owner decided on 2026-10-05 to raise `requires-python` to 3.10 and to apply the four edits as well. 3.9 still passes by hand, with 2251 tests, and is not tested in CI.
+114. Decided on 2026-10-05: the legacy wording on `manifest_apply()`, `manifest_reduce()` and `manifest_process()` is removed from their docstrings, the README and the changelog. Item 105 is replaced.
+    The review on the EC2 machine found that `manifest_process()` is used on the live ES&S path in AuditEngine, at `ess_cvr.py:257`. The thread did not say whether the other two are used.
+    The README example of `manifest_apply()` still lacks `load_func` and `save_func`.
+

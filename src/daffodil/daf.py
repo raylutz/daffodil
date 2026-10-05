@@ -8535,9 +8535,6 @@ class Daf:
         """
         Run a function on each chunk that a manifest lists, and save the results.
 
-        Legacy. The manifest methods are kept for now, and their design is under
-        review. For new code, loop over the manifest rows yourself.
-
         A manifest is a Daf in which each row describes one chunk of data. For each
         row, `load_func` loads the chunk as a Daf. `func` is applied to it with
         `by='table'`, so it gets the loaded Daf and the keyword `cols`. It returns a
@@ -8613,9 +8610,6 @@ class Daf:
         """
         Reduce the chunks that a manifest lists into one row.
 
-        Legacy. The manifest methods are kept for now, and their design is under
-        review. For new code, loop over the manifest rows yourself.
-
         Each chunk is loaded with `load_func` and reduced with `reduce()`. The
         reductions are put in a Daf, and that is reduced again with the same function.
         This works for functions such as `sum_da()` that can be combined in this way.
@@ -8667,9 +8661,6 @@ class Daf:
             ) -> 'Daf':                                    # records describing metadata of each hunk
         """
         Call a function once for each chunk that a manifest lists.
-
-        Legacy. The manifest methods are kept for now, and their design is under
-        review. For new code, loop over the manifest rows yourself.
 
         The function gets the manifest row as a dict, and does its own loading and
         saving. It returns a dict of information about what it did. These dicts are

@@ -135,10 +135,6 @@ all prior releases. Plans for future moved to ROADMAP.md.
 - `KeyedListEncoder` is removed from `keyedlist.py`. Nothing in daffodil used it. It was a `json.JSONEncoder` for a KeyedList. `KeyedList.to_json()`
   and `from_json()` are kept. Removed on 2026-10-04 at the request of the owner, who found no use of it. Its 2 tests are removed too.
 
-### Deprecated
-- `manifest_apply()`, `manifest_reduce()` and `manifest_process()` are marked legacy in their docstrings and in the README.
-  Decided on 2026-10-05. Only the docs changed, and the methods work as before.
-
 ### Changed
 - The minimum Python is now 3.10, at the owner's request on 2026-10-05. It was 3.9, which has not worked for some time: three modules failed at import, and one test failed after that.
   Pip on 3.9 keeps installing 0.5.13. Four small edits were made anyway, and they do not change anything on 3.10 or later. `daf_utils.py` and `daf_md.py` use postponed
