@@ -9,7 +9,7 @@ all prior releases. Plans for future moved to ROADMAP.md.
 
 ## [Unreleased]
 
-## [0.6.0] - (not yet released)
+## [0.6.0] - (2026-10-06)
 ### Added
 - `apply_dtypes(cols=)` converts only the named columns, at the owner's request on 2026-10-06. `cols` is a list of names, or one name. A column that is not in `cols` is not converted, is not checked, and keeps its entry in the `dtypes`
   of the Daf. A `dtypes` argument then only supplies and updates the entries of the columns in `cols`, where without `cols` it replaces the `dtypes` of the Daf. A name that is not a column raises `KeyError`.
