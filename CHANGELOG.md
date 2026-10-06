@@ -11,6 +11,12 @@ all prior releases. Plans for future moved to ROADMAP.md.
 
 ## [0.6.0] - (not yet released)
 ### Added
+- `select_by_dict()` takes a list or tuple of dicts, at the owner's request on 2026-10-06. A row matches if it matches any one dict, so a dict is an AND of equalities and a list is an OR of them.
+  `select_by_dict([{'name': n} for n in names])` selects the rows whose name is any of the names, and `[{'a': 1, 'b': 2}, {'a': 3, 'b': 4}]` selects by two columns together.
+  The dicts are grouped by their keys and the values of each group go in a set, so a row costs about one lookup. For 200,000 rows and 100 names it takes 0.009 s, where `select_where()` takes 0.15 s.
+  Fifty dicts of three columns take 0.073 s. The result is what comparing with `==` gives. A selector value or a cell that cannot be hashed is compared with `==`, so it never raises an error, and
+  a call with such a cell takes a slower path, 0.096 s in the same test. An empty list matches no row. An empty dict matches every row. A dict that names a missing column matches no row. An item that is not a dict raises `TypeError`.
+  A single dict works as before, and a set or list given as a value in a dict is still an equality test. 20 tests were added. Not in 0.5.13.
 - GitHub Actions workflows, at the request of the owner on 2026-10-05. `ci.yml` runs the tests, the doctests and the docs build on a push to `main` and on every pull request, and it never deploys.
   `deploy.yml` runs only on a push to the branch `full_deploy`. It checks that the commit is on `main`, that `pyproject.toml` and CHANGELOG.md agree on the version, and that the tag is new.
   It then tests, builds, publishes to PyPI, tags `v` and the version, and deploys the docs to GitHub Pages. The version in `pyproject.toml` is now 0.6.0.

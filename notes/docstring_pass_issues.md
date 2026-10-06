@@ -578,3 +578,9 @@ The date of the first entry is 2026-10-02.
 121. Saved on 2026-10-06: notes/auditengine_performance_prompt.md, a prompt for optional performance changes in AuditEngine, with the numbers measured that day on 200,000 rows:
     select_where with one equality 0.149 s against select_by_dict 0.010 s, a membership test 0.156 s against 0.043 s with a comprehension and select_irows, and a copy of 200,000 rows of 50 columns
     4.7 s deep, 0.42 s editable and 0.003 s sortable. The prompt asks for changes that work on both 0.5.13 and 0.6.0, and for a profile first.
+122. Decided and implemented on 2026-10-06: `select_by_dict()` takes a list or tuple of dicts, and a row matches if it matches any one of them. The owner proposed it after a design in which a set value meant "any of",
+    which was dropped because a cell can hold a set, a list or a tuple, so no type of value can safely be a marker. A list of dicts uses the type of the whole argument, and so it is not ambiguous. It also does composite membership.
+    The dicts are grouped by their keys, with one set of value tuples for each group. A naive any() over every dict for every row took 8.9 s for 100 dicts and 200,000 rows. The grouped loop takes 0.009 s.
+    My first prototype raised TypeError for any cell that could not be hashed, even when every selector value could, which the plain meaning would not do. The owner questioned the wording of the rule.
+    The final rule is that the result is always what `==` gives. Unhashable selector values are kept in a list and compared by ==, and an unhashable cell makes the quick loop fall back to a per row loop with the same answer.
+    20 tests, including a randomized cross check against the plain meaning with 300 cases. Only in 0.6.0, so the AuditEngine performance prompt lists it as a later option.
