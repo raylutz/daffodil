@@ -216,9 +216,9 @@ def dodaf_to_md(
         ## first
         <BLANKLINE>
         <BLANKLINE>
-        | a |
+        | a  |
         | -: |
-        | 1 |
+        |  1 |
         <BLANKLINE>
         <BLANKLINE>
     """
@@ -259,10 +259,13 @@ def _dodaf_from_md(cls, md_str: str, header_level: int = 2) -> Dict[str, Any]:  
         >>> report = Daf.dodaf_to_md({'first': Daf(lol=[[1]], cols=['a'])})
         >>> back = Daf.dodaf_from_md(report)
         >>> back['first']
-        | a |
+        <BLANKLINE>
+        | a  |
         | -: |
-        | 1 |
+        |  1 |
+        <BLANKLINE>
         %% daf rows=1; cols=1; keyfield=''; name='first'
+        <BLANKLINE>
     """
     if not md_str:
         return {}
@@ -493,11 +496,14 @@ def _from_md(cls, md_str: str) -> 'Daf': # -> "Daf":
         >>> text = "| id | v |\n| -: | -: |\n|  1 | a |\n|  2 | b |\n\n%% daf rows=2; cols=2; keyfield='id'; name='nm'\n"
         >>> d = Daf.from_md(text)
         >>> d
-        | id | v |
+        <BLANKLINE>
+        | id | v  |
         | -: | -: |
-        |  1 | a |
-        |  2 | b |
+        |  1 |  a |
+        |  2 |  b |
+        <BLANKLINE>
         %% daf rows=2; cols=2; keyfield='id'; name='nm'
+        <BLANKLINE>
         >>> Daf.from_md(Daf(lol=[[1, 'a']]).to_md()).columns()
         ['A', 'B']
     """

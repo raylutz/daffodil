@@ -100,11 +100,14 @@ def _from_pandas_df(
         >>> df = pd.DataFrame({'id': [1, 2], 'v': ['a', 'b']})
         >>> d = Daf.from_pandas_df(df, keyfield='id')
         >>> d
-        | id | v |
+        <BLANKLINE>
+        | id | v  |
         | -: | -: |
-        |  1 | a |
-        |  2 | b |
+        |  1 |  a |
+        |  2 |  b |
+        <BLANKLINE>
         %% daf rows=2; cols=2; keyfield='id'; name=''
+        <BLANKLINE>
     """
     import pandas as pd     # type: ignore
     import warnings

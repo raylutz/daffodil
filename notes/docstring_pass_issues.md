@@ -603,3 +603,7 @@ The date of the first entry is 2026-10-02.
     Output of `to_md()` and `repr()` changes by one space in such columns, so AuditEngine tests that compare exact text must be checked. The doctests missed this because pytest.ini sets `NORMALIZE_WHITESPACE`.
     Doctest facts, run on 2026-10-06: the expected output of an example ends at the first blank line. Real output with blank lines fails (1 of 1 failed). `<BLANKLINE>` passes. A misaligned table passes under `NORMALIZE_WHITESPACE` and fails without it.
     A parser patch that allows a blank line when the next line starts with `|` or `%%` passes the real output and still fails a misaligned table. Decision on the examples is pending.
+128. Done on 2026-10-06, as decided by the owner: option 2 for the table examples. 127 doctests were regenerated from real output, with `<BLANKLINE>` for each blank line. All 199 doctests pass with and without `NORMALIZE_WHITESPACE`, on Python 3.10, 3.11 and 3.13.
+    The docs tool turns the markers into blank lines inside the code block, so the table shows as plain text. Rendering the tables instead needs a griffe extension, saved in notes/griffe_blankline_extension.py and not enabled.
+    I built both ways in a scratch folder. Without the extension there are 413 tables in the page and the example is one code block. With it there are 534, and the example tables render as tables. The owner will decide later.
+    A parser patch for real blank lines was tested too, but it is not needed.

@@ -83,11 +83,14 @@ class KeyedList:
         >>> for row in daf.iter_klist():
         ...     row['y'] = 0
         >>> daf
-        | x | y |
+        <BLANKLINE>
+        | x  | y  |
         | -: | -: |
-        | 1 | 0 |
-        | 3 | 0 |
+        |  1 |  0 |
+        |  3 |  0 |
+        <BLANKLINE>
         %% daf rows=2; cols=2; keyfield=''; name=''
+        <BLANKLINE>
     """
     """
     KeyedList is a custom data structure in Python that combines the functionality of a dictionary and a list,
