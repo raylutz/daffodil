@@ -1,0 +1,35 @@
+site_name: Daffodil
+site_url: https://raylutz.github.io/daffodil/
+repo_url: https://github.com/raylutz/daffodil
+docs_dir: /home/user/daffodil/docsite
+
+theme:
+  name: material
+
+nav:
+  - Home: index.md
+  - API:
+      - Daf: api/daf.md
+      - KeyedList: api/keyedlist.md
+
+markdown_extensions:
+  - admonition
+  - pymdownx.details
+  - pymdownx.highlight
+  - pymdownx.superfences
+
+plugins:
+  - search
+  - mkdocstrings:
+      handlers:
+        python:
+          paths: [/home/user/daffodil/src, /tmp/claude-0/-home-user-daffodil/95e36c09-64f8-59ba-9bd6-c962257ad9e3/scratchpad]
+          options:
+            show_signature: true
+            separate_signature: true
+            show_source: false
+            members_order: source
+            extensions: ["blank_ext.py:BlankLines"]
+            docstring_style: google
+            docstring_options:
+              returns_named_value: false

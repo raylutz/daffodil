@@ -171,6 +171,16 @@ Source code is in src/daffodil and tests are in tests.
 - Docstrings use the Google style. A NumPy style heading such as `Examples` over a line of
   dashes is not parsed, and its examples show as plain text.
 
+## Releasing
+
+- Version 0.6.0 was released on 2026-10-06. Tags look like `v0.6.0`.
+- The workflow deploy.yml runs only on a push to the branch `full_deploy`. It checks the version, runs the tests, builds, publishes to PyPI, creates the tag and deploys the docs.
+- Before a release, set the date in the CHANGELOG heading and push to `main`. Check that every CI job passes.
+- Then run `git fetch origin main && git push origin origin/main:full_deploy`. Do not use the local `main`, which can be stale in a fresh clone.
+- Check the Full deploy run and look for the tag. A failed run makes no tag.
+- The secret `PYPI_API_TOKEN` lives in the GitHub environment `pypi`. Ray sets it. Never ask for its value.
+- Push to `main` only when Ray asks. After any push to `main`, check the result of all CI jobs before calling it done.
+
 ## Names
 
 - Column and table names must not contain a double underscore. It is reserved for the

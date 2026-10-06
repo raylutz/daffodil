@@ -1,5 +1,5 @@
 # The full deploy. It runs only when a commit is pushed to the branch full_deploy.
-# To release, push the commit that you want from main:   git push origin main:full_deploy
+# To release, push the commit that you want from main:   git fetch origin main && git push origin origin/main:full_deploy
 #
 # Order: check the version, test, build, publish to PyPI, tag, deploy the docs.
 # Nothing is published unless every step before it has passed.
