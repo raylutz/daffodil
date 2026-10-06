@@ -2488,7 +2488,8 @@ class Daf:
             dod:            T_doda,         # Dict(str, Dict(str, Any))
             keyfield:       str='rowkey',   # The keyfield will be set to the keys of the outer dict.
                                             # this will set the preferred name. Defaults to 'rowkey'
-            dtypes:         Optional[T_dtype_dict]=None     # optionally set the data types for each column.
+            dtypes:         Optional[T_dtype_dict]=None,    # optionally set the data types for each column.
+            ignore_extra_keys: bool=False,                  # With dtypes, leave out keys that dtypes does not name, and do not raise.
             ) -> 'Daf':
 
         """
@@ -2498,19 +2499,37 @@ class Daf:
         table always has it as a column. If the inner dicts lack the `keyfield`
         column, it is added from the outer keys. The new Daf has that keyfield.
 
+        If `dtypes` is given, its keys are the columns, and it must name the `keyfield`
+        column too. An inner dict with a key that `dtypes` does not name raises
+        `ValueError`, which names the keys, because that value would be lost. Pass
+        `ignore_extra_keys=True` to leave such keys out on purpose.
+
         Use `to_dod()` to go back.
 
         Args:
             dod: A dict that maps a row key to a dict of that row.
             keyfield: The column that holds the outer key.
-            dtypes: Type for each column.
+            dtypes: Type for each column. When given, it also selects the columns.
+            ignore_extra_keys: With `dtypes`, leave out keys that it does not name, and do not raise.
 
         Returns:
             The new Daf.
 
+        Raises:
+            ValueError: `dtypes` is given, an inner dict has a key that it does not name, and
+                `ignore_extra_keys` is not True.
+            KeyError: `dtypes` does not name the `keyfield` column.
+
         Examples:
             >>> d = Daf.from_dod({'r0': {'x': 1}, 'r1': {'x': 2}})
             >>> d
+            | rowkey | x |
+            | -----: | -: |
+            |     r0 | 1 |
+            |     r1 | 2 |
+            %% daf rows=2; cols=2; keyfield='rowkey'; name=''
+            >>> dod = {'r0': {'x': 1, 'id': 7}, 'r1': {'x': 2, 'id': 8}}
+            >>> Daf.from_dod(dod, dtypes={'rowkey': str, 'x': int}, ignore_extra_keys=True)
             | rowkey | x |
             | -----: | -: |
             |     r0 | 1 |
@@ -2547,7 +2566,7 @@ class Daf:
 
         """
         # following invalidates kd for lazy rebuilding.
-        return cls.from_lod(daf_utils.dod_to_lod(dod, keyfield=keyfield), keyfield=keyfield, dtypes=dtypes)
+        return cls.from_lod(daf_utils.dod_to_lod(dod, keyfield=keyfield), keyfield=keyfield, dtypes=dtypes, ignore_extra_keys=ignore_extra_keys)
 
 
     def to_dod(

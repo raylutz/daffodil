@@ -133,3 +133,7 @@ Sites that break, most serious first. Each stopped silently losing a value in 0.
 
 Not a break: `pdf_image_indexer2.py:74` adds columns. The code after it reads columns by name. Not checked on a real single-file PDF archive.
 All other calls, 27 with `cols` or `dtypes`, are safe by an AST check and by real files. Nothing calls `manifest_apply()` or `manifest_reduce()`.
+
+Update on 2026-10-06: `from_dod()` now takes `ignore_extra_keys`, so `dominion_cvr.py:3446` can pass `ignore_extra_keys=True` and keep today's output. The better change is
+still to name the key `contest_id` in `parse_contest_manifest_core()`, because it keeps the contest ids, which are lost now. `from_lod_to_cols()` does not take the parameter.
+

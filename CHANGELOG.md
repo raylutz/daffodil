@@ -501,6 +501,8 @@ all prior releases. Plans for future moved to ROADMAP.md.
   This path also builds each row directly, without a dict for each record: 0.39 s with the check for 200,000 dicts of 10 keys, against 0.43 s before.
   `from_lod_to_cols()` and `from_dod()` call `from_lod()` with their `dtypes`. A `dtypes` for `from_lod_to_cols()` that leaves out a key now raises. Before, it dropped the key,
   and when the keys that it left out came first, it put the values under the wrong keys. `from_dod()` with `dtypes` that leave out the keyfield column raised `KeyError`, and now raises `ValueError`.
+  `from_dod()` takes `ignore_extra_keys` too, at the owner's request on 2026-10-06, and passes it to `from_lod()`. With `True`, an inner key that `dtypes` does not name is left out, as in 0.5.13.
+  The `dtypes` must still name the keyfield column, or `from_dod()` raises `KeyError`. `from_lod_to_cols()` does not take it, because a left out key there puts the values under the wrong keys.
 - `drop_cols()` left the keyfield set to a column that was gone, so key lookups returned empty
   results or raised `KeyError`. It missed a composite keyfield too. It now clears the keyfield
   when any column of it is dropped, as `select_cols()`, `rename_cols()` and `set_cols()` do.

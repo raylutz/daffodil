@@ -2073,3 +2073,32 @@ def test_select_irows_of_nothing_is_empty():
     result = _rows_daf().select_irows([])
     assert result.lol == []
     assert result.keyfield == 'id'
+
+
+# from_dod with ignore_extra_keys
+
+_DOD = {'c1': {'id': 7, 'vote_for': 1}, 'c2': {'id': 8, 'vote_for': 2}}
+_DTYPES = {'contest_name': str, 'vote_for': int, 'contest_id': int}
+
+
+def test_from_dod_with_dtypes_raises_for_an_inner_key_that_dtypes_does_not_name():
+    with pytest.raises(ValueError, match=r"\['id'\]"):
+        Daf.from_dod(_DOD, keyfield='contest_name', dtypes=_DTYPES)
+
+
+def test_from_dod_ignore_extra_keys_leaves_the_other_keys_out():
+    daf = Daf.from_dod(_DOD, keyfield='contest_name', dtypes=_DTYPES, ignore_extra_keys=True)
+    assert daf.columns() == ['contest_name', 'vote_for', 'contest_id']
+    assert daf.lol == [['c1', 1, ''], ['c2', 2, '']]
+    assert daf.keyfield == 'contest_name' and daf.select_krows(['c2']).lol == [['c2', 2, '']]
+
+
+def test_from_dod_ignore_extra_keys_still_needs_dtypes_to_name_the_keyfield_column():
+    with pytest.raises(KeyError, match="contest_name"):
+        Daf.from_dod(_DOD, keyfield='contest_name', dtypes={'vote_for': int}, ignore_extra_keys=True)
+
+
+def test_from_dod_without_dtypes_is_not_changed_by_ignore_extra_keys():
+    dod = {'r0': {'x': 1}, 'r1': {'x': 2, 'y': 3}}
+    assert Daf.from_dod(dod, ignore_extra_keys=True).lol == Daf.from_dod(dod).lol == [['r0', 1, ''], ['r1', 2, 3]]
+    assert Daf.from_dod(dod).columns() == ['rowkey', 'x', 'y']
