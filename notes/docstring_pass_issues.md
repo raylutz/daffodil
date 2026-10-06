@@ -590,3 +590,5 @@ The date of the first entry is 2026-10-02.
 124. Updated on 2026-10-06: notes/auditengine_performance_prompt.md. It now has two tiers. Tier 1 works on daffodil 0.5.13 and 0.6.0, on the branch `daffodil-perf`. Tier 2 uses the list form of `select_by_dict()`,
     which exists from commit 95f5716, on the branch `daffodil-perf-0.6.0`, and must not be deployed until the machine runs 0.6.0. The earlier version had not been sent.
 
+125. The owner agreed on 2026-10-06 that `apply_dtypes()` raising `TypeError` for a list in an `int` column is right, because a list cannot be converted to an int. It stays as it is, and it is documented. This settles item 123.
+    Version 0.6.0 was on `main` at abde1fd with CI green on 3.10 to 3.13 and the strict docs build, when this was written. Nothing is tagged or deployed.
