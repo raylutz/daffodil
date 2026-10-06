@@ -60,3 +60,16 @@ Give, in this order:
 Delete nothing. Leave the scratch folder in place, so that I can look at it.
 
 ---
+
+## Second review prompt, 2026-10-05
+
+This was used after from_lod() began to raise for a key outside cols or dtypes. It tested daffodil origin/main at aabed5a. Its result is in notes/auditengine_action_items.md,
+in the section "Second review on the EC2 machine". It reuses the scratch folder, venv_old and the saved test output of the first review. The steps are these.
+
+1. Fetch into the sibling daffodil folder only. Check that origin/main is aabed5a or later and that the version is 0.6.0. Export it with git archive to /tmp/daf_new2.
+2. Make venv_new2 with Python 3.11 and AuditEngine's requirements, and install daffodil from /tmp/daf_new2 last, as a normal install. Reuse venv_old (0.5.13).
+3. Run the full suite in venv_new2, and compare test by test with the saved output of venv_old.
+4. Search the AuditEngine source: every from_lod( with cols= or dtypes=; every from_lod_to_cols( and from_dod( with dtypes=; every from_lod( without cols and dtypes,
+   to see whether its dicts can have different keys; and any call of manifest_apply( or manifest_reduce(.
+5. Report, as in the first review: a table of the test results, a numbered list of every call site that the change can affect with the smallest change, and one line on whether the machine can take the version.
+   Report only. Change nothing.

@@ -137,3 +137,34 @@ All other calls, 27 with `cols` or `dtypes`, are safe by an AST check and by rea
 Update on 2026-10-06: `from_dod()` now takes `ignore_extra_keys`, so `dominion_cvr.py:3446` can pass `ignore_extra_keys=True` and keep today's output. The better change is
 still to name the key `contest_id` in `parse_contest_manifest_core()`, because it keeps the contest ids, which are lost now. `from_lod_to_cols()` does not take the parameter.
 
+
+## Result of the change prompt, 2026-10-06
+
+The thread took notes/auditengine_changes_prompt.md as suggestions and made five commits on a LOCAL branch of AuditEngine named daffodil-0.6.0-prep. It was not pushed, merged or tagged.
+It lives on the EC2 machine only. The working tree there is back on claude_dev. Every change was run on daffodil 0.5.13 and on 0.6.0 at 002f7cb, and ignore_extra_keys is used nowhere.
+
+Full suite, same command and data as before: 1074 passed, 2 failed, 1 skipped on both versions. The 14 new tests are the only difference from the last review. Both failures are the old ones.
+ruff and mypy are clean. The branch can be deployed while the machine runs 0.5.13.
+
+Commits:
+1. 61be9bf16, dominion_cvr.py. A helper, contestinfo_daf_from_dod(), keeps in each contest dict only the keys named by BIF.contestinfo_dtypes, then calls from_dod() as before.
+   Paulding: the Daf is identical on both versions, 31 rows, 8 columns, 248 cells. contest_id is still empty. 4 tests.
+2. ee5a86643, mapping_option_names_ocr.py. rescore_rows() adds the missing ballot_option, ocr_match and ocr_metric to cols. The values now land for jobs whose file lacks those columns.
+   This changes what the tool writes. Passaic, 8,115 rows: 277 rows matched, no mismatch against an independent recompute, the same hash on both versions. FL_Collier is byte-identical. 4 tests.
+3. c390c8c8f, mapping_option_names_ocr.py. build_fill_summary_daf() keeps only the keys in cols. Both fill summaries are identical on both versions. 3 tests.
+4. 754e76a17, profiled_bif.py. selected_chunk_daf() adds is_bmd and is_nonbmd to cols when missing. All 39,850 local chunks have both, and the output hashes are identical. 3 tests.
+   An earlier report said 1,440 chunks. That counted two jobs only.
+5. ced51cb4c, map_targets_ai.py. Docstring and comment only. No code changed.
+
+Decisions still open for the AuditEngine owner. The thread changed none of them:
+a. BIF.py lines 412 to 425: nine count columns are typed bool and should be int, as schema.py:333 says. They are audit_writeins, audit_undervotes, audit_overvotes, cvr_orig_writeins,
+   cvr_orig_undervotes, cvr_orig_overvotes, cvr_modi_writeins, cvr_modi_undervotes and cvr_modi_overvotes. On Rockville's contest_variants.csv, audit_writeins is {0: 135, 1: 229} under bool in 0.5.13,
+   mixed ints and text under bool in 0.6.0, and {0: 135, 1: 184, 2: 24, 3: 8, 4: 4, 5: 2, 6: 7} under int on both. Changing the type changes the Variant-list counts from 1 to the true count.
+   The thread recommends int.
+b. cmpcvr.py:652 discards the result of select_krows(inverse=True). It never removed the ballots found on only one side. It has no effect today, because all 10 local jobs have the same ballots on both sides.
+   The smallest fix is to drop the line, and after the loop to assign audit_variants_daf and cvr_variants_daf from select_krows(keys_only_in_audit_ls, inverse=True). Assigning through the loop variable cannot work.
+c. pdf_image_indexer2.py:74. Passing cols with the union of the keys would make 0.5.13 behave as 0.6.0. It costs one cheap pass. The thread advises not doing it now.
+d. Renaming id to contest_id, in the helper of commit 1 and after add_optioninfo_to_contestinfo(). Done before that call, it lost all of Paulding's options. Done after it, only the 31 cells of contest_id
+   change, and Paulding's EIF is byte-identical. The only consumer, cvr_to_eif, only logs it. Harmless, and of no use until a later step wants the Dominion contest id.
+
+Not known: whether the values that commit 2 now saves are what the owner wants for the 7 jobs. Items 1 to 3 were checked through their helpers and not by running the tool ops end to end, because that would rewrite job files.
