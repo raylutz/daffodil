@@ -218,3 +218,72 @@ Source code is in src/daffodil and tests are in tests.
   `breakpoint()`, name the caught exception exc_info.
 - Never pass extra keywords to `breakpoint()` in daffodil. Python's default hook rejects them
   with a TypeError.
+
+# Part 3: Handoff protocol (cloud sandbox)
+
+This thread runs in a cloud sandbox. Its files do not survive the session, and the next thread
+starts from a fresh clone. So a handoff exists only once it is committed and pushed. Ray starts
+the next thread by hand. There is no transition script.
+
+Two files, both tracked in git:
+
+- `notes/handoffs/<YYYY-MM-DD_HHMM>.md`: the permanent archive. One file for each handoff, never
+  edited after it is written. History for later review.
+- `notes/handoffs/PENDING.md`: the pointer. It exists only while a handoff waits to be picked up.
+  It holds one line: the file name of that handoff.
+
+Both go on the branch that the next session will start from. That is `main`, unless Ray names
+another branch. If the work is on another branch, commit the handoff files to `main` too, or tell
+Ray which branch the next session must start from.
+
+## Winding down: writing the handoff
+
+When Ray says something like "wind down" or "hand off", do these steps in order.
+
+1. Close out the work:
+   - The tests pass: `uv run pytest -q`, the doctests and the docs build, as in CI. Report any that
+     fail, with the output. Do not hide them.
+   - Every change is committed and pushed. The working tree is clean.
+   - CHANGELOG.md is current, with one line for each change.
+   - Anything decided but not yet recorded goes into `notes/` or CLAUDE.md, wherever it belongs.
+2. Write the handoff to `notes/handoffs/<YYYY-MM-DD_HHMM>.md`. Use the current UTC time, from
+   `date -u +%F_%H%M`. Write it for a new session that has no other context. Keep it short. Cover:
+   - **State:** the branch and commit, the version in pyproject.toml, whether it is released, and
+     the test results.
+   - **Decided and done:** what was settled this round, with the commits.
+   - **In progress:** anything started but not finished, and exactly where it stopped.
+   - **Next:** the next task, with Ray's own words if he gave it. Note anything that waits on
+     AuditEngine or on a release.
+   - **Open questions:** decisions that belong to Ray and have not been made.
+   - **Pointers:** the notes files that hold the detail. Do not repeat what CLAUDE.md or the notes
+     already say.
+3. Write `notes/handoffs/PENDING.md` with the file name of that handoff. If a PENDING.md is already
+   there, it points to an older handoff that was never picked up. Name it in your reply to Ray,
+   then replace it.
+4. Commit both files with the message "Handoff <YYYY-MM-DD_HHMM>", and push.
+5. Check that the push reached the remote: `git log origin/<branch> -1` shows the handoff commit.
+6. Tell Ray the handoff file name and the branch it is on, then end. Nothing else runs after that.
+
+## Starting up: picking up a handoff
+
+Do this first in a new thread, before any other work.
+
+1. Read `notes/handoffs/PENDING.md`.
+   - If it does not exist, nothing is waiting. Tell Ray so, and ask whether to read the newest file
+     in `notes/handoffs/` instead. Then wait for his task.
+   - If it exists, read the handoff file that it names.
+2. Check that the handoff file is in `notes/handoffs/` and committed. It should be, since the last
+   thread committed it. If it is missing, stop and tell Ray.
+3. Delete PENDING.md, commit with the message "Pick up handoff <name>", and push. This marks the
+   handoff as taken, so no later thread picks it up again. The handoff file itself stays, as history.
+4. Tell Ray in a few lines what you picked up: the state, the next task and the open questions. If
+   the handoff says something that the repository does not match, for example a test it says passes
+   now fails, or a commit it names is missing, say so. Do not act on the handoff until Ray confirms
+   the next step.
+
+## Handoff notes
+
+- Never edit or delete an archived handoff. A correction goes in the next handoff.
+- Keep a handoff free of secrets, tokens and credentials.
+- A handoff is a summary for the next thread, not the record. Decisions belong in CHANGELOG.md,
+  `notes/` and CLAUDE.md, where they stay.
