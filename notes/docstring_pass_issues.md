@@ -570,3 +570,8 @@ The date of the first entry is 2026-10-02.
     One of them exposed a gap in daffodil. `from_dod()` and `from_lod_to_cols()` call `from_lod()` with their `dtypes`, so they raise for a key that `dtypes` does not name, and the message says
     to pass `ignore_extra_keys=True`. Neither takes that parameter. The thread suggested it for `dominion_cvr.py:3446`, which calls `from_dod()`, and it would raise `TypeError`.
     The owner chose on 2026-10-06 to add `ignore_extra_keys` to `from_dod()`, and it was added. It is not wanted for `from_lod_to_cols()`, because a dropped key there puts the values under the wrong keys.
+120. Saved on 2026-10-06, so that it survives the end of the cloud session: notes/auditengine_changes_prompt.md, the second review prompt in notes/auditengine_test_prompt.md, and the result of the change prompt
+    in notes/auditengine_action_items.md. The AuditEngine branch `daffodil-0.6.0-prep` is local on the EC2 machine and is not pushed. Four decisions, a to d, are open for the AuditEngine owner.
+    State of daffodil at this point: `main` is at 002f7cb, CI green on 3.10 to 3.13 and the strict docs build. Nothing is tagged or deployed. The changelog heading is `[0.6.0] - (not yet released)`.
+    To release: set the date in that heading, push to `main`, check CI, then `git push origin main:full_deploy`. The secret `PYPI_API_TOKEN` is in the environment `pypi`, and `full_deploy` is allowed in the
+    deployment branches of `pypi` and `github-pages`.
