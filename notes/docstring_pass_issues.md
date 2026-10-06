@@ -592,3 +592,10 @@ The date of the first entry is 2026-10-02.
 
 125. The owner agreed on 2026-10-06 that `apply_dtypes()` raising `TypeError` for a list in an `int` column is right, because a list cannot be converted to an int. It stays as it is, and it is documented. This settles item 123.
     Version 0.6.0 was on `main` at abde1fd with CI green on 3.10 to 3.13 and the strict docs build, when this was written. Nothing is tagged or deployed.
+126. Decided and implemented on 2026-10-06: `apply_dtypes(cols=)`, chosen by the owner as option 1. The owner asked first whether `apply_dtypes()` can limit the conversion to some columns, since conversion costs time.
+    It could not. A partial `dtypes` raised `ValueError` unless `silent_error=True`, which the docstring did not say, and it replaced the `dtypes` of the Daf with a version where the columns left out had the type `str`.
+    Measured for 200,000 rows: 0.048 s for one column, 0.090 s for two and 0.171 s for four, so about 0.04 s for each column that is converted and nothing for the others.
+    The docstring has the pattern that the owner described: save the dtypes, keep only the columns to convert, convert with `silent_error=True`, and restore. It also has an example with `cols`, and an example of an empty cell and `sum()`.
+    Also fixed at the owner's request: a docstring line of 146 characters. The owner asked whether the Args section is redundant. It is not. The rendered table has the columns Name, Type, Description and Default, and the type and
+    the default come from the signature, so the Args text only gives the description. This follows the rule in CLAUDE.md that the type and default are not repeated in the docstring, because they would drift.
+    The owner also said that tables need blank lines before and after them to become Markdown. The Examples are shown by mkdocs as code blocks, and the tables in them are plain text, so they do not need blank lines there.

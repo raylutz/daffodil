@@ -11,6 +11,11 @@ all prior releases. Plans for future moved to ROADMAP.md.
 
 ## [0.6.0] - (not yet released)
 ### Added
+- `apply_dtypes(cols=)` converts only the named columns, at the owner's request on 2026-10-06. `cols` is a list of names, or one name. A column that is not in `cols` is not converted, is not checked, and keeps its entry in the `dtypes`
+  of the Daf. A `dtypes` argument then only supplies and updates the entries of the columns in `cols`, where without `cols` it replaces the `dtypes` of the Daf. A name that is not a column raises `KeyError`.
+  A column in `cols` with no dtype raises `ValueError`, or takes `default_type` with `silent_error=True`. Conversion costs about 0.04 s for each column of 200,000 rows, so converting only the columns that are used saves that time.
+  Without `cols`, a `dtypes` that leaves out a column of the Daf still raises `ValueError` unless `silent_error=True`, and still replaces the `dtypes` of the Daf, which is what made the old pattern of saving the dtypes, keeping the
+  columns to convert, converting, and restoring the dtypes necessary. That pattern still works and is shown in the docstring. 13 tests were added.
 - `select_by_dict()` takes a list or tuple of dicts, at the owner's request on 2026-10-06. A row matches if it matches any one dict, so a dict is an AND of equalities and a list is an OR of them.
   `select_by_dict([{'name': n} for n in names])` selects the rows whose name is any of the names, and `[{'a': 1, 'b': 2}, {'a': 3, 'b': 4}]` selects by two columns together.
   The dicts are grouped by their keys and the values of each group go in a set, so a row costs about one lookup. For 200,000 rows and 100 names it takes 0.009 s, where `select_where()` takes 0.15 s.
@@ -326,6 +331,8 @@ all prior releases. Plans for future moved to ROADMAP.md.
   git-tracked) moved out of `src/` to a gitignored, local-only `deprecated/` folder.
 
 ### Fixed
+- Docs: `apply_dtypes()` is described more fully. It said that columns left out of `dtypes` are not touched, which is true only with `silent_error=True`, and it did not say that `dtypes` replaces the `dtypes` of the Daf.
+  It now says both, and says that an empty cell, as from two commas together in a CSV file, is NULL, stays NULL in a number column, and is skipped by `sum()`, `sum_np()` and `sum_da()`. A line of its docstring was 146 characters long and is reflowed.
 - Docs: a Daf is not limited in what it can contain, and the `dtypes` do not limit it. A cell can hold any Python object. The `dtypes` say how to convert columns when `apply_dtypes()` or a reader is asked to,
   and a Daf built with `dtypes` keeps its cells as they are. This is said in the class docstring, with an example, in the docs of the constructor and of `apply_dtypes()`, and in the README, on 2026-10-06 at the owner's request.
   `apply_dtypes()` keeps text that cannot be converted to a number and makes an empty cell empty. A cell that is not text and not a number, such as a list in an `int` column, raises `TypeError`, and its docstring now says so.

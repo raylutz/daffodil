@@ -2124,3 +2124,108 @@ def test_apply_dtypes_raises_typeerror_for_a_cell_that_is_not_text_or_a_number()
         daf.apply_dtypes()
     assert Daf(lol=[[[1, 2]]], cols=['a'], dtypes={'a': list}).apply_dtypes().lol == [[[1, 2]]]
     assert Daf(lol=[[{'k': 1}]], cols=['a'], dtypes={'a': str}).apply_dtypes().lol == [[{'k': 1}]]
+
+
+# apply_dtypes(cols=...)
+
+def _text_daf() -> Daf:
+    return Daf(lol=[['1', '2.5', '7', 'x'], ['', '4.5', '8', 'y']], cols=['a', 'b', 'n', 'c'],
+               dtypes={'a': int, 'b': float, 'n': int, 'c': str})
+
+
+def test_apply_dtypes_cols_converts_only_the_named_columns_and_keeps_the_dtypes_of_the_daf():
+    daf = _text_daf()
+    daf.apply_dtypes(cols=['a'])
+    assert daf.lol == [[1, '2.5', '7', 'x'], ['', '4.5', '8', 'y']]
+    assert daf.dtypes == {'a': int, 'b': float, 'n': int, 'c': str}
+    daf.apply_dtypes(cols=['b', 'n'])
+    assert daf.lol == [[1, 2.5, 7, 'x'], ['', 4.5, 8, 'y']]
+
+
+def test_apply_dtypes_cols_accepts_one_name_as_text_and_an_empty_list():
+    daf = _text_daf()
+    daf.apply_dtypes(cols='n')
+    assert daf.lol[0] == ['1', '2.5', 7, 'x']
+    before = [list(r) for r in daf.lol]
+    daf.apply_dtypes(cols=[])
+    assert daf.lol == before
+
+
+def test_apply_dtypes_cols_does_not_check_or_touch_the_other_columns():
+    daf = Daf(lol=[['1', [1, 2]]], cols=['a', 'v'], dtypes={'a': int})
+    daf.apply_dtypes(cols=['a'])
+    assert daf.lol == [[1, [1, 2]]]
+    assert daf.dtypes == {'a': int}
+    with pytest.raises(TypeError):
+        Daf(lol=[['1', [1, 2]]], cols=['a', 'v'], dtypes={'a': int, 'v': int}).apply_dtypes(cols=['v'])
+
+
+def test_apply_dtypes_cols_with_a_dtypes_argument_updates_only_those_entries():
+    daf = _text_daf()
+    daf.apply_dtypes(cols=['a'], dtypes={'a': float, 'b': int})
+    assert daf.lol[0][0] == 1.0 and daf.lol[0][1] == '2.5'
+    assert daf.dtypes == {'a': float, 'b': float, 'n': int, 'c': str}
+
+
+def test_apply_dtypes_cols_with_one_type_for_all_the_columns():
+    daf = _text_daf()
+    daf.apply_dtypes(cols=['n', 'b'], dtypes=float)
+    assert daf.lol[0] == ['1', 2.5, 7.0, 'x']
+
+
+def test_apply_dtypes_cols_raises_keyerror_for_a_name_that_is_not_a_column():
+    with pytest.raises(KeyError, match="'zz'"):
+        _text_daf().apply_dtypes(cols=['a', 'zz'])
+
+
+def test_apply_dtypes_cols_needs_a_dtype_for_each_named_column_unless_silent_error():
+    daf = Daf(lol=[['1', '2']], cols=['a', 'b'], dtypes={'a': int})
+    with pytest.raises(ValueError, match=r"\['b'\]"):
+        daf.apply_dtypes(cols=['a', 'b'])
+    daf.apply_dtypes(cols=['a', 'b'], silent_error=True)
+    assert daf.lol == [[1, '2']] and daf.dtypes == {'a': int, 'b': str}
+
+
+def test_apply_dtypes_cols_with_no_dtypes_anywhere_does_nothing():
+    daf = Daf(lol=[['1']], cols=['a'])
+    daf.apply_dtypes(cols=['a'])
+    assert daf.lol == [['1']] and not daf.dtypes
+
+
+def test_apply_dtypes_cols_respects_unflatten_and_from_str():
+    daf = Daf(lol=[['[1, 2]', 5]], cols=['v', 'n'], dtypes={'v': list, 'n': str})
+    daf.apply_dtypes(cols=['v', 'n'], unflatten=False)
+    assert daf.lol == [['[1, 2]', 5]]
+    daf.apply_dtypes(cols=['v', 'n'])
+    assert daf.lol == [[[1, 2], 5]]
+    daf.apply_dtypes(cols=['n'], from_str=False)
+    assert daf.lol == [[[1, 2], '5']]
+
+
+def test_apply_dtypes_cols_on_a_daf_with_no_rows():
+    daf = Daf(cols=['a', 'b'], dtypes={'a': int, 'b': int})
+    assert daf.apply_dtypes(cols=['a']) is daf and daf.num_rows() == 0
+
+
+def test_the_old_pattern_of_saving_dtypes_and_converting_a_few_columns_still_works():
+    daf = _text_daf()
+    saved_dtypes = dict(daf.dtypes)
+    daf.dtypes = {'a': int}
+    daf.apply_dtypes(silent_error=True)
+    daf.dtypes = saved_dtypes
+    assert daf.lol[0] == [1, '2.5', '7', 'x'] and daf.dtypes == {'a': int, 'b': float, 'n': int, 'c': str}
+
+
+def test_apply_dtypes_without_cols_still_raises_for_a_dtypes_that_leaves_out_a_column():
+    daf = _text_daf()
+    with pytest.raises(ValueError, match="missing dtypes"):
+        daf.apply_dtypes(dtypes={'a': int})
+
+
+def test_an_empty_cell_stays_null_in_a_number_column_and_the_sum_methods_skip_it():
+    daf = Daf.from_csv_buff('a,b\n1,\n,3\n4,5\n', dtypes={'a': int, 'b': int}).apply_dtypes()
+    assert daf.col('a') == [1, '', 4] and daf.col('b') == ['', 3, 5]
+    assert daf.sum() == {'a': 5, 'b': 8}
+    assert daf.sum_np() == {'a': 5, 'b': 8}
+    with pytest.raises(TypeError):
+        sum(daf.col('a'))

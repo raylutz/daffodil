@@ -1759,23 +1759,37 @@ class Daf:
 
     def apply_dtypes(self, *,
             dtypes:         Optional[T_dtype_dict]=None,
+            cols:           Optional[Union[str, T_ls]]=None,
             unflatten:      bool=True,
             from_str:       bool=True,
             default_type:   Type=str,
             silent_error:   bool=False,
             ) -> 'Daf':
-        """
+        r"""
         Convert the columns to their dtypes, in place.
 
         A CSV file is read as text, because that is the fastest way to load it. Call
         this method to turn the columns you need into numbers, lists and so on. It
-        changes the cells where they are and does not make a new table. Columns you
-        leave out are not touched.
+        changes the cells where they are and does not make a new table.
+
+        Conversion costs time, about 0.04 s for each column of 200,000 rows, so convert
+        only the columns that you use. Pass `cols` to name them. A column that is not
+        in `cols` is not converted, is not checked, and keeps its entry in the `dtypes`
+        of the Daf. Without `cols`, every column of the Daf is converted, and each one
+        needs a dtype.
 
         The `dtypes` argument is a dict that maps a column name to a type, or one type
-        for all columns. It may hold more columns than the Daf. If it is given, it
-        replaces `dtypes` of the Daf. If neither is set, nothing happens. With no
+        for all columns. It may hold more columns than the Daf. Without `cols`, it
+        replaces the `dtypes` of the Daf. With `cols`, it only supplies the types of
+        those columns, and the other entries of the `dtypes` of the Daf stay as they
+        are. If neither the argument nor the Daf has dtypes, nothing happens. With no
         columns defined, the names are taken from the dtypes.
+
+        Without `cols`, a `dtypes` that leaves out a column of the Daf raises
+        `ValueError`, unless `silent_error` is True. Then the column gets `default_type`,
+        which is `str` and is not converted, and the `dtypes` of the Daf are replaced by
+        the dict with that column added. That replaced the types of the columns that you
+        meant to convert later. To convert some columns and not others, use `cols`.
 
         Types must be plain types such as `int`, `float`, `bool`, `str`, `list`,
         `dict`, `tuple` or `set`. Annotations such as `List[str]` do not work.
@@ -1785,22 +1799,30 @@ class Daf:
         is converted with `str()`. Columns of type `list` or `dict` are read from
         their text. Pass `unflatten=False` to leave them as text.
 
+        An empty cell, such as two commas next to each other in a CSV file, is NULL,
+        which is the empty string. It stays NULL when its column is converted to `int` or
+        `float`, so a number column can hold NULL. The sum methods, `sum()`, `sum_np()`
+        and `Daf.sum_da()`, skip a NULL cell. Python's own `sum()` of such a column
+        raises `TypeError`, so use the methods of the Daf.
+
         A cell that cannot be converted to an `int` or a `float` keeps its text, so a bad
-        value is still there to be found, as with `list` and `dict`. An empty cell stays
-        empty. No error is raised for text. A later step, such as a sum or a sort, may raise
-        one. A cell that is not text and not a number, such as a list in an `int` column,
-        cannot be given to `int()`, and raises `TypeError`. The `dtypes` do not limit what a
-        cell can hold, so leave such a column out of the conversion. Whole number text of any size is converted exactly. Text with a decimal point
-        or an exponent is converted to an `int` by way of a float, which cuts the decimal part.
+        value is still there to be found, as with `list` and `dict`. No error is raised
+        for text. A later step, such as a sum or a sort, may raise one. A cell that is
+        not text and not a number, such as a list in an `int` column, cannot be given to
+        `int()`, and raises `TypeError`. The `dtypes` do not limit what a cell can hold,
+        so leave such a column out of the conversion. Whole number text of any size is
+        converted exactly. Text with a decimal point or an exponent is converted to an
+        `int` by way of a float, which cuts the decimal part.
 
         This method does the common conversions and keeps them simple. For your own
         rules, convert the columns yourself and then say what the types are. Use
         `apply_to_col()` for one column, or `apply_in_place()` for several. Your
         function can raise, collect the bad values, or use any default. Then set
-        `dtypes`. This does not convert anything. See the second example.
+        `dtypes`. This does not convert anything. See the last example.
 
         Args:
             dtypes: Maps column names to types, or a single type for all columns.
+            cols: The columns to convert, or one column name. Others are left alone.
             unflatten: If True, read list and dict columns from their text.
             from_str: If True, the cells are text, so `str` columns are not converted.
             default_type: The type to use for a column that has no dtype.
@@ -1810,7 +1832,9 @@ class Daf:
             This Daf, which has been changed.
 
         Raises:
-            ValueError: A column has no dtype and `silent_error` is False.
+            ValueError: A column to convert has no dtype and `silent_error` is False.
+            KeyError: A name in `cols` is not a column of the Daf.
+            TypeError: A cell in an `int` or `float` column is not text and not a number.
 
         Examples:
             >>> d = Daf(lol=[['1', '2.5', 'x']], cols=['a', 'b', 'c'])
@@ -1819,11 +1843,48 @@ class Daf:
             | -: | --: | -: |
             | 1 | 2.5 | x |
             %% daf rows=1; cols=3; keyfield=''; name=''
-            >>> Daf(lol=[['x', '']], cols=['a', 'b']).apply_dtypes(dtypes={'a': int, 'b': int})
+
+            An empty cell stays empty, and the sum methods skip it:
+
+            >>> d = Daf.from_csv_buff('a,b\n1,\n,3\n4,5\n', dtypes={'a': int, 'b': int})
+            >>> d.apply_dtypes()
             | a | b |
             | -: | -: |
-            | x |   |
-            %% daf rows=1; cols=2; keyfield=''; name=''
+            | 1 |   |
+            |   | 3 |
+            | 4 | 5 |
+            %% daf rows=3; cols=2; keyfield=''; name=''
+            >>> d.sum()
+            {'a': 5, 'b': 8}
+
+            Convert only some columns with `cols`. The others stay text, and the
+            `dtypes` of the Daf are not changed:
+
+            >>> d = Daf(lol=[['1', '2.5', '7']], cols=['a', 'b', 'n'],
+            ...         dtypes={'a': int, 'b': float, 'n': int})
+            >>> _ = d.apply_dtypes(cols=['a'])
+            >>> d.iloc(0)
+            {'a': 1, 'b': '2.5', 'n': '7'}
+            >>> d.dtypes == {'a': int, 'b': float, 'n': int}
+            True
+            >>> _ = d.apply_dtypes(cols=['n'])
+            >>> d.iloc(0)
+            {'a': 1, 'b': '2.5', 'n': 7}
+
+            The same without `cols`, as you had to do before: save the dtypes, keep only
+            the columns to convert, convert with `silent_error=True`, and restore the
+            original. The other columns get the default type `str`, which is skipped:
+
+            >>> d = Daf(lol=[['1', '2.5', '7']], cols=['a', 'b', 'n'],
+            ...         dtypes={'a': int, 'b': float, 'n': int})
+            >>> saved_dtypes = dict(d.dtypes)
+            >>> d.dtypes = {'a': int}
+            >>> _ = d.apply_dtypes(silent_error=True)
+            >>> d.dtypes = saved_dtypes
+            >>> d.iloc(0)
+            {'a': 1, 'b': '2.5', 'n': '7'}
+            >>> d.dtypes == {'a': int, 'b': float, 'n': int}
+            True
 
             Your own conversion, here one that records the values that fail:
 
@@ -1868,6 +1929,9 @@ class Daf:
                     used for a number of tables that differ only in which columns are included.
         """
 
+        if cols is not None:
+            return self._apply_dtypes_to_cols(cols, dtypes, unflatten, from_str, default_type, silent_error)
+
         if dtypes:
             self.dtypes = dtypes
 
@@ -1900,8 +1964,7 @@ class Daf:
             return self
 
         # first calculate all columns to consider, that are not str or str and unflatten
-        cols = self.hd.keys()
-        for col in cols:
+        for col in self.hd.keys():
             if isinstance(self.dtypes, dict):           # this is the normal case, where each column is defined.
                 if col not in self.dtypes:
                     desired_type = default_type         # type not specified for a column, but it exists, use default_type
@@ -1921,6 +1984,82 @@ class Daf:
             # look up the conversion once for the column, not for each cell.
             convert = daf_utils.get_converter(desired_type)
 
+            for row_la in self.lol:
+                row_la[icol] = convert(row_la[icol])
+
+        return self
+
+    def _apply_dtypes_to_cols(self,
+            cols:           Union[str, T_ls],
+            dtypes:         Optional[T_dtype_dict],
+            unflatten:      bool,
+            from_str:       bool,
+            default_type:   Type,
+            silent_error:   bool,
+            ) -> 'Daf':
+        """
+        Convert only the named columns, for `apply_dtypes()`. Internal use.
+
+        The types come from `dtypes` if it is given, and otherwise from the `dtypes` of the Daf.
+        A column that is not in `cols` is not converted and not checked, and its entry in the `dtypes` of the
+        Daf is not changed. A given `dtypes` only updates the entries of the columns in `cols`.
+
+        Args:
+            cols: The columns to convert, or one column name.
+            dtypes: Maps column names to types, or a single type for all the columns.
+            unflatten: If True, read list and dict columns from their text.
+            from_str: If True, the cells are text, so `str` columns are not converted.
+            default_type: The type to use for a column that has no dtype.
+            silent_error: If False, raise an error when a column to convert has no dtype.
+
+        Returns:
+            This Daf, which has been changed.
+
+        Raises:
+            KeyError: A name in `cols` is not a column of the Daf.
+            ValueError: A column to convert has no dtype and `silent_error` is False.
+        """
+        cols_ls = [cols] if isinstance(cols, str) else list(cols)
+
+        missing_cols = [col for col in cols_ls if col not in self.hd]
+        if missing_cols:
+            raise KeyError(f"apply_dtypes(): cols names {missing_cols}, which are not columns of this Daf. "
+                           f"The columns are {list(self.hd)}.")
+
+        source = dtypes if dtypes else self.dtypes
+        if not source:
+            return self                                         # no dtypes at all, so nothing to convert to.
+
+        type_of_col: Dict[str, Any] = {}
+        for col in cols_ls:
+            if isinstance(source, dict):
+                if col in source:
+                    type_of_col[col] = source[col]
+                elif silent_error:
+                    type_of_col[col] = default_type
+                else:
+                    raise ValueError(f"apply_dtypes(): no dtype for the columns to convert: "
+                                     f"{[c for c in cols_ls if c not in source]}. "
+                                     f"Add them to dtypes, or pass silent_error=True to use default_type.")
+            else:
+                type_of_col[col] = source                       # one type for all columns.
+
+        if dtypes or any(not isinstance(self.dtypes, dict) or col not in self.dtypes for col in cols_ls):
+            merged_dtypes = dict(self.dtypes) if isinstance(self.dtypes, dict) else {}
+            merged_dtypes.update(type_of_col)
+            self.dtypes = merged_dtypes
+
+        if not self.lol or not self.lol[0]:
+            return self
+
+        for col, desired_type in type_of_col.items():
+            if (    desired_type is str and from_str or
+                    desired_type in [list, dict] and not unflatten
+                ):
+                continue
+
+            icol = self.hd[col]
+            convert = daf_utils.get_converter(desired_type)     # look up the conversion once for the column.
             for row_la in self.lol:
                 row_la[icol] = convert(row_la[icol])
 
