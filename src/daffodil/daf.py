@@ -947,8 +947,8 @@ class Daf:
             self,
             level:       Union[str, T_copybits, None] = None,  # a name, a sum of COPY_ bits, or None for copy_level_default
             name:        str  = '',                            # the name of the copy
-            deep:        bool = False,                         # old argument: same as level 'deep'
-            for_sorting: bool = False,                         # old argument: same as level 'sortable'
+            deep:        bool = False,                         # deprecated: use level='deep'
+            for_sorting: bool = False,                         # deprecated: use level='sortable'
             ) -> 'Daf':
         """
         Make a copy of the Daf. You choose what the copy shares with the original.
@@ -1012,15 +1012,16 @@ class Daf:
         claim to be the same one. The other settings, such as `md_max_rows`, the
         `schema` and the retmode and itermode, are taken over. A `schema` is shared.
 
-        The older arguments `deep=True` and `for_sorting=True` still work. They give the
-        level `deep` and `sortable`. A higher level wins if you give both. A call like
+        The arguments `deep` and `for_sorting` are deprecated. Use `level='deep'` and
+        `level='sortable'` instead. They still work: `deep=True` gives the level `deep`, and
+        `for_sorting=True` gives `sortable`. A higher level wins if you give both. A call like
         `copy(True)` still means `deep`. `copy(False)` uses the class setting.
 
         Args:
             level: A name, a sum of the `COPY_` constants, or None for the class setting `copy_level_default`.
             name: The name of the copy. It is empty if not given.
-            deep: Same as level `deep`.
-            for_sorting: Same as level `sortable`.
+            deep: Deprecated. Use `level='deep'`. True gives the level `deep`.
+            for_sorting: Deprecated. Use `level='sortable'`. True gives the level `sortable`.
 
         Returns:
             The new Daf.

@@ -9,6 +9,7 @@ all prior releases. Plans for future moved to ROADMAP.md.
 
 ## [Unreleased]
 ### Changed
+- The `copy()` arguments `deep` and `for_sorting` are documented as deprecated. Use `level='deep'` and `level='sortable'`. They still work, and give no warning.
 - The development status is now Alpha (classifier `Development Status :: 3 - Alpha`), not Pre-Alpha.
 - The Daf API docs are split into an overview and 8 section pages, with subheadings, in place of one long page. `tests/test_docsite_coverage.py` checks that every public Daf member is on exactly one page.
 - Docs styling in `docsite/stylesheets/extra.css`: compact tables with full cell borders, a tinted header and striped rows; sidebar text the same size as the content; a blue-grey and amber palette with a dark mode switch.
