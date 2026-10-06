@@ -1,0 +1,50 @@
+/* Site styling on top of the Material theme. */
+
+/* Sidebars: same type size as the content (Material default is 0.7rem). */
+.md-nav {
+  font-size: 0.8rem;
+}
+
+/* Tables: compact cells, a grid of borders, a tinted header, striped rows. */
+.md-typeset table:not([class]) {
+  font-size: 0.75rem;
+  border: 1px solid var(--daf-table-border);
+  border-collapse: collapse;
+}
+.md-typeset table:not([class]) th,
+.md-typeset table:not([class]) td {
+  padding: 0.3em 0.6em;
+  border: 1px solid var(--daf-table-border);
+}
+.md-typeset table:not([class]) th {
+  background-color: var(--daf-table-head);
+  color: var(--daf-table-head-text);
+  font-weight: 700;
+}
+.md-typeset table:not([class]) tbody tr:nth-child(even) {
+  background-color: var(--daf-table-stripe);
+}
+.md-typeset table:not([class]) tbody tr:hover {
+  background-color: var(--daf-table-hover);
+}
+
+[data-md-color-scheme="default"] {
+  --daf-table-border: #b9c2cc;
+  --daf-table-head: #e8edf3;
+  --daf-table-head-text: #1f2d3d;
+  --daf-table-stripe: #f6f8fa;
+  --daf-table-hover: #fff6d6;
+}
+[data-md-color-scheme="slate"] {
+  --daf-table-border: #4a5361;
+  --daf-table-head: #2c3340;
+  --daf-table-head-text: #e6e9ee;
+  --daf-table-stripe: #232831;
+  --daf-table-hover: #3a3420;
+}
+
+/* API pages: a rule above each method, so long pages scan more easily. */
+.md-typeset .doc-heading {
+  border-top: 1px solid var(--md-default-fg-color--lightest);
+  padding-top: 0.6em;
+}

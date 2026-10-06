@@ -1,7 +1,7 @@
 # The full deploy. It runs only when a commit is pushed to the branch full_deploy.
 # To release, push the commit that you want from main:   git fetch origin main && git push origin origin/main:full_deploy
 #
-# Order: check the version, test, build, publish to PyPI, tag, deploy the docs.
+# Order: check the version, test, build, publish to PyPI, tag and create the GitHub Release, deploy the docs.
 # Nothing is published unless every step before it has passed.
 #
 # One-time setup, done in the GitHub and PyPI web pages:
@@ -104,6 +104,14 @@ jobs:
           git config user.email "github-actions@users.noreply.github.com"
           git tag -a "v${{ needs.check.outputs.version }}" -m "Version ${{ needs.check.outputs.version }}"
           git push origin "v${{ needs.check.outputs.version }}"
+      - name: Create the GitHub Release
+        # The docs header shows the latest GitHub Release, so every version needs one.
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ needs.check.outputs.version }}
+        run: |
+          awk -v h="## [$VERSION]" 'index($0, h) == 1 {on=1; next} on && /^## \[/ {exit} on' CHANGELOG.md > notes.md
+          gh release create "v$VERSION" --title "Version $VERSION" --notes-file notes.md --verify-tag --latest
 
   docs:
     name: Deploy the docs

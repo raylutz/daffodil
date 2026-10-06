@@ -174,7 +174,7 @@ Source code is in src/daffodil and tests are in tests.
 ## Releasing
 
 - Version 0.6.0 was released on 2026-10-06. Tags look like `v0.6.0`.
-- The workflow deploy.yml runs only on a push to the branch `full_deploy`. It checks the version, runs the tests, builds, publishes to PyPI, creates the tag and deploys the docs.
+- The workflow deploy.yml runs only on a push to the branch `full_deploy`. It checks the version, runs the tests, builds, publishes to PyPI, creates the tag and the GitHub Release, and deploys the docs. The Release notes are the version's section of CHANGELOG.md. The docs header shows the latest GitHub Release.
 - Before a release, set the date in the CHANGELOG heading and push to `main`. Check that every CI job passes.
 - Then run `git fetch origin main && git push origin origin/main:full_deploy`. Do not use the local `main`, which can be stale in a fresh clone.
 - Check the Full deploy run and look for the tag. A failed run makes no tag.
