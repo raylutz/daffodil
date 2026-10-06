@@ -584,3 +584,9 @@ The date of the first entry is 2026-10-02.
     My first prototype raised TypeError for any cell that could not be hashed, even when every selector value could, which the plain meaning would not do. The owner questioned the wording of the rule.
     The final rule is that the result is always what `==` gives. Unhashable selector values are kept in a list and compared by ==, and an unhashable cell makes the quick loop fall back to a per row loop with the same answer.
     20 tests, including a randomized cross check against the plain meaning with 300 cases. Only in 0.6.0, so the AuditEngine performance prompt lists it as a later option.
+123. The owner said on 2026-10-06 that daffodil arrays are not limited in what they can contain, and that dtypes are for conversion, as from csv, and not to force or limit a cell. It is now in the class docstring, the
+    constructor, `apply_dtypes()` and the README. Checking it by running showed that `apply_dtypes()` raises `TypeError` for a cell that is not text and not a number in an `int` or `float` column, such as a list.
+    My first guess was that it keeps such a cell. It keeps text only. This is now documented, and not changed. A conversion of an object that is not convertible raising seems right to me, but the owner may want it kept as it is.
+124. Updated on 2026-10-06: notes/auditengine_performance_prompt.md. It now has two tiers. Tier 1 works on daffodil 0.5.13 and 0.6.0, on the branch `daffodil-perf`. Tier 2 uses the list form of `select_by_dict()`,
+    which exists from commit 95f5716, on the branch `daffodil-perf-0.6.0`, and must not be deployed until the machine runs 0.6.0. The earlier version had not been sent.
+

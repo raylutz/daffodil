@@ -2102,3 +2102,25 @@ def test_from_dod_without_dtypes_is_not_changed_by_ignore_extra_keys():
     dod = {'r0': {'x': 1}, 'r1': {'x': 2, 'y': 3}}
     assert Daf.from_dod(dod, ignore_extra_keys=True).lol == Daf.from_dod(dod).lol == [['r0', 1, ''], ['r1', 2, 3]]
     assert Daf.from_dod(dod).columns() == ['rowkey', 'x', 'y']
+
+
+# dtypes do not limit what a cell can hold
+
+def test_a_daf_built_with_dtypes_keeps_whatever_the_cells_hold():
+    cells = [[[1, 2], 'x', {'k': 1}], [3, None, {5}]]
+    daf = Daf(lol=[list(r) for r in cells], cols=['a', 'b', 'c'], dtypes={'a': int, 'b': str, 'c': int})
+    assert daf.lol == cells
+    assert daf.dtypes == {'a': int, 'b': str, 'c': int}
+
+
+def test_apply_dtypes_keeps_text_that_cannot_be_converted_and_makes_empty_cells_empty():
+    daf = Daf(lol=[['12'], ['abc'], [''], [None]], cols=['a'], dtypes={'a': int})
+    assert daf.apply_dtypes().lol == [[12], ['abc'], [''], ['']]
+
+
+def test_apply_dtypes_raises_typeerror_for_a_cell_that_is_not_text_or_a_number():
+    daf = Daf(lol=[[[1, 2]]], cols=['a'], dtypes={'a': int})
+    with pytest.raises(TypeError):
+        daf.apply_dtypes()
+    assert Daf(lol=[[[1, 2]]], cols=['a'], dtypes={'a': list}).apply_dtypes().lol == [[[1, 2]]]
+    assert Daf(lol=[[{'k': 1}]], cols=['a'], dtypes={'a': str}).apply_dtypes().lol == [[{'k': 1}]]

@@ -152,6 +152,12 @@ class Daf:
 
     A missing value is `NULL`, which is the empty string. It prints as nothing.
 
+    A cell can hold any Python object, such as a number, text, a list, a dict, a set or
+    an object of your own. Nothing limits what a cell can hold. The `dtypes` are not a
+    schema that checks or forces the cells. They say how to convert columns, as when
+    `apply_dtypes()` turns the text of a CSV file into numbers. A Daf built with `dtypes`
+    keeps its cells as they are.
+
     Rows are returned as dicts or as [KeyedList][daffodil.keyedlist.KeyedList]
     objects. See [retmode][daffodil.daf.Daf.retmode] and
     [itermode][daffodil.daf.Daf.itermode].
@@ -164,6 +170,9 @@ class Daf:
         {'id': 2, 'v': 'b'}
         >>> d.shape()
         (2, 2)
+        >>> e = Daf(lol=[[[1, 2], {'k': 1}]], cols=['a', 'b'], dtypes={'a': int, 'b': str})
+        >>> e.iloc(0)
+        {'a': [1, 2], 'b': {'k': 1}}
     """
 
     RETMODE_OBJ  = 'obj'
@@ -238,7 +247,7 @@ class Daf:
             hd: Header dict that maps column name to position.
             kd: Key index to adopt when no keyfield is set.
             cols: Column names. These win over `hd` and `dtypes`.
-            dtypes: Type for each column, used when converting from strings. Entries for names that are not columns are left out.
+            dtypes: Type for each column, used when converting, as from the text of a CSV file. It does not limit what a cell can hold. Entries for names that are not columns are left out.
             schema: A `@schemaclass` or a schema Daf that supplies columns and defaults.
             keyfield: Column, or tuple or list of columns, whose values identify rows. Each must be a column. See `set_keyfield()`.
             name: Free text name of this Daf.
@@ -1778,8 +1787,10 @@ class Daf:
 
         A cell that cannot be converted to an `int` or a `float` keeps its text, so a bad
         value is still there to be found, as with `list` and `dict`. An empty cell stays
-        empty. No error is raised here. A later step, such as a sum or a sort, may raise
-        one. Whole number text of any size is converted exactly. Text with a decimal point
+        empty. No error is raised for text. A later step, such as a sum or a sort, may raise
+        one. A cell that is not text and not a number, such as a list in an `int` column,
+        cannot be given to `int()`, and raises `TypeError`. The `dtypes` do not limit what a
+        cell can hold, so leave such a column out of the conversion. Whole number text of any size is converted exactly. Text with a decimal point
         or an exponent is converted to an `int` by way of a float, which cuts the decimal part.
 
         This method does the common conversions and keeps them simple. For your own

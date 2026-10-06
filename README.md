@@ -151,6 +151,12 @@ can be optionally used to define datatypes for each column, which is similar beh
 is optional. Any cell can be any data type. the `dtypes` dict is useful when reading data from csv files because the
 default type is `str`.
 
+A Daffodil array is not limited in what it can contain. A cell can hold a number, text, a list, a dict, a set or an object of your
+own. The `dtypes` do not check or force the cells. They say how to convert columns when you ask for it, as with `.apply_dtypes()`, and
+a Daf that is built with `dtypes` keeps its cells as they are. A conversion that is asked for can fail on a cell that cannot be
+converted. Text that does not make an `int` or a `float` is kept as it is. A cell that is not text and not a number, such as a list in
+an `int` column, raises `TypeError`, so leave such a column out of the conversion.
+
 ### Schema-based column definition (optional)
 
 In addition to defining column names via cols or dtypes, a Daffodil instance may optionally be initialized with a schema class. 

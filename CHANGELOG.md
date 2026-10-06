@@ -326,6 +326,10 @@ all prior releases. Plans for future moved to ROADMAP.md.
   git-tracked) moved out of `src/` to a gitignored, local-only `deprecated/` folder.
 
 ### Fixed
+- Docs: a Daf is not limited in what it can contain, and the `dtypes` do not limit it. A cell can hold any Python object. The `dtypes` say how to convert columns when `apply_dtypes()` or a reader is asked to,
+  and a Daf built with `dtypes` keeps its cells as they are. This is said in the class docstring, with an example, in the docs of the constructor and of `apply_dtypes()`, and in the README, on 2026-10-06 at the owner's request.
+  `apply_dtypes()` keeps text that cannot be converted to a number and makes an empty cell empty. A cell that is not text and not a number, such as a list in an `int` column, raises `TypeError`, and its docstring now says so.
+  Three tests pin this down.
 - Docs: the `from_directory()` docstring says that the rows are in the order in which the file system lists the files, which is not sorted and differs between machines.
   Its example no longer depends on that order. It did, and the first CI run on GitHub failed because of it, on 2026-10-05.
 - `insert_icol()`, `insert_col()` and `insert_idx_col()`, and so `assign_col()` for a new column, changed the rows of
