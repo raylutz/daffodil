@@ -16,7 +16,7 @@ Daffodil part applies only to this repo.
 
 ## Reviewing changes with the owner
 
-- The owner often reads on a phone and can't open files in the cloud session. Present
+- The owner often reads on a phone and can't open files on the EC2 box. Present
   reviews in the chat.
 - Start with a short numbered list, one line per item.
 - Then go through one item at a time. Wait for a decision before moving on. Some items need
@@ -84,7 +84,8 @@ This applies to code comments, the changelog, docs and chat.
 ## Commits
 
 - Commits use the owner's identity: Raymond Lutz <raylutz@cognisys.com>.
-- A cloud container starts with a Claude identity, so set the owner's identity first.
+- The global git config on the EC2 box has the name `raylutz`, so the repo sets the full name in
+  its local config. The startup hook does that, but check: it did not run on 2026-10-06.
 - Never add Co-Authored-By, Claude-Session or any other line crediting Claude. Claude is a
   tool, not an author. This also applies to pull request descriptions.
 - Before committing, check the author with `git log -1 --format='%an <%ae>'`.
@@ -98,7 +99,8 @@ Source code is in src/daffodil and tests are in tests.
 
 - Use uv. Running `uv sync` installs the package and the dev tools.
 - A startup hook in .claude/settings.json runs `uv sync` and sets the git identity at the
-  start of each session.
+  start of each session. If `git config --local user.name` is empty, it did not run. Then run
+  its command by hand.
 - Run the tests with `uv run pytest -q -p no:cacheprovider`. It takes a few seconds.
 - For coverage, add `--cov=daffodil --cov-report=term-missing`.
 - All tests must pass before any commit.
@@ -181,7 +183,7 @@ Source code is in src/daffodil and tests are in tests.
 - A rejected run publishes nothing and makes no tag, so the same version can be pushed again after a fix. The live docs stay on the rejected build until the next docs deploy.
 - docs.yml deploys the docs alone, from `main`, without a release: `gh workflow run docs.yml`. Run it only when Ray asks, since docs from `main` may describe changes not on PyPI.
 - Before a release, set the date in the CHANGELOG heading and push to `main`. Check that every CI job passes.
-- Then run `git fetch origin main && git push origin origin/main:full_deploy`. Do not use the local `main`, which can be stale in a fresh clone.
+- Then run `git fetch origin main && git push origin origin/main:full_deploy`. Do not use the local `main`, which can be behind origin.
 - Check the Full deploy run and look for the tag. A failed run makes no tag.
 - The secret `PYPI_API_TOKEN` lives in the GitHub environment `pypi`. Ray sets it. Never ask for its value.
 - Push to `main` only when Ray asks. After any push to `main`, check the result of all CI jobs before calling it done.
@@ -234,11 +236,21 @@ Source code is in src/daffodil and tests are in tests.
 - Never pass extra keywords to `breakpoint()` in daffodil. Python's default hook rejects them
   with a TypeError.
 
-# Part 3: Handoff protocol (cloud sandbox)
+# Part 3: Handoff protocol (EC2 box)
 
-This thread runs in a cloud sandbox. Its files do not survive the session, and the next thread
-starts from a fresh clone. So a handoff exists only once it is committed and pushed. Ray starts
-the next thread by hand. There is no transition script.
+This thread runs on Ray's EC2 box, in /home/daffodil, in its own tmux session. The box has no
+screen; Ray often follows from a phone. The files persist between threads, but the next thread
+may start on another machine, so a handoff exists only once it is committed and pushed. Ray
+starts the next thread by hand. There is no transition script.
+
+The box is shared:
+
+- Another thread works on AuditEngine in /home/audit-engine-dev, in a separate tmux session.
+  Do not change anything there. It shares the CPU, so keep long jobs (benchmarks, big test
+  runs) short, or ask first.
+- `gh` is in ~/.local/bin, logged in as raylutz with the `workflow` scope. It is also git's
+  credential helper for github.com, which pushes to .github/workflows/ need.
+- Earlier threads ran in a cloud sandbox. Handoffs and notes from before 2026-10-06 may say so.
 
 Two files, both tracked in git:
 
@@ -283,15 +295,19 @@ When Ray says something like "wind down" or "hand off", do these steps in order.
 
 Do this first in a new thread, before any other work.
 
-1. Read `notes/handoffs/PENDING.md`.
+1. Bring the local `main` up to date. Check that the working tree is clean, then run
+   `git fetch origin && git merge --ff-only origin/main`. The local copy persists, so it can be
+   far behind: on 2026-10-06 it was 207 commits behind. If the tree is not clean or the merge is
+   not a fast-forward, stop and tell Ray.
+2. Read `notes/handoffs/PENDING.md`.
    - If it does not exist, nothing is waiting. Tell Ray so, and ask whether to read the newest file
      in `notes/handoffs/` instead. Then wait for his task.
    - If it exists, read the handoff file that it names.
-2. Check that the handoff file is in `notes/handoffs/` and committed. It should be, since the last
+3. Check that the handoff file is in `notes/handoffs/` and committed. It should be, since the last
    thread committed it. If it is missing, stop and tell Ray.
-3. Delete PENDING.md, commit with the message "Pick up handoff <name>", and push. This marks the
+4. Delete PENDING.md, commit with the message "Pick up handoff <name>", and push. This marks the
    handoff as taken, so no later thread picks it up again. The handoff file itself stays, as history.
-4. Tell Ray in a few lines what you picked up: the state, the next task and the open questions. If
+5. Tell Ray in a few lines what you picked up: the state, the next task and the open questions. If
    the handoff says something that the repository does not match, for example a test it says passes
    now fails, or a commit it names is missing, say so. Do not act on the handoff until Ray confirms
    the next step.
