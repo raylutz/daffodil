@@ -439,7 +439,7 @@ def md_cols_lol_table(
                 w = len(line)
                 if w > w_max:
                     w_max = w
-        field_widths.append(w_max)
+        field_widths.append(max(w_max, 2))      # the ruling is at least 2 wide, as in '-:', so a narrow column still aligns.
     
     # now that the columns have been formatted, remove the header from the columns.
     

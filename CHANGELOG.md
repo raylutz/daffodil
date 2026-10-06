@@ -331,6 +331,9 @@ all prior releases. Plans for future moved to ROADMAP.md.
   git-tracked) moved out of `src/` to a gitignored, local-only `deprecated/` folder.
 
 ### Fixed
+- `to_md()`: the ruling row is at least 2 characters wide, as in `-:`. A column whose cells were all one character wide made the ruling 1 character wider than the cells,
+  so the vertical bars did not line up in a fixed font. Approved by the owner on 2026-10-06. Tests: 3 new, 5 old expectations updated. The output of `to_md()` and `repr()` changes by one space in such columns.
+  The doctests never caught it, because `NORMALIZE_WHITESPACE` ignores spacing.
 - Docs: `apply_dtypes()` is described more fully. It said that columns left out of `dtypes` are not touched, which is true only with `silent_error=True`, and it did not say that `dtypes` replaces the `dtypes` of the Daf.
   It now says both, and says that an empty cell, as from two commas together in a CSV file, is NULL, stays NULL in a number column, and is skipped by `sum()`, `sum_np()` and `sum_da()`. A line of its docstring was 146 characters long and is reflowed.
 - Docs: a Daf is not limited in what it can contain, and the `dtypes` do not limit it. A cell can hold any Python object. The `dtypes` say how to convert columns when `apply_dtypes()` or a reader is asked to,

@@ -1898,7 +1898,7 @@ def test_dict_views_of_a_daf_with_no_names_raise_a_clear_error(call):
 def test_list_views_of_a_daf_with_no_names_still_work():
     daf = _unnamed_daf()
     assert list(daf.iter_list()) == [[1, 'a', 10], [2, 'b', 20]]
-    assert daf.to_md().splitlines()[0] == '| A | B | C  |'
+    assert daf.to_md().splitlines()[0] == '| A  | B  | C  |'
 
 
 def test_naming_the_columns_makes_the_dict_views_work():
@@ -1928,8 +1928,8 @@ def test_row_getters_of_an_empty_daf_are_empty():
 
 
 def test_to_md_of_a_daf_with_no_names_writes_a_spreadsheet_header():
-    assert Daf(lol=[[1, 'a']]).to_md() == '| A | B |\n| -: | -: |\n| 1 | a |\n'
-    assert Daf(lol=[[1, 'a']], cols=['id', 'v']).to_md().splitlines()[0] == '| id | v |'
+    assert Daf(lol=[[1, 'a']]).to_md() == '| A  | B  |\n| -: | -: |\n|  1 |  a |\n'
+    assert Daf(lol=[[1, 'a']], cols=['id', 'v']).to_md().splitlines()[0] == '| id | v  |'
 
 
 # a blank column name always becomes Unnamed plus its position
@@ -2229,3 +2229,22 @@ def test_an_empty_cell_stays_null_in_a_number_column_and_the_sum_methods_skip_it
     assert daf.sum_np() == {'a': 5, 'b': 8}
     with pytest.raises(TypeError):
         sum(daf.col('a'))
+
+
+# to_md: every row of a table is as long as the others, so the bars line up in a fixed font
+
+def test_to_md_rows_have_equal_length_even_when_every_cell_of_a_column_is_one_character():
+    daf = Daf(lol=[['1', '2.5', 'x']], cols=['a', 'b', 'c'])
+    assert daf.to_md().splitlines() == ['| a  |  b  | c  |', '| -: | --: | -: |', '|  1 | 2.5 |  x |']
+
+
+def test_to_md_rows_have_equal_length_for_one_two_and_many_character_columns():
+    daf = Daf(lol=[[1, 22, 'abc', ''], [2, 3, 'd', 'e']], cols=['a', 'bb', 'ccc', 'd'])
+    assert len({len(x) for x in daf.to_md().splitlines()}) == 1
+    assert len({len(x) for x in Daf(lol=[[1]], cols=['a']).to_md().splitlines()}) == 1
+
+
+def test_to_md_output_of_one_character_columns_is_read_back_by_from_md():
+    daf = Daf(lol=[[1, 'x'], [2, 'y']], cols=['a', 'b'])
+    back = Daf.from_md(daf.to_md())
+    assert back.columns() == ['a', 'b'] and back.lol == [['1', 'x'], ['2', 'y']]

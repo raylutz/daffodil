@@ -276,7 +276,7 @@ def test_to_md_cols_basic():
 def test_to_md_bare_lol_writes_a_spreadsheet_header_and_does_not_name_the_daf():
     daf = Daf(lol=[[1, 'a'], [2, 'b']])  # no cols at all
     result = daf.to_md()
-    assert result.splitlines()[:2] == ['| A | B |', '| -: | -: |']
+    assert result.splitlines()[:2] == ['| A  | B  |', '| -: | -: |']
     assert daf.columns() == []
 
 
@@ -424,7 +424,7 @@ def test_dodaf_to_md_basic():
     assert result.startswith('# Test Report')
     assert '## Section One' in result
     assert '## Section Two' in result
-    assert '| a | b |' in result
+    assert '| a  | b  |' in result
     assert '|  x  | y  |' in result
     # section order follows dict order
     assert result.index('## Section One') < result.index('## Section Two')

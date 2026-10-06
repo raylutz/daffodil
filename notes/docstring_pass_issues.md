@@ -599,3 +599,7 @@ The date of the first entry is 2026-10-02.
     Also fixed at the owner's request: a docstring line of 146 characters. The owner asked whether the Args section is redundant. It is not. The rendered table has the columns Name, Type, Description and Default, and the type and
     the default come from the signature, so the Args text only gives the description. This follows the rule in CLAUDE.md that the type and default are not repeated in the docstring, because they would drift.
     The owner also said that tables need blank lines before and after them to become Markdown. The Examples are shown by mkdocs as code blocks, and the tables in them are plain text, so they do not need blank lines there.
+127. Fixed on 2026-10-06, approved by the owner: `to_md()` ruling width. A column of one-character cells gave a ruling 1 character wider than the cells (lines of 15, 17 and 15 characters). The ruling is now at least 2 wide.
+    Output of `to_md()` and `repr()` changes by one space in such columns, so AuditEngine tests that compare exact text must be checked. The doctests missed this because pytest.ini sets `NORMALIZE_WHITESPACE`.
+    Doctest facts, run on 2026-10-06: the expected output of an example ends at the first blank line. Real output with blank lines fails (1 of 1 failed). `<BLANKLINE>` passes. A misaligned table passes under `NORMALIZE_WHITESPACE` and fails without it.
+    A parser patch that allows a blank line when the next line starts with `|` or `%%` passes the real output and still fails a misaligned table. Decision on the examples is pending.
