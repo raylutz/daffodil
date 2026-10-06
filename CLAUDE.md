@@ -174,7 +174,12 @@ Source code is in src/daffodil and tests are in tests.
 ## Releasing
 
 - Version 0.6.0 was released on 2026-10-06. Tags look like `v0.6.0`.
-- The workflow deploy.yml runs only on a push to the branch `full_deploy`. It checks the version, runs the tests, builds, publishes to PyPI, creates the tag and the GitHub Release, and deploys the docs. The Release notes are the version's section of CHANGELOG.md. The docs header shows the latest GitHub Release.
+- The workflow deploy.yml runs only on a push to the branch `full_deploy`. It checks the version, runs the tests, builds, and deploys the docs. Then it waits for Ray to approve, because he is a required reviewer on the environment `pypi`. After approval it publishes to PyPI and creates the tag and the GitHub Release. The Release notes are the version's section of CHANGELOG.md. The docs header shows the latest GitHub Release.
+- Approval can come from the Actions run page, the GitHub mobile app, or from Claude when Ray says to approve. Never approve without Ray's word in the conversation. With gh:
+  `gh api repos/raylutz/daffodil/actions/runs/<run id>/pending_deployments -X POST -F 'environment_ids[]=<pypi env id>' -f state=approved -f comment=...`
+  Use `state=rejected` to stop. The ids come from `gh api repos/raylutz/daffodil/actions/runs/<run id>/pending_deployments`.
+- A rejected run publishes nothing and makes no tag, so the same version can be pushed again after a fix. The live docs stay on the rejected build until the next docs deploy.
+- docs.yml deploys the docs alone, from `main`, without a release: `gh workflow run docs.yml`. Run it only when Ray asks, since docs from `main` may describe changes not on PyPI.
 - Before a release, set the date in the CHANGELOG heading and push to `main`. Check that every CI job passes.
 - Then run `git fetch origin main && git push origin origin/main:full_deploy`. Do not use the local `main`, which can be stale in a fresh clone.
 - Check the Full deploy run and look for the tag. A failed run makes no tag.

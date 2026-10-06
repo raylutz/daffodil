@@ -1,12 +1,19 @@
 # The full deploy. It runs only when a commit is pushed to the branch full_deploy.
 # To release, push the commit that you want from main:   git fetch origin main && git push origin origin/main:full_deploy
 #
-# Order: check the version, test, build, publish to PyPI, tag and create the GitHub Release, deploy the docs.
+# Order: check the version, test, build, deploy the docs, then wait for approval.
+# After approval: publish to PyPI, tag, and create the GitHub Release.
 # Nothing is published unless every step before it has passed.
+#
+# The pause: the environment pypi has Ray as a required reviewer. The run waits there with the
+# new docs live, so they can be checked first. Approve it in the Actions run page, the GitHub
+# mobile app, or with gh (see CLAUDE.md, Releasing). Reject it to stop with nothing published;
+# the tag is not made, so the same version can be pushed again after a fix.
+# A run that waits more than 30 days is cancelled.
 #
 # One-time setup, done in the GitHub and PyPI web pages:
 #   - a secret named PYPI_API_TOKEN, a PyPI token for the project daffodil. Put it in the environment pypi.
-#   - an environment named pypi. A required reviewer on it is an optional last gate.
+#   - an environment named pypi, with Ray as a required reviewer.
 #   - Settings, Pages, Source: GitHub Actions.
 
 name: Full deploy
@@ -76,9 +83,18 @@ jobs:
           name: dist
           path: dist/
 
+  docs:
+    name: Docs
+    needs: build
+    uses: ./.github/workflows/docs.yml
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+
   publish:
     name: Publish to PyPI
-    needs: build
+    needs: [build, docs]
     runs-on: ubuntu-latest
     environment: pypi
     steps:
@@ -113,25 +129,3 @@ jobs:
           awk -v h="## [$VERSION]" 'index($0, h) == 1 {on=1; next} on && /^## \[/ {exit} on' CHANGELOG.md > notes.md
           gh release create "v$VERSION" --title "Version $VERSION" --notes-file notes.md --verify-tag --latest
 
-  docs:
-    name: Deploy the docs
-    needs: publish
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      pages: write
-      id-token: write
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    steps:
-      - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v5
-      - run: uv sync --python 3.12
-      - run: uv run mkdocs build --strict -d site
-      - uses: actions/configure-pages@v5
-      - uses: actions/upload-pages-artifact@v3
-        with:
-          path: site
-      - id: deployment
-        uses: actions/deploy-pages@v4

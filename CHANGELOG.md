@@ -12,6 +12,7 @@ all prior releases. Plans for future moved to ROADMAP.md.
 - The development status is now Alpha (classifier `Development Status :: 3 - Alpha`), not Pre-Alpha.
 - The Daf API docs are split into an overview and 8 section pages, with subheadings, in place of one long page. `tests/test_docsite_coverage.py` checks that every public Daf member is on exactly one page.
 - Docs styling in `docsite/stylesheets/extra.css`: compact tables with full cell borders, a tinted header and striped rows; sidebar text the same size as the content; a blue-grey and amber palette with a dark mode switch.
+- The full deploy deploys the docs before PyPI, then waits for approval from a required reviewer on the environment `pypi`. PyPI, the tag and the GitHub Release follow the approval. The new workflow `docs.yml` deploys the docs alone, by hand, and is also called by the full deploy.
 - The full deploy also creates a GitHub Release for the version, with its CHANGELOG section as the notes. The docs header shows the latest GitHub Release, which was still V0.5.13.
 
 ## [0.6.0] - (2026-10-06)
