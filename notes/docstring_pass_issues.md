@@ -607,3 +607,4 @@ The date of the first entry is 2026-10-02.
     The docs tool turns the markers into blank lines inside the code block, so the table shows as plain text. Rendering the tables instead needs a griffe extension, saved in notes/griffe_blankline_extension.py and not enabled.
     I built both ways in a scratch folder. Without the extension there are 413 tables in the page and the example is one code block. With it there are 534, and the example tables render as tables. The owner will decide later.
     A parser patch for real blank lines was tested too, but it is not needed.
+129. Done on 2026-10-06, as decided by the owner: `NORMALIZE_WHITESPACE` is removed from pytest.ini. Doctests now compare spacing exactly. All 199 pass.

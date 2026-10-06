@@ -332,6 +332,7 @@ all prior releases. Plans for future moved to ROADMAP.md.
 
 ### Fixed
 - Docs: 127 table examples in the docstrings were regenerated from real output, on 2026-10-06. The output now has the blank lines before the table and before the `%%` footer, written as `<BLANKLINE>`, and the real column spacing.
+  The flag `NORMALIZE_WHITESPACE` is removed from `pytest.ini`, so doctests now compare spacing exactly.
   Many old examples had a table that was not aligned, because `NORMALIZE_WHITESPACE` hid it. All 199 doctests now also pass with that flag turned off. The docs show these tables in a code block. A griffe extension that renders them as tables is saved in `notes/` and is not enabled.
 - `to_md()`: the ruling row is at least 2 characters wide, as in `-:`. A column whose cells were all one character wide made the ruling 1 character wider than the cells,
   so the vertical bars did not line up in a fixed font. Approved by the owner on 2026-10-06. Tests: 3 new, 5 old expectations updated. The output of `to_md()` and `repr()` changes by one space in such columns.
