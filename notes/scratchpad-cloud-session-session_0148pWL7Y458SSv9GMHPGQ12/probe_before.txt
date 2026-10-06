@@ -1,0 +1,22 @@
+KeyedIndex+list          [1, 2, 3]
+KeyedIndex+list wrong n  ValueError: hd and values must have the same length
+KeyedIndex+None          ValueError: Must provide either a dict, keys and values, hd and list, or KeyedList
+KeyedIndex+tuple         ValueError: Must provide either a dict, keys and values, hd and list, or KeyedList
+dict                     [1]
+dict+list                [5]
+list+list                [1, 2]
+list+None                [0, 0]
+KeyedList                [1]
+None                     []
+int                      ValueError: Must provide either a dict, keys and values, hd and list, or KeyedList
+one key                  20
+list of keys             [10, 30]
+list with missing        [10]
+missing key              KeyError: 'zz'
+tuple key                KeyError: ('a',)
+dict key                 ValueError: 
+set key                  ValueError: 
+int key                  KeyError: 1
+None key                 KeyError: None
+empty list               []
+hd shared copy: ['a', 'b', 'c'] ['a', 'b', 'c', 'new']

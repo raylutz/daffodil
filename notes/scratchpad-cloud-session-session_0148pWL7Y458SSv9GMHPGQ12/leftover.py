@@ -1,0 +1,20 @@
+from daffodil.daf import Daf
+def mk(): return Daf(lol=[[1],['x'],[3],['']], cols=['n'], dtypes={'n': int})   # as if 'x' had been left as it was
+def t(label, f):
+    try: print(f'   {label:34}', f())
+    except Exception as e: print(f'   {label:34} EXC {type(e).__name__}: {str(e)[:60]}')
+print('a column typed int that still holds the text x (kept, not turned into NULL):')
+t("reduce(Daf.sum_da)", lambda: mk().reduce(Daf.sum_da))
+t("daf_sum()", lambda: mk().daf_sum())
+t("sum()", lambda: mk().sum())
+t("sum_np()", lambda: mk().sum_np())
+t("sort_by_colname('n')", lambda: mk().sort_by_colname('n').col('n'))
+t("to_numpy().dtype", lambda: mk().to_numpy().dtype)
+t("to_pandas_df()['n'].dtype", lambda: mk().to_pandas_df()['n'].dtype)
+t("select_where(lambda r: r['n'] > 1)", lambda: mk().select_where(lambda r: r['n'] > 1))
+t("col('n', astype=int)", lambda: mk().col('n', astype=int))
+t("valuecounts_for_colname('n')", lambda: mk().valuecounts_for_colname('n'))
+t("find the bad ones: select_where(type is str)", lambda: [r for r in mk().select_where(lambda r: isinstance(r['n'], str) and r['n'] != '').lol])
+print('with NULL instead (today):')
+d = Daf(lol=[[1],[''],[3],['']], cols=['n'])
+t("reduce(Daf.sum_da)", lambda: d.reduce(Daf.sum_da)); t("sum()", lambda: d.sum()); t("sort_by_colname('n')", lambda: d.copy(deep=True).sort_by_colname('n').col('n'))

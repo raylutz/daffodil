@@ -1,0 +1,9 @@
+site_name: t
+theme: {name: material}
+markdown_extensions: [admonition, pymdownx.highlight, pymdownx.superfences]
+plugins:
+  - mkdocstrings:
+      handlers:
+        python:
+          paths: ["."]
+          options: {docstring_style: google, show_source: false, extensions: ["blank_ext.py:BlankLines"]}

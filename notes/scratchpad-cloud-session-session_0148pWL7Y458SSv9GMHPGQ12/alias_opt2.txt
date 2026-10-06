@@ -1,0 +1,15 @@
+same row list object as the original?
+  select_irows(list all in order)    False
+  select_irows(range all)            False
+  select_irows(slice all)            False
+  select_irows([], inverse=True)     False
+  d[list all in order]               False
+  d[:]                               False
+  select_krows(all keys)             False
+  select_krows([], inverse=True)     False
+  select_records_daf([], inverse)    False
+  select_where(all true)             False
+  copy()                             True
+  copy("sortable")                   False
+
+scenarios on s = select_irows(list all in order)

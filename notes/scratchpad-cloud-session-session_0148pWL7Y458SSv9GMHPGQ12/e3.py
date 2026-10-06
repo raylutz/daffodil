@@ -1,0 +1,33 @@
+import sys
+sys.breakpointhook = lambda *a, **k: print("BREAKPOINT")
+from daffodil.daf import Daf
+import daffodil.daf as dm
+g = Daf(cols=['g','h','v'], lol=[['x','p',1],['y','p',2],['x','q',3]])
+r = g.groupby_reduce('g', Daf.sum_da, reduce_cols=['v'], diagnose=True); print(r.lol, r.columns(), r.keyfield)
+r = g.multi_groupby_reduce(['g','h'], Daf.sum_da, reduce_cols=['v'], diagnose=True); print({k:(v.columns(), v.lol) for k,v in r.items()})
+g2 = Daf(cols=['g','v'], lol=[[str(i), i] for i in range(6)])
+r = g2.groupby_reduce('g', Daf.sum_da, diagnose=True)
+print(r.lol)
+d = Daf(cols=['a','b'], lol=[[1,2],[3,4]])
+d.apply_colwise('c', lambda r: r['a']/(r['b']-2), default=-1); print(d.lol)
+d = Daf(cols=['a','b'], lol=[[1,2],[3,4]])
+try: d.apply_colwise('c', lambda r: r['a']+r['b'], default=7); print(d.lol)
+except Exception as e: print('acw', type(e), e)
+d = Daf(cols=['a','b'], lol=[[1,2],[3,4]])
+d.apply_colwise('a', lambda r: r['a']*2); print(d.lol)
+print(d.reduce(Daf.sum_da, cols='a'))
+def bad(r, acc, cols=None): raise RuntimeError('x')
+print(d.reduce(bad))
+s = Daf(cols=['id','j'], lol=[['x','{"p": 1}'],['y','{"q": 2}']])
+print(s.reduce(bad, by='sparse_row', indirect_col='j'))
+print(Daf.sum_da({'a':1,'b':'s'}, {'a':1}, cols=['a','b'], is_sparse=True))
+print(Daf.sum_da({'a':'2','b':True, 'c': 1.5}, {'a':0,'b':0, 'c': 0}, cols=['a','b','c'], astype=float))
+print(Daf.sum_da({'a':2,'b':1.5}, {'a':'','b':''}, cols=['a','b'], astype=str))
+print(Daf.sum_da({'a':'x'}, {'a':0}, cols=['a'], astype=int))
+print(Daf.sum_da({'a':1}, {}, cols=['a'], astype=int))
+print(Daf.sum_da({'a':'s'}, {'a':0}, cols=['a']))
+class W:
+  def __add__(self, o): raise KeyError('w')
+  __radd__ = __add__
+print(Daf.sum_da({'a':W()}, {'a':0}, cols=['a']))
+print(Daf.sum_da({'a':W()}, {'a':0}))

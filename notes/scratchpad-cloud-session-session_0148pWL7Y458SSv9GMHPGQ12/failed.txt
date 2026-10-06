@@ -1,0 +1,12 @@
+FAILED tests/test_daf.py::TestJoinRecords::test_empty_records
+FAILED tests/test_daf.py::TestJoinRecords::test_partial_records
+FAILED tests/test_daf.py::TestJoinRecords::test_record1_only
+FAILED tests/test_daf.py::TestJoinRecords::test_record2_only
+FAILED tests/test_daf.py::TestDafJoin::test_left_join
+FAILED tests/test_daf.py::TestDafJoin::test_outer_join
+FAILED tests/test_daf.py::TestDafJoin::test_right_join
+FAILED tests/test_daf_coverage_b.py::test_join_outer_diagnose
+FAILED tests/test_daf_coverage_b.py::test_join_records_skips_sources_not_in_join_names
+FAILED tests/test_daf_transform.py::test_join_left
+FAILED tests/test_daf_transform.py::test_join_right
+FAILED tests/test_daf_transform.py::test_join_outer

@@ -1,0 +1,30 @@
+import sys
+sys.breakpointhook = lambda *a, **k: print("BREAKPOINT")
+from daffodil.daf import Daf
+import daffodil.daf as dm
+d = Daf(cols=['g','h','v'], lol=[['x','p',1],['y','p',2],['x','q',3]])
+print(d.daf_valuecount(cols=['g','h']))
+r = d.multi_groupsum(['g','h'], reduce_cols=['v']); print({k: v.lol for k,v in r.items()})
+try: d.multi_groupsum()
+except Exception as e: print('mgs', type(e), e)
+e = Daf(cols=['s','t'], lol=[['ab123cd',''],['zz9','']])
+e.set_col2_from_col1_using_regex_select('s', 't', regex=r'(\d+)'); print(e.lol)
+e.set_col2_from_col1_using_regex_select('s', regex=r'([a-z]+)'); print(e.lol)
+f = Daf(cols=['bid','x'], lol=[['04000_1','a'],['01780_2','b']])
+st = {'spec': [{'spec_name':'A','colname':'bid','replace_regex':r'/04000_(\d)/14000_\1/'},{'spec_name':'B','colname':'bid','replace_regex':'/0/Z/'}]}
+f.alter_daf_per_setting(st, 'spec', {'spec_name':'A'}); print(f.lol)
+f.alter_daf_per_setting({'spec': {'spec_name':'A','colname':'x','replace_regex':'/a/AA/'}}, 'spec', {'spec_name':'A'}); print(f.lol)
+print(f.alter_daf_per_setting({'spec': []}, 'spec', {}).lol)
+print(f.alter_daf_per_setting({}, 'spec', {}).lol)
+c = Daf(cols=['a','b','c'], lol=[[1,2,3],[4,5,6]], keyfield=['a','b'])
+c.apply_to_col('a', lambda v: v*10); print(c.lol, c.keys())
+k = Daf(cols=['k','v'], lol=[['a',1],['b',2]], keyfield='k')
+k.apply_to_col('k', str.upper); print(k.keys())
+r1 = {'l': [1,2]}; r2 = {'l':[3]}
+acc = Daf.count_values_da(r1, {}, ['l']); print(acc, r1)
+acc = Daf.count_values_da(r2, acc, ['l']); print(acc, r1)
+v = Daf(cols=['a'], lol=[['x'],[''],['x']])
+print(v.valuecounts_for_colname('a', omit_nulls=True))
+print(v.valuecounts_for_colnames_ls_selectedby_colname(selectedby_colname='a', selectedby_colvalue='x'))
+n = Daf(cols=['n','s'], lol=[[1,'a'],[2,'b'],[3,'c']])
+print(n.gen_stats_daf([('n', int, '', 'num')]))

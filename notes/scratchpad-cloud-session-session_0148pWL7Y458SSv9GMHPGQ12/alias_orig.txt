@@ -1,0 +1,28 @@
+same row list object as the original?
+  select_irows(list all in order)    True
+  select_irows(range all)            False
+  select_irows(slice all)            False
+  select_irows([], inverse=True)     False
+  d[list all in order]               True
+  d[:]                               True
+  select_krows(all keys)             True
+  select_krows([], inverse=True)     True
+  select_records_daf([], inverse)    True
+  select_where(all true)             False
+  copy()                             True
+  copy("sortable")                   False
+
+scenarios on s = select_irows(list all in order)
+  s.append([4,"d"])                d.lol=[[1, 'a'], [2, 'b'], [3, 'c'], [4, 'd']]  s.lol=[[1, 'a'], [2, 'b'], [3, 'c'], [4, 'd']]
+  d.append([4,"d"])                d.lol=[[1, 'a'], [2, 'b'], [3, 'c'], [4, 'd']]  s.lol=[[1, 'a'], [2, 'b'], [3, 'c'], [4, 'd']]
+  s.remove_key(2)                  d.lol=[[1, 'a'], [2, 'b'], [3, 'c']]  s.lol=[[1, 'a'], [2, 'b'], [3, 'c']]
+  s.sort_by_colname("v",rev)       d.lol=[[1, 'a'], [2, 'b'], [3, 'c']]  s.lol=[[3, 'c'], [2, 'b'], [1, 'a']]
+  s.lol.sort(reverse)              d.lol=[[3, 'c'], [2, 'b'], [1, 'a']]  s.lol=[[3, 'c'], [2, 'b'], [1, 'a']]
+  s.insert_irow(0,[0,"z"])         d.lol=[[0, 'z'], [1, 'a'], [2, 'b'], [3, 'c']]  s.lol=[[0, 'z'], [1, 'a'], [2, 'b'], [3, 'c']]
+  s.lol.pop()                      d.lol=[[1, 'a'], [2, 'b']]  s.lol=[[1, 'a'], [2, 'b']]
+
+key index after d.append when s was built first
+  s has key 4: False  len(s): 4  len(d): 4
+
+cost, 200,000 rows x 50 cols
+  select_irows(all list): 0.0414s

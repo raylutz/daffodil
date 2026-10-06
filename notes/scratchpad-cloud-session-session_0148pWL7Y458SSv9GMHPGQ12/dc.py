@@ -1,0 +1,40 @@
+from daffodil.daf import Daf
+def show(label, f):
+    try: print(f'   {label:34}', f())
+    except Exception as e: print(f'   {label:34} EXC {type(e).__name__}: {e}')
+def mk(kf='id'): return Daf(lol=[[1,'a',10],[2,'b',20]], cols=['id','v','n'], keyfield=kf)
+print('== original: drop the keyfield column id')
+d = mk(); d.drop_cols(['id'])
+print('   columns', d.columns(), '| keyfield', repr(d.keyfield))
+show('d.keys()', lambda: d.keys())
+show('d.select_record(1)', lambda: d.select_record(1))
+show("d.append({'v':'z','n':0}, respect_kd=True)", lambda: d.append({'v':'z','n':0}, respect_kd=True).lol)
+show('d.select_krows([1])', lambda: d.select_krows([1]).lol)
+d = mk(); d.drop_cols(['id']); show('d[0].lol (positions still work)', lambda: d[0].lol)
+print('== original: composite keyfield (id, v), drop v')
+d = mk(('id','v')); d.drop_cols(['v'])
+print('   columns', d.columns(), '| keyfield', d.keyfield)
+show('d.keys()', lambda: d.keys())
+print('== same calls on other methods that remove a key column')
+d = mk(); r = d.select_kcols('id', inverse=True); print('   select_kcols(id, inverse):  keyfield', repr(r.keyfield))
+d = mk(); r = d.select_cols(exclude_cols=['id']); print('   select_cols(exclude id):    keyfield', repr(r.keyfield))
+d = mk(('id','v')); r = d.select_kcols('v', inverse=True); print('   select_kcols composite:     keyfield', repr(r.keyfield))
+d = mk(); d.rename_cols({'v':'w'}); print('   rename_cols:                keyfield', repr(d.keyfield))
+d = mk(); d.set_cols(['a','b','c']); print('   set_cols:                   keyfield', repr(d.keyfield))
+
+print('== option B prototype: clear the keyfield when a key column is dropped')
+def drop_B(d, cols):
+    d.drop_cols(cols)
+    kf = d.keyfield
+    key_cols = [kf] if isinstance(kf, (str, int)) else list(kf or [])
+    if key_cols and any(c in cols for c in key_cols):
+        d.keyfield = ''; d._invalidate_kd()
+    return d
+d = mk(); drop_B(d, ['id'])
+print('   columns', d.columns(), '| keyfield', repr(d.keyfield))
+show('d.keys()', lambda: d.keys())
+show('d.select_record(1)', lambda: d.select_record(1))
+show("d.append({'v':'z','n':0}, respect_kd=True).lol", lambda: d.append({'v':'z','n':0}, respect_kd=True).lol)
+show('d.select_krows([1])', lambda: d.select_krows([1]).lol)
+d = mk(('id','v')); drop_B(d, ['v']); print('   composite: columns', d.columns(), '| keyfield', repr(d.keyfield))
+d = mk(); drop_B(d, ['v']); print("   drop v only: keyfield", repr(d.keyfield), d.keys())
