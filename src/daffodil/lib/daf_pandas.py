@@ -50,7 +50,7 @@ import io
 import pandas as pd
 # import daffodil.lib.daf_utils    as daf_utils
 
-from typing import List, Dict, Any, Tuple, Optional, Union, cast, Type, Callable, TYPE_CHECKING # noqa: F401
+from typing import List, Dict, Any, Tuple, cast, Type, Callable, TYPE_CHECKING # noqa: F401
 
 if TYPE_CHECKING:       # for the annotations only. A real import would be circular.
     from daffodil.daf import Daf
@@ -69,7 +69,7 @@ def _from_pandas_df(
         keyfield: str='', 
         name: str='', 
         use_csv: bool=False, 
-        dtypes: Optional[T_dtype_dict]=None
+        dtypes: T_dtype_dict | None = None
         ) -> 'Daf':  # -> 'Daf'
     """
     Make a Daf from a Pandas DataFrame or Series.
@@ -150,12 +150,12 @@ def _from_pandas_df(
 
 def _to_pandas_df(
     self, 
-    cols: Optional[T_ls] = None,
+    cols: T_ls | None = None,
     *,
     use_csv: bool = False, 
     use_donpa: bool = False, 
     default: Any = _MISSING,
-    defaulting_cols: Optional[T_ls] = None,
+    defaulting_cols: T_ls | None = None,
     ) -> Any:
     """
     Make a Pandas DataFrame from the Daf.
@@ -225,7 +225,7 @@ def pandas_dtype_dict_to_python(pandas_dtype_dict: Any) -> Dict[Any, type]:
             for colname, pandas_dtype in pandas_dtype_dict.items()}
 
 
-def python_dtype_to_pandas(python_type: Type) -> Optional[Any]:
+def python_dtype_to_pandas(python_type: Type) -> Any | None:
     """
     Translate a Python data type to its equivalent Pandas data type.
 
@@ -233,7 +233,7 @@ def python_dtype_to_pandas(python_type: Type) -> Optional[Any]:
         python_type (Type): The Python data type to translate.
 
     Returns:
-        Optional[Any]: The equivalent Pandas data type.
+        Any | None: The equivalent Pandas data type.
     """
     import pandas as pd
 

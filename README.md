@@ -512,13 +512,13 @@ Structural reconstruction is based on the table itself; the footer supplies meta
 
     Daf() -- Create a new daffodil instance.
         parameters:
-            lol:        Optional[T_lola]        = None,     # Optional List[List[Any]] to initialize the data array. 
-            cols:       Optional[T_ls]          = None,     # Optional column names to use.
-            dtypes:     Optional[T_dtype_dict]  = None,     # Optional dtype_dict describing the desired type of each column.
+            lol:        T_lola | None           = None,     # Optional List[List[Any]] to initialize the data array. 
+            cols:       T_ls | None             = None,     # Optional column names to use.
+            dtypes:     T_dtype_dict | None     = None,     # Optional dtype_dict describing the desired type of each column.
             keyfield:   str                     = '',       # A field of the columns to be used as a key.
             name:       str                     = '',       # An optional name of the Daffodil array.
             use_copy:   bool                    = False,    # If True, make a deep copy of the lol data.
-            disp_cols:  Optional[T_ls]          = None,     # Optional list of strings to use for display, if initialized.
+            disp_cols:  T_ls | None             = None,     # Optional list of strings to use for display, if initialized.
             retmode:    str                     = 'obj',    # determines how data will be returned, either always as an daf array ('obj')
                                                             # or as single values, list or Daf instance ('val')
 

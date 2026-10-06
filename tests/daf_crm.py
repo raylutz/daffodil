@@ -135,8 +135,8 @@ from daffodil.lib.daf_types import T_daf
 
 # from daffodil.keyedlist import KeyedList
 
-from typing import List, Dict, Any, Tuple, Optional, Union, cast, Type, Callable, Iterable # Iterator
-def fake_function(a: Optional[List[Dict[str, Tuple[int,Union[Any, str, Type, Callable, Iterable]]]]] = None) -> Optional[int]:
+from typing import List, Dict, Any, Tuple, cast, Type, Callable, Iterable # Iterator
+def fake_function(a: List[Dict[str, Tuple[int,Any | str | Type | Callable | Iterable]]] | None = None) -> int | None:
     return None or cast(int, 0)       # pragma: no cover
 
 
@@ -342,7 +342,7 @@ def op_import():
             user_format = True,                     # if True, preprocess the file and omit comment lines.
             # sep: str=',',                         # field separator.
             unflatten   = False,                    # unflatten fields that are defined as dict or list (none exist).
-            # include_cols: Optional[T_ls]=None,    # include only the columns specified. noheader must be false.
+            # include_cols: T_ls | None = None,    # include only the columns specified. noheader must be false.
             )
     
     if from_to_dict:

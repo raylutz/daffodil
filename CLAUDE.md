@@ -43,6 +43,13 @@ This applies to code comments, the changelog, docs and chat.
 ## Code style
 
 - Use type annotations throughout.
+- Write unions with `|`, as in `int | str`, not `Union[int, str]`. Write a type that may be None
+  as `T_ls | None`, not `Optional[T_ls]`. `Optional` only means the value may be None; whether an
+  argument is optional is a separate thing, shown by its default.
+- A class name in quotes cannot be joined with `|` at run time: `'Daf' | None` raises TypeError
+  on Python 3.10 to 3.13. Quote the whole annotation instead, as in `'Daf | None'`. Do not add
+  `from __future__ import annotations` to fix it in a module with doctests that define schema
+  classes: their annotations become strings.
 - Use the project's type aliases instead of spelling out types. In daffodil they are in
   src/daffodil/lib/daf_types.py. Other projects may have their own types module.
 - An alias name is T_ followed by letters for the type:

@@ -9,6 +9,7 @@ all prior releases. Plans for future moved to ROADMAP.md.
 
 ## [Unreleased]
 ### Changed
+- Type annotations use `X | Y` in place of `Union[X, Y]`, and `X | None` in place of `Optional[X]`, in src, tests and the README. `Optional` means only that a value may be None, not that the argument is optional. No behavior changes. Python 3.10 is still the minimum.
 - The `copy()` arguments `deep` and `for_sorting` are documented as deprecated. Use `level='deep'` and `level='sortable'`. They still work, and give no warning.
 - The development status is now Alpha (classifier `Development Status :: 3 - Alpha`), not Pre-Alpha.
 - The Daf API docs are split into an overview and 8 section pages, with subheadings, in place of one long page. `tests/test_docsite_coverage.py` checks that every public Daf member is on exactly one page.

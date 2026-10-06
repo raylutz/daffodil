@@ -1,7 +1,7 @@
 # daf_schema.py
 
 import typing
-from typing import List, Dict, Any, Tuple, Optional, TypeVar, Union, cast, Type, Callable # noqa: F401
+from typing import List, Dict, Any, Tuple, TypeVar, cast, Type, Callable # noqa: F401
 from daffodil.lib.daf_types import T_ls, T_lola, T_da, T_li, T_cs, T_ca, T_ma # noqa: F401
 from daffodil.lib.schemaclass import SchemaBase
 
@@ -13,7 +13,7 @@ if TYPE_CHECKING:       # for the annotations only. A real import would be circu
 
 def _apply_schema(
         self: 'Daf',
-        schema: Optional[Union[type, 'Daf']]=None,
+        schema: 'type | Daf | None' = None,
         ) -> 'Daf':
     """
     Attach a schema to this Daf and fill in what the Daf is missing.

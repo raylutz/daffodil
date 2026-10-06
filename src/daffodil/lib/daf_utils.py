@@ -21,7 +21,7 @@ import time
 import xlsx2csv     # type: ignore
 import numpy as np
 
-from typing import List, Dict, Any, Tuple, Optional, Union, cast, Type, Callable, TypeVar, IO # noqa: F401
+from typing import List, Dict, Any, Tuple, cast, Type, Callable, TypeVar, IO # noqa: F401
 T = TypeVar('T')
 from types import FrameType
 from collections.abc import Iterable, Iterator, Sequence    # noqa: F401
@@ -106,7 +106,7 @@ class NpEncoder(json.JSONEncoder):
             return super(NpEncoder, self).default(obj)
 
 
-def json_encode(data_item: Any, indent: Optional[int]=None) -> str:
+def json_encode(data_item: Any, indent: int | None = None) -> str:
     # use ensure_ascii=False
     # encoding="utf-8" is not supported.
     # if indent is left as None, there is no indenting.
@@ -119,13 +119,13 @@ def json_encode(data_item: Any, indent: Optional[int]=None) -> str:
     return json.dumps(data_item, cls=NpEncoder, indent=indent, ensure_ascii=False, allow_nan=False)
 
 
-def make_strbool(val: Union[bool, str, int, None]) -> str:
+def make_strbool(val: bool | str | int | None) -> str:
     # make a strbool value like 'is_bmd' and allow both bool or str types.
     
     return '1' if test_strbool(val) else '0'
     
     
-def test_strbool(val: Union[bool, str, int, None, object]) -> bool:
+def test_strbool(val: bool | str | int | object | None) -> bool:
     # test a strbool value like 'is_bmd' and allow both bool or str types.
     
     if isinstance(val, bool):
@@ -142,7 +142,7 @@ def test_strbool(val: Union[bool, str, int, None, object]) -> bool:
     raise TypeError(f"test_strbool(): unsupported type {type(val).__name__}")
     
         
-def xlsx_to_csv(xlsx: bytes, sheetname: Optional[str]=None, add_trailing_blank_cols: bool=True) -> bytes:
+def xlsx_to_csv(xlsx: bytes, sheetname: str | None = None, add_trailing_blank_cols: bool=True) -> bytes:
     """ convert xlsx file in a buffer to csv file in a buffer.
 
         xlsx2csv pads every row to the width of the widest row. This was checked for
@@ -213,7 +213,7 @@ def is_d1_in_d2(d1: T_ma, d2: T_ma) -> bool:
     return all(d2.get(key, _MISSING) == val for key, val in d1.items())     # type: ignore[call-overload]
 
     
-def assign_col_in_lol_at_icol(icol: int=-1, col_la: Optional[T_la]=None, lol: Optional[T_lola]=None, default:Any='') -> T_lola:
+def assign_col_in_lol_at_icol(icol: int=-1, col_la: T_la | None = None, lol: T_lola | None = None, default:Any='') -> T_lola:
     """ assign col in lol.
         if icol == -1 or > len(lol[0]) then insert at left end.
         use default value if col_la not long enough.
@@ -256,7 +256,7 @@ def rows_are_shared(lol: T_lola) -> bool:
     return any(refs > _OWN_REFS for refs in map(sys.getrefcount, lol))
 
 
-def insert_col_in_lol_at_icol(icol: int=-1, col_la: Optional[T_la]=None, lol: Optional[T_lola]=None, default: Any='') -> T_lola:
+def insert_col_in_lol_at_icol(icol: int=-1, col_la: T_la | None = None, lol: T_lola | None = None, default: Any='') -> T_lola:
     """ insert col in lol.
         if icol == -1 or > len(lol[0]) then insert at right end.
         use default value if col_la not long enough.
@@ -284,7 +284,7 @@ def insert_col_in_lol_at_icol(icol: int=-1, col_la: Optional[T_la]=None, lol: Op
     return lol
     
     
-def insert_row_in_lol_at_irow(irow: int=-1, row_la: T_la|None=None, lol: T_lola|None=None, default: Any='') -> T_lola:
+def insert_row_in_lol_at_irow(irow: int=-1, row_la: T_la | None = None, lol: T_lola | None = None, default: Any='') -> T_lola:
     """ insert row in lol.
         if irow == -1 or irow > len(lol) then append to the bottom.
         use default value if row_la not long enough.
@@ -394,7 +394,7 @@ def sort_lol_by_cols(lol: T_lola, colidxs: T_li, reverse: bool = False, length_p
         return sorted(lol, key=lambda x: [x[idx] for idx in colidxs], reverse=reverse)
     
     
-def safe_regex_select(regex:Union[str, bytes], s:str, default:str='', flags: int=0) -> str:
+def safe_regex_select(regex:str | bytes, s:str, default:str='', flags: int=0) -> str:
 
     regex_str = regex.decode('utf-8') if isinstance(regex, bytes) else regex
     regex_str = regex_str.strip('"')
@@ -410,7 +410,7 @@ def safe_regex_select(regex:Union[str, bytes], s:str, default:str='', flags: int
         return default
         
 
-def safe_regex_replace(regex: Union[List[Union[str, bytes]], str, bytes], s: str, flags: int=re.S) -> str:
+def safe_regex_replace(regex: List[str | bytes] | str | bytes, s: str, flags: int=re.S) -> str:
 
     """ apply one or more replac regex patterns.
         replace pattern is /find/replace/
@@ -427,7 +427,7 @@ def safe_regex_replace(regex: Union[List[Union[str, bytes]], str, bytes], s: str
 
     regex_str = regex.decode('utf-8') if isinstance(regex, bytes) else regex
 
-    regex_list: List[Union[str, bytes]]
+    regex_list: List[str | bytes]
     if isinstance(regex_str, str):
         regex_str = regex_str.strip('"')
         regex_list = [regex_str]   # form a list
@@ -466,8 +466,8 @@ def set_dict_dtypes(
         da:             T_da,                           # dict in the daf array.
         dtypes:         T_dtype_dict | None = None,     # dtypes of each item. May contain more than the items in da
         #unflatten:      bool=True,                     # also unflatten any list or dict items.
-        # convert_cols:   Optional[Iterable]=None,      # specify which columns should be converted (non-str desired type)
-        # select_cols:    Optional[Iterable]=None,      # initialize the columns to be include in the result. 
+        # convert_cols:   Iterable | None = None,      # specify which columns should be converted (non-str desired type)
+        # select_cols:    Iterable | None = None,      # initialize the columns to be include in the result. 
         ) -> T_da:
     """ set the types in da according to dtype_dict or leave alone if not found in dtype_dict 
         dtype_dict can contain additional items that are not found in the dict da.
@@ -656,7 +656,7 @@ def convert_type_value(val: Any, desired_type: Type[T], unflatten: bool=True) ->
     raise TypeError(f"convert_type_value(): cannot convert {type(val).__name__} value to {desired_type}")
 
 
-def unflatten_val(val: str) -> Union[str, list, dict]:
+def unflatten_val(val: str) -> str | list | dict:
     """ convert a str into python object.
     
         allows correct JSON or PYON objects stringified with f"{obj}"
@@ -682,7 +682,7 @@ def unflatten_val(val: str) -> Union[str, list, dict]:
     return val
     
     
-def safe_eval(value: str) -> Optional[Any]:
+def safe_eval(value: str) -> Any | None:
     """ un-stringify an object without risk of using eval. """
     
     try:
@@ -943,8 +943,8 @@ def is_list_allbools(alist: T_la) -> Tuple[bool, int]: # allbools, num_true
 def profile_ls_to_lr(
         input_ls: T_ls, 
         repeat_startswith: str='Unnamed', 
-        include_cols: Optional[T_ls]=None,
-        ignore_cols: Optional[T_ls]=None,
+        include_cols: T_ls | None = None,
+        ignore_cols: T_ls | None = None,
         ) -> T_lr:
     """ 
         Given a list strings, which each are typically the header of a column,
@@ -1106,7 +1106,7 @@ def transpose_lol(lol: T_lola) -> T_lola:
     return (lolT)
 
 
-def safe_get_idx(lst: Optional[List[Any]], idx: int, default: Optional[Any]=None) -> Any:
+def safe_get_idx(lst: List[Any] | None, idx: int, default: Any | None = None) -> Any:
     """ similar to .get for dicts.
         attempt to access list item and if it does not exist return default
         also uses default if list entry is None.
@@ -1136,7 +1136,7 @@ def shorten_str_keeping_ends(string: str, limit: int) -> str:
     return single_line
 
 
-def smart_fmt(val: Union[str, int, float, None]) -> str:
+def smart_fmt(val: str | int | float | None) -> str:
     # provide reasonable formatting for human consumption
     # if val_str a number: 
     #   if > 1000, use comma formatting.
@@ -1187,7 +1187,7 @@ def smart_fmt(val: Union[str, int, float, None]) -> str:
     return val_str
     
 
-def str2bool(value: Optional[Any]) -> bool:
+def str2bool(value: Any | None) -> bool:
     """Parses string to boolean value."""
     if value is None or value is NULL:
         return False
@@ -1378,8 +1378,8 @@ def get_datetime_str() -> str:
     
 
 def split_dups_list(
-        alist: Union[T_la, dict], 
-        prior_unique_d: Optional[Union[dict, list]]=None,
+        alist: T_la | dict, 
+        prior_unique_d: dict | list | None = None,
         list_idx: int=0,         # used if there are multiple lists
         ) -> T_da:  # {'uniques_d':uniques_d, 'within_reps_loti': within_reps_loti, 'prior_reps_loti':prior_reps_loti}
 
@@ -1477,13 +1477,13 @@ def _filter_comment_lines(lines: Iterator[str]) -> Iterator[str]:
 
 
 def buff_csv_to_lol(
-    buff: Union[bytes, str, Iterator[str], IO[Any]],  # also accepts a seekable file-like object
+    buff: bytes | str | Iterator[str] | IO[Any],  # also accepts a seekable file-like object
                                                         # (Case 3 below) -- IO[Any] covers both
                                                         # binary- and text-mode file handles.
     user_format: bool = False,
     sep: str = ',',
-    include_cols: Optional[list] = None,
-    dtypes: Optional[dict] = None,
+    include_cols: list | None = None,
+    dtypes: dict | None = None,
     raw: bool = False,
     strict_comment_filter: bool = False,   # only relevant when user_format=True.
                                             # False (default): lazy, streaming-compatible line
@@ -1504,7 +1504,7 @@ def buff_csv_to_lol(
     - Ensures `csv.reader` receives a **consistent input type**.
 
     Args:
-        buff (Union[bytes, str, Iterator[str]]): CSV data as bytes, string, or stream.
+        buff (bytes | str | Iterator[str]): CSV data as bytes, string, or stream.
         user_format (bool): Whether to preprocess the CSV (remove comments, blank lines).
         sep (str): CSV field separator.
         include_cols (list): Keep only these columns, in this order. The first row is read as the
@@ -1616,7 +1616,7 @@ def buff_csv_to_lol(
     return data_lol
 
 
-def _read_selected_cols(csv_reader: Iterator[List[str]], include_cols: Union[str, List[str]]) -> list:
+def _read_selected_cols(csv_reader: Iterator[List[str]], include_cols: str | List[str]) -> list:
     """ Read the rows from csv_reader, keeping only the columns named in include_cols.
 
         The first row is the header. The columns are returned in the order of include_cols,
@@ -1683,7 +1683,7 @@ def get_csv_column_names(csv_buff: str) -> List[str]:
 
     
 
-# def preprocess_csv_buff(buff: Union[bytes, str]) -> str:
+# def preprocess_csv_buff(buff: bytes | str) -> str:
     # """ given a buffer which is csv file read without conversion,
         # perform preprocessing to remove comments and blank lines.
         # controls in pandas csv do not work very well, such as when
@@ -1702,7 +1702,7 @@ def get_csv_column_names(csv_buff: str) -> List[str]:
     # return buff
 
 
-def preprocess_csv_buff(buff: Union[bytes, str]) -> str:
+def preprocess_csv_buff(buff: bytes | str) -> str:
     """Preprocess the buffer to remove comment lines (starting with '#') and blank lines,
     while preserving embedded newlines and handling quoted content."""
     
@@ -1847,7 +1847,7 @@ def write_buff_to_fp(buff: T_buff,
     return s3path or file_path
 
 
-def path_sep_per_os(path: str, sep: Optional[str]=None) -> str:
+def path_sep_per_os(path: str, sep: str | None = None) -> str:
     """ based on os.sep setting, correct path to those separators, 
         assuming no / or \\ characters exist in the path otherwise.
     """
@@ -1859,7 +1859,7 @@ def path_sep_per_os(path: str, sep: Optional[str]=None) -> str:
         return re.sub(r'/', r'\\', path)
 
 
-def is_list_of_type(test_item: Any, of_type: Union[Type, Tuple[Type, ...]]) -> bool:
+def is_list_of_type(test_item: Any, of_type: Type | Tuple[Type, ...]) -> bool:
 
     # test if test_item is T_ls and it is not empty.
     # Can use of_type is tuple, such as is_list_of_type(test_list, (range, int))
@@ -1869,7 +1869,7 @@ def is_list_of_type(test_item: Any, of_type: Union[Type, Tuple[Type, ...]]) -> b
     return False
 
 
-def is_tuple_of_type_len(test_item: Any, of_type: Union[Type, Tuple[Type, ...]], length: int) -> bool:
+def is_tuple_of_type_len(test_item: Any, of_type: Type | Tuple[Type, ...], length: int) -> bool:
     # test if test_item is a T_tuple(of_type) with length.
     #
     # example: is_tuple_of_type_len((str, str), of_type: str, length: 2)
@@ -1895,7 +1895,7 @@ def len_slice(slice_obj: slice, tot_len: int=0) -> int:
         raise TypeError(f"len_slice(): slice bounds must be integers, got {slice_obj}") from exc_info
     
 
-def len_rowcol_spec(ispec: Union[slice, int, range, T_li, None], tot_len: int) -> int:
+def len_rowcol_spec(ispec: slice | int | range | T_li | None, tot_len: int) -> int:
     """ return the length of a slice, int, range, li. If None, then len = 0
 
         returns -1 if the length is not terminated
@@ -1991,7 +1991,7 @@ def invert_dol_to_dict(input_dol:dict) -> dict:
     return result_dict
 
 
-def min_max_cols_lol(lol: T_lola, start: Optional[int]=None, limit: Optional[int]=None) -> Tuple[Optional[int], int]:
+def min_max_cols_lol(lol: T_lola, start: int | None = None, limit: int | None = None) -> Tuple[int | None, int]:
 
     max_cols = 0
     min_cols = None
@@ -2006,7 +2006,7 @@ def min_max_cols_lol(lol: T_lola, start: Optional[int]=None, limit: Optional[int
     return min_cols, max_cols
     
 
-def equal_cols_lol(lol: T_lola, limit: Optional[int]=10, check_all:bool=False) -> T_lola:
+def equal_cols_lol(lol: T_lola, limit: int | None=10, check_all:bool=False) -> T_lola:
     """ Make lol have equal number of columns throughout. 
         Appends columns of '' on the right end.
         Mutates in place.
@@ -2070,16 +2070,16 @@ def precheck_csv_cols(csv_buff: str, expected_cols: T_ls) -> Tuple[T_ls, T_ls]:
     _, missing_list, extra_list, _ = compare_lists(
         work_list = original_cols, 
         ref_list  = expected_cols, 
-        # req_list: Optional[list]=None,
+        # req_list: list | None = None,
         # maintain_order: bool=True,
         )
     return missing_list, extra_list
         
 
 def compare_lists(
-        work_list: Union[list, dict], 
-        ref_list: Union[list, dict], 
-        req_list: Optional[Union[list, dict]]=None,
+        work_list: list | dict, 
+        ref_list: list | dict, 
+        req_list: list | dict | None = None,
         # maintain_order: bool=True,
         ) -> Tuple[list, list, list, list]: #matching_list, missing_list, extra_list, missing_req_list
         
@@ -2151,7 +2151,7 @@ def compare_lists(
     
 def astype_la(
         la: T_la,
-        astype: Optional[Union[Callable, str, type]] = None
+        astype: Callable | str | type | None = None
         ) -> T_la:
 
     if astype is None:
@@ -2162,7 +2162,7 @@ def astype_la(
 
 def astype_value(
         val: Any,
-        astype: Optional[Union[Callable, str, type]] = None
+        astype: Callable | str | type | None = None
         ) -> Any:
 
     if astype is None:
@@ -2191,7 +2191,7 @@ def astype_value(
     raise ValueError(f"astype not supported: {astype}")
     
             
-def to_dn_if_list(obj: T_ca|None) -> T_ca:
+def to_dn_if_list(obj: T_ca | None) -> T_ca:
     """ if obj is a list, create a more efficient T_dn object for rapid lookups. """
     
     if obj is None:

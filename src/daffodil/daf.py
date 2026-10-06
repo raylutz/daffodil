@@ -103,7 +103,7 @@ from daffodil.keyedlist import KeyedList
 from daffodil.keyedlist import KeyedIndex
 
 import typing
-from typing import List, Dict, Any, Tuple, Optional, Union, cast, Type, Callable, Generic, TypeVar, ClassVar  # noqa: F401
+from typing import List, Dict, Any, Tuple, cast, Type, Callable, Generic, TypeVar, ClassVar  # noqa: F401
 from collections.abc import Iterable, Collection, Sequence, Iterator, Hashable    # noqa: F401
 
 
@@ -198,20 +198,20 @@ class Daf:
         'editable': COPY_ATTRS | COPY_OUTER | COPY_HD | COPY_DTYPES | COPY_KD | COPY_ROWS,
     }
 
-    copy_level_default: ClassVar[Union[str, int]] = 'sortable'     # what copy() does when no level is given. See copy().
+    copy_level_default: ClassVar[str | int] = 'sortable'     # what copy() does when no level is given. See copy().
 
 
     def __init__(self,
-            lol:        T_lola|None         = None,     # used to initialize the data array.
-            hd:         T_di|None           = None,     # used to initialize the hd array. If used, then cols not needed.
-            kd:         Dict[Union[str, int], int]|None = None,  # used to initialize the kd array if no keyfield is set.
+            lol:        T_lola | None       = None,     # used to initialize the data array.
+            hd:         T_di | None         = None,     # used to initialize the hd array. If used, then cols not needed.
+            kd:         Dict[str | int, int] | None = None,  # used to initialize the kd array if no keyfield is set.
                                                         # keys can be int too (an int-valued single-column keyfield), not just str.
-            cols:       T_cs|None           = None,     # Optional column names to use.
-            dtypes:     T_dtype_dict|None   = None,     # Optional dtype_dict describing the desired type of each column.
+            cols:       T_cs | None         = None,     # Optional column names to use.
+            dtypes:     T_dtype_dict | None = None,     # Optional dtype_dict describing the desired type of each column.
                                                         #   also used to define column names if provided and cols not provided.
-            schema:     type | Daf |None    = None,     # Optional schema class used to define columns and defaults.
+            schema:     type | Daf | None   = None,     # Optional schema class used to define columns and defaults.
                                                         # can also be a daffodil table specifying the schema.
-            keyfield:   Union[str, int, T_ta, T_la]  = '',  # A field of the columns to be used as a key.
+            keyfield:   str | int | T_ta | T_la      = '',  # A field of the columns to be used as a key.
                                                             # can be set even if columns not set yet.
                                                             # can be tuple or list of colnames, and then they are used as tuple keys.
             name:       str                 = '',       # An optional name of the Daf array.
@@ -220,7 +220,7 @@ class Daf:
 
             retmode:    str                 = 'obj',    # default retmode
             itermode:   str                 = 'dict',   # default itermode, either 'dict' or 'keyedlist'
-            attrs:      Optional[T_da]      = None,     # arbitrary additional attributes.
+            attrs:      T_da | None         = None,     # arbitrary additional attributes.
         ):
         """
         Create a Daf from rows, column names and options.
@@ -502,7 +502,7 @@ class Daf:
         else:
             raise ValueError("Invalid itermode")
 
-    def __iter__(self) -> Iterator[Union[Dict[str, Any], KeyedList]]:
+    def __iter__(self) -> Iterator[Dict[str, Any] | KeyedList]:
         """
         Loop over the rows, as in `for row in daf`.
 
@@ -610,7 +610,7 @@ class Daf:
         return DafIterator(self, list)
 
 
-    # def __next__(self) -> Union[Dict[str, int], KeyedList]:
+    # def __next__(self) -> Dict[str, int] | KeyedList:
         # if self._iter_index < len(self.lol):
             # if self._itermode == self.ITERMODE_DICT:
                 # row_dict = dict(zip(self.hd.keys(), self.lol[self._iter_index]))
@@ -945,7 +945,7 @@ class Daf:
 
     def copy(
             self,
-            level:       Union[str, T_copybits, None] = None,  # a name, a sum of COPY_ bits, or None for copy_level_default
+            level:       str | T_copybits | None = None,  # a name, a sum of COPY_ bits, or None for copy_level_default
             name:        str  = '',                            # the name of the copy
             deep:        bool = False,                         # deprecated: use level='deep'
             for_sorting: bool = False,                         # deprecated: use level='sortable'
@@ -1163,10 +1163,10 @@ class Daf:
 
 
     def calc_cols(self,
-            include_cols: Optional[Iterable]=None,
-            exclude_cols: Optional[Iterable]=None,
-            include_types: Optional[List[Type]]=None,
-            exclude_types: Optional[List[Type]]=None,
+            include_cols: Iterable | None = None,
+            exclude_cols: Iterable | None = None,
+            include_types: List[Type] | None = None,
+            exclude_types: List[Type] | None = None,
            ) -> Iterable:
         """
         Work out a list of column names from rules.
@@ -1320,7 +1320,7 @@ class Daf:
         self._invalidate_kd()
 
 
-    def set_cols(self, new_cols: Optional[T_ls]=None, sanitize_cols: bool=True, unnamed_prefix: str='col') -> 'Daf':
+    def set_cols(self, new_cols: T_ls | None = None, sanitize_cols: bool=True, unnamed_prefix: str='col') -> 'Daf':
         """
         Set the column names, in place.
 
@@ -1394,7 +1394,7 @@ class Daf:
             *,
             silent_error: bool=True, 
             astype: str = 'list',           # 'list' | 'view'
-            ) -> Union[T_la, T_kva]:
+            ) -> T_la | T_kva:
 
         """
         Return the row keys.
@@ -1447,7 +1447,7 @@ class Daf:
 
     def set_keyfield(
             self, 
-            keyfield: Union[str, T_ta, T_la]='', 
+            keyfield: str | T_ta | T_la='', 
             *,
             silent_error: bool=False,
             force_kd_rebuild: bool=False,
@@ -1598,7 +1598,7 @@ class Daf:
 
 
     @staticmethod
-    def _build_kd(col_idx: Union[int, T_li], lol: T_lola) -> Dict[Union[str, int], int]:
+    def _build_kd(col_idx: int | T_li, lol: T_lola) -> Dict[str | int, int]:
         """
         Build key dictionary from column index and data.
 
@@ -1622,11 +1622,11 @@ class Daf:
             key_col = daf_utils.select_col_of_lol_by_col_idx(lol, col_idx)
 
             # see https://github.com/raylutz/daffodil/issues/6
-            kd = cast(Dict[Union[str, int], int], Daf._build_hd(key_col))
+            kd = cast(Dict[str | int, int], Daf._build_hd(key_col))
             #kd = {key: index for index, key in enumerate(key_col)}
         else:
             col_idx_list = col_idx
-            kd = cast(Dict[Union[str, int], int], Daf._build_hd(Daf(lol=lol)[:, col_idx_list].to_lota()))
+            kd = cast(Dict[str | int, int], Daf._build_hd(Daf(lol=lol)[:, col_idx_list].to_lota()))
         return kd
 
 
@@ -1647,7 +1647,7 @@ class Daf:
         return keyval
 
 
-    def _is_keyfield_valid(self, keyfield: Union[str, int, T_ta, T_la]='') -> bool:
+    def _is_keyfield_valid(self, keyfield: str | int | T_ta | T_la='') -> bool:
         """
         Validate keyfield against available columns.
 
@@ -1716,7 +1716,7 @@ class Daf:
 
     def set_dtypes(self,
             default_type: Type = str,
-            typ_to_cols_dict: Optional[Dict[Type, T_ls]] = None,
+            typ_to_cols_dict: Dict[Type, T_ls] | None = None,
             ) -> 'Daf':
 
         """
@@ -1777,8 +1777,8 @@ class Daf:
 
 
     def apply_dtypes(self, *,
-            dtypes:         Optional[T_dtype_dict]=None,
-            cols:           Optional[Union[str, T_ls]]=None,
+            dtypes:         T_dtype_dict | None = None,
+            cols:           str | T_ls | None = None,
             unflatten:      bool=True,
             from_str:       bool=True,
             default_type:   Type=str,
@@ -2018,8 +2018,8 @@ class Daf:
         return self
 
     def _apply_dtypes_to_cols(self,
-            cols:           Union[str, T_ls],
-            dtypes:         Optional[T_dtype_dict],
+            cols:           str | T_ls,
+            dtypes:         T_dtype_dict | None,
             unflatten:      bool,
             from_str:       bool,
             default_type:   Type,
@@ -2272,7 +2272,7 @@ class Daf:
         return self
 
 
-    def _safe_tofloat(val: Any) -> Union[float]:
+    def _safe_tofloat(val: Any) -> float:
         """
         Safely convert value to float.
 
@@ -2280,7 +2280,7 @@ class Daf:
             val: Value to convert.
 
         Returns:
-            Union[float, str]: Converted float or original value on failure.
+            float | str: Converted float or original value on failure.
 
         Note:
             Internal use.    
@@ -2332,7 +2332,7 @@ class Daf:
             self.disp_cols = []
 
 
-    def clone_empty(self, lol: Optional[T_lola]=None, cols: Optional[T_ls]=None, name:str='') -> 'Daf':
+    def clone_empty(self, lol: T_lola | None = None, cols: T_ls | None = None, name:str='') -> 'Daf':
         """
         Make a new Daf with the same layout and no rows.
 
@@ -2420,7 +2420,7 @@ class Daf:
             cls,
             records_lod:    T_loda,                             # List[List[Any]] to initialize the lol data array.
             *,
-            keyfield:       Union[str, int, T_ta, T_la] = '',   # set a new keyfield or set no keyfield.
+            keyfield:       str | int | T_ta | T_la = '',   # set a new keyfield or set no keyfield.
             dtypes:         T_dtype_dict | None         = None, # set the data types for each column.
             name:           str                         = '',   # Optional name of the daffodil instance.
             cols:           T_ls | None                 = None, # Optionally use cols to define column names
@@ -2571,10 +2571,10 @@ class Daf:
     def from_lot(
             cls,
             records_lot:    T_lota,                             # List of tuples to initialize the lol data array.
-            cols:           Optional[T_ls]              = None, # Optional column names to use.
-            dtypes:         Optional[T_dtype_dict]      = None, # Optional dtype_dict describing the desired type of each column.
+            cols:           T_ls | None                 = None, # Optional column names to use.
+            dtypes:         T_dtype_dict | None         = None, # Optional dtype_dict describing the desired type of each column.
                                                                 #   also used to define column names if provided and cols not provided.
-            keyfield:       Union[str, int, T_ta, T_la] = '',   # A field of the columns to be used as a key.
+            keyfield:       str | int | T_ta | T_la = '',   # A field of the columns to be used as a key.
             name:           str                         = '',   # Optional name of the daffodil instance.
             ) -> 'Daf':
         """
@@ -2617,9 +2617,9 @@ class Daf:
 
         Args:
             records_lot (List[Tuple[Any, ...]]):                    The LOT data.
-            columns (Optional[List[str]]):                          Column names for the tuples. If None, default names will be generated.
-            keyfield (Union[str, int, Tuple[Any, ...], List[Any]]): Keyfield for the Daf instance.
-            dtypes (Optional[Dict[str, type]]):                     Data types for each column.
+            columns (List[str] | None):                          Column names for the tuples. If None, default names will be generated.
+            keyfield (str | int | Tuple[Any, ...] | List[Any]): Keyfield for the Daf instance.
+            dtypes (Dict[str, type] | None):                     Data types for each column.
 
         Returns:
             Daf: A new Daf instance with data populated from lot.
@@ -2690,7 +2690,7 @@ class Daf:
             dod:            T_doda,         # Dict(str, Dict(str, Any))
             keyfield:       str='rowkey',   # The keyfield will be set to the keys of the outer dict.
                                             # this will set the preferred name. Defaults to 'rowkey'
-            dtypes:         Optional[T_dtype_dict]=None,    # optionally set the data types for each column.
+            dtypes:         T_dtype_dict | None = None,    # optionally set the data types for each column.
             ignore_extra_keys: bool=False,                  # With dtypes, leave out keys that dtypes does not name, and do not raise.
             ) -> 'Daf':
 
@@ -2839,7 +2839,7 @@ class Daf:
             cls,
             cols_dol: T_dola,
             keyfield: str='',
-            dtypes: Optional[T_dtype_dict]=None,
+            dtypes: T_dtype_dict | None = None,
             ) -> 'Daf':
         """
         Make a Daf from a dict of lists, where each list is a column.
@@ -2952,9 +2952,9 @@ class Daf:
     def from_lod_to_cols(
             cls,
             lod:        T_loda,
-            cols:       Optional[List]=None,
+            cols:       List | None = None,
             keyfield:   str='',
-            dtypes:     Optional[T_dtype_dict]=None
+            dtypes:     T_dtype_dict | None = None
             ) -> 'Daf':
         """
         Make a Daf in which each dict becomes a column, not a row.
@@ -3057,7 +3057,7 @@ class Daf:
             cls,
             excel_buff: bytes,
             keyfield: str='',                       # field to use as unique key, if not ''
-            dtypes: Optional[T_dtype_dict]=None,    # dictionary of types to apply if set.
+            dtypes: T_dtype_dict | None = None,    # dictionary of types to apply if set.
             noheader: bool=False,                   # if True, do not try to initialize columns in header dict.
             user_format: bool=False,                # if True, preprocess the file and omit comment lines.
             unflatten: bool=True,                   # unflatten fields that are defined as dict or list.
@@ -3225,14 +3225,14 @@ class Daf:
     @classmethod
     def from_csv_buff(
             cls,
-            csv_buff: Union[bytes, str, Iterator[str]], # Can now accept iterators directly
+            csv_buff: bytes | str | Iterator[str], # Can now accept iterators directly
             keyfield: str='',                           # field to use as unique key, if not ''
-            dtypes: Optional[T_dtype_dict]=None,        # dictionary of types to apply if set.
+            dtypes: T_dtype_dict | None = None,        # dictionary of types to apply if set.
             noheader: bool=False,                       # if True, do not try to initialize columns in header dict.
             user_format: bool=False,                    # if True, preprocess the file and omit comment lines.
             sep: str=',',                               # field separator.
             unflatten: bool=True,                       # unflatten fields that are defined as dict or list.
-            include_cols: Optional[T_ls]=None,          # include only the columns specified. noheader must be false.
+            include_cols: T_ls | None = None,          # include only the columns specified. noheader must be false.
             name: str = '',                             # name attribute of the Daf array created.
             ) -> 'Daf':
         r"""
@@ -3328,14 +3328,14 @@ class Daf:
         - Directly reads data into a list of lists (LoL) from an iterator.
 
         Args:
-            csv_buff: Union[bytes, str, Iterator[str]], # Can now accept iterators directly
+            csv_buff: bytes | str | Iterator[str], # Can now accept iterators directly
             keyfield: str='',                           # field to use as unique key, if not ''
-            dtypes: Optional[T_dtype_dict]=None,        # dictionary of types to apply if set.
+            dtypes: T_dtype_dict | None = None,        # dictionary of types to apply if set.
             noheader: bool=False,                       # if True, do not try to initialize columns in header dict.
             user_format: bool=False,                    # if True, preprocess the file and omit comment lines.
             sep: str=',',                               # field separator.
             unflatten: bool=True,                       # unflatten fields that are defined as dict or list.
-            include_cols: Optional[T_ls]=None,          # include only the columns specified. noheader must be false.
+            include_cols: T_ls | None = None,          # include only the columns specified. noheader must be false.
             name: str = '',                             # name attribute of the Daf array created.
 
         Returns:
@@ -3375,12 +3375,12 @@ class Daf:
             cls,
             filepath: str,                          # The CSV filename
             keyfield: str='',                       # field to use as unique key, if not ''
-            dtypes: Optional[T_dtype_dict]=None,    # dictionary of types to apply if set.
+            dtypes: T_dtype_dict | None = None,    # dictionary of types to apply if set.
             noheader: bool=False,                   # if True, do not try to initialize columns in header dict.
             user_format: bool=False,                # if True, preprocess the file and omit comment lines.
             sep: str=',',                           # field separator.
             unflatten: bool=True,                   # unflatten fields that are defined as dict or list.
-            include_cols: Optional[T_ls]=None,      # include only the columns specified. noheader must be false.
+            include_cols: T_ls | None = None,      # include only the columns specified. noheader must be false.
             name: str = '',                         # name attribute of the Daf array created.
             ) -> 'Daf':                             # New daf instance.
         r"""
@@ -3427,12 +3427,12 @@ class Daf:
             Args:
                 filepath: str,                          # The CSV filename
                 keyfield: str='',                       # field to use as unique key, if not ''
-                dtypes: Optional[T_dtype_dict]=None,    # dictionary of types to apply if set.
+                dtypes: T_dtype_dict | None = None,    # dictionary of types to apply if set.
                 noheader: bool=False,                   # if True, do not try to initialize columns in header dict.
                 user_format: bool=False,                # if True, preprocess the file and omit comment lines.
                 sep: str=',',                           # field separator.
                 unflatten: bool=True,                   # unflatten fields that are defined as dict or list.
-                include_cols: Optional[T_ls]=None,      # include only the columns specified. noheader must be false.
+                include_cols: T_ls | None = None,      # include only the columns specified. noheader must be false.
                 name: str = '',                         # name attribute of the Daf array created.
             Returns
                 New daf instance
@@ -3456,7 +3456,7 @@ class Daf:
     def to_csv_file(
             self,
             file_path:          str | Path = '',
-            line_terminator:    Optional[str]=None,
+            line_terminator:    str | None = None,
             include_header:     bool=True,
             #append_if_exists:   bool=False,
             ) -> str:
@@ -3497,7 +3497,7 @@ class Daf:
 
     def to_csv_buff(
             self,
-            line_terminator: Optional[str]=None,
+            line_terminator: str | None = None,
             include_header: bool=True,
             ) -> T_buff:
         r"""
@@ -3789,7 +3789,7 @@ class Daf:
 
     #==== Numpy
     @classmethod
-    def from_numpy(cls, npa: Any, keyfield:str='', cols:Optional[T_la]=None, name:str='') -> 'Daf':
+    def from_numpy(cls, npa: Any, keyfield:str='', cols:T_la | None = None, name:str='') -> 'Daf':
         """
         Make a Daf from a NumPy array.
 
@@ -3879,7 +3879,7 @@ class Daf:
         import numpy as np
         return np.array(self.lol)
 
-    def to_donpa(self, colnames: Optional[T_ls]=None, default: Any = _MISSING) -> T_donpa:
+    def to_donpa(self, colnames: T_ls | None = None, default: Any = _MISSING) -> T_donpa:
         """
         Make a dict of NumPy arrays, one array for each column.
 
@@ -4132,11 +4132,11 @@ class Daf:
     # append
 
     def append(self,
-            data_item:  Union['Daf', T_loda, T_da, T_la, KeyedList, None] = None,
+            data_item:  'Daf' | T_loda | T_da | T_la | KeyedList | None = None,
             respect_kd: bool = False,
             *,
-            lol:        Optional[T_lola] = None,
-            la:         Optional[T_la] = None,
+            lol:        T_lola | None = None,
+            la:         T_la | None = None,
             ) -> 'Daf':
         """
         Add one row, or several, to the end of the Daf.
@@ -4429,10 +4429,10 @@ class Daf:
         return self
 
     def extend(self,
-            records_lod:    Optional[T_loda] = None,
+            records_lod:    T_loda | None = None,
             respect_kd:     bool = False,
             *,
-            lol:            Optional[T_lola] = None,
+            lol:            T_lola | None = None,
             ) -> 'Daf':
         """
         Append several records, given as a list of dicts or as a list of lists.
@@ -4545,7 +4545,7 @@ class Daf:
         return self
 
 
-    def record_append(self, record: Union[T_da, KeyedList], respect_kd: bool=True) -> 'Daf':
+    def record_append(self, record: T_da | KeyedList, respect_kd: bool=True) -> 'Daf':
         """
         Add one row that is given as a dict or a KeyedList.
 
@@ -4657,7 +4657,7 @@ class Daf:
 
 
 
-    def _basic_append(self, row: Union[KeyedList, Dict[Any, Any], list]) -> 'Daf':
+    def _basic_append(self, row: KeyedList | Dict[Any, Any] | list) -> 'Daf':
         # --- list ---
         if isinstance(row, list):
             if self.hd:
@@ -4704,7 +4704,7 @@ class Daf:
     #=========================
     # remove records per keyfield; drop cols
 
-    def remove_key(self, keyval: Optional[Union[str, int, T_la, T_ta]], silent_error: bool=False) -> 'Daf':
+    def remove_key(self, keyval: str | int | T_la | T_ta | None, silent_error: bool=False) -> 'Daf':
         """
         Make a new Daf without the row that has the given key.
 
@@ -4822,9 +4822,9 @@ class Daf:
     # indexing
 
     def __getitem__(self,
-            slice_spec:   Union[slice, int, str, T_li, T_ls, range, T_lor,
-                                Tuple[  Union[slice, int, str, T_li, T_ls, range, T_lor, Tuple[str, str]],
-                                        Union[slice, int, str, T_li, T_ls, range, T_lor, Tuple[str, str]]]],
+            slice_spec:   (slice | int | str | T_li | T_ls | range | T_lor
+                           | Tuple[slice | int | str | T_li | T_ls | range | T_lor | Tuple[str, str],
+                                   slice | int | str | T_li | T_ls | range | T_lor | Tuple[str, str]]),
             ) -> Any:
         """
         Select rows, columns or cells, as in `my_daf[rows, cols]`.
@@ -4928,9 +4928,9 @@ class Daf:
 
 
     def __setitem__(self,
-            slice_spec:   Union[slice, int, str, range, T_li, T_ls, T_lb, T_lor,
-                                Tuple[  Union[slice, int, str, range, T_lor, T_li, T_ls, T_lb, Tuple[Any, Any]],
-                                        Union[slice, int, str, range, T_lor, T_li, T_ls, T_lb, Tuple[Any, Any]]]],
+            slice_spec:   (slice | int | str | range | T_li | T_ls | T_lb | T_lor
+                           | Tuple[slice | int | str | range | T_lor | T_li | T_ls | T_lb | Tuple[Any, Any],
+                                   slice | int | str | range | T_lor | T_li | T_ls | T_lb | Tuple[Any, Any]]),
             value: Any,
             ) -> 'Daf':
         """
@@ -4976,23 +4976,23 @@ class Daf:
 
     def _parse_selectors(
             self,
-            slice_spec: Union[
-                slice,
-                int,
-                str,
-                range,
-                T_li,
-                T_ls,
-                T_lb,
-                T_lor,
-                Tuple[
-                    Union[slice, int, str, range, T_lor, T_li, T_ls, T_lb, Tuple[Any, Any]],
-                    Union[slice, int, str, range, T_lor, T_li, T_ls, T_lb, Tuple[Any, Any]],
-                ],
-            ],
+            slice_spec: (
+                slice
+                | int
+                | str
+                | range
+                | T_li
+                | T_ls
+                | T_lb
+                | T_lor
+                | Tuple[
+                    slice | int | str | range | T_lor | T_li | T_ls | T_lb | Tuple[Any, Any],
+                    slice | int | str | range | T_lor | T_li | T_ls | T_lb | Tuple[Any, Any],
+                ]
+            ),
         ) -> Tuple[
-            Union[int, slice, range, T_li],
-            Union[int, slice, range, T_li] | None,
+            int | slice | range | T_li,
+            int | slice | range | T_li | None,
         ]:
         """
         Normalize and validate row/column selectors.
@@ -5027,7 +5027,7 @@ class Daf:
 
         # --- ROWS ---
         if row_spec == slice(None):
-            irows: Union[int, slice, range, T_li] = list(range(len(self)))
+            irows: int | slice | range | T_li = list(range(len(self)))
 
         elif (
             isinstance(row_spec, str)
@@ -5045,14 +5045,14 @@ class Daf:
         ):
             # is_list_of_type() already confirmed (at runtime) row_spec is one of the declared
             # irows alternatives -- it's just not a TypeGuard, so mypy can't narrow on it itself.
-            irows = cast(Union[int, slice, range, T_li], row_spec)
+            irows = cast(int | slice | range | T_li, row_spec)
 
         else:
             raise TypeError(f"Invalid row selector: {row_spec}")
 
         # --- COLS ---
         if not col_provided or col_spec == slice(None):
-            icols: Optional[Union[int, slice, range, T_li]] = None
+            icols: int | slice | range | T_li | None = None
 
         elif (
             isinstance(col_spec, str)
@@ -5067,7 +5067,7 @@ class Daf:
             isinstance(col_spec, (int, slice, range))
             or daf_utils.is_list_of_type(col_spec, (int, range))
         ):
-            icols = cast(Union[int, slice, range, T_li], col_spec)
+            icols = cast(int | slice | range | T_li, col_spec)
 
         else:
             raise TypeError(f"Invalid column selector: {col_spec}")
@@ -5124,8 +5124,8 @@ class Daf:
 
 
     def set_irows_icols(self,
-            irows: Union[slice, int, range, T_li, Iterable, None],
-            icols: Union[slice, int, range, T_li, None],
+            irows: slice | int | range | T_li | Iterable | None,
+            icols: slice | int | range | T_li | None,
             value: Any) -> 'Daf':
         """
         Set values at row positions and column positions, in place.
@@ -5188,7 +5188,7 @@ class Daf:
         # irows accepts a bare Iterable per this method's own signature, but len_rowcol_spec
         # only actually measures slice/int/range/list (silently returns 0 for anything else,
         # e.g. a generator) -- in every real caller, irows/icols is one of those four by here.
-        num_irows = daf_utils.len_rowcol_spec(cast(Union[slice, int, range, T_li, None], irows), tot_num_rows)
+        num_irows = daf_utils.len_rowcol_spec(cast(slice | int | range | T_li | None, irows), tot_num_rows)
         num_icols = daf_utils.len_rowcol_spec(icols, tot_num_cols)
 
         if num_irows == 1 and isinstance(irows, int):
@@ -5207,8 +5207,8 @@ class Daf:
         # a few lines up (num_irows/num_icols == 1 and isinstance(..., int)). The declared param
         # type is wider (Iterable, T_li, ...) to accept what callers may pass in, not what
         # remains once this normalization runs.
-        irows = cast(Union[range, T_li], irows)
-        icols = cast(Union[range, T_li], icols)
+        irows = cast(range | T_li, irows)
+        icols = cast(range | T_li, icols)
 
         # special case when cols not specified.
         if num_irows == 1 and num_icols == 0:
@@ -5314,10 +5314,10 @@ class Daf:
 
 
     def krows_to_irows(self,
-            krows:          Union[slice, str, T_la, int, Tuple[Any, Any], T_lota, Iterable, None],
+            krows:          slice | str | T_la | int | Tuple[Any, Any] | T_lota | Iterable | None,
             inverse:        bool = False,
             silent_error:   bool = False,
-            ) -> Union[slice, int, T_li, range]:
+            ) -> slice | int | T_li | range:
         """
         Turn row keys into row positions.
 
@@ -5400,10 +5400,10 @@ class Daf:
                     )
 
     def kcols_to_icols(self,
-            kcols: Union[str, T_ls, slice, int, T_li, Tuple[Any, Any], Iterable, None] = None,
+            kcols: str | T_ls | slice | int | T_li | Tuple[Any, Any] | Iterable | None = None,
             inverse: bool = False,
             silent_error: bool=False,
-            ) -> Union[slice, int, T_li, range, None]:
+            ) -> slice | int | T_li | range | None:
         """
         Turn column names into column positions.
 
@@ -5454,7 +5454,7 @@ class Daf:
                     # self.hd's keys (Dict[str, int]) are a subset of what gkeys_to_idxs accepts
                     # (Dict[str|int, int]) -- dict is invariant in its key type for mypy, so this
                     # narrower-is-fine relationship needs a cast to type-check.
-                    keydict         = cast(Dict[Union[str, int], int], self.hd),
+                    keydict         = cast(Dict[str | int, int], self.hd),
                     gkeys           = kcols,
                     inverse         = inverse,
                     silent_error    = silent_error,
@@ -5464,13 +5464,13 @@ class Daf:
 
     @staticmethod
     def gkeys_to_idxs(
-            keydict:    Dict[Union[str, int], int],
-            gkeys:      Union[str, T_ls, slice, int, T_li, Tuple[Any, Any], T_lota, Iterable, None] = None,
+            keydict:    Dict[str | int, int],
+            gkeys:      str | T_ls | slice | int | T_li | Tuple[Any, Any] | T_lota | Iterable | None = None,
             inverse:    bool = False,
             silent_error: bool=False,
             axis:       str='rowkeys',              # used for status messages only.
             name:       str='unspecified',          # used for status messages only.
-            ) -> Union[slice, int, T_li, range]:
+            ) -> slice | int | T_li | range:
         """
         Turn keys into positions, using a dict of key to position.
 
@@ -5520,7 +5520,7 @@ class Daf:
             raise TypeError("None is not a valid key selector")
 
         # --- empty selection ---
-        idxs: Union[slice, T_li]
+        idxs: slice | T_li
         if isinstance(gkeys, (list,dict,tuple)) and not gkeys:
             idxs = []
 
@@ -5583,7 +5583,7 @@ class Daf:
                     # gkeys may iterate to a tuple or other non-str/int element (per its Union
                     # type); keydict only has str|int keys, so such a lookup simply KeyErrors
                     # below and is handled the same as any other missing key.
-                    idxs.append(keydict[cast(Union[str, int], one_gkey)])
+                    idxs.append(keydict[cast(str | int, one_gkey)])
                 except KeyError:
                     if not silent_error:
                         # logs.sts(f"{logs.prog_loc()} Cannot find key '{one_gkey}' in {axis} in dataframe '{name}'", 3)
@@ -5624,7 +5624,7 @@ class Daf:
 
 
     def select_krows(self,
-            krows:          Union[slice, str, T_la, int, T_lota, Tuple[Any, Any], Iterable, None],
+            krows:          slice | str | T_la | int | T_lota | Tuple[Any, Any] | Iterable | None,
             inverse:        bool=False,
             silent_error:   bool=False,
             ) -> 'Daf':
@@ -5696,7 +5696,7 @@ class Daf:
 
 
     def select_kcols(self,
-            kcols:          Union[slice, str, T_la, int, Tuple[Any, Any], None],
+            kcols:          slice | str | T_la | int | Tuple[Any, Any] | None,
             inverse:        bool=False,
             flip:           bool=False,
             silent_error:   bool=False,
@@ -5759,7 +5759,7 @@ class Daf:
         return self.select_icols(icols, flip=flip)
 
 
-    def select_irows(self, irows: Union[slice, int, T_li, range, T_lor, Iterable, None], inverse: bool=False, invert: bool=False) -> 'Daf':
+    def select_irows(self, irows: slice | int | T_li | range | T_lor | Iterable | None, inverse: bool=False, invert: bool=False) -> 'Daf':
         """
         Select rows by position. Those rows are kept, or dropped if `inverse` is True.
 
@@ -5910,7 +5910,7 @@ class Daf:
         return new_daf
 
 
-    def select_icols(self, icols: Union[slice, int, T_li, range, T_lor, None], flip: bool=False) -> 'Daf':
+    def select_icols(self, icols: slice | int | T_li | range | T_lor | None, flip: bool=False) -> 'Daf':
         """
         Select columns by position. Those columns are kept, in the order given.
 
@@ -6020,7 +6020,7 @@ class Daf:
                 isinstance(icols, range)):
             # list of integers or range -- is_list_of_type() isn't a TypeGuard, confirmed at
             # runtime, mypy just can't narrow icols from that call itself.
-            icols = cast(Union[T_li, range], icols)
+            icols = cast(T_li | range, icols)
             if not flip:
                 try:
                     # short-circuits on the first mismatch rather than materializing/comparing
@@ -6092,7 +6092,7 @@ class Daf:
     # the following methods might be absorbed into the above.
     #
 
-    def select_record(self, key: Union[str, int, T_ta], silent_error: bool=True) -> T_da:
+    def select_record(self, key: str | int | T_ta, silent_error: bool=True) -> T_da:
         """
         Get one row as a dict, by its key.
 
@@ -6146,7 +6146,7 @@ class Daf:
         raise KeyError(key)
 
 
-    def _basic_get_record(self, irow: int, include_cols: Optional[T_ls]=None) -> T_da:
+    def _basic_get_record(self, irow: int, include_cols: T_ls | None = None) -> T_da:
         """
         Retrieve a row as a dictionary.
 
@@ -6188,7 +6188,7 @@ class Daf:
         # return selected_daf
 
 
-    def select_records_daf(self, keys_ls: Union[T_ls, Iterable], inverse:bool=False, silent_error: bool=False) -> 'Daf':
+    def select_records_daf(self, keys_ls: T_ls | Iterable, inverse:bool=False, silent_error: bool=False) -> 'Daf':
         """
         Select several rows by key and return them as a Daf.
 
@@ -6292,7 +6292,7 @@ class Daf:
         # irow:       int=0,
         # icol:       int=0,
         default:    Any = _MISSING,
-        astype:     Optional[Union[Callable, str]]=None,
+        astype:     Callable | str | None = None,
         ) -> Any:
         """
         Get the one value of a Daf that has one row and one column.
@@ -6327,13 +6327,13 @@ class Daf:
 
 
     def to_list(self,
-        # irow:       Optional[int]=None,   # select a row
-        # icol:       Optional[int]=None,   # or column.
+        # irow:       int | None = None,   # select a row
+        # icol:       int | None = None,   # or column.
         unique:     bool=False,           # reduce to unique values
         flatten:    bool=False,           # if items is the list are lists, combine them into one list.
         omit_nulls: bool=False,           # omit items that are empty strings (nulls).
         default:    Any = _MISSING,       # use this value instead if value is None or '' or NAN (default can be None)
-        astype:     Optional[Union[Callable, str, type]]=None,
+        astype:     Callable | str | type | None = None,
         ) -> list:
         """
         Get the values of a Daf that has one row or one column, as a list.
@@ -6451,7 +6451,7 @@ class Daf:
 
     def to_dict(self, 
             # irow: int=0, 
-            # include_cols: Optional[T_ls]=None,
+            # include_cols: T_ls | None = None,
             ) -> T_da:
         """
         Get the one row of a Daf as a dict.
@@ -6507,7 +6507,7 @@ class Daf:
         return cast(KeyedList, self.iloc(irow, rtype='klist'))
 
 
-    def irow(self, irow: int=0, include_cols: Optional[T_ls]=None) -> T_da:
+    def irow(self, irow: int=0, include_cols: T_ls | None = None) -> T_da:
         """
         Get one row as a dict, by position.
 
@@ -6545,7 +6545,7 @@ class Daf:
         return cache[2]
 
 
-    def iloc(self, irow: int=0, include_cols: Optional[T_ls]=None, rtype: str='dict') -> Union[T_ma, T_la]:
+    def iloc(self, irow: int=0, include_cols: T_ls | None = None, rtype: str='dict') -> T_ma | T_la:
         """
         Get one row by position, as a dict, a KeyedList or a list.
 
@@ -6702,10 +6702,10 @@ class Daf:
 
     def select_by_dict(
             self,
-            selector_da:    Union[T_da, T_loda],
+            selector_da:    T_da | T_loda,
             expectmax:      int=-1,
             inverse:        bool=False,
-            keyfield:       Union[str, int, T_ta]='',
+            keyfield:       str | int | T_ta='',
             ) -> 'Daf':
         """
         Select the rows that match every field of a dict, or any one of a list of dicts.
@@ -6877,7 +6877,7 @@ class Daf:
         return {}
 
 
-    def select_where(self, where: Callable, indirect_col: Optional[str]=None) -> 'Daf':
+    def select_where(self, where: Callable, indirect_col: str | None = None) -> 'Daf':
         """
         Select the rows for which a function is true.
 
@@ -7066,7 +7066,7 @@ class Daf:
         return [idx for idx, row_kl in enumerate(self.iter_klist()) if where(row_kl)]
 
 
-    def remove_dups(self, keyfield: Union[str, T_ta, T_la]='') -> Tuple['Daf', 'Daf']:  # unique_daf, duplicates_daf
+    def remove_dups(self, keyfield: str | T_ta | T_la='') -> Tuple['Daf', 'Daf']:  # unique_daf, duplicates_daf
         """
         Split the rows into those with a unique key and those with a repeated key.
 
@@ -7147,7 +7147,7 @@ class Daf:
             self, 
             where: Callable,
             *,
-            indirect_col: Optional[str] = None,
+            indirect_col: str | None = None,
             ) -> Tuple['Daf', 'Daf']:
         """
         Split the rows in two, by a function that is true or false for each row.
@@ -7230,9 +7230,9 @@ class Daf:
             unique:         bool=False, 
             omit_nulls:     bool=False, 
             silent_error:   bool=False,
-            astype:         Optional[Union[Callable, str, type]]=None,
-            indirect_col:   Optional[str]=None,
-            default:        Optional[Any]='',
+            astype:         Callable | str | type | None = None,
+            indirect_col:   str | None = None,
+            default:        Any | None='',
             ) -> list:
         """
         Get one column as a list, by name.
@@ -7290,9 +7290,9 @@ class Daf:
             unique:         bool=False, 
             omit_nulls:     bool=False, 
             silent_error:   bool=False,     # no error if column not found.
-            astype:         Optional[Union[Callable, str, type]]=None,
-            indirect_col:   Optional[str]=None,
-            default:        Optional[Any]='',
+            astype:         Callable | str | type | None = None,
+            indirect_col:   str | None = None,
+            default:        Any | None='',
         ) -> list:
         """
         Get one column as a list, by name.
@@ -7446,7 +7446,7 @@ class Daf:
         return result_la
 
 
-    def drop_cols(self, exclude_cols: Optional[T_ls]=None) -> 'Daf':
+    def drop_cols(self, exclude_cols: T_ls | None = None) -> 'Daf':
         """
         Remove columns from this Daf, in place.
 
@@ -7502,8 +7502,8 @@ class Daf:
 
 
     def select_cols(self,
-            cols: Optional[T_ls]=None,
-            exclude_cols: Optional[T_ls]=None,
+            cols: T_ls | None = None,
+            exclude_cols: T_ls | None = None,
             ) -> 'Daf':
         """
         Make a new Daf with only some columns, chosen by name.
@@ -7568,7 +7568,7 @@ class Daf:
         return Daf(lol=new_lol, cols=new_cols, dtypes=dtypes, keyfield=new_keyfield)
 
 
-    # def from_selected_cols(self, cols: Optional[T_ls]=None, exclude_cols: Optional[T_ls]=None) -> 'Daf':
+    # def from_selected_cols(self, cols: T_ls | None = None, exclude_cols: T_ls | None = None) -> 'Daf':
         # """ given a list of colnames, create a new daf of those cols.
             # creates as new daf
 
@@ -7656,7 +7656,7 @@ class Daf:
         return self
 
 
-    def assign_record_irow(self, irow: Optional[int]=None, record: Optional[T_da]=None) -> 'Daf':
+    def assign_record_irow(self, irow: int | None = None, record: T_da | None = None) -> 'Daf':
         """
         Put one row in the Daf by position, replacing the row there.
 
@@ -7709,7 +7709,7 @@ class Daf:
 
 
     #@deprecated("Use 'my_daf[keylist] = record' syntax")
-    def update_by_keylist(self, keylist: Optional[T_ls]=None, record: Optional[T_da]=None) -> 'Daf':
+    def update_by_keylist(self, keylist: T_ls | None = None, record: T_da | None = None) -> 'Daf':
         """
         Change some cells in the rows that have the given keys.
 
@@ -7753,7 +7753,7 @@ class Daf:
         return self
 
 
-    def update_record_irow(self, irow: int=-1, record: Optional[T_da]=None) -> 'Daf':
+    def update_record_irow(self, irow: int=-1, record: T_da | None = None) -> 'Daf':
         """
         Change some cells in the row at a position.
 
@@ -7806,7 +7806,7 @@ class Daf:
     def assign_icol(
             self,
             icol: int=-1,
-            col_la: Optional[T_la]=None,
+            col_la: T_la | None = None,
             default: Any=''
             ) -> 'Daf':
         """
@@ -7896,7 +7896,7 @@ class Daf:
     def insert_icol(
             self,
             icol:       int=-1,
-            col_la:     Optional[T_la]=None,
+            col_la:     T_la | None = None,
             colname:    str='',
             default:    Any=''
             ) -> 'Daf':
@@ -7948,7 +7948,7 @@ class Daf:
         return self
 
 
-    def insert_irow(self, irow: Optional[int]=None, row: Optional[Union[T_la, T_da]]=None, default: Any='') -> 'Daf':
+    def insert_irow(self, irow: int | None = None, row: T_la | T_da | None = None, default: Any='') -> 'Daf':
         """
         Insert a row at a position and move the later rows down.
 
@@ -8007,7 +8007,7 @@ class Daf:
         return self
 
 
-    def assign_col(self, colname: str, la: Optional[T_la]=None, default: Any='') -> 'Daf':
+    def assign_col(self, colname: str, la: T_la | None = None, default: Any='') -> 'Daf':
         """
         Fill a column by name with the values of a list, or add it if it is new.
 
@@ -8050,7 +8050,7 @@ class Daf:
     def insert_col(
             self,
             colname:    str,                    # name of the col
-            col_la:     Optional[T_la]=None,    # column to insert
+            col_la:     T_la | None = None,    # column to insert
             icol:       int=-1,                 # insert at end by default
             default:    Any='',
             ) -> 'Daf':
@@ -8260,8 +8260,8 @@ class Daf:
 
     def replace_in_columns(
         self,
-        cols: Optional[T_lsi],
-        find_values: Optional[List[Any]] = None,
+        cols: T_lsi | None,
+        find_values: List[Any] | None = None,
         replacement: Any = _MISSING
     ) -> 'Daf':
         """
@@ -8699,9 +8699,9 @@ class Daf:
 
     def insert_dif_row(self,
             irow1: int,
-            irow2: Optional[int]=None,
-            irow_insert: Optional[int]=None,
-            cols: Optional[T_ls]=None,
+            irow2: int | None = None,
+            irow_insert: int | None = None,
+            cols: T_ls | None = None,
             ) -> 'Daf':
 
         """
@@ -8753,8 +8753,8 @@ class Daf:
 
 
     def insert_dif_rows(self,
-            irows_rli: Optional[T_rli]=None,
-            cols: Optional[T_ls]=None,
+            irows_rli: T_rli | None = None,
+            cols: T_ls | None = None,
             offset: int=0
             ) -> 'Daf':
 
@@ -8789,7 +8789,7 @@ class Daf:
             <BLANKLINE>
         """
 
-        reversed_irows_rli: Union[range, T_li]
+        reversed_irows_rli: range | T_li
         if irows_rli is None:
             reversed_irows_rli = range(len(self) - 2, -1, -1)
         else:
@@ -8880,10 +8880,10 @@ class Daf:
             # pinned down here.
             func:       Callable[..., Any],
             by:         str='row',
-            keylist:    Optional[Union[T_la, T_lota]]=None,     # list of keys of rows to include (DEPRECATE?)
+            keylist:    T_la | T_lota | None = None,     # list of keys of rows to include (DEPRECATE?)
             **kwargs:   Any,
                 # kwargs may commonly include:
-                # cols: Optional[T_la]=None,                    # columns included in the apply operation.
+                # cols: T_la | None = None,                    # columns included in the apply operation.
             ) -> "Daf":
         """
         Apply a function to each row and collect the results in a new Daf.
@@ -9004,9 +9004,9 @@ class Daf:
     def apply_in_place(
             self,
             # called as func(row, **kwargs) -- see the apply() comment on Callable[...] above.
-            func:       Callable[..., Union[T_ma, None]],
+            func:       Callable[..., T_ma | None],
             by:         str='row',
-            rowkeys:    Union[T_la, T_lota] | None=None,  # list of rowkeys to include.
+            rowkeys:    T_la | T_lota | None = None,  # list of rowkeys to include.
                         # the above changed from keylist to avoid confusion with KeyedList
             **kwargs:   Any,
             ) -> 'Daf':
@@ -9102,11 +9102,11 @@ class Daf:
 
     # def reduce(
             # self,
-            # func: Callable[[T_da, T_da], Union[T_da, T_la]],
+            # func: Callable[[T_da, T_da], T_da | T_la],
             # by: str='row',
-            # cols: Optional[T_la]=None,                      # columns included in the reduce operation.
+            # cols: T_la | None = None,                      # columns included in the reduce operation.
             # **kwargs: Any,
-            # ) -> Union[T_da, T_la]:
+            # ) -> T_da | T_la:
         # """
         # Apply a function to each 'row', 'col', or 'table' and accumulate to a single T_da
         # Note: to apply a function to a portion of the table, first select the columns or rows desired
@@ -9147,11 +9147,11 @@ class Daf:
 
     def manifest_apply(
             self,
-            func: Callable[[T_da, Optional[T_la]], Tuple[T_da, 'Daf']],    # function to apply according to 'by' parameter
+            func: Callable[[T_da, T_la | None], Tuple[T_da, 'Daf']],    # function to apply according to 'by' parameter
             load_func: Callable[[T_ma], 'Daf'],            # optional function to load data for each manifest entry, defaults to local file system
             save_func: Callable[[T_da, 'Daf'], str],       # optional function to save data for each manifest entry, defaults to local file system
             by: str='row',                                  # determines how the func is applied.
-            cols: Optional[T_la]=None,                      # columns included in the apply operation.
+            cols: T_la | None = None,                      # columns included in the apply operation.
              **kwargs: Any,
             ) -> "Daf":
         """
@@ -9227,9 +9227,9 @@ class Daf:
             # func is passed through to Daf.reduce() (row/reduction/cols/**kwargs), not called
             # directly here, so its exact arity isn't pinned down at this level.
             func: Callable[..., Any],
-            load_func: Optional[Callable[[T_ma], 'Daf']] = None,
+            load_func: Callable[[T_ma], 'Daf'] | None = None,
             by: str='row',                                  # determines how the func is applied.
-            cols: Optional[T_la]=None,                      # columns included in the reduce operation.
+            cols: T_la | None = None,                      # columns included in the reduce operation.
             **kwargs: Any,
             ) -> T_da:
         """
@@ -9325,7 +9325,7 @@ class Daf:
         return result_daf
 
 
-    def _cols_scope(self, cols: Optional[T_cs]) -> Tuple[List[str], List[int], bool]:
+    def _cols_scope(self, cols: T_cs | None) -> Tuple[List[str], List[int], bool]:
         """
         Work out which columns a grouping keeps: their names, their positions, and whether that is all of them.
 
@@ -9340,7 +9340,7 @@ class Daf:
         return names, idxs, names == list(self.hd)
 
 
-    def _reduce_scope(self, by: str, reduce_cols: Optional[T_cs], kwargs: Dict[str, Any]) -> Optional[T_ls]:
+    def _reduce_scope(self, by: str, reduce_cols: T_cs | None, kwargs: Dict[str, Any]) -> T_ls | None:
         """
         Work out the columns that the groups need for a reduction, or None for all columns.
 
@@ -9373,10 +9373,10 @@ class Daf:
     def groupby(
             self,
             colname: str='',
-            colnames: Optional[T_ls]=None,
+            colnames: T_ls | None = None,
             omit_nulls: bool=False,         # do not group to values in column that are null ('')
-            cols: Optional[T_cs]=None,
-            ) -> Union[Dict[str, 'Daf'], Dict[Tuple[str, ...], 'Daf']]:
+            cols: T_cs | None = None,
+            ) -> Dict[str, 'Daf'] | Dict[Tuple[str, ...], 'Daf']:
 
         """
         Split the Daf into several Daf instances, one for each value of a column.
@@ -9462,7 +9462,7 @@ class Daf:
         return {fieldval: self._new_group_daf(group_lol, names, all_cols) for fieldval, group_lol in groups.items()}
 
 
-    def groupby_cols(self, colnames: T_ls, cols: Optional[T_cs]=None) -> Dict[Tuple[str, ...], 'Daf']:
+    def groupby_cols(self, colnames: T_ls, cols: T_cs | None = None) -> Dict[Tuple[str, ...], 'Daf']:
 
         """
         Split the Daf by the values of several columns.
@@ -9520,7 +9520,7 @@ class Daf:
             self,
             where: Callable[[Any], Any],
             *,
-            indirect_col: Optional[str] = None,
+            indirect_col: str | None = None,
         ) -> Dict[Any, 'Daf']:
 
         """
@@ -9612,7 +9612,7 @@ class Daf:
             # manifest_reduce comment on Callable[...] above.
             func: Callable[..., Any],
             by: str='row',                                  # determines how the func is applied.
-            reduce_cols: Optional[T_la]=None,               # columns included in the reduce operation.
+            reduce_cols: T_la | None = None,               # columns included in the reduce operation.
             diagnose: bool = False,
             **kwargs: Any,
             ) -> 'Daf':
@@ -9779,7 +9779,7 @@ class Daf:
             # manifest_reduce comment on Callable[...] above.
             func:           Callable[..., Any], # function reduces one grouped daf to one record.
             by:             str='row',                                  # determines how the func is applied.
-            reduce_cols:    T_cs | None=None,                           # columns included in the reduce operation.
+            reduce_cols:    T_cs | None = None,                           # columns included in the reduce operation.
             diagnose:       bool=False,
             **kwargs:       Any,
             ) -> 'Daf':
@@ -9842,7 +9842,7 @@ class Daf:
     def multi_groupby(
             self,
             groupby_colnames:   T_cs,
-            colnames:           T_cs | None=None,
+            colnames:           T_cs | None = None,
             omit_nulls:         bool=False,         # do not group to values in column that are null ('')
             ) -> Dict[str, Dict[str, 'Daf']]:   # result_dododaf
 
@@ -9926,9 +9926,9 @@ class Daf:
             # manifest_reduce comment on Callable[...] above.
             func:           Callable[..., Any],
             grouped_dodaf:  T_dodaf,
-            reduce_cols:    Optional[T_la]=None,    # columns included in the reduce operation, None = all except for colname.
+            reduce_cols:    T_la | None = None,    # columns included in the reduce operation, None = all except for colname.
             diagnose:       bool=False,
-            all_cols:       Optional[T_ls]=None,    # the columns of the result, if the groups hold only some of them.
+            all_cols:       T_ls | None = None,    # the columns of the result, if the groups hold only some of them.
             **kwargs:       Any,
             ) -> 'Daf':
         """
@@ -9989,12 +9989,12 @@ class Daf:
             reduction_da = cast(T_ma, this_daf.reduce(func, cols=reduce_cols, **kwargs))
                     # def reduce(
                             # self,
-                            # func: Callable[[T_da, T_da], Union[T_da, T_la]],
+                            # func: Callable[[T_da, T_da], T_da | T_la],
                             # by: str='row',
-                            # cols: Optional[Iterable]=None,                  # columns included in the reduce operation.
-                            # initial_da: Optional[T_da]=None,
+                            # cols: Iterable | None = None,                  # columns included in the reduce operation.
+                            # initial_da: T_da | None = None,
                             # **kwargs: Any,
-                            # ) -> Union[T_da, T_la]:
+                            # ) -> T_da | T_la:
 
             if diagnose:
                 logs.sts(f"Post reduction: {Daf.from_lod([cast(T_da, reduction_da)])=}", 3)
@@ -10024,7 +10024,7 @@ class Daf:
             # manifest_reduce comment on Callable[...] above.
             func:           Callable[..., Any],  # function reduces one grouped daf to one record.
             by:             str='row',                                  # determines how the func is applied.
-            reduce_cols:    T_cs | None=None,                           # columns included in the reduce operation.
+            reduce_cols:    T_cs | None = None,                           # columns included in the reduce operation.
             diagnose:       bool=False,
             **kwargs:       Any,
             ) -> Dict[str, 'Daf']:
@@ -10159,7 +10159,7 @@ class Daf:
     # def daf_sum2(
     #         self,
     #         by: str = 'row',
-    #         cols: Optional[T_la]=None,
+    #         cols: T_la | None = None,
     #         **kwargs: Any,
     #         ) -> T_da:
     #     # this one to investigate why daf_sum is so slow!
@@ -10170,7 +10170,7 @@ class Daf:
     # def daf_sum3(
     #         self,
     #         by: str = 'row',
-    #         cols: Optional[T_la]=None,
+    #         cols: T_la | None = None,
     #         **kwargs: Any,
     #         ) -> T_da:
     #     # this one to investigate why daf_sum is so slow!
@@ -10180,11 +10180,11 @@ class Daf:
 
     # def reduce2(
             # self,
-            # func: Callable[[T_da, T_da], Union[T_da, T_la]],
+            # func: Callable[[T_da, T_da], T_da | T_la],
             # by: str='row',
-            # cols: Optional[T_la]=None,                      # columns included in the reduce operation.
+            # cols: T_la | None = None,                      # columns included in the reduce operation.
             # **kwargs: Any,
-            # ) -> Union[T_da, T_la]:
+            # ) -> T_da | T_la:
         # """
         # Apply a function to each 'row', 'col', or 'table' and accumulate to a single T_da
         # Note: to apply a function to a portion of the table, first select the columns or rows desired
@@ -10281,12 +10281,12 @@ class Daf:
             # forms can't express this.
             func:           Callable[..., Any],
             by:             str = 'row',                                # row|col|table|sparse_row
-            cols:           T_cs|None=None,                    # columns included in the reduce operation.
-            initial_da:     T_ma|None=None,
+            cols:           T_cs | None = None,                    # columns included in the reduce operation.
+            initial_da:     T_ma | None = None,
             indirect_col:   str = '',                                   # indirect_col is required for lol array.
             silent_error:   bool = False,                               # if True, skip rows where func raises.
             **kwargs:       Any,
-            ) -> Union[T_ma, T_la]:
+            ) -> T_ma | T_la:
         """
         Combine all the rows into one result, using a function.
 
@@ -10362,7 +10362,7 @@ class Daf:
                         raise
 
                 # def count_values_da(row_da: T_da, reduction_da: T_da, cols: Iterable, omit_nulls: bool=False) -> T_dodi:
-                # def sum_da         (row_da: T_da, reduction_da: T_da, cols: Iterable, astype: Optional[Type]=None, diagnose:bool=False
+                # def sum_da         (row_da: T_da, reduction_da: T_da, cols: Iterable, astype: Type | None = None, diagnose:bool=False
 
             # normalize the result so it contains all columns
             result_ma = {key: reduction_ma.get(key,'') for key in self.hd.keys()}
@@ -10397,7 +10397,7 @@ class Daf:
                         raise
 
                 # def count_values_da(row_da: T_da, reduction_da: T_da, cols: Iterable, omit_nulls: bool=False) -> T_dodi:
-                # def sum_da         (row_da: T_da, reduction_da: T_da, cols: Iterable, astype: Optional[Type]=None, diagnose:bool=False
+                # def sum_da         (row_da: T_da, reduction_da: T_da, cols: Iterable, astype: Type | None = None, diagnose:bool=False
 
             # # normalize the result so it contains all columns
             # result_da = {key: reduction_da.get(key,'') for key in self.hd.keys()}
@@ -10415,8 +10415,8 @@ class Daf:
     def sum_da( row_da:         T_ma,                       # the current row from the daf array.
                 reduction_da:   T_ma,                       # an accumulated result. Must be initialized for all columns in cols.
                 *,
-                cols:           T_cs | None=None,    # defines the active columns. Can be a list, keys(), range, or slice
-                astype:         Type | None=None,        # a type like int, float, str to cast the value if it is not that type. Optional.
+                cols:           T_cs | None = None,    # defines the active columns. Can be a list, keys(), range, or slice
+                astype:         Type | None = None,        # a type like int, float, str to cast the value if it is not that type. Optional.
                 is_sparse:      bool=False,
                 diagnose:       bool=False
                 ) -> T_ma:  # result_ma -- same object (and type) as reduction_da, returned in place
@@ -10442,7 +10442,7 @@ class Daf:
             >>> Daf.sum_da({'x': 1, 'y': 2}, {'x': 10, 'y': 0}, cols=['x', 'y'])
             {'x': 11, 'y': 2}
         """
-        # def sum_da         (row_da: T_da, reduction_da: T_da, cols: Iterable, astype: Optional[Type]=None, diagnose:bool=False
+        # def sum_da         (row_da: T_da, reduction_da: T_da, cols: Iterable, astype: Type | None = None, diagnose:bool=False
 
         diagnose = diagnose
         #nan_indicator = ''
@@ -10575,7 +10575,7 @@ class Daf:
 #     def sum_da2(row_da: T_da,                   # the current row from the daf array.
 #                 accum_da: T_da,                 # an accumulated result. Must be initialized for all columns in cols.
 #                 cols: Iterable,                 # defines the active columns. Can be a list, keys(), range, or slice
-#                 astype: Optional[Type]=None,    # a type like int, float, str to cast the value if it is not that type. Optional.
+#                 astype: Type | None = None,    # a type like int, float, str to cast the value if it is not that type. Optional.
 #                 diagnose:bool=False
 #                 ) -> T_da:     # result_da
 #         """ sum values in row and accum dicts per colunms provided.
@@ -10674,7 +10674,7 @@ class Daf:
 #     def sum_da3(row_da: T_da,                   # the current row from the daf array.
 #                 accum_da: T_da,                 # an accumulated result. Must be initialized for all columns in cols.
 #                 cols: Iterable,                 # defines the active columns. Can be a list, keys(), range, or slice
-#                 astype: Optional[Type]=None,    # a type like int, float, str to cast the value if it is not that type. Optional.
+#                 astype: Type | None = None,    # a type like int, float, str to cast the value if it is not that type. Optional.
 #                 diagnose:bool=False
 #                 ) -> T_da:     # result_da
 #         """ sum values in row and accum dicts per colunms provided.
@@ -11136,7 +11136,7 @@ class Daf:
 
 
     # @staticmethod
-    # def sum_da(row_da: T_da, accum_da: T_da, cols: Optional[T_la]=None, astype:Type=int, diagnose:bool=False) -> T_da:     # result_da
+    # def sum_da(row_da: T_da, accum_da: T_da, cols: T_la | None = None, astype:Type=int, diagnose:bool=False) -> T_da:     # result_da
         # """ sum values in row and accum dicts per colunms provided.
             # will safely skip data that can't be summed.
         # """
@@ -11181,7 +11181,7 @@ class Daf:
 
 
     @staticmethod
-    def diff_da(d1_da: T_ma, d2_da: T_ma, keys: T_ls | str | None=None) -> T_da:     # result_da
+    def diff_da(d1_da: T_ma, d2_da: T_ma, keys: T_ls | str | None = None) -> T_da:     # result_da
         """
         Subtract one dict from another, for the keys you name.
 
@@ -11736,7 +11736,7 @@ class Daf:
         return info_dod
 
 
-    def transpose(self, new_keyfield:str='', new_cols:Optional[T_la]=None, include_header:bool = False) -> 'Daf':
+    def transpose(self, new_keyfield:str='', new_cols:T_la | None = None, include_header:bool = False) -> 'Daf':
         """
         Turn rows into columns and columns into rows.
 
@@ -11807,9 +11807,9 @@ class Daf:
     def derive_join_translator(
         self,
         other_daf: 'Daf',                               # The other Daf instance to join with
-        shared_fields: Optional[T_ls] = None,           # Columns shared between tables that do not require renaming
+        shared_fields: T_ls | None = None,           # Columns shared between tables that do not require renaming
                                                         # keyfields do not need to be added here.
-        omit_other_cols: Optional[T_ls]=None,           # cols to omit from other (use instead of shared fields)
+        omit_other_cols: T_ls | None = None,           # cols to omit from other (use instead of shared fields)
         tag_other: bool = False,                        # if True, and col not in shared_fields, add suffix tag to other_daf cols
 
         ) -> 'Daf':  # Translator Daf
@@ -12100,7 +12100,7 @@ class Daf:
             result_daf.keyfield = keyfield                          # okay to set now with lazy kd generation.
 
         # Helper function to fetch a record by key, with silent error
-        def fetch_record(daf: 'Daf', mykey: Union[str, int]) -> T_da:
+        def fetch_record(daf: 'Daf', mykey: str | int) -> T_da:
             return daf.select_record(mykey, silent_error=True)
 
         # Track matched keys for outer joins
@@ -12432,8 +12432,8 @@ class Daf:
             max_text_len:   int     = 80,        # see above.
             smart_fmt:      bool    = False,     # if columns are numeric, then limit the number of figures right of the decimal to "smart" numbers.
             include_summary: bool   = False,     # include a one-line summary after the table, describing shape, keyfield, name
-            disp_cols:      T_cs | None=None,    # use these column names instead of those defined in daf.
-            header:         T_cs | None=None,    # use this header instead.
+            disp_cols:      T_cs | None = None,    # use these column names instead of those defined in daf.
+            header:         T_cs | None = None,    # use this header instead.
             ) -> str:
                 
         """
@@ -12535,7 +12535,7 @@ class Daf:
             max_text_len:   int     = 80,        # see above.
             smart_fmt:      bool    = False,     # if columns are numeric, then limit the number of figures right of the decimal to "smart" numbers.
             include_summary: bool   = False,     # include a one-line summary after the table.
-            disp_cols:      Optional[T_ls]=None, # use these column names instead of those defined in daf.
+            disp_cols:      T_ls | None = None, # use these column names instead of those defined in daf.
             ) -> str:
         """
         Make a Markdown table in which each row of the Daf is a column.
@@ -12656,7 +12656,7 @@ class Daf:
         return result_lol
 
     @staticmethod
-    def dict_to_md(da: T_da, cols: Optional[T_ls]=None, just: str='<<') -> str:
+    def dict_to_md(da: T_da, cols: T_ls | None = None, just: str='<<') -> str:
         """
         Show a dict as a two column Markdown table, for looking at it.
 
@@ -12743,7 +12743,7 @@ DafIterRtype = TypeVar('DafIterRtype', Dict[str, Any], KeyedList, list)
 class DafIterator(Generic[DafIterRtype]):
     """ Generic in the row shape it produces (dict/KeyedList/list), so iter_dict()/iter_klist()/
         iter_list() below can each promise the narrower Iterator[X] they actually construct,
-        instead of every DafIterator instance claiming the full Union[T_ma, list] regardless of
+        instead of every DafIterator instance claiming the full T_ma | list regardless of
         which rtype it was actually built with. """
     def __init__(self, this_daf: Daf, rtype: Type[DafIterRtype] = dict):  # type: ignore[assignment]
         # every real caller (iter_dict/iter_klist/iter_list below) passes rtype explicitly;
@@ -12756,7 +12756,7 @@ class DafIterator(Generic[DafIterRtype]):
         self.rtype: Type[DafIterRtype] = rtype
         self._index = 0
         # one index of the column names, shared by every KeyedList row of this loop.
-        self._kidx: Optional[KeyedIndex] = KeyedIndex(cast(dict, this_daf.hd)) if rtype == KeyedList else None
+        self._kidx: KeyedIndex | None = KeyedIndex(cast(dict, this_daf.hd)) if rtype == KeyedList else None
 
     def __iter__(self) -> 'DafIterator[DafIterRtype]':
         return self
@@ -12799,7 +12799,7 @@ class _IndirectRowView:
     (dict or KeyedList) and the indirect dict.
     """
 
-    def __init__(self, row: T_ma, indirect_col: Optional[str] = None):
+    def __init__(self, row: T_ma, indirect_col: str | None = None):
         self.row = row
         self.indirect = (
             daf_utils.get_indirect_da(row, indirect_col)

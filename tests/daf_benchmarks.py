@@ -5,7 +5,7 @@
 # 2024-10-26 -- changed safe_sizeof() to use objsize.get_deep_size() instead of pympler.asizeof.asizeof()
 
 import pandas as pd
-from typing import List, Dict, Optional, Any, Tuple   # noqa: F401
+from typing import List, Dict, Any, Tuple   # noqa: F401
 import timeit
 import numpy as np
 #from pympler import asizeof
@@ -46,7 +46,7 @@ def kdf_lookup(kdf, rowkey_col='rowkey', value='500'):
     # kdf.loc['500'].to_dict()
 
 
-def lod_sum_cols_df(lod: List[Dict[str, int]], cols: Optional[List[str]] = None) -> Dict[str, int]:
+def lod_sum_cols_df(lod: List[Dict[str, int]], cols: List[str] | None = None) -> Dict[str, int]:
     
     if not lod:
         return {}
@@ -66,7 +66,7 @@ def lod_sum_cols_df(lod: List[Dict[str, int]], cols: Optional[List[str]] = None)
     return result
 
 
-def lod_sum_cols(lod: List[Dict[str, int]], cols: Optional[List[str]] = None) -> Dict[str, int]:
+def lod_sum_cols(lod: List[Dict[str, int]], cols: List[str] | None = None) -> Dict[str, int]:
 
     if not lod:
         return {}
@@ -89,7 +89,7 @@ def lod_sum_cols(lod: List[Dict[str, int]], cols: Optional[List[str]] = None) ->
     return result
 
     
-def lod_sum_cols2(lod: List[Dict[str, int]], cols: Optional[List[str]] = None) -> Dict[str, int]:
+def lod_sum_cols2(lod: List[Dict[str, int]], cols: List[str] | None = None) -> Dict[str, int]:
     """ this one grabs a col and uses sum() """
 
     if not lod:
@@ -122,7 +122,7 @@ def klod_row_lookup(klod, key_col='rowkey', target_rowkey='500'):
     return None
 
     
-def lont_sum_cols(lont, cols: Optional[List[str]] = None) -> Dict[str, int]:
+def lont_sum_cols(lont, cols: List[str] | None = None) -> Dict[str, int]:
 
     if not lont:
         return {}
@@ -169,7 +169,7 @@ def lod_to_hdnpa(lod: List[Dict[str, Any]]):
     return (header_di, npa)
     
     
-def hdlol_sum_cols(hdlol: Tuple[Dict[str, int], List[List[Any]]], cols: Optional[List[str]] = None) -> List[int]:
+def hdlol_sum_cols(hdlol: Tuple[Dict[str, int], List[List[Any]]], cols: List[str] | None = None) -> List[int]:
 
     (header_di, lol) = hdlol
 
@@ -187,7 +187,7 @@ def hdlol_sum_cols(hdlol: Tuple[Dict[str, int], List[List[Any]]], cols: Optional
     return result_li
     
     
-def hllol_sum_cols(hllol: Tuple[List[str], List[List[Any]]], cols: Optional[List[str]] = None) -> Dict[str, int]:
+def hllol_sum_cols(hllol: Tuple[List[str], List[List[Any]]], cols: List[str] | None = None) -> Dict[str, int]:
 
     (header_ls, lol) = hllol
 
@@ -210,7 +210,7 @@ def hllol_sum_cols(hllol: Tuple[List[str], List[List[Any]]], cols: Optional[List
     return result_di
     
     
-def hllol_sum_cols2(hllol: Tuple[List[str], List[List[Any]]], cols: Optional[List[str]] = None) -> Dict[str, int]:
+def hllol_sum_cols2(hllol: Tuple[List[str], List[List[Any]]], cols: List[str] | None = None) -> Dict[str, int]:
     """ uses transpose """
 
     (header_ls, lol) = hllol
@@ -241,7 +241,7 @@ def hllol_sum_cols2(hllol: Tuple[List[str], List[List[Any]]], cols: Optional[Lis
     return result_li
     
     
-def hdlot_sum_cols(hdlot: Tuple[Dict[str, int], List[Tuple[Any, ...]]], cols: Optional[List[str]] = None) -> List[int]:
+def hdlot_sum_cols(hdlot: Tuple[Dict[str, int], List[Tuple[Any, ...]]], cols: List[str] | None = None) -> List[int]:
 
     (header_di, lot) = hdlot
 

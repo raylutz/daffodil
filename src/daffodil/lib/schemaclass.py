@@ -13,7 +13,7 @@ schema descriptor by consuming code.
 
 import copy
 import typing
-from typing import Dict, Any, List, TypeVar, Union, Protocol   # noqa: F401
+from typing import Dict, Any, List, TypeVar, Protocol   # noqa: F401
 from ..keyedlist import KeyedList
 from . import daf_utils
 
@@ -35,7 +35,7 @@ class SchemaBase(Protocol):
     def default_record(cls, **kwargs: Any) -> T_da: ...
     
     @classmethod
-    def record_from(cls, src: Union[T_da, KeyedList]) -> T_da: ...
+    def record_from(cls, src: T_da | KeyedList) -> T_da: ...
 
     @classmethod
     def get_dtypes_dict(cls, *, use_origins: bool = False) -> Dict[str, type]: ...
@@ -145,7 +145,7 @@ def schemaclass(cls: type[T]) -> type[T]:
 
 
     @classmethod  # type: ignore[misc]
-    def record_from(cls, src: Union[T_da, KeyedList]) -> T_da:
+    def record_from(cls, src: T_da | KeyedList) -> T_da:
         """
         Create a schema-compatible record from a source mapping.
 
@@ -158,7 +158,7 @@ def schemaclass(cls: type[T]) -> type[T]:
 
         Parameters
         ----------
-        src : Union[Dict[str, Any], KeyedList]
+        src : Dict[str, Any] | KeyedList
             Source record containing field values.
 
         Returns

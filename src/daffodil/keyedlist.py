@@ -1,6 +1,6 @@
 # keyedlist.py
 
-from typing import List, Dict, Any, Optional, Union, \
+from typing import List, Dict, Any, \
                     Callable, KeysView, Tuple
 
 from collections.abc import Hashable, Iterable, Iterator                    
@@ -209,9 +209,9 @@ class KeyedList:
     _hd_shared: bool = False
 
     def __init__(self, 
-            arg1: Optional[Union[Dict[Any, Any], List[Any], 'KeyedList', 'KeyedIndex']] = None, 
-            arg2: Optional[List[Any]] = None,
-            default: Optional[Union[int, str, float]] = None,
+            arg1: 'Dict[Any, Any] | List[Any] | KeyedList | KeyedIndex | None' = None, 
+            arg2: List[Any] | None = None,
+            default: int | str | float | None = None,
             ):
             
         if isinstance(arg1, KeyedIndex) and isinstance(arg2, list):
@@ -269,7 +269,7 @@ class KeyedList:
         
         raise ValueError("Must provide either a dict, keys and values, hd and list, or KeyedList")
     
-    def __getitem__(self, key: Union[TKey, List[TKey]]) -> Any:
+    def __getitem__(self, key: TKey | List[TKey]) -> Any:
         """
         Get the value for a key, or a list of values for a list of keys.
 
@@ -478,7 +478,7 @@ class KeyedList:
         self._values = new_values
 
 
-    def values(self, astype: Optional[Union[Callable, str, type]] = None) -> List[Any]:
+    def values(self, astype: Callable | str | type | None = None) -> List[Any]:
         """
         Get the values as a list.
 
@@ -570,7 +570,7 @@ class KeyedList:
             return default
 
 
-    def update(self, other: Union['KeyedList', Dict[Any, Any]]) -> None:
+    def update(self, other: 'KeyedList | Dict[Any, Any]') -> None:
         """
         Set many keys from a dict or from another KeyedList.
 
@@ -703,7 +703,7 @@ NULL = ''       # a missing value is the empty string, as in daf.py. Test it wit
 _ASTYPE_BY_NAME: Dict[str, Callable] = {'int': int, 'str': str, 'float': float, 'bool': bool}
 
 
-def _astype_la(la: T_la, astype: Optional[Union[Callable, str, type]]=None) -> T_la:
+def _astype_la(la: T_la, astype: Callable | str | type | None = None) -> T_la:
     """
     Convert each value of a list, and keep a missing value as it is.
 
@@ -933,16 +933,7 @@ class KeyedIndex:
 
     def __init__(
         self,
-        keys: Optional[
-            Union[
-                List[TKey],
-                Tuple[TKey, ...],
-                Dict[TKey, Any],
-                KeysView[TKey],
-                KeyedList,
-                'KeyedIndex',
-            ]
-        ] = None,
+        keys: 'List[TKey] | Tuple[TKey, ...] | Dict[TKey, Any] | KeysView[TKey] | KeyedList | KeyedIndex | None' = None,
     ) -> None:
         # normalize input → list
         if keys is None:
@@ -1012,7 +1003,7 @@ class KeyedIndex:
         """
         return key in self._index
 
-    def get(self, key: TKey, default: Optional[int] = None) -> Optional[int]:
+    def get(self, key: TKey, default: int | None = None) -> int | None:
         """
         Get the position of a key, or a default if the key is not found.
 

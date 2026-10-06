@@ -19,7 +19,7 @@ import daffodil.lib.daf_utils    as utils
 #from daffodil.keyedlist import KeyedList
 from collections.abc import Iterable, Iterator    # noqa: F401
 
-from typing import List, Dict, Any, Tuple, Optional, Union, cast, Type, Callable # noqa: F401
+from typing import List, Dict, Any, Tuple, cast, Type, Callable # noqa: F401
 
 logs = utils                # alias
 
@@ -115,7 +115,7 @@ def sql_escape_str(name: str, quoting_ok: bool=True) -> str:
     return new_name
    
 
-def lod_to_sqlite_table(lod: List[Dict[str, Any]], table_name: str='tempdata', db_file_path: Optional[str]=None, key_col: str='rowkey') -> None:
+def lod_to_sqlite_table(lod: List[Dict[str, Any]], table_name: str='tempdata', db_file_path: str | None = None, key_col: str='rowkey') -> None:
 
     # see also: https://www.sqlite.org/fasterthanfs.html
 
@@ -241,7 +241,7 @@ def create_index_at_cursor(
         raise
 
 
-def sum_columns_in_sqlite_table(table_name: str='tempdata', db_file_path: Optional[str]=None) -> Optional[Dict[str, Any]]:
+def sum_columns_in_sqlite_table(table_name: str='tempdata', db_file_path: str | None = None) -> Dict[str, Any] | None:
 
     if db_file_path is None:
         db_file_path=f'{table_name}.db'
@@ -296,7 +296,7 @@ def get_memory_usage_of_table_in_memory(table_name: str='tempdata') -> int:
     return total_size_bytes
 
 
-def print_table_summary(table_name: str='example', db_file_path: Optional[str]=None) -> None:
+def print_table_summary(table_name: str='example', db_file_path: str | None = None) -> None:
 
     if db_file_path is None:
         db_file_path=f'{table_name}.db'
@@ -320,7 +320,7 @@ def print_table_summary(table_name: str='example', db_file_path: Optional[str]=N
 
 
 
-def sqlite_selectrow(table_name: str, key_col: str='rowkey', value: Any='500') -> Optional[Dict[str, Any]]: 
+def sqlite_selectrow(table_name: str, key_col: str='rowkey', value: Any='500') -> Dict[str, Any] | None: 
 
     # Connect to the SQLite database
     conn = sqlite3.connect(f"{table_name}.db")

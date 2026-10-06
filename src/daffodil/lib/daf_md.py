@@ -18,7 +18,7 @@ from daffodil.lib.daf_types import T_ls, T_lola, T_da, T_li, T_cs, T_ca, T_ma # 
             #, T_doda, T_df, T_lf, T_loda, T_loloda, T_lodolodi, T_ts, T_ds, T_dola 
 import daffodil.lib.daf_utils as utils
 
-from typing import List, Dict, Any, Tuple, Optional, Union, cast, TYPE_CHECKING  # noqa: F401
+from typing import List, Dict, Any, Tuple, cast, TYPE_CHECKING  # noqa: F401
 
 if TYPE_CHECKING:       # for the annotations only. A real import would be circular.
     from daffodil.daf import Daf
@@ -333,7 +333,7 @@ def md_lol_table(
     # header's declared type (T_cs) also accepts a KeysView or a dict (its keys) as a
     # convenience, not just a plain list -- normalize to a real list once, up front, since
     # every use below (concatenation, passing to md_cols_lol_table) needs an actual list.
-    header_ls: Optional[List[str]] = list(header) if header is not None else None
+    header_ls: List[str] | None = list(header) if header is not None else None
 
     if include_idx:
         # there is never a header at this point.
@@ -350,12 +350,12 @@ def md_lol_table(
 def md_cols_lol_table(
         cols_lol:       T_lola,
         *,
-        header:         Optional[T_ls] = None, 
-        #align:          Optional[List[Tuple[str, str]]] = None, 
+        header:         T_ls | None = None, 
+        #align:          List[Tuple[str, str]] | None = None, 
         just:           str='', 
         omit_header:    bool = False, 
         shorten_text:   bool = True,
-        max_text_len:   Optional[int] = None,
+        max_text_len:   int | None = None,
         smart_fmt:      bool = False,
         ) -> str:
 
@@ -368,7 +368,7 @@ def md_cols_lol_table(
     if max_text_len is None:
         max_text_len = 80
 
-    align: Optional[List[Tuple[str, str]]] = None
+    align: List[Tuple[str, str]] | None = None
         
     #mutated_cols_lol = copy.deepcopy(cols_lol)
     mutated_cols_lol = cols_lol
