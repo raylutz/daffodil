@@ -566,3 +566,7 @@ The date of the first entry is 2026-10-02.
     The CI machine listed them the other way. The example now sorts. The docstring says that the order is the order of the file system. The jobs for 3.12 and 3.13 were cancelled
     after about 15 minutes of waiting for a runner, so they had not run. Doctests passed on 3.10, 3.11 and 3.13 on the machine of the session, and the file system order was the only difference.
 
+119. The second review on the EC2 machine, on 2026-10-05, found that daffodil `aabed5a` should not be taken yet, because of four call sites in AuditEngine. The details are in notes/auditengine_action_items.md.
+    One of them exposed a gap in daffodil. `from_dod()` and `from_lod_to_cols()` call `from_lod()` with their `dtypes`, so they raise for a key that `dtypes` does not name, and the message says
+    to pass `ignore_extra_keys=True`. Neither takes that parameter. The thread suggested it for `dominion_cvr.py:3446`, which calls `from_dod()`, and it would raise `TypeError`.
+    Open for the owner: add `ignore_extra_keys` to `from_dod()`. It is not wanted for `from_lod_to_cols()`, because a dropped key there puts the values under the wrong keys.

@@ -113,3 +113,23 @@ Update on 2026-10-05, after the review: `from_lod()` no longer raises for a key 
     value without a message before. If a call picks a few columns of wide records on purpose, pass `ignore_extra_keys=True`. The first review found no such call, and did not look for one.
     How to look: search for `from_lod(` with `cols=` or `dtypes=`. Also search for `from_lod_to_cols(` with `dtypes=`, and `from_dod(` with `dtypes=`, which call `from_lod()`.
 
+
+## Second review on the EC2 machine, 2026-10-05
+
+The thread tested daffodil `origin/main` at aabed5a, version 0.6.0, after `from_lod()` began to raise for a key that is not in `cols` or `dtypes`.
+The result is that the machine should not take this version yet. The test suite gave the same result as before, 1060 passed, 2 failed and 1 skipped on both
+versions. The two failures are on both. The suite does not reach the four sites below.
+
+Sites that break, most serious first. Each stopped silently losing a value in 0.5.13, and now raises `ValueError` that names the keys:
+1. `dominion_cvr.py:3446`, `from_dod(dod, keyfield='contest_name', dtypes=BIF.contestinfo_dtypes)`, in the pipeline stage `cvr_to_eif`, for every Dominion JSON-CVR job.
+   Each contest dict has the key `id`, and `BIF.contestinfo_dtypes` has `contest_id`. In 0.5.13 every contest id is dropped and the `contest_id` column is empty.
+   In 0.6.0 the stage stops. The suggested change in the report, `ignore_extra_keys=True`, does not work here, because `from_dod()` does not take it yet.
+   The change that fixes the data is to name the key `contest_id` in `parse_contest_manifest_core()`. That changes the EIF.
+2. `mapping_option_names_ocr.py:692`, `from_lod(updated_rows_lod, cols=rows_daf.columns())`. Seven of 11 local jobs have a file without `ballot_option`. The rewritten values are lost in 0.5.13.
+   Add the missing columns to `cols`.
+3. `mapping_option_names_ocr.py:2485` and `:2726`. The summaries pick four columns of rows that have `expected`, `detected` and `diff` as well. `ignore_extra_keys=True` is right for both,
+   because they pick columns on purpose.
+4. `profiled_bif.py:175` is safe with the local data, and a chunk without `is_bmd` or `is_nonbmd` would raise. Adding those two names to `cols` makes it safe.
+
+Not a break: `pdf_image_indexer2.py:74` adds columns. The code after it reads columns by name. Not checked on a real single-file PDF archive.
+All other calls, 27 with `cols` or `dtypes`, are safe by an AST check and by real files. Nothing calls `manifest_apply()` or `manifest_reduce()`.
