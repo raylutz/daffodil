@@ -575,3 +575,6 @@ The date of the first entry is 2026-10-02.
     State of daffodil at this point: `main` is at 002f7cb, CI green on 3.10 to 3.13 and the strict docs build. Nothing is tagged or deployed. The changelog heading is `[0.6.0] - (not yet released)`.
     To release: set the date in that heading, push to `main`, check CI, then `git push origin main:full_deploy`. The secret `PYPI_API_TOKEN` is in the environment `pypi`, and `full_deploy` is allowed in the
     deployment branches of `pypi` and `github-pages`.
+121. Saved on 2026-10-06: notes/auditengine_performance_prompt.md, a prompt for optional performance changes in AuditEngine, with the numbers measured that day on 200,000 rows:
+    select_where with one equality 0.149 s against select_by_dict 0.010 s, a membership test 0.156 s against 0.043 s with a comprehension and select_irows, and a copy of 200,000 rows of 50 columns
+    4.7 s deep, 0.42 s editable and 0.003 s sortable. The prompt asks for changes that work on both 0.5.13 and 0.6.0, and for a profile first.
