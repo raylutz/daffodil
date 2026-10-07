@@ -228,3 +228,34 @@ def test_appending_to_a_selection_of_every_row_leaves_the_original_alone(name):
     assert len(d) == 4 and len(s) == 5
     assert 5 not in d.keys()
     assert d.select_record(4)['v'] == 'd'
+
+
+# clone_empty
+
+class _CountingList(list):
+    """ A list that counts how often it is walked through. """
+    walks = 0
+
+    def __iter__(self):
+        _CountingList.walks += 1
+        return super().__iter__()
+
+
+def test_selecting_one_row_does_not_walk_the_whole_row_list():
+    d = _daf()
+    d.lol = _CountingList(d.lol)
+    _CountingList.walks = 0
+    one = d.select_irows([1])
+    assert one.lol == [[2, 'b']]
+    assert d[1, 'v'].to_value() == 'b'
+    assert _CountingList.walks == 0
+
+
+def test_clone_empty_adopts_the_given_rows_and_keeps_the_columns():
+    d = _daf()
+    rows = [[9, 'z']]
+    c = d.clone_empty(lol=rows)
+    assert c.lol is rows
+    assert c.columns() == ['id', 'v'] and c.keyfield == 'id'
+    assert c.select_record(9) == {'id': 9, 'v': 'z'}
+    assert d.num_rows() == 3 and d.select_record(1) == {'id': 1, 'v': 'a'}

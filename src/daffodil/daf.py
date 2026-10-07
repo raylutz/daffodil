@@ -2366,7 +2366,9 @@ class Daf:
         if self is None:
             return Daf()
 
-        new_daf = self.copy(self._COPY_PRESETS['sortable'], name=name)
+        # as 'sortable', but without COPY_OUTER: the row list is replaced next, so copying it
+        # would cost time in proportion to the rows, for nothing.
+        new_daf = self.copy(self.COPY_ATTRS | self.COPY_HD | self.COPY_DTYPES | self.COPY_KD, name=name)
 
         new_daf.lol = lol if lol is not None else []        # adopted, as in Daf().
 

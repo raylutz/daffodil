@@ -8,6 +8,9 @@ Adoption of this format started in v0.5.10. Prior notes included in fixed sectio
 all prior releases. Plans for future moved to ROADMAP.md.
 
 ## [Unreleased]
+### Fixed
+- Selecting rows took time in proportion to the size of the whole table. `clone_empty()`, which every selection uses, copied the full row list and then replaced it with the selected rows. A one-cell read such as `daf[i, 'a']` took 796 µs on 100,000 rows. It now takes about 30 µs at any size. Tests in `tests/test_daf_shared_rows.py`.
+
 ### Changed
 - `append()` with a list, on a Daf with columns, adds a copy of the list directly. It no longer builds a dict from the list and a list from the dict, and no longer compares the column names on every row. 86 µs a row became 14 µs for 1,000 columns, and 3.1 µs became 1.3 µs for 10 columns. An upsert, `respect_kd=True` with a keyfield, still goes through `record_append()`. Behavior is unchanged. `tests/test_daf_append_list.py` pins it, and passes on the old code too.
 - The docs Home page has the data model diagram, an overview, and a comparison with pandas of time and memory to build a table row by row. The scripts are `notes/scripts/bench_build_rows.py` and `notes/scripts/mem_by_string_share.py`.
