@@ -12861,3 +12861,9 @@ class _IndirectRowView:
             return self.row.items()
 
         return ((key, self[key]) for key in self.keys())
+
+
+# Profiling mode: with the environment variable DAFFODIL_PROFILE=1, count how Daf is used.
+# See daffodil/lib/daf_profile.py. Nothing is wrapped unless it is set.
+import daffodil.lib.daf_profile as daf_profile      # noqa: E402
+daf_profile.start_from_env(Daf)

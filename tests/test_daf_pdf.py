@@ -15,4 +15,6 @@ def test_daf_pdf_module_exposes_from_pdf():
 def test_daf_from_pdf_is_wired_as_classmethod():
     assert callable(Daf.from_pdf)
     assert Daf.from_pdf.__self__ is Daf
-    assert Daf.from_pdf.__func__ is daf_pdf._from_pdf.__func__
+    func = Daf.from_pdf.__func__
+    func = getattr(func, '__wrapped__', func)       # the profiling mode wraps it, see daf_profile
+    assert func is daf_pdf._from_pdf.__func__

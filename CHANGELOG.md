@@ -8,6 +8,9 @@ Adoption of this format started in v0.5.10. Prior notes included in fixed sectio
 all prior releases. Plans for future moved to ROADMAP.md.
 
 ## [Unreleased]
+### Added
+- A profiling mode, `daffodil/lib/daf_profile.py`. With `DAFFODIL_PROFILE=1`, or `daf_profile.start()` in code, it records for each table the line that created it, its largest size and the methods called on it, and for each method the calls, time and table sizes. The report is a set of Markdown tables, printed and written to a file at exit. Only outer calls are counted. When it is off, nothing is wrapped. See the Profiling mode page of the docs. Tests in `tests/test_daf_profile.py`, and the whole suite passes with it on.
+
 ### Fixed
 - Selecting rows took time in proportion to the size of the whole table. `clone_empty()`, which every selection uses, copied the full row list and then replaced it with the selected rows. A one-cell read such as `daf[i, 'a']` took 796 µs on 100,000 rows. It now takes about 30 µs at any size. Tests in `tests/test_daf_shared_rows.py`.
 

@@ -31,6 +31,8 @@ extra_css:
 
 nav:
   - Home: index.md
+  - Guides:
+      - Profiling mode: profiling.md
   - Daf API:
       - api/daf/index.md
       - Structure, columns and keys: api/daf/structure.md
