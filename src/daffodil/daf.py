@@ -4296,14 +4296,25 @@ class Daf:
 
         A list with more values than the columns raises `ValueError`. A short list is padded
         with NULL. With no columns defined, the list is added as it is.
+
+        With columns defined, a copy of the list is added, so the caller can reuse it.
+        The values are already in column order, so no dict is built. Only an upsert by key,
+        `respect_kd=True` with a keyfield, goes through `record_append()`.
         """
         if self.hd:
-            if len(row_la) > len(self.hd):
-                raise ValueError(f"append(): the list has {len(row_la)} values for {len(self.hd)} columns.")
-            # columns are defined, and keyfield might also be defined
-            # create a dict.
-            da = dict(zip(self.hd.keys(), row_la))
-            self.record_append(da, respect_kd=respect_kd)  # <-- this takes care of respecing the row kd (invalidating)
+            num_cols = len(self.hd)
+            if len(row_la) > num_cols:
+                raise ValueError(f"append(): the list has {len(row_la)} values for {num_cols} columns.")
+            if self.keyfield and respect_kd:
+                # upsert by key: record_append() finds and replaces the row with the same key.
+                da = dict(zip(self.hd.keys(), row_la))
+                self.record_append(da, respect_kd=respect_kd)
+                return self
+            rec_la = list(row_la)
+            if len(rec_la) < num_cols:
+                rec_la.extend([''] * (num_cols - len(rec_la)))
+            self.lol.append(rec_la)
+            self._invalidate_kd()       # the kd is rebuilt lazily, only if a keyfield is set.
         else:
             # no columns defined, therefore just append to lol.
             self.lol.append(row_la)
