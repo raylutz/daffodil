@@ -194,3 +194,26 @@ def test_from_lod_fast_does_not_check_the_keys():
 
 def test_from_lod_fast_empty_list():
     assert Daf.from_lod([], cols=['a'], fast=True).columns() == ['a']
+
+
+def test_append_keyedlist_adds_a_copy():
+    from daffodil.keyedlist import KeyedList
+    d = _daf()
+    kl = KeyedList(['k', 'v'], ['c', 3])
+    d.append(kl)
+    kl['v'] = 99
+    assert d.lol[-1] == ['c', 3]
+    first = Daf()
+    first.append(kl)
+    kl['v'] = 100
+    assert first.lol == [['c', 99]]
+
+
+def test_fast_list_filled_in_place_gives_the_same_row_each_time():
+    # The documented trap: with fast=True the Daf keeps the list itself.
+    d = Daf(cols=['k', 'v'])
+    buf = ['', 0]
+    for k, v in (('a', 1), ('b', 2)):
+        buf[0], buf[1] = k, v
+        d.append(buf, fast=True)
+    assert d.lol == [['b', 2], ['b', 2]]

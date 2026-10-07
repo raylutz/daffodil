@@ -13,6 +13,7 @@ all prior releases. Plans for future moved to ROADMAP.md.
 - A profiling mode, `daffodil/lib/daf_profile.py`. With `DAFFODIL_PROFILE=1`, or `daf_profile.start()` in code, it records for each table the line that created it, its largest size and the methods called on it, and for each method the calls, time and table sizes. Only outer calls are counted. When it is off, nothing is wrapped. The totals are Daf tables with a `stage` column, written at exit to one Markdown file per run. `python -m daffodil.lib.daf_profile combine DIR` adds up the files of the stages of a pipeline with `groupby_cols_reduce()`, and writes a report for all stages and for each stage. Call sites are module and line, so they match across runs. See the Profiling mode page of the docs. Tests in `tests/test_daf_profile.py`, and the whole suite passes with it on.
 
 ### Fixed
+- `append()` of a KeyedList, without `fast`, now adds a copy of its values. It added the KeyedList's own value list, so changing the KeyedList afterwards changed the table. Without `fast`, `append()` now never keeps the caller's object.
 - Selecting rows took time in proportion to the size of the whole table. `clone_empty()`, which every selection uses, copied the full row list and then replaced it with the selected rows. A one-cell read such as `daf[i, 'a']` took 796 µs on 100,000 rows. It now takes about 30 µs at any size. Tests in `tests/test_daf_shared_rows.py`.
 
 ### Changed

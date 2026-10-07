@@ -4193,7 +4193,9 @@ class Daf:
 
         With `fast=True` nothing is checked and nothing is copied. Use it when you build
         each row yourself in column order, as in a loop. A list, or the value list of a
-        KeyedList, becomes the row itself, so do not change it afterwards. A dict
+        KeyedList, becomes the row itself, so do not change it afterwards. Giving a variable
+        a new list each time is fine. Filling one list in place and appending it again is
+        not: every row is then that same list. A dict
         gives its values in its own order, so its keys must be in column order, and
         complete. A row that breaks this is added anyway, and its values land in the
         wrong columns. `fast` makes no difference to the first row of a Daf with no columns,
@@ -4667,7 +4669,7 @@ class Daf:
                 # self.hd is a real dict everywhere else in this class -- record.hd is a
                 # KeyedIndex; .to_dict() gives the equivalent {key: position} dict.
                 self.hd = cast(Dict[str, int], record.hd.to_dict())
-                self.lol = [record.values()]
+                self.lol = [list(record.values())]     # a copy: values() is the KeyedList's own list.
 
             elif isinstance(record, dict):
                 self.hd = type(self)._build_hd(record.keys())
@@ -4693,7 +4695,7 @@ class Daf:
             rec_la = [record.get(col, '') for col in self.hd]
         # not reordering, slightly different
         elif isinstance(record, KeyedList):
-            rec_la = record.values()        # returns a list.
+            rec_la = list(record.values())  # a copy: values() is the KeyedList's own list.
         elif isinstance(record, dict):
             rec_la = list(record.values())  # must copy into a list.
         else:
