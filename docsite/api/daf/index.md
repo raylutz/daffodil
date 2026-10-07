@@ -1,5 +1,7 @@
 # Daf overview
 
+![The Daffodil data model: lol, hd, kd and dtypes](../../images/data_model.svg)
+
 ::: daffodil.daf.Daf
     options:
       members: false
