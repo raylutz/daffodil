@@ -87,3 +87,110 @@ def test_append_list_matches_append_dict():
         b.append(dict(zip(['k', 'v'], row)))
     assert a.lol == b.lol
     assert a.keys() == b.keys()
+
+
+# append(fast=True): no checks and no copies.
+
+def test_fast_list_is_kept_as_the_row():
+    d = _daf()
+    row = ['c', 3]
+    d.append(row, fast=True)
+    assert d.lol[-1] is row
+
+
+def test_fast_keyedlist_keeps_its_value_list():
+    from daffodil.keyedlist import KeyedList
+    d = _daf()
+    kl = KeyedList(['k', 'v'], ['c', 3])
+    d.append(kl, fast=True)
+    assert d.lol[-1] == ['c', 3]
+    assert d.lol[-1] is kl.values()
+
+
+def test_fast_dict_takes_its_values_in_order():
+    d = _daf()
+    d.append({'k': 'c', 'v': 3}, fast=True)
+    assert d.lol[-1] == ['c', 3]
+
+
+def test_fast_does_not_check_the_order_of_a_dict():
+    d = _daf()
+    d.append({'v': 3, 'k': 'c'}, fast=True)        # keys out of order: the caller broke the promise
+    assert d.lol[-1] == [3, 'c']
+
+
+def test_fast_with_keyfield_updates_key_lookup():
+    d = _daf(keyfield='k')
+    assert d.select_record('b') == {'k': 'b', 'v': 2}
+    d.append(['c', 3], fast=True)
+    assert d.select_record('c') == {'k': 'c', 'v': 3}
+
+
+def test_fast_with_respect_kd_still_replaces_the_row_with_the_same_key():
+    d = _daf(keyfield='k')
+    d.append(['a', 10], respect_kd=True, fast=True)
+    assert d.num_rows() == 2 and d.lol[0] == ['a', 10]
+
+
+def test_fast_empty_row_adds_nothing():
+    d = _daf()
+    d.append([], fast=True)
+    d.append({}, fast=True)
+    assert d.num_rows() == 2
+
+
+def test_fast_first_row_of_a_daf_without_columns_sets_the_columns():
+    d = Daf()
+    d.append({'k': 'a', 'v': 1}, fast=True)
+    assert d.columns() == ['k', 'v'] and d.lol == [['a', 1]]
+
+
+def test_fast_list_of_dicts_is_several_rows():
+    d = _daf()
+    d.append([{'k': 'c', 'v': 3}, {'k': 'd', 'v': 4}], fast=True)
+    assert d.lol[-2:] == [['c', 3], ['d', 4]]
+
+
+def test_fast_lol_and_la():
+    d = _daf()
+    rows = [['c', 3], ['d', 4]]
+    d.append(lol=rows, fast=True)
+    assert d.lol[-1] is rows[1]
+    d.append(la=[{'x': 1}, 'e'], fast=True)          # la is one row, even if its first item is a dict
+    assert d.lol[-1] == [{'x': 1}, 'e']
+
+
+def test_fast_matches_the_checked_append_for_good_rows():
+    from daffodil.keyedlist import KeyedList
+    rows = [['c', 3], {'k': 'd', 'v': 4}, KeyedList(['k', 'v'], ['e', 5])]
+    checked, fast = _daf(keyfield='k'), _daf(keyfield='k')
+    for row in rows:
+        checked.append(row)
+        fast.append(row, fast=True)
+    assert checked.lol == fast.lol
+    assert checked.keys() == fast.keys()
+
+
+# from_lod(fast=True)
+
+def test_from_lod_fast_matches_from_lod_for_good_records():
+    lod = [{'k': 'a', 'v': 1}, {'k': 'b', 'v': 2}]
+    assert Daf.from_lod(lod, fast=True).lol == Daf.from_lod(lod).lol
+    assert Daf.from_lod(lod, fast=True).columns() == ['k', 'v']
+    d = Daf.from_lod(lod, keyfield='k', fast=True)
+    assert d.select_record('b') == {'k': 'b', 'v': 2}
+
+
+def test_from_lod_fast_uses_cols_or_dtypes_as_the_columns():
+    lod = [{'k': 'a', 'v': 1}]
+    assert Daf.from_lod(lod, cols=['key', 'val'], fast=True).columns() == ['key', 'val']
+    assert Daf.from_lod(lod, dtypes={'k': str, 'v': int}, fast=True).columns() == ['k', 'v']
+
+
+def test_from_lod_fast_does_not_check_the_keys():
+    lod = [{'k': 'a', 'v': 1}, {'v': 2, 'k': 'b'}]  # second dict out of order: the caller broke the promise
+    assert Daf.from_lod(lod, fast=True).lol == [['a', 1], [2, 'b']]
+
+
+def test_from_lod_fast_empty_list():
+    assert Daf.from_lod([], cols=['a'], fast=True).columns() == ['a']

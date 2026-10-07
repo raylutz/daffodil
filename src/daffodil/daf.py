@@ -2427,6 +2427,7 @@ class Daf:
             name:           str                         = '',   # Optional name of the daffodil instance.
             cols:           T_ls | None                 = None, # Optionally use cols to define column names
             ignore_extra_keys: bool                     = False,# With cols or dtypes, leave out keys that are not columns, and do not raise.
+            fast:           bool                        = False,# Every dict has all the columns, in column order: no checks.
             ) -> 'Daf':
         """
         Make a Daf from a list of dicts, one dict for each row.
@@ -2443,6 +2444,12 @@ class Daf:
         Pass `ignore_extra_keys=True` to leave such keys out on purpose, as when you
         pick a few columns of wide records.
 
+        With `fast=True` nothing is checked. Use it when you built every dict yourself,
+        with the same keys in the same order, as in a loop. Each row is the values of a
+        dict, in the dict's own order. The columns are `cols`, or the keys of `dtypes`, or
+        the keys of the first dict. A dict whose keys are missing or in another order is
+        added anyway, and its values land in the wrong columns.
+
         Args:
             records_lod: The rows, as dicts.
             keyfield: Column, or tuple or list of columns, whose values identify rows.
@@ -2450,6 +2457,7 @@ class Daf:
             name: Name of the new Daf.
             cols: Column names to use, in order.
             ignore_extra_keys: With `cols` or `dtypes`, leave out keys that are not columns, and do not raise.
+            fast: If True, take each dict's values as a row, with no checks. See above.
 
         Returns:
             The new Daf.
@@ -2514,6 +2522,13 @@ class Daf:
 
         if not records_lod:
             return cls(cols=cols, keyfield=keyfield, dtypes=dtypes)
+
+        if fast:
+            # the caller promises the same keys, in column order, in every dict.
+            if not cols:
+                cols = list(dtypes.keys()) if dtypes else list(records_lod[0].keys())
+            lol = [list(record_da.values()) for record_da in records_lod]
+            return cls(cols=cols, lol=lol, keyfield=keyfield, dtypes=dtypes, name=name)
 
         if cols or dtypes:
             # the caller chose the columns. A key that is not one of them would be lost, so stop and say so,
@@ -4139,6 +4154,7 @@ class Daf:
             *,
             lol:        T_lola | None = None,
             la:         T_la | None = None,
+            fast:       bool = False,
             ) -> 'Daf':
         """
         Add one row, or several, to the end of the Daf.
@@ -4172,7 +4188,16 @@ class Daf:
         row that has the same key instead. That looks the key up on every call, so
         it costs more when you add many rows one at a time.
 
-        A list you pass in is added as the row itself, not as a copy.
+        With columns defined, a list is added as a copy, so you can reuse it. With no
+        columns, the list itself is added.
+
+        With `fast=True` nothing is checked and nothing is copied. Use it when you build
+        each row yourself in column order, as in a loop. A list, or the value list of a
+        KeyedList, becomes the row itself, so do not change it afterwards. A dict
+        gives its values in its own order, so its keys must be in column order, and
+        complete. A row that breaks this is added anyway, and its values land in the
+        wrong columns. `fast` makes no difference to the first row of a Daf with no columns,
+        to a Daf or a list of dicts, or with `respect_kd=True` and a keyfield.
 
         None, an empty dict, an empty list and an empty Daf add nothing.
 
@@ -4181,6 +4206,7 @@ class Daf:
             respect_kd: If True, replace the row that has the same key. If False, the default, add it.
             lol: Several rows, each a list of values in column order.
             la: One row, as a list of values in column order. Its items are not read as rows.
+            fast: If True, add the row with no checks and no copy. See above.
 
         Returns:
             This Daf, which has been changed.
@@ -4251,6 +4277,32 @@ class Daf:
         # test exists in test_daf.py for all three cases
 
         diagnose = False
+
+        if fast and self.hd and not (respect_kd and self.keyfield):
+            # the caller promises complete rows in column order: no checks, no copies.
+            row: Any = None
+            if lol is not None and data_item is None and la is None:
+                self.lol.extend(lol)
+                self._invalidate_kd()
+                return self
+            if la is not None and data_item is None:
+                row = la
+            elif data_item is not None and la is None and lol is None:
+                row = data_item
+                if isinstance(row, list) and row and isinstance(row[0], dict):
+                    row = None                          # a list of dicts is several rows: the usual path
+            if row:
+                if isinstance(row, list):
+                    self.lol.append(row)
+                elif isinstance(row, KeyedList):
+                    self.lol.append(row.values())
+                elif isinstance(row, dict):
+                    self.lol.append(list(row.values()))
+                else:
+                    row = None
+                if row is not None:
+                    self._invalidate_kd()
+                    return self
 
         if (data_item is not None) + (lol is not None) + (la is not None) > 1:
             raise TypeError("append(): give only one of data_item, lol and la.")

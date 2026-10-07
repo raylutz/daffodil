@@ -33,6 +33,10 @@ def run(name, big):
         obj = Daf(cols=cols)
         for r in gen_rows(big): obj.append(r)
         t1 = time.perf_counter()
+    elif name == 'daf-fast':               # append each row to the Daf, with no checks and no copy
+        obj = Daf(cols=cols)
+        for r in gen_rows(big): obj.append(r, fast=True)
+        t1 = time.perf_counter()
     elif name == 'daf-lol':                # append a list per row, then wrap
         lol = []
         for r in gen_rows(big): lol.append(r)
@@ -60,7 +64,7 @@ if __name__ == '__main__':
     for big in ('small', 'big'):
         print(f'\nints: {"0 to 1,000,002 (distinct objects)" if big=="big" else "0 to 99 (shared small ints)"}')
         print(f'{"case":12} {"build ms":>9} {"convert ms":>10} {"total ms":>9} {"peak MB":>8} {"kept MB":>8}')
-        for name in ('pandas-lod', 'pandas-lol', 'pandas-dol', 'daf-append', 'daf-lol'):
+        for name in ('pandas-lod', 'pandas-lol', 'pandas-dol', 'daf-append', 'daf-fast', 'daf-lol'):
             t = subprocess.run([sys.executable, __file__, name, big, 'time'], capture_output=True, text=True).stdout.split()
             m = subprocess.run([sys.executable, __file__, name, big, 'mem'], capture_output=True, text=True).stdout.split()
             b, c = int(t[0]), int(t[1])
