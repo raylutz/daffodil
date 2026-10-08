@@ -13,8 +13,11 @@ Changed in daffodil since that report, all in CHANGELOG.md under Unreleased:
 - `append()` of a KeyedList that shares the Daf's `hd` skips the column check. With `fast=True` it also skips the
   copy. At 1,000 columns, building and appending a row took about 90 µs as a dict, 24 µs as a KeyedList sharing
   the `hd`, and 1.7 µs with `fast=True`.
-- `fast=True` checks the first row added to an empty Daf fully, and every row for its number of values. A row that
-  fails raises ValueError. This length check was added after f40d286, on the branch fast-length-check.
+- `fast=True`: a KeyedList row must share the Daf's `hd`, and then nothing else is checked. A KeyedList with its own
+  `hd` raises ValueError, even if its keys match. A dict or a list is checked fully if it is the first row of an
+  empty Daf, and otherwise only for its number of values. A row that fails raises ValueError.
+  At f40d286 and f096310 only the first-row check exists. The KeyedList rule and the length check are on the
+  daffodil branch fast-length-check, and reach main after your run.
 
 ## The task
 
@@ -57,7 +60,7 @@ Move the hot append loops. Start with the two sites the report found, analysis_u
 The KeyedList shares the hd of some_daf, so its keys are the columns, in order. That is why it is safe to skip the check. A site qualifies only if all of these hold:
 - The row comes from default_record(astype=KeyedList) of the same Daf it is appended to.
 - The row is new for each append. It is not appended twice, and not changed after the append. With fast=True the table keeps the row's own list, so a later change to the row changes the table.
-- Every key set on the row is a column. A key that is not a column gives the row its own hd, and it is then checked by name, and the extra key is dropped, as before with a dict.
+- Every key set on the row is a column. A key that is not a column gives the row its own hd. Without fast, such a row is placed by column name and the extra key is dropped, as with a dict. With fast=True it raises ValueError once the branch fast-length-check is merged. Before that, at f40d286 and f096310, it is added as it is, with too many values. That is a daffodil bug, fixed on that branch, not something to work around.
 - The row is not used as a plain dict before the append. A KeyedList is not a dict. isinstance(row, dict) is False. json.dumps(row) fails. It has no copy(), setdefault() or pop(). row == a_dict is False. {**row}, dict(row), row.to_dict(), row.get(), row.update(), 'k' in row, iteration and row.items() work. If the row is passed to a helper, read the helper.
 For each site, before you change it:
 - Measure the time of the stage, or of the loop, on the functional job, with the current code.

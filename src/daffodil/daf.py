@@ -4200,10 +4200,11 @@ class Daf:
         `iter_klist()`, shares its `hd`. Its keys are then the columns, so its columns are not
         checked. Its values are still copied.
 
-        With `fast=True` nothing is copied. The first row added to an empty Daf is checked
-        fully: it must have the columns as its keys, in order, or one value for each column if
-        it is a list. Every later row is checked only for its number of values. A row that fails
-        raises `ValueError`.
+        With `fast=True` nothing is copied. A KeyedList must share the `hd` of this Daf, and
+        then nothing else is checked. A dict or a list is checked fully if it is the first row
+        added to an empty Daf: a dict must have the columns as its keys, in order, and a list one
+        value for each column. Every later dict or list is checked only for its number of values.
+        A row that fails raises `ValueError`.
         Use it when you build each row yourself in column order, as in a loop, best with
         `default_record()`. A list, or the value list of a KeyedList, becomes the row itself,
         so do not change it afterwards. Giving a variable a new list each time is fine.
@@ -4312,7 +4313,15 @@ class Daf:
                 row = data_item
                 if isinstance(row, list) and row and isinstance(row[0], dict):
                     row = None                          # a list of dicts is several rows: the usual path
-            if row and isinstance(row, (list, KeyedList, dict)):
+            if isinstance(row, KeyedList):
+                # a KeyedList qualifies only if it shares the hd of this Daf. Then its keys are the
+                # columns, and nothing else needs checking.
+                if row.hd is not self.hd:
+                    raise ValueError(
+                        "append(fast=True): a KeyedList row must share the hd of this Daf, as one from "
+                        "default_record(astype=KeyedList), iloc() or iter_klist() does. Leave out fast to "
+                        "add it by column name.")
+            elif row and isinstance(row, (list, dict)):
                 if not self.lol:
                     self._check_first_fast_row(row)
                 elif len(row) != len(self.hd):          # every row: the number of values
@@ -4757,16 +4766,14 @@ class Daf:
         """
         With fast=True, check the first row added to an empty Daf. Internal.
 
-        A KeyedList or a dict must have the columns as its keys, in order. A list must have one
-        value for each column.
+        A dict must have the columns as its keys, in order. A list must have one value for each
+        column. A KeyedList is checked by append() itself: it must share the hd of the Daf.
 
         Raises:
             ValueError: The row does not match the columns.
         """
         num_cols = len(self.hd)
-        if isinstance(row, KeyedList):
-            fits = (row.hd is self.hd or list(row.hd) == self._col_names()) and len(row._values) == num_cols
-        elif isinstance(row, dict):
+        if isinstance(row, dict):
             fits = list(row) == self._col_names()
         else:
             fits = len(row) == num_cols

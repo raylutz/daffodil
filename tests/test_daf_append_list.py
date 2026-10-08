@@ -101,7 +101,8 @@ def test_fast_list_is_kept_as_the_row():
 def test_fast_keyedlist_keeps_its_value_list():
     from daffodil.keyedlist import KeyedList
     d = _daf()
-    kl = KeyedList(['k', 'v'], ['c', 3])
+    kl = d.default_record(astype=KeyedList)
+    kl['k'], kl['v'] = 'c', 3
     d.append(kl, fast=True)
     assert d.lol[-1] == ['c', 3]
     assert d.lol[-1] is kl.values()
@@ -162,11 +163,12 @@ def test_fast_lol_and_la():
 
 def test_fast_matches_the_checked_append_for_good_rows():
     from daffodil.keyedlist import KeyedList
-    rows = [['c', 3], {'k': 'd', 'v': 4}, KeyedList(['k', 'v'], ['e', 5])]
     checked, fast = _daf(keyfield='k'), _daf(keyfield='k')
-    for row in rows:
+    for row in (['c', 3], {'k': 'd', 'v': 4}):
         checked.append(row)
         fast.append(row, fast=True)
+    checked.append(KeyedList(checked.hd, ['e', 5]))
+    fast.append(KeyedList(fast.hd, ['e', 5]), fast=True)
     assert checked.lol == fast.lol
     assert checked.keys() == fast.keys()
 
@@ -233,17 +235,25 @@ def test_fast_first_row_of_an_empty_daf_is_checked():
 
 def test_fast_first_row_that_fits_is_added():
     from daffodil.keyedlist import KeyedList
-    for good in ({'k': 'a', 'v': 1}, ['a', 1], KeyedList(['k', 'v'], ['a', 1])):
+    for good in ({'k': 'a', 'v': 1}, ['a', 1], None):
         d = Daf(cols=['k', 'v'])
-        d.append(good, fast=True)
+        d.append(good if good is not None else KeyedList(d.hd, ['a', 1]), fast=True)
         assert d.lol == [['a', 1]]
 
 
-def test_fast_first_row_keyedlist_with_its_own_hd_in_another_order_raises():
+def test_fast_keyedlist_with_its_own_hd_raises_even_if_its_keys_match():
     from daffodil.keyedlist import KeyedList
-    d = Daf(cols=['k', 'v'])
-    with pytest.raises(ValueError, match='first row'):
-        d.append(KeyedList(['v', 'k'], [1, 'a']), fast=True)
+    for d in (Daf(cols=['k', 'v']), _daf()):
+        for row in (KeyedList(['k', 'v'], ['a', 1]), KeyedList(['v', 'k'], [1, 'a'])):
+            with pytest.raises(ValueError, match='share the hd'):
+                d.append(row, fast=True)
+    d = _daf()
+    row = d.default_record(astype=KeyedList)
+    row['extra'] = 'x'                              # a new key gives the row its own hd
+    with pytest.raises(ValueError, match='share the hd'):
+        d.append(row, fast=True)
+    d.append(row)                                   # without fast, it is added by column name
+    assert d.lol[-1] == ['', '']
 
 
 def test_fast_lol_into_an_empty_daf_checks_its_first_row():
@@ -295,7 +305,7 @@ def test_the_kept_column_list_follows_a_change_of_columns():
 
 def test_fast_later_row_of_the_wrong_length_raises():
     from daffodil.keyedlist import KeyedList
-    for bad in (['a'], ['a', 1, 'x'], {'k': 'a'}, KeyedList(['k'], ['a'])):
+    for bad in (['a'], ['a', 1, 'x'], {'k': 'a'}):
         d = _daf()
         with pytest.raises(ValueError, match='values for 2 columns'):
             d.append(bad, fast=True)
