@@ -122,6 +122,32 @@ NULL = ''                       # instead of var == '' use var is NULL
 # define a sentinel object to express a missing item where None is a valid value.
 from daffodil.lib.daf_utils import _MISSING
 
+def _short_list(items: T_la, limit: int = 5) -> str:
+    """ A list as text, cut to its first few items. Internal, for error messages. """
+    if len(items) <= limit:
+        return repr(items)
+    return repr(items[:limit])[:-1] + f", ... {len(items) - limit} more]"
+
+
+def _keys_mismatch(keys: Iterable[Any], cols: T_la) -> str:
+    """ How keys differ from cols: the missing columns, the keys that are not columns, or the first one out of order. Internal. """
+    keys_la = list(keys)
+    keyset, colset = set(keys_la), set(cols)
+    missing = [col for col in cols if col not in keyset]
+    extra = [key for key in keys_la if key not in colset]
+    parts = []
+    if missing:
+        parts.append(f"it lacks the columns {_short_list(missing)}")
+    if extra:
+        parts.append(f"it has keys that are not columns, {_short_list(extra)}")
+    if not parts:
+        for pos, (key, col) in enumerate(zip(keys_la, cols)):
+            if key != col:
+                parts.append(f"its keys are in another order: position {pos} holds {key!r}, where the column is {col!r}")
+                break
+    return '; '.join(parts) if parts else "its keys are the columns, in order"
+
+
 class DaffodilError(Exception):
     """Base exception for Daffodil."""
 
@@ -2526,13 +2552,17 @@ class Daf:
                 cols = list(dtypes.keys()) if dtypes else list(records_lod[0].keys())
             elif list(records_lod[0]) != list(cols):
                 raise ValueError(
-                    f"from_lod(fast=True): the first dict must have the columns as its keys, in order. "
-                    f"Its keys are {list(records_lod[0])[:5]}, and the columns are {list(cols)[:5]}.")
+                    f"from_lod(fast=True): dict 0 does not match the columns {_short_list(list(cols))}: "
+                    f"{_keys_mismatch(records_lod[0], list(cols))}. With fast=True the first dict must have "
+                    f"the columns as its keys, in order. Leave out fast to place the values by key.")
             num_cols = len(cols)
             lol = [list(record_da.values()) for record_da in records_lod]
             for irow, row_la in enumerate(lol):
                 if len(row_la) != num_cols:
-                    raise ValueError(f"from_lod(fast=True): dict {irow} has {len(row_la)} keys for {num_cols} columns.")
+                    raise ValueError(
+                        f"from_lod(fast=True): dict {irow} has {len(row_la)} keys for {num_cols} columns: "
+                        f"{_keys_mismatch(records_lod[irow], list(cols))}. With fast=True every dict must have "
+                        f"the same keys as the columns, in the same order. Leave out fast to give a missing key NULL.")
             return cls(cols=cols, lol=lol, keyfield=keyfield, dtypes=dtypes, name=name)
 
         if cols or dtypes:
@@ -4303,7 +4333,12 @@ class Daf:
                 num_cols = len(self.hd)
                 for irow, row_la in enumerate(lol):
                     if len(row_la) != num_cols:
-                        raise ValueError(f"append(fast=True): row {irow} of lol has {len(row_la)} values for {num_cols} columns.")
+                        fix = ("Leave out fast to pad a short row with NULL." if len(row_la) < num_cols
+                               else "A row longer than the columns is an error with or without fast.")
+                        raise ValueError(
+                            f"append(fast=True){self._err_name()}: row {irow} of lol has {len(row_la)} values "
+                            f"for {num_cols} columns. With fast=True each row must have one value for each column, "
+                            f"in column order. Nothing was added. {fix}")
                 self.lol.extend(lol)
                 self._invalidate_kd()
                 return self
@@ -4317,15 +4352,21 @@ class Daf:
                 # a KeyedList qualifies only if it shares the hd of this Daf. Then its keys are the
                 # columns, and nothing else needs checking.
                 if row.hd is not self.hd:
+                    if list(row.hd) == self._col_names():
+                        why = ("its keys are the columns, but it was built separately, or before the columns "
+                               "of this Daf changed")
+                    else:
+                        why = _keys_mismatch(row.hd, self._col_names())
                     raise ValueError(
-                        "append(fast=True): a KeyedList row must share the hd of this Daf, as one from "
-                        "default_record(astype=KeyedList), iloc() or iter_klist() does. Leave out fast to "
-                        "add it by column name.")
+                        f"append(fast=True){self._err_name()}: the KeyedList for row {len(self.lol)} does not share "
+                        f"the hd of this Daf, so its keys are not known to be the columns: {why}. Make the row "
+                        f"with default_record(astype=KeyedList) of this Daf, and set only keys that are columns, "
+                        f"or leave out fast to place its values by column name.")
             elif row and isinstance(row, (list, dict)):
                 if not self.lol:
                     self._check_first_fast_row(row)
                 elif len(row) != len(self.hd):          # every row: the number of values
-                    raise ValueError(f"append(fast=True): the row has {len(row)} values for {len(self.hd)} columns.")
+                    self._raise_fast_length(row)
             if row:
                 if isinstance(row, list):
                     self.lol.append(row)
@@ -4774,14 +4815,35 @@ class Daf:
         """
         num_cols = len(self.hd)
         if isinstance(row, dict):
-            fits = list(row) == self._col_names()
-        else:
-            fits = len(row) == num_cols
-        if not fits:
+            if list(row) != self._col_names():
+                raise ValueError(
+                    f"append(fast=True){self._err_name()}: row 0, the first row of an empty Daf, does not match "
+                    f"the columns {_short_list(self._col_names())}: {_keys_mismatch(row, self._col_names())}. "
+                    f"With fast=True the first row must have the columns as its keys, in order. Make it with "
+                    f"default_record(), or leave out fast to place its values by key.")
+        elif len(row) != num_cols:
+            self._raise_fast_length(row)
+
+
+    def _raise_fast_length(self, row: Any) -> None:
+        """ With fast=True, raise for a dict or list row with the wrong number of values. Internal. """
+        num_cols = len(self.hd)
+        if isinstance(row, dict):
             raise ValueError(
-                f"append(fast=True): the first row of an empty Daf must match its columns, "
-                f"{self._col_names()[:5]}{'...' if num_cols > 5 else ''}, in order. Build the row with "
-                f"default_record(), or leave out fast.")
+                f"append(fast=True){self._err_name()}: row {len(self.lol)} has {len(row)} keys for {num_cols} "
+                f"columns: {_keys_mismatch(row, self._col_names())}. With fast=True a dict must have the "
+                f"columns as its keys, in order. Make it with default_record(), or leave out fast to give a "
+                f"missing key NULL.")
+        fix = ("Leave out fast to pad a short list with NULL." if len(row) < num_cols
+               else "A list longer than the columns is an error with or without fast.")
+        raise ValueError(
+            f"append(fast=True){self._err_name()}: row {len(self.lol)} has {len(row)} values for {num_cols} "
+            f"columns. With fast=True a list must have one value for each column, in column order. {fix}")
+
+
+    def _err_name(self) -> str:
+        """ ' to Daf name' for an error message, or nothing for a Daf with no name. Internal. """
+        return f" to Daf {self.name!r}" if self.name else ""
 
 
     def _basic_append(self, row: KeyedList | Dict[Any, Any] | list) -> 'Daf':

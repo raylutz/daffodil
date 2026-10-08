@@ -187,7 +187,7 @@ def test_from_lod_fast_uses_cols_or_dtypes_as_the_columns():
     lod = [{'k': 'a', 'v': 1}]
     assert Daf.from_lod(lod, cols=['k', 'v'], fast=True).columns() == ['k', 'v']
     assert Daf.from_lod(lod, dtypes={'k': str, 'v': int}, fast=True).columns() == ['k', 'v']
-    with pytest.raises(ValueError, match='first dict'):
+    with pytest.raises(ValueError, match='dict 0 does not match'):
         Daf.from_lod(lod, cols=['key', 'val'], fast=True)       # cols does not rename
 
 
@@ -225,12 +225,6 @@ def test_fast_list_filled_in_place_gives_the_same_row_each_time():
 
 # fast=True checks only the first row of an empty Daf
 
-def test_fast_first_row_of_an_empty_daf_is_checked():
-    for bad in ({'v': 1, 'k': 'a'}, ['a'], ['a', 1, 'x']):
-        d = Daf(cols=['k', 'v'])
-        with pytest.raises(ValueError, match='first row'):
-            d.append(bad, fast=True)
-        assert d.num_rows() == 0
 
 
 def test_fast_first_row_that_fits_is_added():
@@ -256,14 +250,10 @@ def test_fast_keyedlist_with_its_own_hd_raises_even_if_its_keys_match():
     assert d.lol[-1] == ['', '']
 
 
-def test_fast_lol_into_an_empty_daf_checks_its_first_row():
-    d = Daf(cols=['k', 'v'])
-    with pytest.raises(ValueError, match='first row'):
-        d.append(lol=[['a'], ['b', 2]], fast=True)
 
 
 def test_from_lod_fast_checks_the_first_dict_against_cols():
-    with pytest.raises(ValueError, match='first dict'):
+    with pytest.raises(ValueError, match='dict 0 does not match'):
         Daf.from_lod([{'v': 1, 'k': 'a'}], cols=['k', 'v'], fast=True)
     assert Daf.from_lod([{'k': 'a', 'v': 1}], cols=['k', 'v'], fast=True).lol == [['a', 1]]
 
@@ -303,13 +293,6 @@ def test_the_kept_column_list_follows_a_change_of_columns():
 
 # fast=True checks the length of every row
 
-def test_fast_later_row_of_the_wrong_length_raises():
-    from daffodil.keyedlist import KeyedList
-    for bad in (['a'], ['a', 1, 'x'], {'k': 'a'}):
-        d = _daf()
-        with pytest.raises(ValueError, match='values for 2 columns'):
-            d.append(bad, fast=True)
-        assert d.num_rows() == 2
 
 
 def test_fast_lol_checks_the_length_of_every_row():
@@ -320,5 +303,73 @@ def test_fast_lol_checks_the_length_of_every_row():
 
 
 def test_from_lod_fast_checks_the_length_of_every_dict():
-    with pytest.raises(ValueError, match='dict 1 has 1 keys'):
+    with pytest.raises(ValueError, match='dict 1 has 1 keys for 2 columns'):
         Daf.from_lod([{'k': 'a', 'v': 1}, {'k': 'b'}], fast=True)
+
+
+# the error messages of fast=True say what is wrong, where, and how to fix it
+
+def _fast_error(daf, *args, **kwargs):
+    with pytest.raises(ValueError) as err:
+        daf.append(*args, fast=True, **kwargs)
+    return str(err.value)
+
+
+def test_fast_error_first_row_dict_out_of_order():
+    msg = _fast_error(Daf(cols=['k', 'v']), {'v': 1, 'k': 'a'})
+    assert "row 0, the first row of an empty Daf" in msg
+    assert "position 0 holds 'v', where the column is 'k'" in msg
+    assert "default_record()" in msg and "leave out fast" in msg
+
+
+def test_fast_error_first_row_list_of_the_wrong_length():
+    for bad in (['a'], ['a', 1, 'x']):
+        d = Daf(cols=['k', 'v'])
+        assert f"row 0 has {len(bad)} values for 2 columns" in _fast_error(d, bad)
+        assert d.num_rows() == 0
+
+
+def test_fast_error_later_rows_of_the_wrong_length():
+    assert "row 2 has 1 values for 2 columns" in _fast_error(_daf(), ['a'])
+    msg = _fast_error(_daf(), {'k': 'a'})
+    assert "row 2 has 1 keys for 2 columns" in msg and "it lacks the columns ['v']" in msg
+    msg = _fast_error(_daf(), {'k': 'a', 'v': 1, 'x': 2})
+    assert "it has keys that are not columns, ['x']" in msg
+
+
+def test_fast_error_lol_names_the_row_and_adds_nothing():
+    d = _daf()
+    assert "row 1 of lol has 1 values for 2 columns" in _fast_error(d, lol=[['c', 3], ['d']])
+    assert "Nothing was added" in _fast_error(d, lol=[['c', 3], ['d']])
+    assert d.num_rows() == 2
+    assert "row 0 has 1 values for 2 columns" in _fast_error(Daf(cols=['k', 'v']), lol=[['a'], ['b', 2]])
+
+
+def test_fast_error_keyedlist_says_why_it_does_not_share_the_hd():
+    from daffodil.keyedlist import KeyedList
+    d = _daf()
+    assert "built separately, or before the columns" in _fast_error(d, KeyedList(['k', 'v'], ['a', 1]))
+    row = d.default_record(astype=KeyedList)
+    row['extra'] = 'x'
+    msg = _fast_error(d, row)
+    assert "the KeyedList for row 2 does not share the hd" in msg
+    assert "it has keys that are not columns, ['extra']" in msg
+    assert "default_record(astype=KeyedList)" in msg
+
+
+def test_fast_error_names_the_daf():
+    d = Daf(cols=['k', 'v'], name='marks')
+    assert "append(fast=True) to Daf 'marks':" in _fast_error(d, ['a'])
+
+
+def test_fast_error_shortens_a_long_list_of_columns():
+    d = Daf(cols=[f'c{i}' for i in range(20)])
+    msg = _fast_error(d, {'c1': 0})
+    assert "... 15 more]" in msg
+
+
+def test_from_lod_fast_error_names_the_dict_and_the_keys():
+    msg = str(pytest.raises(ValueError, Daf.from_lod, [{'k': 'a', 'v': 1}, {'k': 'b'}], fast=True).value)
+    assert "dict 1 has 1 keys for 2 columns" in msg and "it lacks the columns ['v']" in msg
+    msg = str(pytest.raises(ValueError, Daf.from_lod, [{'v': 1, 'k': 'a'}], cols=['k', 'v'], fast=True).value)
+    assert "dict 0 does not match the columns ['k', 'v']" in msg and "position 0 holds 'v'" in msg
