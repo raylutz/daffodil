@@ -143,10 +143,14 @@ def test_daf_default_record_via_schemaclass():
     assert daf.default_record() == {'name': '', 'age': 0, 'tags': []}
 
 
-def test_daf_default_record_no_schema_raises():
+def test_daf_default_record_no_schema_gives_null_in_every_column():
     daf = Daf(lol=[[1, 'a']], cols=['id', 'name'])
+    assert daf.default_record() == {'id': '', 'name': ''}
+
+
+def test_daf_default_record_no_columns_and_no_schema_raises():
     with pytest.raises(AttributeError):
-        daf.default_record()
+        Daf().default_record()
 
 
 def test_attach_schema_sets_keyfield_from_dunder():
@@ -245,3 +249,48 @@ def test_apply_schema_rejects_non_schema():
         with pytest.raises(TypeError, match='apply_schema'):
             daf.apply_schema(bad)  # type: ignore[arg-type]
     assert daf.schema is None
+
+
+# default_record() follows the columns of the Daf
+
+def _person_schema():
+    @schemaclass
+    class Person(SchemaBase):
+        name: str = 'none'
+        age: int = 0
+        tags: list = []
+    return Person
+
+
+def test_default_record_follows_the_columns_of_the_daf():
+    Person = _person_schema()
+    assert Daf(schema=Person).default_record() == {'name': 'none', 'age': 0, 'tags': []}
+    d = Daf(cols=['age', 'city', 'name'], schema=Person)       # some of the schema, in another order
+    assert d.default_record() == {'age': 0, 'city': '', 'name': 'none'}
+
+
+def test_default_record_gives_a_new_mutable_default_each_time():
+    d = Daf(schema=_person_schema())
+    first, second = d.default_record(), d.default_record()
+    first['tags'].append('x')
+    assert second['tags'] == []
+
+
+def test_default_record_as_keyedlist_shares_the_hd_of_the_daf():
+    from daffodil.keyedlist import KeyedList
+    d = Daf(cols=['age', 'name'], schema=_person_schema())
+    row = d.default_record(astype=KeyedList)
+    assert isinstance(row, KeyedList) and row.hd is d.hd
+    assert row.to_dict() == {'age': 0, 'name': 'none'}
+    assert d.default_record(astype=KeyedList).values() is not row.values()
+
+
+def test_default_record_with_a_schema_daf_follows_the_columns():
+    schema = Daf(lol=[['a', 'int', 1], ['b', 'str', 'x']], cols=['Name', 'dtype', 'Default'])
+    d = Daf(cols=['b', 'c'], schema=schema)
+    assert d.default_record() == {'b': 'x', 'c': ''}
+
+
+def test_default_record_rejects_another_astype():
+    with pytest.raises(TypeError):
+        Daf(cols=['a']).default_record(astype=list)

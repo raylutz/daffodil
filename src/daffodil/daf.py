@@ -2287,9 +2287,7 @@ class Daf:
             return 0.0
 
     #===========================
-    # schema support
-    
-    default_record = daf_schema._default_record
+    # schema support: apply_schema, default_record and attach_schema are assigned above, near the keyfield methods.
 
 
     #===========================
@@ -2440,11 +2438,12 @@ class Daf:
         Pass `ignore_extra_keys=True` to leave such keys out on purpose, as when you
         pick a few columns of wide records.
 
-        With `fast=True` nothing is checked. Use it when you built every dict yourself,
-        with the same keys in the same order, as in a loop. Each row is the values of a
-        dict, in the dict's own order. The columns are `cols`, or the keys of `dtypes`, or
-        the keys of the first dict. A dict whose keys are missing or in another order is
-        added anyway, and its values land in the wrong columns.
+        With `fast=True` only the first dict is checked. Use it when you built every dict
+        yourself, with the same keys in the same order, as in a loop. Each row is the values
+        of a dict, in the dict's own order. The columns are `cols`, or the keys of `dtypes`,
+        or the keys of the first dict. With `cols` or `dtypes`, the first dict must have the
+        columns as its keys, in order, or it raises `ValueError`. A later dict whose keys are
+        missing or in another order is added anyway, and its values land in the wrong columns.
 
         Args:
             records_lod: The rows, as dicts.
@@ -2453,7 +2452,7 @@ class Daf:
             name: Name of the new Daf.
             cols: Column names to use, in order.
             ignore_extra_keys: With `cols` or `dtypes`, leave out keys that are not columns, and do not raise.
-            fast: If True, take each dict's values as a row, with no checks. See above.
+            fast: If True, take each dict's values as a row, and check only the first dict. See above.
 
         Returns:
             The new Daf.
@@ -2520,9 +2519,13 @@ class Daf:
             return cls(cols=cols, keyfield=keyfield, dtypes=dtypes)
 
         if fast:
-            # the caller promises the same keys, in column order, in every dict.
+            # the caller promises the same keys, in column order, in every dict. Only the first is checked.
             if not cols:
                 cols = list(dtypes.keys()) if dtypes else list(records_lod[0].keys())
+            elif list(records_lod[0]) != list(cols):
+                raise ValueError(
+                    f"from_lod(fast=True): the first dict must have the columns as its keys, in order. "
+                    f"Its keys are {list(records_lod[0])[:5]}, and the columns are {list(cols)[:5]}.")
             lol = [list(record_da.values()) for record_da in records_lod]
             return cls(cols=cols, lol=lol, keyfield=keyfield, dtypes=dtypes, name=name)
 
@@ -4187,15 +4190,21 @@ class Daf:
         With columns defined, a list is added as a copy, so you can reuse it. With no
         columns, the list itself is added.
 
-        With `fast=True` nothing is checked and nothing is copied. Use it when you build
-        each row yourself in column order, as in a loop. A list, or the value list of a
-        KeyedList, becomes the row itself, so do not change it afterwards. Giving a variable
-        a new list each time is fine. Filling one list in place and appending it again is
-        not: every row is then that same list. A dict
-        gives its values in its own order, so its keys must be in column order, and
-        complete. A row that breaks this is added anyway, and its values land in the
-        wrong columns. `fast` makes no difference to the first row of a Daf with no columns,
-        to a Daf or a list of dicts, or with `respect_kd=True` and a keyfield.
+        A KeyedList made by this Daf, as by `default_record(astype=KeyedList)`, `iloc()` or
+        `iter_klist()`, shares its `hd`. Its keys are then the columns, so its columns are not
+        checked. Its values are still copied.
+
+        With `fast=True` nothing is copied, and only the first row added to an empty Daf is
+        checked. That row must have the columns as its keys, in order, or one value for each
+        column if it is a list. Otherwise it raises `ValueError`. Later rows are not checked.
+        Use it when you build each row yourself in column order, as in a loop, best with
+        `default_record()`. A list, or the value list of a KeyedList, becomes the row itself,
+        so do not change it afterwards. Giving a variable a new list each time is fine.
+        Filling one list in place and appending it again is not: every row is then that same
+        list. A dict gives its values in its own order. A later row that does not match is
+        added anyway, and its values land in the wrong columns. If you want every row
+        checked, leave out `fast`. `fast` makes no difference to the first row of a Daf with
+        no columns, to a Daf or a list of dicts, or with `respect_kd=True` and a keyfield.
 
         None, an empty dict, an empty list and an empty Daf add nothing.
 
@@ -4204,7 +4213,7 @@ class Daf:
             respect_kd: If True, replace the row that has the same key. If False, the default, add it.
             lol: Several rows, each a list of values in column order.
             la: One row, as a list of values in column order. Its items are not read as rows.
-            fast: If True, add the row with no checks and no copy. See above.
+            fast: If True, add the row with no copy, and check only the first row of an empty Daf. See above.
 
         Returns:
             This Daf, which has been changed.
@@ -4277,9 +4286,12 @@ class Daf:
         diagnose = False
 
         if fast and self.hd and not (respect_kd and self.keyfield):
-            # the caller promises complete rows in column order: no checks, no copies.
+            # the caller promises complete rows in column order. Only the first row of an empty
+            # Daf is checked, and nothing is copied.
             row: Any = None
             if lol is not None and data_item is None and la is None:
+                if lol and not self.lol:
+                    self._check_first_fast_row(lol[0])
                 self.lol.extend(lol)
                 self._invalidate_kd()
                 return self
@@ -4289,6 +4301,8 @@ class Daf:
                 row = data_item
                 if isinstance(row, list) and row and isinstance(row[0], dict):
                     row = None                          # a list of dicts is several rows: the usual path
+            if row and isinstance(row, (list, KeyedList, dict)) and not self.lol:
+                self._check_first_fast_row(row)
             if row:
                 if isinstance(row, list):
                     self.lol.append(row)
@@ -4673,14 +4687,13 @@ class Daf:
             # self._rebuild_kd()   # functions only if the keyfield is set.
             return self
 
-        # check if fields match exactly.
-        reorder = False
-        # if isinstance(record, KeyedList):
-        #     if record.hd != self.hd:
-        #         reorder = True
-        # el
-        if list(self.hd.keys()) != list(record.keys()):
-            reorder = True
+        # check that the keys are the columns, in order. A KeyedList that shares the hd of this Daf
+        # needs no check, as its keys are the columns. Anything else is compared with the list of
+        # column names, which is kept until the columns change.
+        if isinstance(record, KeyedList) and record.hd is self.hd and len(record._values) == len(self.hd):
+            reorder = False
+        else:
+            reorder = list(record.keys()) != self._col_names()
 
         if reorder:
             # construct a dict with exactly the cols specified.
@@ -4716,6 +4729,38 @@ class Daf:
 
         return self
 
+
+
+    def _col_names(self) -> T_ls:
+        """ The column names as a list, kept until hd is replaced. Internal. Do not change the list. """
+        cache = self.__dict__.get('_col_names_cache')
+        if cache is None or cache[0] is not self.hd:
+            cache = self._col_names_cache = (self.hd, list(self.hd))
+        return cache[1]
+
+
+    def _check_first_fast_row(self, row: Any) -> None:
+        """
+        With fast=True, check the first row added to an empty Daf. Internal.
+
+        A KeyedList or a dict must have the columns as its keys, in order. A list must have one
+        value for each column.
+
+        Raises:
+            ValueError: The row does not match the columns.
+        """
+        num_cols = len(self.hd)
+        if isinstance(row, KeyedList):
+            fits = (row.hd is self.hd or list(row.hd) == self._col_names()) and len(row._values) == num_cols
+        elif isinstance(row, dict):
+            fits = list(row) == self._col_names()
+        else:
+            fits = len(row) == num_cols
+        if not fits:
+            raise ValueError(
+                f"append(fast=True): the first row of an empty Daf must match its columns, "
+                f"{self._col_names()[:5]}{'...' if num_cols > 5 else ''}, in order. Build the row with "
+                f"default_record(), or leave out fast.")
 
 
     def _basic_append(self, row: KeyedList | Dict[Any, Any] | list) -> 'Daf':

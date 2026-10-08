@@ -183,8 +183,10 @@ def test_from_lod_fast_matches_from_lod_for_good_records():
 
 def test_from_lod_fast_uses_cols_or_dtypes_as_the_columns():
     lod = [{'k': 'a', 'v': 1}]
-    assert Daf.from_lod(lod, cols=['key', 'val'], fast=True).columns() == ['key', 'val']
+    assert Daf.from_lod(lod, cols=['k', 'v'], fast=True).columns() == ['k', 'v']
     assert Daf.from_lod(lod, dtypes={'k': str, 'v': int}, fast=True).columns() == ['k', 'v']
+    with pytest.raises(ValueError, match='first dict'):
+        Daf.from_lod(lod, cols=['key', 'val'], fast=True)       # cols does not rename
 
 
 def test_from_lod_fast_does_not_check_the_keys():
@@ -217,3 +219,73 @@ def test_fast_list_filled_in_place_gives_the_same_row_each_time():
         buf[0], buf[1] = k, v
         d.append(buf, fast=True)
     assert d.lol == [['b', 2], ['b', 2]]
+
+
+# fast=True checks only the first row of an empty Daf
+
+def test_fast_first_row_of_an_empty_daf_is_checked():
+    for bad in ({'v': 1, 'k': 'a'}, ['a'], ['a', 1, 'x']):
+        d = Daf(cols=['k', 'v'])
+        with pytest.raises(ValueError, match='first row'):
+            d.append(bad, fast=True)
+        assert d.num_rows() == 0
+
+
+def test_fast_first_row_that_fits_is_added():
+    from daffodil.keyedlist import KeyedList
+    for good in ({'k': 'a', 'v': 1}, ['a', 1], KeyedList(['k', 'v'], ['a', 1])):
+        d = Daf(cols=['k', 'v'])
+        d.append(good, fast=True)
+        assert d.lol == [['a', 1]]
+
+
+def test_fast_first_row_keyedlist_with_its_own_hd_in_another_order_raises():
+    from daffodil.keyedlist import KeyedList
+    d = Daf(cols=['k', 'v'])
+    with pytest.raises(ValueError, match='first row'):
+        d.append(KeyedList(['v', 'k'], [1, 'a']), fast=True)
+
+
+def test_fast_lol_into_an_empty_daf_checks_its_first_row():
+    d = Daf(cols=['k', 'v'])
+    with pytest.raises(ValueError, match='first row'):
+        d.append(lol=[['a'], ['b', 2]], fast=True)
+
+
+def test_from_lod_fast_checks_the_first_dict_against_cols():
+    with pytest.raises(ValueError, match='first dict'):
+        Daf.from_lod([{'v': 1, 'k': 'a'}], cols=['k', 'v'], fast=True)
+    assert Daf.from_lod([{'k': 'a', 'v': 1}], cols=['k', 'v'], fast=True).lol == [['a', 1]]
+
+
+# a KeyedList made by the Daf skips the column check
+
+def test_append_keyedlist_from_default_record_is_copied_and_placed_by_column():
+    d = Daf(cols=['k', 'v'])
+    row = d.default_record(astype=__import__('daffodil.keyedlist', fromlist=['KeyedList']).KeyedList)
+    assert row.hd is d.hd
+    row['v'] = 2
+    row['k'] = 'a'                                  # filled in any order
+    d.append(row)
+    assert d.lol == [['a', 2]] and d.lol[0] is not row.values()
+    d.append(row, fast=True)
+    assert d.lol[-1] is row.values()
+
+
+def test_append_keyedlist_that_added_a_key_is_checked_by_name():
+    from daffodil.keyedlist import KeyedList
+    d = Daf(lol=[['a', 1]], cols=['k', 'v'])
+    row = d.default_record(astype=KeyedList)
+    row['extra'] = 'x'                              # now has its own hd
+    row['k'] = 'b'
+    d.append(row)
+    assert d.lol[-1] == ['b', ''] and d.columns() == ['k', 'v']
+
+
+def test_the_kept_column_list_follows_a_change_of_columns():
+    d = Daf(lol=[['a', 1]], cols=['k', 'v'])
+    d.append({'k': 'b', 'v': 2})
+    d.insert_col('n', [0, 0])
+    d.append({'k': 'c', 'v': 3, 'n': 9})
+    assert d.lol[-1] == ['c', 3, 9]
+    assert d._col_names() == ['k', 'v', 'n']

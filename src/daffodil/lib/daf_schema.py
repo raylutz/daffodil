@@ -257,27 +257,41 @@ def _attach_schema(self: 'Daf', schema: type) -> 'Daf':
     return self
 
 
-def _default_record(self: 'Daf') -> T_da:
+def _default_record(self: 'Daf', astype: type = dict) -> Any:
     """
-    Make a new record that holds the defaults of the attached schema.
+    Make a new record for this Daf: its columns, with the defaults of the attached schema.
 
-    Use it to start a record that you fill in, then append. Each call returns a
-    new dict, so changing it does not change the next one. Nothing is converted
-    or validated.
+    Use it to start a record that you fill in, then append. Each call returns a new
+    record, so changing it does not change the next one. Nothing is converted or validated.
 
-    For a schema Daf the `Name` column gives the keys and the `Default` column
-    gives the values. A missing `Default` column gives empty strings.
+    The record follows the columns of the Daf, in their order, however they were set. A
+    column gets the schema's default if the schema has one, and NULL otherwise. A field of
+    the schema that is not a column is left out. So a Daf that keeps only some of the
+    schema's columns gets records that fit it. A Daf with no schema gets NULL in every
+    column. A Daf with no columns takes its columns from the schema.
+
+    With `astype=KeyedList` the record is a KeyedList that shares the `hd` of this Daf,
+    so `record.hd is daf.hd`. Fill it by name, in any order: assigning to a key writes to
+    that column's position. `append()` then knows the record fits, and skips the check of
+    its columns.
+
+    For a schema Daf, the `Name` column gives the fields and the `Default` column gives
+    the values. A missing `Default` column gives empty strings.
+
+    Args:
+        astype: `dict`, the default, or `KeyedList`.
 
     Returns:
-        A dict that maps each column name to its default.
+        A dict or a KeyedList of each column and its default.
 
     Raises:
-        AttributeError: No schema is attached.
+        AttributeError: The Daf has no columns and no schema.
         RuntimeError: A schema Daf has no `Name` column.
-        TypeError: The attached schema is of an unsupported kind.
+        TypeError: The attached schema is of an unsupported kind, or `astype` is not dict or KeyedList.
 
     Examples:
         >>> from daffodil.daf import Daf
+        >>> from daffodil.keyedlist import KeyedList
         >>> from daffodil.lib.schemaclass import schemaclass
         >>> @schemaclass
         ... class Person:
@@ -285,14 +299,39 @@ def _default_record(self: 'Daf') -> T_da:
         ...     age: int = 0
         >>> Daf(schema=Person).default_record()
         {'name': '', 'age': 0}
+        >>> Daf(cols=['age', 'city'], schema=Person).default_record()
+        {'age': 0, 'city': ''}
+        >>> d = Daf(schema=Person)
+        >>> row = d.default_record(astype=KeyedList)
+        >>> row['age'] = 41
+        >>> row.hd is d.hd, row.to_dict()
+        (True, {'name': '', 'age': 41})
     """
+    from daffodil.keyedlist import KeyedList
+
+    if astype is not dict and astype is not KeyedList:
+        raise TypeError(f"default_record(): astype must be dict or KeyedList, not {astype!r}")
+
+    defaults_da = _schema_defaults(self) if self.schema else {}
+
+    if self.hd:
+        cols = list(self.hd)
+        values = [defaults_da.get(col, '') for col in cols]
+        if astype is KeyedList:
+            return KeyedList(self.hd, values)               # shares the hd of this Daf
+        return dict(zip(cols, values))
 
     if not self.schema:
-
         raise AttributeError(
-            "schema must be defined. "
-            "No schema attached to this Daf instance."
+            "default_record(): the Daf has no columns and no schema."
         )
+    if astype is KeyedList:
+        return KeyedList(defaults_da)
+    return defaults_da
+
+
+def _schema_defaults(self: 'Daf') -> T_da:
+    """ A new dict of each field of the attached schema and its default, in the schema's order. """
 
     schema = self.schema
 
@@ -349,6 +388,3 @@ def _default_record(self: 'Daf') -> T_da:
     raise TypeError(
         f"Unsupported schema type: {type(schema)}"
     )
-
-
-
