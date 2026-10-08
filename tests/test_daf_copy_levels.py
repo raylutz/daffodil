@@ -5,7 +5,6 @@
 import pytest
 
 from daffodil.daf import Daf
-from daffodil.keyedlist import KeyedIndex
 
 
 LEVELS = ['shallow', 'sortable', 'editable', 'deep']
@@ -171,11 +170,3 @@ def test_sortable_with_no_dtypes_and_empty_daf():
         assert empty.copy(level).lol == []
 
 
-def test_sortable_copies_a_keyedindex_header():
-    daf = make_daf()
-    daf.hd = KeyedIndex(['id', 'v', 'n'])       # type: ignore[assignment]
-    copied = daf.copy('sortable')
-    assert isinstance(copied.hd, KeyedIndex)
-    assert copied.hd is not daf.hd
-    copied.hd.append('extra')
-    assert 'extra' not in daf.hd

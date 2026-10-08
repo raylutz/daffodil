@@ -11,6 +11,19 @@ T_la = List[Any]
 import json
 
 
+def _build_hd(keys: List[TKey]) -> Dict[TKey, int]:
+    """
+    Build an hd, a dict of each key and its position. Internal.
+
+    Raises:
+        ValueError: A key appears more than once.
+    """
+    hd = dict(zip(keys, range(len(keys))))
+    if len(hd) != len(keys):
+        raise ValueError("Duplicate keys are not allowed in a KeyedList")
+    return hd
+
+
 class KeyedList:
     """
     A row that reads like a dict but points at a list instead of copying its values.
@@ -35,8 +48,9 @@ class KeyedList:
     Ways to create one:
 
     - `KeyedList(keys, values)`: adopts the values list. No copy.
-    - `KeyedList(index, values)`: the same, but reuses a `KeyedIndex` that you already built.
-      This is the fastest, and it is what Daf uses for its rows.
+    - `KeyedList(hd, values)`: the same, but shares an hd that you already have, a dict of
+      each key and its position. This is the fastest, and it is what Daf does for its rows:
+      each row shares the `hd` of the Daf. Then `row.hd is daf.hd`.
     - `KeyedList(a_dict)`: copies the values out of the dict. Slower than the forms above.
     - `KeyedList(keys, default=0)`: every key gets the same default value.
     - `KeyedList(other_klist)`: shares the values list and copies the index.
@@ -100,13 +114,11 @@ class KeyedList:
     This is similar to a conventional dictionary, but the list items are
     not distributed to each item in the dict, but can be an existing list, used without copying.
     
-    hd (header dict) -- Implemented as KeyedIndex(keys)
+    hd (header dict) -- a dict of each key and its position, i.e. {'key0': 0, 'key1': 1, ... 'keyn': n}.
     
-    # The keys are implemented as a dictionary of indexes, i.e. {'key0': 0, 'key1', 1, ... 'keyn': n} where the keys
-    # are just examples here. For convenience, we call this structure a "header dict" or 'hd'. 
     # To create this the following can be used:
     
-    #     hd = KeyedIndex(keys)   # used to be dict(zip(keys, range(len(keys))))
+    #     hd = dict(zip(keys, range(len(keys))))
         
     # Which is more performant and equivalent to:
     
@@ -159,7 +171,7 @@ class KeyedList:
             because the hd portion can be reused, and the values can be adopted without copying. However, there is 
             a slight penalty in access because of the additional indirection.
             - values are stored in a list
-            - keys are managed by a KeyedIndex
+            - keys are managed by an hd, a dict of each key and its position
             - structural mutations rebuild the index
             
         - If a KeyedList is created from an associated 'record' in a list-of-list (lol) with an associated hd, then
@@ -204,69 +216,52 @@ class KeyedList:
             
     """
 
-    # True while hd is a KeyedIndex adopted from elsewhere, and may be shared with other KeyedLists.
-    # The index is copied before the first new key is added, so no other KeyedList sees that key.
+    # True while hd is a dict adopted from elsewhere, such as the hd of a Daf, and may be shared with
+    # other KeyedLists. It is copied before the first new key is added, so no other user sees that key.
     _hd_shared: bool = False
 
     def __init__(self, 
-            arg1: 'Dict[Any, Any] | List[Any] | KeyedList | KeyedIndex | None' = None, 
+            arg1: 'Dict[Any, Any] | List[Any] | KeyedList | None' = None, 
             arg2: List[Any] | None = None,
             default: int | str | float | None = None,
             ):
             
-        if isinstance(arg1, KeyedIndex) and isinstance(arg2, list):
-            # Case: hd + row (critical for reference semantics). This is the case that Daf iteration uses
-            # for every row, so it is tested first.
+        if isinstance(arg1, dict) and isinstance(arg2, list):
+            # Case: hd plus values. The dict is an hd, mapping each key to its position, and is shared,
+            # not copied. This is what a Daf does for every row, so it is tested first.
             if len(arg1) != len(arg2):
                 raise ValueError("hd and values must have the same length")
             self.hd = arg1              # reuse, DO NOT rebuild
             self._values = arg2         # direct reference
             self._hd_shared = True      # copied before a key is added
             return
-
-        if isinstance(arg1, dict):
-            if arg2 is None:
-                # Case 1: from_dict
-                # self.hd = type(self)._build_hd(arg1.keys())
-                self.hd = KeyedIndex(arg1)
-                self._values = list(arg1.values())
-                return
-                
-            if isinstance(arg2, list):
-                # Case 2: from hd plus values
-                if len(arg1) != len(arg2):
-                    raise ValueError("keys and values must have the same length")
-                self.hd = KeyedIndex(arg1)
-                self._values = arg2
-                return
-            
-        elif isinstance(arg1, list) and isinstance(arg2, list):
-            # Case 3: from list of keys and values
+        if isinstance(arg1, dict) and arg2 is None:
+            # Case: from a dict of values
+            self.hd = _build_hd(list(arg1))
+            self._values = list(arg1.values())
+            return
+        if isinstance(arg1, list) and isinstance(arg2, list):
+            # Case: from a list of keys and a list of values
             if len(arg1) != len(arg2):
                 raise ValueError("keys and values must have the same length")
-            # self.hd = type(self)._build_hd(arg1)
-            self.hd = KeyedIndex(arg1)
+            self.hd = _build_hd(arg1)
             self._values = arg2
             return
-            
-        elif isinstance(arg1, list) and arg2 is None:
-            # Case 4: from list of keys and default
-            self.hd = KeyedIndex(arg1)
+        if isinstance(arg1, list) and arg2 is None:
+            # Case: from a list of keys and a default
+            self.hd = _build_hd(arg1)
             self._values = [default] * len(arg1)
             return
-            
-        elif isinstance(arg1, type(self)) and arg2 is None:
-            # Case 5: from keyedlist type
-            self.hd = KeyedIndex(arg1)
+        if isinstance(arg1, type(self)) and arg2 is None:
+            # Case: from another KeyedList. The values are shared and the hd is copied.
+            self.hd = dict(arg1.hd)
             self._values = arg1._values
             return
-            
-        elif arg1 is None and arg2 is None:
-            # Case 6, Empty - return a functional empty keyedlist, like {}
-            self.hd = KeyedIndex()
+        if arg1 is None and arg2 is None:
+            # Case: empty, a functional empty keyedlist, like {}
+            self.hd = {}
             self._values = []
             return
-        
         raise ValueError("Must provide either a dict, keys and values, hd and list, or KeyedList")
     
     def __getitem__(self, key: TKey | List[TKey]) -> Any:
@@ -334,12 +329,10 @@ class KeyedList:
         """
         if key not in self.hd:
             if self._hd_shared:
-                self.hd = KeyedIndex(list(self.hd))     # a copy, so other KeyedLists do not get the key
+                self.hd = dict(self.hd)     # a copy, so the Daf and other KeyedLists do not get the key
                 self._hd_shared = False
-            # extend hd
-            self.hd.append(key)
-            # self.hd[key] = len(self.hd)
-            
+            self.hd[key] = len(self.hd)
+
             self._values.append(value)
         else:    
             self._values[self.hd[key]] = value
@@ -366,18 +359,13 @@ class KeyedList:
             >>> row, list(klist)
             ([1, 3], ['a', 'c'])
         """
-        # index = self.hd.pop(key)
-        # del self._values[index]
-                
-        # # it is necessary to rebuild hd whenever it is changed.
-        # self.hd = type(self)._build_hd(self.hd.keys())        
         index = self.hd[key]
         del self._values[index]
 
         new_keys = list(self.hd)
         del new_keys[index]
 
-        self.hd = KeyedIndex(new_keys)
+        self.hd = _build_hd(new_keys)       # a new hd, so a shared one is not changed
         self._hd_shared = False
 
 
@@ -665,7 +653,7 @@ class KeyedList:
         # Serialize KeyedList object to a JSON-compatible dictionary
         # NOTE: to_json/from_json appear unused elsewhere in daffodil (Daf.to_json/from_json
         # serialize lol/hd directly and do not call these). Fixed anyway since the risk is low.
-        return json.dumps({"__KeyedList__": True, "hd": self.hd.to_dict(), "values": self._values})
+        return json.dumps({"__KeyedList__": True, "hd": dict(self.hd), "values": self._values})
 
     @classmethod
     def from_json(cls, json_str: str) -> 'KeyedList':
@@ -741,414 +729,3 @@ def _astype_la(la: T_la, astype: Callable | str | type | None = None) -> T_la:
         raise ValueError(f"astype not supported: {astype}")
 
     return [val if val is NULL else convert(val) for val in la]
-
-
-class KeyedIndex:
-    """
-    The index of keys that KeyedLists share. Each key maps to the position of its value.
-
-    A KeyedIndex turns a key into the position of its value in a list. A table uses one for
-    its column names. Every [KeyedList][daffodil.keyedlist.KeyedList] row of that table can
-    point at the same KeyedIndex, so no row has to build its own.
-
-    Keys must be unique. They can be of mixed types, if they are hashable. You can add a key
-    at the end with `append()`. You can't delete a key or insert one in the middle. To
-    change anything else, build a new KeyedIndex.
-
-    You can create one from:
-
-    - a list or tuple of keys.
-    - a dict. Its keys are used, and its values are ignored.
-    - a keys view.
-    - a KeyedList, which gives a copy of its index.
-    - another KeyedIndex. This shares the index with no copy. Appending to one changes both.
-
-    Anything else, such as a generator, is rejected.
-
-    Examples:
-        >>> kidx = KeyedIndex(["a", "b", "c"])
-        >>> kidx["b"]
-        1
-        >>> "c" in kidx
-        True
-        >>> len(kidx)
-        3
-        >>> kidx.append("d")
-        >>> kidx["d"]
-        3
-        >>> kidx.get("x") is None
-        True
-        >>> kidx.get("x", -1)
-        -1
-        >>> kidx.to_dict()
-        {'a': 0, 'b': 1, 'c': 2, 'd': 3}
-
-        Keys can be of mixed types, but they must be unique:
-
-        >>> KeyedIndex(["a", 1, (2, 3)])[(2, 3)]
-        2
-        >>> KeyedIndex(["a", "b", "a"])
-        Traceback (most recent call last):
-            ...
-        ValueError: Duplicate keys not allowed in KeyedIndex
-        >>> kidx.append("b")
-        Traceback (most recent call last):
-            ...
-        ValueError: Duplicate key: b
-        >>> KeyedIndex(k for k in "ab")
-        Traceback (most recent call last):
-            ...
-        TypeError: Unsupported type for KeyedIndex: generator. Expected list, tuple, dict, or dict_keys.
-    """
-    """
-    KeyedIndex: compiled index over a sequence of UNIQUE keys.
-
-    Semantics:
-        - key → integer index (position)
-        - keys must be unique (enforced at construction and append)
-        - append-only mutation supported
-        - no delete / insert-in-middle support
-
-    Supported input types:
-        - list
-        - tuple
-        - dict        (uses dict.keys())
-        - dict_keys   (keys view)
-        - KeyedList   (uses its own .hd)
-        - KeyedIndex  (shares the other index, with no copy. Appending to one changes both.)
-
-    Unsupported:
-        - arbitrary iterables (explicit rejection to avoid ambiguity)
-
-
-    Examples
-    --------
-
-    Basic usage
-    ~~~~~~~~~~~
-
-    >>> kidx = KeyedIndex(["a", "b", "c"])
-    >>> kidx["b"]
-    1
-    >>> "c" in kidx
-    True
-    >>> len(kidx)
-    3
-
-    Empty initialization
-    ~~~~~~~~~~~~~~~~~~~~
-
-    >>> kidx = KeyedIndex()
-    >>> bool(kidx)
-    False
-    >>> list(kidx.keys())
-    []
-
-    Append keys
-    ~~~~~~~~~~~
-
-    >>> kidx = KeyedIndex(["a", "b"])
-    >>> kidx.append("c")
-    >>> kidx["c"]
-    2
-
-    Duplicate keys (construction)
-    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-    >>> KeyedIndex(["a", "b", "a"])
-    Traceback (most recent call last):
-        ...
-    ValueError: Duplicate keys not allowed in KeyedIndex
-
-    Duplicate keys (append)
-    ~~~~~~~~~~~~~~~~~~~~~~~
-
-    >>> kidx = KeyedIndex(["a", "b"])
-    >>> kidx.append("b")
-    Traceback (most recent call last):
-        ...
-    ValueError: Duplicate key: b
-
-    Mixed key types
-    ~~~~~~~~~~~~~~~
-
-    >>> kidx = KeyedIndex(["a", 1, (2, 3)])
-    >>> kidx["a"]
-    0
-    >>> kidx[1]
-    1
-    >>> kidx[(2, 3)]
-    2
-
-    Using dict input
-    ~~~~~~~~~~~~~~~~
-
-    >>> kidx = KeyedIndex({"a": 10, "b": 20})
-    >>> sorted(kidx.keys())
-    ['a', 'b']
-    >>> kidx["b"]
-    1
-
-    Iteration
-    ~~~~~~~~~
-
-    >>> kidx = KeyedIndex(["x", "y", "z"])
-    >>> [k for k in kidx]
-    ['x', 'y', 'z']
-
-    to_dict and repr
-    ~~~~~~~~~~~~~~~~
-
-    >>> kidx = KeyedIndex(["a", "b"])
-    >>> kidx.to_dict()
-    {'a': 0, 'b': 1}
-    >>> kidx
-    {'a': 0, 'b': 1}
-
-    get with default
-    ~~~~~~~~~~~~~~~~
-
-    >>> kidx = KeyedIndex(["a", "b"])
-    >>> kidx.get("b")
-    1
-    >>> kidx.get("x") is None
-    True
-    >>> kidx.get("x", -1)
-    -1
-
-    Notes
-    -----
-
-    - Keys must be hashable and unique.
-    - Keys may be of mixed types (e.g., str, int, tuple).
-    - The index reflects the position at insertion time.
-    - Structural mutations outside of append (e.g., reordering source data)
-      require rebuilding the KeyedIndex.
-
-    """
-
-    __slots__ = ("_index",)
-
-    _index: Dict[TKey, int]
-
-    def __init__(
-        self,
-        keys: 'List[TKey] | Tuple[TKey, ...] | Dict[TKey, Any] | KeysView[TKey] | KeyedList | KeyedIndex | None' = None,
-    ) -> None:
-        # normalize input → list
-        if keys is None:
-            keys_list: List[TKey] = []
-
-        elif isinstance(keys, KeyedIndex):
-            self._index = keys._index
-            return
-
-        elif isinstance(keys, KeyedList):
-            self._index = dict(keys.hd)
-            return
-
-        elif isinstance(keys, list):
-            keys_list = keys
-
-        elif isinstance(keys, tuple):
-            keys_list = list(keys)
-
-        elif isinstance(keys, dict):
-            keys_list = list(keys.keys())
-
-        elif isinstance(keys, KeysView):
-            keys_list = list(keys)
-
-        else:
-            raise TypeError(
-                f"Unsupported type for KeyedIndex: {type(keys).__name__}. "
-                "Expected list, tuple, dict, or dict_keys."
-            )
-
-        # build index (single pass, preserves order)
-        index: Dict[TKey, int] = dict(zip(keys_list, range(len(keys_list))))
-
-        # enforce uniqueness
-        if len(index) != len(keys_list):
-            raise ValueError("Duplicate keys not allowed in KeyedIndex")
-
-        self._index = index
-
-    # --- core lookup ---
-
-    def __getitem__(self, key: TKey) -> int:
-        """
-        Get the position of a key, as `kidx[key]`.
-
-        Args:
-            key: The key.
-
-        Returns:
-            The position of its value in the list.
-
-        Raises:
-            KeyError: The key is not found.
-        """
-        return self._index[key]
-
-    def __contains__(self, key: object) -> bool:
-        """
-        Test whether a key is in the index, as `key in kidx`.
-
-        Args:
-            key: The key to look for.
-
-        Returns:
-            True if the key is found.
-        """
-        return key in self._index
-
-    def get(self, key: TKey, default: int | None = None) -> int | None:
-        """
-        Get the position of a key, or a default if the key is not found.
-
-        Args:
-            key: The key.
-            default: What to return if the key is not found.
-
-        Returns:
-            The position, or `default`.
-
-        Examples:
-            >>> kidx = KeyedIndex(['a', 'b'])
-            >>> kidx.get('b'), kidx.get('z'), kidx.get('z', -1)
-            (1, None, -1)
-        """
-        return self._index.get(key, default)
-
-    def index(self, key: TKey) -> int:
-        """
-        Get the position of a key. This is the same as `kidx[key]`.
-
-        Args:
-            key: The key.
-
-        Returns:
-            The position of its value in the list.
-
-        Raises:
-            KeyError: The key is not found.
-
-        Examples:
-            >>> KeyedIndex(['a', 'b']).index('b')
-            1
-        """
-        return self._index[key]
-
-    # --- size / truth ---
-
-    def __len__(self) -> int:
-        """
-        Get the number of keys.
-
-        Returns:
-            The number of keys.
-        """
-        return len(self._index)
-
-    def __bool__(self) -> bool:
-        """
-        Test whether the index has any keys.
-
-        Returns:
-            False for an empty index.
-        """
-        return bool(self._index)
-
-    def __eq__(self, other: object) -> bool:
-        """
-        Compare with another KeyedIndex. They are equal if they have the same keys at the same positions.
-
-        Args:
-            other: The object to compare with.
-
-        Returns:
-            True or False for a KeyedIndex. For any other type, `NotImplemented`, so Python tries the other side.
-        """
-        if isinstance(other, KeyedIndex):
-            return self._index == other._index
-            
-        return NotImplemented
-    
-    # --- key access ---
-
-    def keys(self) -> KeysView[TKey]:
-        """
-        Get the keys, in the order of their positions.
-
-        Returns:
-            A keys view of the index itself, not a copy.
-
-        Examples:
-            >>> KeyedIndex(['a', 'b']).keys()
-            dict_keys(['a', 'b'])
-        """
-        return self._index.keys()
-
-    def __iter__(self) -> Iterator[TKey]:
-        """
-        Loop over the keys, in the order of their positions.
-
-        Returns:
-            An iterator of the keys.
-        """
-        return iter(self._index)
-
-    # --- mutation (append only) ---
-
-    def append(self, key: TKey) -> None:
-        """
-        Add a key at the end. Its position is the number of keys before it.
-
-        This changes every KeyedList and KeyedIndex that shares this index. A KeyedList
-        that adds a key through `row[key] = value` copies a shared index first, so it does not.
-
-        Args:
-            key: The new key.
-
-        Raises:
-            ValueError: The key is already in the index.
-
-        Examples:
-            >>> kidx = KeyedIndex(['a', 'b'])
-            >>> kidx.append('c')
-            >>> kidx['c']
-            2
-            >>> kidx.append('a')
-            Traceback (most recent call last):
-                ...
-            ValueError: Duplicate key: a
-        """
-        if key in self._index:
-            raise ValueError(f"Duplicate key: {key}")
-        self._index[key] = len(self._index)
-
-    # --- utilities ---
-
-    def to_dict(self) -> Dict[TKey, int]:
-        """
-        Make a dict of each key and its position.
-
-        Returns:
-            A new dict. Changing it does not change the index.
-
-        Examples:
-            >>> KeyedIndex(['a', 'b']).to_dict()
-            {'a': 0, 'b': 1}
-        """
-        return dict(self._index)
-
-    def __repr__(self) -> str:
-        """
-        Show the keys and their positions as a dict.
-
-        Returns:
-            The text of the dict.
-        """
-        return repr(self._index)
-

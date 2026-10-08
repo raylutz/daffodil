@@ -100,7 +100,6 @@ import daffodil.lib.daf_pdf      as daf_pdf
 import daffodil.lib.daf_schema   as daf_schema
 
 from daffodil.keyedlist import KeyedList
-from daffodil.keyedlist import KeyedIndex
 
 import typing
 from typing import List, Dict, Any, Tuple, cast, Type, Callable, Generic, TypeVar, ClassVar  # noqa: F401
@@ -119,9 +118,6 @@ T_dodaf = Dict[str, 'Daf']
 logs = daf_utils                # alias
 
 NULL = ''                       # instead of var == '' use var is NULL
-
-# global
-_use_keyedindex_for_hd = False
 
 # define a sentinel object to express a missing item where None is a valid value.
 from daffodil.lib.daf_utils import _MISSING
@@ -4665,10 +4661,8 @@ class Daf:
             # new daf, adopt structure of da or keyedlist.
 
             if isinstance(record, KeyedList):
-                # for keyedlist, simply adopt the hd and the list as first row.
-                # self.hd is a real dict everywhere else in this class -- record.hd is a
-                # KeyedIndex; .to_dict() gives the equivalent {key: position} dict.
-                self.hd = cast(Dict[str, int], record.hd.to_dict())
+                # for keyedlist, take a copy of its hd, and a copy of its values as the first row.
+                self.hd = cast(Dict[str, int], dict(record.hd))
                 self.lol = [list(record.values())]     # a copy: values() is the KeyedList's own list.
 
             elif isinstance(record, dict):
@@ -4735,15 +4729,7 @@ class Daf:
         # --- KeyedList ---
         if isinstance(row, KeyedList):
             if not self.hd:
-                if _use_keyedindex_for_hd:
-                    # _use_keyedindex_for_hd is currently False -- self.hd staying a real dict
-                    # (Dict[str, int]) everywhere else in this class is still the real contract;
-                    # this branch is scaffolding for a not-yet-completed migration, not live code.
-                    self.hd = row.hd  # type: ignore[assignment]  # already KeyedIndex
-                else:
-                    # equivalent to (and simpler/faster than) dict(zip(row.hd, range(len(row.hd))))
-                    # -- KeyedIndex.to_dict() already returns exactly this {key: position} dict.
-                    self.hd = cast(Dict[str, int], row.hd.to_dict())
+                self.hd = cast(Dict[str, int], dict(row.hd))
             self.lol.append(row._values)
             return self
 
@@ -4751,12 +4737,7 @@ class Daf:
         if isinstance(row, dict):
             if not self.hd:
                 keys = list(row.keys())
-
-                if _use_keyedindex_for_hd:
-                    # see the KeyedList branch above -- same not-yet-completed migration flag.
-                    self.hd = KeyedIndex(keys)  # type: ignore[assignment]
-                else:
-                    self.hd = dict(zip(keys, range(len(keys))))
+                self.hd = dict(zip(keys, range(len(keys))))
 
                 self.lol.append(list(row.values()))
                 return self
@@ -6599,19 +6580,6 @@ class Daf:
         return cast(T_da, self.iloc(irow, include_cols))
 
 
-    def _get_kidx(self) -> KeyedIndex:
-        """ An index of the column names, kept so that one-row KeyedLists can share it.
-
-            It is rebuilt when hd is replaced or its length changes. Changing the names in hd
-            in place, without changing its length, is not detected.
-        """
-        cache = getattr(self, '_kidx_cache', None)
-        if cache is None or cache[0] is not self.hd or cache[1] != len(self.hd):
-            cache = (self.hd, len(self.hd), KeyedIndex(cast(dict, self.hd)))
-            self._kidx_cache = cache
-        return cache[2]
-
-
     def iloc(self, irow: int=0, include_cols: T_ls | None = None, rtype: str='dict') -> T_ma | T_la:
         """
         Get one row by position, as a dict, a KeyedList or a list.
@@ -6668,7 +6636,7 @@ class Daf:
                 "Call set_cols() to name them, or ask for rtype='list'.")
 
         if rtype == 'klist':
-            return KeyedList(self._get_kidx(), self.lol[irow])
+            return KeyedList(self.hd, self.lol[irow])        # the row shares the hd of this Daf
 
         elif rtype == 'dict':
             return self._basic_get_record(irow, include_cols)
@@ -12822,8 +12790,8 @@ class DafIterator(Generic[DafIterRtype]):
         self.this_daf = this_daf
         self.rtype: Type[DafIterRtype] = rtype
         self._index = 0
-        # one index of the column names, shared by every KeyedList row of this loop.
-        self._kidx: KeyedIndex | None = KeyedIndex(cast(dict, this_daf.hd)) if rtype == KeyedList else None
+        # the hd of the Daf, shared by every KeyedList row of this loop.
+        self._hd: Dict[str, int] = this_daf.hd
 
     def __iter__(self) -> 'DafIterator[DafIterRtype]':
         return self
@@ -12837,7 +12805,7 @@ class DafIterator(Generic[DafIterRtype]):
                 return cast(DafIterRtype, dict(zip(self.this_daf.hd.keys(), row)))
 
             elif self.rtype == KeyedList:
-                return cast(DafIterRtype, KeyedList(self._kidx, row))
+                return cast(DafIterRtype, KeyedList(self._hd, row))
 
             elif self.rtype is list:
                 return cast(DafIterRtype, row)

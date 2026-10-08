@@ -2,19 +2,19 @@
 #
 # Supplementary pytest-style tests for keyedlist.py, targeting coverage gaps not
 # exercised by the existing (unittest-style) test_keyedlist.py: constructor branches,
-# error paths, KeyedIndex edge cases, and _astype_la.
+# error paths, and _astype_la.
 
 import json
 
 import pytest
 
-from daffodil.keyedlist import KeyedList, KeyedIndex, _astype_la
+from daffodil.keyedlist import KeyedList, _astype_la
 
 
 # --- KeyedList construction branches ---
 
 def test_init_from_hd_and_values_length_mismatch():
-    hd = KeyedIndex(['a', 'b', 'c'])
+    hd = {'a': 0, 'b': 1, 'c': 2}
     with pytest.raises(ValueError):
         KeyedList(hd, [1, 2])
 
@@ -58,8 +58,8 @@ def test_init_from_dict_and_values_length_mismatch():
         KeyedList({'a': 1, 'b': 2}, [1, 2, 3])
 
 
-def test_init_from_keyedindex_and_values_happy_path():
-    hd = KeyedIndex(['a', 'b', 'c'])
+def test_init_from_hd_and_values_happy_path():
+    hd = {'a': 0, 'b': 1, 'c': 2}
     values = [1, 2, 3]
     klist = KeyedList(hd, values)
     assert klist['a'] == 1
@@ -215,41 +215,10 @@ def test_astype_la_unsupported_object_raises():
         _astype_la([1, 2], 42)
 
 
-# --- KeyedIndex gaps ---
-
-def test_keyedindex_init_with_none():
-    kidx = KeyedIndex(None)
-    assert len(kidx) == 0
-    assert bool(kidx) is False
-
-
-def test_keyedindex_init_from_keyedlist():
-    klist = KeyedList(['a', 'b'], [1, 2])
-    kidx = KeyedIndex(klist)
-    assert kidx['a'] == 0
-    assert kidx['b'] == 1
-
-
-def test_keyedindex_init_unsupported_type_raises():
-    with pytest.raises(TypeError):
-        KeyedIndex(42)
-
-
-def test_keyedindex_index_method():
-    kidx = KeyedIndex(['a', 'b', 'c'])
-    assert kidx.index('b') == 1
-
-
-def test_keyedindex_to_dict():
-    kidx = KeyedIndex(['a', 'b'])
-    assert kidx.to_dict() == {'a': 0, 'b': 1}
-
-
-# --- a KeyedList that adopts a shared KeyedIndex must not change it when adding a key ---
+# --- a KeyedList that shares an hd must not change it when adding a key ---
 
 def test_adding_a_key_does_not_change_a_shared_index():
-    from daffodil.keyedlist import KeyedList, KeyedIndex
-    hd = KeyedIndex(['a', 'b'])
+    hd = {'a': 0, 'b': 1}
     first, second = KeyedList(hd, [1, 2]), KeyedList(hd, [3, 4])
     first['c'] = 5
     assert list(first.keys()) == ['a', 'b', 'c']
@@ -258,8 +227,7 @@ def test_adding_a_key_does_not_change_a_shared_index():
 
 
 def test_adding_a_second_key_does_not_copy_the_index_again():
-    from daffodil.keyedlist import KeyedList, KeyedIndex
-    klist = KeyedList(KeyedIndex(['a']), [1])
+    klist = KeyedList({'a': 0}, [1])
     klist['b'] = 2
     own = klist.hd
     klist['c'] = 3
