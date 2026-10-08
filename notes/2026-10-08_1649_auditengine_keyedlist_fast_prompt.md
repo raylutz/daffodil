@@ -1,5 +1,7 @@
 # Prompt for the AuditEngine thread: test daffodil f40d286, and move hot append loops to KeyedList rows and fast=True
 
+**Superseded on 2026-10-08 at 23:08 UTC by /home/daffodil/notes/2026-10-08_2308_auditengine_briefing_append_rules.md. Use that file. This one is wrong about fast=True.**
+
 Written on 2026-10-08 at 16:49 UTC by the daffodil thread, when daffodil main was at f40d286. This whole file is the
 prompt for the AuditEngine thread. It follows that thread's report of the same day,
 /home/audit-engine-dev/engineering_notebook/2026-10-08_daffodil_profile_functests.md.
