@@ -29,9 +29,13 @@ Limits.
 - The CPU is shared with the daffodil thread. Run one test or stage at a time.
 - If a step says to ask, stop and ask me.
 
-### Step 1. Record the daffodil commit, with git -C /home/daffodil rev-parse --short HEAD. It must be f40d286 or later.
+### Step 1
 
-### Step 2. Look for code that these changes could break. Search AuditEngine, not daffodil, and report each hit with its file and line:
+Record the daffodil commit, with git -C /home/daffodil rev-parse --short HEAD. It must be f40d286 or later.
+
+### Step 2
+
+Look for code that these changes could break. Search AuditEngine, not daffodil, and report each hit with its file and line:
 - KeyedIndex, or a method that only KeyedIndex had, used on the hd of a KeyedList: .hd.to_dict(), .hd.index(, .hd.append(.
 - default_record( on a Daf whose columns differ from its schema, in order or in which fields. Its dict now follows the Daf's columns, not the schema.
 - default_record( inside try/except AttributeError. A Daf with columns but no schema now returns NULL in every column instead of raising.
@@ -39,9 +43,13 @@ Limits.
 - append( of a KeyedList that the code changes after the append, expecting the table to change. Without fast, the values are now copied.
 - from_lod(..., fast=True). None is expected, as it is new.
 
-### Step 3. Check for regressions. Run the unit tests, then the same two functional jobs as in the 2026-10-08 report, WI_Dane_20201103_functest and GA_Bartow_20201103_functest, the same way. Compare with that report: the same stages should build, with the same outputs. Report every difference, and whether it comes from daffodil.
+### Step 3
 
-### Step 4. Move the hot append loops. Start with the two sites the report found, analysis_utils:3108 and analysis_utils:3231, in extractvote, which build each row from page_marks_daf.default_record(). Then look at the other append loops in the profile with the most calls, and judge each the same way. The change at a site is:
+Check for regressions. Run the unit tests, then the same two functional jobs as in the 2026-10-08 report, WI_Dane_20201103_functest and GA_Bartow_20201103_functest, the same way. Compare with that report: the same stages should build, with the same outputs. Report every difference, and whether it comes from daffodil.
+
+### Step 4
+
+Move the hot append loops. Start with the two sites the report found, analysis_utils:3108 and analysis_utils:3231, in extractvote, which build each row from page_marks_daf.default_record(). Then look at the other append loops in the profile with the most calls, and judge each the same way. The change at a site is:
     row = some_daf.default_record(astype=KeyedList)     # was: some_daf.default_record()
     row['col'] = value                                   # unchanged, in any order
     some_daf.append(row, fast=True)                      # was: some_daf.append(row)
@@ -56,6 +64,10 @@ For each site, before you change it:
 - Measure again, and report both times.
 Commit each site separately, with a message that starts with "requires daffodil f40d286 or later" and names the call site and the measured gain.
 
-### Step 5. Report only, do not change: the profile showed that most daffodil time is in select_where() and in one-row slices such as daf[i] and daf[i, 'col'], on tables of 10 rows or fewer. For the ten busiest of those call sites, say what each reads, and whether one of these would do it without building a table: daf.select_record(key) for one row by key as a dict, daf.irow_la(i) for one row as a list, daf.lol[i][daf.hd['col']] for one cell, daf.col_to_la('col') for one column, or select_by_dict({'col': value}) for a test of equality. Do not change these yet.
+### Step 5
 
-### Step 6. Write your report to a file in the AuditEngine notes folder, named with the date and time and what it is about, and give me its path. Include the daffodil commit you ran against, the results of steps 2 to 5, and the branch and commits. Remind me that the Lambda pin must move before the branch is deployed.
+Report only, do not change: the profile showed that most daffodil time is in select_where() and in one-row slices such as daf[i] and daf[i, 'col'], on tables of 10 rows or fewer. For the ten busiest of those call sites, say what each reads, and whether one of these would do it without building a table: daf.select_record(key) for one row by key as a dict, daf.irow_la(i) for one row as a list, daf.lol[i][daf.hd['col']] for one cell, daf.col_to_la('col') for one column, or select_by_dict({'col': value}) for a test of equality. Do not change these yet.
+
+### Step 6
+
+Write your report to a file in the AuditEngine notes folder, named with the date and time and what it is about, and give me its path. Include the daffodil commit you ran against, the results of steps 2 to 5, and the branch and commits. Remind me that the Lambda pin must move before the branch is deployed.
