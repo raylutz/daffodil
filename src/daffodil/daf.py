@@ -2438,12 +2438,14 @@ class Daf:
         Pass `ignore_extra_keys=True` to leave such keys out on purpose, as when you
         pick a few columns of wide records.
 
-        With `fast=True` only the first dict is checked. Use it when you built every dict
+        With `fast=True` the first dict is checked fully, and every dict for its number of
+        keys. Use it when you built every dict
         yourself, with the same keys in the same order, as in a loop. Each row is the values
         of a dict, in the dict's own order. The columns are `cols`, or the keys of `dtypes`,
         or the keys of the first dict. With `cols` or `dtypes`, the first dict must have the
-        columns as its keys, in order, or it raises `ValueError`. A later dict whose keys are
-        missing or in another order is added anyway, and its values land in the wrong columns.
+        columns as its keys, in order, or it raises `ValueError`. A later dict with the wrong
+        number of keys raises `ValueError`. A later dict with its keys in another order is added
+        anyway, and its values land in the wrong columns.
 
         Args:
             records_lod: The rows, as dicts.
@@ -2452,7 +2454,7 @@ class Daf:
             name: Name of the new Daf.
             cols: Column names to use, in order.
             ignore_extra_keys: With `cols` or `dtypes`, leave out keys that are not columns, and do not raise.
-            fast: If True, take each dict's values as a row, and check only the first dict. See above.
+            fast: If True, take each dict's values as a row. Check the first dict fully, and every dict's length. See above.
 
         Returns:
             The new Daf.
@@ -2526,7 +2528,11 @@ class Daf:
                 raise ValueError(
                     f"from_lod(fast=True): the first dict must have the columns as its keys, in order. "
                     f"Its keys are {list(records_lod[0])[:5]}, and the columns are {list(cols)[:5]}.")
+            num_cols = len(cols)
             lol = [list(record_da.values()) for record_da in records_lod]
+            for irow, row_la in enumerate(lol):
+                if len(row_la) != num_cols:
+                    raise ValueError(f"from_lod(fast=True): dict {irow} has {len(row_la)} keys for {num_cols} columns.")
             return cls(cols=cols, lol=lol, keyfield=keyfield, dtypes=dtypes, name=name)
 
         if cols or dtypes:
@@ -4194,15 +4200,16 @@ class Daf:
         `iter_klist()`, shares its `hd`. Its keys are then the columns, so its columns are not
         checked. Its values are still copied.
 
-        With `fast=True` nothing is copied, and only the first row added to an empty Daf is
-        checked. That row must have the columns as its keys, in order, or one value for each
-        column if it is a list. Otherwise it raises `ValueError`. Later rows are not checked.
+        With `fast=True` nothing is copied. The first row added to an empty Daf is checked
+        fully: it must have the columns as its keys, in order, or one value for each column if
+        it is a list. Every later row is checked only for its number of values. A row that fails
+        raises `ValueError`.
         Use it when you build each row yourself in column order, as in a loop, best with
         `default_record()`. A list, or the value list of a KeyedList, becomes the row itself,
         so do not change it afterwards. Giving a variable a new list each time is fine.
         Filling one list in place and appending it again is not: every row is then that same
-        list. A dict gives its values in its own order. A later row that does not match is
-        added anyway, and its values land in the wrong columns. If you want every row
+        list. A dict gives its values in its own order. A later row with the right number of
+        values in another order is added anyway, and its values land in the wrong columns. If you want every row
         checked, leave out `fast`. `fast` makes no difference to the first row of a Daf with
         no columns, to a Daf or a list of dicts, or with `respect_kd=True` and a keyfield.
 
@@ -4213,7 +4220,7 @@ class Daf:
             respect_kd: If True, replace the row that has the same key. If False, the default, add it.
             lol: Several rows, each a list of values in column order.
             la: One row, as a list of values in column order. Its items are not read as rows.
-            fast: If True, add the row with no copy, and check only the first row of an empty Daf. See above.
+            fast: If True, add the row with no copy. Check the first row of an empty Daf fully, and every row's length. See above.
 
         Returns:
             This Daf, which has been changed.
@@ -4286,12 +4293,16 @@ class Daf:
         diagnose = False
 
         if fast and self.hd and not (respect_kd and self.keyfield):
-            # the caller promises complete rows in column order. Only the first row of an empty
-            # Daf is checked, and nothing is copied.
+            # the caller promises complete rows in column order. The first row of an empty Daf is
+            # checked fully, every row has its length checked, and nothing is copied.
             row: Any = None
             if lol is not None and data_item is None and la is None:
                 if lol and not self.lol:
                     self._check_first_fast_row(lol[0])
+                num_cols = len(self.hd)
+                for irow, row_la in enumerate(lol):
+                    if len(row_la) != num_cols:
+                        raise ValueError(f"append(fast=True): row {irow} of lol has {len(row_la)} values for {num_cols} columns.")
                 self.lol.extend(lol)
                 self._invalidate_kd()
                 return self
@@ -4301,8 +4312,11 @@ class Daf:
                 row = data_item
                 if isinstance(row, list) and row and isinstance(row[0], dict):
                     row = None                          # a list of dicts is several rows: the usual path
-            if row and isinstance(row, (list, KeyedList, dict)) and not self.lol:
-                self._check_first_fast_row(row)
+            if row and isinstance(row, (list, KeyedList, dict)):
+                if not self.lol:
+                    self._check_first_fast_row(row)
+                elif len(row) != len(self.hd):          # every row: the number of values
+                    raise ValueError(f"append(fast=True): the row has {len(row)} values for {len(self.hd)} columns.")
             if row:
                 if isinstance(row, list):
                     self.lol.append(row)

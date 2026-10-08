@@ -289,3 +289,26 @@ def test_the_kept_column_list_follows_a_change_of_columns():
     d.append({'k': 'c', 'v': 3, 'n': 9})
     assert d.lol[-1] == ['c', 3, 9]
     assert d._col_names() == ['k', 'v', 'n']
+
+
+# fast=True checks the length of every row
+
+def test_fast_later_row_of_the_wrong_length_raises():
+    from daffodil.keyedlist import KeyedList
+    for bad in (['a'], ['a', 1, 'x'], {'k': 'a'}, KeyedList(['k'], ['a'])):
+        d = _daf()
+        with pytest.raises(ValueError, match='values for 2 columns'):
+            d.append(bad, fast=True)
+        assert d.num_rows() == 2
+
+
+def test_fast_lol_checks_the_length_of_every_row():
+    d = _daf()
+    with pytest.raises(ValueError, match='row 1 of lol'):
+        d.append(lol=[['c', 3], ['d']], fast=True)
+    assert d.num_rows() == 2
+
+
+def test_from_lod_fast_checks_the_length_of_every_dict():
+    with pytest.raises(ValueError, match='dict 1 has 1 keys'):
+        Daf.from_lod([{'k': 'a', 'v': 1}, {'k': 'b'}], fast=True)

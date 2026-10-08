@@ -13,7 +13,8 @@ Changed in daffodil since that report, all in CHANGELOG.md under Unreleased:
 - `append()` of a KeyedList that shares the Daf's `hd` skips the column check. With `fast=True` it also skips the
   copy. At 1,000 columns, building and appending a row took about 90 µs as a dict, 24 µs as a KeyedList sharing
   the `hd`, and 1.7 µs with `fast=True`.
-- `fast=True` checks only the first row added to an empty Daf, and raises ValueError if it does not fit.
+- `fast=True` checks the first row added to an empty Daf fully, and every row for its number of values. A row that
+  fails raises ValueError. This length check was added after f40d286, on the branch fast-length-check.
 
 ## The task
 
