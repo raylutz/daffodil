@@ -8,7 +8,12 @@ Adoption of this format started in v0.5.10. Prior notes included in fixed sectio
 all prior releases. Plans for future moved to ROADMAP.md.
 
 ## [Unreleased]
+### Added
+- A Guide in the docs: Getting started, Building tables, Selecting and indexing, Columns, keys and schemas, Types and conversion, Apply, reduce and formulas, Joins, Markdown reports, and Coming from pandas. It holds what the README explained, checked against the code. Its examples are doctests, run with `pytest --doctest-glob='*.md' docsite/guide` in CI and in `notes/scripts/check_before_push.sh`. `conftest.py` lets those examples sit in code fences.
+
 ### Changed
+- The README is short: what Daffodil is, how to install it, the data model diagram, a quick start, why to use it, and links to the docs. It was over 1,000 lines, with method names that no longer exist, such as `add_idx()`, `to_csv()` and `group_to_dodaf()`, and size claims that did not hold. The old diagram is replaced by the new one, as a PNG.
+- The docs Home page has install, a quick start and links into the Guide.
 - CI no longer runs on a push to `main`, to save GitHub Actions minutes. It runs on a pull request, when the full deploy calls it, and by hand with `gh workflow run ci.yml`. Before a push to `main`, `notes/scripts/check_before_push.sh` runs the same checks locally: the tests and the doctests on Python 3.10 to 3.13, and the strict docs build.
 - The docs deploy alone on a push from `main` to the new branch `docs_deploy`, as releases do on `full_deploy`. It checks that the commit is on `main`. `gh workflow run docs.yml` still works.
 

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Run the checks that CI runs, before a push to main. A push to main runs nothing on GitHub.
-# The tests and the doctests on Python 3.10, 3.11, 3.12 and 3.13, then the strict docs build.
+# The tests, the doctests and the Guide examples on Python 3.10, 3.11, 3.12 and 3.13, then the strict docs build.
 # Like CI, each Python gets an environment from `uv sync` with the lock file. The environments
 # are kept in ~/.cache/daffodil-check and reused. Stops at the first failure.
 # Usage, from anywhere:   bash notes/scripts/check_before_push.sh
@@ -17,6 +17,7 @@ for py in 3.10 3.11 3.12 3.13; do
     uv sync -q --python "$py"
     echo "== Python $py: tests:    $(uv run --python "$py" pytest -q -p no:cacheprovider | tail -1)"
     echo "== Python $py: doctests: $(uv run --python "$py" pytest -q -p no:cacheprovider "${DOCTEST_ARGS[@]}" | tail -1)"
+    echo "== Python $py: guide:    $(uv run --python "$py" pytest -q -p no:cacheprovider --doctest-glob='*.md' docsite/guide | tail -1)"
 done
 unset UV_PROJECT_ENVIRONMENT
 

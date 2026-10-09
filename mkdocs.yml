@@ -31,7 +31,16 @@ extra_css:
 
 nav:
   - Home: index.md
-  - Guides:
+  - Guide:
+      - Getting started: guide/getting-started.md
+      - Building tables: guide/building-tables.md
+      - Selecting and indexing: guide/selecting.md
+      - Columns, keys and schemas: guide/columns-keys-schemas.md
+      - Types and conversion: guide/types.md
+      - Apply, reduce and formulas: guide/apply-reduce-formulas.md
+      - Joins: guide/joins.md
+      - Markdown reports: guide/markdown.md
+      - Coming from pandas: guide/from-pandas.md
       - Profiling mode: profiling.md
   - Daf API:
       - api/daf/index.md

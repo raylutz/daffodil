@@ -6,6 +6,32 @@ files, building records, cleaning, reshaping, and writing them out again.
 
 ![The Daffodil data model: lol, hd, kd and dtypes](images/data_model.svg)
 
+## Install
+
+```bash
+pip install daffodil
+```
+
+Python 3.10 or later. Daffodil is pure Python. pandas and NumPy are needed only to convert
+to and from them.
+
+## Quick start
+
+```python
+from daffodil.daf import Daf
+
+d = Daf(cols=['id', 'item', 'qty'], keyfield='id')
+d.append({'id': 'a1', 'item': 'pen', 'qty': 3})
+d.append(['b2', 'ink', 10])
+
+d.select_record('b2')        # {'id': 'b2', 'item': 'ink', 'qty': 10}
+d.col('qty')                 # [3, 10]
+d.select_where(lambda row: row['qty'] > 5)
+print(d)                     # a Markdown table
+```
+
+The [Guide](guide/getting-started.md) starts from here.
+
 ## The data model
 
 The rows are kept in `lol`, a list of lists. A row holds only its cells. The column names are
@@ -92,5 +118,8 @@ clean the data as rows in Daffodil, then hand the numeric columns over for the n
 
 ## Next
 
-- [Daf overview](api/daf/index.md): the class, its constructor and its constants.
-- The Daf API, by section, in the menu on the left.
+- [Getting started](guide/getting-started.md), then the rest of the Guide in the menu.
+- [Coming from pandas](guide/from-pandas.md): the same tasks side by side.
+- [Daf overview](api/daf/index.md), and the Daf API by section, for every method.
+- [Changelog](https://github.com/raylutz/daffodil/blob/main/CHANGELOG.md), and the code on
+  [GitHub](https://github.com/raylutz/daffodil).
