@@ -42,3 +42,10 @@ def test_cheatsheet_md_is_current():
     with open(build_cheatsheet.OUT_PATH, encoding='utf-8') as fh:
         assert fh.read() == build_cheatsheet.build(), \
             "docsite/cheatsheet.md is out of date. Run: uv run python notes/scripts/build_cheatsheet.py"
+
+
+def test_guide_indexing_reference_is_current():
+    with open(build_cheatsheet.GUIDE_PATH, encoding='utf-8') as fh:
+        guide = fh.read()
+    assert guide == build_cheatsheet.guide_with_reference(guide), \
+        "The indexing reference in docsite/guide/selecting.md is out of date. Run: uv run python notes/scripts/build_cheatsheet.py"

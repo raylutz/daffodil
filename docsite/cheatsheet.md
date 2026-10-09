@@ -6,8 +6,39 @@ description: Cheatsheet for Daffodil, the Python package of 2-D tables built on 
 # Daffodil cheatsheet
 
 Daffodil keeps a table as a list of rows, each a plain Python list, with the column names in a
-dict. Every line of code here is run as a test. The docs are at https://raylutz.github.io/daffodil/.
+dict. Every line of code in the task tables is run as a test. The docs are at https://raylutz.github.io/daffodil/.
 This file is generated from notes/scripts/cheatsheet_content.py. Edit that file, not this one.
+
+## Indexing at a glance
+
+```
+daf[rows, cols]     rows and columns
+daf[rows]           rows, all columns
+daf[:, cols]        columns, all rows
+```
+
+|          You write           |             As rows (first)             |             As columns (second)             |
+| :--------------------------- | :-------------------------------------- | :------------------------------------------ |
+| `:`                          | all rows                                | all columns                                 |
+| `2`                          | row 2, by position                      | column 2, by position                       |
+| `-1`                         | the last row                            | the last column                             |
+| `2:5`, `2:`, `:5`, `::2`     | a slice of rows                         | a slice of columns                          |
+| `range(2, 5)`                | rows 2, 3, 4                            | columns 2, 3, 4                             |
+| `[0, 4, 2]`                  | these rows, in this order               | these columns, in this order                |
+| `[range(0, 2), range(4, 6)]` | rows 0, 1, 4, 5                         | columns 0, 1, 4, 5                          |
+| `'a1'`                       | the row with key `'a1'`                 | the column named `'a1'`                     |
+| `['c3', 'a1']`               | the rows with these keys, in this order | the columns with these names, in this order |
+| `('a1', 'c3')`               | keys a1 through c3, inclusive           | names a1 through c3, inclusive              |
+| `('a1', None)`, `('a1',)`    | key a1 to the end                       | name a1 to the end                          |
+| `(None, 'c3')`               | the start through key c3                | the start through name c3                   |
+| `[]`                         | no rows                                 | no columns                                  |
+
+- An integer is always a position. A key or a column name that is an integer needs `select_krows()` or `select_kcols()`.
+- Rows by key need a keyfield.
+- A tuple of row keys needs the column part, even if it is `:`, as in `daf[('a1', 'c3'), :]`. A tuple of two standing alone is read as `[rows, cols]`.
+- A list holds integers, or ranges, or strings, not a mix. `None` alone is not a selector.
+- The result is a Daf. `.to_value()`, `.to_list()` or `.to_dict()` give plain values, or set `daf.retmode = 'val'`.
+- The same selectors set values: `daf[rows, cols] = value`.
 
 ## Create
 
