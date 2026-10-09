@@ -294,3 +294,33 @@ def test_default_record_with_a_schema_daf_follows_the_columns():
 def test_default_record_rejects_another_astype():
     with pytest.raises(TypeError):
         Daf(cols=['a']).default_record(astype=list)
+
+
+# default_record() keeps its defaults until the columns or the schema change
+
+def test_default_record_template_follows_a_change_of_columns():
+    d = Daf(schema=_person_schema())
+    assert list(d.default_record()) == ['name', 'age', 'tags']
+    d.insert_col('city', [])
+    assert d.default_record() == {'name': 'none', 'age': 0, 'tags': [], 'city': ''}
+
+
+def test_default_record_template_follows_a_new_schema():
+    d = Daf(cols=['name', 'age'], schema=_person_schema())
+    assert d.default_record() == {'name': 'none', 'age': 0}
+
+    @schemaclass
+    class Other(SchemaBase):
+        name: str = 'other'
+        age: int = 99
+    d.schema = Other
+    assert d.default_record() == {'name': 'other', 'age': 99}
+
+
+def test_default_record_copies_mutable_defaults_each_time_in_both_forms():
+    from daffodil.keyedlist import KeyedList
+    d = Daf(schema=_person_schema())
+    rows = [d.default_record(), d.default_record(), d.default_record(astype=KeyedList), d.default_record(astype=KeyedList)]
+    tags = [row['tags'] for row in rows]
+    assert all(t == [] for t in tags)
+    assert len({id(t) for t in tags}) == 4

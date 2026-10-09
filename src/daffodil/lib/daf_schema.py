@@ -4,6 +4,7 @@ import typing
 from typing import List, Dict, Any, Tuple, TypeVar, cast, Type, Callable # noqa: F401
 from daffodil.lib.daf_types import T_ls, T_lola, T_da, T_li, T_cs, T_ca, T_ma # noqa: F401
 from daffodil.lib.schemaclass import SchemaBase
+from daffodil.keyedlist import KeyedList
 
 import copy
 
@@ -264,6 +265,9 @@ def _default_record(self: 'Daf', astype: type = dict) -> Any:
     Use it to start a record that you fill in, then append. Each call returns a new
     record, so changing it does not change the next one. Nothing is converted or validated.
 
+    The defaults are worked out the first time, and kept until the columns or the schema of
+    the Daf are replaced. A default that is changed on the schema class after that is not seen.
+
     The record follows the columns of the Daf, in their order, however they were set. A
     column gets the schema's default if the schema has one, and NULL otherwise. A field of
     the schema that is not a column is left out. So a Daf that keeps only some of the
@@ -307,19 +311,28 @@ def _default_record(self: 'Daf', astype: type = dict) -> Any:
         >>> row.hd is d.hd, row.to_dict()
         (True, {'name': '', 'age': 41})
     """
-    from daffodil.keyedlist import KeyedList
-
     if astype is not dict and astype is not KeyedList:
         raise TypeError(f"default_record(): astype must be dict or KeyedList, not {astype!r}")
 
-    defaults_da = _schema_defaults(self) if self.schema else {}
-
     if self.hd:
-        cols = list(self.hd)
-        values = [defaults_da.get(col, '') for col in cols]
+        # the defaults in column order are worked out once, and kept until the columns or the
+        # schema change. Each call copies them, and copies afresh a default that is a list, dict or set.
+        template = self.__dict__.get('_default_template')
+        if template is None or template[0] is not self.hd or template[1] is not self.schema:
+            defaults_da = _schema_defaults(self) if self.schema else {}
+            values_la = [defaults_da.get(col, '') for col in self.hd]
+            # (position, copier) for each default that is a list, dict or set, so no record shares it.
+            mutable_lt = [(pos, copy.copy if type(val) not in (list, dict, set) else type(val))
+                          for pos, val in enumerate(values_la) if isinstance(val, (list, dict, set))]
+            template = self.__dict__['_default_template'] = (self.hd, self.schema, values_la, mutable_lt)
+        values = template[2][:]
+        for pos, copier in template[3]:
+            values[pos] = copier(values[pos])
         if astype is KeyedList:
             return KeyedList(self.hd, values)               # shares the hd of this Daf
-        return dict(zip(cols, values))
+        return dict(zip(self.hd, values))
+
+    defaults_da = _schema_defaults(self) if self.schema else {}
 
     if not self.schema:
         raise AttributeError(
