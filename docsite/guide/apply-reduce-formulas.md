@@ -18,8 +18,8 @@ dict, and the function returns a dict:
 
 ```pycon
 >>> from daffodil.daf import Daf
->>> d = Daf(cols=['g', 'a', 'b'], lol=[['x', 1, 2], ['y', 3, ''], ['x', 5, 6]])
->>> doubled = d.apply(lambda row: {'g': row['g'], 'a2': row['a'] * 2})
+>>> daf = Daf(cols=['g', 'a', 'b'], lol=[['x', 1, 2], ['y', 3, ''], ['x', 5, 6]])
+>>> doubled = daf.apply(lambda row: {'g': row['g'], 'a2': row['a'] * 2})
 >>> doubled.columns(), doubled.lol
 (['g', 'a2'], [['x', 2], ['y', 6], ['x', 10]])
 ```
@@ -31,9 +31,9 @@ dict, and the function returns a dict:
 `reduce()` folds the rows into one record with a function. `Daf.sum_da` adds up each column:
 
 ```pycon
->>> d.reduce(Daf.sum_da, cols=['a', 'b'])
+>>> daf.reduce(Daf.sum_da, cols=['a', 'b'])
 {'g': '', 'a': 9, 'b': 8}
->>> d.sum(['a', 'b'])
+>>> daf.sum(['a', 'b'])
 {'a': 9.0, 'b': 8.0}
 ```
 
@@ -46,13 +46,13 @@ of each group. `groupby_cols_reduce()` groups by several columns and reduces eac
 any function.
 
 ```pycon
->>> {key: group.lol for key, group in d.groupby('g').items()}
+>>> {key: group.lol for key, group in daf.groupby('g').items()}
 {'x': [['x', 1, 2], ['x', 5, 6]], 'y': [['y', 3, '']]}
->>> d.groupsum_daf('g', reduce_cols=['a', 'b']).lol
+>>> daf.groupsum_daf('g', reduce_cols=['a', 'b']).lol
 [['x', 6, 8], ['y', 3, 0]]
->>> d.groupby_cols_reduce(['g'], Daf.sum_da, reduce_cols=['a']).lol
+>>> daf.groupby_cols_reduce(['g'], Daf.sum_da, reduce_cols=['a']).lol
 [['x', 6], ['y', 3]]
->>> d.valuecounts_for_colname('g')
+>>> daf.valuecounts_for_colname('g')
 {'x': 2, 'y': 1}
 ```
 

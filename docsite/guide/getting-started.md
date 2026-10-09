@@ -15,8 +15,8 @@ A Daf is a list of rows, each a plain Python list, and a dict of the column name
 
 ```pycon
 >>> from daffodil.daf import Daf
->>> d = Daf(cols=['id', 'item', 'qty'], lol=[['a1', 'pen', 3], ['b2', 'ink', 10]], keyfield='id')
->>> print(d.to_md())
+>>> daf = Daf(cols=['id', 'item', 'qty'], lol=[['a1', 'pen', 3], ['b2', 'ink', 10]], keyfield='id')
+>>> print(daf.to_md())
 | id | item | qty |
 | -: | ---: | --: |
 | a1 |  pen |   3 |
@@ -39,15 +39,15 @@ values are read as text. See [Types and conversion](types.md) to convert them.
 ## Look at it
 
 ```pycon
->>> len(d), d.shape(), d.columns()
+>>> len(daf), daf.shape(), daf.columns()
 (2, (2, 3), ['id', 'item', 'qty'])
->>> d.keys()
+>>> daf.keys()
 ['a1', 'b2']
 >>> bool(Daf())
 False
 ```
 
-`print(d)` and `d.to_md()` give a Markdown table. See [Markdown reports](markdown.md).
+`print(daf)` and `daf.to_md()` give a Markdown table. See [Markdown reports](markdown.md).
 
 ## Read values
 
@@ -55,13 +55,13 @@ A selection with `[]` returns a new Daf. Turn it into plain values with `to_valu
 `to_list()` or `to_dict()`, or read them with the methods that never build a table.
 
 ```pycon
->>> d[1, 'qty'].to_value()
+>>> daf[1, 'qty'].to_value()
 10
->>> d[0].to_list()
+>>> daf[0].to_list()
 ['a1', 'pen', 3]
->>> d.select_record('b2')
+>>> daf.select_record('b2')
 {'id': 'b2', 'item': 'ink', 'qty': 10}
->>> d.col('qty')
+>>> daf.col('qty')
 [3, 10]
 ```
 
@@ -70,9 +70,9 @@ See [Selecting and indexing](selecting.md) for all the ways to select.
 ## Add rows
 
 ```pycon
->>> _ = d.append({'id': 'c3', 'item': 'pad', 'qty': 7})
->>> _ = d.append(['d4', 'cap', 1])
->>> d.col('id')
+>>> _ = daf.append({'id': 'c3', 'item': 'pad', 'qty': 7})
+>>> _ = daf.append(['d4', 'cap', 1])
+>>> daf.col('id')
 ['a1', 'b2', 'c3', 'd4']
 ```
 
@@ -83,8 +83,8 @@ so these examples assign it to `_`, to keep the output short. See
 ## Change values
 
 ```pycon
->>> d[0, 'qty'] = 4
->>> d.select_record('a1')['qty']
+>>> daf[0, 'qty'] = 4
+>>> daf.select_record('a1')['qty']
 4
 ```
 

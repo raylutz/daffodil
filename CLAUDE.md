@@ -202,7 +202,9 @@ Source code is in src/daffodil and tests are in tests.
 
 - Column and table names must not contain a double underscore. It is reserved for the
   encoding used to store any name in SQLite: __HH up to 0xFF, __uHHHH up to 0xFFFF and
-  __UHHHHHHHH above. README.md states this rule.
+  __UHHHHHHHH above. The Guide page docsite/guide/columns-keys-schemas.md states this rule.
+- In examples, docs and the cheatsheet, a Daf is named `daf`, as pandas uses `df`. Not `d`,
+  which reads like a dict. Lead with indexing: `daf[k]`, `daf[n]`, `daf[:, 'c']`.
 
 ## Missing values
 

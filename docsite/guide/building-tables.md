@@ -10,12 +10,12 @@ often collects the rows in a list of dicts first and converts them at the end.
 
 ```pycon
 >>> from daffodil.daf import Daf
->>> d = Daf(cols=['id', 'qty'], keyfield='id')
->>> _ = d.append({'qty': 3, 'id': 'a1'})      # dict: by name
->>> _ = d.append(['b2', 10])                   # list: column order
->>> _ = d.append([{'id': 'c3', 'qty': 7}])     # list of dicts
->>> _ = d.append(lol=[['d4', 1], ['e5', 2]])   # several lists
->>> d.col('id')
+>>> daf = Daf(cols=['id', 'qty'], keyfield='id')
+>>> _ = daf.append({'qty': 3, 'id': 'a1'})      # dict: by name
+>>> _ = daf.append(['b2', 10])                   # list: column order
+>>> _ = daf.append([{'id': 'c3', 'qty': 7}])     # list of dicts
+>>> _ = daf.append(lol=[['d4', 1], ['e5', 2]])   # several lists
+>>> daf.col('id')
 ['a1', 'b2', 'c3', 'd4', 'e5']
 ```
 
@@ -30,8 +30,8 @@ The key is not checked, which keeps appending fast. A key that is already there 
 again. With `respect_kd=True`, the row that has the same key is replaced instead:
 
 ```pycon
->>> _ = d.append({'id': 'a1', 'qty': 30}, respect_kd=True)
->>> d.select_record('a1'), len(d)
+>>> _ = daf.append({'id': 'a1', 'qty': 30}, respect_kd=True)
+>>> daf.select_record('a1'), len(daf)
 ({'id': 'a1', 'qty': 30}, 5)
 ```
 
@@ -41,7 +41,7 @@ again. With `respect_kd=True`, the row that has the same key is replaced instead
 schema's default, or to NULL if there is no schema. Fill it in, then append it.
 
 With `astype=KeyedList`, the record is a KeyedList that shares the Daf's column names,
-`row.hd is d.hd`. Assigning to a key writes to that column's position, so the order in which
+`row.hd is daf.hd`. Assigning to a key writes to that column's position, so the order in which
 you fill it does not matter. And `append()` knows that its keys are the columns, so it skips
 the check of its columns.
 
@@ -112,6 +112,6 @@ it is several times faster.
 
 ## Other ways to grow a table
 
-- `d.append(other_daf)` adds the rows of a Daf with the same columns. So does `concat()`.
+- `daf.append(other_daf)` adds the rows of a Daf with the same columns. So does `concat()`.
 - `insert_irow()` inserts a row at a position.
 - `extend()` adds several rows, as `append()` does with a list of dicts or `lol=`.

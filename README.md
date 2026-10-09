@@ -35,14 +35,16 @@ any Python object: text, a number, a list, a dict, or even another table.
 ```python
 from daffodil.daf import Daf
 
-d = Daf(cols=['id', 'item', 'qty'], keyfield='id')
-d.append({'id': 'a1', 'item': 'pen', 'qty': 3})
-d.append(['b2', 'ink', 10])
+daf = Daf(cols=['id', 'item', 'qty'], keyfield='id')
+daf.append({'id': 'a1', 'item': 'pen', 'qty': 3})
+daf.append(['b2', 'ink', 10])
 
-d.select_record('b2')        # {'id': 'b2', 'item': 'ink', 'qty': 10}
-d.col('qty')                 # [3, 10]
-d.select_where(lambda row: row['qty'] > 5)
-print(d)                     # a Markdown table
+daf['b2']                     # the row with key 'b2'
+daf[0]                        # the first row
+daf[:, 'qty']                 # the qty column
+daf['b2', 'qty'].to_value()   # 10
+daf.select_where(lambda row: row['qty'] > 5)
+print(daf)                    # a Markdown table
 ```
 
 ## Why Daffodil

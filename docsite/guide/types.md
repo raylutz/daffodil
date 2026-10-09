@@ -15,11 +15,11 @@ A CSV file gives text. `apply_dtypes()` converts the columns in place, and retur
 
 ```pycon
 >>> from daffodil.daf import Daf
->>> d = Daf.from_csv_buff('id,qty,price,tags\na1,3,1.5,"[1, 2]"\nb2,,2.0,[]\n')
->>> d.lol
+>>> daf = Daf.from_csv_buff('id,qty,price,tags\na1,3,1.5,"[1, 2]"\nb2,,2.0,[]\n')
+>>> daf.lol
 [['a1', '3', '1.5', '[1, 2]'], ['b2', '', '2.0', '[]']]
->>> _ = d.apply_dtypes(dtypes={'id': str, 'qty': int, 'price': float, 'tags': list})
->>> d.lol
+>>> _ = daf.apply_dtypes(dtypes={'id': str, 'qty': int, 'price': float, 'tags': list})
+>>> daf.lol
 [['a1', 3, 1.5, [1, 2]], ['b2', '', 2.0, []]]
 ```
 

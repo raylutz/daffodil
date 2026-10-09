@@ -5,9 +5,9 @@ Markdown report or a page like this one.
 
 ```pycon
 >>> from daffodil.daf import Daf
->>> d = Daf(cols=['id', 'item', 'qty'], keyfield='id', name='stock',
-...         lol=[[f'r{i}', 'x' * i, i] for i in range(1, 9)])
->>> print(d.to_md(max_rows=4))
+>>> daf = Daf(cols=['id', 'item', 'qty'], keyfield='id', name='stock',
+...          lol=[[f'r{i}', 'x' * i, i] for i in range(1, 9)])
+>>> print(daf.to_md(max_rows=4))
 | id  |   item   | qty |
 | --: | -------: | --: |
 |  r1 |        x |   1 |
@@ -17,7 +17,7 @@ Markdown report or a page like this one.
 |  r8 | xxxxxxxx |   8 |
 ```
 
-`print(d)` shows the table, followed by a line that describes it.
+`print(daf)` shows the table, followed by a line that describes it.
 
 ## Options of to_md()
 
@@ -45,7 +45,7 @@ With `include_summary=True`, the table ends with a line that gives its keyfield 
 lost. The cells come back as text, as from a CSV file. See [Types and conversion](types.md).
 
 ```pycon
->>> text = d.to_md(include_summary=True, shorten_text=False)
+>>> text = daf.to_md(include_summary=True, shorten_text=False)
 >>> text.splitlines()[-1]
 "%% daf rows=8; cols=3; keyfield='id'; name='stock'"
 >>> back = Daf.from_md(text)

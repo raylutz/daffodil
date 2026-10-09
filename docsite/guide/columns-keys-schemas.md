@@ -7,14 +7,15 @@ position. The rows hold only their cells.
 
 ```pycon
 >>> from daffodil.daf import Daf
->>> d = Daf(cols=['id', 'qty'], lol=[['a1', 3], ['b2', 10]])
->>> d.hd
+>>> daf = Daf(cols=['id', 'qty'], lol=[['a1', 3], ['b2', 10]])
+>>> daf.hd
 {'id': 0, 'qty': 1}
 ```
 
-Names must be unique and hashable. Strings are the most convenient, because `[]` reads an
+Names must be unique and hashable. A name must not contain a double underscore, `__`, which is
+reserved for the encoding that stores any name in SQLite. Strings are the most convenient, because `[]` reads an
 integer as a position. A column named `5` is reached by name with `select_kcols()`, not with
-`d[:, 5]`.
+`daf[:, 5]`.
 
 A Daf with no names can be given spreadsheet names, or names of your own, with `set_cols()`:
 
@@ -63,12 +64,12 @@ table as an ordinary column. Daffodil builds a key dict, `kd`, from it when a lo
 needs it, so a table that is only appended to never builds one.
 
 ```pycon
->>> d = Daf(cols=['id', 'qty'], lol=[['a1', 3], ['b2', 10]], keyfield='id')
->>> d.select_record('b2')
+>>> daf = Daf(cols=['id', 'qty'], lol=[['a1', 3], ['b2', 10]], keyfield='id')
+>>> daf.select_record('b2')
 {'id': 'b2', 'qty': 10}
->>> d['b2', 'qty'].to_value()
+>>> daf['b2', 'qty'].to_value()
 10
->>> d.keys()
+>>> daf.keys()
 ['a1', 'b2']
 ```
 
@@ -93,11 +94,11 @@ read in. To find them before you rely on the key:
 4. Then set the keyfield with `set_keyfield()`.
 
 ```pycon
->>> d = Daf(cols=['id', 'qty'], lol=[['a1', 3], ['b2', 10], ['a1', 5]])
->>> ids = d.col('id')
+>>> daf = Daf(cols=['id', 'qty'], lol=[['a1', 3], ['b2', 10], ['a1', 5]])
+>>> ids = daf.col('id')
 >>> len(ids), len(set(ids))
 (3, 2)
->>> d.valuecounts_for_colname('id')
+>>> daf.valuecounts_for_colname('id')
 {'a1': 2, 'b2': 1}
 ```
 
