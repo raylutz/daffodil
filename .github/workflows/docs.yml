@@ -1,7 +1,7 @@
 # Build the docs and deploy them to GitHub Pages. Nothing goes to PyPI. The commit must be on main.
 # The full deploy calls this before the PyPI step. To update the docs alone, between releases,
 # push a commit from main to the branch docs_deploy:
-#   git fetch origin main && git push origin origin/main:docs_deploy
+#   git fetch origin main && git push origin origin/main:refs/heads/docs_deploy
 # or run it by hand on main:   gh workflow run docs.yml
 # Docs built from main may describe changes that are not on PyPI yet.
 

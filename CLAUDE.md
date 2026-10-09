@@ -191,7 +191,7 @@ Source code is in src/daffodil and tests are in tests.
 - `main` is the trunk. A push to `main` runs nothing on GitHub. Each deploy has its own branch, which only ever receives commits from `main`, and its push runs that deploy: `full_deploy` for a release, `docs_deploy` for the docs alone.
 - Before any push to `main`, run `bash notes/scripts/check_before_push.sh`. It runs what CI runs: the tests and the doctests on Python 3.10, 3.11, 3.12 and 3.13, and the strict docs build. Report a failure, with its output, and do not push.
 - CI (ci.yml) runs on a pull request, when the full deploy calls it, and by hand: `gh workflow run ci.yml`.
-- To deploy the docs alone, without a release: `git fetch origin main && git push origin origin/main:docs_deploy`. Do it only when Ray asks, since docs from `main` may describe changes not on PyPI. `gh workflow run docs.yml` does the same on `main`. The GitHub Pages environment accepts deploys from `main`, `full_deploy` and `docs_deploy`.
+- To deploy the docs alone, without a release: `git fetch origin main && git push origin origin/main:refs/heads/docs_deploy`. Do it only when Ray asks, since docs from `main` may describe changes not on PyPI. `gh workflow run docs.yml` does the same on `main`. The GitHub Pages environment accepts deploys from `main`, `full_deploy` and `docs_deploy`.
 - Before a release, set the version in pyproject.toml and the date in the CHANGELOG heading. Run the local checks, then push to `main`.
 - Then run `git fetch origin main && git push origin origin/main:full_deploy`. Do not use the local `main`, which can be behind origin. The full deploy runs the whole test matrix itself, and stops before PyPI if a test fails.
 - Check the Full deploy run and look for the tag. A failed run makes no tag.
