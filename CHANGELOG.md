@@ -8,6 +8,9 @@ Adoption of this format started in v0.5.10. Prior notes included in fixed sectio
 all prior releases. Plans for future moved to ROADMAP.md.
 
 ## [Unreleased]
+### Changed
+- CI no longer runs on a push to `main`, to save GitHub Actions minutes. It runs on a pull request, when the full deploy calls it, and by hand with `gh workflow run ci.yml`. Before a push to `main`, `notes/scripts/check_before_push.sh` runs the same checks locally: the tests and the doctests on Python 3.10 to 3.13, and the strict docs build.
+- The docs deploy alone on a push from `main` to the new branch `docs_deploy`, as releases do on `full_deploy`. It checks that the commit is on `main`. `gh workflow run docs.yml` still works.
 
 ## [0.7.0] - (2026-10-09)
 ### Added

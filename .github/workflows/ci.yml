@@ -1,13 +1,14 @@
 # Runs the tests and the docs build. It never deploys.
-# It runs on a push to main and on every pull request. The deploy workflow also calls it.
+# A push to main runs nothing: run the same checks locally first, with notes/scripts/check_before_push.sh.
+# It runs on every pull request, when the full deploy calls it before publishing, and by hand:
+#   gh workflow run ci.yml
 
 name: CI
 
 on:
-  push:
-    branches: [main]
   pull_request:
   workflow_call:
+  workflow_dispatch:
 
 permissions:
   contents: read

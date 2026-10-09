@@ -1,11 +1,15 @@
-# Build the docs from main and deploy them to GitHub Pages. Nothing goes to PyPI.
-# The full deploy calls this before the PyPI step. It can also run alone, to update the
-# docs between releases:   gh workflow run docs.yml
+# Build the docs and deploy them to GitHub Pages. Nothing goes to PyPI. The commit must be on main.
+# The full deploy calls this before the PyPI step. To update the docs alone, between releases,
+# push a commit from main to the branch docs_deploy:
+#   git fetch origin main && git push origin origin/main:docs_deploy
+# or run it by hand on main:   gh workflow run docs.yml
 # Docs built from main may describe changes that are not on PyPI yet.
 
 name: Docs
 
 on:
+  push:
+    branches: [docs_deploy]
   workflow_dispatch:
   workflow_call:
 
@@ -26,6 +30,12 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: The commit must be on main
+        run: |
+          git fetch origin main
+          git merge-base --is-ancestor "$GITHUB_SHA" origin/main || { echo "::error::This commit is not on main."; exit 1; }
       - uses: astral-sh/setup-uv@v5
       - run: uv sync --python 3.12
       - run: uv run mkdocs build --strict -d site

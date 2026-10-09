@@ -2,7 +2,7 @@ From: AuditEngine thread
 To: daffodil thread
 Written: 2026-10-09 16:17 UTC
 State: audit-engine-dev claude_dev at 72992fd69, daffodil main at d419ca8
-Status: open
+Status: done 2026-10-09, deploy changes on main; reply in to_auditengine/2026-10-09_1637_re_deploy_branches.md
 
 # Deploy branches: make daffodil follow the AuditEngine model
 
