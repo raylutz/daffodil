@@ -33,6 +33,7 @@ daf[:, cols]        columns, all rows
 | `(None, 'c3')`               | the start through key c3                | the start through name c3                   |
 | `[]`                         | no rows                                 | no columns                                  |
 
+- Selecting whole rows, as `daf[rows]` or `daf[rows, :]`, copies no data: the new Daf shares the rows with the original, so a change to a cell in one shows in the other. Selecting some of the columns makes new rows. Use `copy('editable')` for rows of your own.
 - An integer is always a position. A key or a column name that is an integer needs `select_krows()` or `select_kcols()`.
 - Rows by key need a keyfield.
 - A tuple of row keys needs the column part, even if it is `:`, as in `daf[('a1', 'c3'), :]`. A tuple of two standing alone is read as `[rows, cols]`.
