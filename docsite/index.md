@@ -1,3 +1,5 @@
+<img src="images/daffodil_logo.png" alt="" width="90" align="right">
+
 # Daffodil
 
 Daffodil gives Python fast, lightweight 2-D data tables. A table is a list of rows, and each
@@ -32,7 +34,7 @@ daf.select_where(lambda row: row['qty'] > 5)
 print(daf)                    # a Markdown table
 ```
 
-The [Guide](guide/getting-started.md) starts from here.
+The [Guide](guide/getting-started.md) starts from here, and the [cheatsheet](cheatsheet.md) has it all on one page.
 
 ## The data model
 

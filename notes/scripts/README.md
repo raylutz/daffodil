@@ -4,6 +4,7 @@ Saved on 2026-10-06 from a cloud session whose files do not survive. They are on
 
 - regen_doctest_tables.py: reruns every doctest, takes the real output of table examples and rewrites the docstring, with `<BLANKLINE>` for blank lines. Run it without arguments for a dry run and with `apply` to edit files. It finds each example by its text, because the line numbers from doctest are unreliable for some methods.
 - survey_doctests.py: counts doctests and how many print tables.
+- build_cheatsheet.py and cheatsheet_content.py: build docsite/cheatsheet.md, with tables made by Daf.to_md(). Edit the content file, then run the build. tests/test_cheatsheet.py runs every snippet and checks the file is current.
 - check_before_push.sh: the checks that CI runs, run locally before a push to main: the tests and the doctests on Python 3.10 to 3.13, and the strict docs build. A push to main runs nothing on GitHub.
 - mem_by_string_share.py: kept memory of a 1000 x 1000 table in Daffodil and pandas, for 1 to 1000 string columns, with small and large ints.
 - bench_build_rows.py: builds a table of 1 str column and some int columns, the pandas way and the Daffodil way, and prints time and memory. The default is 200,000 rows of 10 columns; the Home page uses BENCH_ROWS=1000 BENCH_INTS=999. Its results are on the docs Home page.

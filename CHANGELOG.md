@@ -9,6 +9,8 @@ all prior releases. Plans for future moved to ROADMAP.md.
 
 ## [Unreleased]
 ### Added
+- A cheatsheet, `docsite/cheatsheet.md`: one Markdown file for people and for AI tools, with a skill header (`name`, `description`). It has a table for each task, made by `Daf.to_md()`, then rules and common mistakes. It is built from `notes/scripts/cheatsheet_content.py` by `notes/scripts/build_cheatsheet.py`. `tests/test_cheatsheet.py` runs every snippet and checks that the file is current. It is in the docs menu and linked from the README.
+- The Daffodil logo, `docsite/images/daffodil_logo.png`, as the logo and favicon of the docs, on the Home page, and in the README, from the repository instead of a GitHub upload link.
 - A Guide in the docs: Getting started, Building tables, Selecting and indexing, Columns, keys and schemas, Types and conversion, Apply, reduce and formulas, Joins, Markdown reports, and Coming from pandas. It holds what the README explained, checked against the code. Its examples are doctests, run with `pytest --doctest-glob='*.md' docsite/guide` in CI and in `notes/scripts/check_before_push.sh`. `conftest.py` lets those examples sit in code fences.
 
 ### Changed

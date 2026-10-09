@@ -1,4 +1,4 @@
-![daffodil_logo](https://github.com/raylutz/daffodil/assets/14955977/5e141583-0216-429d-9ba8-be938aa13017)
+<img src="https://raw.githubusercontent.com/raylutz/daffodil/main/docsite/images/daffodil_logo.png" alt="Daffodil logo" width="110">
 
 # Python Daffodil
 
@@ -67,6 +67,7 @@ measurements.
 
 ## Learn more
 
+- [Cheatsheet](https://raylutz.github.io/daffodil/cheatsheet/), everything on one page
 - [Getting started](https://raylutz.github.io/daffodil/guide/getting-started/)
 - [Building tables](https://raylutz.github.io/daffodil/guide/building-tables/), including the
   fast way to build rows in a loop

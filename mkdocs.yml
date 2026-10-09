@@ -5,6 +5,8 @@ docs_dir: docsite
 
 theme:
   name: material
+  logo: images/daffodil_logo.png
+  favicon: images/daffodil_logo.png
   palette:
     - scheme: default
       primary: blue grey
@@ -31,6 +33,7 @@ extra_css:
 
 nav:
   - Home: index.md
+  - Cheatsheet: cheatsheet.md
   - Guide:
       - Getting started: guide/getting-started.md
       - Building tables: guide/building-tables.md

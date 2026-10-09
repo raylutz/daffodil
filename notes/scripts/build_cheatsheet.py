@@ -1,0 +1,68 @@
+# build_cheatsheet.py
+#
+# Build docsite/cheatsheet.md from notes/scripts/cheatsheet_content.py. The tables are made by
+# Daffodil itself, with Daf.to_md(). The file is Markdown with a skill header, for people and for AI tools.
+#
+#   uv run python notes/scripts/build_cheatsheet.py           write the file
+#   uv run python notes/scripts/build_cheatsheet.py --check   exit 1 if the file is out of date
+#
+# tests/test_cheatsheet.py runs every snippet, and runs --check.
+
+import os
+import sys
+
+sys.path.insert(0, os.path.dirname(__file__))
+
+from daffodil.daf import Daf                                     # noqa: E402
+from cheatsheet_content import SECTIONS, RULES, MISTAKES, PANDAS_TITLE    # noqa: E402
+
+ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+OUT_PATH = os.path.join(ROOT, 'docsite', 'cheatsheet.md')
+
+HEADER = '''---
+name: daffodil
+description: Cheatsheet for Daffodil, the Python package of 2-D tables built on lists (`pip install daffodil`, `from daffodil.daf import Daf`). Use it to write or read code that creates, selects, builds, changes or exports Daf tables.
+---
+
+# Daffodil cheatsheet
+
+Daffodil keeps a table as a list of rows, each a plain Python list, with the column names in a
+dict. Every line of code here is run as a test. The docs are at https://raylutz.github.io/daffodil/.
+This file is generated from notes/scripts/cheatsheet_content.py. Edit that file, not this one.
+'''
+
+
+def build() -> str:
+    parts = [HEADER]
+    for title, rows, notes in SECTIONS:
+        if title == PANDAS_TITLE:
+            cols = ['pandas', 'Daffodil']
+            lol = [[f'`{pd_code}`', ' or '.join(f'`{c}`' for c in daf_code.split('  or  '))] for pd_code, daf_code, *_ in rows]
+        else:
+            cols = ['Code', 'What it does']
+            lol = [[f'`{code}`', desc] for code, desc, *_ in rows]
+        table = Daf(cols=cols, lol=lol).to_md(just='<<', shorten_text=False)
+        parts.append(f'## {title}\n\n{table}')
+        for note in notes:
+            parts.append(f'{note}\n')
+    parts.append('## Rules\n\n' + ''.join(f'- {rule}\n' for rule in RULES))
+    parts.append('## Common mistakes\n\n' + ''.join(f'- {mistake}\n' for mistake in MISTAKES))
+    return '\n'.join(parts)
+
+
+def main() -> int:
+    text = build()
+    if '--check' in sys.argv:
+        current = open(OUT_PATH, encoding='utf-8').read() if os.path.exists(OUT_PATH) else ''
+        if current != text:
+            print(f'{OUT_PATH} is out of date. Run: uv run python notes/scripts/build_cheatsheet.py')
+            return 1
+        return 0
+    with open(OUT_PATH, 'w', encoding='utf-8') as fh:
+        fh.write(text)
+    print(f'wrote {OUT_PATH}')
+    return 0
+
+
+if __name__ == '__main__':
+    sys.exit(main())
