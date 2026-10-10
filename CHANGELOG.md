@@ -18,6 +18,7 @@ all prior releases. Plans for future moved to ROADMAP.md.
 ### Changed
 - The README is short: what Daffodil is, how to install it, the data model diagram, a quick start, why to use it, and links to the docs. It was over 1,000 lines, with method names that no longer exist, such as `add_idx()`, `to_csv()` and `group_to_dodaf()`, and size claims that did not hold. The old diagram is replaced by the new one, as a PNG.
 - The docs Home page has install, a quick start and links into the Guide.
+- With `retmode='val'`, `daf[row]` and `daf[row, col]` read the row or the cell straight from the rows, with no Daf built on the way. This applies when the row is an int or a key, and the column is an int or a name. The results and errors are unchanged. On a 10-row table, `daf[3]` went from 11.9 to 0.5 µs and `daf[3, 'n']` from 26.6 to 0.7 µs. By key, `daf['r3']` went from 14.1 to 3.3 µs and `daf['r3', 'n']` from 28.9 to 3.3 µs. `tests/test_daf_getitem_val_fast.py` checks the fast path against the general path, on 7 tables and 27 selectors.
 - CI no longer runs on a push to `main`, to save GitHub Actions minutes. It runs on a pull request, when the full deploy calls it, and by hand with `gh workflow run ci.yml`. Before a push to `main`, `notes/scripts/check_before_push.sh` runs the same checks locally: the tests and the doctests on Python 3.10 to 3.13, and the strict docs build.
 - The docs deploy alone on a push from `main` to the new branch `docs_deploy`, as releases do on `full_deploy`. It checks that the commit is on `main`. `gh workflow run docs.yml` still works.
 
