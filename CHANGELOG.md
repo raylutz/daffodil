@@ -8,6 +8,8 @@ Adoption of this format started in v0.5.10. Prior notes included in fixed sectio
 all prior releases. Plans for future moved to ROADMAP.md.
 
 ## [Unreleased]
+### Changed
+- `main` now carries the next dev version, 0.7.2.dev0, between releases. An editable install then shows that it is not the PyPI release.
 
 ## [0.7.1] - (2026-10-10)
 ### Added

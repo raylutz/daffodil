@@ -183,6 +183,7 @@ Source code is in src/daffodil and tests are in tests.
 ## Releasing
 
 - Version 0.7.1 was released on 2026-10-10, from 22cdaa8. Tags look like `v0.7.1`.
+- Between releases, `main` carries the next dev version, such as 0.7.2.dev0. A `-e` install then never reads the same as a PyPI release. AuditEngine asked for this on 2026-10-10. The deploy cannot release a dev version, because CHANGELOG.md never has a heading for one.
 - The workflow deploy.yml runs only on a push to the branch `full_deploy`. It checks the version, runs the tests, builds, and deploys the docs. Then it waits for Ray to approve, because he is a required reviewer on the environment `pypi`. After approval it publishes to PyPI and creates the tag and the GitHub Release. The Release notes are the version's section of CHANGELOG.md. The docs header shows the latest GitHub Release.
 - Approval can come from the Actions run page, the GitHub mobile app, or from Claude when Ray says to approve. Never approve without Ray's word in the conversation. With gh:
   `gh api repos/raylutz/daffodil/actions/runs/<run id>/pending_deployments -X POST -F 'environment_ids[]=<pypi env id>' -f state=approved -f comment=...`
@@ -195,6 +196,7 @@ Source code is in src/daffodil and tests are in tests.
 - Before a release, set the version in pyproject.toml and the date in the CHANGELOG heading. Run the local checks, then push to `main`.
 - Then run `git fetch origin main && git push origin origin/main:full_deploy`. Do not use the local `main`, which can be behind origin. The full deploy runs the whole test matrix itself, and stops before PyPI if a test fails.
 - Check the Full deploy run and look for the tag. A failed run makes no tag.
+- After the release, set pyproject.toml to the next dev version, such as 0.7.3.dev0 after 0.7.2, and push to `main`.
 - The secret `PYPI_API_TOKEN` lives in the GitHub environment `pypi`. Ray sets it. Never ask for its value.
 - Push to `main` only when Ray asks. A handoff or mail commit goes to `main` and runs nothing. It never goes to `full_deploy` or `docs_deploy`.
 
