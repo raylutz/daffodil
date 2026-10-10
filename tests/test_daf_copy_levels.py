@@ -170,3 +170,19 @@ def test_sortable_with_no_dtypes_and_empty_daf():
         assert empty.copy(level).lol == []
 
 
+
+
+def test_empty_attrs_copy_is_its_own_dict():
+    # An empty attrs dict is replaced by a new one, not deep-copied. It must still be separate.
+    daf = Daf(lol=[[1, 2]], cols=['a', 'b'])
+    for level in ['shallow', 'sortable', 'editable']:
+        copied = daf.copy(level)
+        assert copied.attrs == {} and copied.attrs is not daf.attrs
+        copied.attrs['x'] = 1
+        assert daf.attrs == {}
+
+
+def test_non_dict_attrs_still_deep_copied():
+    daf = Daf(lol=[[1, 2]], cols=['a', 'b'])
+    daf.attrs = None
+    assert daf.copy('shallow').attrs is None

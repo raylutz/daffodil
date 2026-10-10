@@ -1111,7 +1111,7 @@ class Daf:
         new_daf.name = name
 
         if bits & self.COPY_ATTRS:
-            new_daf.attrs = copy.deepcopy(self.attrs)
+            new_daf.attrs = {} if type(self.attrs) is dict and not self.attrs else copy.deepcopy(self.attrs)   # deepcopy takes 1 us even for {}.
             if isinstance(self.disp_cols, list):
                 new_daf.disp_cols = list(self.disp_cols)
 
@@ -5272,7 +5272,7 @@ class Daf:
         ):
             # is_list_of_type() already confirmed (at runtime) row_spec is one of the declared
             # irows alternatives -- it's just not a TypeGuard, so mypy can't narrow on it itself.
-            irows = cast(int | slice | range | T_li, row_spec)
+            irows = cast('int | slice | range | T_li', row_spec)
 
         else:
             raise TypeError(f"Invalid row selector: {row_spec}")
@@ -5294,7 +5294,7 @@ class Daf:
             isinstance(col_spec, (int, slice, range))
             or daf_utils.is_list_of_type(col_spec, (int, range))
         ):
-            icols = cast(int | slice | range | T_li, col_spec)
+            icols = cast('int | slice | range | T_li', col_spec)
 
         else:
             raise TypeError(f"Invalid column selector: {col_spec}")
@@ -5415,7 +5415,7 @@ class Daf:
         # irows accepts a bare Iterable per this method's own signature, but len_rowcol_spec
         # only actually measures slice/int/range/list (silently returns 0 for anything else,
         # e.g. a generator) -- in every real caller, irows/icols is one of those four by here.
-        num_irows = daf_utils.len_rowcol_spec(cast(slice | int | range | T_li | None, irows), tot_num_rows)
+        num_irows = daf_utils.len_rowcol_spec(cast('slice | int | range | T_li | None', irows), tot_num_rows)
         num_icols = daf_utils.len_rowcol_spec(icols, tot_num_cols)
 
         if num_irows == 1 and isinstance(irows, int):
@@ -5434,8 +5434,8 @@ class Daf:
         # a few lines up (num_irows/num_icols == 1 and isinstance(..., int)). The declared param
         # type is wider (Iterable, T_li, ...) to accept what callers may pass in, not what
         # remains once this normalization runs.
-        irows = cast(range | T_li, irows)
-        icols = cast(range | T_li, icols)
+        irows = cast('range | T_li', irows)
+        icols = cast('range | T_li', icols)
 
         # special case when cols not specified.
         if num_irows == 1 and num_icols == 0:
@@ -5681,7 +5681,7 @@ class Daf:
                     # self.hd's keys (Dict[str, int]) are a subset of what gkeys_to_idxs accepts
                     # (Dict[str|int, int]) -- dict is invariant in its key type for mypy, so this
                     # narrower-is-fine relationship needs a cast to type-check.
-                    keydict         = cast(Dict[str | int, int], self.hd),
+                    keydict         = cast('Dict[str | int, int]', self.hd),
                     gkeys           = kcols,
                     inverse         = inverse,
                     silent_error    = silent_error,
@@ -5810,7 +5810,7 @@ class Daf:
                     # gkeys may iterate to a tuple or other non-str/int element (per its Union
                     # type); keydict only has str|int keys, so such a lookup simply KeyErrors
                     # below and is handled the same as any other missing key.
-                    idxs.append(keydict[cast(str | int, one_gkey)])
+                    idxs.append(keydict[cast('str | int', one_gkey)])
                 except KeyError:
                     if not silent_error:
                         # logs.sts(f"{logs.prog_loc()} Cannot find key '{one_gkey}' in {axis} in dataframe '{name}'", 3)
@@ -6247,7 +6247,7 @@ class Daf:
                 isinstance(icols, range)):
             # list of integers or range -- is_list_of_type() isn't a TypeGuard, confirmed at
             # runtime, mypy just can't narrow icols from that call itself.
-            icols = cast(T_li | range, icols)
+            icols = cast('T_li | range', icols)
             if not flip:
                 try:
                     # short-circuits on the first mismatch rather than materializing/comparing
