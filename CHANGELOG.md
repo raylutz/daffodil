@@ -8,6 +8,8 @@ Adoption of this format started in v0.5.10. Prior notes included in fixed sectio
 all prior releases. Plans for future moved to ROADMAP.md.
 
 ## [Unreleased]
+
+## [0.7.1] - (2026-10-10)
 ### Added
 - A cheatsheet, `docsite/cheatsheet.md`: one Markdown file for people and for AI tools, with a skill header (`name`, `description`). It has a table for each task, made by `Daf.to_md()`, then rules and common mistakes. It is built from `notes/scripts/cheatsheet_content.py` by `notes/scripts/build_cheatsheet.py`. `tests/test_cheatsheet.py` runs every snippet and checks that the file is current. It is in the docs menu and linked from the README.
 - `notes/scripts/transition.sh`, written by the AuditEngine thread: closes this thread's tmux session, updates claude under a lock shared with AuditEngine's transition script, and starts the next thread, which picks up the handoff. CLAUDE.md Part 3 says when to use it.
