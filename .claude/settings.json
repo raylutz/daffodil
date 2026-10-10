@@ -1,4 +1,9 @@
 {
+  "permissions": {
+    "allow": [
+      "Bash(git push origin origin/main:refs/heads/docs_deploy)"
+    ]
+  },
   "hooks": {
     "SessionStart": [
       {
