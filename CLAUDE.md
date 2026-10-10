@@ -253,7 +253,7 @@ Source code is in src/daffodil and tests are in tests.
 This thread runs on Ray's EC2 box, in /home/daffodil, in its own tmux session. The box has no
 screen; Ray often follows from a phone. The files persist between threads, but the next thread
 may start on another machine, so a handoff exists only once it is committed and pushed. Ray
-starts the next thread by hand. There is no transition script.
+starts the next thread, either by hand or with `notes/scripts/transition.sh` (see step 7 of Winding down).
 
 The box is shared:
 
@@ -301,11 +301,20 @@ When Ray says something like "wind down" or "hand off", do these steps in order.
    then replace it.
 4. Commit both files with the message "Handoff <YYYY-MM-DD_HHMM>", and push.
 5. Check that the push reached the remote: `git log origin/<branch> -1` shows the handoff commit.
-6. Tell Ray the handoff file name and the branch it is on, then end. Nothing else runs after that.
+6. Tell Ray the handoff file name and the branch it is on. Without a transition, end here.
+7. Only when Ray asks for a transition: check that nothing is outstanding, as a pending task or
+   wakeup can leave `/exit` at a dialog the script cannot answer. Run `/tasks` and stop anything
+   listed, and call `ScheduleWakeup` with `stop: true`, which is harmless if none is pending. Then
+   launch the script detached, as the last action, and end the turn:
+   `setsid nohup notes/scripts/transition.sh "<next thread name>" > ~/.claude-supervisor-state/daffodil/transition.log 2>&1 < /dev/null & disown`
+   It closes this session with `/exit`, updates claude under a lock shared with AuditEngine's
+   transition script, and starts the next thread, which picks up the handoff. Check it first with
+   `notes/scripts/transition.sh --dry-run "<name>"`, which sends nothing.
 
 ## Starting up: picking up a handoff
 
-Do this first in a new thread, before any other work.
+Do this first in a new thread, before any other work. A thread started by `transition.sh` first
+writes a checkin marker and reads any transition failure report, as its startup prompt says.
 
 1. Bring the local `main` up to date. Check that the working tree is clean, then run
    `git fetch origin && git merge --ff-only origin/main`. Uncommitted files in `notes/mail/` do not
