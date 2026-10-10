@@ -1107,7 +1107,10 @@ class Daf:
         if bits & self.COPY_OUTER:
             bits |= self.COPY_KD
 
-        new_daf = copy.copy(self)               # a new object, which shares everything so far.
+        # A shallow copy, as copy.copy() makes, without its 1.7 us of finding out how to copy.
+        # A subclass's own __copy__ is not called.
+        new_daf = type(self).__new__(type(self))    # a new object, which shares everything so far.
+        new_daf.__dict__.update(self.__dict__)
         new_daf.name = name
 
         if bits & self.COPY_ATTRS:

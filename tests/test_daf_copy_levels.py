@@ -186,3 +186,15 @@ def test_non_dict_attrs_still_deep_copied():
     daf = Daf(lol=[[1, 2]], cols=['a', 'b'])
     daf.attrs = None
     assert daf.copy('shallow').attrs is None
+
+
+def test_copy_keeps_subclass_and_settings():
+    class MyDaf(Daf):
+        pass
+    daf = MyDaf(lol=[[1, 2]], cols=['a', 'b'], retmode='val')
+    daf.md_max_rows = 3
+    for level in ['shallow', 'sortable', 'editable']:
+        copied = daf.copy(level)
+        assert type(copied) is MyDaf
+        assert copied is not daf
+        assert (copied.retmode, copied.md_max_rows) == ('val', 3)
