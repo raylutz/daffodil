@@ -129,7 +129,7 @@ _PLAIN_VALUE_TYPES = (int, float, str, bool)
 def _uncountable_message(funcname: str, col: str, val: Any) -> str:
     """ The message for a value that cannot be counted. Internal, for count_values_da() and count_values_kl(). """
     return (f"{funcname}(): column {col!r} holds a {type(val).__name__}, which cannot be counted. "
-            f"Leave the column out with cols.")
+            f"Use the cols parameter to select the columns to count, and leave this one out.")
 
 
 def _short_list(items: T_la, limit: int = 5) -> str:
