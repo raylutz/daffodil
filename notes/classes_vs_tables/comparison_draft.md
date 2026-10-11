@@ -201,6 +201,8 @@ Gradebook, 200,000 grades:
 | :-- | :-- | --: | --: | --: |
 | pydantic | JSON | 6,483,290 | 518,667 | 32.4 B |
 | plain classes | JSON | 7,403,290 | 528,000 | 37.0 B |
+| daffodil, indirect column | CSV | 2,853,292 | 447,794 | 14.3 B |
+| daffodil, indirect column with JSON cells | CSV | 2,513,292 | 438,656 | 12.6 B |
 | daffodil table | CSV | 4,163,306 | 656,411 | 20.8 B |
 
 What the sizes show:
@@ -213,6 +215,9 @@ What the sizes show:
   The table repeats the student and the subject on every row. The nested JSON writes each
   student once, and each subject once for each student. So flat rows cost space when the data is
   really nested, once the file is compressed.
+- Daffodil can hold the nested part in an indirect column: one row per student, with the grades
+  as a dict in one cell. Then it is the smallest file, raw and gzipped. With JSON in the cell it
+  also loads fastest. See gradebook_table_design.md.
 - A smaller file also loads faster. That is part of why the daffodil load times above are low.
 
 ## How much custom code each version needs
@@ -264,6 +269,7 @@ Gradebook:
 | plain classes | 13 / 138 | 24 / 224 | 28 / 409 | 30 / 317 | 1 / 2 | 96 / 1090 |
 | pydantic | 9 / 61 | 0 / 0 | 4 / 33 | 30 / 321 | 1 / 4 | 44 / 419 |
 | daffodil table | 1 / 19 | 0 / 0 | 4 / 37 | 20 / 297 | 1 / 6 | 26 / 359 |
+| daffodil indirect column | 1 / 11 | 0 / 0 | 13 / 140 | 19 / 301 | 2 / 8 | 35 / 460 |
 | daffodil table and summary | 2 / 48 | 0 / 0 | 5 / 58 | 29 / 409 | 2 / 10 | 38 / 525 |
 
 What the counts show:

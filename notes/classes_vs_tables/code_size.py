@@ -94,6 +94,7 @@ VERSIONS = {
         ('plain classes',   'gradebook/gb_classes_plain.py',    {}),
         ('pydantic',        'gradebook/gb_classes.py',          {}),
         ('daffodil table',  'gradebook/gb_daffodil.py',         {'dtypes': 'describe'}),
+        ('daffodil indirect', 'gradebook/gb_daffodil_indirect.py', {'dtypes': 'describe', 'load_json': 'load/save', 'dump_json': 'load/save'}),
         ('daffodil + summary', 'gradebook/gb_daffodil_summary.py', {'dtypes': 'describe', 'summary_cols': 'describe'}),
     ],
 }

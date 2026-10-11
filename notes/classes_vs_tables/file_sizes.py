@@ -2,7 +2,7 @@
 import gzip, sys
 sys.path.insert(0, 'gradebook')
 import make_data, fmt, impl_marshmallow as M, impl_pydantic as P, impl_plain as X, impl_daffodil as D
-import gb_data, gb_classes as GC, gb_classes_plain as GX, gb_daffodil as GD
+import gb_data, gb_classes as GC, gb_classes_plain as GX, gb_daffodil as GD, gb_daffodil_indirect as GI
 
 def sizes(text: str) -> tuple:
     raw = text.encode()
@@ -25,6 +25,8 @@ for label, mod in [('marshmallow', M), ('pydantic', P), ('plain classes', X), ('
 show('Ballot batches, 100,000 records, after flag', rows)
 
 grades = gb_data.make_grades(10_000)
-rows = [(label, form, mod.dump(mod.build(grades)), len(grades))
-        for label, form, mod in [('pydantic', 'JSON', GC), ('plain classes', 'JSON', GX), ('daffodil table', 'CSV', GD)]]
+rows = [(label, form, dump(mod.build(grades)), len(grades))
+        for label, form, mod, dump in [('pydantic', 'JSON', GC, GC.dump), ('plain classes', 'JSON', GX, GX.dump),
+                                       ('indirect, default', 'CSV', GI, GI.dump), ('indirect, JSON', 'CSV', GI, GI.dump_json),
+                                       ('daffodil table', 'CSV', GD, GD.dump)]]
 show('Gradebook, 200,000 grades', rows)
