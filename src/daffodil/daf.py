@@ -10519,8 +10519,9 @@ class Daf:
         """
         Add up the columns, using `reduce()` and `sum_kl()`.
 
-        Cells that cannot be added, such as text, are skipped. A column that is not
-        in `cols` is empty in the result.
+        Cells that cannot be added, such as text, are skipped with no error. See
+        [sum_kl][daffodil.daf.Daf.sum_kl] for what that means for a bad number. A column
+        that is not in `cols` is empty in the result.
 
         Args:
             by: How the function is applied. See `reduce()`.
@@ -10719,7 +10720,8 @@ class Daf:
         Add the values of a row to a running total. Use it with `reduce()`.
 
         This is a static method. A value that cannot be added, such as text or an empty
-        cell, is skipped. The total is changed and returned. With `astype`, each value
+        cell, is skipped with no error. See [sum_kl][daffodil.daf.Daf.sum_kl] for what that
+        means for a bad number. The total is changed and returned. With `astype`, each value
         is first converted to that type. `reduce()` uses `sum_kl()` in its place.
 
         Args:
@@ -10878,8 +10880,12 @@ class Daf:
         one through the row. `reduce()` uses it in place of `sum_da()`, so a caller
         that passes `Daf.sum_da` gets this speed too.
 
-        A value that cannot be added, such as text or an empty cell, is skipped. A
-        column that the row does not have adds 0. With `astype` or `is_sparse`, or a
+        A value that cannot be added, such as text or an empty cell, is skipped, with no
+        error. That keeps the sum fast, and lets a sum of all columns pass over the text
+        columns. But a bad number, such as `abc` in an `int` column, is then left out of
+        the total with no sign. Call `check_schema()` first to find such cells.
+
+        A column that the row does not have adds 0. With `astype` or `is_sparse`, or a
         row that is not a KeyedList, the work is passed to `sum_da()`.
 
         Args:
