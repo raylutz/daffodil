@@ -8,6 +8,8 @@ Adoption of this format started in v0.5.10. Prior notes included in fixed sectio
 all prior releases. Plans for future moved to ROADMAP.md.
 
 ## [Unreleased]
+
+## [0.7.2] - (2026-10-11)
 ### Fixed
 - `import daffodil` no longer needs pandas or numpy. Both are optional in pyproject.toml, but `lib/daf_types.py`, `lib/daf_utils.py` and `lib/daf_pandas.py` imported them at the top, so a plain `pip install daffodil` failed with ModuleNotFoundError. They are now imported inside the functions that use them, and the type aliases name them only for type checkers. The import takes 0.09 s instead of 1.08 s, which shortens a Lambda cold start.
 - `reduce()` with `count_values_da()` failed with AttributeError on a column of dicts. `reduce()` starts each count at 0, and `count_values_da()` then added a dict to that 0. A count that is 0 or empty now starts the dict.
