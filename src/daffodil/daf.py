@@ -11577,8 +11577,8 @@ class Daf:
 
         This is a static method. The counts are a dict that maps each column to a dict
         of value and count. The counts are changed and returned. A cell that holds
-        a list is collected into a list. A cell that holds a dict is added to the
-        counts for that column with `sum_da()`. Use `omit_nulls` to skip empty cells.
+        a list is skipped. A cell that holds a dict is added to the counts for that
+        column with `sum_da()`. Use `omit_nulls` to skip empty cells.
         `reduce()` uses `count_values_kl()` in its place.
 
         Args:
@@ -11612,18 +11612,14 @@ class Daf:
             if omit_nulls and val is NULL:
                 continue
 
-            # A count that is missing or empty starts here. reduce() starts each count at 0.
             if val and isinstance(val, list):
-                # val is a list of values. Copy it, so later appends don't mutate the source row.
-                if not result_dodi.get(col):
-                    result_dodi[col] = list(val)
-                else:
-                    result_dodi[col].append(val)
+                # A list cannot be counted as a value, so it is skipped.
                 continue
 
             if val and isinstance(val, dict):
                 # val is a dict of values determined in another pass.
                 # Copy it, since sum_da() below accumulates into result_dodi[col] in place.
+                # A count that is missing or empty starts here. reduce() starts each count at 0.
                 if not result_dodi.get(col):
                     result_dodi[col] = dict(val)
                 else:
@@ -11655,8 +11651,8 @@ class Daf:
         `reduce()` gives it, which are [KeyedList][daffodil.keyedlist.KeyedList]
         objects. `reduce()` uses it in place of `count_values_da()`.
 
-        A cell that holds a list or a dict is passed to `count_values_da()`, one column
-        at a time, as is a row that is not a KeyedList.
+        A cell that holds a list is skipped. A cell that holds a dict is passed to
+        `count_values_da()`, one column at a time, as is a row that is not a KeyedList.
 
         Args:
             row_kl: The current row.
@@ -11686,7 +11682,9 @@ class Daf:
             if omit_nulls and val is NULL:
                 continue
 
-            if val and isinstance(val, (list, dict)):
+            if val and isinstance(val, list):
+                continue
+            if val and isinstance(val, dict):
                 reduction_da = Daf.count_values_da(row_kl, reduction_da, [col], omit_nulls=omit_nulls)
                 continue
 

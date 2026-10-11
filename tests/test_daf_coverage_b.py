@@ -466,9 +466,9 @@ def test_apply_to_col_composite_keyfield_invalidates_kd():
 # count_values_da() with list values
 # =====================================================================
 
-def test_count_values_da_list_value_first_row():
-    result = Daf.count_values_da({'l': [1, 2]}, {}, ['l'])
-    assert result == {'l': [1, 2]}
+def test_count_values_da_list_value_is_skipped():
+    result = Daf.count_values_da({'l': [1, 2], 'g': 'a'}, {}, ['l', 'g'])
+    assert result == {'g': {'a': 1}}
 
 
 def test_count_values_da_list_value_does_not_mutate_source_row():

@@ -78,10 +78,9 @@ def test_count_values_of_dict_cells() -> None:
 
 
 @pytest.mark.parametrize('func', [Daf.count_values_da, Daf.count_values_kl], ids=['count_values_da', 'count_values_kl'])
-def test_count_values_of_list_cells_first_row(func: Any) -> None:
-    """ reduce() starts each count at 0. A list cell must still start the list. """
-    daf = Daf(lol=[['r1', ['a', 'b']]], cols=['k', 'v'])
-    assert daf.reduce(func, cols=['v']) == {'k': '', 'v': ['a', 'b']}
+def test_count_values_skips_list_cells(func: Any) -> None:
+    daf = Daf(lol=[['r1', ['a', 'b'], 'x'], ['r2', ['a'], 'x'], ['r3', 'z', 'y']], cols=['k', 'v', 'g'])
+    assert daf.reduce(func, cols=['v', 'g']) == {'k': '', 'v': {'z': 1}, 'g': {'x': 2, 'y': 1}}
 
 
 def test_daf_sum_and_daf_valuecount() -> None:
