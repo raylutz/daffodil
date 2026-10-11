@@ -122,6 +122,10 @@ NULL = ''                       # instead of var == '' use var is NULL
 # define a sentinel object to express a missing item where None is a valid value.
 from daffodil.lib.daf_utils import _MISSING
 
+# Values that the single-cell fast path of __setitem__ stores as they are.
+# Any other value, such as a dict, a list or a Daf, takes the general path.
+_PLAIN_VALUE_TYPES = (int, float, str, bool)
+
 def _short_list(items: T_la, limit: int = 5) -> str:
     """ A list as text, cut to its first few items. Internal, for error messages. """
     if len(items) <= limit:
@@ -5138,7 +5142,7 @@ class Daf:
         spec_type = type(slice_spec)
 
         if spec_type is int or spec_type is str:
-            row_la = self.lol[slice_spec if spec_type is int else cast(T_li, self.krows_to_irows(krows=slice_spec))[0]]
+            row_la = self.lol[slice_spec if spec_type is int else self._key_to_irow(slice_spec)]
             num_cols = len(row_la)
             if num_cols > 1:
                 return row_la
@@ -5151,10 +5155,32 @@ class Daf:
             row_type = type(row_spec)
             col_type = type(col_spec)
             if (row_type is int or row_type is str) and (col_type is int or col_type is str and self.hd):
-                row_la = self.lol[row_spec if row_type is int else cast(T_li, self.krows_to_irows(krows=row_spec))[0]]
-                return row_la[col_spec if col_type is int else self.hd[col_spec]]
+                # Look up the key, then the column, then the row, as the general path does.
+                irow = row_spec if row_type is int else self._key_to_irow(row_spec)
+                icol = col_spec if col_type is int else self.hd[col_spec]
+                return self.lol[irow][icol]
 
         return _MISSING
+
+
+    def _key_to_irow(self, key: str) -> int:
+        """
+        Find the row position of one key, for the single-cell fast paths.
+
+        A key that is in the key index is read from it directly. Otherwise the lookup
+        goes through `krows_to_irows()`, which rebuilds an index that was cleared, and
+        raises the same errors as the general path.
+
+        Args:
+            key: The row key.
+
+        Returns:
+            The row position.
+        """
+        irow = self._kd.get(key)
+        if irow is None:
+            irow = cast(T_li, self.krows_to_irows(krows=key))[0]
+        return irow
 
 
     def __setitem__(self,
@@ -5201,6 +5227,21 @@ class Daf:
             >>> d.iloc(0)
             {'id': '', 'v': 'q', 'n': ''}
         """
+        # One cell and a plain value: write it into lol directly.
+        # The general path below does the same for this case, after parsing the selectors.
+        if type(slice_spec) is tuple and len(slice_spec) == 2 and type(value) in _PLAIN_VALUE_TYPES:
+            # Any, since mypy does not narrow on the `type(x) is int` checks below.
+            row_spec, col_spec = cast(Tuple[Any, Any], slice_spec)
+            row_type = type(row_spec)
+            col_type = type(col_spec)
+            if (row_type is int or row_type is str) and (col_type is int or col_type is str and self.hd):
+                # Look up the key, then the column, then the row, as the general path does,
+                # so that a bad selector raises the same error.
+                irow = row_spec if row_type is int else self._key_to_irow(row_spec)
+                icol = col_spec if col_type is int else self.hd[col_spec]
+                self.lol[irow][icol] = value
+                return self
+
         irows, icols = self._parse_selectors(slice_spec)
         return self.set_irows_icols(irows=irows, icols=icols, value=value)
 

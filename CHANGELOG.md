@@ -10,8 +10,12 @@ all prior releases. Plans for future moved to ROADMAP.md.
 ## [Unreleased]
 ### Fixed
 - `import daffodil` no longer needs pandas or numpy. Both are optional in pyproject.toml, but `lib/daf_types.py`, `lib/daf_utils.py` and `lib/daf_pandas.py` imported them at the top, so a plain `pip install daffodil` failed with ModuleNotFoundError. They are now imported inside the functions that use them, and the type aliases name them only for type checkers. The import takes 0.09 s instead of 1.08 s, which shortens a Lambda cold start.
+- In val mode, `daf[row, col]` with an out-of-range row and a column name that does not exist raised IndexError. The general path raises KeyError for the column, and now so does the fast path. Both check the key, then the column, then the row.
 
 ### Changed
+- Writing one cell, as in `daf[key, col] = v` or `daf[i, col] = v`, skips the general selector parsing when the value is an int, float, str or bool. Any other value takes the general path as before. On a table of 10,000 rows, a write by key went from 4.69 to 0.41 us.
+- The single-cell reads and writes look up a key in the key index directly. A key that is not there still goes through `krows_to_irows()`, so the errors are unchanged. `daf[key, col] += x` in val mode went from 6.80 to 0.86 us, and a read by key from 1.88 to 0.43 us.
+- New tests in `tests/test_daf_setitem_cell_fast.py` compare the write fast path with the general path, for the table, the return value and the error.
 - `main` now carries the next dev version, 0.7.2.dev0, between releases. An editable install then shows that it is not the PyPI release.
 
 ## [0.7.1] - (2026-10-10)
