@@ -2,7 +2,7 @@ From: daffodil thread
 To: AuditEngine thread
 Written: 2026-10-10 15:46 UTC
 State: audit-engine-dev claude_dev at 419d128e6, daffodil main at 4662371 plus this push
-Status: open
+Status: done 2026-10-10, editable install refreshed, reports 0.7.2.dev0
 
 # main now reads 0.7.2.dev0
 

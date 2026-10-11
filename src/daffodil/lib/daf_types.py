@@ -3,13 +3,20 @@
 from typing import List, Dict, Any, Tuple, Type, Set, TYPE_CHECKING, Callable, cast    # noqa: F401
 from collections.abc  import KeysView, Iterable   # noqa: F401
 
-import pandas as pd                 # type: ignore
-import numpy  as np                 # type: ignore
 import datetime
 
 from daffodil.keyedlist import KeyedList
 
-T_df   = pd.DataFrame
+# pandas and numpy are optional, and importing pandas takes about a second.
+# So they are imported only for type checkers. At run time the aliases are Any.
+if TYPE_CHECKING:
+    import pandas as pd             # type: ignore
+    import numpy  as np             # type: ignore
+    T_df  = pd.DataFrame
+    T_npa = np.ndarray
+else:
+    T_df  = Any
+    T_npa = Any
 
 # general
 T_si  = str | int
@@ -43,9 +50,9 @@ T_ti  = Tuple[int, ...]
 
 T_num = int | float
 
-T_dodf = Dict[str, pd.DataFrame]
-T_idodf = Dict[int, pd.DataFrame]
-T_lodf = List[pd.DataFrame]
+T_dodf = Dict[str, T_df]
+T_idodf = Dict[int, T_df]
+T_lodf = List[T_df]
 T_dododf = Dict[str, T_dodf]
 
 # Shorthand type aliases for KeysView
@@ -108,7 +115,6 @@ T_dolodoli = Dict[str, T_lodoli]    # style snapgrid
 #T_hdlola = Tuple[T_di, T_lola]   # deprecated. use Daf. header dict + lol is equivalent to lod but 1/3 the size of lod
 #T_hdlota = Tuple[T_di, T_lota]   # deprecated. use Daf. 
 #T_hllola = Tuple[T_ls, T_lola]   # deprecated. use Daf. header list + lol allows duplicates in the header.
-T_npa   = np.ndarray
 #T_hdnpa =  Tuple[T_di, T_npa]    # deprecated. use Daf. header dict + npa is equivalent to lod but 3% the size of lod, but requires same dtype throughout.
 T_donpa = Dict[str, T_npa]       # useful representation of columns in Daf array to allow for numpy operations.
 
@@ -163,7 +169,7 @@ T_combined_stdresults_dododoildi = Dict[str, Dict[str, Dict[str, int | T_ls | T_
 
 T_parsed_cvr = Any
 
-T_image = np.ndarray
+T_image = T_npa
 T_shape = Tuple[int, int]  # rows, cols
 
 T_PDF_style_info_doslodsi = Dict[str, str | T_lodsi]

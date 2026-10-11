@@ -19,7 +19,6 @@ import platform
 import time
 
 import xlsx2csv     # type: ignore
-import numpy as np
 
 from typing import List, Dict, Any, Tuple, cast, Type, Callable, TypeVar, IO # noqa: F401
 T = TypeVar('T')
@@ -1091,6 +1090,8 @@ def transpose_lol(lol: T_lola) -> T_lola:
 
     # the following creates a numpy array of objects, transposes that, then converts back.
     # this does not convert data in each cell of the numpy array.
+
+    import numpy as np
 
     npao = np.array(lol, dtype=object)
     npaoT = npao.T

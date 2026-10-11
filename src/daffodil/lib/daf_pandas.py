@@ -47,13 +47,13 @@ from daffodil.lib.daf_types import T_df, T_dtype_dict, T_ls # noqa: F401
 #import numpy as np
 import csv
 import io
-import pandas as pd
 # import daffodil.lib.daf_utils    as daf_utils
 
 from typing import List, Dict, Any, Tuple, cast, Type, Callable, TYPE_CHECKING # noqa: F401
 
 if TYPE_CHECKING:       # for the annotations only. A real import would be circular.
     from daffodil.daf import Daf
+    import pandas as pd     # type: ignore
 
 # define a sentinel object to express a missing item where None is a valid value.
 from .daf_utils import _MISSING
@@ -190,6 +190,7 @@ def _to_pandas_df(
         >>> d.to_pandas_df().values.tolist()
         [[1, 'a'], [2, 'b']]
     """
+    import pandas as pd     # type: ignore
 
     selected_cols = cols if cols is not None else self.columns()
     default_cols = defaulting_cols if defaulting_cols is not None else selected_cols
@@ -250,7 +251,7 @@ def python_dtype_to_pandas(python_type: Type) -> Any | None:
     return dtype_mapping.get(python_type, None)
     
 
-def dtypes_dict_from_dataframe(df: pd.DataFrame) -> Dict[str, type]:
+def dtypes_dict_from_dataframe(df: 'pd.DataFrame') -> Dict[str, type]:
     import pandas as pd
 
     # --- Series case (single column) ---
