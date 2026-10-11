@@ -1,6 +1,6 @@
 # Classes and marshalling, or one table
 
-Started 2026-10-11 by the daffodil thread, at Ray's request. A Guide page may come from this later.
+Started 2026-10-11 by the daffodil thread, at Ray's request. A draft for Ray to check. It is not in any README yet.
 
 ## The question
 

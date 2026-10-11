@@ -1,8 +1,8 @@
 # The gradebook designed for tables
 
-Written 2026-10-11 by the daffodil thread. A draft for Ray to check. It is not part of README.md yet.
+Written 2026-10-11 by the daffodil thread. A draft for Ray to check.
 
-The code is `gradebook/gb_daffodil_summary.py`. The other versions are described in README.md.
+The code is `gradebook/gb_daffodil_summary.py`. The other versions are described in comparison_draft.md.
 
 Ray asked on 2026-10-11 how the gradebook would be designed if daffodil were the plan from the
 start. The flat table has no nesting. But the nesting is what made the classes fast at answering:
