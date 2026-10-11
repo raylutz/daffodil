@@ -9663,14 +9663,28 @@ class Daf:
         return names or None
 
 
-    def _new_group_daf(self, rows: T_lola, names: T_ls, all_cols: bool) -> 'Daf':
+    def _new_group_dafs(self, groups: Dict[Any, T_lola], names: T_ls, all_cols: bool) -> Dict[Any, 'Daf']:
         """
-        Make the Daf for one group, with the layout of this Daf, or of the columns kept.
+        Make the Daf for each group, with the layout of this Daf, or of the columns kept.
 
-        When only some columns are kept, `clone_empty()` cuts the dtypes to them, and
-        clears the keyfield if any key column is not kept. Internal use.
+        The first group is made with `clone_empty()`. When only some columns are kept, it
+        cuts the dtypes to them, and clears the keyfield if any key column is not kept.
+        Each later group is a copy of the first, with its own rows. This works out the
+        layout once, not once per group. Internal use.
         """
-        return self.clone_empty(lol=rows) if all_cols else self.clone_empty(lol=rows, cols=names)
+        dodaf: Dict[Any, 'Daf'] = {}
+        first_daf: 'Daf | None' = None
+        copy_bits = self.COPY_ATTRS | self.COPY_HD | self.COPY_DTYPES | self.COPY_KD    # as clone_empty().
+
+        for groupkey, group_lol in groups.items():
+            if first_daf is None:
+                group_daf = first_daf = self.clone_empty(lol=group_lol) if all_cols else self.clone_empty(lol=group_lol, cols=names)
+            else:
+                group_daf = first_daf.copy(copy_bits)
+                group_daf.lol = group_lol                       # adopted, as in clone_empty().
+            dodaf[groupkey] = group_daf
+
+        return dodaf
 
 
     def groupby(
@@ -9762,7 +9776,7 @@ class Daf:
 
             group_lol.append(list(row_la) if all_cols else [row_la[idx] for idx in idxs])
 
-        return {fieldval: self._new_group_daf(group_lol, names, all_cols) for fieldval, group_lol in groups.items()}
+        return self._new_group_dafs(groups, names, all_cols)
 
 
     def groupby_cols(self, colnames: T_ls, cols: T_cs | None = None) -> Dict[Tuple[str, ...], 'Daf']:
@@ -9816,7 +9830,7 @@ class Daf:
 
             group_lol.append(row_la if all_cols else [row_la[idx] for idx in idxs])
 
-        return {fieldval_tuple: self._new_group_daf(group_lol, names, all_cols) for fieldval_tuple, group_lol in groups.items()}
+        return self._new_group_dafs(groups, names, all_cols)
 
 
     def group_where(
@@ -10217,9 +10231,7 @@ class Daf:
 
                 group_lol.append(list(row_la) if all_cols else [row_la[idx] for idx in idxs])
 
-        return {col: {fieldval: self._new_group_daf(group_lol, names, all_cols)
-                            for fieldval, group_lol in col_groups.items()}
-                        for col, col_groups in grouped.items()}
+        return {col: self._new_group_dafs(col_groups, names, all_cols) for col, col_groups in grouped.items()}
 
 
     @staticmethod
