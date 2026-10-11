@@ -9667,21 +9667,19 @@ class Daf:
         """
         Make the Daf for each group, with the layout of this Daf, or of the columns kept.
 
-        The first group is made with `clone_empty()`. When only some columns are kept, it
-        cuts the dtypes to them, and clears the keyfield if any key column is not kept.
-        Each later group is a copy of the first, with its own rows. This works out the
-        layout once, not once per group. Internal use.
+        Each group is a copy of a template, with its own rows. With all columns, the
+        template is this Daf. Otherwise it is made once with `clone_empty()`, which cuts
+        the dtypes to the columns kept, and clears the keyfield if any key column is not
+        kept. The copy is what `clone_empty()` makes, without working out the layout again
+        for each group. Internal use.
         """
-        dodaf: Dict[Any, 'Daf'] = {}
-        first_daf: 'Daf | None' = None
-        copy_bits = self.COPY_ATTRS | self.COPY_HD | self.COPY_DTYPES | self.COPY_KD    # as clone_empty().
+        template_daf = self if all_cols else self.clone_empty(cols=names)
+        copy_bits    = self.COPY_ATTRS | self.COPY_HD | self.COPY_DTYPES | self.COPY_KD    # as clone_empty().
 
+        dodaf: Dict[Any, 'Daf'] = {}
         for groupkey, group_lol in groups.items():
-            if first_daf is None:
-                group_daf = first_daf = self.clone_empty(lol=group_lol) if all_cols else self.clone_empty(lol=group_lol, cols=names)
-            else:
-                group_daf = first_daf.copy(copy_bits)
-                group_daf.lol = group_lol                       # adopted, as in clone_empty().
+            group_daf = template_daf.copy(copy_bits)
+            group_daf.lol = group_lol                           # adopted, as in clone_empty().
             dodaf[groupkey] = group_daf
 
         return dodaf
