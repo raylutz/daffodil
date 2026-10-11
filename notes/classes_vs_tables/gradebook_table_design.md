@@ -66,3 +66,19 @@ All four give the same averages, also after a grade is added.
 - Reading JSON cells takes custom code: a `json.loads` on the column after the load, and a
   `json.dumps` before the save. That is most of the 140 load/save tokens this version needs.
   If daffodil wrote and read dict cells as JSON itself, that code would go away.
+
+### Reading the Python text faster
+
+Ray noted on 2026-10-11 that JSON5 can read Python text. Tested the same day:
+
+- JSON5 accepts single quotes, so it reads a cell of strings, numbers, lists and dicts. It does
+  not read `True`, `False` or `None`, which JSON5 writes as `true`, `false` and `null`. It does
+  not read tuples either.
+- The `json5` package is pure Python, and took 2,124 us for one 105-character cell.
+  `ast.literal_eval` took 52 us. `pyjson5`, which is compiled, took 2.9 us. `json.loads` took
+  3.3 us on the same cell as compact JSON.
+- Reading the gradebook file as daffodil writes it, with `pyjson5` and `ast.literal_eval` for
+  any cell it cannot read, took 0.280 s instead of 1.549 s. The results were the same. A cell
+  with `True` and `None` fell back and was read correctly.
+- `pyjson5` would be a new dependency of daffodil. Compact JSON needs only the standard library,
+  but changes what daffodil writes.
