@@ -11612,9 +11612,10 @@ class Daf:
             if omit_nulls and val is NULL:
                 continue
 
+            # A count that is missing or empty starts here. reduce() starts each count at 0.
             if val and isinstance(val, list):
                 # val is a list of values. Copy it, so later appends don't mutate the source row.
-                if col not in result_dodi:
+                if not result_dodi.get(col):
                     result_dodi[col] = list(val)
                 else:
                     result_dodi[col].append(val)
@@ -11623,7 +11624,7 @@ class Daf:
             if val and isinstance(val, dict):
                 # val is a dict of values determined in another pass.
                 # Copy it, since sum_da() below accumulates into result_dodi[col] in place.
-                if col not in result_dodi:
+                if not result_dodi.get(col):
                     result_dodi[col] = dict(val)
                 else:
                     result_dodi[col] = Daf.sum_da(val, result_dodi[col])

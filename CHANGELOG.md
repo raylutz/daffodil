@@ -10,6 +10,7 @@ all prior releases. Plans for future moved to ROADMAP.md.
 ## [Unreleased]
 ### Fixed
 - `import daffodil` no longer needs pandas or numpy. Both are optional in pyproject.toml, but `lib/daf_types.py`, `lib/daf_utils.py` and `lib/daf_pandas.py` imported them at the top, so a plain `pip install daffodil` failed with ModuleNotFoundError. They are now imported inside the functions that use them, and the type aliases name them only for type checkers. The import takes 0.09 s instead of 1.08 s, which shortens a Lambda cold start.
+- `reduce()` with `count_values_da()` failed with AttributeError on a column of lists or dicts. `reduce()` starts each count at 0, and `count_values_da()` then appended to that 0 or added a dict to it. A count that is 0 or empty now starts the list or the dict.
 - In val mode, `daf[row, col]` with an out-of-range row and a column name that does not exist raised IndexError. The general path raises KeyError for the column, and now so does the fast path. Both check the key, then the column, then the row.
 
 ### Changed
@@ -17,7 +18,7 @@ all prior releases. Plans for future moved to ROADMAP.md.
 - The single-cell reads and writes look up a key in the key index directly. A key that is not there still goes through `krows_to_irows()`, so the errors are unchanged. `daf[key, col] += x` in val mode went from 6.80 to 0.86 us, and a read by key from 1.88 to 0.43 us.
 - `reduce()` with `by='row'` gives the function a new KeyedList for each row, instead of a dict. The KeyedList points at the row of the table, so no values are copied. It reads like a dict, and `dict(row)` makes one. Writing to it changes the table. A row shorter or longer than the columns gets a KeyedList of a copy, padded with NULL or cut to fit. Ray decided on 2026-10-11 that KeyedList rows are the standard.
 - New `Daf.sum_kl()` and `Daf.count_values_kl()`, the standard reducers. They read a KeyedList row directly and give the same results as `sum_da()` and `count_values_da()`. `reduce()` uses them in place of the `_da` versions, so callers that pass `Daf.sum_da` gain too. `daf_sum()` and `daf_valuecount()` use them. On 100,000 rows, `reduce(Daf.sum_da)` on two columns went from 0.129 to 0.075 s, `daf_valuecount()` from 0.158 to 0.097 s, and `groupby_cols_reduce()` with 40 groups from 0.174 to 0.126 s.
-- New tests in `tests/test_daf_reduce_klist.py` compare `reduce()` with the dict rows it used before. Two tests are marked xfail for an existing bug: `reduce()` starts each count at 0, so `count_values_da()` fails on a cell that holds a list or a dict.
+- New tests in `tests/test_daf_reduce_klist.py` compare `reduce()` with the dict rows it used before.
 - New tests in `tests/test_daf_setitem_cell_fast.py` compare the write fast path with the general path, for the table, the return value and the error.
 - `main` now carries the next dev version, 0.7.2.dev0, between releases. An editable install then shows that it is not the PyPI release.
 

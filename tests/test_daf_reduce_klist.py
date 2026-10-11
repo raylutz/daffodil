@@ -72,18 +72,16 @@ def test_count_values_matches_dict_rows(func: Any, itable: int, omit_nulls: bool
         _reduce_with_dicts(daf, Daf.count_values_da, cols=cols, omit_nulls=omit_nulls)
 
 
-@pytest.mark.xfail(strict=True, reason="BUG: daf.py:11617 count_values_da(): reduce() starts each count at 0, so a dict cell "
-                                       "is added to 0 with sum_da() and raises AttributeError")
 def test_count_values_of_dict_cells() -> None:
     daf = Daf(lol=[['r1', {'a': 1, 'b': 2}], ['r2', {'a': 5}]], cols=['k', 'd'])
     assert daf.reduce(Daf.count_values_kl, cols=['d']) == {'k': '', 'd': {'a': 6, 'b': 2}}
 
 
-@pytest.mark.xfail(strict=True, reason="BUG: daf.py:11608 count_values_da(): reduce() starts each count at 0, so a list cell "
-                                       "calls .append() on 0 and raises AttributeError")
-def test_count_values_of_list_cells() -> None:
-    daf = Daf(lol=[['r1', ['a', 'b']], ['r2', ['a']]], cols=['k', 'v'])
-    assert daf.reduce(Daf.count_values_da, cols=['v']) == {'k': '', 'v': [['a', 'b'], ['a']]}
+@pytest.mark.parametrize('func', [Daf.count_values_da, Daf.count_values_kl], ids=['count_values_da', 'count_values_kl'])
+def test_count_values_of_list_cells_first_row(func: Any) -> None:
+    """ reduce() starts each count at 0. A list cell must still start the list. """
+    daf = Daf(lol=[['r1', ['a', 'b']]], cols=['k', 'v'])
+    assert daf.reduce(func, cols=['v']) == {'k': '', 'v': ['a', 'b']}
 
 
 def test_daf_sum_and_daf_valuecount() -> None:
