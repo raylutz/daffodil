@@ -22,6 +22,10 @@ Column dtypes and schema support.
     options:
       heading: "attach_schema"
 
+::: daffodil.lib.daf_schema._check_schema
+    options:
+      heading: "check_schema"
+
 ::: daffodil.lib.daf_schema._default_record
     options:
       heading: "default_record"

@@ -1751,6 +1751,7 @@ class Daf:
     apply_schema = daf_schema._apply_schema
     default_record = daf_schema._default_record
     attach_schema = daf_schema._attach_schema
+    check_schema = daf_schema._check_schema
 
 
     #===========================
@@ -1870,7 +1871,7 @@ class Daf:
 
         A cell that cannot be converted to an `int` or a `float` keeps its text, so a bad
         value is still there to be found, as with `list` and `dict`. No error is raised
-        for text. A later step, such as a sum or a sort, may raise one. A cell that is
+        for text. Call `check_schema()` to find such cells. A later step, such as a sum or a sort, may raise one. A cell that is
         not text and not a number, such as a list in an `int` column, cannot be given to
         `int()`, and raises `TypeError`. The `dtypes` do not limit what a cell can hold,
         so leave such a column out of the conversion. Whole number text of any size is

@@ -36,7 +36,7 @@ def _apply_schema(
 
     Only gaps are filled. The column names, the dtypes and the keyfield are taken
     from the schema only if the Daf has none. The rows are never changed and
-    nothing is validated.
+    nothing is validated. Call `check_schema()` to check the cells.
 
     The other columns of a schema Daf are for building input forms. They are not
     used by daffodil. The `Type` column says what kind of form control to use.
@@ -401,3 +401,106 @@ def _schema_defaults(self: 'Daf') -> T_da:
     raise TypeError(
         f"Unsupported schema type: {type(schema)}"
     )
+
+
+# The classes a cell may have for each dtype, for check_schema(). A NULL cell is allowed in any column.
+_SCHEMA_CELL_CLASSES: Dict[type, Tuple[type, ...]] = {
+    str:    (str,),
+    int:    (int,),
+    float:  (float, int),
+    bool:   (int, bool),
+    list:   (list,),
+    dict:   (dict,),
+    }
+
+
+def _check_schema(self: 'Daf', max_report: int = 10) -> 'Daf':
+    """
+    Check that every cell fits the dtypes and the required columns. Raise if one does not.
+
+    Loading does not check the data, so that it stays fast. `apply_dtypes()` leaves a
+    cell that does not convert as text, and an empty cell is NULL. Call this method
+    when you want to find such cells, for example after a load while developing, or
+    in a test. It is never called by daffodil itself.
+
+    The dtypes are those of the Daf, which `apply_schema()` takes from the schema. A
+    cell must be of its dtype, or NULL. A `float` column may also hold an `int`, and a
+    `bool` column holds 0 or 1. A column of a dtype not listed here is not checked.
+
+    The required columns come from the `Required` column of an attached schema Daf.
+    A value such as `yes`, `true` or `1` marks the column as required. A required
+    column must exist, and none of its cells may be NULL. A `@schemaclass` has no
+    required columns.
+
+    Args:
+        max_report: How many bad cells the error lists. The error also gives the total.
+
+    Returns:
+        This Daf, unchanged, when every cell fits.
+
+    Raises:
+        ValueError: A cell does not fit its dtype, a required cell is NULL, or a
+            required column is missing.
+
+    Examples:
+        >>> from daffodil.daf import Daf
+        >>> schema = Daf.from_md('''
+        ... | Name | dtype | Required |
+        ... |:-----|:------|:---------|
+        ... | id   | str   | yes      |
+        ... | n    | int   |          |
+        ... ''')
+        >>> d = Daf.from_csv_buff('id,n\\na,1\\n,x\\n')
+        >>> d = d.apply_schema(schema).apply_dtypes(dtypes=d.dtypes)
+        >>> d.check_schema()
+        Traceback (most recent call last):
+        ...
+        ValueError: check_schema(): 2 cells do not fit the schema:
+          row 1, column 'id': required, but empty
+          row 1, column 'n': 'x' is not int
+    """
+    from daffodil.lib.daf_utils import test_strbool, NULL
+
+    required_set: set = set()
+    schema = self.schema
+    if schema is not None and not isinstance(schema, type) and 'Required' in schema.columns():
+        required_set = {name for name, flag in zip(schema.col('Name'), schema.col('Required')) if test_strbool(flag)}
+
+    dtypes = self.dtypes or {}
+    # A row is named by its key, or by its position when the key is missing or made of several columns.
+    keyfield_idx = self.hd.get(self.keyfield) if isinstance(self.keyfield, str) and self.keyfield else None
+    problems_ls: T_ls = []
+    num_bad = 0
+
+    for col in required_set:
+        if col not in self.hd:
+            num_bad += 1
+            problems_ls.append(f"column {col!r}: required, but missing")
+
+    check_cols = list(dict.fromkeys(list(dtypes) + sorted(required_set)))
+    for col in check_cols:
+        icol = self.hd.get(col)
+        if icol is None:
+            continue
+        dtype = dtypes.get(col)
+        allowed = _SCHEMA_CELL_CLASSES.get(dtype) if isinstance(dtype, type) else None
+        is_required = col in required_set
+        for irow, row_la in enumerate(self.lol):
+            val = row_la[icol] if icol < len(row_la) else NULL
+            if val is NULL:
+                if not is_required:
+                    continue
+                problem = 'required, but empty'
+            elif allowed is None or (val.__class__ in allowed and (dtype is not bool or val in (0, 1))):
+                continue
+            else:
+                problem = f"{val!r} is not {dtype.__name__}"     # type: ignore[union-attr]
+            num_bad += 1
+            if len(problems_ls) < max_report:
+                where = f"row {row_la[keyfield_idx]!r}" if keyfield_idx is not None and keyfield_idx < len(row_la) else f"row {irow}"
+                problems_ls.append(f"{where}, column {col!r}: {problem}")
+
+    if num_bad:
+        shown = '' if num_bad <= len(problems_ls) else f". The first {len(problems_ls)}"
+        raise ValueError(f"check_schema(): {num_bad} cells do not fit the schema{shown}:\n  " + "\n  ".join(problems_ls))
+    return self

@@ -336,6 +336,8 @@ Both would be library changes.
    does not change. Ray agreed to this on 2026-10-11, and set the design aside for later.
    - Ray's direction: the rules come from the schema. A schema marks a column as required, so
      the check needs no separate list of columns that must not be NULL.
+   - Done the same day as `Daf.check_schema()`. It reads the `Required` column of an attached
+     schema Daf. The user calls it when they want it. Loading never calls it.
    - `@schemaclass` has no way to mark a column required yet. Every field must have a default.
    - A prototype in the scratchpad found all three planted faults, and took 0.055 s for 100,000
      rows of 5 columns.
