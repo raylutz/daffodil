@@ -108,6 +108,12 @@ The gradebook indirect column, 10,000 rows, 2026-10-11, seconds:
 All four read back the same cells. No cell needed the fallback.
 
 - Compact Pyon is the smallest file. With `pyjson5` it loads about six times faster than now.
-- Its dump is slower, 0.338 s against 0.195 s, because `pyon()` runs in Python and `str()` in C.
+- Its dump is slower, 0.338 s against 0.195 s. `to_csv_buff()` hands the rows straight to
+  `csv.writer`, which calls `str()` on each cell in C, so Pyon with spaces needs no conversion
+  pass. Compact Pyon needs `pyon()` on each dict cell, in Python. Writing straight from the rows,
+  with no copy of the table, took 0.328 s. Of that, `pyon()` took 0.268 s, where `str()` on the
+  same cells took 0.120 s.
+- So compact Pyon trades about 0.13 s more on each save of 10,000 rows for a file 15% smaller,
+  or 3% smaller gzipped. Its load speed comes from `pyjson5`, not from the missing spaces.
 - `pyjson5` alone, on the files daffodil writes now, gives most of the load speed, with no change
   to the format.
