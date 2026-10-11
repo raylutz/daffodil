@@ -93,8 +93,8 @@ VERSIONS = {
     'Gradebook': [
         ('plain classes',   'gradebook/gb_classes_plain.py',    {}),
         ('pydantic',        'gradebook/gb_classes.py',          {}),
-        ('flat table',      'gradebook/gb_daffodil.py',         {'dtypes': 'describe'}),
-        ('table + summary', 'gradebook/gb_daffodil_summary.py', {'dtypes': 'describe', 'summary_cols': 'describe'}),
+        ('daffodil table',  'gradebook/gb_daffodil.py',         {'dtypes': 'describe'}),
+        ('daffodil + summary', 'gradebook/gb_daffodil_summary.py', {'dtypes': 'describe', 'summary_cols': 'describe'}),
     ],
 }
 

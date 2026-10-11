@@ -46,6 +46,8 @@ for the run only, with Python 3.13 and this repo's daffodil.
 notes/classes_vs_tables/run.sh check_same.py   # the three agree
 notes/classes_vs_tables/run.sh timing.py       # speed and memory
 notes/classes_vs_tables/run.sh faults.py       # one fault at a time
+notes/classes_vs_tables/run.sh file_sizes.py   # the saved files, raw and gzipped
+notes/classes_vs_tables/run.sh code_size.py    # the custom code in each version
 ```
 
 `typo_check.py` is for mypy. Run it with mypy, marshmallow and pydantic installed.
@@ -151,7 +153,7 @@ The JSON file is 6.5 MB, and the CSV file is 4.2 MB.
 
 - The table loads three times faster and uses a third of the memory.
 - The classes answer the questions faster. The nesting groups the grades by student and subject
-  once, at load. The flat table groups them again on each question. The load plus one question
+  once, at load. The daffodil table groups them again on each question. The load plus one question
   still favors the table, 0.47 s against 0.70 s.
 - How the table is grouped matters. One loop over four columns took 0.14 to 0.17 s.
   `groupby_cols()` on student and subject took 0.563 s, because it builds a Daf for each of the
@@ -176,6 +178,42 @@ The change: store a date with each grade, and average only the grades since a gi
   this, because a subject with no rows is not a group.
 - Both versions still load a file saved before the change. Pydantic uses the default for the
   missing date. Daffodil accepts dtypes for a column the file lacks.
+
+## How big the saved files are
+
+Ray asked on 2026-10-11 how much space the saved files take. `file_sizes.py` saves each version
+the way it saves itself, and also gzips the file, since files like these are often stored
+compressed. pydantic writes compact JSON. marshmallow and the plain classes use `json.dumps()`,
+which puts a space after each comma and colon.
+
+Ballot batches, 100,000 records:
+
+| | format | bytes | gzipped | per record |
+| :-- | :-- | --: | --: | --: |
+| marshmallow | JSON | 13,161,792 | 841,605 | 131.6 B |
+| pydantic | JSON | 11,961,793 | 833,261 | 119.6 B |
+| plain classes | JSON | 13,161,792 | 841,605 | 131.6 B |
+| daffodil | CSV | 3,363,805 | 616,952 | 33.6 B |
+
+Gradebook, 200,000 grades:
+
+| | format | bytes | gzipped | per grade |
+| :-- | :-- | --: | --: | --: |
+| pydantic | JSON | 6,483,290 | 518,667 | 32.4 B |
+| plain classes | JSON | 7,403,290 | 528,000 | 37.0 B |
+| daffodil table | CSV | 4,163,306 | 656,411 | 20.8 B |
+
+What the sizes show:
+
+- Uncompressed, the CSV is much smaller. For the ballot batches it is a quarter of the JSON. JSON
+  repeats every field name in every record. CSV names each column once, in the header.
+- Gzip removes most of that repetition, so the gap shrinks. For the ballot batches the gzipped
+  CSV is still about 1.35 times smaller.
+- For the gradebook, the gzipped CSV is larger than the gzipped JSON: 656 KB against 519 KB.
+  The table repeats the student and the subject on every row. The nested JSON writes each
+  student once, and each subject once for each student. So flat rows cost space when the data is
+  really nested, once the file is compressed.
+- A smaller file also loads faster. That is part of why the daffodil load times above are low.
 
 ## How much custom code each version needs
 
@@ -225,8 +263,8 @@ Gradebook:
 | :-- | --: | --: | --: | --: | --: | --: |
 | plain classes | 13 / 138 | 24 / 224 | 28 / 409 | 30 / 317 | 1 / 2 | 96 / 1090 |
 | pydantic | 9 / 61 | 0 / 0 | 4 / 33 | 30 / 321 | 1 / 4 | 44 / 419 |
-| flat table | 1 / 19 | 0 / 0 | 4 / 37 | 20 / 297 | 1 / 6 | 26 / 359 |
-| table and summary | 2 / 48 | 0 / 0 | 5 / 58 | 29 / 409 | 2 / 10 | 38 / 525 |
+| daffodil table | 1 / 19 | 0 / 0 | 4 / 37 | 20 / 297 | 1 / 6 | 26 / 359 |
+| daffodil table and summary | 2 / 48 | 0 / 0 | 5 / 58 | 29 / 409 | 2 / 10 | 38 / 525 |
 
 What the counts show:
 

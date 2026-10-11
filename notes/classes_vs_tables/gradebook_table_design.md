@@ -5,7 +5,7 @@ Written 2026-10-11 by the daffodil thread. A draft for Ray to check.
 The code is `gradebook/gb_daffodil_summary.py`. The other versions are described in comparison_draft.md.
 
 Ray asked on 2026-10-11 how the gradebook would be designed if daffodil were the plan from the
-start. The flat table has no nesting. But the nesting is what made the classes fast at answering:
+start. The daffodil table has no nesting. But the nesting is what made the classes fast at answering:
 it groups the grades once, at load. A table design can do the same with a second table.
 
 `gb_daffodil_summary.py` keeps two tables:
@@ -21,7 +21,7 @@ grouping.
 | | load | student averages | math average | dump |
 | :-- | --: | --: | --: | --: |
 | classes | 0.649 | 0.049 | 0.020 | 0.130 |
-| flat table | 0.229 | 0.245 | 0.081 | 0.195 |
+| daffodil table | 0.229 | 0.245 | 0.081 | 0.195 |
 | grades and summary | 0.375 | 0.013 | 0.002 | 0.201 |
 
 Building the summary is 0.129 s of the 0.375 s load. After that, the table design is faster than
