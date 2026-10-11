@@ -548,6 +548,10 @@ class Daf:
         Each row is a dict or a KeyedList, depending on itermode. For plain lists, use
         `iter_list()`.
 
+        Each loop gets a new iterator, which goes through the rows once. It goes through
+        the list of rows it started with: rows appended during the loop are seen, but a
+        new list put in place, as by a sort, is not.
+
         Returns:
             Iterator: The rows, as dicts or KeyedList objects.
         """
@@ -588,7 +592,9 @@ class Daf:
             %% daf rows=2; cols=2; keyfield=''; name=''
             <BLANKLINE>
         """
-        return DafIterator(self, dict)
+        self._check_iter_cols()
+        keys = self.hd.keys()
+        return (dict(zip(keys, row_la)) for row_la in self.lol)
 
 
     def iter_klist(self) -> Iterator[KeyedList]:
@@ -617,7 +623,32 @@ class Daf:
             %% daf rows=2; cols=2; keyfield=''; name=''
             <BLANKLINE>
         """
-        return DafIterator(self, KeyedList)
+        self._check_iter_cols()
+        return self._klist_rows()
+
+    def _klist_rows(self) -> Iterator[KeyedList]:
+        """ The rows as KeyedList objects, for `iter_klist()`. Internal. """
+        # Each KeyedList is made as KeyedList(hd, row_la) would make it, without its checks.
+        # A row that is not as long as the columns gets the normal constructor, and its error.
+        hd = self.hd
+        num_cols = len(hd)
+        new_klist = KeyedList.__new__
+        for row_la in self.lol:
+            if len(row_la) != num_cols:
+                yield KeyedList(hd, row_la)
+                continue
+            row_kl = new_klist(KeyedList)
+            row_kl.hd = hd
+            row_kl._values = row_la
+            row_kl._hd_shared = True
+            yield row_kl
+
+    def _check_iter_cols(self) -> None:
+        """ Raise if the rows cannot be named, for `iter_dict()` and `iter_klist()`. Internal. """
+        if self.lol and not self.hd:
+            raise KeysDisabledError(
+                "Iterating the rows as dicts or KeyedList objects needs column names. This Daf has none. "
+                "Call set_cols() to name them, or use iter_list().")
 
 
     def iter_list(self) -> Iterator[list]:
@@ -646,7 +677,7 @@ class Daf:
             %% daf rows=2; cols=2; keyfield=''; name=''
             <BLANKLINE>
         """
-        return DafIterator(self, list)
+        return iter(self.lol)
 
 
     # def __next__(self) -> Dict[str, int] | KeyedList:
