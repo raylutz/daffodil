@@ -341,6 +341,11 @@ Both would be library changes.
    - `@schemaclass` has no way to mark a column required yet. Every field must have a default.
    - A prototype in the scratchpad found all three planted faults, and took 0.055 s for 100,000
      rows of 5 columns.
+   - Deferred by Ray on 2026-10-11: letting mypy check column names. Two options were shown. A:
+     a class of names, such as `C.num_ballots = 'num_ballots'`, written by hand. B: daffodil
+     writes that class from a schema Daf, giving a safe name to one such as `audit==cvr_orig`.
+     mypy caught `C.num_balots` in a test. A lookup through the class cost about 18 ns more.
+     A `@schemaclass` attribute does not work, since it holds the default value, not the name.
 2. A textbook example. Take a well-known example where classes are used, and write it again with
    daffodil.
 3. A change test. Add a field and rename one, then count the edits each version needs and what
