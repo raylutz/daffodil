@@ -82,3 +82,32 @@ Ray noted on 2026-10-11 that JSON5 can read Python text. Tested the same day:
   with `True` and `None` fell back and was read correctly.
 - `pyjson5` would be a new dependency of daffodil. Compact JSON needs only the standard library,
   but changes what daffodil writes.
+
+### Compact Pyon
+
+Python's `str()` always writes a space after each comma and colon. There is no option to leave
+them out. A small writer, `pyon()`, writes dicts, lists and tuples with no spaces and uses `repr()`
+for the rest, so it is correct for every value. Removing the spaces from `str()` afterwards is
+not safe: the string `'a, b: c'` became `'a,b:c'`. Compact JSON is not Pyon, since it writes
+`true`, `null` and lists for `True`, `None` and tuples.
+
+Ray noted that daffodil writes bools as 1 and 0, and a missing value as NULL, so its cells rarely
+hold `True`, `False` or `None`. Then `pyjson5` reads nearly every cell, and the fallback to
+`ast.literal_eval` is rarely used. Pyon also suits CSV: its single quotes need no escaping, while
+each `"` of JSON is doubled.
+
+The gradebook indirect column, 10,000 rows, 2026-10-11, seconds:
+
+| | bytes | gzipped | dump | load |
+| :-- | --: | --: | --: | --: |
+| Pyon with spaces, `ast.literal_eval`, as now | 2,853,292 | 447,794 | 0.195 | 1.590 |
+| Pyon with spaces, `pyjson5` | 2,853,292 | 447,794 | 0.198 | 0.379 |
+| compact Pyon, `pyjson5` | 2,413,292 | 432,555 | 0.338 | 0.270 |
+| compact JSON, `json.loads` | 2,513,292 | 438,656 | 0.201 | 0.257 |
+
+All four read back the same cells. No cell needed the fallback.
+
+- Compact Pyon is the smallest file. With `pyjson5` it loads about six times faster than now.
+- Its dump is slower, 0.338 s against 0.195 s, because `pyon()` runs in Python and `str()` in C.
+- `pyjson5` alone, on the files daffodil writes now, gives most of the load speed, with no change
+  to the format.
