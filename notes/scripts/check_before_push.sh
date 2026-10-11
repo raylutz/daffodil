@@ -12,14 +12,27 @@ ENV_ROOT="${HOME}/.cache/daffodil-check"
 SITE_DIR="$(mktemp -d)"
 trap 'rm -rf "$SITE_DIR"' EXIT
 
+# Run one step and print its last line. On a failure, print the end of its output and stop.
+# A step inside "$(...)" in an echo would not stop the script, since the echo succeeds.
+run_step() {
+    local label="$1"; shift
+    local out
+    if ! out=$("$@" 2>&1); then
+        echo "$out" | tail -40
+        echo "== $label: FAILED"
+        exit 1
+    fi
+    echo "== $label: $(echo "$out" | tail -1)"
+}
+
 for py in 3.10 3.11 3.12 3.13; do
     export UV_PROJECT_ENVIRONMENT="$ENV_ROOT/py$py"
     uv sync -q --python "$py"
-    echo "== Python $py: tests:    $(uv run --python "$py" pytest -q -p no:cacheprovider | tail -1)"
-    echo "== Python $py: doctests: $(uv run --python "$py" pytest -q -p no:cacheprovider "${DOCTEST_ARGS[@]}" | tail -1)"
-    echo "== Python $py: guide:    $(uv run --python "$py" pytest -q -p no:cacheprovider --doctest-glob='*.md' docsite/guide | tail -1)"
+    run_step "Python $py: tests   " uv run --python "$py" pytest -q -p no:cacheprovider
+    run_step "Python $py: doctests" uv run --python "$py" pytest -q -p no:cacheprovider "${DOCTEST_ARGS[@]}"
+    run_step "Python $py: guide   " uv run --python "$py" pytest -q -p no:cacheprovider --doctest-glob='*.md' docsite/guide
 done
 unset UV_PROJECT_ENVIRONMENT
 
-echo "== docs build, strict: $(uv run mkdocs build --strict -d "$SITE_DIR" 2>&1 | grep -E 'WARNING|ERROR|Documentation built')"
+run_step "docs build, strict" uv run mkdocs build --strict -d "$SITE_DIR"
 echo "All checks passed."

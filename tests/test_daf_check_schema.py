@@ -124,3 +124,25 @@ def test_composite_key_reports_the_row_position() -> None:
     daf.apply_schema(Daf.from_md('| Name | dtype |\n|:--|:--|\n| g | str |\n| h | int |\n| n | int |\n'))
     with pytest.raises(ValueError, match="row 0, column 'n': 'x' is not int"):
         daf.check_schema()
+
+
+@pytest.mark.parametrize('dtype', ['str', 'int', 'float', 'bool', 'list', 'dict'])
+def test_null_cell_passes_in_any_type(dtype: str) -> None:
+    """ NULL may be in a column of any dtype, unless the column is required. """
+    schema_md = f'| Name | dtype | Required |\n|:--|:--|:--|\n| k | str | yes |\n| v | {dtype} | |\n'
+    daf = Daf(lol=[['r1', '']], cols=['k', 'v'], keyfield='k')
+    daf.apply_schema(Daf.from_md(schema_md))
+    assert daf.check_schema() is daf
+    required_md = schema_md.replace(f'| v | {dtype} | |', f'| v | {dtype} | yes |')
+    daf = Daf(lol=[['r1', '']], cols=['k', 'v'], keyfield='k')
+    daf.apply_schema(Daf.from_md(required_md))
+    with pytest.raises(ValueError, match="row 'r1', column 'v': required, but empty"):
+        daf.check_schema()
+
+
+def test_one_bad_cell_message() -> None:
+    daf = Daf.from_csv_buff('id,n\na,x\n')
+    daf.apply_schema(Daf.from_md('| Name | dtype |\n|:--|:--|\n| id | str |\n| n | int |\n'))
+    daf.apply_dtypes(dtypes=daf.dtypes)
+    with pytest.raises(ValueError, match=r"^check_schema\(\): 1 cell does not fit the schema:\n  row 0, column 'n': 'x' is not int$"):
+        daf.check_schema()

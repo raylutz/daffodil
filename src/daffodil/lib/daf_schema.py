@@ -424,8 +424,11 @@ def _check_schema(self: 'Daf', max_report: int = 10) -> 'Daf':
     in a test. It is never called by daffodil itself.
 
     The dtypes are those of the Daf, which `apply_schema()` takes from the schema. A
-    cell must be of its dtype, or NULL. A `float` column may also hold an `int`, and a
-    `bool` column holds 0 or 1. A column of a dtype not listed here is not checked.
+    cell must be of its dtype, or NULL. NULL is allowed in a column of any dtype,
+    unless the column is required, and it is false when tested. A `float` column may
+    also hold an `int`. A `bool` column holds 0 or 1. `apply_dtypes()` keeps an empty
+    cell as NULL, except in a `bool` column, where it becomes 0. A column of a dtype
+    not listed here is not checked.
 
     The required columns come from the `Required` column of an attached schema Daf.
     A value such as `yes`, `true` or `1` marks the column as required. A required
@@ -502,5 +505,6 @@ def _check_schema(self: 'Daf', max_report: int = 10) -> 'Daf':
 
     if num_bad:
         shown = '' if num_bad <= len(problems_ls) else f". The first {len(problems_ls)}"
-        raise ValueError(f"check_schema(): {num_bad} cells do not fit the schema{shown}:\n  " + "\n  ".join(problems_ls))
+        cells = '1 cell does' if num_bad == 1 else f"{num_bad} cells do"
+        raise ValueError(f"check_schema(): {cells} not fit the schema{shown}:\n  " + "\n  ".join(problems_ls))
     return self
