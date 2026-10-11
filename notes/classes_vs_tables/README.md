@@ -119,6 +119,61 @@ checks the classes give for free must be done some other way.
 
 This prototype does not yet measure the effort of a change. See Next steps.
 
+## A textbook example: the gradebook
+
+Ray asked for an example from the books, not from AuditEngine. *Effective Python* by Brett Slatkin
+uses a gradebook to argue for classes over nested dicts. Students have subjects, and subjects
+have grades with a score and a weight. The code here is written for this note, in that style. It
+is not copied from the book.
+
+| Version | File | On disk | Code lines |
+| :-- | :-- | :-- | --: |
+| classes, with pydantic | gradebook/gb_classes.py | JSON | 44 |
+| daffodil | gradebook/gb_daffodil.py | CSV | 27 |
+
+The class version nests four classes: Gradebook, Student, Subject and Grade. The daffodil version
+is one table with one row per grade: student, subject, score and weight. Both give the same
+averages. `gb_check.py` checks that.
+
+### Speed and memory
+
+200,000 grades: 10,000 students, 5 subjects, 4 grades each. Python 3.13.1, 2026-10-11, seconds.
+
+| | load | student averages | math average | dump | memory |
+| :-- | --: | --: | --: | --: | --: |
+| classes | 0.649 | 0.049 | 0.020 | 0.130 | 134.0 MB |
+| daffodil | 0.229 | 0.245 | 0.081 | 0.195 | 42.6 MB |
+
+The JSON file is 6.5 MB, and the CSV file is 4.2 MB.
+
+- The table loads three times faster and uses a third of the memory.
+- The classes answer the questions faster. The nesting groups the grades by student and subject
+  once, at load. The flat table groups them again on each question. The load plus one question
+  still favors the table, 0.47 s against 0.70 s.
+- How the table is grouped matters. One loop over four columns took 0.14 to 0.17 s.
+  `groupby_cols()` on student and subject took 0.563 s, because it builds a Daf for each of the
+  50,000 groups. Selecting the subject first with `select_by_dict()` took 0.006 s.
+- A question that cuts across the nesting is where the table is simplest. The average for one
+  subject over all students is a selection, then a loop. The classes must walk every student.
+
+### The change test: add a date to each grade
+
+The change: store a date with each grade, and average only the grades since a given date.
+`gb_classes_v2.py` and `gb_daffodil_v2.py` hold the changed code. `gb_change_check.py` checks them.
+
+| | lines changed | places |
+| :-- | --: | :-- |
+| classes | 12 | Grade, Subject, Student, build, student_averages |
+| daffodil | 6 | dtypes, report_grade, student_averages |
+
+- In the classes, the new argument has to be passed down through each level of the nesting.
+- The table filters the rows once, at the top, with `select_where()`.
+- The change brought a bug into the class version. A subject with no grades since the date
+  divided by zero. The fix took 3 more lines, included in the 12. The table version cannot hit
+  this, because a subject with no rows is not a group.
+- Both versions still load a file saved before the change. Pydantic uses the default for the
+  missing date. Daffodil accepts dtypes for a column the file lacks.
+
 ## The cost of reduce
 
 `groupby_cols_reduce()` took 0.211 s for the totals. A plain loop over the columns took 0.031 s.
@@ -132,7 +187,18 @@ The time splits like this:
 | a column loop that skips non-numbers, for comparison | 0.031 |
 
 Most of the time goes to the row iterator, which builds a dict for each row before `sum_da` is
-called. `for row in daf` as a generator, instead of a class with `__next__`, was about 30%
+called. `reduce()` alone, on all 100,000 rows, took 0.127 s. Other ways to give it rows:
+
+| Rows given to the function | Seconds |
+| :-- | --: |
+| a dict for each row, as now | 0.127 |
+| the same, with `itermode='keyedlist'` | 0.106 |
+| a new KeyedList for each row, made in the loop | 0.073 |
+| one KeyedList, pointed at each row in turn | 0.041 |
+
+A KeyedList reads like a dict, and `dict(row)` makes a real one. But `json.dumps(row)` and
+`row | other` raise TypeError, and `isinstance(row, dict)` is False. Writing to the row changes the
+table. Ray asked on 2026-10-11 to look at KeyedList rows for reduce. `for row in daf` as a generator, instead of a class with `__next__`, was about 30%
 faster: 0.064 s against 0.093 s. A fast path in `reduce()` for the common sums would save more.
 Both would be library changes.
 
@@ -149,7 +215,12 @@ Both would be library changes.
 
 1. A strict load for daffodil. It would check each converted cell against the dtypes and raise on
    one that did not convert. It is off by default, for tests and development, so the fast path
-   does not change. Ray agreed to this on 2026-10-11. The design is not settled.
+   does not change. Ray agreed to this on 2026-10-11, and set the design aside for later.
+   - Ray's direction: the rules come from the schema. A schema marks a column as required, so
+     the check needs no separate list of columns that must not be NULL.
+   - `@schemaclass` has no way to mark a column required yet. Every field must have a default.
+   - A prototype in the scratchpad found all three planted faults, and took 0.055 s for 100,000
+     rows of 5 columns.
 2. A textbook example. Take a well-known example where classes are used, and write it again with
    daffodil.
 3. A change test. Add a field and rename one, then count the edits each version needs and what
