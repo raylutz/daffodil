@@ -126,6 +126,12 @@ from daffodil.lib.daf_utils import _MISSING
 # Any other value, such as a dict, a list or a Daf, takes the general path.
 _PLAIN_VALUE_TYPES = (int, float, str, bool)
 
+def _uncountable_message(funcname: str, col: str, val: Any) -> str:
+    """ The message for a value that cannot be counted. Internal, for count_values_da() and count_values_kl(). """
+    return (f"{funcname}(): column {col!r} holds a {type(val).__name__}, which cannot be counted. "
+            f"Leave the column out with cols.")
+
+
 def _short_list(items: T_la, limit: int = 5) -> str:
     """ A list as text, cut to its first few items. Internal, for error messages. """
     if len(items) <= limit:
@@ -11576,9 +11582,13 @@ class Daf:
         Add one row to running counts of the values in each column. Use it with `reduce()`.
 
         This is a static method. The counts are a dict that maps each column to a dict
-        of value and count. The counts are changed and returned. A cell that holds
-        a list is skipped. A cell that holds a dict is added to the counts for that
-        column with `sum_da()`. Use `omit_nulls` to skip empty cells.
+        of value and count. The counts are changed and returned. A cell that holds a
+        dict is added to the counts for that column with `sum_da()`. Use `omit_nulls`
+        to skip empty cells.
+
+        A value that cannot be a dict key, such as a list, raises TypeError. There is
+        no check for it beforehand, to keep the count fast. Leave a column of lists
+        out with `cols`.
         `reduce()` uses `count_values_kl()` in its place.
 
         Args:
@@ -11589,6 +11599,9 @@ class Daf:
 
         Returns:
             The running counts.
+
+        Raises:
+            TypeError: A cell holds a value that cannot be counted, such as a list.
 
         Examples:
             >>> Daf.count_values_da({'g': 'a'}, {}, ['g'])
@@ -11605,33 +11618,35 @@ class Daf:
 
         result_dodi = reduction_da
 
-        for col in cols:
+        # A value that cannot be a dict key, such as a list, raises TypeError. There is no
+        # check for it on the normal path. Leave such a column out with `cols`.
+        try:
+            for col in cols:
 
-            val = row_da[col]
+                val = row_da[col]
 
-            if omit_nulls and val is NULL:
-                continue
+                if omit_nulls and val is NULL:
+                    continue
 
-            if val and isinstance(val, list):
-                # A list cannot be counted as a value, so it is skipped.
-                continue
+                if val and isinstance(val, dict):
+                    # val is a dict of values determined in another pass.
+                    # Copy it, since sum_da() below accumulates into result_dodi[col] in place.
+                    # A count that is missing or empty starts here. reduce() starts each count at 0.
+                    if not result_dodi.get(col):
+                        result_dodi[col] = dict(val)
+                    else:
+                        result_dodi[col] = Daf.sum_da(val, result_dodi[col])
+                    continue
 
-            if val and isinstance(val, dict):
-                # val is a dict of values determined in another pass.
-                # Copy it, since sum_da() below accumulates into result_dodi[col] in place.
-                # A count that is missing or empty starts here. reduce() starts each count at 0.
-                if not result_dodi.get(col):
-                    result_dodi[col] = dict(val)
+                if col not in result_dodi or not result_dodi[col]:
+                    result_dodi[col] = {val: 1}
+                elif val not in result_dodi[col]:
+                    result_dodi[col][val] = 1
                 else:
-                    result_dodi[col] = Daf.sum_da(val, result_dodi[col])
-                continue
+                    result_dodi[col][val] += 1
 
-            if col not in result_dodi or not result_dodi[col]:
-                result_dodi[col] = {val: 1}
-            elif val not in result_dodi[col]:
-                result_dodi[col][val] = 1
-            else:
-                result_dodi[col][val] += 1
+        except TypeError as exc_info:
+            raise TypeError(_uncountable_message('count_values_da', col, val)) from exc_info
 
         return result_dodi
 
@@ -11651,8 +11666,9 @@ class Daf:
         `reduce()` gives it, which are [KeyedList][daffodil.keyedlist.KeyedList]
         objects. `reduce()` uses it in place of `count_values_da()`.
 
-        A cell that holds a list is skipped. A cell that holds a dict is passed to
-        `count_values_da()`, one column at a time, as is a row that is not a KeyedList.
+        A cell that holds a dict is passed to `count_values_da()`, one column at a
+        time, as is a row that is not a KeyedList. A value that cannot be a dict key,
+        such as a list, raises TypeError. Leave a column of lists out with `cols`.
 
         Args:
             row_kl: The current row.
@@ -11662,6 +11678,9 @@ class Daf:
 
         Returns:
             The running counts.
+
+        Raises:
+            TypeError: A cell holds a value that cannot be counted, such as a list.
 
         Examples:
             >>> from daffodil.keyedlist import KeyedList
@@ -11676,23 +11695,25 @@ class Daf:
 
         values_la = row_kl._values
         hd = row_kl.hd
-        for col in cols:
-            val = values_la[hd[col]]
+        try:
+            for col in cols:
+                val = values_la[hd[col]]
 
-            if omit_nulls and val is NULL:
-                continue
+                if omit_nulls and val is NULL:
+                    continue
 
-            if val and isinstance(val, list):
-                continue
-            if val and isinstance(val, dict):
-                reduction_da = Daf.count_values_da(row_kl, reduction_da, [col], omit_nulls=omit_nulls)
-                continue
+                if val and isinstance(val, dict):
+                    reduction_da = Daf.count_values_da(row_kl, reduction_da, [col], omit_nulls=omit_nulls)
+                    continue
 
-            counts_di = reduction_da.get(col)
-            if not counts_di:
-                reduction_da[col] = {val: 1}
-            else:
-                counts_di[val] = counts_di.get(val, 0) + 1
+                counts_di = reduction_da.get(col)
+                if not counts_di:
+                    reduction_da[col] = {val: 1}
+                else:
+                    counts_di[val] = counts_di.get(val, 0) + 1
+
+        except TypeError as exc_info:
+            raise TypeError(_uncountable_message('count_values_kl', col, val)) from exc_info
 
         return reduction_da
 

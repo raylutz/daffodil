@@ -466,16 +466,9 @@ def test_apply_to_col_composite_keyfield_invalidates_kd():
 # count_values_da() with list values
 # =====================================================================
 
-def test_count_values_da_list_value_is_skipped():
-    result = Daf.count_values_da({'l': [1, 2], 'g': 'a'}, {}, ['l', 'g'])
-    assert result == {'g': {'a': 1}}
-
-
-def test_count_values_da_list_value_does_not_mutate_source_row():
-    row1 = {'l': [1, 2]}
-    acc = Daf.count_values_da(row1, {}, ['l'])
-    Daf.count_values_da({'l': [3]}, acc, ['l'])
-    assert row1 == {'l': [1, 2]}
+def test_count_values_da_list_value_raises():
+    with pytest.raises(TypeError, match=r"count_values_da\(\): column 'l' holds a list, which cannot be counted"):
+        Daf.count_values_da({'l': [1, 2], 'g': 'a'}, {}, ['l', 'g'])
 
 
 def test_count_values_da_dict_value_does_not_mutate_source_row():

@@ -78,9 +78,19 @@ def test_count_values_of_dict_cells() -> None:
 
 
 @pytest.mark.parametrize('func', [Daf.count_values_da, Daf.count_values_kl], ids=['count_values_da', 'count_values_kl'])
-def test_count_values_skips_list_cells(func: Any) -> None:
+def test_count_values_of_list_cells_raises(func: Any) -> None:
+    """ A list cannot be counted. The error names the column. Leaving it out with cols works. """
     daf = Daf(lol=[['r1', ['a', 'b'], 'x'], ['r2', ['a'], 'x'], ['r3', 'z', 'y']], cols=['k', 'v', 'g'])
-    assert daf.reduce(func, cols=['v', 'g']) == {'k': '', 'v': {'z': 1}, 'g': {'x': 2, 'y': 1}}
+    with pytest.raises(TypeError, match="column 'v' holds a list, which cannot be counted") as exc_info:
+        daf.reduce(func, cols=['v', 'g'])
+    assert isinstance(exc_info.value.__cause__, TypeError)
+    assert daf.reduce(func, cols=['g']) == {'k': '', 'v': '', 'g': {'x': 2, 'y': 1}}
+
+
+@pytest.mark.parametrize('func', [Daf.count_values_da, Daf.count_values_kl], ids=['count_values_da', 'count_values_kl'])
+def test_count_values_called_directly_names_itself(func: Any) -> None:
+    with pytest.raises(TypeError, match=func.__name__ + r"\(\): column 'v'"):
+        func(KeyedList(['v'], [[1]]), {}, ['v'])
 
 
 def test_daf_sum_and_daf_valuecount() -> None:
