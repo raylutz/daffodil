@@ -10508,7 +10508,7 @@ class Daf:
         # for the default by='row' (the only mode used by any caller/test), reduce() always
         # returns a single record.
         """
-        Add up the columns, using `reduce()` and `sum_da()`.
+        Add up the columns, using `reduce()` and `sum_kl()`.
 
         Cells that cannot be added, such as text, are skipped. A column that is not
         in `cols` is empty in the result.
@@ -10528,7 +10528,7 @@ class Daf:
             {'g': '', 'x': '', 'y': 60}
         """
 
-        return cast(T_ma, self.reduce(func=Daf.sum_da, by=by, cols=cols, indirect_col=indirect_col, **kwargs))
+        return cast(T_ma, self.reduce(func=Daf.sum_kl, by=by, cols=cols, indirect_col=indirect_col, **kwargs))
 
 
     def reduce(
@@ -10553,6 +10553,17 @@ class Daf:
         `func(row, result, cols=cols, **kwargs)`. The result starts as 0 for each of
         the columns, or as `initial_da`. It returns a dict with every column. Columns
         that are not in `cols` are empty.
+
+        With `by='row'`, each row is a new [KeyedList][daffodil.keyedlist.KeyedList]
+        that points at the row of the table. It reads like a dict, as in `row['x']` or
+        `row.get('x', 0)`. Writing to it changes the table. A function that needs a real
+        dict, for example to pass to `json.dumps()`, can call `dict(row)`. A row that is
+        shorter or longer than the columns gets a KeyedList of a copy, padded with NULL
+        or cut to fit.
+
+        The standard functions are `sum_kl()` and `count_values_kl()`. They read the
+        KeyedList directly. `Daf.sum_da` and `Daf.count_values_da` are replaced by them
+        here, since they give the same results.
 
         With `by='col'` the function gets each column as a list and the result so far
         as a list. With `by='table'` it gets this Daf and `cols`, and its result is
@@ -10612,15 +10623,32 @@ class Daf:
             else:
                 reduction_ma = dict.fromkeys(cols_iter, 0)
 
-            for row_ma in self:
+            # The standard functions take the KeyedList versions, which give the same result faster.
+            if func is Daf.sum_da:
+                func = Daf.sum_kl
+            elif func is Daf.count_values_da:
+                func = Daf.count_values_kl
+
+            # Each row is a new KeyedList that points at the row of the table. A short or
+            # long row gets one of a copy, padded with NULL or cut to the number of columns.
+            # The KeyedList is made as KeyedList(hd, row_la) would make it, without its checks,
+            # since the length is checked here. That saves about 0.2 us per row.
+            iter(self)                              # raises KeysDisabledError if there are no column names.
+            hd = self.hd
+            num_cols = len(hd)
+            new_klist = KeyedList.__new__
+            for row_la in self.lol:
+                if len(row_la) != num_cols:
+                    row_la = (row_la + [NULL] * num_cols)[:num_cols]
+                row_kl = new_klist(KeyedList)
+                row_kl.hd = hd
+                row_kl._values = row_la
+                row_kl._hd_shared = True
                 try:
-                    reduction_ma = func(row_ma, reduction_ma, cols=cols_iter, **kwargs)
+                    reduction_ma = func(row_kl, reduction_ma, cols=cols_iter, **kwargs)
                 except Exception:
                     if not silent_error:
                         raise
-
-                # def count_values_da(row_da: T_da, reduction_da: T_da, cols: Iterable, omit_nulls: bool=False) -> T_dodi:
-                # def sum_da         (row_da: T_da, reduction_da: T_da, cols: Iterable, astype: Type | None = None, diagnose:bool=False
 
             # normalize the result so it contains all columns
             result_ma = {key: reduction_ma.get(key,'') for key in self.hd.keys()}
@@ -10683,7 +10711,7 @@ class Daf:
 
         This is a static method. A value that cannot be added, such as text or an empty
         cell, is skipped. The total is changed and returned. With `astype`, each value
-        is first converted to that type.
+        is first converted to that type. `reduce()` uses `sum_kl()` in its place.
 
         Args:
             row_da: The current row.
@@ -10821,6 +10849,64 @@ class Daf:
 
 
             return reduction_da
+
+
+    @staticmethod
+    def sum_kl( row_kl:         Any,                        # the current row, a KeyedList.
+                reduction_da:   T_ma,                       # the running total.
+                *,
+                cols:           T_cs | None = None,         # the columns to add.
+                astype:         Type | None = None,         # a type to convert each value to first.
+                is_sparse:      bool=False,
+                diagnose:       bool=False
+                ) -> T_ma:
+        """
+        Add the values of a row to a running total. This is the standard sum for `reduce()`.
+
+        It gives the same result as `sum_da()`, and is faster on the rows that
+        `reduce()` gives it, which are [KeyedList][daffodil.keyedlist.KeyedList]
+        objects. It reads the values of the row directly, instead of looking up each
+        one through the row. `reduce()` uses it in place of `sum_da()`, so a caller
+        that passes `Daf.sum_da` gets this speed too.
+
+        A value that cannot be added, such as text or an empty cell, is skipped. A
+        column that the row does not have adds 0. With `astype` or `is_sparse`, or a
+        row that is not a KeyedList, the work is passed to `sum_da()`.
+
+        Args:
+            row_kl: The current row.
+            reduction_da: The running total. It is changed.
+            cols: The columns to add. All if None.
+            astype: A type to convert each value to before adding.
+            is_sparse: If True, the row may hold only some of the columns.
+            diagnose: Not used.
+
+        Returns:
+            The running total.
+
+        Examples:
+            >>> from daffodil.keyedlist import KeyedList
+            >>> Daf.sum_kl(KeyedList(['x', 'y'], [1, 'abc']), {'x': 10, 'y': 0}, cols=['x', 'y'])
+            {'x': 11, 'y': 0}
+        """
+        if row_kl.__class__ is not KeyedList or cols is None or astype is not None or is_sparse:
+            return Daf.sum_da(row_kl, reduction_da, cols=cols, astype=astype, is_sparse=is_sparse)
+
+        values_la = row_kl._values
+        hd = row_kl.hd
+        for col in cols:
+            try:
+                reduction_da[col] = reduction_da[col] + values_la[hd[col]] + 0
+            except (ValueError, TypeError):
+                continue
+            except KeyError:
+                # A column the row or the total does not have yet. Add as sum_da() does.
+                value = values_la[hd[col]] if col in hd else 0
+                try:
+                    reduction_da[col] = reduction_da.get(col, 0) + value + 0
+                except (ValueError, TypeError):
+                    continue
+        return reduction_da
 
 
     # sum_da2 / sum_da3 -- investigatory variants used to find out why daf_sum() (sum_da) was
@@ -11037,7 +11123,7 @@ class Daf:
             cols:   T_cs | None = None,
             ) -> T_ma:
         """
-        Count how often each value occurs, in each column, using `reduce()`.
+        Count how often each value occurs, in each column, using `reduce()` and `count_values_kl()`.
 
         Args:
             by: How the function is applied. See `reduce()`.
@@ -11054,7 +11140,7 @@ class Daf:
         """
 
         # by='row' (the default, and the only mode exercised) always reduces to a single record.
-        return cast(T_ma, self.reduce(func=type(self).count_values_da, by=by, cols=cols))
+        return cast(T_ma, self.reduce(func=type(self).count_values_kl, by=by, cols=cols))
 
 
     def groupsum_daf(
@@ -11493,6 +11579,7 @@ class Daf:
         of value and count. The counts are changed and returned. A cell that holds
         a list is collected into a list. A cell that holds a dict is added to the
         counts for that column with `sum_da()`. Use `omit_nulls` to skip empty cells.
+        `reduce()` uses `count_values_kl()` in its place.
 
         Args:
             row_da: The current row.
@@ -11550,6 +11637,65 @@ class Daf:
                 result_dodi[col][val] += 1
 
         return result_dodi
+
+
+    @staticmethod
+    def count_values_kl(
+            row_kl:         Any,
+            reduction_da:   T_da,
+            cols:           T_cs,
+            *,
+            omit_nulls:     bool=False,
+            ) -> T_da:
+        """
+        Add one row to running counts of the values in each column. This is the standard count for `reduce()`.
+
+        It gives the same result as `count_values_da()`, and is faster on the rows that
+        `reduce()` gives it, which are [KeyedList][daffodil.keyedlist.KeyedList]
+        objects. `reduce()` uses it in place of `count_values_da()`.
+
+        A cell that holds a list or a dict is passed to `count_values_da()`, one column
+        at a time, as is a row that is not a KeyedList.
+
+        Args:
+            row_kl: The current row.
+            reduction_da: The running counts. They are changed.
+            cols: The columns to count.
+            omit_nulls: If True, empty cells are not counted.
+
+        Returns:
+            The running counts.
+
+        Examples:
+            >>> from daffodil.keyedlist import KeyedList
+            >>> Daf.count_values_kl(KeyedList(['g'], ['a']), {'g': {'a': 2}}, ['g'])
+            {'g': {'a': 3}}
+        """
+        if row_kl.__class__ is not KeyedList:
+            return Daf.count_values_da(row_kl, reduction_da, cols, omit_nulls=omit_nulls)
+
+        if not reduction_da:
+            reduction_da = {}
+
+        values_la = row_kl._values
+        hd = row_kl.hd
+        for col in cols:
+            val = values_la[hd[col]]
+
+            if omit_nulls and val is NULL:
+                continue
+
+            if val and isinstance(val, (list, dict)):
+                reduction_da = Daf.count_values_da(row_kl, reduction_da, [col], omit_nulls=omit_nulls)
+                continue
+
+            counts_di = reduction_da.get(col)
+            if not counts_di:
+                reduction_da[col] = {val: 1}
+            else:
+                counts_di[val] = counts_di.get(val, 0) + 1
+
+        return reduction_da
 
 
     @staticmethod

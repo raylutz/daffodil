@@ -26,9 +26,13 @@ Running functions over rows and columns, and grouping.
 
 ::: daffodil.daf.Daf.sum_np
 
+::: daffodil.daf.Daf.sum_kl
+
 ::: daffodil.daf.Daf.sum_da
 
 ::: daffodil.daf.Daf.diff_da
+
+::: daffodil.daf.Daf.count_values_kl
 
 ::: daffodil.daf.Daf.count_values_da
 
