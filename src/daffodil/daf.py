@@ -3583,6 +3583,11 @@ class Daf:
         written as its Python text, with single quotes. The bool `True` is written as
         `True`. A NULL cell is written as nothing. The text is not JSON.
 
+        A column converted by `apply_dtypes()` to `bool` holds 0 and 1, so it is written
+        as 0 and 1. A column of Python bools is written as `True` and `False`. Both read
+        back as 0 and 1 when the column has dtype `bool`. The cells are written as they
+        are held, with no conversion, since any pass over them would slow every save.
+
         A dict whose keys are not text, such as `{1: 'a'}`, is written with its keys as they are.
 
         Args:
