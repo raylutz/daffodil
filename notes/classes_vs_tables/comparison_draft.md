@@ -30,7 +30,7 @@ There are three versions, and all three give the same totals and the same record
 | :-- | :-- | :-- | --: |
 | marshmallow | impl_marshmallow.py | JSON | 36 |
 | pydantic | impl_pydantic.py | JSON | 23 |
-| daffodil | impl_daffodil.py | CSV | 16 |
+| daffodil | impl_daffodil.py | CSV | 15 |
 
 The marshmallow version names every field twice: once in the dataclass and once in the schema.
 The pydantic version names each field once, in the model. The daffodil version names each field
@@ -129,7 +129,7 @@ is not copied from the book.
 | Version | File | On disk | Code lines |
 | :-- | :-- | :-- | --: |
 | classes, with pydantic | gradebook/gb_classes.py | JSON | 44 |
-| daffodil | gradebook/gb_daffodil.py | CSV | 27 |
+| daffodil | gradebook/gb_daffodil.py | CSV | 26 |
 
 The class version nests four classes: Gradebook, Student, Subject and Grade. The daffodil version
 is one table with one row per grade: student, subject, score and weight. Both give the same
@@ -173,6 +173,53 @@ The change: store a date with each grade, and average only the grades since a gi
   this, because a subject with no rows is not a group.
 - Both versions still load a file saved before the change. Pydantic uses the default for the
   missing date. Daffodil accepts dtypes for a column the file lacks.
+
+## How much custom code each version needs
+
+Ray asked on 2026-10-11 how much custom code each version needs for the same app. `code_size.py`
+counts it the same way for every file. It leaves out blank lines, comments and docstrings. It
+counts lines, and also tokens, which are the words and symbols of the code. Tokens are fairer,
+since one long line can hold as much as three short ones. The code-line counts in the tables
+above come from this script.
+
+Each top-level class, function or assignment goes in one group:
+
+- records: the classes, schemas or dtypes that describe the data
+- load/save: reading and writing the file
+- logic: the work itself
+
+Each cell is lines / tokens.
+
+Ballot batches:
+
+| | records | load/save | logic | imports | total |
+| :-- | --: | --: | --: | --: | --: |
+| marshmallow | 18 / 116 | 4 / 40 | 10 / 80 | 3 / 14 | 36 / 252 |
+| pydantic | 8 / 35 | 4 / 44 | 10 / 80 | 1 / 6 | 23 / 165 |
+| daffodil | 2 / 27 | 4 / 41 | 8 / 99 | 1 / 6 | 15 / 173 |
+
+Gradebook:
+
+| | records | load/save | logic | imports | total |
+| :-- | --: | --: | --: | --: | --: |
+| classes | 3 / 12 | 4 / 33 | 36 / 370 | 1 / 4 | 44 / 419 |
+| flat table | 1 / 19 | 4 / 37 | 20 / 297 | 1 / 6 | 26 / 359 |
+| table and summary | 2 / 48 | 5 / 58 | 29 / 409 | 2 / 10 | 38 / 525 |
+
+What the counts show:
+
+- Marshmallow needs the most code, because each field is described twice. Its records part
+  alone is 116 tokens, more than the whole logic.
+- Pydantic and daffodil are close for the ballot batches: 165 and 173 tokens. Daffodil has fewer
+  lines, but its lines are longer. Its records part is one dtypes dict.
+- For the gradebook, the flat table needs the least code: 359 tokens against 419.
+- In the gradebook classes, the record definitions and the logic are mixed. Subject, Student and
+  Gradebook each hold data and methods, so the script counts them as logic. Only Grade counts as
+  records.
+- The faster table design, with the summary, needs the most code: 525 tokens. The speed is paid
+  for with code that builds the summary and keeps it up to date.
+- The counts measure writing the code once. They do not measure keeping it up to date. The
+  change test in the gradebook section is a first look at that.
 
 ## The cost of reduce
 

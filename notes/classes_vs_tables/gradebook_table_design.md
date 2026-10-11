@@ -27,6 +27,7 @@ grouping.
 Building the summary is 0.129 s of the 0.375 s load. After that, the table design is faster than
 the classes at every step, and the averages are the same.
 
-Adding one grade is slower: 17.7 us, against 3.6 us for the classes. Appending the row takes 1.5
-us. The rest is the two updates written as `summary[student, col] += x`, each a keyed read and a
-keyed write. That is a place to look for speed in daffodil itself.
+Adding one grade was slower at first: 17.7 us, against 3.6 us for the classes. Appending the row
+took 1.5 us. The rest was the two updates written as `summary[student, col] += x`, each a keyed
+read and a keyed write. Commit 476dd81 gave one-cell reads and writes a fast path. Adding a grade
+now takes 4.8 us.
