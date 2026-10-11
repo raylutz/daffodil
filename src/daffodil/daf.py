@@ -1858,7 +1858,9 @@ class Daf:
         By default, columns of type `str` are skipped. The cells are assumed to be text
         already. Pass `from_str=False` when they may hold other values. Then each cell
         is converted with `str()`. Columns of type `list` or `dict` are read from
-        their text. Pass `unflatten=False` to leave them as text.
+        their text. Pass `unflatten=False` to leave them as text. That text is read
+        about eight times faster when pyjson5 is installed, as with
+        `pip install daffodil[pyjson5]`.
 
         An empty cell, such as two commas next to each other in a CSV file, is NULL,
         which is the empty string. It stays NULL when its column is converted to `int` or
