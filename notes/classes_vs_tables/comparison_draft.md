@@ -30,6 +30,7 @@ There are three versions, and all three give the same totals and the same record
 | :-- | :-- | :-- | --: |
 | marshmallow | impl_marshmallow.py | JSON | 36 |
 | pydantic | impl_pydantic.py | JSON | 23 |
+| plain classes | impl_plain.py | JSON | 48 |
 | daffodil | impl_daffodil.py | CSV | 15 |
 
 The marshmallow version names every field twice: once in the dataclass and once in the schema.
@@ -57,6 +58,7 @@ Python 3.13.1 on the EC2 box, 2026-10-11. Times are in seconds, the best of thre
 | :-- | --: | --: | --: | --: | --: | --: |
 | marshmallow | 1.684 | 0.013 | 0.006 | 0.729 | 2.432 | 28.5 MB |
 | pydantic | 0.298 | 0.021 | 0.050 | 0.090 | 0.460 | 114.6 MB |
+| plain classes | 0.297 | 0.013 | 0.004 | 0.158 | 0.473 | 28.5 MB |
 | daffodil | 0.163 | 0.046 | 0.036 | 0.125 | 0.370 | 28.5 MB |
 
 The JSON file is 11.4 MB. The CSV file is 3.1 MB.
@@ -75,14 +77,14 @@ The daffodil totals step is a plain loop over three columns. The built-in way,
 
 `faults.py` puts one fault into record 5, then runs the job.
 
-| Fault | marshmallow | pydantic | daffodil |
-| :-- | :-- | :-- | :-- |
-| a number is "abc" | at load | at load | later: TypeError in the sum |
-| a number is empty | at load | at load | later: TypeError in the sum |
-| a bool is "no" | read as False | read as False | read as 0, which is right |
-| a field is missing | at load | at load | silent: precinct becomes '' |
-| an extra field | at load | silent: dropped | at load: ValueError from dtypes |
-| a typo in the code | at run time | at run time | at run time: ColumnNotFoundError |
+| Fault | marshmallow | pydantic | plain classes | daffodil |
+| :-- | :-- | :-- | :-- | :-- |
+| a number is "abc" | at load | at load | at load | later: TypeError in the sum |
+| a number is empty | at load | at load | at load | later: TypeError in the sum |
+| a bool is "no" | read as False | read as False | at load | read as 0, which is right |
+| a field is missing | at load | at load | at load | silent: precinct becomes '' |
+| an extra field | at load | silent: dropped | at load | at load: ValueError from dtypes |
+| a typo in the code | at run time | at run time | at run time | at run time: ColumnNotFoundError |
 
 The class libraries check every value at load. The error names the record and the field. That is
 their main strength.
@@ -141,7 +143,8 @@ averages. `gb_check.py` checks that.
 
 | | load | student averages | math average | dump | memory |
 | :-- | --: | --: | --: | --: | --: |
-| classes | 0.649 | 0.049 | 0.020 | 0.130 | 134.0 MB |
+| classes, with pydantic | 0.649 | 0.049 | 0.020 | 0.130 | 134.0 MB |
+| plain classes | 0.622 | 0.030 | 0.010 | 0.393 | not measured |
 | daffodil | 0.229 | 0.245 | 0.081 | 0.195 | 42.6 MB |
 
 The JSON file is 6.5 MB, and the CSV file is 4.2 MB.
@@ -176,48 +179,72 @@ The change: store a date with each grade, and average only the grades since a gi
 
 ## How much custom code each version needs
 
-Ray asked on 2026-10-11 how much custom code each version needs for the same app. `code_size.py`
-counts it the same way for every file. It leaves out blank lines, comments and docstrings. It
-counts lines, and also tokens, which are the words and symbols of the code. Tokens are fairer,
-since one long line can hold as much as three short ones. The code-line counts in the tables
-above come from this script.
+Ray asked on 2026-10-11 how much custom code each version needs for the same app. He asked for
+all of it, including the class definitions and the usual class methods, against a daffodil table
+and plain functions.
 
-Each top-level class, function or assignment goes in one group:
+To show all of it, there is one more version of each app: plain classes, written the way a
+textbook does it, with no library to generate code. `impl_plain.py` and
+`gradebook/gb_classes_plain.py` write out by hand what a class needs:
 
-- records: the classes, schemas or dtypes that describe the data
-- load/save: reading and writing the file
+- `__init__`, which sets each field
+- `__repr__`, so a record can be printed
+- `__eq__`, so two records can be compared
+- `from_dict()`, with checks on the types, the missing fields and the extra fields
+- `to_dict()`, and JSON load and dump
+
+The plain versions give the same results and the same JSON as the others. The plain ballot
+version catches every data fault at load, because of the checks in `from_dict()`.
+
+`code_size.py` counts every version the same way. It leaves out blank lines, comments and
+docstrings. It counts lines, and also tokens, which are the words and symbols of the code. Tokens
+are fairer, since one long line can hold as much as three short ones. The code-line counts in the
+tables above come from this script.
+
+Each line goes in one group, by what it is for:
+
+- describe: the class line, its fields and `__init__`; or for daffodil, the dtypes dict
+- boilerplate: `__repr__`, `__eq__` and other double-underscore methods
+- load/save: schemas, `from_dict()`, `to_dict()`, load and dump, with the checks inside them
 - logic: the work itself
 
 Each cell is lines / tokens.
 
 Ballot batches:
 
-| | records | load/save | logic | imports | total |
-| :-- | --: | --: | --: | --: | --: |
-| marshmallow | 18 / 116 | 4 / 40 | 10 / 80 | 3 / 14 | 36 / 252 |
-| pydantic | 8 / 35 | 4 / 44 | 10 / 80 | 1 / 6 | 23 / 165 |
-| daffodil | 2 / 27 | 4 / 41 | 8 / 99 | 1 / 6 | 15 / 173 |
+| | describe | boilerplate | load/save | logic | imports | total |
+| :-- | --: | --: | --: | --: | --: | --: |
+| plain classes | 9 / 67 | 7 / 100 | 21 / 289 | 10 / 80 | 1 / 2 | 48 / 538 |
+| marshmallow | 8 / 25 | 0 / 0 | 15 / 133 | 10 / 80 | 3 / 14 | 36 / 252 |
+| pydantic | 7 / 26 | 0 / 0 | 5 / 53 | 10 / 80 | 1 / 6 | 23 / 165 |
+| daffodil | 2 / 27 | 0 / 0 | 4 / 41 | 8 / 99 | 1 / 6 | 15 / 173 |
 
 Gradebook:
 
-| | records | load/save | logic | imports | total |
-| :-- | --: | --: | --: | --: | --: |
-| classes | 3 / 12 | 4 / 33 | 36 / 370 | 1 / 4 | 44 / 419 |
-| flat table | 1 / 19 | 4 / 37 | 20 / 297 | 1 / 6 | 26 / 359 |
-| table and summary | 2 / 48 | 5 / 58 | 29 / 409 | 2 / 10 | 38 / 525 |
+| | describe | boilerplate | load/save | logic | imports | total |
+| :-- | --: | --: | --: | --: | --: | --: |
+| plain classes | 13 / 138 | 24 / 224 | 28 / 409 | 30 / 317 | 1 / 2 | 96 / 1090 |
+| pydantic | 9 / 61 | 0 / 0 | 4 / 33 | 30 / 321 | 1 / 4 | 44 / 419 |
+| flat table | 1 / 19 | 0 / 0 | 4 / 37 | 20 / 297 | 1 / 6 | 26 / 359 |
+| table and summary | 2 / 48 | 0 / 0 | 5 / 58 | 29 / 409 | 2 / 10 | 38 / 525 |
 
 What the counts show:
 
-- Marshmallow needs the most code, because each field is described twice. Its records part
-  alone is 116 tokens, more than the whole logic.
-- Pydantic and daffodil are close for the ballot batches: 165 and 173 tokens. Daffodil has fewer
-  lines, but its lines are longer. Its records part is one dtypes dict.
-- For the gradebook, the flat table needs the least code: 359 tokens against 419.
-- In the gradebook classes, the record definitions and the logic are mixed. Subject, Student and
-  Gradebook each hold data and methods, so the script counts them as logic. Only Grade counts as
-  records.
-- The faster table design, with the summary, needs the most code: 525 tokens. The speed is paid
-  for with code that builds the summary and keeps it up to date.
+- Written by hand, the classes are the largest by far: 538 tokens for the ballot job and 1090
+  for the gradebook. That is about three times the daffodil versions. Most of it is not the
+  work. It is describing the records, printing and comparing them, and turning them into dicts
+  and back.
+- The logic is about the same size in every version. The difference is all in the code around it.
+- In the plain gradebook, the boilerplate and the load/save code grow with each class. Four
+  classes need four `__repr__`, four `__eq__`, four `from_dict()` and four `to_dict()`.
+- marshmallow and pydantic remove most of that by generating it. The code still exists and still
+  runs, but it lives in a dependency. With marshmallow each field is still described twice, once
+  in the class and once in the schema.
+- With daffodil, the records need no code of their own. A dtypes dict describes them, and
+  loading and saving are one call each. The work is plain functions over the table.
+- The plain classes check every field at load because I wrote the checks. The checks are a large
+  part of their load/save code. Daffodil has no such checks yet. The strict load in Next steps
+  would add them from the schema, without code in each app.
 - The counts measure writing the code once. They do not measure keeping it up to date. The
   change test in the gradebook section is a first look at that.
 

@@ -1,5 +1,5 @@
 """Inject one fault at a time and see where each implementation reports it."""
-import json, fmt, make_data, impl_marshmallow as M, impl_pydantic as P, impl_daffodil as D
+import json, fmt, make_data, impl_marshmallow as M, impl_pydantic as P, impl_plain as X, impl_daffodil as D
 from daffodil.daf import Daf
 
 def bad_data(change, name):
@@ -17,7 +17,7 @@ def typo_obj(batches):
     return sum(b.num_balots for b in batches)
 def typo_daf(daf):
     return sum(daf.col('num_balots'))
-typo = {'marshmallow': typo_obj, 'pydantic': typo_obj, 'daffodil': typo_daf}
+typo = {'marshmallow': typo_obj, 'pydantic': typo_obj, 'plain': typo_obj, 'daffodil': typo_daf}
 
 def run(name, mod, text, extra=None):
     try:
@@ -32,7 +32,7 @@ def run(name, mod, text, extra=None):
     rec = fmt.decode(name, out)[5]
     return f'no error; totals {sum(t.values())}; record 5 out: {rec}'
 
-mods = [('marshmallow', M), ('pydantic', P), ('daffodil', D)]
+mods = [('marshmallow', M), ('pydantic', P), ('plain', X), ('daffodil', D)]
 for fname, change in data_faults.items():
     print(f'== {fname}')
     for name, mod in mods:
