@@ -1,0 +1,19 @@
+PartialDescription,Amount,Name,Account,LookupMemo,tests
+Acme Hardware,,Acme Hardware,Repairs,,plain cells
+Blue  Ridge Gas,,Blue Ridge Gas,Fuel,,"two spaces, <text:s text:c=""2""/>"
+Zeta Coffee,,Zeta Coffee,Food:Restaurant,,"part bold, <text:span>"
+Kappa Books,,Kappa Books,Books & Documents,,"span holding <text:s/>, and & in text"
+Examplestore.com,,Examplestore,Supplies,,"link, <text:a>"
+Omega Pharmacy,,Omega Pharmacy,Medical,,"cell comment, <office:annotation>"
+Delta Electric,,Delta Electric Co,Utilities,"Delta Electric
+Co",two lines in one cell
+Gamma Water,,Gamma Water,Utilities,"Gamma
+Water","line break, <text:line-break/>"
+Sam’s Diner,,Sam’s Diner,Food:Restaurant,,"curly apostrophe, U+2019"
+Iota Market,,Iota Market,Groceries,,"no-break space, U+00A0"
+Café Lumen,,Cafe Lumen,Food:Restaurant,,"accented letter, e acute"
+Check Withdrawal,45,Pat Roe,Glass Blowing,,"amount, a number cell"
+Check Withdrawal,168.5,Lawn Pros,Landscaping,,"amount, a currency cell shown as $168.50"
+Theta Gym,,Theta Gym,Fitness,,"merged cells, <table:covered-table-cell>"
+ Sigma Tires ,,Sigma Tires,Auto,,leading and trailing spaces
+Last Rule,,Last Rule,Misc,,plain row after the others

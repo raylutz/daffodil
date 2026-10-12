@@ -78,4 +78,4 @@ PYON is like JSON, but it can hold sets, tuples, and dicts with keys that are no
 | `to_md()`: a Markdown table | `Daf.from_md()` |
 | `to_pandas_df()` | `Daf.from_pandas_df()` |
 | `to_numpy()` | `Daf.from_numpy()` |
-| `to_csv_file()`, `to_csv_buff()` | `Daf.from_csv()`, `Daf.from_csv_buff()`, `Daf.from_excel_buff()` |
+| `to_csv_file()`, `to_csv_buff()` | `Daf.from_csv()`, `Daf.from_csv_buff()`, `Daf.from_excel_buff()`, `Daf.from_ods()` |

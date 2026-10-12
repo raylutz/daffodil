@@ -101,6 +101,7 @@ import daffodil.lib.daf_md       as md
 import daffodil.lib.daf_pandas   as daf_pandas
 import daffodil.lib.daf_pdf      as daf_pdf
 import daffodil.lib.daf_schema   as daf_schema
+import daffodil.lib.daf_ods      as daf_ods
 
 from daffodil.keyedlist import KeyedList
 
@@ -3343,6 +3344,59 @@ class Daf:
                         )
 
         return my_daf
+
+    @classmethod
+    def from_ods(
+            cls,
+            source:     str | Path | bytes,
+            sheet:      int | str = 0,                  # the position of the sheet, from 0, or its name.
+            keyfield:   str = '',                       # field to use as unique key, if not ''
+            dtypes:     T_dtype_dict | None = None,     # dictionary of types to apply if set.
+            noheader:   bool = False,                   # if True, the first row is data.
+            unflatten:  bool = True,                    # unflatten fields that are defined as dict or list.
+            name:       str = '',                       # name attribute of the Daf array created.
+            ) -> 'Daf':
+        """
+        Make a Daf from one sheet of an OpenDocument spreadsheet, an .ods file.
+
+        Use it for a table kept in LibreOffice Calc. Only the first sheet is read, unless
+        you give `sheet`. Only the content of the cells is read: styles, comments, links
+        and formulas are left out. No package is needed, since the file is read with the
+        standard library. See `lib/daf_ods.py`.
+
+        All values start as text, as from a CSV file, so give `dtypes` or call
+        `apply_dtypes()` to convert them. A number, date or boolean cell gives its stored
+        value, such as `168.5` or `2026-09-01`, not the text shown, such as `$168.50`.
+        A cell with several lines gives them joined with a newline.
+
+        Rows are padded with NULL to the width of the widest row. A blank row inside the
+        table is kept as a row of NULL, so the rows line up with the spreadsheet. Drop such
+        rows yourself if they must not be used. The blank rows at the end are left out.
+
+        Args:
+            source: The path of the file, or its bytes.
+            sheet: The position of the sheet, from 0, or its name.
+            keyfield: Column whose values identify rows.
+            dtypes: Type for each column.
+            noheader: If True, the first row is data, not column names.
+            unflatten: If True, read list and dict columns from their text.
+            name: The name of the new Daf.
+
+        Returns:
+            The new Daf.
+
+        Raises:
+            IndexError: There is no sheet at that position.
+            KeyError: There is no sheet with that name.
+        """
+        data_lol = daf_ods.ods_to_lol(source, sheet=sheet)
+        cols: T_ls = []
+        if not noheader and data_lol:
+            cols = data_lol.pop(0)
+        my_daf = cls(lol=data_lol, cols=cols, keyfield=keyfield, dtypes=dtypes, name=name)
+        my_daf.apply_dtypes(unflatten=unflatten)
+        return my_daf
+
 
     #==== CSV
     @classmethod

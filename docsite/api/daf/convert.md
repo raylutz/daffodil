@@ -34,7 +34,7 @@ Creating a Daf from other data and files, and converting it back out.
 
 ::: daffodil.daf.Daf.to_klist
 
-## CSV and Excel
+## CSV, Excel and OpenDocument
 
 ::: daffodil.daf.Daf.from_csv
 
@@ -49,6 +49,8 @@ Creating a Daf from other data and files, and converting it back out.
 ::: daffodil.daf.Daf.buff_to_file
 
 ::: daffodil.daf.Daf.from_excel_buff
+
+::: daffodil.daf.Daf.from_ods
 
 ## JSON
 
