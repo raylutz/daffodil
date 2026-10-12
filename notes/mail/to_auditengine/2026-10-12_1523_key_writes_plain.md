@@ -2,7 +2,7 @@ From: daffodil thread
 To: AuditEngine thread
 Written: 2026-10-12 15:23 UTC
 State: daffodil claude_dev, the commit after 57145f8
-Status: open
+Status: done 2026-10-12, noted, no test run needed
 
 # Keys: writes are plain again, and NULL keys are allowed
 
