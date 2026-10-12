@@ -22,6 +22,7 @@ all prior releases. Plans for future moved to ROADMAP.md.
 
 ### Changed
 - The new `transpose_rows_lol()` in `lib/daf_utils.py` does every transpose: `transpose_lol()`, `Daf.transpose()` and the display. Below 100,000 cells it uses zip, which is 2 to 4 times faster on a small table. From that size it uses numpy with object references, which is up to 1.7 times faster at a million cells. Without numpy it uses zip at any size. The cells are not copied either way. `transpose_lol()` still raises RuntimeError for ragged rows. Ray decided this on 2026-10-12. Tests are in `tests/test_transpose_zip_numpy.py`.
+- The `apply()` docstring says what the row function may return: a dict adds one row, a list of dicts adds several, and None or an empty dict or list adds nothing. It says the source is not changed, and that the columns come from the first row returned, so a later key the first row lacks is dropped without an error. A new doctest shows one row becoming two. Docs only.
 
 ## [0.7.2] - (2026-10-11)
 ### Fixed

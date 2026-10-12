@@ -9319,9 +9319,20 @@ class Daf:
         """
         Apply a function to each row and collect the results in a new Daf.
 
-        The function gets a row and returns the new row as a dict. If it returns an
-        empty dict or None, that row is left out. The new Daf takes its columns from
-        the first row returned. It has no keyfield. This Daf is not changed.
+        Use it to convert one table into another, such as a bank's download into a
+        register, with a plain Python function that turns one row into the new row.
+        This Daf is not changed. Only the new Daf gets rows.
+
+        The function gets a row and returns what to add to the new Daf:
+
+        - A dict adds one row.
+        - A list of dicts adds a row for each dict, so one row can become several.
+        - None, an empty dict or an empty list adds nothing, so the row is left out.
+
+        The new Daf takes its columns from the first row returned. A later dict is
+        placed by column name, and a column it lacks is NULL. A key that the first row
+        did not have is dropped without an error. So when the columns are known, have
+        the function return all of them in every row. The new Daf has no keyfield.
 
         With `by='table'` the function gets the whole Daf, and its result is returned
         as it is. Use that to run any function on the table. `by='col'` is not
@@ -9363,6 +9374,15 @@ class Daf:
             |  a |  3 | 30 |
             <BLANKLINE>
             %% daf rows=2; cols=3; keyfield=''; name=''
+            <BLANKLINE>
+            >>> d.apply(lambda row: [{'g': row['g'], 'part': 1}, {'g': row['g'], 'part': 2}] if row['x'] == 2 else None)
+            <BLANKLINE>
+            | g  | part |
+            | -: | ---: |
+            |  b |    1 |
+            |  b |    2 |
+            <BLANKLINE>
+            %% daf rows=2; cols=2; keyfield=''; name=''
             <BLANKLINE>
         """
         if by == 'table':
