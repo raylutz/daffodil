@@ -182,7 +182,8 @@ Source code is in src/daffodil and tests are in tests.
 
 ## Releasing
 
-- Version 0.7.1 was released on 2026-10-10, from 22cdaa8. Tags look like `v0.7.1`.
+- Version 0.7.2 was released on 2026-10-12 at 00:15 UTC, from e66b189. Its CHANGELOG heading says 2026-10-11, the day the release commit was made. Tags look like `v0.7.2`.
+- For 0.7.2, Ray had AuditEngine test the release candidate on its `-e ../daffodil` install before approving PyPI. When asking for such a test, do not ask it to run `uv sync`: its uv.lock is a stub, so a sync uninstalls most of its venv. The editable install sees a new commit with no sync. AuditEngine asked for this on 2026-10-11.
 - Between releases, `main` carries the next dev version, such as 0.7.2.dev0. A `-e` install then never reads the same as a PyPI release. AuditEngine asked for this on 2026-10-10. The deploy cannot release a dev version, because CHANGELOG.md never has a heading for one.
 - The workflow deploy.yml runs only on a push to the branch `full_deploy`. It checks the version, runs the tests, builds, and deploys the docs. Then it waits for Ray to approve, because he is a required reviewer on the environment `pypi`. After approval it publishes to PyPI and creates the tag and the GitHub Release. The Release notes are the version's section of CHANGELOG.md. The docs header shows the latest GitHub Release.
 - Approval can come from the Actions run page, the GitHub mobile app, or from Claude when Ray says to approve. Never approve without Ray's word in the conversation. With gh:
