@@ -1112,6 +1112,11 @@ def transpose_rows_lol(lol: T_lola, num_cols: int) -> T_lola:
     1.7 times at a million cells. Without numpy, zip is used at any size. Either way the
     cells are not copied: the result holds the same objects.
 
+    The array is filled with `np.fromiter()`, one reference for each cell, so a cell
+    that holds a list stays whole. `np.array()` would look inside such lists when they
+    all have the same length, and transpose their items too. An object array from
+    `np.fromiter()` needs numpy 1.23 or later.
+
     The rows must all have `num_cols` items. This is not checked. With zip, a longer
     row is cut to the shortest. Internal use.
 
@@ -1128,7 +1133,9 @@ def transpose_rows_lol(lol: T_lola, num_cols: int) -> T_lola:
         except ImportError:
             pass
         else:
-            return np.array(lol, dtype=object).T.tolist()
+            num_rows  = len(lol)
+            cells_npa = np.fromiter(itertools.chain.from_iterable(lol), dtype=object, count=num_rows * num_cols)
+            return cells_npa.reshape(num_rows, num_cols).T.tolist()
 
     return [list(col_t) for col_t in zip(*lol)]
 

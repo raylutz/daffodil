@@ -98,9 +98,20 @@ def test_list_cells_kept_whole_by_zip() -> None:
     assert '[1, 2]' in repr(daf)
 
 
-@pytest.mark.xfail(strict=True, reason="BUG: daf_utils.py transpose_rows_lol(): np.array() looks inside cells that "
-                                       "are lists of the same length, and transposes their items too. Item 16.")
-def test_list_cells_kept_whole_by_numpy(monkeypatch: Any) -> None:
+@pytest.mark.parametrize('cell_len', [1, 2, 3])
+def test_list_cells_kept_whole_by_numpy(monkeypatch: Any, cell_len: int) -> None:
+    """ np.fromiter() keeps each cell whole. np.array() looked inside lists of the same length. """
     monkeypatch.setattr(daf_utils, 'TRANSPOSE_NUMPY_MIN_CELLS', 1)
-    daf = Daf(lol=[[[1, 2], [3, 4]], [[5, 6], [7, 8]]], cols=['a', 'b'])
-    assert daf.transpose().lol == [[[1, 2], [5, 6]], [[3, 4], [7, 8]]]
+    lol = [[list(range(irow * 10 + icol, irow * 10 + icol + cell_len)) for icol in range(3)] for irow in range(4)]
+    daf = Daf(lol=lol, cols=['a', 'b', 'c'])
+    assert daf.transpose().lol == _by_zip(lol)
+    result = transpose_lol(lol)
+    assert result == _by_zip(lol)
+    assert result[1][2] is lol[2][1]
+
+
+@pytest.mark.parametrize('min_cells', [1, 100_000], ids=['numpy', 'zip'])
+def test_tuple_and_dict_cells(monkeypatch: Any, min_cells: int) -> None:
+    monkeypatch.setattr(daf_utils, 'TRANSPOSE_NUMPY_MIN_CELLS', min_cells)
+    lol = [[(1, 2), {'a': 1}], [(3, 4), {'a': 2}]]
+    assert transpose_lol(lol) == [[(1, 2), (3, 4)], [{'a': 1}, {'a': 2}]]

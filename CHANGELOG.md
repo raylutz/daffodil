@@ -10,10 +10,10 @@ all prior releases. Plans for future moved to ROADMAP.md.
 ## [Unreleased]
 ### Fixed
 - Printing a Daf needed numpy, though numpy is optional. The display transposes the rows, and `transpose_lol()` did that with numpy. So after a plain `pip install daffodil`, `print(daf)` raised ModuleNotFoundError. `transpose()` needed numpy too.
-- A Daf whose cells were all lists of the same length could not be printed. numpy looked inside the lists, and the display raised RuntimeError. Below 100,000 cells, such a table now prints and transposes correctly.
+- A Daf whose cells were all lists of the same length could not be printed. `np.array()` looked inside the lists, so the display raised RuntimeError and `transpose()` moved the items of the lists as well. The numpy path now fills its array with `np.fromiter()`, one reference for each cell, so such a table prints and transposes correctly at any size. An object array from `np.fromiter()` needs numpy 1.23 or later. Ray decided this on 2026-10-12, as item 16 of the review.
 
 ### Changed
-- The new `transpose_rows_lol()` in `lib/daf_utils.py` does every transpose: `transpose_lol()`, `Daf.transpose()` and the display. Below 100,000 cells it uses zip, which is 2 to 4 times faster on a small table. From that size it uses numpy with object references, which is up to 1.7 times faster at a million cells. Without numpy it uses zip at any size. The cells are not copied either way. `transpose_lol()` still raises RuntimeError for ragged rows. Ray decided this on 2026-10-12. Tests are in `tests/test_transpose_zip_numpy.py`. One xfail marks the numpy path for cells that are lists of the same length, which is item 16 of the review.
+- The new `transpose_rows_lol()` in `lib/daf_utils.py` does every transpose: `transpose_lol()`, `Daf.transpose()` and the display. Below 100,000 cells it uses zip, which is 2 to 4 times faster on a small table. From that size it uses numpy with object references, which is up to 1.7 times faster at a million cells. Without numpy it uses zip at any size. The cells are not copied either way. `transpose_lol()` still raises RuntimeError for ragged rows. Ray decided this on 2026-10-12. Tests are in `tests/test_transpose_zip_numpy.py`.
 
 ## [0.7.2] - (2026-10-11)
 ### Fixed
