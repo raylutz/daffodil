@@ -103,17 +103,20 @@ def select_col_of_lol_by_col_idx(lol: T_lola, col_idx: int) -> T_la:
 class NpEncoder(json.JSONEncoder):
     #This is needed to allow np.int64 to be converted.
     def default(self, obj: Any) -> Any:
-        import numpy as np
-        
-        if isinstance(obj, np.integer):
-            return int(obj)
-        elif isinstance(obj, np.floating):
-            return float(obj)
-        elif isinstance(obj, np.ndarray):
-            return obj.tolist()
-        else:
-            # raises TypeError for any other type that json can't serialize.
-            return super(NpEncoder, self).default(obj)
+        # A numpy value exists only if numpy is loaded, so the import costs nothing and
+        # cannot fail. Any other value needs no numpy, which may not be installed.
+        if type(obj).__module__ == 'numpy':
+            import numpy as np
+
+            if isinstance(obj, np.integer):
+                return int(obj)
+            elif isinstance(obj, np.floating):
+                return float(obj)
+            elif isinstance(obj, np.ndarray):
+                return obj.tolist()
+
+        # raises TypeError for any other type that json can't serialize.
+        return super(NpEncoder, self).default(obj)
 
 
 def json_encode(data_item: Any, indent: int | None = None) -> str:
