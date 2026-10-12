@@ -87,7 +87,7 @@ SECTIONS = [
         ("daf.append(['e5', 'tag', 'x', 2])", 'a list, in column order'),
         ("daf.append(lol=[['e5', 'tag', 'x', 2]])", 'several lists'),
         ("row = daf.default_record(astype=KeyedList)", "a new row: the Daf's columns, with defaults"),
-        ("row['qty'] = 2", 'fill it by name, in any order'),
+        ("row['id'], row['qty'] = 'e6', 2", 'fill it by name, in any order; give the key'),
         ("daf.append(row, fast=True)", 'append it with no copy'),
     ], ["Without `fast`, every row is checked and copied.",
         "With `fast=True`, a KeyedList must come from `default_record(astype=KeyedList)` of the same Daf. "
