@@ -12251,22 +12251,14 @@ class Daf:
             >>> d.transpose(include_header=True).columns()
             ['key', 'A', 'B']
         """
-        import numpy as np
 
         if not new_cols:
             new_cols = daf_utils._generate_spreadsheet_column_names_list(num_cols=len(self.lol))
             if include_header:
                 new_cols = ['key'] + new_cols
 
-        # transpose the array
-        # new_lol = [list(row) for row in zip(*self.lol)]
-
-        # the following leverages the use of the transposition operation in numpy 
-        # over an array of references to python objects. Faster and concise.
-
-        npao = np.array(self.lol, dtype=object)
-        npaoT = npao.T
-        new_lol = npaoT.tolist()
+        # zip for a small table, numpy object references for a large one.
+        new_lol = daf_utils.transpose_rows_lol(self.lol, len(self.lol[0]) if self.lol else 0)
 
         # instead of adding column for the header row, consider initializing kd from hd and hd from kd.
 
