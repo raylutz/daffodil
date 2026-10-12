@@ -28,8 +28,12 @@ projects. The Code style section of daffodil's CLAUDE.md says much of the same, 
 
 ## Types
 
-- Annotate every parameter, every return value and the variables whose type is not obvious. The aim is to
-  be able to compile with mypyc later.
+- Annotate everything: every parameter, every return value and every local variable, including loop
+  variables. It costs nothing at run time.
+- The annotations keep track of what each variable holds. Iterating over a `T_dols`, for example, gives a
+  key that is a str and a value that is a `T_ls`, and the annotations say so where the reader needs it.
+- A variable never holds two types, and annotating every variable enforces that.
+- It also lets mypy check the code, and could let it be compiled with mypyc later.
 - Use the type aliases from daffodil's `src/daffodil/lib/daf_types.py`. AuditEngine has its own,
   `my_types.py`, with the same scheme. Each alias is `T_` followed by letters for the type:
   - `s` str, `i` int, `f` float, `b` bool, `t` tuple, `a` Any.

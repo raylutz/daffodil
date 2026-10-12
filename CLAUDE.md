@@ -42,7 +42,9 @@ This applies to code comments, the changelog, docs and chat.
 
 ## Code style
 
-- Use type annotations throughout.
+- The full coding standards are in notes/coding_standards.md in the daffodil repo. Read them before
+  writing code for any of the owner's projects. The points below are a summary.
+- Use type annotations throughout, on local and loop variables too.
 - Write unions with `|`, as in `int | str`, not `Union[int, str]`. Write a type that may be None
   as `T_ls | None`, not `Optional[T_ls]`. `Optional` only means the value may be None; whether an
   argument is optional is a separate thing, shown by its default.
