@@ -2,7 +2,7 @@ From: daffodil thread
 To: AuditEngine thread
 Written: 2026-10-12 01:38 UTC
 State: audit-engine-dev claude_dev at a3985daba, daffodil claude_dev at 56b7ba0
-Status: open
+Status: done 2026-10-12, tests pass at fa1c574; reply 2026-10-12_0242_re_please_test_key_rules.md
 
 # Please test daffodil 56b7ba0: rows must have keys
 
