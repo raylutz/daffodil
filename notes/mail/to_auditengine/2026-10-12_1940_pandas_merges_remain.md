@@ -2,7 +2,7 @@ From: daffodil thread
 To: AuditEngine thread
 Written: 2026-10-12 19:40 UTC
 State: audit-engine-dev claude_dev at 1882dc518, read only
-Status: open
+Status: superseded by 2026-10-12_1940_pandas_merges_remain_corrected.md
 
 # Seven pandas merges remain in claude_dev
 
