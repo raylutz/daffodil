@@ -83,7 +83,6 @@ import re
 import json
 import time
 import functools
-import itertools
 import operator
 #import numpy as np         # moved to uses of numpy
 #from typing_extensions import deprecated       # can't get this to import correctly
@@ -1659,7 +1658,7 @@ class Daf:
 
     def _invalidate_kd_if_key(self, icols: Iterable[int]) -> None:
         """
-        Clear the key index with `_invalidate_kd()` if any of these columns is a keyfield column.
+        Invalidate the kd with `_invalidate_kd()` if any of these columns is a keyfield column.
 
         Every method that writes into a column calls this, or `_invalidate_kd()`, so that
         a changed key is not looked up in a stale index. Internal use.
@@ -1672,73 +1671,12 @@ class Daf:
 
     def _invalidate_kd_if_changed(self, old_la: T_la, new_la: T_la) -> None:
         """
-        Clear the key index with `_invalidate_kd()` if a row's key differs between two versions of it. Internal use.
+        Invalidate the kd with `_invalidate_kd()` if a row's key differs between two versions of it. Internal use.
         """
         for icol in self._key_icols():
             if icol >= len(old_la) or icol >= len(new_la) or old_la[icol] != new_la[icol]:
                 self._invalidate_kd()
                 return
-
-
-    def _lacks_key(self, row_la: T_la) -> bool:
-        """
-        True if the row has no value in a keyfield column. Call it only when there is a keyfield.
-
-        A single keyfield column, the usual case, is tested inline, which keeps this cheap
-        on paths that add or write many rows. Internal use.
-        """
-        keyfield = self.keyfield
-        if keyfield.__class__ is str:
-            icol = self.hd.get(keyfield)
-            return icol is not None and (icol >= len(row_la) or row_la[icol] is NULL)
-        return any(icol >= len(row_la) or row_la[icol] is NULL for icol in self._key_icols())
-
-
-    def _raise_if_no_key_in_rows(self, rows_lola: T_lola, funcname: str) -> None:
-        """
-        Raise ValueError if any of the rows has no value in a keyfield column, for rows being added.
-
-        Each keyfield column is tested over all rows in C, with `map()`, which costs little
-        even for many rows. Only on a failure are the rows looked at one by one. Internal use.
-        """
-        for icol in self._key_icols():
-            try:
-                found = any(map(operator.is_, map(operator.itemgetter(icol), rows_lola), itertools.repeat(NULL)))
-            except IndexError:
-                found = True                                    # a row too short to hold the key.
-            if found:
-                for row_la in rows_lola:
-                    if self._lacks_key(row_la):
-                        self._raise_if_no_key(row_la, funcname, adding=True)
-
-
-    def _raise_if_no_key(self, row_la: T_la, funcname: str, adding: bool) -> None:
-        """
-        Raise ValueError if the row has no value in a keyfield column.
-
-        A row with an empty key cannot be found by its key, and several such rows would
-        share the key NULL. With no keyfield, nothing is checked. Internal use.
-
-        Args:
-            row_la: The row, in column order.
-            funcname: The name of the method, for the message.
-            adding: True for a row being added, False for a row being changed.
-        """
-        for icol in self._key_icols():
-            if icol < len(row_la) and row_la[icol] is not NULL:
-                continue
-            colname = list(self.hd)[icol]
-            if adding:
-                raise ValueError(
-                    f"{funcname}(){self._err_name()}: a row has no value in {colname!r}, the keyfield, so it "
-                    f"could not be found by its key. Nothing was added. Give each row a key, or set the "
-                    f"keyfield after the keys are filled in.")
-            of_name = f" of Daf {self.name!r}" if self.name else ""
-            fix = "Give the key." if funcname == 'update_record_irow' else \
-                  "Give the key, or use update_record_irow() to change only some cells."
-            raise ValueError(
-                f"{funcname}(){of_name}: the row would have no value in {colname!r}, the keyfield. "
-                f"Nothing was changed. {fix}")
 
 
     def _rebuild_kd_if_invalidated(self) -> 'Daf':
@@ -4446,11 +4384,6 @@ class Daf:
         row that has the same key instead. That looks the key up on every call, so
         it costs more when you add many rows one at a time.
 
-        With a keyfield, each row must have a key. A row with no value in the keyfield
-        raises ValueError, also with `fast=True`, since it could not be found by its key.
-        Several such rows would all have the key NULL. To add rows whose keys are filled in
-        later, add them first and then call `set_keyfield()`.
-
         With columns defined, a list is added as a copy, so you can reuse it. With no
         columns, the list itself is added.
 
@@ -4486,7 +4419,7 @@ class Daf:
 
         Raises:
             TypeError: More than one of `data_item`, `lol` and `la` is given, or `data_item` is not a supported type.
-            ValueError: A list has more values than there are columns, or a row has no value in the keyfield.
+            ValueError: A list has more values than there are columns.
 
         Examples:
             >>> d = Daf(lol=[[1, 'a']], cols=['id', 'v'], keyfield='id')
@@ -4567,8 +4500,6 @@ class Daf:
                             f"append(fast=True){self._err_name()}: row {irow} of lol has {len(row_la)} values "
                             f"for {num_cols} columns. With fast=True each row must have one value for each column, "
                             f"in column order. Nothing was added. {fix}")
-                if self.keyfield:
-                    self._raise_if_no_key_in_rows(lol, 'append')
                 self.lol.extend(lol)
                 self._invalidate_kd()
                 return self
@@ -4599,22 +4530,11 @@ class Daf:
                     self._raise_fast_length(row)
             if row:
                 if isinstance(row, list):
-                    keyfield = self.keyfield
-                    if keyfield:            # a single keyfield column is tested inline: this path is hot.
-                        key_icol = self.hd.get(keyfield) if keyfield.__class__ is str else None
-                        if key_icol is None or key_icol >= len(row) or row[key_icol] is NULL:
-                            if self._lacks_key(row):
-                                self._raise_if_no_key(row, 'append', adding=True)
                     self.lol.append(row)
                 elif isinstance(row, KeyedList):
-                    if self.keyfield and self._lacks_key(row.values()):
-                        self._raise_if_no_key(row.values(), 'append', adding=True)
                     self.lol.append(row.values())
                 elif isinstance(row, dict):
-                    row_la = list(row.values())
-                    if self.keyfield and self._lacks_key(row_la):
-                        self._raise_if_no_key(row_la, 'append', adding=True)
-                    self.lol.append(row_la)
+                    self.lol.append(list(row.values()))
                 else:
                     row = None
                 if row is not None:
@@ -4684,8 +4604,6 @@ class Daf:
             rec_la = list(row_la)
             if len(rec_la) < num_cols:
                 rec_la.extend([''] * (num_cols - len(rec_la)))
-            if self.keyfield and self._lacks_key(rec_la):
-                self._raise_if_no_key(rec_la, 'append', adding=True)
             self.lol.append(rec_la)
             self._invalidate_kd()       # the kd is rebuilt lazily, only if a keyfield is set.
         else:
@@ -4714,8 +4632,7 @@ class Daf:
         Raises:
             KeyError: The column names of the two Daf instances differ.
             ValueError: With `respect_kd=True`, both Daf instances have a keyfield and the
-                keyfields differ. Or this Daf has a keyfield, and a row of the other has no
-                value in it. Nothing is added then.
+                keyfields differ.
 
         Notes:
             The columns must be equal, including their order.
@@ -4775,9 +4692,6 @@ class Daf:
                   f"missing_list:\n{missing_list}\n"
                   f"extra_list:\n{extra_list}\n")
             raise KeyError(error_str)
-
-        if self.keyfield:
-            self._raise_if_no_key_in_rows(other_instance.lol, 'concat')
 
         if respect_kd and self.keyfield:
             if other_instance.keyfield and other_instance.keyfield != self.keyfield:
@@ -4848,7 +4762,7 @@ class Daf:
 
         Raises:
             TypeError: Both `records_lod` and `lol` are given, or a row of `lol` is not a list.
-            ValueError: A row of `lol` has more values than there are columns, or a row has no value in the keyfield.
+            ValueError: A row of `lol` has more values than there are columns.
 
         Examples:
             >>> d = Daf(lol=[[1, 'a']], cols=['id', 'v'], keyfield='id')
@@ -4893,14 +4807,6 @@ class Daf:
             self._invalidate_kd() # use lazy kd building.
             return self
 
-        if self.keyfield:
-            # check every record first, so that nothing is added when one has no key.
-            key_icols = self._key_icols()
-            colnames_ls = list(self.hd)
-            for record_da in records_lod:
-                if any(record_da.get(colnames_ls[icol], NULL) is NULL for icol in key_icols):
-                    self._raise_if_no_key([record_da.get(col, NULL) for col in self.hd], 'extend', adding=True)
-
         for record_da in records_lod:
             self.record_append(record_da, respect_kd=respect_kd)
 
@@ -4926,9 +4832,6 @@ class Daf:
                 raise TypeError(f"extend(): each row of lol must be a list, not {type(row_la).__name__}.")
             if num_cols and len(row_la) > num_cols:
                 raise ValueError(f"extend(): a row has {len(row_la)} values for {num_cols} columns.")
-
-        if self.keyfield:
-            self._raise_if_no_key_in_rows(lol, 'extend')
 
         if respect_kd and self.keyfield and num_cols:
             for row_la in lol:
@@ -4965,9 +4868,6 @@ class Daf:
 
         Returns:
             This Daf, which has been changed.
-
-        Raises:
-            ValueError: The Daf has a keyfield, and the row has no value in it.
 
         Examples:
             >>> d = Daf(lol=[[1, 'a'], [2, 'b']], cols=['id', 'v'], keyfield='id')
@@ -5033,13 +4933,6 @@ class Daf:
         else:
             # any other mapping with keys in column order.
             rec_la = [record[col] for col in self.hd]
-
-        keyfield = self.keyfield
-        if keyfield:                # a single keyfield column is tested inline: this path is hot.
-            key_icol = self.hd.get(keyfield) if keyfield.__class__ is str else None
-            if key_icol is None or key_icol >= len(rec_la) or rec_la[key_icol] is NULL:
-                if self._lacks_key(rec_la):
-                    self._raise_if_no_key(rec_la, 'append', adding=True)
 
         if self.keyfield and respect_kd:
             keyval = self._get_keyval(record)
@@ -5458,9 +5351,7 @@ class Daf:
         several whole rows is copied, so each row has its own list.
 
         If you change a keyfield cell, the key index is rebuilt when it is next needed.
-        A write that would leave a row with no key, such as a dict without the keyfield,
-        raises ValueError, and nothing is changed. A row with no key could not be found
-        by its key. Keys changed through a [KeyedList][daffodil.keyedlist.KeyedList] row,
+        Keys changed through a [KeyedList][daffodil.keyedlist.KeyedList] row,
         or in `lol` directly, are not seen. Call `set_keyfield()` with the same keyfield
         afterwards, so that the index is rebuilt.
 
@@ -5476,7 +5367,6 @@ class Daf:
         Raises:
             KeyError: A row key or a column name is not found.
             KeysDisabledError: A row is selected by key, and the Daf has no keyfield.
-            ValueError: A row would be left with no value in the keyfield.
 
         Examples:
             >>> d = Daf(lol=[[1, 'a', 10], [2, 'b', 20], [3, 'c', 30]], cols=['id', 'v', 'n'], keyfield='id')
@@ -5492,9 +5382,9 @@ class Daf:
             <BLANKLINE>
             %% daf rows=3; cols=3; keyfield='id'; name=''
             <BLANKLINE>
-            >>> d[0] = {'id': 1, 'v': 'q'}
+            >>> d[0] = {'v': 'q'}
             >>> d.iloc(0)
-            {'id': 1, 'v': 'q', 'n': ''}
+            {'id': '', 'v': 'q', 'n': ''}
         """
         # One cell and a plain value: write it into lol directly.
         # The general path below does the same for this case, after parsing the selectors.
@@ -5535,15 +5425,10 @@ class Daf:
         """
         Write one cell of a keyfield column, for the one-cell fast path of `__setitem__`.
 
-        An empty value raises ValueError, since the row could then not be found by its
-        key. A changed key clears the key index with `_invalidate_kd()`. Internal use.
+        A changed key invalidates the kd with `_invalidate_kd()`. Internal use.
         """
         row_la = self.lol[irow]
         old_value = row_la[icol]                # IndexError for a bad position, as a plain write gives.
-        if value is NULL:
-            new_la = list(row_la)
-            new_la[icol] = NULL
-            self._raise_if_no_key(new_la, 'set_irows_icols', adding=False)
         row_la[icol] = value
         if old_value != value:
             self._invalidate_kd()
@@ -5785,8 +5670,8 @@ class Daf:
         irows = cast('range | T_li', irows)
         icols = cast('range | T_li', icols)
 
-        # A write into a keyfield column saves the rows it writes, so a row left with no key can be put back.
-        saved_rows = self._save_key_rows(irows, icols, num_icols, value)
+        # A write into a keyfield column saves the keys it writes over, so a changed key invalidates the kd.
+        saved_keys = self._save_keys(irows, icols, num_icols, value)
 
         # special case when cols not specified.
         if num_irows == 1 and num_icols == 0:
@@ -5889,33 +5774,31 @@ class Daf:
                     for icol in icols:
                         self.lol[irow][icol] = value
 
-        if saved_rows is not None:
-            self._check_key_rows(saved_rows)
+        if saved_keys is not None:
+            self._invalidate_kd_if_keys_changed(saved_keys)
         return self
 
 
-    def _save_key_rows(self, irows: 'range | T_li', icols: 'range | T_li', num_icols: int, value: Any) -> 'List[Tuple[int, T_la, T_la]] | None':
+    def _save_keys(self, irows: 'range | T_li', icols: 'range | T_li', num_icols: int, value: Any) -> 'List[Tuple[int, T_la]] | None':
         """
-        Before `set_irows_icols()` writes, save the rows it writes, if it writes a keyfield column.
+        Before `set_irows_icols()` writes, save the keys of the rows it writes, if it writes a keyfield column.
 
-        A whole row, or a dict, always writes the keyfield columns. Each saved row is its
-        position, the row list, and a copy of its values. With no keyfield, or no write to
-        a keyfield column, nothing is saved. Internal use.
+        A whole row, or a dict, always writes the keyfield columns. Each saved entry is the
+        row's position and its key values. With no keyfield, or no write to a keyfield
+        column, nothing is saved. Internal use.
         """
         keyfield = self.keyfield
         if not keyfield:
             return None
         if not num_icols and keyfield.__class__ is str and value.__class__ is list and len(irows) == 1:
             # One whole row from a list with a single keyfield column, the usual case. The list
-            # itself becomes the row, so it is tested directly, and nothing needs to be saved.
+            # itself becomes the row, so its key is compared directly, and nothing needs to be saved.
             key_icol = self.hd.get(keyfield)
             lol      = self.lol
             irow     = irows[0]
             if key_icol is not None and -len(lol) <= irow < len(lol):
-                if key_icol >= len(value) or value[key_icol] is NULL:
-                    self._raise_if_no_key(value, 'set_irows_icols', adding=False)
                 old_row = lol[irow]
-                if key_icol >= len(old_row) or old_row[key_icol] != value[key_icol]:
+                if key_icol >= len(value) or key_icol >= len(old_row) or old_row[key_icol] != value[key_icol]:
                     self._invalidate_kd()
                 return None
         key_icols = self._key_icols()
@@ -5927,33 +5810,22 @@ class Daf:
                 return None
         lol      = self.lol
         num_rows = len(lol)
-        return [(irow, lol[irow], list(lol[irow])) for irow in irows if -num_rows <= irow < num_rows]
+        return [(irow, [lol[irow][icol] if icol < len(lol[irow]) else NULL for icol in key_icols])
+                for irow in irows if -num_rows <= irow < num_rows]
 
 
-    def _check_key_rows(self, saved_rows: 'List[Tuple[int, T_la, T_la]]') -> None:
+    def _invalidate_kd_if_keys_changed(self, saved_keys: 'List[Tuple[int, T_la]]') -> None:
         """
-        After `set_irows_icols()` writes, check the keys of the rows saved by `_save_key_rows()`.
-
-        If a row was left with no value in a keyfield column, every saved row is put back
-        as it was, and ValueError is raised. Otherwise, if a key changed, the key index is
-        cleared with `_invalidate_kd()`. Internal use.
+        After `set_irows_icols()` writes, invalidate the kd if a key saved by `_save_keys()` changed. Internal use.
         """
         lol       = self.lol
         key_icols = self._key_icols()
-        changed   = False
-        for irow, _old_row, old_la in saved_rows:
+        for irow, old_keys_la in saved_keys:
             new_row = lol[irow]
-            for icol in key_icols:
-                if icol >= len(new_row) or new_row[icol] is NULL:
-                    bad_la = list(new_row)
-                    for jrow, old_row, old_values_la in reversed(saved_rows):
-                        old_row[:] = old_values_la
-                        lol[jrow] = old_row
-                    self._raise_if_no_key(bad_la, 'set_irows_icols', adding=False)
-                if not changed and (icol >= len(old_la) or old_la[icol] != new_row[icol]):
-                    changed = True
-        if changed:
-            self._invalidate_kd()
+            for icol, old_key in zip(key_icols, old_keys_la):
+                if icol >= len(new_row) or new_row[icol] != old_key:
+                    self._invalidate_kd()
+                    return
 
 
     def krows_to_irows(self,
@@ -8292,8 +8164,6 @@ class Daf:
 
         The row is a dict. The whole row is replaced, and the cells of columns that
         the dict lacks become NULL. Use `update_record_irow()` to change only some cells.
-        With a keyfield, the dict must hold the key. A row with no key could not be found
-        by its key, so that raises ValueError, and nothing is changed.
 
         With the default position, `None`, the row is added at the end. So it is with a
         position beyond the last row, and with any position when the Daf has no rows.
@@ -8309,13 +8179,12 @@ class Daf:
 
         Raises:
             IndexError: A negative position is before the first row, for a Daf that has rows.
-            ValueError: The Daf has a keyfield, and the dict has no value for it.
 
         Examples:
             >>> d = Daf(lol=[[1, 'a', 10], [2, 'b', 20], [3, 'c', 30]], cols=['id', 'v', 'n'], keyfield='id')
-            >>> _ = d.assign_record_irow(1, {'id': 2, 'v': 'q'})
+            >>> _ = d.assign_record_irow(1, {'v': 'q'})
             >>> d.iloc(1)
-            {'id': 2, 'v': 'q', 'n': ''}
+            {'id': '', 'v': 'q', 'n': ''}
             >>> _ = d.assign_record_irow(-1, {'id': 9})
             >>> d.iloc(-1)
             {'id': 9, 'v': '', 'n': ''}
@@ -8338,7 +8207,6 @@ class Daf:
             #normal_record_da = Daf.normalize_record_da(record_da, cols=self.columns(), dtypes=self.dtypes)
             new_la = [record.get(col, '') for col in self.hd]
             if self.keyfield:
-                self._raise_if_no_key(new_la, 'assign_record_irow', adding=False)
                 old_la = self.lol[irow]
                 self.lol[irow] = new_la
                 self._invalidate_kd_if_changed(old_la, new_la)
@@ -8411,7 +8279,6 @@ class Daf:
 
         Raises:
             IndexError: The position is out of range, for a Daf that has rows and columns.
-            ValueError: The record would leave the row with no value in the keyfield.
 
         Examples:
             >>> d = Daf(lol=[[1, 'a', 10], [2, 'b', 20], [3, 'c', 30]], cols=['id', 'v', 'n'], keyfield='id')
@@ -8438,13 +8305,10 @@ class Daf:
                          else any(col in record for col in keyfield)):
             row_la = self.lol[irow]
             old_la = list(row_la)
-            new_la = list(row_la)
             for colname, val in record.items():
                 icol = self.hd.get(colname)
                 if icol is not None:
-                    new_la[icol] = val
-            self._raise_if_no_key(new_la, 'update_record_irow', adding=False)
-            row_la[:] = new_la                      # the same row list, as before.
+                    row_la[icol] = val
             self._invalidate_kd_if_changed(old_la, row_la)
             return self
 

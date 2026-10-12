@@ -1,10 +1,8 @@
 # test_daf_key_cells.py
 #
-# With a keyfield, every row must have a key, and the key index must follow the keys.
-#   - A write that would leave a row with no key raises ValueError, and changes nothing.
-#   - Adding a row with no key raises ValueError, and adds nothing.
-#   - A method that changes a keyfield cell clears the key index, so a lookup finds the new key.
-# Without a keyfield, NULL is allowed anywhere, as before.
+# The key index (kd) must follow the keys.
+#   - A method that changes a keyfield cell invalidates the kd, so a lookup finds the new key.
+#   - NULL is a valid key. Rows with NULL keys can be written and added, with or without a keyfield.
 
 from typing import Any, Callable
 
@@ -26,7 +24,15 @@ def _composite() -> Daf:
     return daf
 
 
-NO_KEY = r"the row would have no value in '(k|g|n)', the keyfield\. Nothing was changed\."
+def _kd_is_current(daf: Daf) -> bool:
+    """ True if the key index, once rebuilt as needed, is what a fresh index of the same rows gives. """
+    daf._rebuild_kd_if_invalidated()
+    fresh = Daf(lol=[list(row_la) for row_la in daf.lol], cols=daf.columns(), keyfield=daf.keyfield)
+    fresh._rebuild_kd_if_invalidated()
+    return dict(daf._kd) == dict(fresh._kd)
+
+
+# --- NULL is a valid key ---
 
 WRITES: list = [
     ('cell by name',      lambda d: d.__setitem__((0, 'k'), '')),
@@ -48,12 +54,11 @@ WRITES: list = [
 
 
 @pytest.mark.parametrize('write', WRITES, ids=[w[0] for w in WRITES])
-def test_write_with_no_key_raises_and_changes_nothing(write: tuple) -> None:
+def test_write_of_null_key_is_allowed(write: tuple) -> None:
     daf = _keyed()
-    with pytest.raises(ValueError, match=NO_KEY):
-        write[1](daf)
-    assert daf.lol == [['r1', 1, 'a'], ['r2', 2, 'b']]
-    assert daf['r2', 'x'] == 2
+    write[1](daf)
+    assert any(row_la[0] == '' for row_la in daf.lol)
+    assert _kd_is_current(daf)
 
 
 @pytest.mark.parametrize('write', WRITES, ids=[w[0] for w in WRITES])
@@ -65,26 +70,28 @@ def test_without_keyfield_null_is_allowed(write: tuple) -> None:
     assert any(row_la[0] == '' for row_la in daf.lol)
 
 
-def test_composite_key_part_with_no_value_raises() -> None:
+def test_null_key_is_found() -> None:
+    daf = _keyed()
+    daf[0, 'k'] = ''
+    assert daf['', 'x'] == 1
+    assert _kd_is_current(daf)
+
+
+def test_composite_key_part_null_is_allowed() -> None:
     daf = _composite()
-    with pytest.raises(ValueError, match=NO_KEY):
-        daf[0, 'n'] = ''
-    with pytest.raises(ValueError, match=NO_KEY):
-        daf[0] = {'g': 'a', 'v': 5}
-    assert daf.lol == [['a', 1, 10], ['a', 2, 20]]
+    daf[0, 'n'] = ''
+    assert daf.lol[0] == ['a', '', 10]
+    assert _kd_is_current(daf)
 
 
 def test_update_record_irow_keeps_the_key() -> None:
     daf = _keyed()
     daf.update_record_irow(0, {'x': 9})
     assert daf.lol[0] == ['r1', 9, 'a']
-    with pytest.raises(ValueError, match=r"Nothing was changed\. Give the key\.$"):
-        daf.update_record_irow(0, {'k': ''})
+    assert daf['r1', 'x'] == 9
 
 
 # --- adding rows ---
-
-NO_KEY_ADDED = r"a row has no value in '(k|g|n)', the keyfield, so it could not be found by its key\. Nothing was added\."
 
 ADDS: list = [
     ('dict',              lambda d: d.append({'x': 3})),
@@ -96,8 +103,8 @@ ADDS: list = [
     ('list of dicts',     lambda d: d.append([{'k': 'r3', 'x': 3}, {'x': 4}])),
     ('extend lol',        lambda d: d.extend(lol=[['r3', 3, 'c'], ['', 4, 'd']])),
     ('extend dicts',      lambda d: d.extend([{'k': 'r3', 'x': 3}, {'k': '', 'x': 4}])),
-    ('respect_kd',        lambda d: d.append({'x': 3}, respect_kd=True)),
-    ('record_append',     lambda d: d.record_append({'x': 3})),
+    ('respect_kd',        lambda d: d.append({'k': '', 'x': 3}, respect_kd=True)),
+    ('record_append',     lambda d: d.record_append({'k': '', 'x': 3})),
     ('concat',            lambda d: d.concat(Daf(lol=[['r3', 3, 'c'], ['', 4, 'd']], cols=['k', 'x', 'y']))),
     ('fast list',         lambda d: d.append(['', 3, 'c'], fast=True)),
     ('fast dict',         lambda d: d.append({'k': '', 'x': 3, 'y': 'c'}, fast=True)),
@@ -112,16 +119,30 @@ def _blank_row(daf: Daf) -> Any:
     return row
 
 
+def _blank_row(daf: Daf) -> Any:
+    row = daf.default_record(astype=KeyedList)
+    row['x'] = 3
+    return row
+
+
 @pytest.mark.parametrize('add', ADDS, ids=[a[0] for a in ADDS])
-def test_add_with_no_key_raises_and_adds_nothing(add: tuple) -> None:
+def test_add_with_null_key_is_allowed(add: tuple) -> None:
     daf = _keyed()
     if add[0] == 'short list':
-        daf.append(la=['r3'])                           # a short list with a key is padded, as before.
+        daf.append(la=['r3'])                           # a short list is padded with NULL.
         assert daf.lol[-1] == ['r3', '', '']
         return
-    with pytest.raises(ValueError, match=NO_KEY_ADDED):
-        add[1](daf)
-    assert daf.lol == [['r1', 1, 'a'], ['r2', 2, 'b']]
+    add[1](daf)
+    assert len(daf) > 2
+    assert any(row_la[0] == '' for row_la in daf.lol)
+    assert _kd_is_current(daf)
+
+
+def test_respect_kd_dict_without_key_raises_keyerror() -> None:
+    """ As before the key checks: the key is read from the dict to look it up. """
+    daf = _keyed()
+    with pytest.raises(KeyError):
+        daf.record_append({'x': 3})
 
 
 @pytest.mark.parametrize('add', ADDS, ids=[a[0] for a in ADDS])
