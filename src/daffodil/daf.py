@@ -12232,8 +12232,14 @@ class Daf:
             new_cols: The cols of the result.
             include_header: If True, the column names become the first column.
 
+        Every row must be as long as the columns. Check with `is_rectangular()`, and pad
+        short rows with `force_rectangular()`.
+
         Returns:
             The new Daf.
+
+        Raises:
+            ValueError: A row is not as long as the columns.
 
         Examples:
             >>> d = Daf(lol=[[1, 'a'], [2, 'b']], cols=['id', 'v'])
@@ -12251,6 +12257,10 @@ class Daf:
             >>> d.transpose(include_header=True).columns()
             ['key', 'A', 'B']
         """
+
+        if not self.is_rectangular():
+            raise ValueError("transpose(): some rows are not as long as the columns. "
+                             "Check with is_rectangular(), or pad short rows with force_rectangular().")
 
         if not new_cols:
             new_cols = daf_utils._generate_spreadsheet_column_names_list(num_cols=len(self.lol))

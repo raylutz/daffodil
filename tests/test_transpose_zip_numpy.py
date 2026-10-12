@@ -115,3 +115,32 @@ def test_tuple_and_dict_cells(monkeypatch: Any, min_cells: int) -> None:
     monkeypatch.setattr(daf_utils, 'TRANSPOSE_NUMPY_MIN_CELLS', min_cells)
     lol = [[(1, 2), {'a': 1}], [(3, 4), {'a': 2}]]
     assert transpose_lol(lol) == [[(1, 2), (3, 4)], [{'a': 1}, {'a': 2}]]
+
+
+RAGGED: list = [
+    ([[1, 2, 3], [4, 5]], ['a', 'b', 'c']),
+    ([[1, 2], [3, 4, 5]], ['a', 'b']),
+    ([[1, 2], [3, 4]], ['a', 'b', 'c']),
+]
+
+
+@pytest.mark.parametrize('ragged', RAGGED, ids=repr)
+@pytest.mark.parametrize('min_cells', [1, 100_000], ids=['numpy', 'zip'])
+def test_daf_transpose_ragged_raises(monkeypatch: Any, min_cells: int, ragged: tuple) -> None:
+    monkeypatch.setattr(daf_utils, 'TRANSPOSE_NUMPY_MIN_CELLS', min_cells)
+    lol, cols = ragged
+    daf = Daf(lol=[list(row) for row in lol], cols=cols)
+    with pytest.raises(ValueError, match=r'transpose\(\): some rows are not as long as the columns.*force_rectangular\(\)'):
+        daf.transpose()
+    assert daf.lol == lol
+
+
+def test_daf_transpose_after_force_rectangular() -> None:
+    daf = Daf(lol=[[1, 2, 3], [4, 5]], cols=['a', 'b', 'c'])
+    assert daf.force_rectangular().transpose().lol == [[1, 4], [2, 5], [3, '']]
+
+
+def test_daf_transpose_no_cols_uses_first_row() -> None:
+    assert Daf(lol=[[1, 2], [3, 4]]).transpose().lol == [[1, 3], [2, 4]]
+    with pytest.raises(ValueError):
+        Daf(lol=[[1, 2], [3]]).transpose()
