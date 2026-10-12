@@ -9319,8 +9319,8 @@ class Daf:
         """
         Apply a function to each row and collect the results in a new Daf.
 
-        Use it to convert one table into another, such as a bank's download into a
-        register, with a plain Python function that turns one row into the new row.
+        Use it to convert one table into another, with a plain Python function that
+        turns one row into the new row.
         This Daf is not changed. Only the new Daf gets rows.
 
         The function gets a row and returns what to add to the new Daf:
