@@ -5252,9 +5252,18 @@ class Daf:
 
         If you change a keyfield cell, the key index is rebuilt when it is next needed.
 
+        A single name, as in `my_daf['x'] = value`, selects the row with that key. It is
+        not a column, as it would be in pandas. Use `my_daf[:, 'x']` for a column, or
+        `assign_col()` to add one. A name that is not a row key raises an error that
+        says this.
+
         Args:
             slice_spec: A row selector, or a tuple of a row selector and a column selector.
             value: The value, list, dict or Daf to assign.
+
+        Raises:
+            KeyError: A row key or a column name is not found.
+            KeysDisabledError: A row is selected by key, and the Daf has no keyfield.
 
         Examples:
             >>> d = Daf(lol=[[1, 'a', 10], [2, 'b', 20], [3, 'c', 30]], cols=['id', 'v', 'n'], keyfield='id')
@@ -5289,7 +5298,18 @@ class Daf:
                 self.lol[irow][icol] = value
                 return self
 
-        irows, icols = self._parse_selectors(slice_spec)
+        try:
+            irows, icols = self._parse_selectors(slice_spec)
+        except (KeysDisabledError, KeyError) as exc_info:
+            if type(slice_spec) is not str:
+                raise
+            # daf['name'] = ... selects a row by key. Someone used to pandas often means a column.
+            hint = (f"daf[name] selects a row. For a column use daf[:, {slice_spec!r}], "
+                    f"or assign_col({slice_spec!r}, values) to add one.")
+            if isinstance(exc_info, KeysDisabledError):
+                raise KeysDisabledError(f"{exc_info} {hint}") from exc_info
+            raise KeyError(f"{slice_spec!r} is not a row key. {hint}") from exc_info
+
         return self.set_irows_icols(irows=irows, icols=icols, value=value)
 
     def _parse_selectors(
