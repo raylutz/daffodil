@@ -1669,16 +1669,6 @@ class Daf:
                 self._invalidate_kd()
 
 
-    def _invalidate_kd_if_changed(self, old_la: T_la, new_la: T_la) -> None:
-        """
-        Invalidate the kd with `_invalidate_kd()` if a row's key differs between two versions of it. Internal use.
-        """
-        for icol in self._key_icols():
-            if icol >= len(old_la) or icol >= len(new_la) or old_la[icol] != new_la[icol]:
-                self._invalidate_kd()
-                return
-
-
     def _rebuild_kd_if_invalidated(self) -> 'Daf':
         """
         Rebuild key dictionary if it has been invalidated if keyfield is valid.
@@ -5350,10 +5340,12 @@ class Daf:
         `my_daf[:, 'v'] = 'xyz'` sets every row of `v` to `xyz`. A list assigned to
         several whole rows is copied, so each row has its own list.
 
-        If you change a keyfield cell, the key index is rebuilt when it is next needed.
-        Keys changed through a [KeyedList][daffodil.keyedlist.KeyedList] row,
-        or in `lol` directly, are not seen. Call `set_keyfield()` with the same keyfield
-        afterwards, so that the index is rebuilt.
+        A write does not update the key index (kd). Writing into a keyfield cell, or
+        writing a whole row, which includes the key, leaves the kd as it was: a lookup
+        still finds the row by its old key, and not by the new one. So don't change keys
+        this way. If you must, call `set_keyfield()` with the same keyfield afterwards,
+        which invalidates the kd, so it is rebuilt when it is next needed. Writing other
+        columns is safe.
 
         A single name, as in `my_daf['x'] = value`, selects the row with that key. It is
         not a column, as it would be in pandas. Use `my_daf[:, 'x']` for a column, or
@@ -5398,12 +5390,6 @@ class Daf:
                 # so that a bad selector raises the same error.
                 irow = row_spec if row_type is int else self._key_to_irow(row_spec)
                 icol = col_spec if col_type is int else self.hd[col_spec]
-                keyfield = self.keyfield
-                if keyfield:
-                    key_icol = icol + len(self.hd) if icol < 0 else icol
-                    if (key_icol == self.hd.get(keyfield)) if keyfield.__class__ is str else (key_icol in self._key_icols()):
-                        self._set_key_cell(irow, icol, value)
-                        return self
                 self.lol[irow][icol] = value
                 return self
 
@@ -5420,19 +5406,6 @@ class Daf:
             raise KeyError(f"{slice_spec!r} is not a row key. {hint}") from exc_info
 
         return self.set_irows_icols(irows=irows, icols=icols, value=value)
-
-    def _set_key_cell(self, irow: int, icol: int, value: Any) -> None:
-        """
-        Write one cell of a keyfield column, for the one-cell fast path of `__setitem__`.
-
-        A changed key invalidates the kd with `_invalidate_kd()`. Internal use.
-        """
-        row_la = self.lol[irow]
-        old_value = row_la[icol]                # IndexError for a bad position, as a plain write gives.
-        row_la[icol] = value
-        if old_value != value:
-            self._invalidate_kd()
-
 
     def _parse_selectors(
             self,
@@ -5670,9 +5643,6 @@ class Daf:
         irows = cast('range | T_li', irows)
         icols = cast('range | T_li', icols)
 
-        # A write into a keyfield column saves the keys it writes over, so a changed key invalidates the kd.
-        saved_keys = self._save_keys(irows, icols, num_icols, value)
-
         # special case when cols not specified.
         if num_irows == 1 and num_icols == 0:
 
@@ -5773,59 +5743,7 @@ class Daf:
                 for irow in irows:
                     for icol in icols:
                         self.lol[irow][icol] = value
-
-        if saved_keys is not None:
-            self._invalidate_kd_if_keys_changed(saved_keys)
         return self
-
-
-    def _save_keys(self, irows: 'range | T_li', icols: 'range | T_li', num_icols: int, value: Any) -> 'List[Tuple[int, T_la]] | None':
-        """
-        Before `set_irows_icols()` writes, save the keys of the rows it writes, if it writes a keyfield column.
-
-        A whole row, or a dict, always writes the keyfield columns. Each saved entry is the
-        row's position and its key values. With no keyfield, or no write to a keyfield
-        column, nothing is saved. Internal use.
-        """
-        keyfield = self.keyfield
-        if not keyfield:
-            return None
-        if not num_icols and keyfield.__class__ is str and value.__class__ is list and len(irows) == 1:
-            # One whole row from a list with a single keyfield column, the usual case. The list
-            # itself becomes the row, so its key is compared directly, and nothing needs to be saved.
-            key_icol = self.hd.get(keyfield)
-            lol      = self.lol
-            irow     = irows[0]
-            if key_icol is not None and -len(lol) <= irow < len(lol):
-                old_row = lol[irow]
-                if key_icol >= len(value) or key_icol >= len(old_row) or old_row[key_icol] != value[key_icol]:
-                    self._invalidate_kd()
-                return None
-        key_icols = self._key_icols()
-        if not key_icols:
-            return None
-        if num_icols and not isinstance(value, dict):
-            num_cols = len(self.hd)
-            if not any((icol + num_cols if icol < 0 else icol) in key_icols for icol in icols):
-                return None
-        lol      = self.lol
-        num_rows = len(lol)
-        return [(irow, [lol[irow][icol] if icol < len(lol[irow]) else NULL for icol in key_icols])
-                for irow in irows if -num_rows <= irow < num_rows]
-
-
-    def _invalidate_kd_if_keys_changed(self, saved_keys: 'List[Tuple[int, T_la]]') -> None:
-        """
-        After `set_irows_icols()` writes, invalidate the kd if a key saved by `_save_keys()` changed. Internal use.
-        """
-        lol       = self.lol
-        key_icols = self._key_icols()
-        for irow, old_keys_la in saved_keys:
-            new_row = lol[irow]
-            for icol, old_key in zip(key_icols, old_keys_la):
-                if icol >= len(new_row) or new_row[icol] != old_key:
-                    self._invalidate_kd()
-                    return
 
 
     def krows_to_irows(self,
@@ -8170,6 +8088,9 @@ class Daf:
         A negative position counts from the end, as in a list, so `-1` replaces the last
         row. This is also what `my_daf[-1] = {...}` does.
 
+        This does not update the key index (kd), so don't change a key with it. See
+        [`__setitem__`][daffodil.daf.Daf.__setitem__].
+
         Args:
             irow: The row position. None, the default, adds the row at the end.
             record: The row, as a dict. If None, nothing happens.
@@ -8205,13 +8126,7 @@ class Daf:
             self.append(record)
         else:
             #normal_record_da = Daf.normalize_record_da(record_da, cols=self.columns(), dtypes=self.dtypes)
-            new_la = [record.get(col, '') for col in self.hd]
-            if self.keyfield:
-                old_la = self.lol[irow]
-                self.lol[irow] = new_la
-                self._invalidate_kd_if_changed(old_la, new_la)
-            else:
-                self.lol[irow] = new_la
+            self.lol[irow] = [record.get(col, '') for col in self.hd]
 
         return self
 
@@ -8270,6 +8185,9 @@ class Daf:
         `-1`, is the last row. A position that is out of range raises `IndexError`, and
         nothing is changed. A Daf with no rows or no columns, and a record of `None`, change nothing.
 
+        This does not update the key index (kd), so don't change a key with it. See
+        [`__setitem__`][daffodil.daf.Daf.__setitem__].
+
         Args:
             irow: The row position. -1, the default, is the last row.
             record: The new values, as a dict of column name and value. Names that are not columns are ignored.
@@ -8299,18 +8217,6 @@ class Daf:
 
         if irow < 0 or irow >= len(self.lol):
             raise IndexError(f"update_record_irow(): row position {position} is out of range for {len(self.lol)} rows.")
-
-        keyfield = self.keyfield
-        if keyfield and (keyfield in record if isinstance(keyfield, (str, int))
-                         else any(col in record for col in keyfield)):
-            row_la = self.lol[irow]
-            old_la = list(row_la)
-            for colname, val in record.items():
-                icol = self.hd.get(colname)
-                if icol is not None:
-                    row_la[icol] = val
-            self._invalidate_kd_if_changed(old_la, row_la)
-            return self
 
         for colname, val in record.items():
             if colname in self.hd:

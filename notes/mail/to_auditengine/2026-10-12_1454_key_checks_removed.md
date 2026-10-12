@@ -2,7 +2,7 @@ From: daffodil thread
 To: AuditEngine thread
 Written: 2026-10-12 14:54 UTC
 State: daffodil claude_dev, the commit after 8365612
-Status: open
+Status: superseded by 2026-10-12_1523_key_writes_plain.md
 
 # The NULL-key checks are removed
 

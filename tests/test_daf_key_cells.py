@@ -1,8 +1,12 @@
 # test_daf_key_cells.py
 #
-# The key index (kd) must follow the keys.
-#   - A method that changes a keyfield cell invalidates the kd, so a lookup finds the new key.
+# Keys and the key index (kd).
 #   - NULL is a valid key. Rows with NULL keys can be written and added, with or without a keyfield.
+#   - Adding rows invalidates the kd.
+#   - A write to a cell or a row does not touch the kd, so a changed key is not seen until
+#     set_keyfield() is called again. That keeps writes fast. The __setitem__ docstring says so.
+#   - A method that rewrites a whole column, or a column of chosen rows, invalidates the kd
+#     if that column is a keyfield column.
 
 from typing import Any, Callable
 
@@ -58,6 +62,7 @@ def test_write_of_null_key_is_allowed(write: tuple) -> None:
     daf = _keyed()
     write[1](daf)
     assert any(row_la[0] == '' for row_la in daf.lol)
+    daf.set_keyfield('k')
     assert _kd_is_current(daf)
 
 
@@ -73,15 +78,14 @@ def test_without_keyfield_null_is_allowed(write: tuple) -> None:
 def test_null_key_is_found() -> None:
     daf = _keyed()
     daf[0, 'k'] = ''
+    daf.set_keyfield('k')
     assert daf['', 'x'] == 1
-    assert _kd_is_current(daf)
 
 
 def test_composite_key_part_null_is_allowed() -> None:
     daf = _composite()
     daf[0, 'n'] = ''
     assert daf.lol[0] == ['a', '', 10]
-    assert _kd_is_current(daf)
 
 
 def test_update_record_irow_keeps_the_key() -> None:
@@ -164,9 +168,9 @@ def test_rows_added_then_keyfield_set() -> None:
     assert daf['r1', 'x'] == 1
 
 
-# --- the key index follows changed keys ---
+# --- a write to a key cell or a row leaves the kd as it was ---
 
-RENAMES: list = [
+WRITE_RENAMES: list = [
     ('cell fast path',    lambda d: d.__setitem__((0, 'k'), 'q1')),
     ('cell by key',       lambda d: d.__setitem__(('r1', 'k'), 'q1')),
     ('row list',          lambda d: d.__setitem__(0, ['q1', 1, 'a'])),
@@ -174,6 +178,26 @@ RENAMES: list = [
     ('column list',       lambda d: d.__setitem__((slice(None), 'k'), ['q1', 'r2'])),
     ('assign_record_irow', lambda d: d.assign_record_irow(0, {'k': 'q1', 'x': 1, 'y': 'a'})),
     ('update_record_irow', lambda d: d.update_record_irow(0, {'k': 'q1'})),
+]
+
+
+@pytest.mark.parametrize('rename', WRITE_RENAMES, ids=[r[0] for r in WRITE_RENAMES])
+def test_written_key_found_after_set_keyfield(rename: tuple) -> None:
+    daf = _keyed()
+    kd = daf._kd
+    rename[1](daf)
+    assert daf.lol[0][0] == 'q1'
+    assert daf._kd is kd and kd == {'r1': 0, 'r2': 1}   # not touched, as documented.
+    daf.set_keyfield('k')
+    assert daf['q1', 'x'] == 1
+    assert daf['r2', 'x'] == 2
+    with pytest.raises(KeyError):
+        daf['r1', 'x']
+
+
+# --- a method that rewrites a key column invalidates the kd ---
+
+RENAMES: list = [
     ('set_icol_irows',    lambda d: d.set_icol_irows(0, [0], 'q1')),
     ('set_col_irows',     lambda d: d.set_col_irows('k', [0], 'q1')),
     ('assign_col',        lambda d: d.assign_col('k', ['q1', 'r2'])),
@@ -217,10 +241,11 @@ def test_strip_and_apply_dtypes_change_keys() -> None:
     assert daf.krows_to_irows(krows=1) == [0]
 
 
-def test_composite_key_change_is_found() -> None:
+def test_composite_key_change_found_after_set_keyfield() -> None:
     daf = _composite()
     assert daf.krows_to_irows(krows=[('a', 2)]) == [1]
     daf[1, 'n'] = 3
+    daf.set_keyfield(['g', 'n'])
     assert daf.krows_to_irows(krows=[('a', 3)]) == [1]
 
 
