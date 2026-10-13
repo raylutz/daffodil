@@ -154,6 +154,17 @@ These steps were proposed on 2026-10-13. Ray deferred them while the groupby que
     A, a `max_rows` limit per call, then corrected it to Original. Measured for the record, on
     1,000,000 rows and a view of 300,495: COUNT took 0.106 s, and the pull then runs the view
     again; LIMIT 50,001 took 0.059 s and stopped at the limit.
+95. Types and NULL, decided by Ray on 2026-10-13: A. Daffodil's NULL, '', is stored as SQL NULL,
+    and SQL NULL comes back as NULL wherever data reaches Python: rows pulled, and the values
+    given to a registered Python function. A test is `val is NULL` in Python and `col IS NULL`
+    in SQL, never `== ''`, as Ray said. A dict condition such as {'n': ''} becomes `n IS NULL`.
+    The NULL group of an aggregate comes back with the key NULL. Column types are declared
+    from dtypes or a schema when given: INTEGER, REAL, TEXT, and JSON text for lists and
+    dicts. Without them, TEXT.
+    Measured on SQLite 3.37: with '' stored for a missing value, SUM of 1, missing, 2 gave 3.0
+    as real, COUNT 3 and AVG 1.0; with SQL NULL, 3 as integer, COUNT 2 and AVG 1.5. Without the
+    conversion, a registered function saw None, and `row['n'] is NULL` matched nothing. An ''
+    read from sqlite3 is NULL.
 
 ## groupby and row sharing
 
