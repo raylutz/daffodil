@@ -125,6 +125,30 @@ These steps were proposed on 2026-10-13. Ray deferred them while the groupby que
     temporary and deleted at `close()`. Unnamed result tables are deleted at `close()`, and
     `save_as(name)` keeps one. `SqlStore(conn=...)` wraps an existing connection, so
     AuditEngine's databases work too. The engine helpers of decision 89 go in SqlStore.
+91. Views, decided by Ray on 2026-10-13. Selections and joins return a new SqlDaf on a TEMP
+    VIEW over its source, and nothing runs until data is pulled: `to_daf()`, `len()`,
+    indexing, an aggregate or `sql()`. `materialize()` makes a TEMP TABLE for a result read
+    many times. A condition may be SQL text, a dict, or a Python function registered on the
+    store's connection. Writes go to base tables only: append, append skipping existing keys,
+    and delete where. Views are read only and see those writes.
+    Measured on 1,000,000 rows: a chain of three views ran as one scan, 0.082 s against 0.076 s
+    for one query, and each read reruns the chain. A Python function in WHERE was 2 times
+    slower than SQL with one column, and 6 times with a row dict of four columns. A registered
+    function exists only in its connection, so a view that uses one can only be TEMP.
+92. Naming, decided by Ray on 2026-10-13. `name` is the SQL name. A base table is named at load,
+    or after its file. A `save_as()` result takes the name given. Generated objects are TEMP and
+    named daf_tmp_ plus the parent and a counter, as in daf_tmp_full_bif_daf_v1. TEMP objects
+    belong to one connection, so they cannot clash across threads or processes, and they vanish
+    when it closes, even after a crash. The prefix keeps a TEMP name from hiding a main table,
+    which SQLite would otherwise do. A store owns one connection and belongs to one thread, as
+    sqlite3 requires by default. A clash of saved names raises ValueError. `name` is read only,
+    and `to_daf()` passes it on. Snowpark was checked: its DataFrames have no name, and its
+    temporary objects are named SNOWPARK_TEMP_<type>_<10 random characters>.
+93. Row order, decided by Ray on 2026-10-13. Every view keeps its source's row order, by rowid,
+    and a join follows the order of `Daf.join()`, so indexing works as for a Daf. Without an
+    ORDER BY, adding an index on precinct changed which row came first. `sdaf[n]` and slices
+    become LIMIT and OFFSET, and `sdaf[key]` a WHERE on the keyfield. Each index reruns the
+    view, so per-row loops should use `to_daf()` on a narrowed view, or batches.
 
 ## groupby and row sharing
 
