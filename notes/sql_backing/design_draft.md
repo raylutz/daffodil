@@ -97,6 +97,23 @@ These steps were proposed on 2026-10-13. Ray deferred them while the groupby que
 84. Trial. Rewrite one stretch of locate_variants with the new methods, as a sketch in these
     notes. AuditEngine is not changed.
 
+## Decisions
+
+88. Shape, decided by Ray on 2026-10-13. A SQL-backed table is a `SqlDaf`, a subclass of Daf,
+    in its own module, src/daffodil/sqldaf.py, with the functions that support it.
+    - SqlDaf defines only the methods supported under SQL. The first is `sql()`, a general
+      method that runs a SQL statement given in the call. It is the fallback for anything
+      not yet supported.
+    - Selections, groupbys, column sums and the like get SQL versions, added as a need appears.
+    - A short safe list names inherited Daf methods that read only the column names or the
+      keyfield.
+    - A loop at import replaces every other Daf method on SqlDaf with one that raises
+      SqlNotSupportedError. No list of unsupported methods is kept, and the Daf class and its
+      in-memory path are not changed.
+    - Ray chose this over a check at the top of each Daf method.
+    - A prototype ran on 2026-10-13: 214 Daf methods were blocked, `print()` needed SqlDaf's
+      own `__str__`, and `isinstance(sdaf, Daf)` is True.
+
 ## groupby and row sharing
 
 See groupby_row_sharing.md in this folder.
