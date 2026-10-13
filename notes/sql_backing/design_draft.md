@@ -193,6 +193,17 @@ These steps were proposed on 2026-10-13. Ray deferred them while the groupby que
     Deferred by Ray, to handle when a real case needs it: what a selection does when its base
     rows are deleted or its base table is dropped, tracking live selections, and dropping the
     TEMP reference table of a collected SqlDaf. Until then TEMP tables go when the store closes.
+102. Selection names, decided by Ray on 2026-10-13.
+    - `select_where()` takes a function only, in Daf and SqlDaf.
+    - `select_by_dict()` on SqlDaf works as on Daf, with the SQL written inside: a dict is an
+      AND of equalities, a list of dicts an OR, and `inverse` a NOT.
+    - `select_where_sql()` takes SQL text. SqlDaf only.
+    - `select_records_daf()` accepts a Daf or a SqlDaf and uses its keys. In memory it uses a
+      view of the other's key index, so no list is made. In SQL it is a semi-join, or an
+      anti-join with `inverse=True`. Passing `other.keys()` still works. This changes Daf: today
+      a Daf passed there raises TypeError, since iterating a Daf gives row dicts. To be built
+      with the core.
+    - `SqlDaf.keys()` returns a lazy reference to the key column. `list(sdaf.keys())` pulls it.
 
 ## groupby and row sharing
 
