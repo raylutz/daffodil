@@ -211,6 +211,12 @@ These steps were proposed on 2026-10-13. Ray deferred them while the groupby que
     duplicates are not normal, and must never be ignored. AuditEngine finds them, marks both
     copies, and checks whether a duplicate is an exact repeat or a different record with the
     same key.
+104. Deleting records, decided by Ray on 2026-10-13: B. `delete_records(keys)` on SqlDaf and on Daf.
+    It takes keys as `select_records_daf()` does, a Daf, a SqlDaf or an iterable of keys, and
+    returns the number deleted. On SqlDaf it works on base tables only, and raises on a
+    selection. On Daf it rebuilds the row list in place and invalidates the key index. An
+    in-memory selection made earlier keeps the deleted rows, since it holds the row lists. A
+    SqlDaf selection loses them on its next read, as decision 99 says. The docstrings say both.
 
 ## groupby and row sharing
 
