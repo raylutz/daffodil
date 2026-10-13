@@ -182,15 +182,17 @@ These steps were proposed on 2026-10-13. Ray deferred them while the groupby que
 98. No usable reference, decided by Ray on 2026-10-13: A. A selection on a table with neither an
     INTEGER PRIMARY KEY nor a unique keyfield raises SqlNotSupportedError, saying to set a
     unique keyfield or copy the table into the store. It is never copied automatically.
-99. Deleting, decided by Ray on 2026-10-13. A Daf has no in-place delete of rows, so SqlDaf has
-    none, and sql() refuses a DELETE of records with sqlite3's set_authorizer(). Rows are left
-    out with a new selection, as in Daf, such as select_records_daf(keys, inverse=True). So an
-    older selection never loses a row. INSERT and UPDATE are allowed. Dropping tables is
-    allowed. A DROP also reports a delete on the dropped table, so the authorizer notes the
-    DROP_TABLE action and allows the delete that belongs to it, resetting before each
-    statement. Tested: DROP ok, DELETE refused.
-    Deferred by Ray: what a selection does when its base table is dropped. For now drops are
-    not checked, and nothing tracks live selections.
+99. Deleting, decided by Ray on 2026-10-13, then revised the same day. Records may be deleted
+    from base tables, such as input tables, through SqlDaf and through sql(). There is no
+    authorizer. A selection whose base rows are deleted does not show them on its next read,
+    and the docstrings say so. Rows can also be left out the Daf way, with a new selection
+    such as select_records_daf(keys, inverse=True), which leaves older selections whole.
+    Ray first chose to refuse record deletes. The authorizer was tested for that: a DROP also
+    reports a delete on the dropped table, so it needs a note of the DROP_TABLE action. Kept
+    here in case it is wanted later.
+    Deferred by Ray, to handle when a real case needs it: what a selection does when its base
+    rows are deleted or its base table is dropped, tracking live selections, and dropping the
+    TEMP reference table of a collected SqlDaf. Until then TEMP tables go when the store closes.
 
 ## groupby and row sharing
 
