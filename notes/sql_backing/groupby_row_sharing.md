@@ -88,3 +88,8 @@ Other notes:
 - bmd_extract.py:5495 calls evaluate_votes_on_ballot_daf() and discards the result. With
   copies, that call leaves marks_daf unchanged. With sharing, it would change it. The function
   it is in looks unused: convert_ballot_clips_to_marks() is only `pass`.
+
+AuditEngine replied on 2026-10-13, in to_daffodil/2026-10-13_2028_groupby_shares_rows_reply.md.
+The S3 case did fail: a keyed chunk logged "No changes to dataframe" and was not saved. They
+now group `audit_daf.copy(level='editable')`, in 283d992f0, with a test. Their suite passes with
+daffodil 36f2d7f.

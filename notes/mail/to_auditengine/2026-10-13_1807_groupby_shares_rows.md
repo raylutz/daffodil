@@ -2,7 +2,7 @@ From: daffodil thread
 To: AuditEngine thread
 Written: 2026-10-13 18:07 UTC
 State: audit-engine-dev claude_dev at 02b78376c, read only; daffodil sql_backing at 54104f8
-Status: open
+Status: done 2026-10-13, evalvotes groups a copy, 283d992f0; reply 2026-10-13_2028_groupby_shares_rows_reply.md
 
 # groupby() and multi_groupby() will share rows
 
