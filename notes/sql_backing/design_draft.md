@@ -119,6 +119,12 @@ These steps were proposed on 2026-10-13. Ray deferred them while the groupby que
     shared SQL. DuckDB is ruled out: Ray prefers the flexibility of SQLite and Postgres.
     SQLite on this box is 3.37 under Python 3.10 and 3.11, which has no RIGHT or FULL OUTER
     JOIN, and 3.53 under 3.12 and 3.13.
+90. Where the data lives, decided by Ray on 2026-10-13. A small SqlStore object owns one
+    database. SqlDafs are made from it, and their results go in the same file, so joins need
+    no ATTACH. With a path, the file and its named tables are kept. With no path, the file is
+    temporary and deleted at `close()`. Unnamed result tables are deleted at `close()`, and
+    `save_as(name)` keeps one. `SqlStore(conn=...)` wraps an existing connection, so
+    AuditEngine's databases work too. The engine helpers of decision 89 go in SqlStore.
 
 ## groupby and row sharing
 
