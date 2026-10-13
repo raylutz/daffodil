@@ -165,6 +165,32 @@ These steps were proposed on 2026-10-13. Ray deferred them while the groupby que
     as real, COUNT 3 and AVG 1.0; with SQL NULL, 3 as integer, COUNT 2 and AVG 1.5. Without the
     conversion, a registered function saw None, and `row['n'] is NULL` matched nothing. An ''
     read from sqlite3 is NULL.
+97. Selections hold references, decided by Ray on 2026-10-13: A. This replaces the TEMP VIEWs of
+    decision 91 for selections. A selection is a TEMP TABLE of references, in order, to the
+    rows of its base table, as an in-memory selection holds the same row lists. A join holds
+    pairs. Updating through a selection writes the base, as in memory. Appending to a
+    selection resolves it into its own table first. The reference table is built when the
+    selection is first used, so an unread chain of selections runs as one query.
+    It must be VACUUM safe. VACUUM renumbered the rowids of a plain table, 5 to 3, and did not
+    change a declared INTEGER PRIMARY KEY. So a reference is an INTEGER PRIMARY KEY, daf_rid in
+    every table SqlStore creates, hidden from columns() and to_daf(), or else a unique keyfield.
+    SqlStore adds a unique index on the keyfield if there is none, and a duplicate key raises.
+    Measured on 1,000,000 rows: building a selection 0.14 s once, against 0.10 s for every read
+    of a view; a count of it 0.0001 s; row 1000 0.00041 s, against 0.00107 s for a view.
+    References by daf_rid and by a unique ballot_id cost the same, 0.12 against 0.14 s to build
+    and 0.49 against 0.50 s to resolve 300,779 rows, and both survived delete plus VACUUM.
+98. No usable reference, decided by Ray on 2026-10-13: A. A selection on a table with neither an
+    INTEGER PRIMARY KEY nor a unique keyfield raises SqlNotSupportedError, saying to set a
+    unique keyfield or copy the table into the store. It is never copied automatically.
+99. Deleting, decided by Ray on 2026-10-13. A Daf has no in-place delete of rows, so SqlDaf has
+    none, and sql() refuses a DELETE of records with sqlite3's set_authorizer(). Rows are left
+    out with a new selection, as in Daf, such as select_records_daf(keys, inverse=True). So an
+    older selection never loses a row. INSERT and UPDATE are allowed. Dropping tables is
+    allowed. A DROP also reports a delete on the dropped table, so the authorizer notes the
+    DROP_TABLE action and allows the delete that belongs to it, resetting before each
+    statement. Tested: DROP ok, DELETE refused.
+    Deferred by Ray: what a selection does when its base table is dropped. For now drops are
+    not checked, and nothing tracks live selections.
 
 ## groupby and row sharing
 
