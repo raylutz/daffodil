@@ -149,6 +149,10 @@ These steps were proposed on 2026-10-13. Ray deferred them while the groupby que
     ORDER BY, adding an index on precinct changed which row came first. `sdaf[n]` and slices
     become LIMIT and OFFSET, and `sdaf[key]` a WHERE on the keyfield. Each index reruns the
     view, so per-row loops should use `to_daf()` on a narrowed view, or batches.
+94. Pulling into memory, decided by Ray on 2026-10-13. `to_daf(max_rows=n)` fetches up to n + 1
+    rows and raises ValueError, naming the view and the limit, if it gets more. Without
+    `max_rows` there is no limit. On 1,000,000 rows, a view of 300,495: COUNT first took 0.106 s
+    and then the pull runs the view again; LIMIT 50,001 took 0.059 s and stopped at the limit.
 
 ## groupby and row sharing
 
