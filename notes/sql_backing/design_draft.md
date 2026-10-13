@@ -204,6 +204,13 @@ These steps were proposed on 2026-10-13. Ray deferred them while the groupby que
       a Daf passed there raises TypeError, since iterating a Daf gives row dicts. To be built
       with the core.
     - `SqlDaf.keys()` returns a lazy reference to the key column. `list(sdaf.keys())` pulls it.
+103. Adding rows without existing keys, decided by Ray on 2026-10-13: Original. There is no skip
+    mode for concat(). Rows whose key is already present are left out with
+    `concat(new_sdaf.select_records_daf(target_sdaf, inverse=True))`, one INSERT with an
+    anti-join. A duplicate key among the rows being added raises, from the unique index. Ray:
+    duplicates are not normal, and must never be ignored. AuditEngine finds them, marks both
+    copies, and checks whether a duplicate is an exact repeat or a different record with the
+    same key.
 
 ## groupby and row sharing
 

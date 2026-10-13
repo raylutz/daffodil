@@ -190,7 +190,9 @@ The tag `_other` for the other side's columns is a placeholder. The real suffix 
 
 ## Still open
 
-- Can an input have a duplicate ballot_id? Today the unique index on the variants tables keeps
-  the first copy and drops the rest, and nonvariants keeps every copy. clone_empty() with a
-  unique keyfield keeps that, but select_records_daf() on the inputs would see every copy.
+- Duplicates, settled by decision 103: a duplicate ballot_id raises at the append, and is never
+  skipped. So `concat(skip_existing_keys=True)` above becomes
+  `concat(rows_sdaf.select_records_daf(target_sdaf, inverse=True))`. To mention to AuditEngine:
+  today INSERT OR IGNORE in sql_variants.py drops a duplicate silently, if one reaches
+  find_variants. Ray: duplicates must never be ignored.
 - Steps 12 to 14, the contest-level tables, are not sketched yet.
