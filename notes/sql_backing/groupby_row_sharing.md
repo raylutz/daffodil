@@ -52,19 +52,32 @@ data_daf.lol   # [['a', 99], ['b', 2], ['a', 3]]
 Read in /home/audit-engine-dev on 2026-10-13. There are 35 Daf calls to groupby. No caller
 uses multi_groupby.
 
-All 35 were read, with the functions their groups are passed to. The rest only read the
-groups: counts, `col()`, value counts, sums, keys, selections and sorting the group.
+All 35 were read, with the functions their groups are passed to. No caller uses a group or
+its source after the loop in a way that needs a copy, with one possible exception.
 
-One depends on the copy. evalvotes.py, in the function that starts at line 178:
+evalvotes.py, in the function that starts at line 178:
 
 - Line 215 groups audit_daf by ballot_id.
 - Each group goes to evaluate_votes_on_ballot_daf() or evalvotes_of_ballot_marks_daf().
-  Those write cells: num_votes, overvotes, undervotes and gray_eval. The first groups the
-  ballot again by contest, at analysis_utils.py:3637, and writes into those groups.
-- Line 289 then tests `new_marks_daf == audit_daf` and skips the save if they are equal.
+  Those write cells: num_votes, overvotes, undervotes, gray_eval and the thresholds. The first
+  groups the ballot again by contest, at analysis_utils.py:3637, and writes into those groups.
+- Line 289 skips the save if `new_marks_daf == audit_daf`.
 
-With shared rows, the writes would reach audit_daf. The test would then find no change, and
-the re-evaluated marks would not be saved. Nothing would report it.
+Daf equality compares rows, columns and keyfield. new_marks_daf is built from MarksSchema,
+so its keyfield is ballot_id.
+
+- A local chunk is loaded by DB.load_data with no keyfield. The test is never true, so the
+  marks are always saved, with copies or with sharing.
+- A chunk from S3 is loaded by pull_daf_from_s3_hunk with keyfield ballot_id, and with
+  unflatten=False its values stay strings. With copies, the evaluated ints differ from the
+  strings, so the marks are saved. With sharing, the writes would reach audit_daf, and the
+  two could be equal, which would skip the save.
+- Sharing ends for a group when insert_col() adds a new column, as evaluate_thresholds_daf()
+  does for ml_pct when the chunk lacks it. So the S3 case depends on the chunk's columns.
+  Only a run of evalvotes with a sharing build would settle it.
+
+Correction, 2026-10-13: the first version of this note said the save would always be skipped.
+That was wrong for the local path. Ray pointed it out.
 
 Other notes:
 
