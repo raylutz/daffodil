@@ -1,0 +1,75 @@
+# groupby and row sharing
+
+Found on 2026-10-13. Review item 87, still open.
+
+## The design
+
+The README has described row sharing since 2024. The version of 2026-04-02 says rows are
+"re-used" by any selection, and only references are copied. Ray confirmed on 2026-10-13 that
+groupby was meant to share rows too.
+
+## What the code does
+
+This was checked with `is` on each row.
+
+```python
+data_daf = Daf(
+    lol=[['a', 1], ['b', 2], ['a', 3]],
+    cols=['g', 'x'])
+groups_dodaf = data_daf.groupby('g')
+groups_dodaf['a'].lol[0] is data_daf.lol[0]   # False
+```
+
+| Method          | Shares rows |
+| :-------------- | :---------- |
+| `groupby()`       | no          |
+| `multi_groupby()` | no          |
+| `groupby_cols()`  | yes         |
+| `group_where()`   | yes         |
+| `select_where()`  | yes         |
+
+groupby has always copied. The old loop iterated the Daf, which gives a new dict for each row
+by default, and appended that. The code from 9e091b2, 2026-10-02, copies too.
+
+The docstring said the rows are shared. On 2026-10-03, d50afd9 changed the docstring to match
+the code. The code should have been changed instead.
+
+## What sharing changes
+
+With shared rows, a cell written in a group is written in the source. Adding a column to a
+group does not reach the source, because `insert_col()` builds new rows. Both checked with
+groupby_cols:
+
+```python
+group_daf = data_daf.groupby_cols(['g'])[('a',)]
+group_daf[0, 'x'] = 99
+group_daf.insert_col('y', default=0)
+data_daf.lol   # [['a', 99], ['b', 2], ['a', 3]]
+```
+
+## AuditEngine callers
+
+Read in /home/audit-engine-dev on 2026-10-13. There are 35 Daf calls to groupby. No caller
+uses multi_groupby.
+
+All 35 were read, with the functions their groups are passed to. The rest only read the
+groups: counts, `col()`, value counts, sums, keys, selections and sorting the group.
+
+One depends on the copy. evalvotes.py, in the function that starts at line 178:
+
+- Line 215 groups audit_daf by ballot_id.
+- Each group goes to evaluate_votes_on_ballot_daf() or evalvotes_of_ballot_marks_daf().
+  Those write cells: num_votes, overvotes, undervotes and gray_eval. The first groups the
+  ballot again by contest, at analysis_utils.py:3637, and writes into those groups.
+- Line 289 then tests `new_marks_daf == audit_daf` and skips the save if they are equal.
+
+With shared rows, the writes would reach audit_daf. The test would then find no change, and
+the re-evaluated marks would not be saved. Nothing would report it.
+
+Other notes:
+
+- evalvotes.py:870 groups modified_marks_daf and evaluates the groups the same way. It never
+  reads modified_marks_daf again, so sharing is safe there.
+- bmd_extract.py:5495 calls evaluate_votes_on_ballot_daf() and discards the result. With
+  copies, that call leaves marks_daf unchanged. With sharing, it would change it. The function
+  it is in looks unused: convert_ballot_clips_to_marks() is only `pass`.

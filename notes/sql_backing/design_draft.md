@@ -1,0 +1,102 @@
+# SQL backing for Daf: design draft
+
+Started 2026-10-13 on the branch sql_backing. This is a draft for Ray. Nothing in it is
+approved yet.
+
+## Source
+
+The idea was first scoped in AuditEngine's engineering notebook, in the entry
+2026-09-14_sqlite-backed-daf-scoping-for-gen-bif-report.md. That entry is about one
+AuditEngine report. This note restates the parts that matter for daffodil, in general terms.
+
+## The problem
+
+A Daf holds the whole table in memory as a list of lists. That is what makes it fast. It also
+sets a ceiling. A large enough table, or two of them in one process, runs out of memory.
+
+The notebook found two patterns that hit the ceiling.
+
+- Grouping a large table makes a second full copy of its rows. See the section on groupby
+  below.
+- A second full table is loaded only to look up a few single values in it.
+
+Neither one needs a full row returned by a Python function. One is GROUP BY with counts and
+distinct values. The other is a lookup with WHERE. SQL does both without loading the table.
+
+## What already works
+
+AuditEngine's find_variants stage already does its large-table work in SQLite. Its code is in
+utilities/sql_variants.py and utilities/sql_utils.py. The pattern has three steps.
+
+1. Do the joins, filters and set operations in SQL. The table stays on disk.
+2. Check that the narrowed set is not too large. A bug that makes it balloon should stop the
+   run, not slow it down.
+3. Pull the narrowed set into an ordinary Daf, and do the per-row Python work there.
+
+The notebook records timings for 114,143 rows. A Python loop over SQL rows took 10.2 s. A
+Python function registered in SQLite took 16.8 s, because such a function returns one value
+per call. A join in SQL followed by `apply()` in a Daf took 6.7 s.
+
+## The SQL shapes find_variants uses
+
+locate_variants runs about 30 SQL statements. They fall into these shapes.
+
+1. Anti-join: the rows whose key is not in another table.
+2. Semi-join: the rows whose key is in another table.
+3. Filter: the rows where any of some flag columns is nonzero.
+4. Insert or ignore: append rows, and skip a key already present.
+5. Delete the rows whose key is in another table.
+6. Compare two tables by key, and split the rows into agreed and disagreed.
+7. Explode: one row for each contest, taken from a JSON column.
+8. Distinct, and a join that adds suffixes to clashing column names.
+9. Narrow, then finish in a Daf.
+
+Most of these are operations on sets of keys. A SQL-backed Daf could offer them as methods.
+
+## Ray's goal
+
+The calling code should look the same. It makes ordinary Daf calls. A setting makes the Daf
+SQL-backed underneath. On 2026-10-13, Ray added that find_variants could be written with a
+SQL-backed Daf.
+
+## The notebook's advice
+
+- Do not make `groupby()` itself secretly SQL-backed. It has many callers, and some do
+  per-group work that is not an aggregate.
+- Add a few aggregate methods instead, such as a grouped value count and grouped unique
+  values. Each runs in SQL when the Daf is SQL-backed, and in memory otherwise.
+- The one helper missing in AuditEngine is a grouped GROUP_CONCAT(DISTINCT col).
+
+## Chunks and hunks
+
+AuditEngine's chunktable.py splits a table into hunks, of up to about 100K rows, and chunks,
+of 50 to 100 ballots. A manifest maps each ballot_id to its chunk. That fits handing work to
+Lambda functions. It does not help with a set operation across a whole table. Ray, on
+2026-10-13: with a SQL-backed Daf, chunktable is less important, but still useful for Lambda
+delegation.
+
+## What daffodil has now
+
+- src/daffodil/lib/daf_sql.py holds the encoding of names for SQLite and a few helpers for
+  benchmarks.
+- Nothing in daf.py uses SQLite.
+
+## Plan
+
+These steps were proposed on 2026-10-13. Ray deferred them while the groupby question is open.
+
+79. Inventory. Map each SQL step in locate_variants to a Daf method, existing or new.
+80. Shape. Decide how a Daf gets SQL backing. One option is one Daf class with a SQL store
+    underneath. Another is a separate class with the same method names. Much of daf.py reads
+    self.lol directly, so this needs a review with options.
+81. Prototype the core. Load a CSV into SQLite without building it in memory. Then len,
+    columns, lookup by key, select where, anti-join and semi-join, and pulling a narrowed set
+    into an ordinary Daf.
+82. Aggregates. Grouped value counts, sums and unique values.
+83. Benchmark against an in-memory Daf on a synthetic table of 1M rows, in short runs.
+84. Trial. Rewrite one stretch of locate_variants with the new methods, as a sketch in these
+    notes. AuditEngine is not changed.
+
+## groupby and row sharing
+
+See groupby_row_sharing.md in this folder.
