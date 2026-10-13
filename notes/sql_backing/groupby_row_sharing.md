@@ -1,6 +1,8 @@
 # groupby and row sharing
 
-Found on 2026-10-13. Review item 87, still open.
+Found on 2026-10-13. Review item 87. Ray decided on 2026-10-13 that groupby and multi_groupby
+share rows. A caller that needs the source unchanged copies it with `copy(level='editable')`.
+AuditEngine was mailed: to_auditengine/2026-10-13_1807_groupby_shares_rows.md.
 
 ## The design
 

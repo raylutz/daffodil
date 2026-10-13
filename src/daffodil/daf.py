@@ -9846,11 +9846,16 @@ class Daf:
 
         The result is a dict. Each key is a value found in the column, in the order
         first seen. Each value is a Daf of the rows that have it, with all columns, or
-        only the columns in `cols`. The rows are new lists, so changing a cell in a group
-        does not change this Daf.
+        only the columns in `cols`.
 
-        Use `cols` when you need only a few of many columns. The other columns are never
-        copied, and this Daf is not changed. It is much faster for a wide table.
+        With all columns, a group holds the same row lists as this Daf. Nothing is copied,
+        so it is fast and uses little memory. But a cell changed in a group is also changed
+        here. To keep this Daf as it is, group a copy made with `copy(level='editable')`.
+        Adding a column to a group makes new rows, and this Daf does not get the column.
+
+        Use `cols` when you need only a few of many columns. The rows are then new lists of
+        the columns kept. The other columns are never copied, and this Daf is not changed.
+        It is much faster for a wide table.
 
         With several columns, as a list, the keys are tuples of their values. See
         `groupby_cols()`. With `omit_nulls`, rows that have an empty value in the
@@ -9920,7 +9925,7 @@ class Daf:
             if group_lol is None:
                 group_lol = groups[fieldval] = []
 
-            group_lol.append(list(row_la) if all_cols else [row_la[idx] for idx in idxs])
+            group_lol.append(row_la if all_cols else [row_la[idx] for idx in idxs])
 
         return self._new_group_dafs(groups, names, all_cols)
 
@@ -10371,11 +10376,16 @@ class Daf:
         value in that column. Each innermost value is a Daf of the rows that have it,
         with all columns, or only the columns in `colnames`.
         This is not a grouping by combinations. Use `groupby_cols()` for that.
-        The groups are not reduced. The rows are new lists, so changing a cell in a group
-        does not change this Daf.
+        The groups are not reduced.
 
-        Use `colnames` when you need only a few of many columns. The other columns are never
-        copied, and this Daf is not changed. It is much faster for a wide table.
+        With all columns, the groups hold the same row lists as this Daf, as in
+        `groupby()`. A cell changed in a group is also changed here, and in the groups of
+        the other columns. To keep this Daf as it is, group a copy made with
+        `copy(level='editable')`.
+
+        Use `colnames` when you need only a few of many columns. The rows are then new lists
+        of the columns kept. The other columns are never copied, and this Daf is not changed.
+        It is much faster for a wide table.
 
         Args:
             groupby_colnames: The columns to group by, one at a time.
@@ -10430,7 +10440,7 @@ class Daf:
                 if group_lol is None:
                     group_lol = col_groups[fieldval] = []
 
-                group_lol.append(list(row_la) if all_cols else [row_la[idx] for idx in idxs])
+                group_lol.append(row_la if all_cols else [row_la[idx] for idx in idxs])
 
         return {col: self._new_group_dafs(col_groups, names, all_cols) for col, col_groups in grouped.items()}
 

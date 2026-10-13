@@ -170,9 +170,9 @@ changes the original:
 |---|---|
 | `daf[rows]`, `select_irows`, `select_krows`, `select_records_daf` | shared |
 | `select_where`, `split_where`, `select_by_dict` | shared |
-| `groupby_cols`, `group_where`, `copy()` | shared |
+| `groupby`, `multi_groupby`, `groupby_cols`, `group_where`, `copy()` | shared |
 | a selection of columns: `daf[:, cols]`, `select_cols`, `select_kcols`, `select_icols` | new |
-| `groupby`, `multi_groupby` | new |
+| `groupby`, `multi_groupby` and `groupby_cols` with only some columns kept | new |
 
 To change a selection without changing the original, copy it first with
 `copy('editable')`, which gives each row its own list. Adding a column to a selection, as with
