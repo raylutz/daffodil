@@ -113,6 +113,12 @@ These steps were proposed on 2026-10-13. Ray deferred them while the groupby que
     - Ray chose this over a check at the top of each Daf method.
     - A prototype ran on 2026-10-13: 214 Daf methods were blocked, `print()` needed SqlDaf's
       own `__str__`, and `isinstance(sdaf, Daf)` is True.
+89. Engine, decided by Ray on 2026-10-13. SQLite now. Postgres and MySQL may follow, so the
+    parts that differ go in a few small helpers in sqldaf.py: connect, placeholder, quoting a
+    name, and the few functions that differ, such as JSON and GROUP_CONCAT. The rest is plain
+    shared SQL. DuckDB is ruled out: Ray prefers the flexibility of SQLite and Postgres.
+    SQLite on this box is 3.37 under Python 3.10 and 3.11, which has no RIGHT or FULL OUTER
+    JOIN, and 3.53 under 3.12 and 3.13.
 
 ## groupby and row sharing
 
