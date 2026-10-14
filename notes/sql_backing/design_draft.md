@@ -244,6 +244,14 @@ These steps were proposed on 2026-10-13. Ray deferred them while the groupby que
     not false, so `NOT is_bmd`, `is_bmd = 0` and `is_bmd != 1` all skip it, and AVG leaves it out.
     If "not determined" should be kept apart from 0, it would be a change to both Daf and
     SqlDaf together, as its own item, with a check of AuditEngine's bool columns.
+111. Names and types, decided by Ray on 2026-10-14. A SqlDaf variable ends in `_sdaf`, and its
+    type is `T_sdaf`, with `T_lsdaf` and `T_dosdaf` for lists and dicts. They are real
+    TypeAliases of the class, in sqldaf.py, so mypy checks them. Python 3.10 added TypeAlias.
+112. Indexing, decided by Ray on 2026-10-14. `sdaf[n]`, `sdaf[n:m]` and `sdaf[key]` return a SqlDaf
+    selection, as any selection does, not an ordinary Daf, so a large slice is not pulled into
+    memory. Reading it resolves the rows: `to_daf()`, `len()`, and one-row readers such as
+    `to_dict()`, `to_list()` and `to_value()`. A selection is built lazily, so
+    `sdaf[0].to_dict()` is one LIMIT query, and no reference table is written.
 
 ## groupby and row sharing
 

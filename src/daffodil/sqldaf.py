@@ -9,7 +9,7 @@ import sqlite3
 import tempfile
 import contextlib
 
-from typing import Any, Callable, Dict, Iterator, List, Tuple, Type      # noqa: F401
+from typing import Any, Callable, Dict, Iterator, List, Tuple, Type, TypeAlias      # noqa: F401
 from collections.abc import Iterable
 
 from daffodil.daf import Daf, NULL, DaffodilError
@@ -749,6 +749,13 @@ class SqlDaf(Daf):
         cols: T_ls = [desc_t[0] for desc_t in cursor.description]
         lol: T_lola = [none_to_null(row_t) for row_t in cursor]
         return Daf(lol=lol, cols=cols)
+
+
+# Type aliases for SqlDaf, as daf_types.py has for other types. A SqlDaf variable ends in _sdaf,
+# as in bif_sdaf. They are here, not in daf_types.py, because this module imports that one.
+T_sdaf:     TypeAlias = SqlDaf
+T_lsdaf:    TypeAlias = List[SqlDaf]
+T_dosdaf:   TypeAlias = Dict[str, SqlDaf]
 
 
 def _none_safe(converter: Callable[[Any], Any]) -> Callable[[Any], Any]:

@@ -51,6 +51,9 @@ projects. The Code style section of daffodil's CLAUDE.md says much of the same, 
   two types, and a name need not spell its type out, as `list_of_names` would.
 - A Daf is a type too, so `daf` is a suffix, not a name: `export_daf`, `common_daf`. In daffodil's own
   examples and docs, a Daf is called `daf`, as pandas uses `df`.
+- A SqlDaf, a Daf whose rows are in SQLite, ends in `_sdaf`, as in `bif_sdaf`, and its type is `T_sdaf`.
+  A list of them is `_lsdaf`, `T_lsdaf`, and a dict of them `_dosdaf`, `T_dosdaf`. The aliases are in
+  daffodil's sqldaf.py, not daf_types.py, which sqldaf.py imports. Ray, 2026-10-14.
 - Common names such as `name` or `count` may leave the suffix off, but it does no harm.
 
 ## Functions
