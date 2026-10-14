@@ -7,6 +7,7 @@ import sqlite3
 import pytest
 
 from daffodil.daf import Daf, NULL
+from daffodil.lib.daf_types import T_ls
 from daffodil.sqldaf import SqlStore, SqlDaf, SqlNotSupportedError, BLOCKED_LS, RID_COL, quote_name
 
 
@@ -246,7 +247,7 @@ def test_isinstance_daf_and_repr():
     with SqlStore() as store:
         marks_sdaf: SqlDaf = store.from_daf(make_marks_daf(), name='marks')
         assert isinstance(marks_sdaf, Daf)
-        assert repr(marks_sdaf) == "<SqlDaf name='marks' rows=3 cols=3 keyfield='ballot_id'>"
+        assert repr(marks_sdaf) == "<SqlDaf table name='marks' rows=3 cols=3 keyfield='ballot_id'>"
         assert str(marks_sdaf) == repr(marks_sdaf)
 
 
@@ -296,7 +297,7 @@ def test_sql_write_is_committed_and_gives_an_empty_daf():
 # the blocker
 
 @pytest.mark.parametrize('call', [
-    lambda sdaf: sdaf[0],
+    lambda sdaf: sdaf[0, 'contest'],
     lambda sdaf: list(sdaf),
     lambda sdaf: sdaf.select_irows([0]),
     lambda sdaf: sdaf.groupby('contest'),
@@ -480,3 +481,334 @@ def test_load_inside_a_transaction_is_a_savepoint(tmp_path):
                 store.from_csv(csv_path)
             assert not store.table_exists('bad')
         assert store.table_exists('marks')
+
+
+# ---- step 2: selections ----
+
+def make_bif_daf() -> Daf:
+    return Daf(
+        lol=[['b1', 'P1', 1, 0], ['b2', 'P2', 2, 1], ['b3', 'P1', 3, NULL], ['b4', 'P3', 1, 1], ['b5', 'P1', 2, 0]],
+        cols=['ballot_id', 'precinct', 'style_num', 'is_bmd'],
+        keyfield='ballot_id',
+    )
+
+
+def temp_tables(store: SqlStore) -> T_ls:
+    return [row_t[0] for row_t in store.conn.execute("SELECT name FROM sqlite_temp_master WHERE type = 'table'")]
+
+
+
+def test_select_where_matches_mdaf():
+    bif_daf: Daf = make_bif_daf()
+    with SqlStore() as store:
+        bif_sdaf: SqlDaf = store.from_daf(bif_daf, name='bif')
+        def where(row) -> bool:
+            return row['precinct'] == 'P1' and row['is_bmd'] is not NULL
+        assert bif_sdaf.select_where(where).to_daf().lol == bif_daf.select_where(where).lol
+        assert bif_sdaf.select_where(where, cols=['precinct', 'is_bmd']).to_daf().lol == [['b1', 'P1', 1, 0], ['b5', 'P1', 2, 0]]
+
+
+def test_select_where_gives_a_keyedlist_with_null():
+    seen_la: list = []
+    with SqlStore() as store:
+        bif_sdaf: SqlDaf = store.from_daf(make_bif_daf(), name='bif')
+        def where(row) -> bool:
+            seen_la.append((type(row).__name__, row['is_bmd']))
+            return True
+        bif_sdaf.select_where(where, cols=['is_bmd']).to_daf()
+        assert seen_la[2] == ('KeyedList', NULL)
+        assert seen_la[2][1] is NULL
+
+
+def test_select_where_error_is_raised_as_itself():
+    with SqlStore() as store:
+        bif_sdaf: SqlDaf = store.from_daf(make_bif_daf(), name='bif')
+        sel_sdaf: SqlDaf = bif_sdaf.select_where(lambda row: 1 / 0)
+        with pytest.raises(ZeroDivisionError):
+            sel_sdaf.to_daf()
+
+
+def test_select_where_bad_col_and_indirect_col():
+    with SqlStore() as store:
+        bif_sdaf: SqlDaf = store.from_daf(make_bif_daf(), name='bif')
+        with pytest.raises(KeyError):
+            bif_sdaf.select_where(lambda row: True, cols=['nothing'])
+        with pytest.raises(SqlNotSupportedError):
+            bif_sdaf.select_where(lambda row: True, indirect_col='x')
+
+
+@pytest.mark.parametrize('selector, inverse', [
+    ({'precinct': 'P1'}, False),
+    ({'precinct': 'P1', 'style_num': 2}, False),
+    ([{'precinct': 'P2'}, {'style_num': 1}], False),
+    ({'precinct': 'P1'}, True),
+    ({'is_bmd': NULL}, False),
+    ({'is_bmd': 0}, True),
+    ({}, False),
+    ([], False),
+    ({'nothing': 1}, False),
+    ([{'nothing': 1}, {'precinct': 'P3'}], False),
+    ({'style_num': 1.0}, False),
+    ({'style_num': '1'}, False),
+    ])
+def test_select_by_dict_matches_mdaf(selector, inverse):
+    bif_daf: Daf = make_bif_daf()
+    with SqlStore() as store:
+        bif_sdaf: SqlDaf = store.from_daf(bif_daf, name='bif')
+        assert bif_sdaf.select_by_dict(selector, inverse=inverse).to_daf().lol == bif_daf.select_by_dict(selector, inverse=inverse).lol
+
+
+def test_select_by_dict_expectmax_and_keyfield():
+    with SqlStore() as store:
+        bif_sdaf: SqlDaf = store.from_daf(make_bif_daf(), name='bif')
+        with pytest.raises(LookupError):
+            bif_sdaf.select_by_dict({'precinct': 'P1'}, expectmax=2)
+        assert len(bif_sdaf.select_by_dict({'precinct': 'P1'}, expectmax=3)) == 3
+        assert bif_sdaf.select_by_dict({'precinct': 'P1'}, keyfield='style_num').keyfield == 'style_num'
+        with pytest.raises(TypeError):
+            bif_sdaf.select_by_dict('P1')                       # type: ignore[arg-type]
+
+
+def test_select_where_sql_with_params_and_null():
+    with SqlStore() as store:
+        bif_sdaf: SqlDaf = store.from_daf(make_bif_daf(), name='bif')
+        assert bif_sdaf.select_where_sql('"style_num" >= ? AND "precinct" != ?', [2, 'P2']).to_daf().lol == [
+            ['b3', 'P1', 3, NULL], ['b5', 'P1', 2, 0]]
+        assert bif_sdaf.select_where_sql('"is_bmd" IS ?', [NULL]).to_list() == ['b3', 'P1', 3, NULL]
+
+
+def test_selection_is_lazy_and_fixed_at_first_read():
+    with SqlStore() as store:
+        bif_sdaf: SqlDaf = store.from_daf(make_bif_daf(), name='bif')
+        sel_sdaf: SqlDaf = bif_sdaf.select_by_dict({'precinct': 'P1'})
+        assert temp_tables(store) == []
+        bif_sdaf.sql("UPDATE bif SET precinct = 'P1' WHERE ballot_id = 'b4'")      # before the first read: counts
+        assert len(sel_sdaf) == 4
+        assert temp_tables(store) == [sel_sdaf.name]
+        bif_sdaf.sql("UPDATE bif SET precinct = 'P1' WHERE ballot_id = 'b2'")      # after: the rows are fixed
+        bif_sdaf.sql("UPDATE bif SET style_num = 9 WHERE ballot_id = 'b1'")        # but values show through
+        assert sel_sdaf.to_daf().lol == [['b1', 'P1', 9, 0], ['b3', 'P1', 3, NULL], ['b4', 'P1', 1, 1], ['b5', 'P1', 2, 0]]
+
+
+def test_deleted_base_row_drops_out_of_a_fixed_selection():
+    with SqlStore() as store:
+        bif_sdaf: SqlDaf = store.from_daf(make_bif_daf(), name='bif')
+        sel_sdaf: SqlDaf = bif_sdaf.select_by_dict({'precinct': 'P1'}).fix()
+        bif_sdaf.sql("DELETE FROM bif WHERE ballot_id = 'b3'")
+        assert sel_sdaf.to_daf()[:, 'ballot_id'].to_list() == ['b1', 'b5']
+        assert len(sel_sdaf) == 2
+
+
+def test_chain_of_selections_runs_as_one_query_until_read():
+    with SqlStore() as store:
+        bif_sdaf: SqlDaf = store.from_daf(make_bif_daf(), name='bif')
+        p1_sdaf: SqlDaf = bif_sdaf.select_by_dict({'precinct': 'P1'})
+        p1_style2_sdaf: SqlDaf = p1_sdaf.select_where_sql('"style_num" = 2')
+        assert p1_style2_sdaf.base_sdaf is bif_sdaf
+        assert p1_style2_sdaf.to_daf().lol == [['b5', 'P1', 2, 0]]
+        assert temp_tables(store) == [p1_style2_sdaf.name]
+
+
+def test_selection_of_a_fixed_selection_uses_its_rows():
+    with SqlStore() as store:
+        bif_sdaf: SqlDaf = store.from_daf(make_bif_daf(), name='bif')
+        p1_sdaf: SqlDaf = bif_sdaf.select_by_dict({'precinct': 'P1'}).fix()
+        bif_sdaf.sql("UPDATE bif SET precinct = 'P1' WHERE ballot_id = 'b2'")
+        assert p1_sdaf.select_where_sql('"style_num" = 2').to_daf()[:, 'ballot_id'].to_list() == ['b5']
+
+
+def test_selection_keeps_keyfield_dtypes_and_columns():
+    with SqlStore() as store:
+        bif_sdaf: SqlDaf = store.from_daf(make_bif_daf(), name='bif')
+        sel_sdaf: SqlDaf = bif_sdaf.select_by_dict({'precinct': 'P1'})
+        assert sel_sdaf.columns() == bif_sdaf.columns()
+        assert sel_sdaf.keyfield == 'ballot_id'
+        assert sel_sdaf.name.startswith('daf_tmp_bif_v')
+        assert repr(sel_sdaf).startswith("<SqlDaf selection name='daf_tmp_bif_v")
+
+
+# indexing
+
+@pytest.mark.parametrize('sel', [0, 2, -1, -5, slice(1, 3), slice(None, 2), slice(3, None), slice(-2, None),
+                                 slice(None, -3), slice(4, 9), slice(7, 9), slice(3, 1)])
+def test_getitem_by_position_matches_mdaf(sel):
+    bif_daf: Daf = make_bif_daf()
+    with SqlStore() as store:
+        bif_sdaf: SqlDaf = store.from_daf(bif_daf, name='bif')
+        assert bif_sdaf[sel].to_daf().lol == bif_daf[sel].lol
+
+
+def test_getitem_on_a_selection():
+    bif_daf: Daf = make_bif_daf()
+    with SqlStore() as store:
+        bif_sdaf: SqlDaf = store.from_daf(bif_daf, name='bif')
+        p1_sdaf: SqlDaf = bif_sdaf.select_by_dict({'precinct': 'P1'})
+        assert p1_sdaf[1].to_dict() == {'ballot_id': 'b3', 'precinct': 'P1', 'style_num': 3, 'is_bmd': NULL}
+        assert p1_sdaf[1:].to_daf().lol == bif_daf.select_by_dict({'precinct': 'P1'})[1:].lol
+
+
+def test_getitem_errors():
+    with SqlStore() as store:
+        bif_sdaf: SqlDaf = store.from_daf(make_bif_daf(), name='bif')
+        with pytest.raises(IndexError):
+            bif_sdaf[5]
+        with pytest.raises(IndexError):
+            bif_sdaf[-6]
+        with pytest.raises(KeyError):
+            bif_sdaf['nothing']
+        with pytest.raises(SqlNotSupportedError):
+            bif_sdaf[0:4:2]
+        with pytest.raises(SqlNotSupportedError):
+            bif_sdaf[0, 'precinct']
+        nokey_sdaf: SqlDaf = store.from_daf(make_bif_daf(), name='nokey', keyfield='').set_keyfield('')
+        with pytest.raises(SqlNotSupportedError):
+            nokey_sdaf['b1']
+
+
+def test_getitem_by_key():
+    bif_daf: Daf = make_bif_daf()
+    with SqlStore() as store:
+        bif_sdaf: SqlDaf = store.from_daf(bif_daf, name='bif')
+        assert bif_sdaf['b3'].to_daf().lol == bif_daf['b3'].lol
+        assert bif_sdaf['b3'].to_dict() == bif_daf['b3'].to_dict()
+        assert 'daf_ix_bif_ballot_id' in [r[0] for r in store.conn.execute("SELECT name FROM sqlite_master WHERE type = 'index'")]
+
+
+# reading one row
+
+@pytest.mark.parametrize('irow', [0, 3, -1, -5])
+def test_iloc_matches_mdaf(irow):
+    bif_daf: Daf = make_bif_daf()
+    with SqlStore() as store:
+        bif_sdaf: SqlDaf = store.from_daf(bif_daf, name='bif')
+        assert bif_sdaf.iloc(irow) == bif_daf.iloc(irow)
+        assert bif_sdaf.iloc(irow, rtype='list') == bif_daf.iloc(irow, rtype='list')
+        assert bif_sdaf.iloc(irow, include_cols=['style_num', 'ballot_id']) == bif_daf.iloc(irow, include_cols=['style_num', 'ballot_id'])
+
+
+def test_iloc_errors_and_does_not_fix():
+    with SqlStore() as store:
+        bif_sdaf: SqlDaf = store.from_daf(make_bif_daf(), name='bif')
+        with pytest.raises(IndexError):
+            bif_sdaf.iloc(5)
+        with pytest.raises(IndexError):
+            bif_sdaf.iloc(-6)
+        with pytest.raises(KeyError):
+            bif_sdaf.iloc(0, include_cols=['nothing'])
+        with pytest.raises(SqlNotSupportedError):
+            bif_sdaf.iloc(0, rtype='klist')
+        sel_sdaf: SqlDaf = bif_sdaf.select_by_dict({'precinct': 'P1'})
+        assert sel_sdaf.iloc(1)['ballot_id'] == 'b3'
+        assert sel_sdaf.is_fixed is False
+        assert temp_tables(store) == []
+
+
+def test_select_record_matches_mdaf():
+    bif_daf: Daf = make_bif_daf()
+    with SqlStore() as store:
+        bif_sdaf: SqlDaf = store.from_daf(bif_daf, name='bif')
+        assert bif_sdaf.select_record('b3') == bif_daf.select_record('b3')
+        assert bif_sdaf.select_record('nothing') == bif_daf.select_record('nothing') == {}
+        with pytest.raises(KeyError):
+            bif_sdaf.select_record('nothing', silent_error=False)
+        sel_sdaf: SqlDaf = bif_sdaf.select_by_dict({'precinct': 'P1'})
+        assert sel_sdaf.select_record('b2') == {}
+        assert sel_sdaf.select_record('b5')['style_num'] == 2
+        assert sel_sdaf.is_fixed is False
+
+
+def test_select_record_without_keyfield_raises():
+    with SqlStore() as store:
+        t_sdaf: SqlDaf = store.from_daf(Daf(lol=[['a']], cols=['x']), name='t')
+        with pytest.raises(ValueError):
+            t_sdaf.select_record('a')
+
+
+# to_dict, to_list, to_value
+
+def test_to_dict_to_list_to_value_match_mdaf():
+    bif_daf: Daf = make_bif_daf()
+    with SqlStore() as store:
+        bif_sdaf: SqlDaf = store.from_daf(bif_daf, name='bif')
+        assert bif_sdaf[2].to_dict() == bif_daf[2].to_dict()
+        assert bif_sdaf[2].to_list() == bif_daf[2].to_list()
+        assert bif_sdaf.select_where_sql('"style_num" = 9').to_dict() == {}
+        with pytest.raises(ValueError):
+            bif_sdaf.to_dict()
+        with pytest.raises(ValueError):
+            bif_sdaf.to_list()
+        with pytest.raises(ValueError):
+            bif_sdaf[0].to_value()
+        one_col_sdaf: SqlDaf = store.from_daf(Daf(lol=[['a'], [NULL], ['c']], cols=['x']), name='one')
+        assert one_col_sdaf.to_list() == ['a', NULL, 'c']
+        assert one_col_sdaf[1].to_value() is NULL
+        assert one_col_sdaf[2].to_value() == 'c'
+
+
+# materialize and save_as
+
+def test_materialize_copies_into_a_temp_table():
+    with SqlStore() as store:
+        bif_sdaf: SqlDaf = store.from_daf(make_bif_daf(), name='bif')
+        assert bif_sdaf.materialize() is bif_sdaf
+        copy_sdaf: SqlDaf = bif_sdaf.select_by_dict({'precinct': 'P1'}).materialize()
+        assert copy_sdaf.base_sdaf is None
+        assert copy_sdaf.name in temp_tables(store)
+        copy_sdaf.sql(f'UPDATE "{copy_sdaf.name}" SET style_num = 99')
+        assert bif_sdaf.select_record('b1')['style_num'] == 1
+        assert copy_sdaf.to_daf()[:, 'style_num'].to_list() == [99, 99, 99]
+        assert copy_sdaf.keyfield == 'ballot_id'
+
+
+def test_save_as_makes_a_kept_table(tmp_path):
+    db_path: str = str(tmp_path / 'kept.db')
+    with SqlStore(db_path) as store:
+        bif_sdaf: SqlDaf = store.from_daf(make_bif_daf(), name='bif')
+        p1_sdaf: SqlDaf = bif_sdaf[1:4].save_as('middle')
+        assert p1_sdaf.to_daf()[:, 'ballot_id'].to_list() == ['b2', 'b3', 'b4']
+        with pytest.raises(ValueError):
+            bif_sdaf.save_as('middle')
+    with SqlStore(db_path) as store:
+        assert store.table('middle').to_daf()[:, 'ballot_id'].to_list() == ['b2', 'b3', 'b4']
+
+
+# references that survive VACUUM
+
+def test_selection_needs_a_vacuum_safe_reference():
+    conn: sqlite3.Connection = sqlite3.connect(':memory:')
+    conn.execute('CREATE TABLE plain (ballot_id TEXT, v INTEGER)')
+    conn.executemany('INSERT INTO plain VALUES (?, ?)', [('b1', 1), ('b2', 2)])
+    with SqlStore(conn=conn) as store:
+        plain_sdaf: SqlDaf = store.table('plain')
+        assert plain_sdaf.to_daf().lol == [['b1', 1], ['b2', 2]]
+        with pytest.raises(SqlNotSupportedError):
+            plain_sdaf.select_where_sql('v = 2')
+        keyed_sdaf: SqlDaf = store.table('plain', keyfield='ballot_id')
+        assert keyed_sdaf.select_where_sql('v = 2').to_daf().lol == [['b2', 2]]
+
+
+def test_key_references_survive_delete_and_vacuum(tmp_path):
+    db_path: str = str(tmp_path / 'v.db')
+    conn: sqlite3.Connection = sqlite3.connect(db_path, isolation_level=None)
+    conn.execute('CREATE TABLE plain (ballot_id TEXT, v INTEGER)')
+    conn.executemany('INSERT INTO plain VALUES (?, ?)', [(f'b{i}', i % 3) for i in range(10)])
+    with SqlStore(conn=conn) as store:
+        plain_sdaf: SqlDaf = store.table('plain', keyfield='ballot_id')
+        sel_sdaf: SqlDaf = plain_sdaf.select_where_sql('v = 0').fix()
+        conn.execute("DELETE FROM plain WHERE ballot_id IN ('b0', 'b1', 'b2')")
+        conn.execute('VACUUM')
+        assert sel_sdaf.to_daf()[:, 'ballot_id'].to_list() == ['b3', 'b6', 'b9']
+
+
+def test_apply_dtypes_on_a_selection_raises():
+    with SqlStore() as store:
+        bif_sdaf: SqlDaf = store.from_daf(make_bif_daf(), name='bif')
+        with pytest.raises(SqlNotSupportedError):
+            bif_sdaf.select_by_dict({'precinct': 'P1'}).apply_dtypes(dtypes={'style_num': int})
+
+
+def test_ensure_key_index_on_a_selection_raises():
+    with SqlStore() as store:
+        bif_sdaf: SqlDaf = store.from_daf(make_bif_daf(), name='bif')
+        with pytest.raises(ValueError):
+            bif_sdaf.select_by_dict({'precinct': 'P1'}).ensure_key_index()
