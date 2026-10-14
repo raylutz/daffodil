@@ -296,6 +296,12 @@ what to do next, not a design decision.
 127. Streaming the rows of a join, decided by Ray on 2026-10-14: not now. A SqlDaf is backing for
     analysis of static data, not for transactions. A join is usually persisted at once, so reading
     a few rows of a join may build the whole join. This is a possible future enhancement.
+128. A repeated key in a join, decided by Ray on 2026-10-14: Original. A keyfield must be unique,
+    and if it is not, the result is undefined, as in a Daf. Nothing checks it, since a check is too
+    much overhead. Finding repeated keys, and telling true duplicates from rows that share a key
+    but differ, is the caller's work. In AuditEngine it is a step of its own, which moves such rows
+    to a residue table. Seen on 2026-10-14: with a key twice in the other table, a SqlDaf join gives
+    both rows, and a Daf join gives the last.
 
 ## Possible future enhancements
 

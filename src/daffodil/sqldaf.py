@@ -1516,6 +1516,9 @@ class SqlDaf(Daf):
         table's unmatched rows after, in its order. A cell with no match is NULL. The keyfield of
         the result is this table's.
 
+        The keyfields must be unique, as in `Daf.join()`. A repeated key is not checked, and the
+        result is then undefined. Check the keys first if they may repeat.
+
         A row found only in the other table, in a right or outer join, takes its key and its
         shared fields from the other table. `Daf.join()` does not yet: see the xfail tests in
         tests/test_daf_join_other_only_rows.py.
