@@ -233,6 +233,26 @@ while cmpcvr.db is kept from run to run. So on a rerun, step 8 keeps the previou
 disagreed tables, and a new disagreement is missed. This is a bug in AuditEngine, not in the
 port. Not reported to AuditEngine yet; that is Ray's call.
 
-Not run yet, since each is 0.75 to 1.9 GB on the shared box: GA_Paulding_20201103,
-WI_Dane_20201103_aimapper, FL_Collier_20201103_ocrmapped, WI_Dane_20241105_aimapper and
-GA_Dekalb_20220524_aimapper.
+The five large jobs were run on 2026-10-14, one at a time, Ray's question 120:
+
+| Job                             | Audit ballots | Steps 1 to 11, port | Same, AuditEngine | Result |
+| :------------------------------ | ------------: | ------------------: | ----------------: | :----- |
+| GA_Paulding_20201103            | 85,589        | 3.0 s               | 3.7 s             | 209 ballots differ, see below |
+| WI_Dane_20201103_aimapper       | 333,574       | 5.7 s               | 10.8 s            | all tables the same |
+| FL_Collier_20201103_ocrmapped   | 417,726       | 6.7 s               | 12.7 s            | all tables the same |
+| WI_Dane_20241105_aimapper       | 367,179       | 7.6 s               | 19.1 s            | all tables the same |
+| GA_Dekalb_20220524_aimapper     | 142,810       | 10.7 s              | 103.1 s           | all tables the same |
+
+The times are the sums of the step times in each report, for both sides: the port's, and
+AuditEngine's saved reports/Find_Variants_Report.md from its own run, on whatever load the box had
+then. Run alone on Collier, the port took 13.0 s of wall time for steps 1 to 11, counting the
+row counts made for the report, and peak memory stayed at 40 MB, the memory of the import. The
+whole trial, with the copy and the comparison, peaked at 0.4 to 0.8 GB, because the comparison
+pulls every result row into Python sets.
+
+Paulding: the same stale-table bug as Rockville, larger. AuditEngine's report agrees with the
+port through step 7, row for row. Its step 8 shows 18 disagreed ballots in 0.00011 s, which is no
+work: CREATE TABLE IF NOT EXISTS found the tables of an earlier run and kept them. AuditEngine's
+own step 8 query, run read-only on its stored nonvariant tables, still finds 209 ballots whose
+concise votes differ after normalize_pyon(). 18 + 209 = 227, the port's count. So that run left
+209 disagreeing ballots among the nonvariants.
