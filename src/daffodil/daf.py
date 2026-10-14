@@ -1022,6 +1022,7 @@ class Daf:
             name:        str  = '',                            # the name of the copy
             deep:        bool = False,                         # deprecated: use level='deep'
             for_sorting: bool = False,                         # deprecated: use level='sortable'
+            inplace:     bool = False,                         # if True, copy into this Daf and return it
             ) -> 'Daf':
         """
         Make a copy of the Daf. You choose what the copy shares with the original.
@@ -1085,6 +1086,12 @@ class Daf:
         claim to be the same one. The other settings, such as `md_max_rows`, the
         `schema` and the retmode and itermode, are taken over. A `schema` is shared.
 
+        With `inplace=True`, the Daf copies into itself and returns itself, instead of making a
+        new one. Use it on a selection, to make it a table of its own: its rows then no longer
+        share anything with the Daf they came from. The default level is then `deep`. `editable`
+        may be asked for, to copy only the rows. A lower level would leave the rows shared, so it
+        raises ValueError. The name stays, unless `name` gives a new one.
+
         The arguments `deep` and `for_sorting` are deprecated. Use `level='deep'` and
         `level='sortable'` instead. They still work: `deep=True` gives the level `deep`, and
         `for_sorting=True` gives `sortable`. A higher level wins if you give both. A call like
@@ -1095,12 +1102,13 @@ class Daf:
             name: The name of the copy. It is empty if not given.
             deep: Deprecated. Use `level='deep'`. True gives the level `deep`.
             for_sorting: Deprecated. Use `level='sortable'`. True gives the level `sortable`.
+            inplace: If True, copy into this Daf and return it. The level must copy the rows.
 
         Returns:
-            The new Daf.
+            The new Daf, or this one if `inplace`.
 
         Raises:
-            ValueError: `level` is a name that is not one of the four.
+            ValueError: `level` is a name that is not one of the four, or `inplace` with a level that does not copy the rows.
 
         Examples:
             >>> d = Daf(lol=[[2, 'b'], [1, 'a']], cols=['id', 'v'], name='orig')
@@ -1123,7 +1131,26 @@ class Daf:
             >>> m[0, 'v'] = 'Y'
             >>> d.iloc(0)
             {'id': 2, 'v': 'Y'}
+            >>> sel = d.select_where(lambda row: row['id'] == 1)
+            >>> sel.copy(inplace=True) is sel
+            True
+            >>> d[1, 'v'] = 'Z'
+            >>> sel.lol
+            [[1, 'a']]
         """
+
+        if inplace:
+            if isinstance(level, bool):
+                deep, level = deep or level, None
+            if level is None and not deep and not for_sorting:
+                level = 'deep'
+            if not (deep or level == 'deep'):
+                check_bits: int = self._COPY_PRESETS.get(level, -1) if isinstance(level, str) else int(level or 0)
+                if check_bits != -1 and not check_bits & self.COPY_ROWS:
+                    raise ValueError(f"copy(inplace=True): level {level!r} does not copy the rows. Use 'editable' or 'deep'.")
+            new_daf: 'Daf' = self.copy(level=level, name=name or self.name, deep=deep, for_sorting=for_sorting)
+            self.__dict__.update(new_daf.__dict__)
+            return self
 
         if isinstance(level, bool):     # an old call, copy(True), meant deep.
             deep, level = deep or level, None
@@ -6724,8 +6751,8 @@ class Daf:
         row list is rebuilt once, in place, so it costs one pass however many rows go. The
         remaining rows keep their order, and the key index is rebuilt when next needed. That is
         safe for a Daf in memory: a selection made from it earlier holds its own row list, so it
-        still has the deleted rows. On a [SqlDaf][daffodil.sqldaf.SqlDaf] base table it is not
-        safe in the same way. See there.
+        still has the deleted rows. On a SqlDaf parent table it is not safe in the same way. See
+        `SqlDaf.delete_records()` in sqldaf.py.
 
         The keys may be a list, any iterable, or another Daf, whose keys are then used through a
         view of its key index, as in `select_records_daf()`.

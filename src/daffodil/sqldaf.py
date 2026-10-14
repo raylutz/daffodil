@@ -1,44 +1,40 @@
 # sqldaf.py
 #
-# A Daf whose rows live in a SQLite table, and the store that owns the database.
+# A Daf whose rows live in a SQLite table.
 # The design and the decisions behind it are in notes/sql_backing/design_draft.md.
 
 import os
 import csv
+import json
 import sqlite3
-import tempfile
 import contextlib
 
 from typing import Any, Callable, Dict, Iterator, List, Tuple, Type, TypeAlias      # noqa: F401
 from collections.abc import Iterable
 
-from daffodil.daf import Daf, NULL, DaffodilError
+from daffodil.daf import Daf, NULL
 from daffodil.keyedlist import KeyedList
-from daffodil.lib.daf_types import T_ls, T_la, T_lola, T_di, T_da, T_dtype_dict
+from daffodil.lib.daf_types import T_ls, T_la, T_lola, T_di, T_da, T_dtype_dict, T_copybits
 import daffodil.lib.daf_utils as daf_utils
 
 
-RID_COL = 'daf_rid'                 # the INTEGER PRIMARY KEY of each table SqlStore makes
-REF_COL = 'daf_ref'                 # the reference to a base row, in the queries of a selection
+RID_COL = 'daf_rid'                 # the INTEGER PRIMARY KEY of each table SqlDaf makes
+REF_COL = 'daf_ref'                 # the reference to a parent row, in the queries of a selection
 ORD_COL = 'daf_ord'                 # the order of the rows, in the queries of a selection
 RESERVED_COLS = (RID_COL, REF_COL, ORD_COL)
-TEMP_PREFIX = 'daf_tmp_'            # the prefix of every TEMP object SqlStore makes
-INDEX_PREFIX = 'daf_ix_'            # the prefix of every index SqlStore makes
+TEMP_PREFIX = 'daf_tmp_'            # the prefix of every TEMP object SqlDaf makes
+INDEX_PREFIX = 'daf_ix_'            # the prefix of every index SqlDaf makes
+META_TABLE = 'daf_tables'           # the table of metadata, one row per table SqlDaf made (Q125)
+SAVEPOINT = 'daf_sp'                # the name of a nested transaction. One name can be nested.
 
 # dtypes that apply_dtypes() can store. A list, dict and the like would need JSON text, not yet done.
 STORABLE_DTYPES = (int, float, bool, str)
 
-
-class SqlNotSupportedError(DaffodilError, NotImplementedError):
-    """
-    A Daf method was called on a SqlDaf that has no SQL version of it yet.
-
-    The message names the method. Use `SqlDaf.sql()` instead, or pull the rows into memory
-    with `SqlDaf.to_daf()` first.
-    """
+# dtypes that the metadata can record, by name.
+DTYPE_BY_NAME: Dict[str, Type] = {'int': int, 'float': float, 'bool': bool, 'str': str, 'list': list, 'dict': dict}
 
 
-# ---- the parts that differ between engines (decision 89) ----
+# ---- the parts that differ between engines (decision Q89) ----
 
 def quote_name(name: str) -> str:
     """
@@ -65,301 +61,354 @@ def none_to_null(row_t: Tuple[Any, ...]) -> T_la:
     return [NULL if val is None else val for val in row_t]
 
 
-class SqlStore:
+def _table_exists_on(conn: sqlite3.Connection, name: str, schema: str = '') -> bool:
+    """ Say whether the connection sees a table or view of this name: in `schema` only, or in main and TEMP. Internal use. """
+    schemas_ls: T_ls = [schema] if schema else ['main', 'temp']
+    found_t: Tuple[Any, ...] | None = conn.execute(
+            ' UNION ALL '.join(f'SELECT 1 FROM {one_schema}.sqlite_master WHERE name = ?' for one_schema in schemas_ls),
+            (name,) * len(schemas_ls)).fetchone()
+    return found_t is not None
+
+
+def _create_table_sql(conn: sqlite3.Connection, name: str, cols: T_ls, schema: str = 'main', check_exists: bool = True) -> str:
+    """ Check a new table, and give the SQL that makes it in `schema`, main or temp. Internal use. """
+    if check_exists and _table_exists_on(conn, name):
+        raise ValueError(f"SqlDaf: a table named '{name}' already exists.")
+    reserved_ls: T_ls = [col for col in cols if col in RESERVED_COLS]
+    if reserved_ls:
+        raise ValueError(f"SqlDaf: {reserved_ls} reserved, and cannot be column names: {list(RESERVED_COLS)}.")
+    coldefs_ls: T_ls = [f'{quote_name(RID_COL)} INTEGER PRIMARY KEY'] + [quote_name(col) for col in cols]
+    return f'CREATE TABLE {schema}.{quote_name(name)} ({", ".join(coldefs_ls)})'
+
+
+@contextlib.contextmanager
+def _transaction_on(conn: sqlite3.Connection) -> Iterator[None]:
+    """ A transaction on the connection, or a savepoint inside one already open. See `SqlDaf.transaction()`. Internal use. """
+    if not conn.in_transaction:
+        conn.execute('BEGIN')
+        try:
+            yield
+        except BaseException:
+            conn.execute('ROLLBACK')
+            raise
+        conn.execute('COMMIT')
+    else:
+        conn.execute(f'SAVEPOINT {SAVEPOINT}')
+        try:
+            yield
+        except BaseException:
+            conn.execute(f'ROLLBACK TO {SAVEPOINT}')
+            conn.execute(f'RELEASE {SAVEPOINT}')
+            raise
+        conn.execute(f'RELEASE {SAVEPOINT}')
+
+
+def _load_rows(
+        conn:       sqlite3.Connection,             # the connection.
+        name:       str,                            # the name of the new table.
+        cols:       T_ls,                           # its column names, in order.
+        keyfield:   str,                            # the column that holds the key of each row, or ''.
+        dtypes:     T_dtype_dict,                   # the types of the columns, for apply_dtypes().
+        rows:       Iterable[Tuple[Any, ...]],      # the rows, with None for a missing value.
+        ) -> None:
+    """ Make a permanent table, add the rows and record its metadata, in one transaction. If any row fails, nothing is made. Internal use. """
+    table_sql: str = _create_table_sql(conn, name, cols, 'main')
+    insert_sql: str = (f'INSERT INTO main.{quote_name(name)} ({", ".join(quote_name(col) for col in cols)}) '
+                       f'VALUES ({placeholders(len(cols))})')
+    with _transaction_on(conn):
+        conn.execute(table_sql)
+        conn.executemany(insert_sql, rows)
+        _meta_write(conn, name, keyfield, dtypes)
+
+
+# ---- the metadata of each table, kept in the database (Q125) ----
+
+def _meta_read(conn: sqlite3.Connection, name: str) -> Tuple[str, T_dtype_dict] | None:
+    """ The keyfield and dtypes recorded for a table, or None if there is no record. Internal use. """
+    if not _table_exists_on(conn, META_TABLE, 'main'):
+        return None
+    found_t: Tuple[Any, ...] | None = conn.execute(
+            f'SELECT keyfield, dtypes FROM main.{quote_name(META_TABLE)} WHERE name = ?', (name,)).fetchone()
+    if found_t is None:
+        return None
+    names_ds: Dict[str, str] = json.loads(found_t[1]) if found_t[1] else {}
+    return found_t[0] or '', {col: DTYPE_BY_NAME[type_name] for col, type_name in names_ds.items()}
+
+
+def _meta_write(conn: sqlite3.Connection, name: str, keyfield: str, dtypes: T_dtype_dict) -> None:
+    """ Record the keyfield and dtypes of a table, replacing any record. Run it in the same transaction as the change. Internal use. """
+    unknown_ls: T_ls = [col for col, dtype in dtypes.items() if getattr(dtype, '__name__', '') not in DTYPE_BY_NAME]
+    if unknown_ls:
+        raise NotImplementedError(f"SqlDaf: the dtypes of the columns {unknown_ls} cannot be recorded yet. "
+                                  f"Only {list(DTYPE_BY_NAME)}.")
+    conn.execute(f'CREATE TABLE IF NOT EXISTS main.{quote_name(META_TABLE)} '
+                 f'(name TEXT PRIMARY KEY, keyfield TEXT, dtypes TEXT, made TEXT)')
+    conn.execute(f"INSERT INTO main.{quote_name(META_TABLE)} (name, keyfield, dtypes, made) "
+                 f"VALUES (?, ?, ?, datetime('now')) "
+                 f"ON CONFLICT (name) DO UPDATE SET keyfield = excluded.keyfield, dtypes = excluded.dtypes",
+                 (name, keyfield, json.dumps({col: dtype.__name__ for col, dtype in dtypes.items()})))
+
+
+def _meta_delete(conn: sqlite3.Connection, name: str) -> None:
+    """ Remove the record of a table, if there is one. Internal use. """
+    if _table_exists_on(conn, META_TABLE, 'main'):
+        conn.execute(f'DELETE FROM main.{quote_name(META_TABLE)} WHERE name = ?', (name,))
+
+
+class SqlDaf(Daf):
     """
-    One SQLite database, and the tables and selections made in it.
+    A Daf whose rows live in a SQLite table.
 
-    A [SqlDaf][daffodil.sqldaf.SqlDaf] always belongs to a store. Every table it makes or
-    selects from is in the store's database, so tables can be joined without attaching
-    another file.
+    Use it for a table too large to hold in memory. The rows stay on disk in a SQLite database
+    file, and SQL does the work. When the rows you need are few, pull them into an ordinary Daf
+    with `to_daf()`, and work on them there.
 
-    With a path, the database is that file, and its tables are kept after `close()`. With no
-    path, the database is a new temporary file, which `close()` deletes. With `conn`, the
-    store uses a connection you already have, and `close()` leaves it open. That is how an
-    existing database, such as one of AuditEngine's, is used.
+    A SqlDaf is a Daf, so `isinstance(sdaf, Daf)` is True. But it has only the methods
+    written for SQL. Every other Daf method raises NotImplementedError, which names it. So
+    nothing quietly loads a large table into memory. For anything not covered yet, `sql()`
+    runs a SQL statement of your own.
 
-    A store owns one connection, and sqlite3 lets a connection be used only by the thread
-    that made it. So a store belongs to one thread. Another thread opens its own store on
-    the same file.
+    The database is the file named by the class setting `SqlDaf.db_path`. Set it once, as
+    AuditEngine does for each job, and every SqlDaf opens that file. A `db_path` given to the
+    constructor overrides it for that table. With neither, the constructor raises ValueError.
+    The class setting `engine` is 'sqlite', the only engine so far.
 
-    Outside `transaction()`, each statement is committed when it finishes, and locks and
-    unlocks the file by itself. Use `transaction()` around a run of many small statements,
-    such as lookups by key: it halves their cost.
+    Make a table with the constructor, as a Daf is made: give its name, its columns and its
+    rows. Open a table that is already in the file by its name alone. Its keyfield and dtypes
+    come back as they were, from the metadata that SqlDaf keeps in the table daf_tables of the
+    same file. A table made by other code has no such record, so give them to the constructor.
+    `SqlDaf.from_csv()` and `SqlDaf.from_daf()` load a file or a Daf into a new table.
 
-    Use the store as a context manager to close it on the way out.
+    A SqlDaf is a parent or a child.
+
+    - A parent holds its rows, in a table of its own: one made by the constructor, a loader or
+      `copy()`, or one already in the file.
+    - A child is a selection. It holds references to rows of its parent, in order, as a
+      selection of a Daf holds the same row lists. `select_where()`, `select_by_dict()`,
+      `select_where_sql()` and indexing, as in `sdaf[2:5]` or `sdaf['b2']`, each make one. A
+      child of a child is a child of the same parent. `is_child` tells them apart, and
+      `parent_sdaf` is the parent of a child.
+
+    A child runs nothing when it is made. Its rows are found the first time it is read: by
+    `to_daf()`, `len()`, `bool()`, `to_dict()`, `to_list()` or `to_value()`. After that, it
+    always means the same rows, as a selection of a Daf does. A change to the values in those
+    rows shows in it, since it refers to them. `copy(inplace=True)` gives it rows of its own.
+
+    Each SqlDaf holds its own connection to the file, and a child or a join holds its parent's.
+    `close()` closes it, and the children that share it can no longer be read. Otherwise Python
+    closes it when the last SqlDaf that holds it goes. Each statement is committed when it
+    finishes, so nothing is lost either way. `delete()` deletes a table from the file.
+
+    A table made by `copy()`, or by reading a join, is a TEMP table. It belongs to the
+    connection, and goes when the connection closes. `save()` makes it a permanent table in the
+    file, under a name, to be opened again later.
+
+    Do not delete rows from a parent that has children, or that you read by position.
+    Positions use daf_rid, which then has gaps, and `len()` of a child counts its references,
+    so it would still count a deleted row. Leave rows out with a selection instead, as in a Daf.
+    `to_daf()` does leave a deleted row out.
+
+    To read one row, use `select_record()` by key or `iloc()` by position. Each is one query,
+    returns a dict, and makes no selection.
+
+    The methods so far:
+
+    - `len()`, `bool()`, `columns()` and `num_cols()`.
+    - `select_where()`, `select_by_dict()`, `select_where_sql()` and indexing, which select.
+    - `select_record()` and `iloc()`, which read one row.
+    - `select_records_daf()`, `delete_records()` and `keys()`, which work by key, in SQL.
+    - `concat()`, which adds the rows of another Daf or SqlDaf.
+    - `join()`, which joins two SqlDaf tables on their keyfields, as `Daf.join()` does.
+    - `to_daf()`, `to_dict()`, `to_list()` and `to_value()`, which read rows into memory.
+    - `copy()` and `save()`, which copy rows into a table of their own, and keep it.
+    - `close()`, `delete()` and `transaction()`.
+    - `apply_dtypes()`, `set_keyfield()` and `ensure_key_index()`.
+    - `sql()`, to run any SQL statement.
+
+    Work with large tables in whole statements. One query costs about 12 to 24 us, against
+    under 1 us for a lookup in memory, because each one passes through sqlite3. Many rows in one
+    statement are far cheaper per row.
+
+    A missing value is NULL in Python, as in any Daf, and SQL NULL in the database. It is
+    converted on the way in and on the way out. So in Python test a value with `val is NULL`,
+    and in SQL write `col IS NULL`. Do not compare with ''.
+
+    Until `apply_dtypes()` converts them, values loaded from a CSV file are text, in SQL too.
+    Text is never less than a number in SQLite, so `WHERE n < 5` finds nothing on a text
+    column, and MAX() gives the last in text order.
+
+    The `name` is the name of the table in the database. A child gets a generated name, such as
+    daf_tmp_marks_v3, which names its reference table once its rows are found.
 
     Examples:
-        >>> with SqlStore() as store:
-        ...     marks_sdaf = store.from_daf(Daf(lol=[['b1', 1], ['b2', '']], cols=['ballot_id', 'v']), name='marks')
-        ...     len(marks_sdaf)
-        2
+        >>> import tempfile
+        >>> SqlDaf.db_path = tempfile.mkdtemp() + '/job.db'
+        >>> marks_sdaf = SqlDaf('marks', cols=['ballot_id', 'v'], lol=[['b1', 1], ['b2', '']], keyfield='ballot_id')
+        >>> marks_sdaf.sql('SELECT ballot_id FROM marks WHERE v IS NULL').to_list()
+        ['b2']
+        >>> SqlDaf('marks').keyfield
+        'ballot_id'
     """
+
+    engine:     str = 'sqlite'          # the database engine. Only SQLite so far.
+    db_path:    str = ''                # the database file every SqlDaf opens, unless the constructor names another.
 
     def __init__(
             self,
-            path:   str = '',                           # the database file. '' makes a temporary file.
-            conn:   sqlite3.Connection | None = None,   # an open connection to use instead of a path.
+            name:       str,                                    # the name of the table.
+            cols:       T_ls | None = None,                     # the columns of a new table. None opens one that is there.
+            lol:        Iterable[Iterable[Any]] | None = None,  # the rows of a new table.
+            keyfield:   str = '',                               # the column that holds the key of each row.
+            dtypes:     T_dtype_dict | None = None,             # the types of the columns, for apply_dtypes().
+            db_path:    str = '',                               # the database file. SqlDaf.db_path if empty.
             ) -> None:
         """
-        Open a store.
+        Make a new table, or open one that is in the database file.
 
-        Args:
-            path: The database file, made if it does not exist. Without one, a temporary file is used.
-            conn: An open connection to use instead. It is not closed by `close()`.
+        With `cols`, a new table is made in the file, with the rows of `lol`, read one at a
+        time, so an iterator of any length works. The table, its rows and its metadata are made
+        in one transaction: if any row fails, nothing is made. A NULL cell is stored as SQL
+        NULL. The table gets a hidden first column, daf_rid, an INTEGER PRIMARY KEY, which
+        numbers the rows in order. It is not one of the `columns()`. The columns are declared
+        with no SQL type, so an int stays an int, and text stays text. A cell that holds a list
+        or a dict cannot be stored yet.
 
-        Raises:
-            ValueError: Both `path` and `conn` were given.
-        """
-        if path and conn is not None:
-            raise ValueError("SqlStore: give a path or a conn, not both.")
+        Without `cols`, the table of that name is opened. Its keyfield and dtypes are those
+        recorded when it was made, unless they are given here. Nothing is read yet.
 
-        self.temp_path:     str     = ''                # the temporary file to delete at close, if any.
-        self.owns_conn:     bool    = conn is None
-        self.temp_count:    int     = 0                 # counter for the names of TEMP objects.
-        self.savepoint_count: int   = 0                 # counter for the names of nested transactions.
-        self.func_count:    int     = 0                 # counter for the names of registered functions.
-        self.func_error:    BaseException | None = None # an error raised inside a registered function.
-
-        if conn is not None:
-            self.conn: sqlite3.Connection = conn
-        else:
-            if not path:
-                fd, path = tempfile.mkstemp(prefix='daf_store_', suffix='.db')
-                os.close(fd)
-                self.temp_path = path
-            self.conn = sqlite3.connect(path, isolation_level=None)
-
-        self.path: str = path
-
-
-    def __enter__(self) -> 'SqlStore':
-        return self
-
-
-    def __exit__(self, *exc_info: Any) -> None:
-        self.close()
-
-
-    def close(self) -> None:
-        """
-        Close the store.
-
-        TEMP objects go when the connection closes. A temporary database file is deleted. A
-        connection passed in as `conn` is left open, and its TEMP objects stay until it closes.
-        Closing twice does nothing more.
-        """
-        if self.owns_conn:
-            self.conn.close()
-        if self.temp_path:
-            os.remove(self.temp_path)
-            self.temp_path = ''
-
-
-    @contextlib.contextmanager
-    def transaction(self) -> Iterator[None]:
-        """
-        Run the statements inside the `with` block as one transaction.
-
-        Everything in the block is committed together when it ends, or undone together if it
-        raises. It also makes a run of small statements faster, because the file is locked once
-        for the block instead of once per statement. On 1,000,000 rows, a lookup by key took
-        12.4 us inside a transaction, against 24.1 us outside.
-
-        While the block is open, another process cannot write to the database file. So keep it
-        to the work that needs it.
-
-        A `transaction()` inside another one becomes a savepoint: if the inner block raises, only
-        its own work is undone.
-
-        Examples:
-            >>> with SqlStore() as store:
-            ...     marks_sdaf = store.from_daf(Daf(lol=[['b1', 1]], cols=['ballot_id', 'v']), name='marks')
-            ...     with store.transaction():
-            ...         _ = marks_sdaf.sql("UPDATE marks SET v = 2")
-            ...     marks_sdaf.to_daf().lol
-            [['b1', 2]]
-        """
-        if not self.conn.in_transaction:
-            self.conn.execute('BEGIN')
-            try:
-                yield
-            except BaseException:
-                self.conn.execute('ROLLBACK')
-                raise
-            self.conn.execute('COMMIT')
-        else:
-            self.savepoint_count += 1
-            savepoint: str = quote_name(f'daf_sp_{self.savepoint_count}')
-            self.conn.execute(f'SAVEPOINT {savepoint}')
-            try:
-                yield
-            except BaseException:
-                self.conn.execute(f'ROLLBACK TO {savepoint}')
-                self.conn.execute(f'RELEASE {savepoint}')
-                raise
-            self.conn.execute(f'RELEASE {savepoint}')
-
-
-    def table(
-            self,
-            name:       str,                            # the name of the table.
-            keyfield:   str = '',                       # the column that holds the key of each row.
-            dtypes:     T_dtype_dict | None = None,     # the types of the columns, for apply_dtypes().
-            ) -> 'SqlDaf':
-        """
-        Get a SqlDaf for a table that is already in the database.
+        The keyfield is only recorded. Its unique index is made when a key is first used, as a
+        Daf builds its key index.
 
         Args:
             name: The name of the table.
-            keyfield: The column that holds the key of each row, if any.
+            cols: The column names of a new table, in order. None to open a table that is there.
+            lol: The rows of a new table, each the values in the order of `cols`.
+            keyfield: The column that holds the key of each row. For a table that is opened, the recorded one if empty.
             dtypes: The types of the columns, kept for `apply_dtypes()`. Nothing is converted.
-
-        Returns:
-            A SqlDaf for the table. Nothing is read yet.
+            db_path: The database file. The class setting `SqlDaf.db_path` if empty.
 
         Raises:
-            KeyError: There is no table of that name, or the keyfield is not a column.
+            ValueError: There is no database path, a new table's name is taken, a column is named daf_rid, or `lol` has no `cols`.
+            KeyError: There is no table of that name to open, or the keyfield is not a column.
+            FileNotFoundError: A table is to be opened, and the database file is not there.
+            NotImplementedError: The class setting `engine` is not 'sqlite'.
         """
-        return SqlDaf(store=self, name=name, keyfield=keyfield, dtypes=dtypes)
+        path: str = db_path or type(self).db_path
+        if not path:
+            raise ValueError("SqlDaf: no database. Set SqlDaf.db_path, or give db_path to the constructor.")
+        if type(self).engine != 'sqlite':
+            raise NotImplementedError(f"SqlDaf: the engine '{type(self).engine}' is not supported yet. Only 'sqlite'.")
+        if cols is None and lol is not None:
+            raise ValueError("SqlDaf: give the cols of the new table along with its lol.")
+        if cols is None and not os.path.exists(path):
+            raise FileNotFoundError(path)
 
-
-    def table_exists(self, name: str) -> bool:
-        """ Say whether the database has a table or view of this name, TEMP ones included. """
-        found_t: Tuple[Any, ...] | None = self.conn.execute(
-                "SELECT 1 FROM sqlite_master WHERE name = ? UNION ALL SELECT 1 FROM sqlite_temp_master WHERE name = ?",
-                (name, name)).fetchone()
-        return found_t is not None
-
-
-    def drop_table(self, name: str, missing_ok: bool = False) -> None:
-        """
-        Remove a table from the database.
-
-        A selection that still refers to the table is not checked. Reading it afterwards fails.
-
-        Args:
-            name: The name of the table.
-            missing_ok: If True, a table that is not there is not an error.
-
-        Raises:
-            KeyError: There is no table of that name, and `missing_ok` is False.
-        """
-        if not self.table_exists(name):
-            if missing_ok:
-                return
-            raise KeyError(name)
-        self.conn.execute(f'DROP TABLE {quote_name(name)}')
-
-
-    def _create_table_sql(self, name: str, cols: T_ls) -> str:
-        """ Check a new table, and give the SQL that makes it. Internal use. """
-        if self.table_exists(name):
-            raise ValueError(f"SqlStore: a table named '{name}' already exists.")
-        reserved_ls: T_ls = [col for col in cols if col in RESERVED_COLS]
-        if reserved_ls:
-            raise ValueError(f"SqlStore: {reserved_ls} reserved, and cannot be column names: {list(RESERVED_COLS)}.")
-
-        coldefs_ls: T_ls = [f'{quote_name(RID_COL)} INTEGER PRIMARY KEY'] + [quote_name(col) for col in cols]
-        return f'CREATE TABLE {quote_name(name)} ({", ".join(coldefs_ls)})'
-
-
-    def create_table(
-            self,
-            name:       str,                            # the name of the new table.
-            cols:       T_ls,                           # its column names, in order.
-            keyfield:   str = '',                       # the column that holds the key of each row.
-            dtypes:     T_dtype_dict | None = None,     # the types of the columns, for apply_dtypes().
-            ) -> 'SqlDaf':
-        """
-        Make an empty table, and return a SqlDaf for it.
-
-        The table gets a hidden first column, `daf_rid`, an INTEGER PRIMARY KEY. It numbers the
-        rows in the order they are added, keeps that order, and does not change when the file
-        is vacuumed. It is not one of the `columns()`, and `to_daf()` leaves it out.
-
-        The columns are declared with no SQL type, so SQLite keeps each value as it is given:
-        an int stays an int, and text stays text. `apply_dtypes()` converts them, as in a Daf.
-
-        A cell that holds a list or a dict cannot be stored yet. sqlite3 raises an error for it.
-
-        Args:
-            name: The name of the new table.
-            cols: The column names, in order.
-            keyfield: The column that holds the key of each row. Its index is made when a key is first needed.
-            dtypes: The types of the columns, kept for `apply_dtypes()`. Nothing is converted.
-
-        Returns:
-            A SqlDaf for the empty table.
-
-        Raises:
-            ValueError: A table of that name exists, or a column is named daf_rid.
-            KeyError: The keyfield is not one of the columns.
-        """
-        if keyfield and keyfield not in cols:
-            raise KeyError(keyfield)
-        self.conn.execute(self._create_table_sql(name, cols))
-        return SqlDaf(store=self, name=name, keyfield=keyfield, dtypes=dtypes)
-
-
-    def insert_rows(self, name: str, cols: T_ls, rows: Iterable[Iterable[Any]]) -> int:
-        """
-        Add rows to a table, in one transaction, and return how many were added.
-
-        The rows are read from `rows` as they are needed, so an iterator of any length works.
-        A NULL cell is stored as SQL NULL. If any row fails, none of them are added, and the
-        error is raised. A key that is repeated fails only if the table has a unique index on
-        its keyfield, as it does once a key has been used.
-
-        Args:
-            name: The table.
-            cols: The columns the values of each row go to, in order.
-            rows: The rows, each the values in the order of `cols`.
-
-        Returns:
-            The number of rows added.
-        """
-        stmt: str = (f'INSERT INTO {quote_name(name)} ({", ".join(quote_name(col) for col in cols)}) '
-                     f'VALUES ({placeholders(len(cols))})')
-        count: int = 0
-
-        def counted(rows: Iterable[Iterable[Any]]) -> Iterator[Tuple[Any, ...]]:
-            nonlocal count
+        conn: sqlite3.Connection = sqlite3.connect(path, isolation_level=None)
+        if cols is not None:
+            col_ls: T_ls = list(cols)
+            if keyfield and keyfield not in col_ls:
+                conn.close()
+                raise KeyError(keyfield)
             row_la: Iterable[Any]
-            for row_la in rows:
-                count += 1
-                yield null_to_none(row_la)
+            try:
+                _load_rows(conn, name, col_ls, keyfield, dict(dtypes) if dtypes else {},
+                           (null_to_none(row_la) for row_la in (lol if lol is not None else [])))
+            except BaseException:
+                conn.close()
+                raise
+        self._open_on(conn, {'func_error': None, 'temp_count': 0, 'func_count': 0}, path, name,
+                      keyfield, dtypes, is_temp=False, use_meta=cols is None)
 
-        with self.transaction():
-            self.conn.executemany(stmt, counted(rows))
-        return count
 
-
-    def _load_table(
+    def _open_on(
             self,
-            name:       str,                            # the name of the new table.
-            cols:       T_ls,                           # its column names, in order.
-            keyfield:   str,                            # the column that holds the key of each row, or ''.
-            dtypes:     T_dtype_dict | None,            # the types of the columns, for apply_dtypes().
-            rows:       Iterable[Tuple[Any, ...]],      # the rows, with None for a missing value.
-            ) -> 'SqlDaf':
-        """ Make a table and add the rows, in one transaction. If any row fails, nothing is made. Internal use. """
+            conn:       sqlite3.Connection,             # the connection to hold.
+            conn_da:    T_da,                           # the state shared by every SqlDaf on that connection.
+            path:       str,                            # the database file.
+            name:       str,                            # the table.
+            keyfield:   str,                            # the keyfield, or '' for the recorded one.
+            dtypes:     T_dtype_dict | None,            # the dtypes, or None for the recorded ones.
+            is_temp:    bool,                           # True for a TEMP table.
+            use_meta:   bool,                           # True to fill in the keyfield and dtypes from the metadata.
+            ) -> None:
+        """ Set this SqlDaf up as a parent on a table the connection sees. Internal use. """
+        info_lot: List[Tuple[Any, ...]] = conn.execute(f'PRAGMA table_info({quote_name(name)})').fetchall()
+        if not info_lot:
+            raise KeyError(name)
+        all_cols: T_ls = [info_t[1] for info_t in info_lot]
+        cols: T_ls = [col for col in all_cols if col != RID_COL]
+
+        if use_meta:
+            meta_t: Tuple[str, T_dtype_dict] | None = _meta_read(conn, name)
+            if meta_t is not None:
+                keyfield = keyfield or meta_t[0]
+                dtypes = dtypes if dtypes is not None else meta_t[1]
         if keyfield and keyfield not in cols:
             raise KeyError(keyfield)
-        table_sql: str = self._create_table_sql(name, cols)
-        insert_sql: str = (f'INSERT INTO {quote_name(name)} ({", ".join(quote_name(col) for col in cols)}) '
-                           f'VALUES ({placeholders(len(cols))})')
-        with self.transaction():
-            self.conn.execute(table_sql)
-            self.conn.executemany(insert_sql, rows)
-        return SqlDaf(store=self, name=name, keyfield=keyfield, dtypes=dtypes)
+
+        self.conn:      sqlite3.Connection  = conn
+        self._conn_da:  T_da            = conn_da       # func_error, temp_count, func_count: shared on one connection.
+        self.db_path:   str             = path          # type: ignore[misc]
+        self._name:     str             = name
+        self.keyfield:  str             = keyfield
+        self.has_rid:   bool            = RID_COL in all_cols
+        self.hd:        T_di            = {col: idx for idx, col in enumerate(cols)}
+        self.dtypes:    T_dtype_dict    = dict(dtypes) if dtypes else {}
+        self.is_temp:   bool            = is_temp
+
+        # A parent has no parent. A child has its parent, and either the query that finds its
+        # rows, not run yet, or the name of the reference table that holds them. A join not read
+        # yet has no parent and a query.
+        self.parent_sdaf:   SqlDaf | None   = None
+        self.pending_sql:   str             = ''
+        self.pending_params: Tuple[Any, ...] = ()
+        self.is_resolved:   bool            = True
 
 
-    def from_csv(
-            self,
+    def _new_on_conn(self, name: str, keyfield: str, dtypes: T_dtype_dict | None, is_temp: bool) -> 'SqlDaf':
+        """ A new parent SqlDaf on a table of this connection. Internal use. """
+        new_sdaf: SqlDaf = type(self).__new__(type(self))
+        new_sdaf._open_on(self.conn, self._conn_da, self.db_path, name, keyfield, dtypes, is_temp, use_meta=False)
+        return new_sdaf
+
+
+    @classmethod
+    def _new_selection(
+            cls,
+            parent_sdaf:    'SqlDaf',                   # the SqlDaf the rows are selected from.
+            pending_sql:    str,                        # the query that finds the rows, with daf_ref and daf_ord.
+            pending_params: Tuple[Any, ...],            # its parameters.
+            keyfield:       str | None = None,          # the keyfield of the selection. The parent's if None.
+            ) -> 'SqlDaf':
+        """ Make a child, its rows not found yet. Internal use. """
+        root_sdaf: SqlDaf = parent_sdaf.parent_sdaf or parent_sdaf
+        root_sdaf._resolve()                            # a join not read yet becomes a table first.
+        root_sdaf._ref_col()                            # raises if the parent has no reference that survives VACUUM.
+        sel_sdaf: SqlDaf = cls.__new__(cls)
+        sel_sdaf.conn           = parent_sdaf.conn
+        sel_sdaf._conn_da       = parent_sdaf._conn_da
+        sel_sdaf.db_path        = parent_sdaf.db_path
+        sel_sdaf._name          = parent_sdaf._next_temp_name(root_sdaf.name)
+        sel_sdaf.keyfield       = parent_sdaf.keyfield if keyfield is None else keyfield
+        sel_sdaf.has_rid        = False
+        sel_sdaf.hd             = dict(parent_sdaf.hd)
+        sel_sdaf.dtypes         = dict(parent_sdaf.dtypes)
+        sel_sdaf.is_temp        = True
+        sel_sdaf.parent_sdaf    = root_sdaf
+        sel_sdaf.pending_sql    = pending_sql
+        sel_sdaf.pending_params = pending_params
+        sel_sdaf.is_resolved    = False
+        return sel_sdaf
+
+
+    @classmethod
+    def from_csv(                                                           # type: ignore[override]
+            cls,
             path:       str,                            # the CSV file.
             name:       str = '',                       # the table name. The file name without .csv if empty.
             keyfield:   str = '',                       # the column that holds the key of each row.
             delimiter:  str = ',',                      # the field separator.
+            db_path:    str = '',                       # the database file. SqlDaf.db_path if empty.
             ) -> 'SqlDaf':
         """
         Load a CSV file into a new table, without building it in memory.
@@ -370,16 +419,14 @@ class SqlStore:
         The first line gives the column names. The rest is read one row at a time, so memory use
         does not grow with the file. An empty cell is stored as SQL NULL, and comes back as NULL.
         A row shorter than the header is padded with NULL, and a longer one raises ValueError.
-        The table and its rows are made in one transaction. If any row fails, no table is made.
-
-        The keyfield is only recorded. Its unique index is made when a key is first used, as a
-        Daf builds its key index. A repeated key raises then, not here.
+        As with the constructor, if any row fails, no table is made.
 
         Args:
             path: The CSV file.
             name: The name of the new table. The file name without its extension if empty.
             keyfield: The column that holds the key of each row.
             delimiter: The field separator.
+            db_path: The database file. The class setting `SqlDaf.db_path` if empty.
 
         Returns:
             A SqlDaf for the new table.
@@ -396,30 +443,37 @@ class SqlStore:
             cols: T_ls = Daf(cols=header_ls).columns()          # empty and repeated names made unique, as in Daf.
             width: int = len(cols)
 
-            def fitted(reader: Iterator[T_ls]) -> Iterator[Tuple[Any, ...]]:
+            def fitted(reader: Iterator[T_ls]) -> Iterator[T_la]:
                 row_ls: T_ls
                 for row_ls in reader:
                     if len(row_ls) > width:
-                        raise ValueError(f"SqlStore.from_csv: a row of {path} has {len(row_ls)} values, "
+                        raise ValueError(f"SqlDaf.from_csv: a row of {path} has {len(row_ls)} values, "
                                          f"more than the {width} columns.")
-                    yield tuple([None if val == '' else val for val in row_ls] + [None] * (width - len(row_ls)))
+                    yield [NULL if val == '' else val for val in row_ls] + [NULL] * (width - len(row_ls))
 
-            return self._load_table(name, cols, keyfield, None, fitted(reader))
+            return cls(name, cols=cols, lol=fitted(reader), keyfield=keyfield, db_path=db_path)
 
 
-    def from_daf(self, data_daf: Daf, name: str, keyfield: str = '') -> 'SqlDaf':
+    @classmethod
+    def from_daf(
+            cls,
+            data_daf:   Daf,                            # the Daf to write. It is not changed.
+            name:       str,                            # the name of the new table.
+            keyfield:   str = '',                       # the keyfield. The Daf's if empty.
+            db_path:    str = '',                       # the database file. SqlDaf.db_path if empty.
+            ) -> 'SqlDaf':
         """
         Write an in-memory Daf into a new table.
 
         Each value is stored as it is, so an int stays an int. A NULL cell is stored as SQL NULL.
         The new SqlDaf keeps the Daf's dtypes, for `apply_dtypes()`. The keyfield is the Daf's,
-        unless one is given. As in `from_csv()`, its index is made when a key is first used, and
-        if any row fails, no table is made.
+        unless one is given. As with the constructor, if any row fails, no table is made.
 
         Args:
             data_daf: The Daf to write. It is not changed.
             name: The name of the new table.
             keyfield: The column that holds the key of each row. The Daf's keyfield if empty.
+            db_path: The database file. The class setting `SqlDaf.db_path` if empty.
 
         Returns:
             A SqlDaf for the new table.
@@ -430,240 +484,200 @@ class SqlStore:
         """
         keyfield = keyfield or (data_daf.keyfield if isinstance(data_daf.keyfield, str) else '')
         dtypes: T_dtype_dict | None = data_daf.dtypes if isinstance(data_daf.dtypes, dict) and data_daf.dtypes else None
-        row_la: T_la
-        return self._load_table(name, data_daf.columns(), keyfield, dtypes,
-                                (null_to_none(row_la) for row_la in data_daf.lol))
+        return cls(name, cols=data_daf.columns(), lol=data_daf.lol, keyfield=keyfield, dtypes=dtypes, db_path=db_path)
 
 
-    def next_temp_name(self, parent: str) -> str:
-        """ A new name for a TEMP object made from `parent`, as in daf_tmp_marks_v3. """
-        self.temp_count += 1
-        return f'{TEMP_PREFIX}{parent}_v{self.temp_count}'
-
-
-    def register_function(self, func: Callable[..., Any], nargs: int) -> str:
+    @classmethod
+    def table_exists(cls, name: str, db_path: str = '') -> bool:
         """
-        Register a Python function on the connection, and return the name to call it by in SQL.
+        Say whether the database file has a table of this name.
 
-        If the function raises, SQLite only reports that a function failed. So the error is kept,
-        and `execute()` raises it instead, with its own traceback.
+        Use it to decide whether to open a table or to build it, as from its CSV files. A file
+        that is not there has no tables, and is not made.
 
         Args:
-            func: The function.
-            nargs: The number of arguments it takes.
+            name: The name of the table.
+            db_path: The database file. The class setting `SqlDaf.db_path` if empty.
 
         Returns:
-            Its SQL name, as in daf_fn_3.
+            True if the table is there.
+
+        Raises:
+            ValueError: There is no database path.
         """
-        self.func_count += 1
-        func_name: str = f'daf_fn_{self.func_count}'
+        path: str = db_path or cls.db_path
+        if not path:
+            raise ValueError("SqlDaf: no database. Set SqlDaf.db_path, or give db_path.")
+        if not os.path.exists(path):
+            return False
+        conn: sqlite3.Connection = sqlite3.connect(path)
+        try:
+            return _table_exists_on(conn, name, 'main')
+        finally:
+            conn.close()
+
+
+    @property
+    def name(self) -> str:              # type: ignore[override]
+        """ The name of the table in the database. `copy(name=)` and `save(name)` give a new one. """
+        return self._name
+
+
+    @property
+    def is_child(self) -> bool:
+        """ True for a child, a selection that refers to rows of its parent. False for a parent, which holds its own rows. """
+        return self.parent_sdaf is not None
+
+
+    def __repr__(self) -> str:
+        kind: str = 'child' if self.parent_sdaf is not None else ('TEMP table' if self.is_temp else 'table')
+        return f"<SqlDaf {kind} name='{self.name}' rows={len(self)} cols={len(self.hd)} keyfield='{self.keyfield}'>"
+
+
+    __str__ = __repr__
+
+
+    # ---- the connection ----
+
+    def close(self) -> None:
+        """
+        Close the connection to the database file.
+
+        The tables in the file stay, and can be opened again. A TEMP table, such as one made by
+        `copy()`, goes. The children and joins that share this connection can no longer be read:
+        sqlite3 raises ProgrammingError. Closing twice does nothing more.
+
+        Without `close()`, Python closes the connection when the last SqlDaf that holds it goes.
+        Nothing is lost either way, since each statement is committed when it finishes.
+        """
+        self.conn.close()
+
+
+    def delete(self) -> None:
+        """
+        Delete this table from the database file, with its metadata.
+
+        This cannot be undone. A child has no table of its own to delete: delete its parent, or
+        let the child go. After this, the SqlDaf, and any child of it, can no longer be read.
+
+        Raises:
+            ValueError: This is a child.
+        """
+        if self.parent_sdaf is not None:
+            raise ValueError(f"SqlDaf.delete: '{self.name}' is a child, with no table of its own. Delete its parent instead.")
+        self._resolve()
+        schema: str = 'temp' if self.is_temp else 'main'
+        with self.transaction():
+            self.conn.execute(f'DROP TABLE {schema}.{quote_name(self.name)}')
+            if not self.is_temp:
+                _meta_delete(self.conn, self.name)
+
+
+    @contextlib.contextmanager
+    def transaction(self) -> Iterator[None]:
+        """
+        Run the statements inside the `with` block as one transaction, on this connection.
+
+        Everything in the block is committed together when it ends, or undone together if it
+        raises. It also makes a run of small statements faster, because the file is locked once
+        for the block instead of once per statement. On 1,000,000 rows, a lookup by key took
+        12.4 us inside a transaction, against 24.1 us outside.
+
+        While the block is open, no other connection can write to the database file. So keep it
+        to the work that needs it.
+
+        A `transaction()` inside another one becomes a savepoint: if the inner block raises, only
+        its own work is undone.
+
+        Examples:
+            >>> import tempfile
+            >>> SqlDaf.db_path = tempfile.mkdtemp() + '/job.db'
+            >>> marks_sdaf = SqlDaf('marks', cols=['ballot_id', 'v'], lol=[['b1', 1]])
+            >>> with marks_sdaf.transaction():
+            ...     _ = marks_sdaf.sql("UPDATE marks SET v = 2")
+            >>> marks_sdaf.to_daf().lol
+            [['b1', 2]]
+        """
+        with _transaction_on(self.conn):
+            yield
+
+
+    def _next_temp_name(self, parent: str) -> str:
+        """ A new name for a TEMP object made from `parent`, as in daf_tmp_marks_v3. Internal use. """
+        while True:
+            self._conn_da['temp_count'] += 1
+            name: str = f'{TEMP_PREFIX}{parent}_v{self._conn_da["temp_count"]}'
+            if not _table_exists_on(self.conn, name):
+                return name
+
+
+    def _register_function(self, func: Callable[..., Any], nargs: int) -> str:
+        """
+        Register a Python function on the connection, and return the name to call it by in SQL. Internal use.
+
+        If the function raises, SQLite only reports that a function failed. So the error is kept,
+        where every SqlDaf on the connection sees it, and `_execute()` raises it instead.
+        """
+        self._conn_da['func_count'] += 1
+        func_name: str = f'daf_fn_{self._conn_da["func_count"]}'
+        conn_da: T_da = self._conn_da
 
         def guarded(*args: Any) -> Any:
             try:
                 return func(*args)
             except BaseException as exc_info:
-                self.func_error = exc_info
+                conn_da['func_error'] = exc_info
                 raise
 
         self.conn.create_function(func_name, nargs, guarded)
         return func_name
 
 
-    def execute(self, stmt: str, params: Iterable[Any] = ()) -> sqlite3.Cursor:
-        """
-        Run one statement on the connection, and return the cursor.
-
-        It is `conn.execute()`, except that an error raised inside a registered Python function
-        is raised as itself, not as the general sqlite3.OperationalError. Values are passed as
-        they are. Convert NULL first with `null_to_none()` if they may hold it.
-
-        Args:
-            stmt: One SQL statement.
-            params: Values for its `?` marks.
-
-        Returns:
-            The cursor, ready to fetch from.
-        """
-        self.func_error = None
+    def _execute(self, stmt: str, params: Iterable[Any] = ()) -> sqlite3.Cursor:
+        """ Run one statement, raising an error from a registered Python function as itself. Internal use. """
+        self._conn_da['func_error'] = None
         try:
             return self.conn.execute(stmt, tuple(params))
         except sqlite3.OperationalError as exc_info:
-            if self.func_error is not None:
-                raise self.func_error from exc_info
+            if self._conn_da['func_error'] is not None:
+                raise self._conn_da['func_error'] from exc_info
             raise
 
 
-    def fetch(self, cursor: sqlite3.Cursor) -> List[Tuple[Any, ...]]:
-        """ Fetch every row of a cursor from `execute()`, raising a registered function's error as itself. """
+    def _fetch(self, cursor: sqlite3.Cursor) -> List[Tuple[Any, ...]]:
+        """ Fetch every row of a cursor from `_execute()`, raising a registered function's error as itself. Internal use. """
         try:
             return cursor.fetchall()
         except sqlite3.OperationalError as exc_info:
-            if self.func_error is not None:
-                raise self.func_error from exc_info
+            if self._conn_da['func_error'] is not None:
+                raise self._conn_da['func_error'] from exc_info
             raise
 
 
-class SqlDaf(Daf):
-    """
-    A Daf whose rows live in a SQLite table.
+    def _insert_rows(self, rows: Iterable[Iterable[Any]]) -> None:
+        """ Add rows to this parent's table, in one transaction. NULL is stored as SQL NULL. Internal use. """
+        stmt: str = (f'INSERT INTO {quote_name(self.name)} ({self._cols_sql()}) VALUES ({placeholders(len(self.hd))})')
+        row_la: Iterable[Any]
+        with self.transaction():
+            self.conn.executemany(stmt, (null_to_none(row_la) for row_la in rows))
 
-    Use it for a table too large to hold in memory. The rows stay on disk in the database of a
-    [SqlStore][daffodil.sqldaf.SqlStore], and SQL does the work. When the rows you need are
-    few, pull them into an ordinary Daf with `to_daf()`, and work on them there.
 
-    A SqlDaf is a Daf, so `isinstance(sdaf, Daf)` is True. But it has only the methods
-    written for SQL. Every other Daf method raises SqlNotSupportedError, which names it. So
-    nothing quietly loads a large table into memory. For anything not covered yet, `sql()`
-    runs a SQL statement of your own.
-
-    A SqlDaf is either a base table or a selection.
-
-    - A base table holds the rows. Get one from the store: `store.table()`, `store.from_csv()`,
-      `store.from_daf()` or `store.create_table()`.
-    - A selection holds references to rows of a base table, in order, as a selection of a Daf
-      holds the same row lists. `select_where()`, `select_by_dict()`, `select_where_sql()` and
-      indexing, as in `sdaf[2:5]` or `sdaf['b2']`, each make one. A selection of a selection
-      is a selection of the same base table.
-
-    A selection runs nothing when it is made. Its rows are found, and persisted, the first time it
-    is read: by `to_daf()`, `len()`, `bool()`, `to_dict()`, `to_list()` or `to_value()`. After
-    that, it always means the same rows, as a selection of a Daf does. A change to the values
-    in those rows shows in it, since it refers to them. A selection made from one that is not
-    persisted yet is computed from the same conditions, all in one query.
-
-    Do not delete rows from a base table that has selections, or that you read by position.
-    Positions use daf_rid, which then has gaps, and `len()` of a selection counts its references,
-    so it would still count a deleted row. Leave rows out with a selection instead, as in a Daf.
-    `to_daf()` does leave a deleted row out.
-
-    To read one row, use `select_record()` by key or `iloc()` by position. Each is one query,
-    returns a dict, and makes no selection.
-
-    The methods so far:
-
-    - `len()`, `bool()`, `columns()` and `num_cols()`.
-    - `select_where()`, `select_by_dict()`, `select_where_sql()` and indexing, which select.
-    - `select_record()` and `iloc()`, which read one row.
-    - `select_records_daf()`, `delete_records()` and `keys()`, which work by key, in SQL.
-    - `concat()`, which adds the rows of another Daf or SqlDaf.
-    - `join()`, which joins two SqlDaf tables on their keyfields, as `Daf.join()` does.
-    - `to_daf()`, `to_dict()`, `to_list()` and `to_value()`, which read rows into memory.
-    - `materialize()` and `save_as()`, which copy rows into a new table.
-    - `apply_dtypes()`, `set_keyfield()` and `ensure_key_index()`.
-    - `sql()`, to run any SQL statement.
-
-    Work with large tables in whole statements. One query costs about 12 to 24 us, against
-    under 1 us for a lookup in memory, because each one passes through sqlite3. Many rows in one
-    statement are far cheaper per row.
-
-    A missing value is NULL in Python, as in any Daf, and SQL NULL in the database. It is
-    converted on the way in and on the way out. So in Python test a value with `val is NULL`,
-    and in SQL write `col IS NULL`. Do not compare with ''.
-
-    Until `apply_dtypes()` converts them, values loaded from a CSV file are text, in SQL too.
-    Text is never less than a number in SQLite, so `WHERE n < 5` finds nothing on a text
-    column, and MAX() gives the last in text order.
-
-    The `name` is the name of the table in the database. A selection gets a generated name,
-    such as daf_tmp_marks_v3, which names its reference table once it is persisted. It cannot be
-    changed.
-
-    Examples:
-        >>> with SqlStore() as store:
-        ...     marks_sdaf = store.from_daf(Daf(lol=[['b1', 1], ['b2', '']], cols=['ballot_id', 'v']), name='marks')
-        ...     marks_sdaf.sql('SELECT ballot_id FROM marks WHERE v IS NULL').to_list()
-        ['b2']
-    """
-
-    def __init__(
-            self,
-            store:      SqlStore,                       # the store that owns the table.
-            name:       str,                            # the name of the table.
-            keyfield:   str = '',                       # the column that holds the key of each row.
-            dtypes:     T_dtype_dict | None = None,     # the types of the columns, for apply_dtypes().
-            ) -> None:
+    def _check_same_db(self, other_sdaf: 'SqlDaf', method: str) -> None:
         """
-        Make a SqlDaf for a base table in the store.
+        Check that another SqlDaf can be read from this connection, for a join or the like. Internal use.
 
-        Usually you get one from the store instead, as with `store.table()`.
-
-        Args:
-            store: The store that owns the table.
-            name: The name of the table.
-            keyfield: The column that holds the key of each row, if any.
-            dtypes: The types of the columns, kept for `apply_dtypes()`. Nothing is converted.
-
-        Raises:
-            KeyError: There is no table of that name, or the keyfield is not a column.
+        On the same connection, it always can. On another connection to the same file, it can if
+        it is a parent on a permanent table, since every connection on a file sees its tables.
+        A child or a TEMP table depends on objects that only its own connection sees.
         """
-        info_lot: List[Tuple[Any, ...]] = store.conn.execute(f'PRAGMA table_info({quote_name(name)})').fetchall()
-        if not info_lot:
-            raise KeyError(name)
-
-        all_cols: T_ls = [info_t[1] for info_t in info_lot]
-        cols: T_ls = [col for col in all_cols if col != RID_COL]
-        if keyfield and keyfield not in cols:
-            raise KeyError(keyfield)
-
-        self.store:     SqlStore     = store
-        self._name:     str          = name
-        self.keyfield:  str          = keyfield
-        self.has_rid:   bool         = RID_COL in all_cols
-        self.hd:        T_di         = {col: idx for idx, col in enumerate(cols)}
-        self.dtypes:    T_dtype_dict = dict(dtypes) if dtypes else {}
-
-        # A base table has no base. A selection has its base table, and either the query that
-        # finds its rows, not run yet, or the name of the reference table that holds them.
-        self.base_sdaf:     SqlDaf | None   = None
-        self.pending_sql:   str             = ''
-        self.pending_params: Tuple[Any, ...] = ()
-        self.is_persisted:      bool            = True
-
-
-    @classmethod
-    def _new_selection(
-            cls,
-            parent_sdaf:    'SqlDaf',                   # the SqlDaf the rows are selected from.
-            pending_sql:    str,                        # the query that finds the rows, with daf_ref and daf_ord.
-            pending_params: Tuple[Any, ...],            # its parameters.
-            keyfield:       str | None = None,          # the keyfield of the selection. The parent's if None.
-            ) -> 'SqlDaf':
-        """ Make a selection, not persisted yet. Internal use. """
-        base_sdaf: SqlDaf = parent_sdaf.base_sdaf or parent_sdaf
-        base_sdaf.persist()                                 # a join not read yet becomes a table first.
-        base_sdaf._ref_col()                            # raises if the base has no reference that survives VACUUM.
-        sel_sdaf: SqlDaf = cls.__new__(cls)
-        sel_sdaf.store          = parent_sdaf.store
-        sel_sdaf._name          = parent_sdaf.store.next_temp_name(base_sdaf.name)
-        sel_sdaf.keyfield       = parent_sdaf.keyfield if keyfield is None else keyfield
-        sel_sdaf.has_rid        = False
-        sel_sdaf.hd             = dict(parent_sdaf.hd)
-        sel_sdaf.dtypes         = dict(parent_sdaf.dtypes)
-        sel_sdaf.base_sdaf      = base_sdaf
-        sel_sdaf.pending_sql    = pending_sql
-        sel_sdaf.pending_params = pending_params
-        sel_sdaf.is_persisted       = False
-        return sel_sdaf
-
-
-    @property
-    def name(self) -> str:              # type: ignore[override]
-        """ The name of the table in the database. It cannot be changed. """
-        return self._name
-
-
-    @property
-    def conn(self) -> sqlite3.Connection:
-        """ The store's connection. """
-        return self.store.conn
-
-
-    def __repr__(self) -> str:
-        kind: str = 'selection' if self.base_sdaf is not None else 'table'
-        return f"<SqlDaf {kind} name='{self.name}' rows={len(self)} cols={len(self.hd)} keyfield='{self.keyfield}'>"
-
-
-    __str__ = __repr__
+        if other_sdaf.conn is self.conn:
+            return
+        if os.path.realpath(other_sdaf.db_path) != os.path.realpath(self.db_path):
+            raise NotImplementedError(f"{method}: the other SqlDaf is in another database file, "
+                                      f"{other_sdaf.db_path}. Both must be in one file.")
+        if other_sdaf.parent_sdaf is not None or other_sdaf.is_temp or not other_sdaf.is_resolved:
+            raise NotImplementedError(f"{method}: '{other_sdaf.name}' is a child or a TEMP table of another connection. "
+                                      f"Save it first, or make both from the same table.")
 
 
     # ---- the SQL that gives the rows ----
@@ -675,7 +689,7 @@ class SqlDaf(Daf):
 
     def _ref_col(self) -> str:
         """
-        The column of this base table that a selection refers to rows by. Internal use.
+        The column of this parent that a child refers to rows by. Internal use.
 
         daf_rid if the table has it. Otherwise the keyfield, with its unique index made first, so
         the references survive VACUUM. Otherwise a selection is not possible.
@@ -685,76 +699,70 @@ class SqlDaf(Daf):
         if self.keyfield:
             self.ensure_key_index()
             return self.keyfield
-        raise SqlNotSupportedError(
+        raise NotImplementedError(
                 f"A selection of '{self.name}' needs a daf_rid column or a unique keyfield. "
-                f"Set a keyfield with unique values, or copy the table into the store with from_daf().")
+                f"Set a keyfield with unique values, or copy the table with copy().")
 
 
-    def _resolve_base(self) -> None:
-        """ Resolve a join not read yet, this one or the base of this selection, before selecting from it. Internal use. """
-        base_sdaf: SqlDaf = self.base_sdaf or self
-        base_sdaf.persist()
+    def _resolve_parent(self) -> None:
+        """ Resolve a join not read yet, this one or the parent of this child, before selecting from it. Internal use. """
+        parent_sdaf: SqlDaf = self.parent_sdaf or self
+        parent_sdaf._resolve()
 
 
     def _rows_sql(self) -> Tuple[str, Tuple[Any, ...]]:
         """
         A query that gives every row, as daf_ref, daf_ord and then the columns, not sorted. Internal use.
 
-        For a base table, it reads the table. Its daf_ref is daf_rid, or else the keyfield, or else
+        For a parent, it reads the table. Its daf_ref is daf_rid, or else the keyfield, or else
         the rowid. Only reading uses the rowid: `_new_selection()` checks for a reference that
-        survives VACUUM first. For a persisted selection, it joins the reference table
-        to the base table. For a selection not persisted yet, it is the query that finds the rows.
+        survives VACUUM first. For a child whose rows are found, it joins the reference table to
+        the parent. For a child not read yet, it is the query that finds the rows.
         """
-        if self.base_sdaf is None and not self.is_persisted:
+        if self.parent_sdaf is None and not self.is_resolved:
             return self.pending_sql, self.pending_params            # a join not resolved yet.
-        if self.base_sdaf is None:
+        if self.parent_sdaf is None:
             ord_sql: str = quote_name(RID_COL) if self.has_rid else 'rowid'
             ref_sql: str = ord_sql if self.has_rid or not self.keyfield else quote_name(self.keyfield)
             return (f'SELECT {ref_sql} AS {REF_COL}, {ord_sql} AS {ORD_COL}, {self._cols_sql()} '
                     f'FROM {quote_name(self.name)}'), ()
-        if not self.is_persisted:
+        if not self.is_resolved:
             return self.pending_sql, self.pending_params
-        base_ref_col: str = self.base_sdaf._ref_col()
+        parent_ref_col: str = self.parent_sdaf._ref_col()
         return (f'SELECT s.ref AS {REF_COL}, s.ord AS {ORD_COL}, {self._cols_sql("b.")} '
-                f'FROM {quote_name(self.name)} AS s JOIN {quote_name(self.base_sdaf.name)} AS b '
-                f'ON b.{quote_name(base_ref_col)} = s.ref'), ()
+                f'FROM {quote_name(self.name)} AS s JOIN {quote_name(self.parent_sdaf.name)} AS b '
+                f'ON b.{quote_name(parent_ref_col)} = s.ref'), ()
 
 
-    def persist(self) -> 'SqlDaf':
+    def _resolve(self) -> 'SqlDaf':
         """
-        Find the rows of a selection now, and keep which rows they are.
+        Find the rows of a child now, and keep which rows they are. Internal use.
 
-        This is persist() as in Spark and Dask: the query runs once, and its result is kept,
-        while the object stays a SqlDaf. Reading a selection does this the first time, so it is
-        rarely needed.
-
-        For a selection, it writes a TEMP table of references, one daf_rid or key per row, in
-        order. The rows stay in the base table. On 1,000,000 rows, a selection of 773,698 took
-        0.20 s. For a join not read yet, it writes a TEMP table of the joined rows. A base
-        table, or a SqlDaf already persisted, is not changed.
-
-        Returns:
-            This SqlDaf.
+        Reading a child does this the first time, as Q113 requires. For a child, it writes a TEMP
+        table of references, one daf_rid or key per row, in order. The rows stay in the parent.
+        On 1,000,000 rows, a selection of 773,698 took 0.20 s. For a join not read yet, it writes
+        a TEMP table of the joined rows. A parent, or a child already resolved, is not changed.
         """
-        if self.is_persisted:
+        if self.is_resolved:
             return self
-        if self.base_sdaf is None:                                  # a join: resolve it into a TEMP table of new rows.
-            table_sql: str = self.store._create_table_sql(self.name, list(self.hd)).replace('CREATE TABLE', 'CREATE TEMP TABLE', 1)
-            with self.store.transaction():
-                self.store.execute(table_sql)
-                self.store.execute(f'INSERT INTO {quote_name(self.name)} ({self._cols_sql()}) '
-                                   f'SELECT {self._cols_sql()} FROM ({self.pending_sql}) ORDER BY {ORD_COL}',
-                                   self.pending_params)
+        if self.parent_sdaf is None:                                # a join: resolve it into a TEMP table of new rows.
+            table_sql: str = _create_table_sql(self.conn, self.name, list(self.hd), 'temp')
+            with self.transaction():
+                self._execute(table_sql)
+                self._execute(f'INSERT INTO {quote_name(self.name)} ({self._cols_sql()}) '
+                              f'SELECT {self._cols_sql()} FROM ({self.pending_sql}) ORDER BY {ORD_COL}',
+                              self.pending_params)
             self.has_rid = True
-            self.is_persisted = True
+            self.is_temp = True
+            self.is_resolved = True
             self.pending_sql = ''
             self.pending_params = ()
             return self
-        self.store.execute(f'CREATE TEMP TABLE {quote_name(self.name)} (ord INTEGER PRIMARY KEY, ref)')
-        self.store.execute(f'INSERT INTO {quote_name(self.name)} (ref) '
-                           f'SELECT {REF_COL} FROM ({self.pending_sql}) ORDER BY {ORD_COL}',
-                           self.pending_params)
-        self.is_persisted = True
+        self._execute(f'CREATE TEMP TABLE {quote_name(self.name)} (ord INTEGER PRIMARY KEY, ref)')
+        self._execute(f'INSERT INTO {quote_name(self.name)} (ref) '
+                      f'SELECT {REF_COL} FROM ({self.pending_sql}) ORDER BY {ORD_COL}',
+                      self.pending_params)
+        self.is_resolved = True
         self.pending_sql = ''
         self.pending_params = ()
         return self
@@ -764,10 +772,10 @@ class SqlDaf(Daf):
         """
         Say whether daf_ord numbers the rows 1, 2, 3 and so on, so a position is a lookup. Internal use.
 
-        It does in a persisted selection, whose reference table numbers its rows as it is written. It
-        does in a base table with daf_rid, as long as no row has been deleted from it.
+        It does in a resolved child, whose reference table numbers its rows as it is written. It
+        does in a parent with daf_rid, as long as no row has been deleted from it.
         """
-        return self.has_rid if self.base_sdaf is None else self.is_persisted
+        return self.has_rid if self.parent_sdaf is None else self.is_resolved
 
 
     def _count_for_position(self) -> int:
@@ -776,7 +784,7 @@ class SqlDaf(Daf):
 
         Where positions are dense, this is the highest daf_ord, one lookup. Otherwise it is `len()`.
         """
-        if self.base_sdaf is None and self.has_rid:
+        if self.parent_sdaf is None and self.has_rid:
             return int(self.conn.execute(f'SELECT COALESCE(MAX({quote_name(RID_COL)}), 0) FROM {quote_name(self.name)}').fetchone()[0])
         return len(self)
 
@@ -787,10 +795,10 @@ class SqlDaf(Daf):
         rows_sql, rows_params = self._rows_sql()
         cols_sql: str = ', '.join(quote_name(col) for col in (cols if cols is not None else self.hd))
         where_part: str = f' WHERE {where_sql}' if where_sql else ''
-        cursor: sqlite3.Cursor = self.store.execute(
+        cursor: sqlite3.Cursor = self._execute(
                 f'SELECT {cols_sql} FROM ({rows_sql}){where_part} ORDER BY {ORD_COL} LIMIT ? OFFSET ?',
                 rows_params + params + (limit, offset))
-        return self.store.fetch(cursor)
+        return self._fetch(cursor)
 
 
     # ---- reading ----
@@ -799,15 +807,15 @@ class SqlDaf(Daf):
         """
         Count the rows.
 
-        For a base table, this runs a COUNT. For a selection, it is persisted first, and then its
-        references are counted, which is one lookup. A row deleted from the base table is still
-        counted, so do not delete rows from a base table that has selections.
+        For a parent, this runs a COUNT. For a child, its rows are found first, and then its
+        references are counted, which is one lookup. A row deleted from the parent is still
+        counted, so do not delete rows from a parent that has children.
 
         Returns:
             The number of rows.
         """
-        self.persist()
-        if self.base_sdaf is None:
+        self._resolve()
+        if self.parent_sdaf is None:
             return int(self.conn.execute(f'SELECT COUNT(*) FROM {quote_name(self.name)}').fetchone()[0])
         return int(self.conn.execute(f'SELECT COALESCE(MAX(ord), 0) FROM {quote_name(self.name)}').fetchone()[0])
 
@@ -816,13 +824,13 @@ class SqlDaf(Daf):
         """
         Say whether there is at least one row.
 
-        This stops at the first row, so it is fast on a large table. A selection is persisted first,
-        and then its references are checked, as `len()` counts them.
+        This stops at the first row, so it is fast on a large table. A child has its rows found
+        first, and then its references are checked, as `len()` counts them.
 
         Returns:
             True if there is a row.
         """
-        self.persist()
+        self._resolve()
         return self.conn.execute(f'SELECT 1 FROM {quote_name(self.name)} LIMIT 1').fetchone() is not None
 
 
@@ -844,13 +852,13 @@ class SqlDaf(Daf):
 
         Use it once the rows you need are few enough to hold. The rows come in order. A SQL NULL
         comes back as NULL. The new Daf has this SqlDaf's name, keyfield and dtypes. Nothing
-        ties it to the table afterwards: a change to one does not show in the other. A selection
-        is persisted first.
+        ties it to the table afterwards: a change to one does not show in the other. A child has
+        its rows found first.
 
         Returns:
             A Daf of every row.
         """
-        self.persist()
+        self._resolve()
         lol: T_lola = [none_to_null(row_t) for row_t in self._select_rows()]
         return Daf(lol=lol, cols=self.columns(), keyfield=self.keyfield, name=self.name,
                    dtypes=dict(self.dtypes) if self.dtypes else None)
@@ -860,7 +868,7 @@ class SqlDaf(Daf):
         """
         Read a table of one row as a dict, as `Daf.to_dict()` does.
 
-        A selection is persisted first. For a row by key or by position, `select_record()` and
+        A child has its rows found first. For a row by key or by position, `select_record()` and
         `iloc()` are cheaper: they make no selection.
 
         Returns:
@@ -869,7 +877,7 @@ class SqlDaf(Daf):
         Raises:
             ValueError: There is more than one row.
         """
-        self.persist()
+        self._resolve()
         rows_lot: List[Tuple[Any, ...]] = self._select_rows(limit=2)
         if len(rows_lot) > 1:
             raise ValueError("Ambiguous 2dim array.")
@@ -882,8 +890,8 @@ class SqlDaf(Daf):
         """
         Read a table of one row, or of one column, as a list, as `Daf.to_list()` does.
 
-        One column gives every value of the column, in order, so select first. A selection is
-        persisted first.
+        One column gives every value of the column, in order, so select first. A child has its
+        rows found first.
 
         Returns:
             The values of the row, or of the column.
@@ -891,7 +899,7 @@ class SqlDaf(Daf):
         Raises:
             ValueError: There is more than one row and more than one column.
         """
-        self.persist()
+        self._resolve()
         if len(self.hd) == 1:
             return [NULL if row_t[0] is None else row_t[0] for row_t in self._select_rows()]
         rows_lot: List[Tuple[Any, ...]] = self._select_rows(limit=2)
@@ -904,7 +912,7 @@ class SqlDaf(Daf):
         """
         Read a table of one row and one column as its value, as `Daf.to_value()` does.
 
-        A selection is persisted first.
+        A child has its rows found first.
 
         Returns:
             The value. NULL for SQL NULL.
@@ -912,7 +920,7 @@ class SqlDaf(Daf):
         Raises:
             ValueError: The table is not one row and one column.
         """
-        self.persist()
+        self._resolve()
         rows_lot: List[Tuple[Any, ...]] = self._select_rows(limit=2)
         if len(rows_lot) != 1 or len(self.hd) != 1:
             raise ValueError(f"to_value() requires 1×1, got shape ({len(rows_lot) if len(rows_lot) < 2 else '2+'}, {len(self.hd)})")
@@ -928,8 +936,8 @@ class SqlDaf(Daf):
         """
         Read one row by position, as `Daf.iloc()` does, in one query.
 
-        This makes no selection, and does not persist a selection it is called on. In a base table
-        with daf_rid, or a persisted selection, the position is looked up directly. Otherwise SQLite
+        This makes no selection, and does not find the rows of a child it is called on. In a parent
+        with daf_rid, or a child whose rows are found, the position is looked up directly. Otherwise SQLite
         steps over the rows before it, which takes longer the further in it is. A negative
         position counts from the end, which costs a `len()` first.
 
@@ -944,10 +952,10 @@ class SqlDaf(Daf):
         Raises:
             IndexError: There is no row at that position.
             KeyError: A name in `include_cols` is not a column.
-            SqlNotSupportedError: `rtype` is not 'dict' or 'list'.
+            NotImplementedError: `rtype` is not 'dict' or 'list'.
         """
         if rtype not in ('dict', 'list'):
-            raise SqlNotSupportedError(f"iloc(rtype='{rtype}') is not supported on a SqlDaf yet. Use 'dict' or 'list'.")
+            raise NotImplementedError(f"iloc(rtype='{rtype}') is not supported on a SqlDaf yet. Use 'dict' or 'list'.")
         cols: T_ls = list(include_cols) if include_cols is not None else list(self.hd)
         col: str
         for col in cols:
@@ -970,8 +978,8 @@ class SqlDaf(Daf):
         Read one row by its key, as a dict, as `Daf.select_record()` does, in one query.
 
         The keyfield's unique index is made first if it is not there yet, so the lookup does not
-        read every row. This makes no selection, and does not persist a selection it is called on.
-        It took about 18 us on 1,000,000 rows, or 9 us inside `store.transaction()`.
+        read every row. This makes no selection, and does not find the rows of a child it is called on.
+        It took about 18 us on 1,000,000 rows, or 9 us inside `transaction()`.
 
         Args:
             key: The key of the row.
@@ -986,7 +994,7 @@ class SqlDaf(Daf):
         """
         if not self.keyfield:
             raise ValueError(f"SqlDaf.select_record: '{self.name}' has no keyfield.")
-        (self.base_sdaf or self).ensure_key_index()
+        (self.parent_sdaf or self).ensure_key_index()
         rows_lot: List[Tuple[Any, ...]] = self._select_rows(f'{quote_name(self.keyfield)} IS ?', (key,), limit=1)
         if not rows_lot:
             if silent_error:
@@ -1016,12 +1024,13 @@ class SqlDaf(Daf):
             A selection.
 
         Examples:
-            >>> with SqlStore() as store:
-            ...     marks_sdaf = store.from_daf(Daf(lol=[['b1', 1], ['b2', 0]], cols=['ballot_id', 'v']), name='marks')
-            ...     marks_sdaf.select_where_sql('"v" = ?', [0]).to_list()
+            >>> import tempfile
+            >>> SqlDaf.db_path = tempfile.mkdtemp() + '/job.db'
+            >>> marks_sdaf = SqlDaf.from_daf(Daf(lol=[['b1', 1], ['b2', 0]], cols=['ballot_id', 'v']), name='marks')
+            >>> marks_sdaf.select_where_sql('"v" = ?', [0]).to_list()
             ['b2', 0]
         """
-        self._resolve_base()
+        self._resolve_parent()
         parent_sql, parent_params = self._rows_sql()
         return SqlDaf._new_selection(self, f'SELECT * FROM ({parent_sql}) WHERE {where_sql}',
                                      parent_params + null_to_none(params))
@@ -1055,16 +1064,17 @@ class SqlDaf(Daf):
 
         Raises:
             KeyError: A name in `cols` is not a column.
-            SqlNotSupportedError: `indirect_col` is given.
+            NotImplementedError: `indirect_col` is given.
 
         Examples:
-            >>> with SqlStore() as store:
-            ...     marks_sdaf = store.from_daf(Daf(lol=[['b1', 1], ['b2', 0]], cols=['ballot_id', 'v']), name='marks')
-            ...     marks_sdaf.select_where(lambda row: row['v'] == 1, cols=['v']).to_list()
+            >>> import tempfile
+            >>> SqlDaf.db_path = tempfile.mkdtemp() + '/job.db'
+            >>> marks_sdaf = SqlDaf.from_daf(Daf(lol=[['b1', 1], ['b2', 0]], cols=['ballot_id', 'v']), name='marks')
+            >>> marks_sdaf.select_where(lambda row: row['v'] == 1, cols=['v']).to_list()
             ['b1', 1]
         """
         if indirect_col is not None:
-            raise SqlNotSupportedError("select_where(indirect_col=) is not supported on a SqlDaf yet.")
+            raise NotImplementedError("select_where(indirect_col=) is not supported on a SqlDaf yet.")
         func_cols: T_ls = list(cols) if cols is not None else list(self.hd)
         col: str
         for col in func_cols:
@@ -1075,7 +1085,7 @@ class SqlDaf(Daf):
         def row_test(*values: Any) -> int:
             return 1 if where(KeyedList(func_hd, [NULL if val is None else val for val in values])) else 0
 
-        func_name: str = self.store.register_function(row_test, len(func_cols))
+        func_name: str = self._register_function(row_test, len(func_cols))
         return self.select_where_sql(f'{func_name}({", ".join(quote_name(col) for col in func_cols)})')
 
 
@@ -1097,7 +1107,7 @@ class SqlDaf(Daf):
         Values are compared with SQL's IS, which treats NULL as a value, so the inverse keeps rows
         with a missing value. As in Python, 1 equals 1.0, and the text '1' does not equal 1.
 
-        Nothing runs yet, unless `expectmax` is given: then the selection is persisted at once, to
+        Nothing runs yet, unless `expectmax` is given: then its rows are found at once, to
         count the matches.
 
         Args:
@@ -1114,9 +1124,10 @@ class SqlDaf(Daf):
             TypeError: `selector_da` is not a dict, or a list or tuple of dicts.
 
         Examples:
-            >>> with SqlStore() as store:
-            ...     marks_sdaf = store.from_daf(Daf(lol=[['b1', 1], ['b2', '']], cols=['ballot_id', 'v']), name='marks')
-            ...     marks_sdaf.select_by_dict({'v': ''}).to_list()
+            >>> import tempfile
+            >>> SqlDaf.db_path = tempfile.mkdtemp() + '/job.db'
+            >>> marks_sdaf = SqlDaf.from_daf(Daf(lol=[['b1', 1], ['b2', '']], cols=['ballot_id', 'v']), name='marks')
+            >>> marks_sdaf.select_by_dict({'v': ''}).to_list()
             ['b2', '']
         """
         dicts_lda: List[T_da]
@@ -1166,8 +1177,8 @@ class SqlDaf(Daf):
         - A str is a key. The keyfield's unique index is made first. A missing key raises
           KeyError, as in a Daf.
 
-        A negative position, or a slice with a negative end, costs a `len()` first. In a base
-        table with daf_rid, or a persisted selection, positions are looked up directly. Otherwise
+        A negative position, or a slice with a negative end, costs a `len()` first. In a parent
+        with daf_rid, or a child whose rows are found, positions are looked up directly. Otherwise
         SQLite steps over the rows before them.
 
         Args:
@@ -1179,16 +1190,16 @@ class SqlDaf(Daf):
         Raises:
             IndexError: An int position past the end.
             KeyError: A key that is missing.
-            SqlNotSupportedError: Any other form, such as `sdaf[rows, cols]`, or a slice with a step.
+            NotImplementedError: Any other form, such as `sdaf[rows, cols]`, or a slice with a step.
         """
         if isinstance(sel, bool) or not isinstance(sel, (int, slice, str)):
-            raise SqlNotSupportedError(f"sdaf[{sel!r}] is not supported on a SqlDaf yet. Use an int, a slice or a key.")
-        self._resolve_base()
+            raise NotImplementedError(f"sdaf[{sel!r}] is not supported on a SqlDaf yet. Use an int, a slice or a key.")
+        self._resolve_parent()
         parent_sql, parent_params = self._rows_sql()
 
         if isinstance(sel, str):
             if not self.keyfield:
-                raise SqlNotSupportedError(f"sdaf['{sel}']: '{self.name}' has no keyfield.")
+                raise NotImplementedError(f"sdaf['{sel}']: '{self.name}' has no keyfield.")
             if not self.select_record(sel):
                 raise KeyError(sel)
             return SqlDaf._new_selection(self, f'SELECT * FROM ({parent_sql}) WHERE {quote_name(self.keyfield)} IS ?',
@@ -1203,7 +1214,7 @@ class SqlDaf(Daf):
             stop = start + 1
         else:
             if sel.step not in (None, 1):
-                raise SqlNotSupportedError("A slice with a step is not supported on a SqlDaf yet.")
+                raise NotImplementedError("A slice with a step is not supported on a SqlDaf yet.")
             needs_len: bool = (sel.start is not None and sel.start < 0) or (sel.stop is not None and sel.stop < 0)
             count: int = self._count_for_position() if needs_len else 0
             start = 0 if sel.start is None else (sel.start if sel.start >= 0 else max(count + sel.start, 0))
@@ -1224,48 +1235,47 @@ class SqlDaf(Daf):
         """ Say whether there is a row at this position, from 0. """
         rows_sql, rows_params = self._rows_sql()
         if self._is_dense():
-            return self.store.execute(f'SELECT 1 FROM ({rows_sql}) WHERE {ORD_COL} = ?',
+            return self._execute(f'SELECT 1 FROM ({rows_sql}) WHERE {ORD_COL} = ?',
                                       rows_params + (irow + 1,)).fetchone() is not None
-        cursor: sqlite3.Cursor = self.store.execute(
+        cursor: sqlite3.Cursor = self._execute(
                 f'SELECT 1 FROM ({rows_sql}) ORDER BY {ORD_COL} LIMIT 1 OFFSET ?', rows_params + (irow,))
         return cursor.fetchone() is not None
 
 
     # ---- keys: selecting, deleting ----
 
-    def keys(self) -> 'SqlKeys | T_la':                                     # type: ignore[override]
+    def keys(self) -> T_la:                                                 # type: ignore[override]
         """
-        Get the keys, as a lazy list of the keyfield's values in row order.
+        Get the keys, as a list of the keyfield's values in row order, as `Daf.keys()` does.
 
-        Nothing is read until you iterate it, so a million keys are not pulled into memory by
-        asking for them. Pass it to `select_records_daf()` or `delete_records()`, which use it in
-        SQL. `list(sdaf.keys())` reads every key into a list. Without a keyfield, as in a Daf, the
-        answer is an empty list.
+        Every key is read into memory. To pass many keys to `select_records_daf()` or
+        `delete_records()` without reading them, give the SqlDaf itself: its keys are then used
+        in SQL. Without a keyfield, as in a Daf, the answer is an empty list.
 
         Returns:
-            A [SqlKeys][daffodil.sqldaf.SqlKeys], or an empty list if there is no keyfield.
+            The keys, or an empty list if there is no keyfield.
         """
         if not self.keyfield:
             return []
-        return SqlKeys(self)
+        rows_sql, rows_params = self._rows_sql()
+        cursor: sqlite3.Cursor = self._execute(
+                f'SELECT {quote_name(self.keyfield)} FROM ({rows_sql}) ORDER BY {ORD_COL}', rows_params)
+        return [NULL if row_t[0] is None else row_t[0] for row_t in self._fetch(cursor)]
 
 
     def _key_source_sql(self, keys_ls: Any) -> Tuple[str, Tuple[Any, ...]]:
         """
         A query that gives the keys as daf_key and daf_ord, in order, from any form of keys. Internal use.
 
-        A SqlDaf or SqlKeys gives the keyfield of its rows. An in-memory Daf gives its keys, and a
+        A SqlDaf gives the keyfield of its rows. An in-memory Daf gives its keys, and a
         list or other iterable its values: both are written to a TEMP table of keys first, with
         an index, so the keys are read once and joined in SQL.
         """
-        if isinstance(keys_ls, SqlKeys):
-            keys_ls = keys_ls.sdaf
         if isinstance(keys_ls, SqlDaf):
-            if keys_ls.store is not self.store:
-                raise SqlNotSupportedError("The keys are a SqlDaf of another store. Use one store for both.")
+            self._check_same_db(keys_ls, 'The keys')
             if not keys_ls.keyfield:
                 raise ValueError(f"The keys are the SqlDaf '{keys_ls.name}', which has no keyfield.")
-            if keys_ls.base_sdaf is None and keys_ls.keyfield:
+            if keys_ls.parent_sdaf is None and keys_ls.keyfield:
                 keys_ls.ensure_key_index()
             rows_sql, rows_params = keys_ls._rows_sql()
             return f'SELECT {quote_name(keys_ls.keyfield)} AS daf_key, {ORD_COL} FROM ({rows_sql})', rows_params
@@ -1275,30 +1285,30 @@ class SqlDaf(Daf):
         if isinstance(keys_ls, (str, bytes)) or not isinstance(keys_ls, Iterable):
             keys_ls = [keys_ls]
 
-        name: str = self.store.next_temp_name('keys')
-        self.store.execute(f'CREATE TEMP TABLE {quote_name(name)} (ord INTEGER PRIMARY KEY, daf_key)')
+        name: str = self._next_temp_name('keys')
+        self._execute(f'CREATE TEMP TABLE {quote_name(name)} (ord INTEGER PRIMARY KEY, daf_key)')
         key: Any
-        with self.store.transaction():
+        with self.transaction():
             self.conn.executemany(f'INSERT INTO {quote_name(name)} (daf_key) VALUES (?)',
                                   ((None if key is NULL else key,) for key in keys_ls))
-            self.store.execute(f'CREATE INDEX {quote_name(name + "_ix")} ON {quote_name(name)} (daf_key)')
+            self._execute(f'CREATE INDEX {quote_name(name + "_ix")} ON {quote_name(name)} (daf_key)')
         return f'SELECT daf_key, ord AS {ORD_COL} FROM {quote_name(name)}', ()
 
 
     def _need_keyfield(self, method: str) -> str:
-        """ The keyfield, with the base table's index made, or ValueError if there is none. Internal use. """
+        """ The keyfield, with the parent's index made, or ValueError if there is none. Internal use. """
         if not self.keyfield:
             raise ValueError(f"SqlDaf.{method}: '{self.name}' has no keyfield.")
-        base_sdaf: SqlDaf = self.base_sdaf or self
-        if base_sdaf.keyfield == self.keyfield:
-            base_sdaf.ensure_key_index()
+        parent_sdaf: SqlDaf = self.parent_sdaf or self
+        if parent_sdaf.keyfield == self.keyfield:
+            parent_sdaf.ensure_key_index()
         return self.keyfield
 
 
     def _first_missing_key(self, keys_sql: str, keys_params: Tuple[Any, ...]) -> Any:
         """ A key of the key source that no row of this SqlDaf has, or None if every one is there. Internal use. """
         rows_sql, rows_params = self._rows_sql()
-        found_t: Tuple[Any, ...] | None = self.store.execute(
+        found_t: Tuple[Any, ...] | None = self._execute(
                 f'SELECT k.daf_key FROM ({keys_sql}) AS k WHERE NOT EXISTS '
                 f'(SELECT 1 FROM ({rows_sql}) AS r WHERE r.{quote_name(self.keyfield)} = k.daf_key) LIMIT 1',
                 keys_params + rows_params).fetchone()
@@ -1307,16 +1317,15 @@ class SqlDaf(Daf):
 
     def select_records_daf(
             self,
-            keys_ls:        Any,                        # the keys: a list, an iterable, a Daf, a SqlDaf or SqlKeys.
+            keys_ls:        Any,                        # the keys: a list, an iterable, a Daf or a SqlDaf.
             inverse:        bool = False,               # if True, the rows whose key is not among them.
             silent_error:   bool = False,               # if True, keys that are not found are ignored.
             ) -> 'SqlDaf':
         """
         Select the rows with these keys, as `Daf.select_records_daf()` does.
 
-        The keys may be a list or any iterable, an in-memory Daf, another SqlDaf of the same
-        store, or `sdaf.keys()`. A SqlDaf or its keys are used in SQL, as a join, so no key comes
-        into Python. The other forms are written to a TEMP table first. The selected rows come in
+        The keys may be a list or any iterable, an in-memory Daf, or another SqlDaf of the same
+        database file. A SqlDaf's keys are used in SQL, as a join, so no key comes into Python. The other forms are written to a TEMP table first. The selected rows come in
         the order of the keys, as in a Daf. With `inverse=True`, the rows whose key is not among
         them, in this table's order.
 
@@ -1324,7 +1333,7 @@ class SqlDaf(Daf):
         check runs at once, as one query. The selection itself runs when first read.
 
         Args:
-            keys_ls: The keys: a list, an iterable, a Daf, a SqlDaf or SqlKeys.
+            keys_ls: The keys: a list, an iterable, a Daf or a SqlDaf.
             inverse: If True, select the rows whose key is not among them.
             silent_error: If True, keys that are not found are ignored.
 
@@ -1336,13 +1345,14 @@ class SqlDaf(Daf):
             ValueError: This SqlDaf, or a SqlDaf given as the keys, has no keyfield.
 
         Examples:
-            >>> with SqlStore() as store:
-            ...     marks_sdaf = store.from_daf(Daf(lol=[['b1', 1], ['b2', 0], ['b3', 1]], cols=['ballot_id', 'v'],
-            ...                                     keyfield='ballot_id'), name='marks')
-            ...     marks_sdaf.select_records_daf(['b3', 'b1']).to_daf().to_lod()
+            >>> import tempfile
+            >>> SqlDaf.db_path = tempfile.mkdtemp() + '/job.db'
+            >>> marks_daf = Daf(lol=[['b1', 1], ['b2', 0], ['b3', 1]], cols=['ballot_id', 'v'], keyfield='ballot_id')
+            >>> marks_sdaf = SqlDaf.from_daf(marks_daf, name='marks')
+            >>> marks_sdaf.select_records_daf(['b3', 'b1']).to_daf().to_lod()
             [{'ballot_id': 'b3', 'v': 1}, {'ballot_id': 'b1', 'v': 1}]
         """
-        self._resolve_base()
+        self._resolve_parent()
         key_col: str = self._need_keyfield('select_records_daf')
         keys_sql, keys_params = self._key_source_sql(keys_ls)
         if not silent_error:
@@ -1377,10 +1387,10 @@ class SqlDaf(Daf):
         With `inplace=True`, the rows are removed from this SqlDaf, and it is returned.
 
         - On a selection, its references to those rows are removed, and the rest renumbered. The
-          base table is not changed, so this is safe, as in a Daf.
-        - On a base table, the rows are deleted from the database. Then positions in it, and the
+          parent is not changed, so this is safe, as in a Daf.
+        - On a parent, the rows are deleted from the database. Then positions in it, and the
           `len()` of a selection made from it earlier, are stale: a selection still counts a
-          deleted row, though `to_daf()` leaves it out. So delete in place from a base table
+          deleted row, though `to_daf()` leaves it out. So delete in place from a parent
           only when nothing else uses it.
 
         The keys may be in any form that `select_records_daf()` takes. A key that is not found
@@ -1408,50 +1418,39 @@ class SqlDaf(Daf):
             if missing_key is not None:
                 raise KeyError(missing_key)
 
-        if self.base_sdaf is None:
-            with self.store.transaction():
-                self.store.execute(f'DELETE FROM {quote_name(self.name)} WHERE {quote_name(key_col)} IN '
+        if self.parent_sdaf is None:
+            with self.transaction():
+                self._execute(f'DELETE FROM {quote_name(self.name)} WHERE {quote_name(key_col)} IN '
                                    f'(SELECT daf_key FROM ({keys_sql}))', keys_params)
             return self
 
-        self.persist()
+        self._resolve()
         rows_sql, rows_params = self._rows_sql()
-        new_name: str = self.store.next_temp_name(self.base_sdaf.name)
-        with self.store.transaction():
-            self.store.execute(f'CREATE TEMP TABLE {quote_name(new_name)} (ord INTEGER PRIMARY KEY, ref)')
-            self.store.execute(
+        new_name: str = self._next_temp_name(self.parent_sdaf.name)
+        with self.transaction():
+            self._execute(f'CREATE TEMP TABLE {quote_name(new_name)} (ord INTEGER PRIMARY KEY, ref)')
+            self._execute(
                     f'INSERT INTO {quote_name(new_name)} (ref) SELECT r.{REF_COL} FROM ({rows_sql}) AS r '
                     f'WHERE r.{quote_name(key_col)} NOT IN (SELECT daf_key FROM ({keys_sql}) WHERE daf_key IS NOT NULL) '
                     f'OR r.{quote_name(key_col)} IS NULL ORDER BY r.{ORD_COL}',
                     rows_params + keys_params)
-            self.store.execute(f'DROP TABLE {quote_name(self.name)}')
-            self.store.execute(f'ALTER TABLE {quote_name(new_name)} RENAME TO {quote_name(self.name)}')
+            self._execute(f'DROP TABLE {quote_name(self.name)}')
+            self._execute(f'ALTER TABLE {quote_name(new_name)} RENAME TO {quote_name(self.name)}')
         return self
 
 
     # ---- adding rows ----
-
-    def _become_table(self) -> None:
-        """ Turn this selection into a base table of its own, a TEMP copy of its rows. Internal use. """
-        copy_sdaf: SqlDaf = self.materialize()
-        self._name      = copy_sdaf.name
-        self.has_rid    = True
-        self.base_sdaf  = None
-        self.is_persisted   = True
-        self.pending_sql = ''
-        self.pending_params = ()
-
 
     def concat(self, other_instance: Daf, respect_kd: bool = False) -> 'SqlDaf':
         """
         Add the rows of another Daf or SqlDaf to the end of this one, as `Daf.concat()` does.
 
         The other must have the same columns, in the same order, as in a Daf. A SqlDaf of the
-        same store is copied in SQL, in its row order, so no row comes into Python. An in-memory
+        same database file is copied in SQL, in its row order, so no row comes into Python. An in-memory
         Daf is written row by row. All of it is one transaction.
 
-        If this is a selection, it first becomes a table of its own, a TEMP copy of its rows, as
-        appending to a selection of a Daf adds only to that selection. The base table is not
+        If this is a child, it first becomes a table of its own, by `copy(inplace=True)`, as
+        appending to a selection of a Daf adds only to that selection. The parent is not
         changed.
 
         A Daf appends a row whose key is already there without a word. A SqlDaf with a keyfield
@@ -1467,28 +1466,28 @@ class SqlDaf(Daf):
         Raises:
             KeyError: The columns differ.
             sqlite3.IntegrityError: A key would be repeated. Nothing is added.
-            SqlNotSupportedError: `respect_kd` is True, or the other is a SqlDaf of another store.
+            NotImplementedError: `respect_kd` is True, or the other is a SqlDaf this connection cannot read.
         """
         if respect_kd:
-            raise SqlNotSupportedError("concat(respect_kd=True) is not supported on a SqlDaf yet.")
+            raise NotImplementedError("concat(respect_kd=True) is not supported on a SqlDaf yet.")
         if other_instance.columns() != self.columns():
             raise KeyError(f"concat: columns mismatch: this one has {self.columns()}, the other {other_instance.columns()}.")
-        if isinstance(other_instance, SqlDaf) and other_instance.store is not self.store:
-            raise SqlNotSupportedError("concat: the other is a SqlDaf of another store. Use one store for both.")
+        if isinstance(other_instance, SqlDaf):
+            self._check_same_db(other_instance, 'concat')
 
-        if self.base_sdaf is not None:
-            self._become_table()
-        self.persist()
+        if self.parent_sdaf is not None:
+            self.copy(inplace=True)
+        self._resolve()
         if self.keyfield:
             self.ensure_key_index()
 
         if isinstance(other_instance, SqlDaf):
             rows_sql, rows_params = other_instance._rows_sql()
-            with self.store.transaction():
-                self.store.execute(f'INSERT INTO {quote_name(self.name)} ({self._cols_sql()}) '
+            with self.transaction():
+                self._execute(f'INSERT INTO {quote_name(self.name)} ({self._cols_sql()}) '
                                    f'SELECT {self._cols_sql()} FROM ({rows_sql}) ORDER BY {ORD_COL}', rows_params)
         else:
-            self.store.insert_rows(self.name, self.columns(), other_instance.lol)
+            self._insert_rows(other_instance.lol)
         return self
 
 
@@ -1496,7 +1495,7 @@ class SqlDaf(Daf):
 
     def join(                                                               # type: ignore[override]
             self,
-            other_daf:              'SqlDaf',           # the SqlDaf to join with, of the same store.
+            other_daf:              'SqlDaf',           # the SqlDaf to join with, in the same file.
             how:                    str = 'inner',      # 'inner', 'left', 'right' or 'outer'.
             shared_fields:          T_ls | None = None, # columns that both have and that appear only once.
             tag_other:              bool = False,       # if True, every column of the other gets a suffix.
@@ -1511,7 +1510,7 @@ class SqlDaf(Daf):
         The columns are named exactly as `Daf.join()` names them, by the same translator: a
         column that both have gets the name of its source as a suffix, such as `name_audit`,
         unless it is in `shared_fields`, and `tag_other` suffixes every column of the other. The
-        names are those of the base tables, or `daf1` and `daf2` if they are the same. The rows
+        names are those of the parent tables, or `daf1` and `daf2` if they are the same. The rows
         come as in `Daf.join()`: in this table's order, and for `right` and `outer`, the other
         table's unmatched rows after, in its order. A cell with no match is NULL. The keyfield of
         the result is this table's.
@@ -1527,7 +1526,7 @@ class SqlDaf(Daf):
         new rows, as `Daf.join()` makes new rows. A selection made from it resolves it first.
 
         Args:
-            other_daf: The SqlDaf to join with, of the same store.
+            other_daf: The SqlDaf to join with, in the same database file.
             how: `inner`, `left`, `right` or `outer`.
             shared_fields: Columns that both have and that appear only once.
             tag_other: If True, every column of the other, except shared ones, gets a suffix.
@@ -1541,28 +1540,30 @@ class SqlDaf(Daf):
 
         Raises:
             ValueError: `how` is not one of the four, or a table has no keyfield.
-            SqlNotSupportedError: `custom_translator_daf` or a `fill` other than NULL, or a SqlDaf of another store.
+            NotImplementedError: `custom_translator_daf` or a `fill` other than NULL, or a SqlDaf this connection cannot read.
 
         Examples:
-            >>> with SqlStore() as store:
-            ...     a_sdaf = store.from_daf(Daf(lol=[[1, 'Alice'], [2, 'Bob']], cols=['id', 'name'], keyfield='id'), name='a')
-            ...     b_sdaf = store.from_daf(Daf(lol=[[1, 50], [3, 70]], cols=['id', 'salary'], keyfield='id'), name='b')
-            ...     a_sdaf.join(b_sdaf, how='left').to_daf().lol
+            >>> import tempfile
+            >>> SqlDaf.db_path = tempfile.mkdtemp() + '/job.db'
+            >>> a_sdaf = SqlDaf.from_daf(Daf(lol=[[1, 'Alice'], [2, 'Bob']], cols=['id', 'name'], keyfield='id'), name='a')
+            >>> b_sdaf = SqlDaf.from_daf(Daf(lol=[[1, 50], [3, 70]], cols=['id', 'salary'], keyfield='id'), name='b')
+            >>> a_sdaf.join(b_sdaf, how='left').to_daf().lol
             [[1, 'Alice', 50], [2, 'Bob', '']]
         """
         if how not in ('inner', 'left', 'right', 'outer'):
             raise ValueError(f"join: how='{how}' is not inner, left, right or outer.")
         if custom_translator_daf is not None:
-            raise SqlNotSupportedError("join(custom_translator_daf=) is not supported on a SqlDaf yet.")
+            raise NotImplementedError("join(custom_translator_daf=) is not supported on a SqlDaf yet.")
         if fill is not NULL:
-            raise SqlNotSupportedError("join(fill=) other than NULL is not supported on a SqlDaf yet.")
-        if not isinstance(other_daf, SqlDaf) or other_daf.store is not self.store:
-            raise SqlNotSupportedError("join: the other must be a SqlDaf of the same store.")
+            raise NotImplementedError("join(fill=) other than NULL is not supported on a SqlDaf yet.")
+        if not isinstance(other_daf, SqlDaf):
+            raise NotImplementedError("join: the other must be a SqlDaf. Make one with SqlDaf.from_daf().")
+        self._check_same_db(other_daf, 'join')
         if not self.keyfield or not other_daf.keyfield:
             raise ValueError("join: both tables need a keyfield.")
 
-        a_name: str = (self.base_sdaf or self).name
-        b_name: str = (other_daf.base_sdaf or other_daf).name
+        a_name: str = (self.parent_sdaf or self).name
+        b_name: str = (other_daf.parent_sdaf or other_daf).name
         if a_name == b_name:
             a_name, b_name = 'daf1', 'daf2'
         translator_daf: Daf = Daf.derive_join_translator_daf(
@@ -1616,67 +1617,166 @@ class SqlDaf(Daf):
 
         result_keyfield: str = next((tr_la[0] for tr_la in translator_daf.lol if tr_la[3]), '')
         join_sdaf: SqlDaf = SqlDaf.__new__(SqlDaf)
-        join_sdaf.store          = self.store
-        join_sdaf._name          = name or self.store.next_temp_name(f'{a_name}_join_{b_name}')
+        join_sdaf.conn           = self.conn
+        join_sdaf._conn_da       = self._conn_da
+        join_sdaf.db_path        = self.db_path
+        join_sdaf._name          = name or self._next_temp_name(f'{a_name}_join_{b_name}')
         join_sdaf.keyfield       = result_keyfield
         join_sdaf.has_rid        = False
         join_sdaf.hd             = {col: idx for idx, col in enumerate(out_cols)}
         join_sdaf.dtypes         = {}
-        join_sdaf.base_sdaf      = None
+        join_sdaf.is_temp        = True
+        join_sdaf.parent_sdaf    = None
         join_sdaf.pending_sql    = pending_sql
         join_sdaf.pending_params = params
-        join_sdaf.is_persisted       = False
+        join_sdaf.is_resolved    = False
         return join_sdaf
 
 
-    # ---- copying ----
+    # ---- copying and saving ----
 
-    def _copy_to(self, name: str, temp: bool) -> 'SqlDaf':
-        """ Copy the rows, in order, into a new base table with daf_rid. Internal use. """
-        if self.store.table_exists(name):
-            raise ValueError(f"SqlStore: a table named '{name}' already exists.")
-        table_sql: str = self.store._create_table_sql(name, list(self.hd)).replace('CREATE TABLE', 'CREATE TEMP TABLE' if temp else 'CREATE TABLE', 1)
-        rows_sql, rows_params = self._rows_sql()
-        with self.store.transaction():
-            self.store.execute(table_sql)
-            self.store.execute(f'INSERT INTO {quote_name(name)} ({self._cols_sql()}) '
-                               f'SELECT {self._cols_sql()} FROM ({rows_sql}) ORDER BY {ORD_COL}', rows_params)
-        return SqlDaf(store=self.store, name=name, keyfield=self.keyfield, dtypes=self.dtypes)
-
-
-    def materialize(self) -> 'SqlDaf':
+    def copy(                                                               # type: ignore[override]
+            self,
+            level:       str | T_copybits | None = None,  # as in Daf.copy(). With inplace, it must copy the rows.
+            name:        str  = '',                         # the name of the copy, a TEMP table. Generated if empty.
+            deep:        bool = False,                      # deprecated, as in Daf.copy().
+            for_sorting: bool = False,                      # deprecated, as in Daf.copy().
+            inplace:     bool = False,                      # if True, copy into this SqlDaf and return it.
+            ) -> 'SqlDaf':
         """
-        Copy the rows into a new TEMP table, and return it as a base table.
+        Copy the rows into a TEMP table of their own, as `Daf.copy()` copies a Daf.
 
-        Use it for a result that is read many times, or changed, without changing the rows it
-        came from. The copy is a table of its own: a change to it does not reach the base table,
-        nor the other way round. It goes when the store closes. A base table gives itself back.
+        The copy is a parent, with daf_rid, the rows in order, and this SqlDaf's keyfield and
+        dtypes. Nothing ties it to the rows it came from: a change to one does not show in the
+        other. A SQL cell holds a plain value, so every level gives what `deep` gives in a Daf.
+        The level is only checked, as `Daf.copy()` checks it.
 
-        Returns:
-            A base table of the copied rows, named as in daf_tmp_marks_v4.
-        """
-        if self.base_sdaf is None:
-            return self
-        return self._copy_to(self.store.next_temp_name((self.base_sdaf).name), temp=True)
+        With `inplace=True`, this SqlDaf becomes the copy, and is returned. Use it on a child, to
+        make it a table of its own, independent of its parent. As in a Daf, a level that would
+        not copy the rows, such as `sortable`, raises ValueError then.
 
-
-    def save_as(self, name: str) -> 'SqlDaf':
-        """
-        Copy the rows into a new table with this name, kept in the database file.
-
-        The copy is a table of its own, with the keyfield and dtypes of this one. A change to it
-        does not reach the rows it came from, nor the other way round.
+        The copy is a TEMP table, so it goes when the connection closes. `save()` keeps it in the
+        file.
 
         Args:
-            name: The name of the new table.
+            level: As in `Daf.copy()`. With `inplace`, it must copy the rows: `editable` or `deep`.
+            name: The name of the copy. Generated if empty, as in daf_tmp_marks_v4.
+            deep: Deprecated, as in `Daf.copy()`.
+            for_sorting: Deprecated, as in `Daf.copy()`.
+            inplace: If True, this SqlDaf becomes the copy, and is returned.
 
         Returns:
-            A base table of the copied rows.
+            The copy, a new SqlDaf, or this one if `inplace`.
 
         Raises:
-            ValueError: A table of that name exists.
+            ValueError: A table of that name exists, `level` is not a level, or `inplace` with a level that does not copy the rows.
+
+        Examples:
+            >>> import tempfile
+            >>> SqlDaf.db_path = tempfile.mkdtemp() + '/job.db'
+            >>> marks_sdaf = SqlDaf('marks', cols=['ballot_id', 'v'], lol=[['b1', 1], ['b2', 0]])
+            >>> sel_sdaf = marks_sdaf.select_where_sql('v = 1')
+            >>> sel_sdaf.copy(inplace=True).is_child
+            False
+            >>> _ = marks_sdaf.sql("UPDATE marks SET v = 9")
+            >>> sel_sdaf.to_daf().lol
+            [['b1', 1]]
         """
-        return self._copy_to(name, temp=False)
+        if isinstance(level, bool):                     # an old call, copy(True), meant deep.
+            deep, level = deep or level, None
+        if inplace and level is None and not deep and not for_sorting:
+            level = 'deep'
+        if not deep and level is not None and level != 'deep':
+            if isinstance(level, str) and level not in Daf._COPY_PRESETS:
+                raise ValueError(f"copy: level must be one of {[*Daf._COPY_PRESETS, 'deep']}, not {level!r}")
+            bits: int = Daf._COPY_PRESETS[level] if isinstance(level, str) else int(level)
+            if inplace and not bits & Daf.COPY_ROWS:
+                raise ValueError(f"copy(inplace=True): level {level!r} does not copy the rows. Use 'editable' or 'deep'.")
+
+        root_sdaf: SqlDaf = self.parent_sdaf or self
+        target: str = name or self._next_temp_name(root_sdaf.name)
+        table_sql: str = _create_table_sql(self.conn, target, list(self.hd), 'temp')
+        rows_sql, rows_params = self._rows_sql()
+        with self.transaction():
+            self._execute(table_sql)
+            self._execute(f'INSERT INTO {quote_name(target)} ({self._cols_sql()}) '
+                          f'SELECT {self._cols_sql()} FROM ({rows_sql}) ORDER BY {ORD_COL}', rows_params)
+        if not inplace:
+            return self._new_on_conn(target, self.keyfield, self.dtypes, is_temp=True)
+        self._name          = target
+        self.has_rid        = True
+        self.is_temp        = True
+        self.parent_sdaf    = None
+        self.is_resolved    = True
+        self.pending_sql    = ''
+        self.pending_params = ()
+        return self
+
+
+    def save(self, name: str = '') -> 'SqlDaf':
+        """
+        Keep this table in the database file, as a permanent table, to be opened again later.
+
+        The name is the one this SqlDaf has, unless one is given: the name given to the
+        constructor, or to `copy(name=)`. A table with only a generated name, such as
+        daf_tmp_marks_v4, needs one. The keyfield and dtypes are recorded with it, so
+        `SqlDaf(name)` opens it as it was.
+
+        - A TEMP table, made by `copy()` or by reading a join, is moved into the file. The TEMP
+          table goes.
+        - A permanent table saved under its own name is left as it is, and its keyfield and
+          dtypes are recorded again.
+        - A permanent table saved under a new name is copied to it, and this SqlDaf then refers
+          to the copy. The first table stays.
+
+        A child has no rows of its own. Make it a table first, with `copy(inplace=True)`.
+
+        Args:
+            name: The name to keep it under. This SqlDaf's name if empty.
+
+        Returns:
+            This SqlDaf, now a permanent table.
+
+        Raises:
+            ValueError: This is a child, the name is a generated one, or a table of that name exists.
+
+        Examples:
+            >>> import tempfile
+            >>> SqlDaf.db_path = tempfile.mkdtemp() + '/job.db'
+            >>> marks_sdaf = SqlDaf('marks', cols=['ballot_id', 'v'], lol=[['b1', 1], ['b2', 0]], keyfield='ballot_id')
+            >>> agreed_sdaf = marks_sdaf.select_where_sql('v = 1').copy(name='agreed').save()
+            >>> SqlDaf('agreed').keyfield, len(SqlDaf('agreed'))
+            ('ballot_id', 1)
+        """
+        if self.parent_sdaf is not None:
+            raise ValueError(f"SqlDaf.save: '{self.name}' is a child, with no rows of its own. "
+                             f"Use copy(inplace=True) first.")
+        self._resolve()                                 # a join not read yet.
+        target: str = name or self._name
+        if not name and self._name.startswith(TEMP_PREFIX):
+            raise ValueError(f"SqlDaf.save: '{self._name}' is a generated name. Give the name to save it under.")
+
+        if not self.is_temp and target == self._name:
+            with self.transaction():
+                _meta_write(self.conn, target, self.keyfield, self.dtypes)
+            return self
+
+        if _table_exists_on(self.conn, target, 'main') or (target != self._name and _table_exists_on(self.conn, target, 'temp')):
+            raise ValueError(f"SqlDaf.save: a table named '{target}' already exists.")
+        source_sql: str = f'{"temp" if self.is_temp else "main"}.{quote_name(self._name)}'
+        ord_sql: str = quote_name(RID_COL) if self.has_rid else 'rowid'
+        table_sql: str = _create_table_sql(self.conn, target, list(self.hd), 'main', check_exists=False)
+        with self.transaction():
+            self._execute(table_sql)
+            self._execute(f'INSERT INTO main.{quote_name(target)} ({self._cols_sql()}) '
+                          f'SELECT {self._cols_sql()} FROM {source_sql} ORDER BY {ord_sql}')
+            if self.is_temp:
+                self._execute(f'DROP TABLE {source_sql}')
+            _meta_write(self.conn, target, self.keyfield, self.dtypes)
+        self._name   = target
+        self.has_rid = True
+        self.is_temp = False
+        return self
 
 
     # ---- keys and types ----
@@ -1687,6 +1787,10 @@ class SqlDaf(Daf):
 
         As in a Daf, nothing is built yet. The unique index on the column is made when a key is
         first used, by `ensure_key_index()`. An empty keyfield clears it.
+
+        On a permanent table with a record in the metadata, the record is changed too, so the
+        table opens with this keyfield next time. A table made by other code has no record until
+        `save()` makes one.
 
         Args:
             keyfield: The column. '' for none.
@@ -1700,7 +1804,15 @@ class SqlDaf(Daf):
         if keyfield and keyfield not in self.hd:
             raise KeyError(keyfield)
         self.keyfield = keyfield
+        with self.transaction():
+            self._meta_update()
         return self
+
+
+    def _meta_update(self) -> None:
+        """ Change the metadata record of this table, if it is a permanent parent with one. Internal use. """
+        if self.parent_sdaf is None and not self.is_temp and self.is_resolved and _meta_read(self.conn, self.name) is not None:
+            _meta_write(self.conn, self.name, self.keyfield, self.dtypes)
 
 
     def key_index_name(self) -> str:
@@ -1710,7 +1822,7 @@ class SqlDaf(Daf):
 
     def ensure_key_index(self) -> 'SqlDaf':
         """
-        Make the unique index on the keyfield of a base table, if it is not there yet.
+        Make the unique index on the keyfield of a parent, if it is not there yet.
 
         A Daf builds its key index the first time a key is needed. A SqlDaf does the same: the
         methods that use keys call this first. On 1,000,000 rows it took 0.50 s, about what a
@@ -1727,11 +1839,11 @@ class SqlDaf(Daf):
             ValueError: There is no keyfield, or this is a selection.
             sqlite3.IntegrityError: A key is repeated. Nothing is made.
         """
-        if self.base_sdaf is not None:
-            raise ValueError(f"SqlDaf.ensure_key_index: '{self.name}' is a selection. Its base table has the index.")
+        if self.parent_sdaf is not None:
+            raise ValueError(f"SqlDaf.ensure_key_index: '{self.name}' is a child. Its parent has the index.")
         if not self.keyfield:
             raise ValueError(f"SqlDaf.ensure_key_index: '{self.name}' has no keyfield.")
-        self.persist()
+        self._resolve()
         self.conn.execute(
                 f'CREATE UNIQUE INDEX IF NOT EXISTS {quote_name(self.key_index_name())} '
                 f'ON {quote_name(self.name)} ({quote_name(self.keyfield)})')
@@ -1747,6 +1859,8 @@ class SqlDaf(Daf):
             ) -> 'SqlDaf':
         """
         Convert the columns to their dtypes, in place, in the database.
+
+        New dtypes given here are kept in the metadata record of the table, if it has one.
 
         A table loaded from a CSV file holds text. Call this to turn the columns you need into
         numbers. Each value is converted by the same function `Daf.apply_dtypes()` uses, so the
@@ -1768,15 +1882,18 @@ class SqlDaf(Daf):
         Raises:
             KeyError: A name in `cols` is not a column.
             ValueError: A column to convert has no dtype, and `silent_error` is False.
-            SqlNotSupportedError: A dtype is not int, float, bool or str, or this is a selection.
+            NotImplementedError: A dtype is not int, float, bool or str, or this is a selection.
         """
-        if self.base_sdaf is not None:
-            raise SqlNotSupportedError(f"apply_dtypes() on the selection '{self.name}': convert its base table instead.")
+        if self.parent_sdaf is not None:
+            raise NotImplementedError(f"apply_dtypes() on the child '{self.name}': convert its parent instead.")
         if dtypes:
             self.dtypes = {**self.dtypes, **dtypes}
         source_dtypes: T_dtype_dict = dtypes or self.dtypes
         if not source_dtypes:
             return self
+        if dtypes:
+            with self.transaction():
+                self._meta_update()
 
         cols_ls: T_ls = list(self.hd) if cols is None else ([cols] if isinstance(cols, str) else list(cols))
         col: str
@@ -1792,7 +1909,7 @@ class SqlDaf(Daf):
                                           if col in source_dtypes and source_dtypes[col] is not str}
         unstorable_ls: T_ls = [col for col, dtype in convert_dtypes.items() if dtype not in STORABLE_DTYPES]
         if unstorable_ls:
-            raise SqlNotSupportedError(f"apply_dtypes() cannot store {[convert_dtypes[col] for col in unstorable_ls]} "
+            raise NotImplementedError(f"apply_dtypes() cannot store {[convert_dtypes[col] for col in unstorable_ls]} "
                                        f"for the columns {unstorable_ls} yet. Only int, float, bool and str.")
         if not convert_dtypes:
             return self
@@ -1805,8 +1922,9 @@ class SqlDaf(Daf):
             self.conn.create_function(func_name, 1, _none_safe(converter), deterministic=True)
             set_ls.append(f'{quote_name(col)} = {func_name}({quote_name(col)})')
 
-        with self.store.transaction():
+        with self.transaction():
             self.conn.execute(f'UPDATE {quote_name(self.name)} SET {", ".join(set_ls)}')
+            self._meta_update()
         return self
 
 
@@ -1814,14 +1932,14 @@ class SqlDaf(Daf):
         """
         Run a SQL statement of your own, and return its result as a Daf.
 
-        This is the fallback for anything SqlDaf does not do yet. The statement runs on the
-        store's connection, so it can use every table in the store. Refer to this table by
-        `sdaf.name`. Pass values as `params`, with `?` in the statement, instead of putting
+        This is the fallback for anything SqlDaf does not do yet. The statement runs on this
+        SqlDaf's connection, so it can use every table in the file, and the TEMP tables of the
+        connection. Refer to this table by `sdaf.name`. Pass values as `params`, with `?` in the statement, instead of putting
         them in the text.
 
         A SELECT gives a Daf of its rows, with its column names. A SQL NULL becomes NULL. A
         statement that returns no rows, such as UPDATE or CREATE, gives an empty Daf. Outside
-        `store.transaction()`, it is committed when it finishes.
+        `transaction()`, it is committed when it finishes.
 
         The whole result is pulled into memory, so select only what you need.
 
@@ -1838,36 +1956,6 @@ class SqlDaf(Daf):
         cols: T_ls = [desc_t[0] for desc_t in cursor.description]
         lol: T_lola = [none_to_null(row_t) for row_t in cursor]
         return Daf(lol=lol, cols=cols)
-
-
-class SqlKeys:
-    """
-    The keys of a SqlDaf, read only when iterated.
-
-    `SqlDaf.keys()` gives one. Pass it to `select_records_daf()` or `delete_records()`, which
-    use the keys in SQL, so they never come into Python. Iterating it reads them, one at a time,
-    in row order, so `list(sdaf.keys())` makes a list. `len()` is the SqlDaf's.
-    """
-
-    def __init__(self, sdaf: SqlDaf) -> None:
-        self.sdaf: SqlDaf = sdaf
-
-
-    def __iter__(self) -> Iterator[Any]:
-        rows_sql, rows_params = self.sdaf._rows_sql()
-        cursor: sqlite3.Cursor = self.sdaf.store.execute(
-                f'SELECT {quote_name(self.sdaf.keyfield)} FROM ({rows_sql}) ORDER BY {ORD_COL}', rows_params)
-        row_t: Tuple[Any, ...]
-        for row_t in cursor:
-            yield NULL if row_t[0] is None else row_t[0]
-
-
-    def __len__(self) -> int:
-        return len(self.sdaf)
-
-
-    def __repr__(self) -> str:
-        return f"<SqlKeys of '{self.sdaf.name}', keyfield '{self.sdaf.keyfield}'>"
 
 
 # Type aliases for SqlDaf, as daf_types.py has for other types. A SqlDaf variable ends in _sdaf,
@@ -1906,9 +1994,9 @@ KEEP_SET = {
 
 
 def _make_blocker(name: str) -> Callable[..., Any]:
-    """ A method that raises SqlNotSupportedError, naming `name`. Internal use. """
+    """ A method that raises NotImplementedError, naming `name`. Internal use. """
     def blocker(self: Any, *args: Any, **kwargs: Any) -> Any:
-        raise SqlNotSupportedError(
+        raise NotImplementedError(
                 f"{name}() is not supported on a SqlDaf yet. Use sql(), or to_daf() on a few rows.")
     blocker.__name__ = name
     blocker.__qualname__ = f'SqlDaf.{name}'
@@ -1916,9 +2004,9 @@ def _make_blocker(name: str) -> Callable[..., Any]:
 
 
 def _make_property_blocker(name: str) -> property:
-    """ A property that raises SqlNotSupportedError, naming `name`. Internal use. """
+    """ A property that raises NotImplementedError, naming `name`. Internal use. """
     def blocked_get(self: Any) -> Any:
-        raise SqlNotSupportedError(f"{name} is not supported on a SqlDaf yet.")
+        raise NotImplementedError(f"{name} is not supported on a SqlDaf yet.")
     return property(blocked_get)
 
 
