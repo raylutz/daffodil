@@ -196,3 +196,38 @@ The tag `_other` for the other side's columns is a placeholder. The real suffix 
   today INSERT OR IGNORE in sql_variants.py drops a duplicate silently, if one reaches
   find_variants. Ray: duplicates must never be ignored.
 - Steps 12 to 14, the contest-level tables, are not sketched yet.
+
+## Trial, 2026-10-14
+
+notes/sql_backing/find_variants_trial.py ports steps 1 to 11 one for one with SqlDaf, as above,
+and runs on a copy of a cmpcvr.db that AuditEngine's find_variants has already written. It
+rebuilds the inputs from the trimmed input tables and their residue tables, runs the port, and
+compares each result table with AuditEngine's, as sets of rows. AuditEngine's own code and data
+are not changed; its databases are copied first.
+
+| Job                                    | Inputs | Audit ballots | Time   | Result |
+| :------------------------------------- | -----: | ------------: | -----: | :----- |
+| WI_Dane_20201103_functest              | 2      | 198           |        | all tables the same |
+| GA_Bartow_20201103_functest            | 3      | 214           |        | all tables the same |
+| US_MD_Somerset_20221108_ocrmapped      | 2      | 6,957         | 1.4 s  | all tables the same |
+| US_CO_Broomfield_20231107_aimapper     | 2      | 26,286        |        | all tables the same |
+| CA_SanFrancisco_20241105_pilot_d05     | 3      | 34,534        | 4.0 s  | all tables the same |
+| US_MD_Rockvillecity_20231107_ocrmapped | 2      | 12,637        | 1.3 s  | one ballot differs, see below |
+
+The times include copying the database and comparing. Peak memory was 105 MB at most.
+
+The column num_contests is left out of the comparison. cmpcvr.py fills it into audit_nonvariants
+with add_computed_column() after locate_variants() returns, so steps 1 to 11 never set it.
+
+Rockville: the port finds ballot 2760 disagreed, and AuditEngine's run of 2026-09-10 did not.
+Its concise votes differ in contest c1, 4 votes against 5, and AuditEngine's own
+normalize_pyon() says so too. AuditEngine's own step 8 query, run read-only on its stored
+nonvariant tables, finds 2760. But the disagreed tables in that file are empty. In
+sql_variants.py, step 8 makes them with CREATE TABLE IF NOT EXISTS, and they are never dropped,
+while cmpcvr.db is kept from run to run. So on a rerun, step 8 keeps the previous run's
+disagreed tables, and a new disagreement is missed. This is a bug in AuditEngine, not in the
+port. Not reported to AuditEngine yet; that is Ray's call.
+
+Not run yet, since each is 0.75 to 1.9 GB on the shared box: GA_Paulding_20201103,
+WI_Dane_20201103_aimapper, FL_Collier_20201103_ocrmapped, WI_Dane_20241105_aimapper and
+GA_Dekalb_20220524_aimapper.
