@@ -252,6 +252,23 @@ These steps were proposed on 2026-10-13. Ray deferred them while the groupby que
     memory. Reading it resolves the rows: `to_daf()`, `len()`, and one-row readers such as
     `to_dict()`, `to_list()` and `to_value()`. A selection is built lazily, so
     `sdaf[0].to_dict()` is one LIMIT query, and no reference table is written.
+113. When a selection's rows are fixed, decided by Ray on 2026-10-14: at its first read, as an mdaf
+    (in-memory Daf) selection is fixed when made. `select_record()` and `iloc()` read one row
+    as a dict in one query, make no selection, and fix nothing. A one-row selection read
+    with `to_dict()` cost 134 us against 24 us direct, before positions became lookups.
+114. len() of a selection, decided by Ray on 2026-10-14: A. It counts the references, as the
+    highest order number of the reference table, one lookup. Do not delete rows from a base
+    table that has selections, or that is read by position; the docstrings say so. Ray: iloc
+    should use daf_rid. So positions and slices of a base table with daf_rid, or of a fixed
+    selection, are lookups on daf_ord, and a negative position takes the highest daf_rid as
+    the count. Other tables, and selections not fixed yet, step with OFFSET.
+    On 1,000,000 rows: iloc(500000) 17 ms before, 0.16 ms after. iloc(-1) 0.28 ms. len() of a
+    fixed selection of 499,892 rows 116 ms before, 0.01 ms after. sdaf[900000:900100].to_daf()
+    0.61 ms.
+108. Deprecating the dtypes conversion of the CSV readers, decided by Ray on 2026-10-14: in the
+    docs. The docstrings of `Daf.from_csv_buff()` and `Daf.from_csv()` say it is deprecated, and
+    to call `apply_dtypes()` instead. It still works, and no warning is raised.
+    `from_excel_buff()` also takes dtypes; it is not changed.
 
 ## groupby and row sharing
 

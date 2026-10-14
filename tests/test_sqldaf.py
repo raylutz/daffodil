@@ -590,13 +590,13 @@ def test_selection_is_lazy_and_fixed_at_first_read():
         assert sel_sdaf.to_daf().lol == [['b1', 'P1', 9, 0], ['b3', 'P1', 3, NULL], ['b4', 'P1', 1, 1], ['b5', 'P1', 2, 0]]
 
 
-def test_deleted_base_row_drops_out_of_a_fixed_selection():
+def test_deleted_base_row_drops_out_of_to_daf_but_len_counts_references():
     with SqlStore() as store:
         bif_sdaf: SqlDaf = store.from_daf(make_bif_daf(), name='bif')
         sel_sdaf: SqlDaf = bif_sdaf.select_by_dict({'precinct': 'P1'}).fix()
         bif_sdaf.sql("DELETE FROM bif WHERE ballot_id = 'b3'")
         assert sel_sdaf.to_daf()[:, 'ballot_id'].to_list() == ['b1', 'b5']
-        assert len(sel_sdaf) == 2
+        assert len(sel_sdaf) == 3                      # len() counts references: do not delete base rows.
 
 
 def test_chain_of_selections_runs_as_one_query_until_read():
@@ -812,3 +812,35 @@ def test_ensure_key_index_on_a_selection_raises():
         bif_sdaf: SqlDaf = store.from_daf(make_bif_daf(), name='bif')
         with pytest.raises(ValueError):
             bif_sdaf.select_by_dict({'precinct': 'P1'}).ensure_key_index()
+
+
+# positions use daf_rid and the order of a fixed selection
+
+def plan_of(store: SqlStore, stmt: str, params: tuple = ()) -> str:
+    return ' | '.join(row_t[-1] for row_t in store.conn.execute('EXPLAIN QUERY PLAN ' + stmt, params))
+
+
+def test_iloc_and_slices_look_up_dense_positions():
+    bif_daf: Daf = make_bif_daf()
+    with SqlStore() as store:
+        bif_sdaf: SqlDaf = store.from_daf(bif_daf, name='bif')
+        sel_sdaf: SqlDaf = bif_sdaf.select_by_dict({'precinct': 'P1'})
+        sel_daf: Daf = bif_daf.select_by_dict({'precinct': 'P1'})
+        assert sel_sdaf.iloc(1) == sel_daf.iloc(1)                 # not fixed: steps with OFFSET
+        sel_sdaf.fix()
+        assert sel_sdaf._is_dense() and bif_sdaf._is_dense()
+        assert sel_sdaf.iloc(2) == sel_daf.iloc(2)
+        assert sel_sdaf[1:3].to_daf().lol == sel_daf[1:3].lol
+        assert sel_sdaf[-1].to_dict() == sel_daf[-1].to_dict()
+        assert len(sel_sdaf) == 3
+        rows_sql, _ = bif_sdaf._rows_sql()
+        assert 'USING INTEGER PRIMARY KEY' in plan_of(store, f'SELECT * FROM ({rows_sql}) WHERE daf_ord = ?', (3,))
+
+
+def test_len_and_bool_of_an_empty_selection():
+    with SqlStore() as store:
+        bif_sdaf: SqlDaf = store.from_daf(make_bif_daf(), name='bif')
+        none_sdaf: SqlDaf = bif_sdaf.select_by_dict({'precinct': 'P9'})
+        assert len(none_sdaf) == 0
+        assert bool(none_sdaf) is False
+        assert bool(bif_sdaf.select_by_dict({'precinct': 'P1'})) is True

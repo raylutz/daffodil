@@ -3219,7 +3219,7 @@ class Daf:
         Args:
             excel_buff: The bytes of the xlsx file.
             keyfield: Column whose values identify rows.
-            dtypes: Type for each column.
+            dtypes: Type for each column. Deprecated: call `apply_dtypes()` on the result instead.
             noheader: If True, the first row is data, not column names.
             user_format: If True, skip comment lines and blank lines.
             unflatten: If True, read list and dict columns from their text.
@@ -3305,7 +3305,7 @@ class Daf:
             source: The path of the file, or its bytes.
             sheet: The position of the sheet, from 0, or its name.
             keyfield: Column whose values identify rows.
-            dtypes: Type for each column.
+            dtypes: Type for each column. Deprecated: call `apply_dtypes()` on the result instead.
             noheader: If True, the first row is data, not column names.
             unflatten: If True, read list and dict columns from their text.
             name: The name of the new Daf.
@@ -3336,8 +3336,8 @@ class Daf:
         `s3://bucket/key` name. The `requests` and `boto3` packages are imported only
         when they are needed.
 
-        Every value is read as text. Give `dtypes`, or call `apply_dtypes()`, to
-        convert them. The other keyword arguments, such as `keyfield`, are those of
+        Every value is read as text. Call `apply_dtypes()` on the result to convert
+        them. Giving `dtypes` here also converts them, but that is deprecated. The other keyword arguments, such as `keyfield`, are those of
         `from_csv_buff()`. The length of each row is not checked. See `from_csv_buff()`.
 
         Args:
@@ -3441,6 +3441,11 @@ class Daf:
         `dtypes` is given. Then the cells are converted, and list and dict columns
         are read from their text unless `unflatten` is False.
 
+        Converting here is deprecated. It does no more than calling `apply_dtypes()` on the
+        result, which is clearer: a reader only reads, and the types are applied where they
+        are needed. Pass no `dtypes`, and call `apply_dtypes()` afterwards. The conversion
+        still works, for now.
+
         Empty text, or a source with no rows, gives an empty Daf with no columns, as
         `from_md()` does. Check `len()` of the result if an empty source would be an error.
 
@@ -3455,7 +3460,7 @@ class Daf:
         Args:
             csv_buff: The CSV, as text, bytes or an iterator of lines.
             keyfield: Column, or tuple or list of columns, whose values identify rows.
-            dtypes: Type for each column.
+            dtypes: Type for each column. Deprecated: call `apply_dtypes()` on the result instead.
             noheader: If True, the first row is data, and the Daf has no column names.
             user_format: If True, skip comment lines and blank lines.
             sep: The character that separates fields.
@@ -3483,7 +3488,7 @@ class Daf:
             <BLANKLINE>
             %% daf rows=2; cols=2; keyfield=''; name=''
             <BLANKLINE>
-            >>> Daf.from_csv_buff('id,v\n1,a\n', dtypes={'id': int, 'v': str})
+            >>> Daf.from_csv_buff('id,v\n1,a\n').apply_dtypes(dtypes={'id': int, 'v': str})
             <BLANKLINE>
             | id | v  |
             | -: | -: |
@@ -3591,7 +3596,7 @@ class Daf:
         Args:
             filepath: Path of the file.
             keyfield: Column, or tuple or list of columns, whose values identify rows.
-            dtypes: Type for each column.
+            dtypes: Type for each column. Deprecated: call `apply_dtypes()` on the result instead.
             noheader: If True, the first row is data, and the Daf has no column names.
             user_format: If True, skip comment lines and blank lines.
             sep: The character that separates fields.

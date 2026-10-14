@@ -528,9 +528,13 @@ class SqlDaf(Daf):
     A selection runs nothing when it is made. Its rows are found, and fixed, the first time it
     is read: by `to_daf()`, `len()`, `bool()`, `to_dict()`, `to_list()` or `to_value()`. After
     that, it always means the same rows, as a selection of a Daf does. A change to the values
-    in those rows shows in it, since it refers to them. A row deleted from the base table is
-    left out the next time. A selection made from one that is not fixed yet is computed from
-    the same conditions, all in one query.
+    in those rows shows in it, since it refers to them. A selection made from one that is not
+    fixed yet is computed from the same conditions, all in one query.
+
+    Do not delete rows from a base table that has selections, or that you read by position.
+    Positions use daf_rid, which then has gaps, and `len()` of a selection counts its references,
+    so it would still count a deleted row. Leave rows out with a selection instead, as in a Daf.
+    `to_daf()` does leave a deleted row out.
 
     To read one row, use `select_record()` by key or `iloc()` by position. Each is one query,
     returns a dict, and makes no selection.
@@ -727,6 +731,27 @@ class SqlDaf(Daf):
         return self
 
 
+    def _is_dense(self) -> bool:
+        """
+        Say whether daf_ord numbers the rows 1, 2, 3 and so on, so a position is a lookup. Internal use.
+
+        It does in a fixed selection, whose reference table numbers its rows as it is written. It
+        does in a base table with daf_rid, as long as no row has been deleted from it.
+        """
+        return self.has_rid if self.base_sdaf is None else self.is_fixed
+
+
+    def _count_for_position(self) -> int:
+        """
+        The number of rows, for a negative position. Internal use.
+
+        Where positions are dense, this is the highest daf_ord, one lookup. Otherwise it is `len()`.
+        """
+        if self.base_sdaf is None and self.has_rid:
+            return int(self.conn.execute(f'SELECT COALESCE(MAX({quote_name(RID_COL)}), 0) FROM {quote_name(self.name)}').fetchone()[0])
+        return len(self)
+
+
     def _select_rows(self, where_sql: str = '', params: Tuple[Any, ...] = (), limit: int = -1, offset: int = 0,
                      cols: T_ls | None = None) -> List[Tuple[Any, ...]]:
         """ Read rows in order, with an optional condition and limit, as tuples with SQL NULL as None. Internal use. """
@@ -745,7 +770,9 @@ class SqlDaf(Daf):
         """
         Count the rows.
 
-        This runs a COUNT in the database each time. A selection is fixed first.
+        For a base table, this runs a COUNT. For a selection, it is fixed first, and then its
+        references are counted, which is one lookup. A row deleted from the base table is still
+        counted, so do not delete rows from a base table that has selections.
 
         Returns:
             The number of rows.
@@ -753,24 +780,21 @@ class SqlDaf(Daf):
         self.fix()
         if self.base_sdaf is None:
             return int(self.conn.execute(f'SELECT COUNT(*) FROM {quote_name(self.name)}').fetchone()[0])
-        rows_sql, rows_params = self._rows_sql()
-        return int(self.store.execute(f'SELECT COUNT(*) FROM ({rows_sql})', rows_params).fetchone()[0])
+        return int(self.conn.execute(f'SELECT COALESCE(MAX(ord), 0) FROM {quote_name(self.name)}').fetchone()[0])
 
 
     def __bool__(self) -> bool:
         """
         Say whether there is at least one row.
 
-        This stops at the first row, so it is fast on a large table. A selection is fixed first.
+        This stops at the first row, so it is fast on a large table. A selection is fixed first,
+        and then its references are checked, as `len()` counts them.
 
         Returns:
             True if there is a row.
         """
         self.fix()
-        if self.base_sdaf is None:
-            return self.conn.execute(f'SELECT 1 FROM {quote_name(self.name)} LIMIT 1').fetchone() is not None
-        rows_sql, rows_params = self._rows_sql()
-        return self.store.execute(f'SELECT 1 FROM ({rows_sql}) LIMIT 1', rows_params).fetchone() is not None
+        return self.conn.execute(f'SELECT 1 FROM {quote_name(self.name)} LIMIT 1').fetchone() is not None
 
 
     def num_cols(self) -> int:
@@ -875,8 +899,10 @@ class SqlDaf(Daf):
         """
         Read one row by position, as `Daf.iloc()` does, in one query.
 
-        This makes no selection, and does not fix a selection it is called on. A negative
-        position counts from the end, which costs a COUNT first.
+        This makes no selection, and does not fix a selection it is called on. In a base table
+        with daf_rid, or a fixed selection, the position is looked up directly. Otherwise SQLite
+        steps over the rows before it, which takes longer the further in it is. A negative
+        position counts from the end, which costs a `len()` first.
 
         Args:
             irow: The position of the row. Negative counts from the end.
@@ -898,8 +924,12 @@ class SqlDaf(Daf):
         for col in cols:
             if col not in self.hd:
                 raise KeyError(col)
-        position: int = irow if irow >= 0 else len(self) + irow
-        rows_lot: List[Tuple[Any, ...]] = self._select_rows(limit=1, offset=position, cols=cols) if position >= 0 else []
+        position: int = irow if irow >= 0 else self._count_for_position() + irow
+        rows_lot: List[Tuple[Any, ...]] = []
+        if position >= 0 and self._is_dense():
+            rows_lot = self._select_rows(f'{ORD_COL} = ?', (position + 1,), limit=1, cols=cols)
+        elif position >= 0:
+            rows_lot = self._select_rows(limit=1, offset=position, cols=cols)
         if not rows_lot:
             raise IndexError(f"iloc: row position {irow} is out of range.")
         values_la: T_la = none_to_null(rows_lot[0])
@@ -1106,7 +1136,9 @@ class SqlDaf(Daf):
         - A str is a key. The keyfield's unique index is made first. A missing key raises
           KeyError, as in a Daf.
 
-        A negative position, or a slice with a negative end, costs a COUNT first.
+        A negative position, or a slice with a negative end, costs a `len()` first. In a base
+        table with daf_rid, or a fixed selection, positions are looked up directly. Otherwise
+        SQLite steps over the rows before them.
 
         Args:
             sel: An int, a slice or a str.
@@ -1134,7 +1166,7 @@ class SqlDaf(Daf):
         start: int
         stop: int
         if isinstance(sel, int):
-            start = sel if sel >= 0 else len(self) + sel
+            start = sel if sel >= 0 else self._count_for_position() + sel
             if start < 0 or not self.iloc_exists(start):
                 raise IndexError(f"sdaf[{sel}]: row position {sel} is out of range.")
             stop = start + 1
@@ -1142,10 +1174,16 @@ class SqlDaf(Daf):
             if sel.step not in (None, 1):
                 raise SqlNotSupportedError("A slice with a step is not supported on a SqlDaf yet.")
             needs_len: bool = (sel.start is not None and sel.start < 0) or (sel.stop is not None and sel.stop < 0)
-            count: int = len(self) if needs_len else 0
+            count: int = self._count_for_position() if needs_len else 0
             start = 0 if sel.start is None else (sel.start if sel.start >= 0 else max(count + sel.start, 0))
             stop = -1 if sel.stop is None else (sel.stop if sel.stop >= 0 else max(count + sel.stop, 0))
 
+        if self._is_dense():
+            if stop == -1:
+                return SqlDaf._new_selection(self, f'SELECT * FROM ({parent_sql}) WHERE {ORD_COL} > ?',
+                                             parent_params + (start,))
+            return SqlDaf._new_selection(self, f'SELECT * FROM ({parent_sql}) WHERE {ORD_COL} > ? AND {ORD_COL} <= ?',
+                                         parent_params + (start, max(stop, start)))
         limit: int = -1 if stop == -1 else max(stop - start, 0)
         return SqlDaf._new_selection(self, f'SELECT * FROM ({parent_sql}) ORDER BY {ORD_COL} LIMIT ? OFFSET ?',
                                      parent_params + (limit, start))
@@ -1154,6 +1192,9 @@ class SqlDaf(Daf):
     def iloc_exists(self, irow: int) -> bool:
         """ Say whether there is a row at this position, from 0. """
         rows_sql, rows_params = self._rows_sql()
+        if self._is_dense():
+            return self.store.execute(f'SELECT 1 FROM ({rows_sql}) WHERE {ORD_COL} = ?',
+                                      rows_params + (irow + 1,)).fetchone() is not None
         cursor: sqlite3.Cursor = self.store.execute(
                 f'SELECT 1 FROM ({rows_sql}) ORDER BY {ORD_COL} LIMIT 1 OFFSET ?', rows_params + (irow,))
         return cursor.fetchone() is not None
