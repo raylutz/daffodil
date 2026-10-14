@@ -1022,3 +1022,108 @@ def test_concat_on_a_selection_makes_it_a_table_of_its_own():
         assert p1_sdaf.base_sdaf is None
         assert list(p1_sdaf.keys()) == ['b1', 'b3', 'b5', 'b9']
         assert len(bif_sdaf) == 5
+
+
+# ---- join ----
+
+def make_join_pair() -> tuple:
+    audit_daf: Daf = Daf(lol=[['k3', 'A3', 1], ['k1', 'A1', 2], ['k2', 'A2', NULL]], cols=['id', 'name', 'v'], keyfield='id', name='audit')
+    cvr_daf: Daf = Daf(lol=[['k2', 'B2', 9], ['k4', 'B4', 8], ['k3', NULL, 7]], cols=['id', 'name', 'w'], keyfield='id', name='cvr')
+    return audit_daf, cvr_daf
+
+
+@pytest.mark.parametrize('how', ['inner', 'left', 'right', 'outer'])
+@pytest.mark.parametrize('tag_other', [False, True])
+def test_join_matches_mdaf(how, tag_other):
+    audit_daf, cvr_daf = make_join_pair()
+    with SqlStore() as store:
+        audit_sdaf: SqlDaf = store.from_daf(audit_daf, name='audit')
+        cvr_sdaf: SqlDaf = store.from_daf(cvr_daf, name='cvr')
+        join_sdaf: SqlDaf = audit_sdaf.join(cvr_sdaf, how=how, tag_other=tag_other)
+        join_daf: Daf = audit_daf.join(cvr_daf, how=how, tag_other=tag_other)
+        assert join_sdaf.columns() == join_daf.columns()
+        assert join_sdaf.to_daf().lol == join_daf.lol
+        assert join_sdaf.keyfield == join_daf.keyfield == 'id'
+
+
+@pytest.mark.parametrize('how', ['inner', 'left'])
+def test_join_shared_fields_match_mdaf(how):
+    audit_daf, cvr_daf = make_join_pair()
+    with SqlStore() as store:
+        audit_sdaf: SqlDaf = store.from_daf(audit_daf, name='audit')
+        cvr_sdaf: SqlDaf = store.from_daf(cvr_daf, name='cvr')
+        assert audit_sdaf.join(cvr_sdaf, how=how, shared_fields=['name']).to_daf().lol == \
+               audit_daf.join(cvr_daf, how=how, shared_fields=['name']).lol
+
+
+def test_join_other_only_row_takes_key_and_shared_field_from_the_other():
+    audit_daf: Daf = Daf(lol=[['k3', 'A3', 1]], cols=['id', 'name', 'v'], keyfield='id')
+    cvr_daf: Daf = Daf(lol=[['k3', 'B3', 7], ['k4', 'B4', 8]], cols=['ballot', 'name', 'w'], keyfield='ballot')
+    with SqlStore() as store:
+        audit_sdaf: SqlDaf = store.from_daf(audit_daf, name='audit')
+        cvr_sdaf: SqlDaf = store.from_daf(cvr_daf, name='cvr')
+        assert audit_sdaf.join(cvr_sdaf, how='outer', shared_fields=['name']).to_daf().lol == [
+            ['k3', 'A3', 1, 7], ['k4', 'B4', NULL, 8]]
+
+
+def test_join_is_lazy_and_resolves_once():
+    audit_daf, cvr_daf = make_join_pair()
+    with SqlStore() as store:
+        audit_sdaf: SqlDaf = store.from_daf(audit_daf, name='audit')
+        cvr_sdaf: SqlDaf = store.from_daf(cvr_daf, name='cvr')
+        join_sdaf: SqlDaf = audit_sdaf.join(cvr_sdaf, how='outer')
+        assert join_sdaf.is_fixed is False and temp_tables(store) == []
+        assert join_sdaf.iloc(3)['id'] == 'k4'                      # a one-row read does not resolve it
+        assert join_sdaf.is_fixed is False
+        assert len(join_sdaf) == 4
+        assert join_sdaf.is_fixed is True and temp_tables(store) == [join_sdaf.name]
+        assert join_sdaf.name.startswith('daf_tmp_audit_join_cvr_v')
+
+
+def test_join_result_is_new_rows_not_tied_to_its_sources():
+    audit_daf, cvr_daf = make_join_pair()
+    with SqlStore() as store:
+        audit_sdaf: SqlDaf = store.from_daf(audit_daf, name='audit')
+        cvr_sdaf: SqlDaf = store.from_daf(cvr_daf, name='cvr')
+        join_sdaf: SqlDaf = audit_sdaf.join(cvr_sdaf).fix()
+        audit_sdaf.sql("UPDATE audit SET v = 99 WHERE id = 'k3'")
+        assert join_sdaf.select_record('k3')['v'] == 1
+
+
+def test_selection_of_an_unread_join_resolves_it_first():
+    audit_daf, cvr_daf = make_join_pair()
+    with SqlStore() as store:
+        audit_sdaf: SqlDaf = store.from_daf(audit_daf, name='audit')
+        cvr_sdaf: SqlDaf = store.from_daf(cvr_daf, name='cvr')
+        join_sdaf: SqlDaf = audit_sdaf.join(cvr_sdaf, tag_other=True)
+        differ_sdaf: SqlDaf = join_sdaf.select_where_sql('"name_audit" IS NOT "name_cvr"')
+        assert join_sdaf.is_fixed is True
+        assert differ_sdaf.base_sdaf is join_sdaf
+        assert list(differ_sdaf.keys()) == ['k3', 'k2']
+        assert join_sdaf[1:].to_daf()[:, 'id'].to_list() == ['k2']
+        assert list(audit_sdaf.select_records_daf(differ_sdaf, inverse=True).keys()) == ['k1']
+
+
+def test_join_of_selections():
+    audit_daf, cvr_daf = make_join_pair()
+    with SqlStore() as store:
+        audit_sdaf: SqlDaf = store.from_daf(audit_daf, name='audit')
+        cvr_sdaf: SqlDaf = store.from_daf(cvr_daf, name='cvr')
+        some_sdaf: SqlDaf = audit_sdaf.select_records_daf(['k2', 'k3'])
+        assert some_sdaf.join(cvr_sdaf).to_daf().lol == audit_daf.select_records_daf(['k2', 'k3']).join(cvr_daf).lol
+
+
+def test_join_errors():
+    audit_daf, cvr_daf = make_join_pair()
+    with SqlStore() as store:
+        audit_sdaf: SqlDaf = store.from_daf(audit_daf, name='audit')
+        cvr_sdaf: SqlDaf = store.from_daf(cvr_daf, name='cvr')
+        with pytest.raises(ValueError):
+            audit_sdaf.join(cvr_sdaf, how='cross')
+        with pytest.raises(SqlNotSupportedError):
+            audit_sdaf.join(cvr_daf)                               # type: ignore[arg-type]
+        with pytest.raises(SqlNotSupportedError):
+            audit_sdaf.join(cvr_sdaf, fill=None)
+        nokey_sdaf: SqlDaf = store.from_daf(Daf(lol=[['k1']], cols=['id']), name='nokey')
+        with pytest.raises(ValueError):
+            audit_sdaf.join(nokey_sdaf)

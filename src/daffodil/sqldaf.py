@@ -546,6 +546,7 @@ class SqlDaf(Daf):
     - `select_record()` and `iloc()`, which read one row.
     - `select_records_daf()`, `delete_records()` and `keys()`, which work by key, in SQL.
     - `concat()`, which adds the rows of another Daf or SqlDaf.
+    - `join()`, which joins two SqlDaf tables on their keyfields, as `Daf.join()` does.
     - `to_daf()`, `to_dict()`, `to_list()` and `to_value()`, which read rows into memory.
     - `materialize()` and `save_as()`, which copy rows into a new table.
     - `apply_dtypes()`, `set_keyfield()` and `ensure_key_index()`.
@@ -629,6 +630,7 @@ class SqlDaf(Daf):
             ) -> 'SqlDaf':
         """ Make a selection, not fixed yet. Internal use. """
         base_sdaf: SqlDaf = parent_sdaf.base_sdaf or parent_sdaf
+        base_sdaf.fix()                                 # a join not read yet becomes a table first.
         base_sdaf._ref_col()                            # raises if the base has no reference that survives VACUUM.
         sel_sdaf: SqlDaf = cls.__new__(cls)
         sel_sdaf.store          = parent_sdaf.store
@@ -688,6 +690,12 @@ class SqlDaf(Daf):
                 f"Set a keyfield with unique values, or copy the table into the store with from_daf().")
 
 
+    def _resolve_base(self) -> None:
+        """ Resolve a join not read yet, this one or the base of this selection, before selecting from it. Internal use. """
+        base_sdaf: SqlDaf = self.base_sdaf or self
+        base_sdaf.fix()
+
+
     def _rows_sql(self) -> Tuple[str, Tuple[Any, ...]]:
         """
         A query that gives every row, as daf_ref, daf_ord and then the columns, not sorted. Internal use.
@@ -697,6 +705,8 @@ class SqlDaf(Daf):
         survives VACUUM first. For a fixed selection, it joins the reference table
         to the base table. For a selection not fixed yet, it is the query that finds the rows.
         """
+        if self.base_sdaf is None and not self.is_fixed:
+            return self.pending_sql, self.pending_params            # a join not resolved yet.
         if self.base_sdaf is None:
             ord_sql: str = quote_name(RID_COL) if self.has_rid else 'rowid'
             ref_sql: str = ord_sql if self.has_rid or not self.keyfield else quote_name(self.keyfield)
@@ -716,12 +726,25 @@ class SqlDaf(Daf):
 
         Reading a selection does this the first time, so it is rarely needed. It writes a TEMP
         table of references, one integer or key per row, in order. On 1,000,000 rows, a selection
-        of 773,698 took 0.20 s. A base table, or a selection already fixed, is not changed.
+        of 773,698 took 0.20 s. A join not read yet is resolved into a TEMP table of its rows. A
+        base table, or a selection already fixed, is not changed.
 
         Returns:
             This SqlDaf.
         """
         if self.is_fixed:
+            return self
+        if self.base_sdaf is None:                                  # a join: resolve it into a TEMP table of new rows.
+            table_sql: str = self.store._create_table_sql(self.name, list(self.hd)).replace('CREATE TABLE', 'CREATE TEMP TABLE', 1)
+            with self.store.transaction():
+                self.store.execute(table_sql)
+                self.store.execute(f'INSERT INTO {quote_name(self.name)} ({self._cols_sql()}) '
+                                   f'SELECT {self._cols_sql()} FROM ({self.pending_sql}) ORDER BY {ORD_COL}',
+                                   self.pending_params)
+            self.has_rid = True
+            self.is_fixed = True
+            self.pending_sql = ''
+            self.pending_params = ()
             return self
         self.store.execute(f'CREATE TEMP TABLE {quote_name(self.name)} (ord INTEGER PRIMARY KEY, ref)')
         self.store.execute(f'INSERT INTO {quote_name(self.name)} (ref) '
@@ -994,6 +1017,7 @@ class SqlDaf(Daf):
             ...     marks_sdaf.select_where_sql('"v" = ?', [0]).to_list()
             ['b2', 0]
         """
+        self._resolve_base()
         parent_sql, parent_params = self._rows_sql()
         return SqlDaf._new_selection(self, f'SELECT * FROM ({parent_sql}) WHERE {where_sql}',
                                      parent_params + null_to_none(params))
@@ -1153,9 +1177,10 @@ class SqlDaf(Daf):
             KeyError: A key that is missing.
             SqlNotSupportedError: Any other form, such as `sdaf[rows, cols]`, or a slice with a step.
         """
-        parent_sql, parent_params = self._rows_sql()
         if isinstance(sel, bool) or not isinstance(sel, (int, slice, str)):
             raise SqlNotSupportedError(f"sdaf[{sel!r}] is not supported on a SqlDaf yet. Use an int, a slice or a key.")
+        self._resolve_base()
+        parent_sql, parent_params = self._rows_sql()
 
         if isinstance(sel, str):
             if not self.keyfield:
@@ -1313,6 +1338,7 @@ class SqlDaf(Daf):
             ...     marks_sdaf.select_records_daf(['b3', 'b1']).to_daf().to_lod()
             [{'ballot_id': 'b3', 'v': 1}, {'ballot_id': 'b1', 'v': 1}]
         """
+        self._resolve_base()
         key_col: str = self._need_keyfield('select_records_daf')
         keys_sql, keys_params = self._key_source_sql(keys_ls)
         if not silent_error:
@@ -1448,6 +1474,7 @@ class SqlDaf(Daf):
 
         if self.base_sdaf is not None:
             self._become_table()
+        self.fix()
         if self.keyfield:
             self.ensure_key_index()
 
@@ -1459,6 +1486,140 @@ class SqlDaf(Daf):
         else:
             self.store.insert_rows(self.name, self.columns(), other_instance.lol)
         return self
+
+
+    # ---- joining ----
+
+    def join(                                                               # type: ignore[override]
+            self,
+            other_daf:              'SqlDaf',           # the SqlDaf to join with, of the same store.
+            how:                    str = 'inner',      # 'inner', 'left', 'right' or 'outer'.
+            shared_fields:          T_ls | None = None, # columns that both have and that appear only once.
+            tag_other:              bool = False,       # if True, every column of the other gets a suffix.
+            custom_translator_daf:  Daf | None = None,  # not supported yet.
+            diagnose:               bool = False,       # not used.
+            name:                   str = '',           # the name of the result. Generated if empty.
+            fill:                   Any = NULL,         # only NULL is supported.
+            ) -> 'SqlDaf':
+        """
+        Join two SqlDaf tables on their keyfields, as `Daf.join()` does, in SQL.
+
+        The columns are named exactly as `Daf.join()` names them, by the same translator: a
+        column that both have gets the name of its source as a suffix, such as `name_audit`,
+        unless it is in `shared_fields`, and `tag_other` suffixes every column of the other. The
+        names are those of the base tables, or `daf1` and `daf2` if they are the same. The rows
+        come as in `Daf.join()`: in this table's order, and for `right` and `outer`, the other
+        table's unmatched rows after, in its order. A cell with no match is NULL. The keyfield of
+        the result is this table's.
+
+        A row found only in the other table, in a right or outer join, takes its key and its
+        shared fields from the other table. `Daf.join()` does not yet: see the xfail tests in
+        tests/test_daf_join_other_only_rows.py.
+
+        Nothing runs yet. The join is resolved the first time it is read, into a TEMP table of
+        new rows, as `Daf.join()` makes new rows. A selection made from it resolves it first.
+
+        Args:
+            other_daf: The SqlDaf to join with, of the same store.
+            how: `inner`, `left`, `right` or `outer`.
+            shared_fields: Columns that both have and that appear only once.
+            tag_other: If True, every column of the other, except shared ones, gets a suffix.
+            custom_translator_daf: Not supported on a SqlDaf yet.
+            diagnose: Not used.
+            name: The name of the result table. Generated if empty.
+            fill: The value for cells that have no match. Only NULL is supported.
+
+        Returns:
+            A SqlDaf of the joined rows, resolved when first read.
+
+        Raises:
+            ValueError: `how` is not one of the four, or a table has no keyfield.
+            SqlNotSupportedError: `custom_translator_daf` or a `fill` other than NULL, or a SqlDaf of another store.
+
+        Examples:
+            >>> with SqlStore() as store:
+            ...     a_sdaf = store.from_daf(Daf(lol=[[1, 'Alice'], [2, 'Bob']], cols=['id', 'name'], keyfield='id'), name='a')
+            ...     b_sdaf = store.from_daf(Daf(lol=[[1, 50], [3, 70]], cols=['id', 'salary'], keyfield='id'), name='b')
+            ...     a_sdaf.join(b_sdaf, how='left').to_daf().lol
+            [[1, 'Alice', 50], [2, 'Bob', '']]
+        """
+        if how not in ('inner', 'left', 'right', 'outer'):
+            raise ValueError(f"join: how='{how}' is not inner, left, right or outer.")
+        if custom_translator_daf is not None:
+            raise SqlNotSupportedError("join(custom_translator_daf=) is not supported on a SqlDaf yet.")
+        if fill is not NULL:
+            raise SqlNotSupportedError("join(fill=) other than NULL is not supported on a SqlDaf yet.")
+        if not isinstance(other_daf, SqlDaf) or other_daf.store is not self.store:
+            raise SqlNotSupportedError("join: the other must be a SqlDaf of the same store.")
+        if not self.keyfield or not other_daf.keyfield:
+            raise ValueError("join: both tables need a keyfield.")
+
+        a_name: str = (self.base_sdaf or self).name
+        b_name: str = (other_daf.base_sdaf or other_daf).name
+        if a_name == b_name:
+            a_name, b_name = 'daf1', 'daf2'
+        translator_daf: Daf = Daf.derive_join_translator_daf(
+                self_keyfield   = self.keyfield,
+                other_keyfield  = other_daf.keyfield,
+                self_cols       = self.columns(),
+                other_cols      = other_daf.columns(),
+                self_name       = a_name,
+                other_name      = b_name,
+                shared_fields   = shared_fields,
+                tag_other       = tag_other,
+                )
+        shared_set: set = set(shared_fields or [])
+
+        out_cols: T_ls = []
+        a_exprs_ls: T_ls = []                           # the columns for rows of this table, matched or not.
+        b_exprs_ls: T_ls = []                           # the columns for rows found only in the other.
+        tr_la: T_la
+        for tr_la in translator_daf.lol:
+            resolved_col, source_name, source_col, is_keyfield = tr_la
+            out_cols.append(resolved_col)
+            if source_name == a_name:
+                a_exprs_ls.append(f'A.{quote_name(source_col)}')
+                if is_keyfield:
+                    b_exprs_ls.append(f'B.{quote_name(other_daf.keyfield)}')
+                elif source_col in shared_set and source_col in other_daf.hd:
+                    b_exprs_ls.append(f'B.{quote_name(source_col)}')
+                else:
+                    b_exprs_ls.append('NULL')
+            else:
+                a_exprs_ls.append(f'B.{quote_name(source_col)}')
+                b_exprs_ls.append(f'B.{quote_name(source_col)}')
+
+        a_sql, a_params = self._rows_sql()
+        b_sql, b_params = other_daf._rows_sql()
+        on_sql: str = f'A.{quote_name(self.keyfield)} = B.{quote_name(other_daf.keyfield)}'
+        named_ls: T_ls = [f'{expr} AS {quote_name(col)}' for expr, col in zip(a_exprs_ls, out_cols)]
+        join_kind: str = 'JOIN' if how in ('inner', 'right') else 'LEFT JOIN'
+        parts_ls: T_ls = [f'SELECT {", ".join(named_ls)}, 0 AS daf_grp, A.{ORD_COL} AS daf_o '
+                          f'FROM ({a_sql}) AS A {join_kind} ({b_sql}) AS B ON {on_sql}']
+        params: Tuple[Any, ...] = a_params + b_params
+        if how in ('right', 'outer'):
+            b_named_ls: T_ls = [f'{expr} AS {quote_name(col)}' for expr, col in zip(b_exprs_ls, out_cols)]
+            parts_ls.append(f'SELECT {", ".join(b_named_ls)}, 1 AS daf_grp, B.{ORD_COL} AS daf_o '
+                            f'FROM ({b_sql}) AS B WHERE NOT EXISTS (SELECT 1 FROM ({a_sql}) AS A WHERE {on_sql})')
+            params = params + b_params + a_params
+
+        cols_sql: str = ', '.join(quote_name(col) for col in out_cols)
+        pending_sql: str = (f'SELECT NULL AS {REF_COL}, ROW_NUMBER() OVER (ORDER BY daf_grp, daf_o) AS {ORD_COL}, {cols_sql} '
+                            f'FROM ({" UNION ALL ".join(parts_ls)})')
+
+        result_keyfield: str = next((tr_la[0] for tr_la in translator_daf.lol if tr_la[3]), '')
+        join_sdaf: SqlDaf = SqlDaf.__new__(SqlDaf)
+        join_sdaf.store          = self.store
+        join_sdaf._name          = name or self.store.next_temp_name(f'{a_name}_join_{b_name}')
+        join_sdaf.keyfield       = result_keyfield
+        join_sdaf.has_rid        = False
+        join_sdaf.hd             = {col: idx for idx, col in enumerate(out_cols)}
+        join_sdaf.dtypes         = {}
+        join_sdaf.base_sdaf      = None
+        join_sdaf.pending_sql    = pending_sql
+        join_sdaf.pending_params = params
+        join_sdaf.is_fixed       = False
+        return join_sdaf
 
 
     # ---- copying ----
@@ -1563,6 +1724,7 @@ class SqlDaf(Daf):
             raise ValueError(f"SqlDaf.ensure_key_index: '{self.name}' is a selection. Its base table has the index.")
         if not self.keyfield:
             raise ValueError(f"SqlDaf.ensure_key_index: '{self.name}' has no keyfield.")
+        self.fix()
         self.conn.execute(
                 f'CREATE UNIQUE INDEX IF NOT EXISTS {quote_name(self.key_index_name())} '
                 f'ON {quote_name(self.name)} ({quote_name(self.keyfield)})')
