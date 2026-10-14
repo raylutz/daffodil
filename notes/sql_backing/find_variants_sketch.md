@@ -216,6 +216,11 @@ are not changed; its databases are copied first.
 
 The times include copying the database and comparing. Peak memory was 105 MB at most.
 
+The trial also builds the step report of sql_variants.py: the same columns and step
+descriptions, with the rows and seconds of each step for each side. For San Francisco, every
+row count of steps 0 to 11 is the same as in AuditEngine's saved reports/Find_Variants_Report.md,
+and steps 1 to 11 took about 1.0 s in all, against about 0.9 s there.
+
 The column num_contests is left out of the comparison. cmpcvr.py fills it into audit_nonvariants
 with add_computed_column() after locate_variants() returns, so steps 1 to 11 never set it.
 
