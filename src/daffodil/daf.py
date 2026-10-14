@@ -6626,19 +6626,23 @@ class Daf:
         # return selected_daf
 
 
-    def select_records_daf(self, keys_ls: T_ls | Iterable, inverse:bool=False, silent_error: bool=False) -> 'Daf':
+    def select_records_daf(self, keys_ls: 'T_ls | Iterable | Daf', inverse:bool=False, silent_error: bool=False) -> 'Daf':
         """
         Select several rows by key and return them as a Daf.
 
         This is `select_krows()` with a friendlier answer for an empty list of keys.
         No keys gives an empty Daf, or all the rows if `inverse` is True.
 
+        The keys may be another Daf. Its keys are then used, through a view of its key index,
+        so no list of them is made. That other Daf must have a keyfield. Its rows are not
+        changed. The keys come in its row order, so the rows selected come in that order too.
+
         The rows are shared with this Daf, as in `select_krows()`. The new Daf has its own
         row list, also with no keys and `inverse` True, so adding a row to one does not
         add it to the other.
 
         Args:
-            keys_ls: The keys of the rows.
+            keys_ls: The keys of the rows, or a Daf whose keys are used.
             inverse: If True, drop the selected rows and keep the others.
             silent_error: If True, keys that are not found are ignored.
 
@@ -6646,7 +6650,7 @@ class Daf:
             The new Daf.
 
         Raises:
-            KeysDisabledError: The Daf has no keyfield and no key index.
+            KeysDisabledError: This Daf, or a Daf given as the keys, has no keyfield and no key index.
             KeyError: A key is not found and `silent_error` is False.
 
         Examples:
@@ -6675,6 +6679,12 @@ class Daf:
             >>> kept[0, 'v'] = 'Q'
             >>> d.iloc(0)['v']
             'Q'
+
+            The keys of another Daf, without making a list of them:
+
+            >>> other = Daf(lol=[['r3', 1], ['r9', 2]], cols=['id', 'w'], keyfield='id')
+            >>> d.select_records_daf(other, silent_error=True).to_lod()
+            [{'id': 'r3', 'v': 'a', 'n': 30}]
         """
 
         """ Select multiple records from daf using the keys and return as a single daf.
@@ -6683,6 +6693,9 @@ class Daf:
 
             This function requires that a keyfield or manual kd exists, otherwise raises KeysDisabledError.
         """
+        if isinstance(keys_ls, Daf):
+            keys_ls = keys_ls.keys(silent_error=False, astype='view')
+
         # rudamentary special cases:
         if not keys_ls:
             if inverse:
