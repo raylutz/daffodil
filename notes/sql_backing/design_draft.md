@@ -283,6 +283,12 @@ what to do next, not a design decision.
     On 1,000,000 rows: iloc(500000) 17 ms before, 0.16 ms after. iloc(-1) 0.28 ms. len() of a
     fixed selection of 499,892 rows 116 ms before, 0.01 ms after. sdaf[900000:900100].to_daf()
     0.61 ms.
+118. The name persist(), decided by Ray on 2026-10-14. The method that runs a selection's query once
+    and keeps which rows it found, or resolves a join into a TEMP table of rows, is `persist()`,
+    with the flag `is_persisted`, as Spark and Dask use the word: the result is kept and the
+    object stays lazy. It was `fix()` until then. In databases the usual word is materialize,
+    but `materialize()` here copies the rows, and a selection keeps only references. The
+    decisions above that say "fixed" mean persisted.
 
 ## groupby and row sharing
 

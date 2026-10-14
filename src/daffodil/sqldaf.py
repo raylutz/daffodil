@@ -525,11 +525,11 @@ class SqlDaf(Daf):
       indexing, as in `sdaf[2:5]` or `sdaf['b2']`, each make one. A selection of a selection
       is a selection of the same base table.
 
-    A selection runs nothing when it is made. Its rows are found, and fixed, the first time it
+    A selection runs nothing when it is made. Its rows are found, and persisted, the first time it
     is read: by `to_daf()`, `len()`, `bool()`, `to_dict()`, `to_list()` or `to_value()`. After
     that, it always means the same rows, as a selection of a Daf does. A change to the values
     in those rows shows in it, since it refers to them. A selection made from one that is not
-    fixed yet is computed from the same conditions, all in one query.
+    persisted yet is computed from the same conditions, all in one query.
 
     Do not delete rows from a base table that has selections, or that you read by position.
     Positions use daf_rid, which then has gaps, and `len()` of a selection counts its references,
@@ -565,7 +565,7 @@ class SqlDaf(Daf):
     column, and MAX() gives the last in text order.
 
     The `name` is the name of the table in the database. A selection gets a generated name,
-    such as daf_tmp_marks_v3, which names its reference table once it is fixed. It cannot be
+    such as daf_tmp_marks_v3, which names its reference table once it is persisted. It cannot be
     changed.
 
     Examples:
@@ -617,7 +617,7 @@ class SqlDaf(Daf):
         self.base_sdaf:     SqlDaf | None   = None
         self.pending_sql:   str             = ''
         self.pending_params: Tuple[Any, ...] = ()
-        self.is_fixed:      bool            = True
+        self.is_persisted:      bool            = True
 
 
     @classmethod
@@ -628,9 +628,9 @@ class SqlDaf(Daf):
             pending_params: Tuple[Any, ...],            # its parameters.
             keyfield:       str | None = None,          # the keyfield of the selection. The parent's if None.
             ) -> 'SqlDaf':
-        """ Make a selection, not fixed yet. Internal use. """
+        """ Make a selection, not persisted yet. Internal use. """
         base_sdaf: SqlDaf = parent_sdaf.base_sdaf or parent_sdaf
-        base_sdaf.fix()                                 # a join not read yet becomes a table first.
+        base_sdaf.persist()                                 # a join not read yet becomes a table first.
         base_sdaf._ref_col()                            # raises if the base has no reference that survives VACUUM.
         sel_sdaf: SqlDaf = cls.__new__(cls)
         sel_sdaf.store          = parent_sdaf.store
@@ -642,7 +642,7 @@ class SqlDaf(Daf):
         sel_sdaf.base_sdaf      = base_sdaf
         sel_sdaf.pending_sql    = pending_sql
         sel_sdaf.pending_params = pending_params
-        sel_sdaf.is_fixed       = False
+        sel_sdaf.is_persisted       = False
         return sel_sdaf
 
 
@@ -693,7 +693,7 @@ class SqlDaf(Daf):
     def _resolve_base(self) -> None:
         """ Resolve a join not read yet, this one or the base of this selection, before selecting from it. Internal use. """
         base_sdaf: SqlDaf = self.base_sdaf or self
-        base_sdaf.fix()
+        base_sdaf.persist()
 
 
     def _rows_sql(self) -> Tuple[str, Tuple[Any, ...]]:
@@ -702,17 +702,17 @@ class SqlDaf(Daf):
 
         For a base table, it reads the table. Its daf_ref is daf_rid, or else the keyfield, or else
         the rowid. Only reading uses the rowid: `_new_selection()` checks for a reference that
-        survives VACUUM first. For a fixed selection, it joins the reference table
-        to the base table. For a selection not fixed yet, it is the query that finds the rows.
+        survives VACUUM first. For a persisted selection, it joins the reference table
+        to the base table. For a selection not persisted yet, it is the query that finds the rows.
         """
-        if self.base_sdaf is None and not self.is_fixed:
+        if self.base_sdaf is None and not self.is_persisted:
             return self.pending_sql, self.pending_params            # a join not resolved yet.
         if self.base_sdaf is None:
             ord_sql: str = quote_name(RID_COL) if self.has_rid else 'rowid'
             ref_sql: str = ord_sql if self.has_rid or not self.keyfield else quote_name(self.keyfield)
             return (f'SELECT {ref_sql} AS {REF_COL}, {ord_sql} AS {ORD_COL}, {self._cols_sql()} '
                     f'FROM {quote_name(self.name)}'), ()
-        if not self.is_fixed:
+        if not self.is_persisted:
             return self.pending_sql, self.pending_params
         base_ref_col: str = self.base_sdaf._ref_col()
         return (f'SELECT s.ref AS {REF_COL}, s.ord AS {ORD_COL}, {self._cols_sql("b.")} '
@@ -720,19 +720,23 @@ class SqlDaf(Daf):
                 f'ON b.{quote_name(base_ref_col)} = s.ref'), ()
 
 
-    def fix(self) -> 'SqlDaf':
+    def persist(self) -> 'SqlDaf':
         """
-        Find the rows of a selection now, and fix them.
+        Find the rows of a selection now, and keep which rows they are.
 
-        Reading a selection does this the first time, so it is rarely needed. It writes a TEMP
-        table of references, one integer or key per row, in order. On 1,000,000 rows, a selection
-        of 773,698 took 0.20 s. A join not read yet is resolved into a TEMP table of its rows. A
-        base table, or a selection already fixed, is not changed.
+        This is persist() as in Spark and Dask: the query runs once, and its result is kept,
+        while the object stays a SqlDaf. Reading a selection does this the first time, so it is
+        rarely needed.
+
+        For a selection, it writes a TEMP table of references, one daf_rid or key per row, in
+        order. The rows stay in the base table. On 1,000,000 rows, a selection of 773,698 took
+        0.20 s. For a join not read yet, it writes a TEMP table of the joined rows. A base
+        table, or a SqlDaf already persisted, is not changed.
 
         Returns:
             This SqlDaf.
         """
-        if self.is_fixed:
+        if self.is_persisted:
             return self
         if self.base_sdaf is None:                                  # a join: resolve it into a TEMP table of new rows.
             table_sql: str = self.store._create_table_sql(self.name, list(self.hd)).replace('CREATE TABLE', 'CREATE TEMP TABLE', 1)
@@ -742,7 +746,7 @@ class SqlDaf(Daf):
                                    f'SELECT {self._cols_sql()} FROM ({self.pending_sql}) ORDER BY {ORD_COL}',
                                    self.pending_params)
             self.has_rid = True
-            self.is_fixed = True
+            self.is_persisted = True
             self.pending_sql = ''
             self.pending_params = ()
             return self
@@ -750,7 +754,7 @@ class SqlDaf(Daf):
         self.store.execute(f'INSERT INTO {quote_name(self.name)} (ref) '
                            f'SELECT {REF_COL} FROM ({self.pending_sql}) ORDER BY {ORD_COL}',
                            self.pending_params)
-        self.is_fixed = True
+        self.is_persisted = True
         self.pending_sql = ''
         self.pending_params = ()
         return self
@@ -760,10 +764,10 @@ class SqlDaf(Daf):
         """
         Say whether daf_ord numbers the rows 1, 2, 3 and so on, so a position is a lookup. Internal use.
 
-        It does in a fixed selection, whose reference table numbers its rows as it is written. It
+        It does in a persisted selection, whose reference table numbers its rows as it is written. It
         does in a base table with daf_rid, as long as no row has been deleted from it.
         """
-        return self.has_rid if self.base_sdaf is None else self.is_fixed
+        return self.has_rid if self.base_sdaf is None else self.is_persisted
 
 
     def _count_for_position(self) -> int:
@@ -795,14 +799,14 @@ class SqlDaf(Daf):
         """
         Count the rows.
 
-        For a base table, this runs a COUNT. For a selection, it is fixed first, and then its
+        For a base table, this runs a COUNT. For a selection, it is persisted first, and then its
         references are counted, which is one lookup. A row deleted from the base table is still
         counted, so do not delete rows from a base table that has selections.
 
         Returns:
             The number of rows.
         """
-        self.fix()
+        self.persist()
         if self.base_sdaf is None:
             return int(self.conn.execute(f'SELECT COUNT(*) FROM {quote_name(self.name)}').fetchone()[0])
         return int(self.conn.execute(f'SELECT COALESCE(MAX(ord), 0) FROM {quote_name(self.name)}').fetchone()[0])
@@ -812,13 +816,13 @@ class SqlDaf(Daf):
         """
         Say whether there is at least one row.
 
-        This stops at the first row, so it is fast on a large table. A selection is fixed first,
+        This stops at the first row, so it is fast on a large table. A selection is persisted first,
         and then its references are checked, as `len()` counts them.
 
         Returns:
             True if there is a row.
         """
-        self.fix()
+        self.persist()
         return self.conn.execute(f'SELECT 1 FROM {quote_name(self.name)} LIMIT 1').fetchone() is not None
 
 
@@ -841,12 +845,12 @@ class SqlDaf(Daf):
         Use it once the rows you need are few enough to hold. The rows come in order. A SQL NULL
         comes back as NULL. The new Daf has this SqlDaf's name, keyfield and dtypes. Nothing
         ties it to the table afterwards: a change to one does not show in the other. A selection
-        is fixed first.
+        is persisted first.
 
         Returns:
             A Daf of every row.
         """
-        self.fix()
+        self.persist()
         lol: T_lola = [none_to_null(row_t) for row_t in self._select_rows()]
         return Daf(lol=lol, cols=self.columns(), keyfield=self.keyfield, name=self.name,
                    dtypes=dict(self.dtypes) if self.dtypes else None)
@@ -856,7 +860,7 @@ class SqlDaf(Daf):
         """
         Read a table of one row as a dict, as `Daf.to_dict()` does.
 
-        A selection is fixed first. For a row by key or by position, `select_record()` and
+        A selection is persisted first. For a row by key or by position, `select_record()` and
         `iloc()` are cheaper: they make no selection.
 
         Returns:
@@ -865,7 +869,7 @@ class SqlDaf(Daf):
         Raises:
             ValueError: There is more than one row.
         """
-        self.fix()
+        self.persist()
         rows_lot: List[Tuple[Any, ...]] = self._select_rows(limit=2)
         if len(rows_lot) > 1:
             raise ValueError("Ambiguous 2dim array.")
@@ -879,7 +883,7 @@ class SqlDaf(Daf):
         Read a table of one row, or of one column, as a list, as `Daf.to_list()` does.
 
         One column gives every value of the column, in order, so select first. A selection is
-        fixed first.
+        persisted first.
 
         Returns:
             The values of the row, or of the column.
@@ -887,7 +891,7 @@ class SqlDaf(Daf):
         Raises:
             ValueError: There is more than one row and more than one column.
         """
-        self.fix()
+        self.persist()
         if len(self.hd) == 1:
             return [NULL if row_t[0] is None else row_t[0] for row_t in self._select_rows()]
         rows_lot: List[Tuple[Any, ...]] = self._select_rows(limit=2)
@@ -900,7 +904,7 @@ class SqlDaf(Daf):
         """
         Read a table of one row and one column as its value, as `Daf.to_value()` does.
 
-        A selection is fixed first.
+        A selection is persisted first.
 
         Returns:
             The value. NULL for SQL NULL.
@@ -908,7 +912,7 @@ class SqlDaf(Daf):
         Raises:
             ValueError: The table is not one row and one column.
         """
-        self.fix()
+        self.persist()
         rows_lot: List[Tuple[Any, ...]] = self._select_rows(limit=2)
         if len(rows_lot) != 1 or len(self.hd) != 1:
             raise ValueError(f"to_value() requires 1×1, got shape ({len(rows_lot) if len(rows_lot) < 2 else '2+'}, {len(self.hd)})")
@@ -924,8 +928,8 @@ class SqlDaf(Daf):
         """
         Read one row by position, as `Daf.iloc()` does, in one query.
 
-        This makes no selection, and does not fix a selection it is called on. In a base table
-        with daf_rid, or a fixed selection, the position is looked up directly. Otherwise SQLite
+        This makes no selection, and does not persist a selection it is called on. In a base table
+        with daf_rid, or a persisted selection, the position is looked up directly. Otherwise SQLite
         steps over the rows before it, which takes longer the further in it is. A negative
         position counts from the end, which costs a `len()` first.
 
@@ -966,7 +970,7 @@ class SqlDaf(Daf):
         Read one row by its key, as a dict, as `Daf.select_record()` does, in one query.
 
         The keyfield's unique index is made first if it is not there yet, so the lookup does not
-        read every row. This makes no selection, and does not fix a selection it is called on.
+        read every row. This makes no selection, and does not persist a selection it is called on.
         It took about 18 us on 1,000,000 rows, or 9 us inside `store.transaction()`.
 
         Args:
@@ -1093,7 +1097,7 @@ class SqlDaf(Daf):
         Values are compared with SQL's IS, which treats NULL as a value, so the inverse keeps rows
         with a missing value. As in Python, 1 equals 1.0, and the text '1' does not equal 1.
 
-        Nothing runs yet, unless `expectmax` is given: then the selection is fixed at once, to
+        Nothing runs yet, unless `expectmax` is given: then the selection is persisted at once, to
         count the matches.
 
         Args:
@@ -1163,7 +1167,7 @@ class SqlDaf(Daf):
           KeyError, as in a Daf.
 
         A negative position, or a slice with a negative end, costs a `len()` first. In a base
-        table with daf_rid, or a fixed selection, positions are looked up directly. Otherwise
+        table with daf_rid, or a persisted selection, positions are looked up directly. Otherwise
         SQLite steps over the rows before them.
 
         Args:
@@ -1410,7 +1414,7 @@ class SqlDaf(Daf):
                                    f'(SELECT daf_key FROM ({keys_sql}))', keys_params)
             return self
 
-        self.fix()
+        self.persist()
         rows_sql, rows_params = self._rows_sql()
         new_name: str = self.store.next_temp_name(self.base_sdaf.name)
         with self.store.transaction():
@@ -1433,7 +1437,7 @@ class SqlDaf(Daf):
         self._name      = copy_sdaf.name
         self.has_rid    = True
         self.base_sdaf  = None
-        self.is_fixed   = True
+        self.is_persisted   = True
         self.pending_sql = ''
         self.pending_params = ()
 
@@ -1474,7 +1478,7 @@ class SqlDaf(Daf):
 
         if self.base_sdaf is not None:
             self._become_table()
-        self.fix()
+        self.persist()
         if self.keyfield:
             self.ensure_key_index()
 
@@ -1618,7 +1622,7 @@ class SqlDaf(Daf):
         join_sdaf.base_sdaf      = None
         join_sdaf.pending_sql    = pending_sql
         join_sdaf.pending_params = params
-        join_sdaf.is_fixed       = False
+        join_sdaf.is_persisted       = False
         return join_sdaf
 
 
@@ -1724,7 +1728,7 @@ class SqlDaf(Daf):
             raise ValueError(f"SqlDaf.ensure_key_index: '{self.name}' is a selection. Its base table has the index.")
         if not self.keyfield:
             raise ValueError(f"SqlDaf.ensure_key_index: '{self.name}' has no keyfield.")
-        self.fix()
+        self.persist()
         self.conn.execute(
                 f'CREATE UNIQUE INDEX IF NOT EXISTS {quote_name(self.key_index_name())} '
                 f'ON {quote_name(self.name)} ({quote_name(self.keyfield)})')

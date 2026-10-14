@@ -577,7 +577,7 @@ def test_select_where_sql_with_params_and_null():
         assert bif_sdaf.select_where_sql('"is_bmd" IS ?', [NULL]).to_list() == ['b3', 'P1', 3, NULL]
 
 
-def test_selection_is_lazy_and_fixed_at_first_read():
+def test_selection_is_lazy_and_persisted_at_first_read():
     with SqlStore() as store:
         bif_sdaf: SqlDaf = store.from_daf(make_bif_daf(), name='bif')
         sel_sdaf: SqlDaf = bif_sdaf.select_by_dict({'precinct': 'P1'})
@@ -585,7 +585,7 @@ def test_selection_is_lazy_and_fixed_at_first_read():
         bif_sdaf.sql("UPDATE bif SET precinct = 'P1' WHERE ballot_id = 'b4'")      # before the first read: counts
         assert len(sel_sdaf) == 4
         assert temp_tables(store) == [sel_sdaf.name]
-        bif_sdaf.sql("UPDATE bif SET precinct = 'P1' WHERE ballot_id = 'b2'")      # after: the rows are fixed
+        bif_sdaf.sql("UPDATE bif SET precinct = 'P1' WHERE ballot_id = 'b2'")      # after: the rows are persisted
         bif_sdaf.sql("UPDATE bif SET style_num = 9 WHERE ballot_id = 'b1'")        # but values show through
         assert sel_sdaf.to_daf().lol == [['b1', 'P1', 9, 0], ['b3', 'P1', 3, NULL], ['b4', 'P1', 1, 1], ['b5', 'P1', 2, 0]]
 
@@ -593,7 +593,7 @@ def test_selection_is_lazy_and_fixed_at_first_read():
 def test_deleted_base_row_drops_out_of_to_daf_but_len_counts_references():
     with SqlStore() as store:
         bif_sdaf: SqlDaf = store.from_daf(make_bif_daf(), name='bif')
-        sel_sdaf: SqlDaf = bif_sdaf.select_by_dict({'precinct': 'P1'}).fix()
+        sel_sdaf: SqlDaf = bif_sdaf.select_by_dict({'precinct': 'P1'}).persist()
         bif_sdaf.sql("DELETE FROM bif WHERE ballot_id = 'b3'")
         assert sel_sdaf.to_daf()[:, 'ballot_id'].to_list() == ['b1', 'b5']
         assert len(sel_sdaf) == 3                      # len() counts references: do not delete base rows.
@@ -609,10 +609,10 @@ def test_chain_of_selections_runs_as_one_query_until_read():
         assert temp_tables(store) == [p1_style2_sdaf.name]
 
 
-def test_selection_of_a_fixed_selection_uses_its_rows():
+def test_selection_of_a_persisted_selection_uses_its_rows():
     with SqlStore() as store:
         bif_sdaf: SqlDaf = store.from_daf(make_bif_daf(), name='bif')
-        p1_sdaf: SqlDaf = bif_sdaf.select_by_dict({'precinct': 'P1'}).fix()
+        p1_sdaf: SqlDaf = bif_sdaf.select_by_dict({'precinct': 'P1'}).persist()
         bif_sdaf.sql("UPDATE bif SET precinct = 'P1' WHERE ballot_id = 'b2'")
         assert p1_sdaf.select_where_sql('"style_num" = 2').to_daf()[:, 'ballot_id'].to_list() == ['b5']
 
@@ -699,7 +699,7 @@ def test_iloc_errors_and_does_not_fix():
             bif_sdaf.iloc(0, rtype='klist')
         sel_sdaf: SqlDaf = bif_sdaf.select_by_dict({'precinct': 'P1'})
         assert sel_sdaf.iloc(1)['ballot_id'] == 'b3'
-        assert sel_sdaf.is_fixed is False
+        assert sel_sdaf.is_persisted is False
         assert temp_tables(store) == []
 
 
@@ -714,7 +714,7 @@ def test_select_record_matches_mdaf():
         sel_sdaf: SqlDaf = bif_sdaf.select_by_dict({'precinct': 'P1'})
         assert sel_sdaf.select_record('b2') == {}
         assert sel_sdaf.select_record('b5')['style_num'] == 2
-        assert sel_sdaf.is_fixed is False
+        assert sel_sdaf.is_persisted is False
 
 
 def test_select_record_without_keyfield_raises():
@@ -794,7 +794,7 @@ def test_key_references_survive_delete_and_vacuum(tmp_path):
     conn.executemany('INSERT INTO plain VALUES (?, ?)', [(f'b{i}', i % 3) for i in range(10)])
     with SqlStore(conn=conn) as store:
         plain_sdaf: SqlDaf = store.table('plain', keyfield='ballot_id')
-        sel_sdaf: SqlDaf = plain_sdaf.select_where_sql('v = 0').fix()
+        sel_sdaf: SqlDaf = plain_sdaf.select_where_sql('v = 0').persist()
         conn.execute("DELETE FROM plain WHERE ballot_id IN ('b0', 'b1', 'b2')")
         conn.execute('VACUUM')
         assert sel_sdaf.to_daf()[:, 'ballot_id'].to_list() == ['b3', 'b6', 'b9']
@@ -814,7 +814,7 @@ def test_ensure_key_index_on_a_selection_raises():
             bif_sdaf.select_by_dict({'precinct': 'P1'}).ensure_key_index()
 
 
-# positions use daf_rid and the order of a fixed selection
+# positions use daf_rid and the order of a persisted selection
 
 def plan_of(store: SqlStore, stmt: str, params: tuple = ()) -> str:
     return ' | '.join(row_t[-1] for row_t in store.conn.execute('EXPLAIN QUERY PLAN ' + stmt, params))
@@ -826,8 +826,8 @@ def test_iloc_and_slices_look_up_dense_positions():
         bif_sdaf: SqlDaf = store.from_daf(bif_daf, name='bif')
         sel_sdaf: SqlDaf = bif_sdaf.select_by_dict({'precinct': 'P1'})
         sel_daf: Daf = bif_daf.select_by_dict({'precinct': 'P1'})
-        assert sel_sdaf.iloc(1) == sel_daf.iloc(1)                 # not fixed: steps with OFFSET
-        sel_sdaf.fix()
+        assert sel_sdaf.iloc(1) == sel_daf.iloc(1)                 # not persisted: steps with OFFSET
+        sel_sdaf.persist()
         assert sel_sdaf._is_dense() and bif_sdaf._is_dense()
         assert sel_sdaf.iloc(2) == sel_daf.iloc(2)
         assert sel_sdaf[1:3].to_daf().lol == sel_daf[1:3].lol
@@ -959,7 +959,7 @@ def test_delete_records_inplace_on_a_selection_leaves_the_base():
 def test_delete_records_inplace_on_a_base_makes_selections_stale():
     with SqlStore() as store:
         bif_sdaf: SqlDaf = store.from_daf(make_bif_daf(), name='bif')
-        p1_sdaf: SqlDaf = bif_sdaf.select_by_dict({'precinct': 'P1'}).fix()
+        p1_sdaf: SqlDaf = bif_sdaf.select_by_dict({'precinct': 'P1'}).persist()
         bif_sdaf.delete_records(['b3'], inplace=True)
         assert len(bif_sdaf) == 4
         assert p1_sdaf.to_daf()[:, 'ballot_id'].to_list() == ['b1', 'b5']
@@ -1072,11 +1072,11 @@ def test_join_is_lazy_and_resolves_once():
         audit_sdaf: SqlDaf = store.from_daf(audit_daf, name='audit')
         cvr_sdaf: SqlDaf = store.from_daf(cvr_daf, name='cvr')
         join_sdaf: SqlDaf = audit_sdaf.join(cvr_sdaf, how='outer')
-        assert join_sdaf.is_fixed is False and temp_tables(store) == []
+        assert join_sdaf.is_persisted is False and temp_tables(store) == []
         assert join_sdaf.iloc(3)['id'] == 'k4'                      # a one-row read does not resolve it
-        assert join_sdaf.is_fixed is False
+        assert join_sdaf.is_persisted is False
         assert len(join_sdaf) == 4
-        assert join_sdaf.is_fixed is True and temp_tables(store) == [join_sdaf.name]
+        assert join_sdaf.is_persisted is True and temp_tables(store) == [join_sdaf.name]
         assert join_sdaf.name.startswith('daf_tmp_audit_join_cvr_v')
 
 
@@ -1085,7 +1085,7 @@ def test_join_result_is_new_rows_not_tied_to_its_sources():
     with SqlStore() as store:
         audit_sdaf: SqlDaf = store.from_daf(audit_daf, name='audit')
         cvr_sdaf: SqlDaf = store.from_daf(cvr_daf, name='cvr')
-        join_sdaf: SqlDaf = audit_sdaf.join(cvr_sdaf).fix()
+        join_sdaf: SqlDaf = audit_sdaf.join(cvr_sdaf).persist()
         audit_sdaf.sql("UPDATE audit SET v = 99 WHERE id = 'k3'")
         assert join_sdaf.select_record('k3')['v'] == 1
 
@@ -1097,7 +1097,7 @@ def test_selection_of_an_unread_join_resolves_it_first():
         cvr_sdaf: SqlDaf = store.from_daf(cvr_daf, name='cvr')
         join_sdaf: SqlDaf = audit_sdaf.join(cvr_sdaf, tag_other=True)
         differ_sdaf: SqlDaf = join_sdaf.select_where_sql('"name_audit" IS NOT "name_cvr"')
-        assert join_sdaf.is_fixed is True
+        assert join_sdaf.is_persisted is True
         assert differ_sdaf.base_sdaf is join_sdaf
         assert list(differ_sdaf.keys()) == ['k3', 'k2']
         assert join_sdaf[1:].to_daf()[:, 'id'].to_list() == ['k2']
