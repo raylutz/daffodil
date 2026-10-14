@@ -99,6 +99,9 @@ These steps were proposed on 2026-10-13. Ray deferred them while the groupby que
 
 ## Decisions
 
+Numbered as the questions were in the conversation. A missing number was a question about
+what to do next, not a design decision.
+
 88. Shape, decided by Ray on 2026-10-13. A SQL-backed table is a `SqlDaf`, a subclass of Daf,
     in its own module, src/daffodil/sqldaf.py, with the functions that support it.
     - SqlDaf defines only the methods supported under SQL. The first is `sql()`, a general
@@ -239,6 +242,10 @@ These steps were proposed on 2026-10-13. Ray deferred them while the groupby que
     calling `apply_dtypes()` later, and should be deprecated, after checking AuditEngine. On
     2026-10-14 AuditEngine's 6 direct calls to Daf's CSV readers passed no dtypes, and
     DB.load_data() builds `Daf(lol, cols, dtypes=...)` without converting. A separate item.
+108. Deprecating the dtypes conversion of the CSV readers, decided by Ray on 2026-10-14: in the
+    docs. The docstrings of `Daf.from_csv_buff()` and `Daf.from_csv()` say it is deprecated, and
+    to call `apply_dtypes()` instead. It still works, and no warning is raised.
+    `from_excel_buff()` also takes dtypes; it is not changed.
 110. NULL in a bool column, decided by Ray on 2026-10-14: Original. `apply_dtypes()` turns it into
     0, as `Daf.apply_dtypes()` does, so the two match. Keeping NULL was weighed: in SQL, NULL is
     not false, so `NOT is_bmd`, `is_bmd = 0` and `is_bmd != 1` all skip it, and AVG leaves it out.
@@ -265,10 +272,6 @@ These steps were proposed on 2026-10-13. Ray deferred them while the groupby que
     On 1,000,000 rows: iloc(500000) 17 ms before, 0.16 ms after. iloc(-1) 0.28 ms. len() of a
     fixed selection of 499,892 rows 116 ms before, 0.01 ms after. sdaf[900000:900100].to_daf()
     0.61 ms.
-108. Deprecating the dtypes conversion of the CSV readers, decided by Ray on 2026-10-14: in the
-    docs. The docstrings of `Daf.from_csv_buff()` and `Daf.from_csv()` say it is deprecated, and
-    to call `apply_dtypes()` instead. It still works, and no warning is raised.
-    `from_excel_buff()` also takes dtypes; it is not changed.
 
 ## groupby and row sharing
 
