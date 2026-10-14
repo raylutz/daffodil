@@ -217,6 +217,28 @@ These steps were proposed on 2026-10-13. Ray deferred them while the groupby que
     selection. On Daf it rebuilds the row list in place and invalidates the key index. An
     in-memory selection made earlier keeps the deleted rows, since it holds the row lists. A
     SqlDaf selection loses them on its next read, as decision 99 says. The docstrings say both.
+106. Types, keyfield and transactions, decided by Ray on 2026-10-14.
+    - Readers only read. `SqlStore.from_csv()` stores the text of the file, in columns with no
+      SQL type, and takes no dtypes. `apply_dtypes()` converts in place with Daf's own
+      converter, `daf_utils.get_converter()`, registered as a SQL function, so the results
+      match `Daf.apply_dtypes()`: '2.5' as int is 2, 'abc' stays, NULL stays NULL, and NULL in
+      a bool column is 0. SQLite's own CAST would make 'abc' 0, so it is not used. This
+      replaces the declared column types of step 1 and of decision 95.
+    - The keyfield is recorded at load. Its unique index is made when a key is first used,
+      by `ensure_key_index()`, as a Daf builds its kd lazily. A repeated key raises then. A
+      Daf keeps the last copy quietly; a SqlDaf does not, since duplicates must never be missed.
+    - `store.transaction()` runs a block as one transaction, nested as a savepoint. It halves
+      the cost of runs of small statements.
+    Ray: SQL is only for large tables, and the speed tradeoff is not a show stopper.
+    Measured on 1,000,000 rows: load as text then convert two columns 5.3 s, convert during
+    the load 4.0 s, SQLite INTEGER at load 3.5 s but '2.5' became 2.5. Index at first use 0.5 s.
+    A lookup by key 17.9 us, 9.0 us inside a transaction. Peak memory 40 MB throughout.
+107. Converting during the load, decided by Ray on 2026-10-14: A, reader only, for the best
+    compatibility. Ray: CSV is read in a wrapper, not in a testable pure function. The
+    conversion that `Daf.from_csv_buff()` does at its end when given dtypes is no better than
+    calling `apply_dtypes()` later, and should be deprecated, after checking AuditEngine. On
+    2026-10-14 AuditEngine's 6 direct calls to Daf's CSV readers passed no dtypes, and
+    DB.load_data() builds `Daf(lol, cols, dtypes=...)` without converting. A separate item.
 
 ## groupby and row sharing
 

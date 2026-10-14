@@ -69,13 +69,15 @@ def test_store_next_temp_name_counts_up():
 
 # SqlStore.create_table
 
-def test_create_table_has_hidden_rid_and_declared_types():
+def test_create_table_has_hidden_rid_and_untyped_columns():
     with SqlStore() as store:
-        marks_sdaf: SqlDaf = store.create_table('marks', ['ballot_id', 'n', 'f', 'x'], dtypes={'n': int, 'f': float, 'x': list})
+        marks_sdaf: SqlDaf = store.create_table('marks', ['ballot_id', 'n'], keyfield='ballot_id', dtypes={'n': int})
         info_lot = store.conn.execute('PRAGMA table_info(marks)').fetchall()
         assert [(info_t[1], info_t[2], info_t[5]) for info_t in info_lot] == [
-            (RID_COL, 'INTEGER', 1), ('ballot_id', '', 0), ('n', 'INTEGER', 0), ('f', 'REAL', 0), ('x', '', 0)]
-        assert marks_sdaf.columns() == ['ballot_id', 'n', 'f', 'x']
+            (RID_COL, 'INTEGER', 1), ('ballot_id', '', 0), ('n', '', 0)]
+        assert marks_sdaf.columns() == ['ballot_id', 'n']
+        assert marks_sdaf.dtypes == {'n': int}
+        assert store.conn.execute("SELECT COUNT(*) FROM sqlite_master WHERE type = 'index'").fetchone()[0] == 0
 
 
 def test_create_table_rejects_an_existing_name():
@@ -110,13 +112,23 @@ def test_from_csv_loads_rows_in_order_with_null(tmp_path):
         assert store.conn.execute('SELECT COUNT(*) FROM marks WHERE num_votes IS NULL').fetchone()[0] == 1
 
 
-def test_from_csv_with_dtypes_stores_numbers(tmp_path):
+def test_from_csv_reads_text_only(tmp_path):
     csv_path: str = write_csv(str(tmp_path / 'm.csv'), 'k,n,f\na,1,1.5\nb,,\nc,abc,2\n')
     with SqlStore() as store:
-        m_sdaf: SqlDaf = store.from_csv(csv_path, dtypes={'n': int, 'f': float})
-        assert m_sdaf.to_daf().lol == [['a', 1, 1.5], ['b', NULL, NULL], ['c', 'abc', 2.0]]
-        # 'abc' does not fit INTEGER, so it is kept as text: COUNT counts it, and SUM turns real.
-        assert m_sdaf.sql('SELECT SUM(n) AS s, COUNT(n) AS c FROM m').lol == [[1.0, 2]]
+        m_sdaf: SqlDaf = store.from_csv(csv_path)
+        assert m_sdaf.to_daf().lol == [['a', '1', '1.5'], ['b', NULL, NULL], ['c', 'abc', '2']]
+        assert m_sdaf.sql('SELECT typeof(n) FROM m').to_list() == ['text', 'null', 'text']
+
+
+def test_from_csv_text_compares_as_text_in_sql(tmp_path):
+    csv_path: str = write_csv(str(tmp_path / 't.csv'), 'k,n\na,1\nb,10\nc,9\n')
+    with SqlStore() as store:
+        t_sdaf: SqlDaf = store.from_csv(csv_path)
+        assert t_sdaf.sql('SELECT k FROM t WHERE n < 5').lol == []
+        assert t_sdaf.sql('SELECT MAX(n) FROM t').lol == [['9']]
+        t_sdaf.apply_dtypes(dtypes={'k': str, 'n': int})
+        assert t_sdaf.sql('SELECT k FROM t WHERE n < 5').to_list() == ['a']
+        assert t_sdaf.sql('SELECT MAX(n) FROM t').lol == [[10]]
 
 
 def test_from_csv_pads_short_rows_and_rejects_long_ones(tmp_path):
@@ -127,15 +139,25 @@ def test_from_csv_pads_short_rows_and_rejects_long_ones(tmp_path):
         with pytest.raises(ValueError):
             store.from_csv(long_path)
         assert not store.table_exists('long')
+        assert store.conn.in_transaction is False
 
 
-def test_from_csv_duplicate_key_raises_and_makes_no_table(tmp_path):
+def test_from_csv_duplicate_key_raises_at_first_key_use(tmp_path):
     csv_path: str = write_csv(str(tmp_path / 'dup.csv'), 'ballot_id,v\nb1,1\nb1,2\n')
     with SqlStore() as store:
+        dup_sdaf: SqlDaf = store.from_csv(csv_path, keyfield='ballot_id')
+        assert len(dup_sdaf) == 2
         with pytest.raises(sqlite3.IntegrityError):
-            store.from_csv(csv_path, keyfield='ballot_id')
-        assert not store.table_exists('dup')
-        assert store.conn.in_transaction is False
+            dup_sdaf.ensure_key_index()
+        assert store.conn.execute("SELECT COUNT(*) FROM sqlite_master WHERE type = 'index'").fetchone()[0] == 0
+
+
+def test_from_csv_keyfield_must_be_a_column(tmp_path):
+    csv_path: str = write_csv(str(tmp_path / 'k.csv'), 'a,b\n1,2\n')
+    with SqlStore() as store:
+        with pytest.raises(KeyError):
+            store.from_csv(csv_path, keyfield='c')
+        assert not store.table_exists('k')
 
 
 def test_from_csv_makes_repeated_names_unique(tmp_path):
@@ -158,8 +180,11 @@ def test_from_csv_name_with_quote_and_space(tmp_path):
 
 def test_from_daf_keeps_value_types_without_dtypes():
     with SqlStore() as store:
-        mixed_sdaf: SqlDaf = store.from_daf(Daf(lol=[['a', 1, 1.5, True], ['b', '2', NULL, False]], cols=['k', 'n', 'f', 'b']), name='mixed')
+        mixed_daf: Daf = Daf(lol=[['a', 1, 1.5, True], ['b', '2', NULL, False]], cols=['k', 'n', 'f', 'b'], dtypes={'n': int})
+        mixed_sdaf: SqlDaf = store.from_daf(mixed_daf, name='mixed')
         assert mixed_sdaf.to_daf().lol == [['a', 1, 1.5, 1], ['b', '2', NULL, 0]]
+        assert mixed_sdaf.dtypes == {'n': int}
+        assert mixed_sdaf.to_daf().dtypes == {'n': int}
 
 
 def test_from_daf_list_cell_raises():
@@ -312,6 +337,146 @@ def test_insert_rows_into_keyed_table_duplicate_adds_none():
     with SqlStore() as store:
         marks_sdaf: SqlDaf = store.create_table('marks', ['ballot_id', 'v'], keyfield='ballot_id')
         assert store.insert_rows('marks', ['ballot_id', 'v'], [['b1', 1], ['b2', NULL]]) == 2
+        marks_sdaf.ensure_key_index()
         with pytest.raises(sqlite3.IntegrityError):
             store.insert_rows('marks', ['ballot_id', 'v'], [['b3', 3], ['b1', 4]])
         assert marks_sdaf.to_daf().lol == [['b1', 1], ['b2', NULL]]
+
+
+# SqlDaf.set_keyfield and ensure_key_index
+
+def test_ensure_key_index_makes_one_unique_index_and_is_used():
+    with SqlStore() as store:
+        marks_sdaf: SqlDaf = store.from_daf(make_marks_daf(), name='marks')
+        assert store.conn.execute("SELECT COUNT(*) FROM sqlite_master WHERE type = 'index'").fetchone()[0] == 0
+        marks_sdaf.ensure_key_index()
+        marks_sdaf.ensure_key_index()
+        index_lot = store.conn.execute("SELECT name FROM sqlite_master WHERE type = 'index'").fetchall()
+        assert index_lot == [('daf_ix_marks_ballot_id',)]
+        plan_ls = [r[-1] for r in store.conn.execute("EXPLAIN QUERY PLAN SELECT * FROM marks WHERE ballot_id = 'b2'")]
+        assert plan_ls == ['SEARCH marks USING INDEX daf_ix_marks_ballot_id (ballot_id=?)']
+
+
+def test_ensure_key_index_without_keyfield_raises():
+    with SqlStore() as store:
+        marks_sdaf: SqlDaf = store.from_daf(make_marks_daf(), name='marks', keyfield='')
+        marks_sdaf.set_keyfield('')
+        with pytest.raises(ValueError):
+            marks_sdaf.ensure_key_index()
+
+
+def test_set_keyfield():
+    with SqlStore() as store:
+        marks_sdaf: SqlDaf = store.from_daf(make_marks_daf(), name='marks')
+        assert marks_sdaf.set_keyfield('contest') is marks_sdaf
+        assert marks_sdaf.keyfield == 'contest'
+        with pytest.raises(KeyError):
+            marks_sdaf.set_keyfield('nothing')
+
+
+# SqlDaf.apply_dtypes
+
+def test_apply_dtypes_matches_daf():
+    lol = [['1', '2.5', '', 'x'], ['', 'abc', 'True', 'y'], [' 7', '1e3', '0', 'z']]
+    dtypes = {'i': int, 'f': float, 'b': bool, 's': str}
+    mem_daf: Daf = Daf(lol=[list(row) for row in lol], cols=['i', 'f', 'b', 's'], dtypes=dict(dtypes))
+    mem_daf.apply_dtypes()
+    with SqlStore() as store:
+        sql_sdaf: SqlDaf = store.from_daf(Daf(lol=lol, cols=['i', 'f', 'b', 's']), name='t')
+        sql_sdaf.apply_dtypes(dtypes=dtypes)
+        assert sql_sdaf.to_daf().lol == mem_daf.lol
+        assert sql_sdaf.to_daf().lol == [[1, 2.5, 0, 'x'], [NULL, 'abc', 1, 'y'], [7, 1000.0, 0, 'z']]
+        assert sql_sdaf.dtypes == dtypes
+
+
+def test_apply_dtypes_null_stays_sql_null_for_int():
+    with SqlStore() as store:
+        t_sdaf: SqlDaf = store.from_daf(Daf(lol=[['1'], ['']], cols=['n']), name='t')
+        t_sdaf.apply_dtypes(dtypes={'n': int})
+        assert t_sdaf.sql('SELECT typeof(n) FROM t').to_list() == ['integer', 'null']
+
+
+def test_apply_dtypes_cols_converts_only_those():
+    with SqlStore() as store:
+        t_sdaf: SqlDaf = store.from_daf(Daf(lol=[['1', '2']], cols=['a', 'b']), name='t')
+        t_sdaf.apply_dtypes(dtypes={'a': int, 'b': int}, cols=['a'])
+        assert t_sdaf.to_daf().lol == [[1, '2']]
+
+
+def test_apply_dtypes_missing_dtype_raises_unless_silent():
+    with SqlStore() as store:
+        t_sdaf: SqlDaf = store.from_daf(Daf(lol=[['1', '2']], cols=['a', 'b']), name='t')
+        with pytest.raises(ValueError):
+            t_sdaf.apply_dtypes(dtypes={'a': int})
+        t_sdaf.apply_dtypes(dtypes={'a': int}, silent_error=True)
+        assert t_sdaf.to_daf().lol == [[1, '2']]
+
+
+def test_apply_dtypes_unknown_col_raises_keyerror():
+    with SqlStore() as store:
+        t_sdaf: SqlDaf = store.from_daf(Daf(lol=[['1']], cols=['a']), name='t')
+        with pytest.raises(KeyError):
+            t_sdaf.apply_dtypes(dtypes={'a': int}, cols=['z'])
+
+
+def test_apply_dtypes_list_is_not_supported_yet():
+    with SqlStore() as store:
+        t_sdaf: SqlDaf = store.from_daf(Daf(lol=[['[1]']], cols=['a']), name='t')
+        with pytest.raises(SqlNotSupportedError):
+            t_sdaf.apply_dtypes(dtypes={'a': list})
+
+
+def test_apply_dtypes_uses_stored_dtypes():
+    with SqlStore() as store:
+        t_sdaf: SqlDaf = store.from_daf(Daf(lol=[['1']], cols=['a'], dtypes={'a': int}), name='t')
+        t_sdaf.apply_dtypes()
+        assert t_sdaf.to_daf().lol == [[1]]
+
+
+# SqlStore.transaction
+
+def test_transaction_commits_together():
+    with SqlStore() as store:
+        marks_sdaf: SqlDaf = store.from_daf(make_marks_daf(), name='marks')
+        with store.transaction():
+            marks_sdaf.sql("UPDATE marks SET num_votes = 7 WHERE ballot_id = 'b1'")
+            assert store.conn.in_transaction is True
+        assert store.conn.in_transaction is False
+        assert marks_sdaf.to_daf()['b1', 'num_votes'].to_value() == 7
+
+
+def test_transaction_rolls_back_on_error():
+    with SqlStore() as store:
+        marks_sdaf: SqlDaf = store.from_daf(make_marks_daf(), name='marks')
+        with pytest.raises(RuntimeError):
+            with store.transaction():
+                marks_sdaf.sql("UPDATE marks SET num_votes = 7 WHERE ballot_id = 'b1'")
+                raise RuntimeError('stop')
+        assert store.conn.in_transaction is False
+        assert marks_sdaf.to_daf()['b1', 'num_votes'].to_value() == 1
+
+
+def test_transaction_nested_undoes_only_the_inner_block():
+    with SqlStore() as store:
+        marks_sdaf: SqlDaf = store.from_daf(make_marks_daf(), name='marks')
+        with store.transaction():
+            marks_sdaf.sql("UPDATE marks SET num_votes = 7 WHERE ballot_id = 'b1'")
+            with pytest.raises(RuntimeError):
+                with store.transaction():
+                    marks_sdaf.sql("UPDATE marks SET num_votes = 8 WHERE ballot_id = 'b3'")
+                    raise RuntimeError('stop')
+        assert marks_sdaf.to_daf().to_lod() == [
+            {'ballot_id': 'b1', 'contest': 'c0', 'num_votes': 7},
+            {'ballot_id': 'b2', 'contest': 'c1', 'num_votes': NULL},
+            {'ballot_id': 'b3', 'contest': 'c0', 'num_votes': 0}]
+
+
+def test_load_inside_a_transaction_is_a_savepoint(tmp_path):
+    csv_path: str = write_csv(str(tmp_path / 'bad.csv'), 'a,b\n1,2\n1,2,3\n')
+    with SqlStore() as store:
+        store.from_daf(make_marks_daf(), name='marks')
+        with store.transaction():
+            with pytest.raises(ValueError):
+                store.from_csv(csv_path)
+            assert not store.table_exists('bad')
+        assert store.table_exists('marks')
