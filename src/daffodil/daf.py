@@ -6056,7 +6056,8 @@ class Daf:
                 this_range = daf_utils.slice_to_range(idxs, n)
                 idxs = [idx for idx in range(n) if idx not in this_range]
             else:
-                idxs = [idx for idx in range(n) if idx not in idxs]
+                drop_set: set = set(idxs)                   # a set, so each test is one lookup, not a scan of the list.
+                idxs = [idx for idx in range(n) if idx not in drop_set]
 
         return idxs
 
