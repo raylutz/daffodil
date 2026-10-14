@@ -289,6 +289,18 @@ what to do next, not a design decision.
     object stays lazy. It was `fix()` until then. In databases the usual word is materialize,
     but `materialize()` here copies the rows, and a selection keeps only references. The
     decisions above that say "fixed" mean persisted.
+122. Making a SqlDaf, decided by Ray on 2026-10-14: A. The bare constructor makes a new table, or
+    reopens one by name, as Daf(lol=, cols=) does. There is no class named store: Ray finds the
+    word too vague, and wants no new class unless one is needed. Where the connection lives is
+    question 124, still open.
+127. Streaming the rows of a join, decided by Ray on 2026-10-14: not now. A SqlDaf is backing for
+    analysis of static data, not for transactions. A join is usually persisted at once, so reading
+    a few rows of a join may build the whole join. This is a possible future enhancement.
+
+## Possible future enhancements
+
+- Stream the rows of a join, or a selection of one, without building the whole join first.
+  Seen on 2026-10-14: reading 2 rows of a 3-row join wrote all 3 rows to its TEMP table.
 
 ## groupby and row sharing
 
