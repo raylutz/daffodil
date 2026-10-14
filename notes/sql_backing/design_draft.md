@@ -290,6 +290,7 @@ what to do next, not a design decision.
     object stays lazy. It was `fix()` until then. In databases the usual word is materialize,
     but `materialize()` here copies the rows, and a selection keeps only references. The
     decisions above that say "fixed" mean persisted.
+    Replaced on 2026-10-14 by decision 126: there is no public persist().
 122. Making a SqlDaf, decided by Ray on 2026-10-14: A. The bare constructor makes a new table, or
     reopens one by name, as Daf(lol=, cols=) does. There is no class named store: Ray finds the
     word too vague, and wants no new class unless one is needed. Where the connection lives is
@@ -316,6 +317,16 @@ what to do next, not a design decision.
     - What SqlStore held needs no outside state. A connection with an empty file name is a
       private temporary database, which SQLite deletes at close. One savepoint name can be
       nested. TEMP names are checked against the database. Tested on 2026-10-14.
+125. Metadata, decided by Ray on 2026-10-14: A. A table's metadata is kept in the database file,
+    in a table of its own, with one row per daffodil table, written in the same transaction as the
+    change it records. While open, the instance holds the metadata in its attributes. Reopening a
+    table fills in the instance from that row, as it was before, so the keyfield and dtypes are
+    not given again. A sidecar file was turned down because it can drift from the database.
+126. Persist, decided by Ray on 2026-10-14. There is no public `persist()`. Its job is done by a
+    copy in place, decision 129, which makes a selection a table of its own rows. A new
+    `save()` writes the table as a permanent table in the database, to be reopened later.
+    Before that, a copy is a TEMP table. The automatic step at a selection's first read, which
+    keeps its references, stays as an internal detail, as decision 113 requires.
 127. Streaming the rows of a join, decided by Ray on 2026-10-14: not now. A SqlDaf is backing for
     analysis of static data, not for transactions. A join is usually persisted at once, so reading
     a few rows of a join may build the whole join. This is a possible future enhancement.
@@ -325,6 +336,13 @@ what to do next, not a design decision.
     but differ, is the caller's work. In AuditEngine it is a step of its own, which moves such rows
     to a residue table. Seen on 2026-10-14: with a key twice in the other table, a SqlDaf join gives
     both rows, and a Daf join gives the last.
+129. Copy in place, decided by Ray on 2026-10-14, for both a Daf and a SqlDaf: `copy(inplace=True)`
+    copies into the object itself, and returns it, instead of making a new one. After it, a
+    selection no longer depends on its base. With inplace, the default level is deep, Claude's
+    call, as Ray left it open: it is the safe choice, and it is what a SqlDaf always gives.
+    Editable may be asked for, to copy only the rows. A lower level raises ValueError, since it
+    would not free the rows. For a Daf, this is a change to mdaf, so it is built and tested on
+    sql_backing first.
 
 ## Possible future enhancements
 
