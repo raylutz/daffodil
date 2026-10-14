@@ -6706,6 +6706,67 @@ class Daf:
         return self.select_krows(krows=keys_ls, inverse=inverse, silent_error=silent_error)
 
 
+    def delete_records(
+            self,
+            keys_ls:        'T_ls | Iterable | Daf',    # the keys of the rows to delete, or a Daf whose keys are used.
+            inplace:        bool = False,               # if True, delete from this Daf; if False, make a new one.
+            silent_error:   bool = False,               # if True, keys that are not found are ignored.
+            ) -> 'Daf':
+        """
+        Remove the rows with these keys.
+
+        By default, this Daf is left as it is, and a new Daf without the rows is returned, as
+        `select_records_daf(keys, inverse=True)` gives. That is the usual way in daffodil, and
+        the new Daf shares the rows that remain.
+
+        With `inplace=True`, the rows are deleted from this Daf itself, and it is returned. The
+        row list is rebuilt once, in place, so it costs one pass however many rows go. The
+        remaining rows keep their order, and the key index is rebuilt when next needed. That is
+        safe for a Daf in memory: a selection made from it earlier holds its own row list, so it
+        still has the deleted rows. On a [SqlDaf][daffodil.sqldaf.SqlDaf] base table it is not
+        safe in the same way. See there.
+
+        The keys may be a list, any iterable, or another Daf, whose keys are then used through a
+        view of its key index, as in `select_records_daf()`.
+
+        Args:
+            keys_ls: The keys of the rows to remove, or a Daf whose keys are used.
+            inplace: If True, delete from this Daf and return it. If False, return a new Daf.
+            silent_error: If True, keys that are not found are ignored.
+
+        Returns:
+            The Daf without the rows: this one if `inplace`, otherwise a new one.
+
+        Raises:
+            KeysDisabledError: This Daf, or a Daf given as the keys, has no keyfield and no key index.
+            KeyError: A key is not found and `silent_error` is False. Nothing is removed.
+
+        Examples:
+            >>> d = Daf(lol=[['r1', 'a'], ['r2', 'b'], ['r3', 'c']], cols=['id', 'v'], keyfield='id')
+            >>> d.delete_records(['r2']).to_lod()
+            [{'id': 'r1', 'v': 'a'}, {'id': 'r3', 'v': 'c'}]
+            >>> len(d)
+            3
+            >>> _ = d.delete_records(['r2', 'r9'], inplace=True, silent_error=True)
+            >>> d.to_lod()
+            [{'id': 'r1', 'v': 'a'}, {'id': 'r3', 'v': 'c'}]
+        """
+        if not inplace:
+            return self.select_records_daf(keys_ls, inverse=True, silent_error=silent_error)
+
+        if isinstance(keys_ls, Daf):
+            keys_ls = keys_ls.keys(silent_error=False, astype='view')
+        if not keys_ls:
+            return self
+
+        irows: Any = self.krows_to_irows(keys_ls, silent_error=silent_error)
+        drop_irows: set = set(irows if isinstance(irows, list) else ([irows] if isinstance(irows, int) else irows))
+        if drop_irows:
+            self.lol[:] = [row_la for irow, row_la in enumerate(self.lol) if irow not in drop_irows]
+            self._invalidate_kd()
+        return self
+
+
     def irow_la(self, irow: int) -> T_la:
         """
         Get one row as a list, by position.
