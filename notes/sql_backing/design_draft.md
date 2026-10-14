@@ -348,6 +348,14 @@ what to do next, not a design decision.
     passed to it. A table with only a generated TEMP name, such as daf_tmp_votes_v1, raises
     ValueError and asks for a name. A name already in use raises ValueError. On 2026-10-14 an mdaf
     selection had the name '', and `copy(name='agreed')` set it to 'agreed'.
+131. The old copy methods, decided by Ray on 2026-10-14: `materialize()` is replaced by `copy()`,
+    which gives a new SqlDaf in a TEMP table, and `save_as(name)` by `save(name)`.
+132. Parent and child, decided by Ray on 2026-10-14. A primary table is a parent, and a SqlDaf
+    that depends on another table, such as a selection, is a child. The terms name the attribute
+    that tells them apart.
+133. keys(), decided by Ray on 2026-10-14. A SqlDaf's `keys()` returns the same type as
+    `Daf.keys()`: a list, read into memory. The class SqlKeys goes. To pass many keys without
+    reading them, give the SqlDaf itself to `select_records_daf()`, which accepts a Daf.
 
 ## Possible future enhancements
 
