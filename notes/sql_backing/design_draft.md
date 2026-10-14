@@ -356,6 +356,8 @@ what to do next, not a design decision.
 133. keys(), decided by Ray on 2026-10-14. A SqlDaf's `keys()` returns the same type as
     `Daf.keys()`: a list, read into memory. The class SqlKeys goes. To pass many keys without
     reading them, give the SqlDaf itself to `select_records_daf()`, which accepts a Daf.
+134. SqlNotSupportedError, decided by Ray on 2026-10-14: Original. It stays an error class of its
+    own, as daf.py defines KeysDisabledError and ColumnNotFoundError.
 
 ## Possible future enhancements
 
