@@ -97,6 +97,15 @@ These steps were proposed on 2026-10-13. Ray deferred them while the groupby que
 84. Trial. Rewrite one stretch of locate_variants with the new methods, as a sketch in these
     notes. AuditEngine is not changed.
 
+## Where the work happens
+
+Ray decided on 2026-10-14, question 116, B. The SQL work is in its own git worktree,
+/home/ubuntu/daffodil_sql, on the branch sql_backing, and is pushed only to sql_backing.
+/home/daffodil stays on claude_dev, because AuditEngine's `-e ../daffodil` install reads that
+folder. Until 2026-10-14, sql_backing was checked out in /home/daffodil, and each commit was also
+pushed to claude_dev, so claude_dev has sqldaf.py up to d97e6cb. It is not imported by anything
+there. Changes to mdaf, the in-memory Daf, go to claude_dev once Ray approves them.
+
 ## Decisions
 
 Numbered as the questions were in the conversation. A missing number was a question about
