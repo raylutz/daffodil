@@ -44,6 +44,8 @@ Adding, changing, removing and reordering records and columns.
 
 ## Removing
 
+::: daffodil.daf.Daf.delete_records
+
 ::: daffodil.daf.Daf.remove_key
 
 ::: daffodil.daf.Daf.remove_keylist
