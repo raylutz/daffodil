@@ -844,3 +844,181 @@ def test_len_and_bool_of_an_empty_selection():
         assert len(none_sdaf) == 0
         assert bool(none_sdaf) is False
         assert bool(bif_sdaf.select_by_dict({'precinct': 'P1'})) is True
+
+
+# ---- step 3: keys, delete_records, concat ----
+
+from daffodil.sqldaf import SqlKeys
+
+
+@pytest.mark.parametrize('keys_ls, inverse', [
+    (['b3', 'b1'], False),
+    (['b3', 'b1'], True),
+    ([], False),
+    ([], True),
+    (['b2', 'b2'], False),
+    ])
+def test_select_records_daf_with_a_list_matches_mdaf(keys_ls, inverse):
+    bif_daf: Daf = make_bif_daf()
+    with SqlStore() as store:
+        bif_sdaf: SqlDaf = store.from_daf(bif_daf, name='bif')
+        assert bif_sdaf.select_records_daf(keys_ls, inverse=inverse).to_daf().lol == \
+               bif_daf.select_records_daf(keys_ls, inverse=inverse).lol
+
+
+def test_select_records_daf_missing_key_matches_mdaf():
+    bif_daf: Daf = make_bif_daf()
+    with SqlStore() as store:
+        bif_sdaf: SqlDaf = store.from_daf(bif_daf, name='bif')
+        with pytest.raises(KeyError):
+            bif_daf.select_records_daf(['b1', 'b9'])
+        with pytest.raises(KeyError):
+            bif_sdaf.select_records_daf(['b1', 'b9'])
+        assert bif_sdaf.select_records_daf(['b9', 'b4', 'b1'], silent_error=True).to_daf().lol == \
+               bif_daf.select_records_daf(['b9', 'b4', 'b1'], silent_error=True).lol
+        assert bif_sdaf.select_records_daf(['b9', 'b4'], inverse=True, silent_error=True).to_daf().lol == \
+               bif_daf.select_records_daf(['b9', 'b4'], inverse=True, silent_error=True).lol
+
+
+def test_select_records_daf_with_another_sqldaf_and_its_keys():
+    bif_daf: Daf = make_bif_daf()
+    other_daf: Daf = Daf(lol=[['b4', 0], ['b2', 0], ['b9', 0]], cols=['ballot_id', 'x'], keyfield='ballot_id')
+    with SqlStore() as store:
+        bif_sdaf: SqlDaf = store.from_daf(bif_daf, name='bif')
+        other_sdaf: SqlDaf = store.from_daf(other_daf, name='other')
+        expect_ls = bif_daf.select_records_daf(other_daf, silent_error=True).lol
+        assert bif_sdaf.select_records_daf(other_sdaf, silent_error=True).to_daf().lol == expect_ls
+        assert bif_sdaf.select_records_daf(other_sdaf.keys(), silent_error=True).to_daf().lol == expect_ls
+        assert bif_sdaf.select_records_daf(other_daf, silent_error=True).to_daf().lol == expect_ls
+        assert bif_sdaf.select_records_daf(other_sdaf, inverse=True, silent_error=True).to_daf().lol == \
+               bif_daf.select_records_daf(other_daf, inverse=True, silent_error=True).lol
+        with pytest.raises(KeyError):
+            bif_sdaf.select_records_daf(other_sdaf)
+
+
+def test_select_records_daf_with_a_selection_as_keys():
+    with SqlStore() as store:
+        bif_sdaf: SqlDaf = store.from_daf(make_bif_daf(), name='bif')
+        p1_sdaf: SqlDaf = bif_sdaf.select_by_dict({'precinct': 'P1'})
+        assert bif_sdaf.select_records_daf(p1_sdaf, inverse=True).to_daf()[:, 'ballot_id'].to_list() == ['b2', 'b4']
+
+
+def test_select_records_daf_needs_keyfields():
+    with SqlStore() as store:
+        bif_sdaf: SqlDaf = store.from_daf(make_bif_daf(), name='bif')
+        nokey_sdaf: SqlDaf = store.from_daf(Daf(lol=[['b1']], cols=['ballot_id']), name='nokey')
+        with pytest.raises(ValueError):
+            nokey_sdaf.select_records_daf(['b1'])
+        with pytest.raises(ValueError):
+            bif_sdaf.select_records_daf(nokey_sdaf)
+
+
+def test_keys_is_lazy_and_lists_in_order():
+    with SqlStore() as store:
+        bif_sdaf: SqlDaf = store.from_daf(make_bif_daf(), name='bif')
+        keys_obj = bif_sdaf.keys()
+        assert isinstance(keys_obj, SqlKeys)
+        assert list(keys_obj) == make_bif_daf().keys()
+        assert len(keys_obj) == 5
+        assert list(bif_sdaf.select_by_dict({'precinct': 'P1'}).keys()) == ['b1', 'b3', 'b5']
+        assert store.from_daf(Daf(lol=[['a']], cols=['x']), name='nk').keys() == []
+
+
+@pytest.mark.parametrize('inplace', [False, True])
+def test_delete_records_on_mdaf_and_sdaf_agree(inplace):
+    bif_daf: Daf = make_bif_daf()
+    with SqlStore() as store:
+        bif_sdaf: SqlDaf = store.from_daf(bif_daf, name='bif')
+        result_sdaf: SqlDaf = bif_sdaf.delete_records(['b2', 'b4'], inplace=inplace)
+        result_daf: Daf = bif_daf.delete_records(['b2', 'b4'], inplace=inplace)
+        assert result_sdaf.to_daf().lol == result_daf.lol
+        assert (result_sdaf is bif_sdaf) is inplace
+        assert bif_sdaf.to_daf().lol == bif_daf.lol
+
+
+def test_delete_records_default_changes_nothing():
+    with SqlStore() as store:
+        bif_sdaf: SqlDaf = store.from_daf(make_bif_daf(), name='bif')
+        kept_sdaf: SqlDaf = bif_sdaf.delete_records(['b2'])
+        assert len(bif_sdaf) == 5
+        assert kept_sdaf.base_sdaf is bif_sdaf
+        assert len(kept_sdaf) == 4
+
+
+def test_delete_records_inplace_on_a_selection_leaves_the_base():
+    with SqlStore() as store:
+        bif_sdaf: SqlDaf = store.from_daf(make_bif_daf(), name='bif')
+        p1_sdaf: SqlDaf = bif_sdaf.select_by_dict({'precinct': 'P1'})
+        assert p1_sdaf.delete_records(['b3'], inplace=True) is p1_sdaf
+        assert p1_sdaf.to_daf()[:, 'ballot_id'].to_list() == ['b1', 'b5']
+        assert len(p1_sdaf) == 2
+        assert p1_sdaf.iloc(1)['ballot_id'] == 'b5'                 # renumbered, so positions stay lookups
+        assert len(bif_sdaf) == 5
+
+
+def test_delete_records_inplace_on_a_base_makes_selections_stale():
+    with SqlStore() as store:
+        bif_sdaf: SqlDaf = store.from_daf(make_bif_daf(), name='bif')
+        p1_sdaf: SqlDaf = bif_sdaf.select_by_dict({'precinct': 'P1'}).fix()
+        bif_sdaf.delete_records(['b3'], inplace=True)
+        assert len(bif_sdaf) == 4
+        assert p1_sdaf.to_daf()[:, 'ballot_id'].to_list() == ['b1', 'b5']
+        assert len(p1_sdaf) == 3                                    # stale, as the docstring warns
+
+
+def test_delete_records_missing_key_removes_nothing():
+    with SqlStore() as store:
+        bif_sdaf: SqlDaf = store.from_daf(make_bif_daf(), name='bif')
+        with pytest.raises(KeyError):
+            bif_sdaf.delete_records(['b1', 'b9'], inplace=True)
+        assert len(bif_sdaf) == 5
+        bif_sdaf.delete_records(['b1', 'b9'], inplace=True, silent_error=True)
+        assert list(bif_sdaf.keys()) == ['b2', 'b3', 'b4', 'b5']
+
+
+def test_delete_records_with_another_sqldaf():
+    with SqlStore() as store:
+        bif_sdaf: SqlDaf = store.from_daf(make_bif_daf(), name='bif')
+        p1_sdaf: SqlDaf = bif_sdaf.select_by_dict({'precinct': 'P1'})
+        rest_sdaf: SqlDaf = bif_sdaf.delete_records(p1_sdaf)
+        assert list(rest_sdaf.keys()) == ['b2', 'b4']
+
+
+def test_concat_matches_mdaf_and_returns_self():
+    bif_daf: Daf = make_bif_daf()
+    add_daf: Daf = Daf(lol=[['b6', 'P2', 1, 1], ['b7', 'P1', 2, NULL]], cols=bif_daf.columns(), keyfield='ballot_id')
+    with SqlStore() as store:
+        bif_sdaf: SqlDaf = store.from_daf(bif_daf, name='bif')
+        assert bif_sdaf.concat(add_daf) is bif_sdaf
+        assert bif_sdaf.to_daf().lol == bif_daf.copy('editable').concat(add_daf).lol
+        add_sdaf: SqlDaf = store.from_daf(Daf(lol=[['b8', 'P3', 3, 0]], cols=bif_daf.columns()), name='add')
+        bif_sdaf.concat(add_sdaf)
+        assert list(bif_sdaf.keys())[-1] == 'b8'
+
+
+def test_concat_columns_must_match():
+    with SqlStore() as store:
+        bif_sdaf: SqlDaf = store.from_daf(make_bif_daf(), name='bif')
+        with pytest.raises(KeyError):
+            bif_sdaf.concat(Daf(lol=[['b9', 'P1']], cols=['ballot_id', 'precinct']))
+        with pytest.raises(SqlNotSupportedError):
+            bif_sdaf.concat(make_bif_daf(), respect_kd=True)
+
+
+def test_concat_duplicate_key_raises_and_adds_nothing():
+    with SqlStore() as store:
+        bif_sdaf: SqlDaf = store.from_daf(make_bif_daf(), name='bif')
+        dup_daf: Daf = Daf(lol=[['b6', 'P2', 1, 1], ['b1', 'P1', 9, 9]], cols=make_bif_daf().columns())
+        with pytest.raises(sqlite3.IntegrityError):
+            bif_sdaf.concat(dup_daf)
+        assert len(bif_sdaf) == 5
+
+
+def test_concat_on_a_selection_makes_it_a_table_of_its_own():
+    with SqlStore() as store:
+        bif_sdaf: SqlDaf = store.from_daf(make_bif_daf(), name='bif')
+        p1_sdaf: SqlDaf = bif_sdaf.select_by_dict({'precinct': 'P1'})
+        p1_sdaf.concat(Daf(lol=[['b9', 'P1', 5, 0]], cols=make_bif_daf().columns()))
+        assert p1_sdaf.base_sdaf is None
+        assert list(p1_sdaf.keys()) == ['b1', 'b3', 'b5', 'b9']
+        assert len(bif_sdaf) == 5

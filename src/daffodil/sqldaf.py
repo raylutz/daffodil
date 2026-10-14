@@ -544,6 +544,8 @@ class SqlDaf(Daf):
     - `len()`, `bool()`, `columns()` and `num_cols()`.
     - `select_where()`, `select_by_dict()`, `select_where_sql()` and indexing, which select.
     - `select_record()` and `iloc()`, which read one row.
+    - `select_records_daf()`, `delete_records()` and `keys()`, which work by key, in SQL.
+    - `concat()`, which adds the rows of another Daf or SqlDaf.
     - `to_daf()`, `to_dict()`, `to_list()` and `to_value()`, which read rows into memory.
     - `materialize()` and `save_as()`, which copy rows into a new table.
     - `apply_dtypes()`, `set_keyfield()` and `ensure_key_index()`.
@@ -1200,6 +1202,265 @@ class SqlDaf(Daf):
         return cursor.fetchone() is not None
 
 
+    # ---- keys: selecting, deleting ----
+
+    def keys(self) -> 'SqlKeys | T_la':                                     # type: ignore[override]
+        """
+        Get the keys, as a lazy list of the keyfield's values in row order.
+
+        Nothing is read until you iterate it, so a million keys are not pulled into memory by
+        asking for them. Pass it to `select_records_daf()` or `delete_records()`, which use it in
+        SQL. `list(sdaf.keys())` reads every key into a list. Without a keyfield, as in a Daf, the
+        answer is an empty list.
+
+        Returns:
+            A [SqlKeys][daffodil.sqldaf.SqlKeys], or an empty list if there is no keyfield.
+        """
+        if not self.keyfield:
+            return []
+        return SqlKeys(self)
+
+
+    def _key_source_sql(self, keys_ls: Any) -> Tuple[str, Tuple[Any, ...]]:
+        """
+        A query that gives the keys as daf_key and daf_ord, in order, from any form of keys. Internal use.
+
+        A SqlDaf or SqlKeys gives the keyfield of its rows. An in-memory Daf gives its keys, and a
+        list or other iterable its values: both are written to a TEMP table of keys first, with
+        an index, so the keys are read once and joined in SQL.
+        """
+        if isinstance(keys_ls, SqlKeys):
+            keys_ls = keys_ls.sdaf
+        if isinstance(keys_ls, SqlDaf):
+            if keys_ls.store is not self.store:
+                raise SqlNotSupportedError("The keys are a SqlDaf of another store. Use one store for both.")
+            if not keys_ls.keyfield:
+                raise ValueError(f"The keys are the SqlDaf '{keys_ls.name}', which has no keyfield.")
+            if keys_ls.base_sdaf is None and keys_ls.keyfield:
+                keys_ls.ensure_key_index()
+            rows_sql, rows_params = keys_ls._rows_sql()
+            return f'SELECT {quote_name(keys_ls.keyfield)} AS daf_key, {ORD_COL} FROM ({rows_sql})', rows_params
+
+        if isinstance(keys_ls, Daf):
+            keys_ls = keys_ls.keys(silent_error=False, astype='view')
+        if isinstance(keys_ls, (str, bytes)) or not isinstance(keys_ls, Iterable):
+            keys_ls = [keys_ls]
+
+        name: str = self.store.next_temp_name('keys')
+        self.store.execute(f'CREATE TEMP TABLE {quote_name(name)} (ord INTEGER PRIMARY KEY, daf_key)')
+        key: Any
+        with self.store.transaction():
+            self.conn.executemany(f'INSERT INTO {quote_name(name)} (daf_key) VALUES (?)',
+                                  ((None if key is NULL else key,) for key in keys_ls))
+            self.store.execute(f'CREATE INDEX {quote_name(name + "_ix")} ON {quote_name(name)} (daf_key)')
+        return f'SELECT daf_key, ord AS {ORD_COL} FROM {quote_name(name)}', ()
+
+
+    def _need_keyfield(self, method: str) -> str:
+        """ The keyfield, with the base table's index made, or ValueError if there is none. Internal use. """
+        if not self.keyfield:
+            raise ValueError(f"SqlDaf.{method}: '{self.name}' has no keyfield.")
+        base_sdaf: SqlDaf = self.base_sdaf or self
+        if base_sdaf.keyfield == self.keyfield:
+            base_sdaf.ensure_key_index()
+        return self.keyfield
+
+
+    def _first_missing_key(self, keys_sql: str, keys_params: Tuple[Any, ...]) -> Any:
+        """ A key of the key source that no row of this SqlDaf has, or None if every one is there. Internal use. """
+        rows_sql, rows_params = self._rows_sql()
+        found_t: Tuple[Any, ...] | None = self.store.execute(
+                f'SELECT k.daf_key FROM ({keys_sql}) AS k WHERE NOT EXISTS '
+                f'(SELECT 1 FROM ({rows_sql}) AS r WHERE r.{quote_name(self.keyfield)} = k.daf_key) LIMIT 1',
+                keys_params + rows_params).fetchone()
+        return None if found_t is None else (NULL if found_t[0] is None else found_t[0])
+
+
+    def select_records_daf(
+            self,
+            keys_ls:        Any,                        # the keys: a list, an iterable, a Daf, a SqlDaf or SqlKeys.
+            inverse:        bool = False,               # if True, the rows whose key is not among them.
+            silent_error:   bool = False,               # if True, keys that are not found are ignored.
+            ) -> 'SqlDaf':
+        """
+        Select the rows with these keys, as `Daf.select_records_daf()` does.
+
+        The keys may be a list or any iterable, an in-memory Daf, another SqlDaf of the same
+        store, or `sdaf.keys()`. A SqlDaf or its keys are used in SQL, as a join, so no key comes
+        into Python. The other forms are written to a TEMP table first. The selected rows come in
+        the order of the keys, as in a Daf. With `inverse=True`, the rows whose key is not among
+        them, in this table's order.
+
+        As in a Daf, a key that is not found raises KeyError, unless `silent_error` is True. That
+        check runs at once, as one query. The selection itself runs when first read.
+
+        Args:
+            keys_ls: The keys: a list, an iterable, a Daf, a SqlDaf or SqlKeys.
+            inverse: If True, select the rows whose key is not among them.
+            silent_error: If True, keys that are not found are ignored.
+
+        Returns:
+            A selection.
+
+        Raises:
+            KeyError: A key is not found, and `silent_error` is False.
+            ValueError: This SqlDaf, or a SqlDaf given as the keys, has no keyfield.
+
+        Examples:
+            >>> with SqlStore() as store:
+            ...     marks_sdaf = store.from_daf(Daf(lol=[['b1', 1], ['b2', 0], ['b3', 1]], cols=['ballot_id', 'v'],
+            ...                                     keyfield='ballot_id'), name='marks')
+            ...     marks_sdaf.select_records_daf(['b3', 'b1']).to_daf().to_lod()
+            [{'ballot_id': 'b3', 'v': 1}, {'ballot_id': 'b1', 'v': 1}]
+        """
+        key_col: str = self._need_keyfield('select_records_daf')
+        keys_sql, keys_params = self._key_source_sql(keys_ls)
+        if not silent_error:
+            missing_key: Any = self._first_missing_key(keys_sql, keys_params)
+            if missing_key is not None:
+                raise KeyError(missing_key)
+
+        rows_sql, rows_params = self._rows_sql()
+        if inverse:
+            return SqlDaf._new_selection(self,
+                    f'SELECT * FROM ({rows_sql}) AS r WHERE NOT EXISTS '
+                    f'(SELECT 1 FROM ({keys_sql}) AS k WHERE k.daf_key = r.{quote_name(key_col)})',
+                    rows_params + keys_params)
+        return SqlDaf._new_selection(self,
+                f'SELECT r.{REF_COL} AS {REF_COL}, k.{ORD_COL} AS {ORD_COL}, {self._cols_sql("r.")} '
+                f'FROM ({rows_sql}) AS r JOIN ({keys_sql}) AS k ON r.{quote_name(key_col)} = k.daf_key',
+                rows_params + keys_params)
+
+
+    def delete_records(
+            self,
+            keys_ls:        Any,                        # the keys of the rows to remove.
+            inplace:        bool = False,               # if True, delete from this SqlDaf; if False, make a selection.
+            silent_error:   bool = False,               # if True, keys that are not found are ignored.
+            ) -> 'SqlDaf':
+        """
+        Remove the rows with these keys, as `Daf.delete_records()` does.
+
+        By default nothing is changed: a selection without those rows is returned, as
+        `select_records_daf(keys, inverse=True)` gives. That is always safe.
+
+        With `inplace=True`, the rows are removed from this SqlDaf, and it is returned.
+
+        - On a selection, its references to those rows are removed, and the rest renumbered. The
+          base table is not changed, so this is safe, as in a Daf.
+        - On a base table, the rows are deleted from the database. Then positions in it, and the
+          `len()` of a selection made from it earlier, are stale: a selection still counts a
+          deleted row, though `to_daf()` leaves it out. So delete in place from a base table
+          only when nothing else uses it.
+
+        The keys may be in any form that `select_records_daf()` takes. A key that is not found
+        raises KeyError, and nothing is removed, unless `silent_error` is True.
+
+        Args:
+            keys_ls: The keys of the rows to remove, in any form `select_records_daf()` takes.
+            inplace: If True, remove the rows from this SqlDaf and return it. If False, return a selection.
+            silent_error: If True, keys that are not found are ignored.
+
+        Returns:
+            This SqlDaf if `inplace`, otherwise a selection without the rows.
+
+        Raises:
+            KeyError: A key is not found, and `silent_error` is False. Nothing is removed.
+            ValueError: This SqlDaf, or a SqlDaf given as the keys, has no keyfield.
+        """
+        if not inplace:
+            return self.select_records_daf(keys_ls, inverse=True, silent_error=silent_error)
+
+        key_col: str = self._need_keyfield('delete_records')
+        keys_sql, keys_params = self._key_source_sql(keys_ls)
+        if not silent_error:
+            missing_key: Any = self._first_missing_key(keys_sql, keys_params)
+            if missing_key is not None:
+                raise KeyError(missing_key)
+
+        if self.base_sdaf is None:
+            with self.store.transaction():
+                self.store.execute(f'DELETE FROM {quote_name(self.name)} WHERE {quote_name(key_col)} IN '
+                                   f'(SELECT daf_key FROM ({keys_sql}))', keys_params)
+            return self
+
+        self.fix()
+        rows_sql, rows_params = self._rows_sql()
+        new_name: str = self.store.next_temp_name(self.base_sdaf.name)
+        with self.store.transaction():
+            self.store.execute(f'CREATE TEMP TABLE {quote_name(new_name)} (ord INTEGER PRIMARY KEY, ref)')
+            self.store.execute(
+                    f'INSERT INTO {quote_name(new_name)} (ref) SELECT r.{REF_COL} FROM ({rows_sql}) AS r '
+                    f'WHERE r.{quote_name(key_col)} NOT IN (SELECT daf_key FROM ({keys_sql}) WHERE daf_key IS NOT NULL) '
+                    f'OR r.{quote_name(key_col)} IS NULL ORDER BY r.{ORD_COL}',
+                    rows_params + keys_params)
+            self.store.execute(f'DROP TABLE {quote_name(self.name)}')
+            self.store.execute(f'ALTER TABLE {quote_name(new_name)} RENAME TO {quote_name(self.name)}')
+        return self
+
+
+    # ---- adding rows ----
+
+    def _become_table(self) -> None:
+        """ Turn this selection into a base table of its own, a TEMP copy of its rows. Internal use. """
+        copy_sdaf: SqlDaf = self.materialize()
+        self._name      = copy_sdaf.name
+        self.has_rid    = True
+        self.base_sdaf  = None
+        self.is_fixed   = True
+        self.pending_sql = ''
+        self.pending_params = ()
+
+
+    def concat(self, other_instance: Daf, respect_kd: bool = False) -> 'SqlDaf':
+        """
+        Add the rows of another Daf or SqlDaf to the end of this one, as `Daf.concat()` does.
+
+        The other must have the same columns, in the same order, as in a Daf. A SqlDaf of the
+        same store is copied in SQL, in its row order, so no row comes into Python. An in-memory
+        Daf is written row by row. All of it is one transaction.
+
+        If this is a selection, it first becomes a table of its own, a TEMP copy of its rows, as
+        appending to a selection of a Daf adds only to that selection. The base table is not
+        changed.
+
+        A Daf appends a row whose key is already there without a word. A SqlDaf with a keyfield
+        has a unique index on it, so a repeated key raises instead, and nothing is added.
+
+        Args:
+            other_instance: The Daf or SqlDaf whose rows are added. It is not changed.
+            respect_kd: Not supported on a SqlDaf yet.
+
+        Returns:
+            This SqlDaf.
+
+        Raises:
+            KeyError: The columns differ.
+            sqlite3.IntegrityError: A key would be repeated. Nothing is added.
+            SqlNotSupportedError: `respect_kd` is True, or the other is a SqlDaf of another store.
+        """
+        if respect_kd:
+            raise SqlNotSupportedError("concat(respect_kd=True) is not supported on a SqlDaf yet.")
+        if other_instance.columns() != self.columns():
+            raise KeyError(f"concat: columns mismatch: this one has {self.columns()}, the other {other_instance.columns()}.")
+        if isinstance(other_instance, SqlDaf) and other_instance.store is not self.store:
+            raise SqlNotSupportedError("concat: the other is a SqlDaf of another store. Use one store for both.")
+
+        if self.base_sdaf is not None:
+            self._become_table()
+        if self.keyfield:
+            self.ensure_key_index()
+
+        if isinstance(other_instance, SqlDaf):
+            rows_sql, rows_params = other_instance._rows_sql()
+            with self.store.transaction():
+                self.store.execute(f'INSERT INTO {quote_name(self.name)} ({self._cols_sql()}) '
+                                   f'SELECT {self._cols_sql()} FROM ({rows_sql}) ORDER BY {ORD_COL}', rows_params)
+        else:
+            self.store.insert_rows(self.name, self.columns(), other_instance.lol)
+        return self
+
+
     # ---- copying ----
 
     def _copy_to(self, name: str, temp: bool) -> 'SqlDaf':
@@ -1408,6 +1669,36 @@ class SqlDaf(Daf):
         cols: T_ls = [desc_t[0] for desc_t in cursor.description]
         lol: T_lola = [none_to_null(row_t) for row_t in cursor]
         return Daf(lol=lol, cols=cols)
+
+
+class SqlKeys:
+    """
+    The keys of a SqlDaf, read only when iterated.
+
+    `SqlDaf.keys()` gives one. Pass it to `select_records_daf()` or `delete_records()`, which
+    use the keys in SQL, so they never come into Python. Iterating it reads them, one at a time,
+    in row order, so `list(sdaf.keys())` makes a list. `len()` is the SqlDaf's.
+    """
+
+    def __init__(self, sdaf: SqlDaf) -> None:
+        self.sdaf: SqlDaf = sdaf
+
+
+    def __iter__(self) -> Iterator[Any]:
+        rows_sql, rows_params = self.sdaf._rows_sql()
+        cursor: sqlite3.Cursor = self.sdaf.store.execute(
+                f'SELECT {quote_name(self.sdaf.keyfield)} FROM ({rows_sql}) ORDER BY {ORD_COL}', rows_params)
+        row_t: Tuple[Any, ...]
+        for row_t in cursor:
+            yield NULL if row_t[0] is None else row_t[0]
+
+
+    def __len__(self) -> int:
+        return len(self.sdaf)
+
+
+    def __repr__(self) -> str:
+        return f"<SqlKeys of '{self.sdaf.name}', keyfield '{self.sdaf.keyfield}'>"
 
 
 # Type aliases for SqlDaf, as daf_types.py has for other types. A SqlDaf variable ends in _sdaf,
