@@ -7,9 +7,10 @@ import os
 import csv
 import json
 import sqlite3
+import threading
 import contextlib
 
-from typing import Any, Callable, Dict, Iterator, List, Tuple, Type, TypeAlias      # noqa: F401
+from typing import Any, Callable, ClassVar, Dict, Iterator, List, Tuple, Type, TypeAlias      # noqa: F401
 from collections.abc import Iterable
 
 from daffodil.daf import Daf, NULL
@@ -194,9 +195,10 @@ class SqlDaf(Daf):
     always means the same rows, as a selection of a Daf does. A change to the values in those
     rows shows in it, since it refers to them. `copy(inplace=True)` gives it rows of its own.
 
-    Each SqlDaf holds its own connection to the file, and a child or a join holds its parent's.
-    `close()` closes it, and the children that share it can no longer be read. Otherwise Python
-    closes it when the last SqlDaf that holds it goes. Each statement is committed when it
+    Every SqlDaf on one file shares one connection, which it holds in its attributes. So any two
+    of them can be joined, and a child of one can be used with another. They also share its
+    transactions: see `transaction()`. `SqlDaf.close()` closes the file, for every SqlDaf on it.
+    Otherwise it stays open until the program ends. Each statement is committed when it
     finishes, so nothing is lost either way. `delete()` deletes a table from the file.
 
     A table made by `copy()`, or by reading a join, is a TEMP table. It belongs to the
@@ -253,6 +255,10 @@ class SqlDaf(Daf):
     engine:     str = 'sqlite'          # the database engine. Only SQLite so far.
     db_path:    str = ''                # the database file every SqlDaf opens, unless the constructor names another.
 
+    # The connection open on each file, with its shared state, by thread and real path (Q136).
+    # Every SqlDaf on a file shares it. `close()` closes it.
+    _open_conns: ClassVar[Dict[Tuple[int, str], Tuple[sqlite3.Connection, T_da]]] = {}
+
     def __init__(
             self,
             name:       str,                                    # the name of the table.
@@ -303,21 +309,31 @@ class SqlDaf(Daf):
         if cols is None and not os.path.exists(path):
             raise FileNotFoundError(path)
 
-        conn: sqlite3.Connection = sqlite3.connect(path, isolation_level=None)
+        conn, conn_da = type(self)._conn_for(path)
         if cols is not None:
             col_ls: T_ls = list(cols)
             if keyfield and keyfield not in col_ls:
-                conn.close()
                 raise KeyError(keyfield)
             row_la: Iterable[Any]
-            try:
-                _load_rows(conn, name, col_ls, keyfield, dict(dtypes) if dtypes else {},
-                           (null_to_none(row_la) for row_la in (lol if lol is not None else [])))
-            except BaseException:
-                conn.close()
-                raise
-        self._open_on(conn, {'func_error': None, 'temp_count': 0, 'func_count': 0}, path, name,
-                      keyfield, dtypes, is_temp=False, use_meta=cols is None)
+            _load_rows(conn, name, col_ls, keyfield, dict(dtypes) if dtypes else {},
+                       (null_to_none(row_la) for row_la in (lol if lol is not None else [])))
+        self._open_on(conn, conn_da, path, name, keyfield, dtypes, is_temp=False, use_meta=cols is None)
+
+
+    @classmethod
+    def _conn_key(cls, path: str) -> Tuple[int, str]:
+        """ The key of a file's connection: the thread, since sqlite3 ties a connection to one, and the real path. Internal use. """
+        return threading.get_ident(), os.path.realpath(path)
+
+
+    @classmethod
+    def _conn_for(cls, path: str) -> Tuple[sqlite3.Connection, T_da]:
+        """ The connection open on this file, and its shared state, opened first if there is none. Internal use. """
+        key_t: Tuple[int, str] = cls._conn_key(path)
+        if key_t not in SqlDaf._open_conns:
+            SqlDaf._open_conns[key_t] = (sqlite3.connect(path, isolation_level=None),
+                                         {'func_error': None, 'temp_count': 0, 'func_count': 0})
+        return SqlDaf._open_conns[key_t]
 
 
     def _open_on(
@@ -539,18 +555,35 @@ class SqlDaf(Daf):
 
     # ---- the connection ----
 
-    def close(self) -> None:
+    @classmethod
+    def close(cls, db_path: str = '') -> None:
         """
-        Close the connection to the database file.
+        Close a database file: the connection that every SqlDaf on it shares.
 
-        The tables in the file stay, and can be opened again. A TEMP table, such as one made by
-        `copy()`, goes. The children and joins that share this connection can no longer be read:
-        sqlite3 raises ProgrammingError. Closing twice does nothing more.
+        It closes a file, not one table, so call it on the class, as `SqlDaf.close()`. Called on
+        an instance, it still closes the file of `db_path`, or of the class setting, not the
+        file that instance uses.
 
-        Without `close()`, Python closes the connection when the last SqlDaf that holds it goes.
-        Nothing is lost either way, since each statement is committed when it finishes.
+        The tables in the file stay. `SqlDaf(name)` opens them again, on a new connection. Every
+        SqlDaf that was on the file can no longer be read: sqlite3 raises ProgrammingError. TEMP
+        tables, such as those made by `copy()`, go. A file that is not open is left as it is.
+
+        Without `close()`, the file stays open until the program ends. Nothing is lost either
+        way, since each statement is committed when it finishes, or at the end of a
+        `transaction()` block.
+
+        Args:
+            db_path: The database file. The class setting `SqlDaf.db_path` if empty.
+
+        Raises:
+            ValueError: There is no database path.
         """
-        self.conn.close()
+        path: str = db_path or cls.db_path
+        if not path:
+            raise ValueError("SqlDaf.close: no database. Set SqlDaf.db_path, or give db_path.")
+        open_t: Tuple[sqlite3.Connection, T_da] | None = SqlDaf._open_conns.pop(cls._conn_key(path), None)
+        if open_t is not None:
+            open_t[0].close()
 
 
     def delete(self) -> None:
@@ -576,7 +609,14 @@ class SqlDaf(Daf):
     @contextlib.contextmanager
     def transaction(self) -> Iterator[None]:
         """
-        Run the statements inside the `with` block as one transaction, on this connection.
+        Run the statements inside the `with` block as one transaction, on this database file.
+
+        A transaction belongs to the file, not to this table. Every SqlDaf on the file shares one
+        connection, so the work of any of them inside the block is committed or undone with the
+        rest. Wrap the writes of a stage that must succeed or fail together in one block.
+        Methods that change several things run their own `transaction()`. Inside a block, it
+        becomes part of the block. Do not run BEGIN, COMMIT or ROLLBACK through `sql()`: they
+        would end a block that another SqlDaf opened.
 
         Everything in the block is committed together when it ends, or undone together if it
         raises. It also makes a run of small statements faster, because the file is locked once
@@ -1941,7 +1981,8 @@ class SqlDaf(Daf):
         statement that returns no rows, such as UPDATE or CREATE, gives an empty Daf. Outside
         `transaction()`, it is committed when it finishes.
 
-        The whole result is pulled into memory, so select only what you need.
+        The whole result is pulled into memory, so select only what you need. Do not run BEGIN,
+        COMMIT or ROLLBACK here. Use `transaction()`, which every SqlDaf on the file shares.
 
         Args:
             stmt: One SQL statement.

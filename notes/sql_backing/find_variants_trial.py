@@ -22,7 +22,7 @@ from typing import Any, Dict, List, Tuple
 
 from daffodil.daf import Daf, NULL
 from daffodil.lib.daf_types import T_ls
-from daffodil.sqldaf import SqlStore, SqlDaf, T_sdaf, T_lsdaf
+from daffodil.sqldaf import SqlDaf, T_sdaf, T_lsdaf
 
 
 VARIANT_FLAG_RE = r"'c\d+(w|ov|g)'"     # as in sql_variants.py step 4: a writein, overvote or gray contest.
@@ -58,7 +58,6 @@ def timed(func: Any) -> Tuple[Any, float]:
 
 
 def locate_variants_sdaf(
-        store:              SqlStore,           # the store with the input tables.
         side_lsdaf:         T_lsdaf,            # the audit votes and the CVR votes.
         modi_sdaf:          T_sdaf | None,      # the modified CVR votes, if any.
         names_ls:           T_ls,               # the names for the results: audit and cvr.
@@ -93,15 +92,16 @@ def locate_variants_sdaf(
 
     # step 1: drop any tables of an earlier run.
     for name in variants_names_ls + nonvariants_names_ls + residue_names_ls:
-        store.drop_table(name, missing_ok=True)
+        if SqlDaf.table_exists(name):
+            SqlDaf(name).delete()
     report(1, 'Dropping any existing variant tables.', [0, 0], [NULL, NULL])
 
     # step 2: empty variants tables, with a unique keyfield.
     variants_lsdaf: T_lsdaf = []
     secs_lf = []
     for i in range(2):
-        variants_sdaf, secs_f = timed(lambda: store.create_table(variants_names_ls[i], side_lsdaf[i].columns(),
-                                                                 keyfield=keyfield).ensure_key_index())
+        variants_sdaf, secs_f = timed(lambda: SqlDaf(variants_names_ls[i], side_lsdaf[i].columns(),
+                                                     keyfield=keyfield).ensure_key_index())
         variants_lsdaf.append(variants_sdaf)                # each with its own input's columns, as AuditEngine does.
         secs_lf.append(secs_f)
     report(2, 'Create Variant tables with indexes.', [len(sdaf) for sdaf in variants_lsdaf], secs_lf)
@@ -111,7 +111,7 @@ def locate_variants_sdaf(
     secs_lf = []
     for i in range(2):
         residue_sdaf, secs_f = timed(lambda: side_lsdaf[i].select_records_daf(
-                side_lsdaf[1 - i], inverse=True, silent_error=True).save_as(residue_names_ls[i]))
+                side_lsdaf[1 - i], inverse=True, silent_error=True).copy(name=residue_names_ls[i]).save())
         residue_lsdaf.append(residue_sdaf)
         secs_lf.append(secs_f)
     for i in range(2):
@@ -148,7 +148,7 @@ def locate_variants_sdaf(
     secs_lf = []
     for i in range(2):
         nonvariants_sdaf, secs_f = timed(lambda: side_lsdaf[i].select_records_daf(
-                variants_lsdaf[i], inverse=True, silent_error=True).save_as(nonvariants_names_ls[i]))
+                variants_lsdaf[i], inverse=True, silent_error=True).copy(name=nonvariants_names_ls[i]).save())
         nonvariants_lsdaf.append(nonvariants_sdaf)
         secs_lf.append(secs_f)
     report(7, 'Create nonflagged nonvariants', [len(sdaf) for sdaf in nonvariants_lsdaf], secs_lf)
@@ -185,7 +185,7 @@ def locate_variants_sdaf(
         result_da[f'{name}_variants'] = variants_lsdaf[i]
         result_da[f'{name}_nonvariants'] = nonvariants_lsdaf[i]
         result_da[f'{name}_residue'] = residue_lsdaf[i]
-    result_da['disagreed_keys'] = list(disagreed_sdaf.keys())
+    result_da['disagreed_keys'] = disagreed_sdaf.keys()
     result_da['report_daf'] = report_daf
     return result_da
 
@@ -201,15 +201,15 @@ def rows_set(sdaf: SqlDaf) -> set:
     return {tuple(row_la[idx] for idx in keep_ls) for row_la in sdaf.to_daf().lol}
 
 
-def compare(store: SqlStore, result_da: Dict[str, Any], ae_names_da: Dict[str, str]) -> List[Tuple[str, int, int, bool]]:
+def compare(result_da: Dict[str, Any], ae_names_da: Dict[str, str]) -> List[Tuple[str, int, int, bool]]:
     """ Compare each result with the table AuditEngine wrote. A list of (name, ours, theirs, same). """
     report_lt: List[Tuple[str, int, int, bool]] = []
     ours_name: str
     for ours_name, ae_name in ae_names_da.items():
         ours_sdaf: SqlDaf = result_da[ours_name]
-        ae_sdaf: SqlDaf = store.table(ae_name)
+        ae_sdaf: SqlDaf = SqlDaf(ae_name)
         report_lt.append((ours_name, len(ours_sdaf), len(ae_sdaf), rows_set(ours_sdaf) == rows_set(ae_sdaf)))
-    disagreed_ae_ls: list = sorted(store.table('disagreed_audit_ballots').sql(
+    disagreed_ae_ls: list = sorted(SqlDaf('disagreed_audit_ballots').sql(
             'SELECT ballot_id FROM disagreed_audit_ballots').to_list(), key=str)
     disagreed_ours_ls: list = sorted(result_da['disagreed_keys'], key=str)
     report_lt.append(('disagreed keys', len(disagreed_ours_ls), len(disagreed_ae_ls), disagreed_ours_ls == disagreed_ae_ls))
@@ -221,22 +221,23 @@ def main() -> None:
     work_path: str = os.path.join(scratch_dir, 'cmpcvr_trial.db')
     shutil.copyfile(db_path, work_path)
 
-    with SqlStore(work_path) as store:
-        cvr_name: str = 'cvr_votes!original' if store.table_exists('cvr_votes!original') else 'cvr_votes!final'
-        modi_name: str = 'cvr_votes!modified'
+    SqlDaf.db_path = work_path
+    cvr_name: str = 'cvr_votes!original' if SqlDaf.table_exists('cvr_votes!original') else 'cvr_votes!final'
+    modi_name: str = 'cvr_votes!modified'
 
-        # rebuild the inputs as they were before step 3 trimmed them.
-        audit_sdaf: SqlDaf = store.table('votes', keyfield='ballot_id')
-        cvr_sdaf: SqlDaf = store.table(cvr_name, keyfield='ballot_id')
-        audit_sdaf.concat(store.table('votes_residue'))
-        cvr_sdaf.concat(store.table('cvr_residue'))
-        modi_sdaf: SqlDaf | None = store.table(modi_name, keyfield='ballot_id') if store.table_exists(modi_name) else None
+    # rebuild the inputs as they were before step 3 trimmed them.
+    audit_sdaf: SqlDaf = SqlDaf('votes', keyfield='ballot_id')
+    cvr_sdaf: SqlDaf = SqlDaf(cvr_name, keyfield='ballot_id')
+    audit_sdaf.concat(SqlDaf('votes_residue'))
+    cvr_sdaf.concat(SqlDaf('cvr_residue'))
+    modi_sdaf: SqlDaf | None = SqlDaf(modi_name, keyfield='ballot_id') if SqlDaf.table_exists(modi_name) else None
 
-        result_da: Dict[str, Any] = locate_variants_sdaf(store, [audit_sdaf, cvr_sdaf], modi_sdaf, ['audit', 'cvr'], prefix='sd_')
-        report_lt = compare(store, result_da, {
-                'audit_variants': 'audit_variants', 'cvr_variants': 'cvr_variants',
-                'audit_nonvariants': 'audit_nonvariants', 'cvr_nonvariants': 'cvr_nonvariants',
-                'audit_residue': 'votes_residue', 'cvr_residue': 'cvr_residue'})
+    result_da: Dict[str, Any] = locate_variants_sdaf([audit_sdaf, cvr_sdaf], modi_sdaf, ['audit', 'cvr'], prefix='sd_')
+    report_lt = compare(result_da, {
+            'audit_variants': 'audit_variants', 'cvr_variants': 'cvr_variants',
+            'audit_nonvariants': 'audit_nonvariants', 'cvr_nonvariants': 'cvr_nonvariants',
+            'audit_residue': 'votes_residue', 'cvr_residue': 'cvr_residue'})
+    SqlDaf.close()
 
     print('# Find Variants Report, SqlDaf trial\n')
     print(result_da['report_daf'].to_md(smart_fmt=True, shorten_text=False))

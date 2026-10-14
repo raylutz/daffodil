@@ -3,6 +3,7 @@
 
 import os
 import sqlite3
+import threading
 
 import pytest
 
@@ -12,11 +13,12 @@ from daffodil.sqldaf import SqlDaf, BLOCKED_LS, RID_COL, META_TABLE, quote_name
 
 
 @pytest.fixture(autouse=True)
-def job_db(tmp_path, monkeypatch) -> str:
+def job_db(tmp_path, monkeypatch):
     """ Every test gets its own database file, as the class setting SqlDaf.db_path. """
     db_path: str = str(tmp_path / 'job.db')
     monkeypatch.setattr(SqlDaf, 'db_path', db_path)
-    return db_path
+    yield db_path
+    SqlDaf.close(db_path)
 
 
 def make_marks_daf() -> Daf:
@@ -84,10 +86,13 @@ def test_engine_other_than_sqlite_raises(monkeypatch):
         SqlDaf('marks', ['a'])
 
 
-def test_each_sqldaf_has_its_own_connection_and_children_share_it():
+def test_every_sqldaf_on_a_file_shares_one_connection(tmp_path):
     marks_sdaf: SqlDaf = SqlDaf.from_daf(make_marks_daf(), name='marks')
     again_sdaf: SqlDaf = SqlDaf('marks')
-    assert again_sdaf.conn is not marks_sdaf.conn
+    assert again_sdaf.conn is marks_sdaf.conn
+    other_sdaf: SqlDaf = SqlDaf('marks', ['a'], db_path=str(tmp_path / 'other.db'))
+    assert other_sdaf.conn is not marks_sdaf.conn
+    SqlDaf.close(str(tmp_path / 'other.db'))
     sel_sdaf: SqlDaf = marks_sdaf.select_by_dict({'contest': 'c0'})
     assert sel_sdaf.conn is marks_sdaf.conn
     assert sel_sdaf.is_child and not marks_sdaf.is_child
@@ -97,7 +102,8 @@ def test_each_sqldaf_has_its_own_connection_and_children_share_it():
 def test_reopen_restores_keyfield_and_dtypes():
     marks_daf: Daf = make_marks_daf()
     marks_daf.dtypes = {'ballot_id': str, 'contest': str, 'num_votes': int}
-    SqlDaf.from_daf(marks_daf, name='marks').close()
+    SqlDaf.from_daf(marks_daf, name='marks')
+    SqlDaf.close()
     again_sdaf: SqlDaf = SqlDaf('marks')
     assert again_sdaf.keyfield == 'ballot_id'
     assert again_sdaf.dtypes == {'ballot_id': str, 'contest': str, 'num_votes': int}
@@ -134,21 +140,42 @@ def test_a_table_made_by_other_code_has_no_record(job_db):
     assert SqlDaf('plain').keyfield == ''
 
 
-def test_close_ends_the_connection_and_its_children():
+def test_close_closes_the_file_for_every_sqldaf_on_it():
     marks_sdaf: SqlDaf = SqlDaf.from_daf(make_marks_daf(), name='marks')
     sel_sdaf: SqlDaf = marks_sdaf.select_by_dict({'contest': 'c0'})
-    marks_sdaf.close()
-    marks_sdaf.close()
+    SqlDaf.close()
+    SqlDaf.close()
     with pytest.raises(sqlite3.ProgrammingError):
         len(sel_sdaf)
-    assert len(SqlDaf('marks')) == 3
+    with pytest.raises(sqlite3.ProgrammingError):
+        len(marks_sdaf)
+    again_sdaf: SqlDaf = SqlDaf('marks')
+    assert len(again_sdaf) == 3 and again_sdaf.conn is not marks_sdaf.conn
+
+
+def test_close_without_a_path_raises(monkeypatch):
+    monkeypatch.setattr(SqlDaf, 'db_path', '')
+    with pytest.raises(ValueError):
+        SqlDaf.close()
+
+
+def test_a_transaction_belongs_to_the_file():
+    marks_sdaf: SqlDaf = SqlDaf.from_daf(make_marks_daf(), name='marks')
+    names_sdaf: SqlDaf = SqlDaf('names', ['ballot_id', 'who'], lol=[['b1', 'Ann']])
+    with pytest.raises(RuntimeError):
+        with marks_sdaf.transaction():
+            marks_sdaf.sql("UPDATE marks SET num_votes = 9")
+            names_sdaf.sql("UPDATE names SET who = 'Bob'")
+            raise RuntimeError('stop')
+    assert names_sdaf.to_daf().lol == [['b1', 'Ann']]
+    assert marks_sdaf.select_record('b1')['num_votes'] == 1
 
 
 def test_temp_tables_go_when_the_connection_closes():
     marks_sdaf: SqlDaf = SqlDaf.from_daf(make_marks_daf(), name='marks')
     copy_sdaf: SqlDaf = marks_sdaf.copy(name='work')
     assert copy_sdaf.is_temp
-    marks_sdaf.close()
+    SqlDaf.close()
     assert not SqlDaf.table_exists('work')
 
 
@@ -832,7 +859,7 @@ def test_save_a_copy_and_reopen_it(job_db):
     assert middle_sdaf.save() is middle_sdaf
     assert middle_sdaf.is_temp is False
     assert 'middle' not in temp_tables(bif_sdaf.conn)
-    bif_sdaf.close()
+    SqlDaf.close()
     again_sdaf: SqlDaf = SqlDaf('middle')
     assert again_sdaf.to_daf()[:, 'ballot_id'].to_list() == ['b2', 'b3', 'b4']
     assert again_sdaf.keyfield == 'ballot_id'
@@ -1194,27 +1221,37 @@ def test_join_errors():
         audit_sdaf.join(nokey_sdaf)
 
 
-def test_join_across_two_connections_to_the_same_file():
+def test_tables_opened_separately_join_and_share_children():
     audit_daf, cvr_daf = make_join_pair()
     SqlDaf.from_daf(audit_daf, name='audit')
     SqlDaf.from_daf(cvr_daf, name='cvr')
     audit_sdaf: SqlDaf = SqlDaf('audit')
     cvr_sdaf: SqlDaf = SqlDaf('cvr')
-    assert audit_sdaf.conn is not cvr_sdaf.conn
     assert audit_sdaf.join(cvr_sdaf, how='outer').to_daf().lol == audit_daf.join(cvr_daf, how='outer').lol
     assert audit_sdaf.select_records_daf(cvr_sdaf, silent_error=True).keys() == ['k2', 'k3']
+    some_sdaf: SqlDaf = cvr_sdaf.select_records_daf(['k2'])
+    assert audit_sdaf.join(some_sdaf).keys() == ['k2']
+    assert audit_sdaf.join(cvr_sdaf.copy()).keys() == ['k3', 'k2']
 
 
-def test_join_with_a_child_or_temp_table_of_another_connection_raises():
+def test_another_thread_has_its_own_connection_and_its_children_cannot_be_joined():
     audit_daf, cvr_daf = make_join_pair()
     audit_sdaf: SqlDaf = SqlDaf.from_daf(audit_daf, name='audit')
-    cvr_sdaf: SqlDaf = SqlDaf.from_daf(cvr_daf, name='cvr')
-    some_sdaf: SqlDaf = cvr_sdaf.select_records_daf(['k2'])
+    SqlDaf.from_daf(cvr_daf, name='cvr')
+    made_ls: list = []
+
+    def open_in_thread() -> None:
+        cvr_sdaf: SqlDaf = SqlDaf('cvr')
+        made_ls.extend([cvr_sdaf, cvr_sdaf.select_records_daf(['k2'])])
+        SqlDaf.close()                                  # the thread's own connection.
+
+    thread = threading.Thread(target=open_in_thread)
+    thread.start()
+    thread.join()
+    cvr_sdaf, some_sdaf = made_ls
+    assert cvr_sdaf.conn is not audit_sdaf.conn
     with pytest.raises(NotImplementedError, match='child or a TEMP table'):
         audit_sdaf.join(some_sdaf)
-    with pytest.raises(NotImplementedError, match='child or a TEMP table'):
-        audit_sdaf.join(cvr_sdaf.copy())
-    assert len(audit_sdaf.join(audit_sdaf.select_records_daf(['k1']))) == 1      # a child on the same connection is fine
 
 
 def test_join_with_a_table_in_another_file_raises(tmp_path):

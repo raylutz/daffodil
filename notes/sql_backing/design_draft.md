@@ -300,8 +300,10 @@ Q123. Closing and deleting, decided by Ray on 2026-10-14. `close()` closes the c
     longer be read. `delete()` deletes the table from the file, with its metadata. The word drop is
     not used: Ray finds delete more explicit. Without `close()`, Python closes the connection when
     the last instance that holds it goes. Nothing is lost, since every write is committed.
+    Changed on 2026-10-14 by Q136 and Q138: `SqlDaf.close()` closes a file, and without it the
+    file stays open until the program ends.
 Q124. Where the connection lives, decided by Ray on 2026-10-14. There is no SqlStore and no live
-    state at class level. The class holds only settings that every instance follows unless the
+    state at class level. Changed by Q136: the class keeps the one connection open on each file. The class holds only settings that every instance follows unless the
     constructor overrides them, as Daf does with `copy_level_default`: the engine, SQLite for now,
     and the default `db_path`, which AuditEngine sets once per job.
     - Each instance opens its own connection from the path, and keeps it in its attributes. The
@@ -364,6 +366,30 @@ Q135. A SqlDaf with no database, decided by Ray on 2026-10-14: C. The path is a 
     ValueError. A path given to the constructor overrides it for that instance, as in Q124.
     Examples and tests set it to a file in a temporary folder. Without this, each connection with
     no path would be a private database of its own, and two such tables could not be joined.
+Q136. One connection per file, decided by Ray on 2026-10-14: A. Every SqlDaf on one file shares
+    one connection, which it holds in its attributes. The class keeps the connection open on each
+    file, by thread and real path, since sqlite3 ties a connection to one thread.
+    - Why: a child's references are in a TEMP table, which only its own connection sees. With a
+      connection per instance, as first built, a selection of one table could not be used with a
+      table opened or made separately. The find_variants port does that at every step: step 4 adds
+      a selection of the votes to a new variants table, and it raised NotImplementedError. Real
+      tables in one file can still be joined from any connection, as tested before.
+    - The cost: SqlDafs on a file share its transaction state. A rollback undoes the work of all
+      of them. That fits a stage run as one unit. Separate connections are worse here: a write
+      through one, while a transaction is open on another, waits for the lock and fails with
+      "database is locked", tested on 2026-10-14.
+    - Ownership: methods run their own `transaction()`, which becomes a savepoint inside an open
+      one, so only the outermost block commits or rolls back. The docstrings say a transaction
+      belongs to the file, and not to run BEGIN, COMMIT or ROLLBACK through `sql()`. No check is
+      added, under the rule of performance over guard rails.
+    - After the change, the port ran on five jobs and gave the results of the first trial:
+      Dane, Bartow, Somerset and San Francisco the same as AuditEngine, Rockville the one ballot
+      of AuditEngine's stale-table bug.
+Q137. Not decided yet: whether to fix on claude_dev the broken docs link in `Daf.delete_records()`,
+    from beb5218, which fails the strict docs build.
+Q138. How a file is closed, decided by Ray on 2026-10-14: A. `SqlDaf.close(db_path='')` is a
+    class method. It closes one file, the class setting's if no path is given, for every SqlDaf
+    on it. Called on an instance, it still closes that file, which the docstring warns.
 
 ## Possible future enhancements
 
