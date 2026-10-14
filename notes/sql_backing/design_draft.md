@@ -104,7 +104,9 @@ Ray decided on 2026-10-14, question 116, B. The SQL work is in its own git workt
 /home/daffodil stays on claude_dev, because AuditEngine's `-e ../daffodil` install reads that
 folder. Until 2026-10-14, sql_backing was checked out in /home/daffodil, and each commit was also
 pushed to claude_dev, so claude_dev has sqldaf.py up to d97e6cb. It is not imported by anything
-there. Changes to mdaf, the in-memory Daf, go to claude_dev once Ray approves them.
+there. Changes to mdaf, the in-memory Daf, are built and tested here first, and go to claude_dev only
+once they are settled and tested. Ray, 2026-10-14: "edits ... for mdaf should be first resolved and tested
+before they become live for AE."
 
 ## Decisions
 
