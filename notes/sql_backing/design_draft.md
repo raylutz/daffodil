@@ -239,6 +239,11 @@ These steps were proposed on 2026-10-13. Ray deferred them while the groupby que
     calling `apply_dtypes()` later, and should be deprecated, after checking AuditEngine. On
     2026-10-14 AuditEngine's 6 direct calls to Daf's CSV readers passed no dtypes, and
     DB.load_data() builds `Daf(lol, cols, dtypes=...)` without converting. A separate item.
+110. NULL in a bool column, decided by Ray on 2026-10-14: Original. `apply_dtypes()` turns it into
+    0, as `Daf.apply_dtypes()` does, so the two match. Keeping NULL was weighed: in SQL, NULL is
+    not false, so `NOT is_bmd`, `is_bmd = 0` and `is_bmd != 1` all skip it, and AVG leaves it out.
+    If "not determined" should be kept apart from 0, it would be a change to both Daf and
+    SqlDaf together, as its own item, with a check of AuditEngine's bool columns.
 
 ## groupby and row sharing
 
