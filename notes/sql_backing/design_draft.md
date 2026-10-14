@@ -343,6 +343,11 @@ what to do next, not a design decision.
     Editable may be asked for, to copy only the rows. A lower level raises ValueError, since it
     would not free the rows. For a Daf, this is a change to mdaf, so it is built and tested on
     sql_backing first.
+130. The name in save(), decided by Ray on 2026-10-14: A. `save(name='')` uses the name the
+    instance already has: the one given to the constructor, or set by `copy(name=)`, or the one
+    passed to it. A table with only a generated TEMP name, such as daf_tmp_votes_v1, raises
+    ValueError and asks for a name. A name already in use raises ValueError. On 2026-10-14 an mdaf
+    selection had the name '', and `copy(name='agreed')` set it to 'agreed'.
 
 ## Possible future enhancements
 
