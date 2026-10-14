@@ -139,6 +139,7 @@ what to do next, not a design decision.
     temporary and deleted at `close()`. Unnamed result tables are deleted at `close()`, and
     `save_as(name)` keeps one. `SqlStore(conn=...)` wraps an existing connection, so
     AuditEngine's databases work too. The engine helpers of decision 89 go in SqlStore.
+    Replaced on 2026-10-14 by decisions 122 to 124: there is no SqlStore.
 91. Views, decided by Ray on 2026-10-13. Selections and joins return a new SqlDaf on a TEMP
     VIEW over its source, and nothing runs until data is pulled: `to_daf()`, `len()`,
     indexing, an aggregate or `sql()`. `materialize()` makes a TEMP TABLE for a result read
@@ -292,7 +293,29 @@ what to do next, not a design decision.
 122. Making a SqlDaf, decided by Ray on 2026-10-14: A. The bare constructor makes a new table, or
     reopens one by name, as Daf(lol=, cols=) does. There is no class named store: Ray finds the
     word too vague, and wants no new class unless one is needed. Where the connection lives is
-    question 124, still open.
+    question 124.
+123. Closing and deleting, decided by Ray on 2026-10-14. `close()` closes the connection. The
+    tables stay in the file and can be reopened, and selections that share the connection can no
+    longer be read. `delete()` deletes the table from the file, with its metadata. The word drop is
+    not used: Ray finds delete more explicit. Without `close()`, Python closes the connection when
+    the last instance that holds it goes. Nothing is lost, since every write is committed.
+124. Where the connection lives, decided by Ray on 2026-10-14. There is no SqlStore and no live
+    state at class level. The class holds only settings that every instance follows unless the
+    constructor overrides them, as Daf does with `copy_level_default`: the engine, SQLite for now,
+    and the default `db_path`, which AuditEngine sets once per job.
+    - Each instance opens its own connection from the path, and keeps it in its attributes. The
+      caller never passes a connection, since it belongs to how the data is stored.
+    - A selection or a join holds its parent's connection.
+    - Each instance also keeps what it knows of its table: the name, keyfield and dtypes, and
+      whether it is a primary table or depends on another, with its base and its references.
+      Unlike a Python object, a SQL table does not describe itself, so the instance may need more
+      attributes to track its state. That is expected.
+    - A selection can be made independent with a copy in place, question 129.
+    - A join is allowed within one file, when neither side depends on TEMP objects of the
+      other's connection. Real tables in one file can be joined from any connection on it.
+    - What SqlStore held needs no outside state. A connection with an empty file name is a
+      private temporary database, which SQLite deletes at close. One savepoint name can be
+      nested. TEMP names are checked against the database. Tested on 2026-10-14.
 127. Streaming the rows of a join, decided by Ray on 2026-10-14: not now. A SqlDaf is backing for
     analysis of static data, not for transactions. A join is usually persisted at once, so reading
     a few rows of a join may build the whole join. This is a possible future enhancement.
