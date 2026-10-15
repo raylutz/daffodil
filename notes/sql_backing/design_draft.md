@@ -414,6 +414,9 @@ Q161. The splits, decided by Ray on 2026-10-15. `split_where()` stays as it is, 
     returns True or False. No decorator, and no change to AuditEngine's calls. `split_by_dict()`
     is removed, since it does not map well onto SqlDaf. This replaces Q148.
 
+Q150. `SqlDaf.apply()`, decided by Ray on 2026-10-15: A. It reads the rows in batches, calls the
+    function in Python and inserts the results into a new TEMP table, in one transaction, with the
+    rules of `Daf.apply()`. Not a registered function with json_each, and not `to_daf()`.
 ## Possible future enhancements
 
 - Stream the rows of a join, or a selection of one, without building the whole join first.

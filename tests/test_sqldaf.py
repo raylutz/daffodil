@@ -8,6 +8,7 @@ import threading
 import pytest
 
 from daffodil.daf import Daf, NULL
+from daffodil.keyedlist import KeyedList
 from daffodil.lib.daf_types import T_ls
 from daffodil.sqldaf import SqlDaf, BLOCKED_LS, RID_COL, META_TABLE, quote_name
 
@@ -392,6 +393,72 @@ def test_to_csv_file_streams_more_than_one_batch(tmp_path):
     big_sdaf: SqlDaf = SqlDaf.from_daf(big_daf, name='big')
     with open(big_sdaf.to_csv_file(tmp_path / 'big.csv'), newline='', encoding='utf-8') as csv_f:
         assert csv_f.read() == big_daf.to_csv_buff()
+
+
+def test_a_table_with_no_columns_reads_as_empty():
+    empty_sdaf: SqlDaf = SqlDaf('empty', [])
+    assert len(empty_sdaf) == 0 and not empty_sdaf
+    assert empty_sdaf.columns() == []
+    assert empty_sdaf.to_daf().lol == []
+    assert empty_sdaf.to_csv_buff() == Daf().to_csv_buff()
+
+
+# SqlDaf.apply
+
+APPLY_FUNCS = [
+    ('one dict', lambda row: {'id': row['ballot_id'], 'n2': (row['n'] or 0) * 2}),
+    ('the row itself or none', lambda row: row if row['n'] is not NULL else None),
+    ('several rows', lambda row: [{'id': row['ballot_id'], 'part': i} for i in range(2)]),
+    ('missing and extra names', lambda row: {'id': row['ballot_id'], 'a': 1} if row['ballot_id'] == 'b1' else {'id': row['ballot_id'], 'zz': 9}),
+    ('nothing at all', lambda row: None),
+    ]
+
+
+@pytest.mark.parametrize('func', [f for _, f in APPLY_FUNCS], ids=[name for name, _ in APPLY_FUNCS])
+def test_apply_matches_mdaf(func):
+    marks_daf: Daf = Daf(lol=[['b1', 1], ['b2', NULL], ['b3', 3]], cols=['ballot_id', 'n'])
+    marks_sdaf: SqlDaf = SqlDaf.from_daf(marks_daf, name='marks')
+    result_sdaf: SqlDaf = marks_sdaf.apply(func)
+    result_daf: Daf = marks_daf.apply(func)
+    assert result_sdaf.columns() == result_daf.columns()
+    assert result_sdaf.to_daf().lol == result_daf.lol
+    assert result_sdaf.is_temp and result_sdaf.keyfield == ''
+
+
+def test_apply_on_a_selection_with_kwargs_and_a_keyedlist():
+    marks_sdaf: SqlDaf = SqlDaf.from_daf(make_marks_daf(), name='marks')
+    def tag(row, label):
+        return KeyedList({'ballot_id': 0, 'label': 1}, [row['ballot_id'], label])
+    result_sdaf: SqlDaf = marks_sdaf.select_by_dict({'contest': 'c0'}).apply(tag, label='x')
+    assert result_sdaf.to_daf().lol == [['b1', 'x'], ['b3', 'x']]
+
+
+def test_apply_over_several_batches_and_save():
+    big_sdaf: SqlDaf = SqlDaf.from_daf(Daf(lol=[[i] for i in range(25000)], cols=['n']), name='big')
+    result_sdaf: SqlDaf = big_sdaf.apply(lambda row: {'n': row['n'], 'odd': row['n'] % 2})
+    assert len(result_sdaf) == 25000
+    assert result_sdaf.iloc(24999) == {'n': 24999, 'odd': 1}
+    result_sdaf.save('odds')
+    assert SqlDaf.table_exists('odds')
+
+
+def test_apply_error_is_raised_as_itself_and_nothing_is_kept():
+    marks_sdaf: SqlDaf = SqlDaf.from_daf(make_marks_daf(), name='marks')
+    before_ls: T_ls = temp_tables(marks_sdaf.conn)
+    with pytest.raises(ZeroDivisionError):
+        marks_sdaf.apply(lambda row: {'x': 1} if row['ballot_id'] == 'b1' else 1 / 0)
+    assert temp_tables(marks_sdaf.conn) == before_ls
+    with pytest.raises(TypeError):
+        marks_sdaf.apply(lambda row: ['not', 'a', 'dict'])
+
+
+def test_apply_by_table_and_unsupported_arguments():
+    marks_sdaf: SqlDaf = SqlDaf.from_daf(make_marks_daf(), name='marks')
+    assert marks_sdaf.apply(len, by='table') == 3
+    with pytest.raises(NotImplementedError):
+        marks_sdaf.apply(lambda row: row, keylist=['b1'])
+    with pytest.raises(NotImplementedError):
+        marks_sdaf.apply(lambda row: row, by='col')
 
 
 # SqlDaf.sql
