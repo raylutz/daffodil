@@ -423,6 +423,13 @@ Q152. `SqlDaf.groupby()`, `groupby_cols()` and `group_where()` return a KeyedLis
     Built on sql_backing for Q143: the valuecounts methods, `value_counts_daf()`, `daf_valuecount()`,
     `sum()` and `groupsum_daf()`, each by GROUP BY with Daf's results. Reductions with a Python
     function, such as `groupby_reduce()`, are not built yet.
+Q162. Two kinds of NULL, decided by Ray on 2026-10-15: "if you encounter a '' in a cell, then it
+    must be considered NULL as it does in Python." Python NULL is daffodil's missing value, the
+    empty string. SQL NULL is the database's. SqlDaf writes Python NULL as SQL NULL, but a table
+    written by other code, such as AuditEngine, may hold the text ''. Both read as Python NULL, so
+    the methods that group, count or select by value treat them as one value. Ray also asked that
+    text always say which NULL it means. Built for the value methods: the value counts,
+    `groupby()`, `groupsum_daf()` and `select_by_dict()`. Keys are Q163, not decided.
 ## Possible future enhancements
 
 - Stream the rows of a join, or a selection of one, without building the whole join first.

@@ -64,6 +64,28 @@ def none_to_null(row_t: Tuple[Any, ...]) -> T_la:
     return [NULL if val is None else val for val in row_t]
 
 
+def value_sql(col: str) -> str:
+    """
+    A column as SQL, with the text '' read as SQL NULL. Internal use.
+
+    Both are Python NULL when read. SqlDaf writes SQL NULL, but a table written by other code
+    may hold ''. Grouping by this puts the two in one group, as a Daf has them, Q162.
+    """
+    return f"NULLIF({quote_name(col)}, '')"
+
+
+def is_value_sql(col: str, val: Any) -> Tuple[str, Tuple[Any, ...]]:
+    """
+    A condition that a column holds this value, and its parameters. Internal use.
+
+    Python NULL matches both SQL NULL and the text '', Q162. Any other value matches with IS.
+    Both forms can use an index on the column.
+    """
+    if val is NULL or val is None:
+        return f"({quote_name(col)} IS NULL OR {quote_name(col)} = '')", ()
+    return f'{quote_name(col)} IS ?', (val,)
+
+
 def _table_exists_on(conn: sqlite3.Connection, name: str, schema: str = '') -> bool:
     """ Say whether the connection sees a table or view of this name: in `schema` only, or in main and TEMP. Internal use. """
     schemas_ls: T_ls = [schema] if schema else ['main', 'temp']
@@ -234,9 +256,12 @@ class SqlDaf(Daf):
     under 1 us for a lookup in memory, because each one passes through sqlite3. Many rows in one
     statement are far cheaper per row.
 
-    A missing value is NULL in Python, as in any Daf, and SQL NULL in the database. It is
-    converted on the way in and on the way out. So in Python test a value with `val is NULL`,
-    and in SQL write `col IS NULL`. Do not compare with ''.
+    There are two kinds of NULL. Python NULL is daffodil's missing value, the empty string ''.
+    SQL NULL is the database's. SqlDaf writes Python NULL as SQL NULL, and reads SQL NULL back as
+    Python NULL. A table written by other code may hold the text '' instead, which also reads as
+    Python NULL. So the methods that group, count or select by value treat SQL NULL and '' as the
+    same value, as a Daf does, Q162. In Python test a value with `val is NULL`. In your own SQL,
+    test for both, as `(col IS NULL OR col = '')`.
 
     Until `apply_dtypes()` converts them, values loaded from a CSV file are text, in SQL too.
     Text is never less than a number in SQLite, so `WHERE n < 5` finds nothing on a text
@@ -1479,8 +1504,10 @@ class SqlDaf(Daf):
             if not one_da:
                 terms_ls.append('1')
                 continue
-            terms_ls.append('(' + ' AND '.join(f'{quote_name(col)} IS ?' for col in one_da) + ')')
-            params_la.extend(one_da.values())
+            conds_lt: List[Tuple[str, Tuple[Any, ...]]] = [is_value_sql(col, val) for col, val in one_da.items()]
+            terms_ls.append('(' + ' AND '.join(cond_sql for cond_sql, _ in conds_lt) + ')')
+            for _, cond_params in conds_lt:
+                params_la.extend(cond_params)
 
         cond_sql: str = ' OR '.join(terms_ls) if terms_ls else '0'
         if inverse:
@@ -1551,7 +1578,7 @@ class SqlDaf(Daf):
         """
         self._resolve_parent()
         rows_sql, rows_params = self._rows_sql()
-        group_sql: str = ', '.join(quote_name(col) for col in colnames)
+        group_sql: str = ', '.join(value_sql(col) for col in colnames)          # '' and SQL NULL count as one value, Q162.
         where_part: str = f' WHERE {where_sql}' if where_sql else ''
         cursor: sqlite3.Cursor = self._execute(
                 f'SELECT {group_sql}, COUNT(*) FROM ({rows_sql}){where_part} GROUP BY {group_sql} ORDER BY MIN({ORD_COL})',
@@ -1647,8 +1674,8 @@ class SqlDaf(Daf):
         """
         if colname not in self.hd or selectedby_colname not in self.hd:
             return {}
-        valuecounts_di: T_di = {val: count for val, count in self._value_counts_lt(
-                [colname], f'{quote_name(selectedby_colname)} IS ?', [selectedby_colvalue])}
+        cond_sql, cond_params = is_value_sql(selectedby_colname, selectedby_colvalue)
+        valuecounts_di: T_di = {val: count for val, count in self._value_counts_lt([colname], cond_sql, cond_params)}
         if sort:
             valuecounts_di = dict(sorted(valuecounts_di.items(), key=lambda item: item[1], reverse=reverse))
         return valuecounts_di
@@ -1878,13 +1905,13 @@ class SqlDaf(Daf):
         col: str
         for col in self.columns():
             if col == colname:
-                select_ls.append(quote_name(col))
+                select_ls.append(value_sql(col))
             elif col in sum_cols_set:
                 select_ls.append(f"SUM(CASE WHEN typeof({quote_name(col)}) IN ('integer', 'real') THEN {quote_name(col)} ELSE 0 END)")
             else:
                 select_ls.append('NULL')
         rows_lot: List[Tuple[Any, ...]] = self._fetch(self._execute(
-                f'SELECT {", ".join(select_ls)} FROM ({rows_sql}) GROUP BY {quote_name(colname)} ORDER BY MIN({ORD_COL})',
+                f'SELECT {", ".join(select_ls)} FROM ({rows_sql}) GROUP BY {value_sql(colname)} ORDER BY MIN({ORD_COL})',
                 rows_params))
         return Daf(lol=[none_to_null(row_t) for row_t in rows_lot], cols=self.columns(), keyfield=colname)
 
@@ -1969,8 +1996,8 @@ class SqlDaf(Daf):
                 raise KeyError(col)
         self._resolve_parent()
         rows_sql, rows_params = self._rows_sql()
-        group_sql: str = ', '.join(quote_name(col) for col in colnames)
-        where_sql: str = (' WHERE ' + ' AND '.join(f'{quote_name(col)} IS NOT NULL' for col in colnames)) if omit_nulls else ''
+        group_sql: str = ', '.join(value_sql(col) for col in colnames)          # '' and SQL NULL are one group, Q162.
+        where_sql: str = (' WHERE ' + ' AND '.join(f'{value_sql(col)} IS NOT NULL' for col in colnames)) if omit_nulls else ''
         values_lot: List[Tuple[Any, ...]] = self._fetch(self._execute(
                 f'SELECT {group_sql} FROM ({rows_sql}){where_sql} GROUP BY {group_sql} ORDER BY MIN({ORD_COL})', rows_params))
         keys_lt: List[Tuple[Any, ...]] = [tuple(none_to_null(values_t)) for values_t in values_lot]

@@ -223,6 +223,9 @@ Source code is in src/daffodil and tests are in tests.
   faster than `==`.
 - Printability comes first. An empty cell prints as nothing, which is what we want to see.
 - Use NULL for missing values, not None, NaN or a typed placeholder.
+- There are two kinds of NULL. Python NULL is daffodil's '' above. SQL NULL is the database's.
+  Always say which one you mean. SqlDaf writes Python NULL as SQL NULL, but a table written by
+  other code may hold the text '', and that is Python NULL too. Ray, 2026-10-15, Q162.
 
 ## Performance over guard rails
 

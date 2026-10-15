@@ -298,7 +298,7 @@ Results, compared as sets of rows. "Same" means the same text and values in ever
 | GA_Bartow_20201103_functest            | 0.02 s         | 0.11 s | steps the same; stats from older code |
 | US_MD_Somerset_20221108_ocrmapped      | 1.2 s          | 3.8 s  | steps the same; stats from older code |
 | US_CO_Broomfield_20231107_aimapper     | 0.73 s         | 6.3 s  | steps the same; stats from older code |
-| CA_SanFrancisco_20241105_pilot_d05     | 4.2 s          | 10.6 s | all the same but party, see below |
+| CA_SanFrancisco_20241105_pilot_d05     | 4.2 s          | 10.6 s | all the same, after Q162           |
 | US_MD_Rockvillecity_20231107_ocrmapped | 0.41 s         | 2.2 s  | only ballot 2760 differs, the stale-table bug |
 
 San Francisco was run by AuditEngine on 2026-10-15 at 15:20, with today's code. Its saved report
@@ -318,8 +318,11 @@ differ there, and each is that code, not the port:
 
 In San Francisco, every stat matches but one. nonvariant_valuecounts_dodi counts party as
 2,216 empty values, where AuditEngine counts 34,469. AuditEngine's table holds '' as text. A table
-that `apply()` writes holds NULL as SQL NULL. Both read as NULL, so the count of one replaces the
+that `apply()` writes holds Python NULL as SQL NULL. Both read as Python NULL, so the count of one replaces the
 count of the other, where a Daf would add them. That is a bug in SqlDaf, Q162.
+
+Fixed by Q162 on 2026-10-15: SqlDaf now treats '' as Python NULL when it counts. Rerun, every stat
+of San Francisco is the same as AuditEngine's.
 
 The order of nonvariant_keys_ls matched only after one change: the empty rows of step 16 are
 added in ballot_id order, as AuditEngine's SELECT DISTINCT returns them through its index.

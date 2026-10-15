@@ -5,6 +5,8 @@ import os
 import sqlite3
 import threading
 
+from typing import Any
+
 import pytest
 
 from daffodil.daf import Daf, NULL
@@ -947,6 +949,31 @@ def test_counts_and_sums_match_mdaf(call):
     assert call(counts_sdaf) == call(counts_daf)
     sel_sdaf: SqlDaf = counts_sdaf.select_where_sql('"ballot_id" != ?', ['b1'])
     assert call(sel_sdaf) == call(counts_daf.select_where(lambda row: row['ballot_id'] != 'b1'))
+
+
+# Python NULL is stored two ways: SqlDaf writes SQL NULL, and other code may write the text ''. Q162.
+
+def null_form_rows(d: Any) -> list:
+    """ The rows of a selection, of a Daf or of a SqlDaf. """
+    return d.to_daf().lol if isinstance(d, SqlDaf) else d.lol
+
+
+NULL_FORM_CALLS = COUNT_CALLS + [
+    ('select_by_dict NULL', lambda d: null_form_rows(d.select_by_dict({'precinct': NULL}))),
+    ('select_by_dict NULL inverse', lambda d: null_form_rows(d.select_by_dict({'t': NULL}, inverse=True))),
+    ('groupby', lambda d: {key: len(group) for key, group in d.groupby('precinct').items()}),
+    ('groupby omit_nulls', lambda d: list(d.groupby('t', omit_nulls=True).keys())),
+    ]
+
+
+@pytest.mark.parametrize('call', [c for _, c in NULL_FORM_CALLS], ids=[name for name, _ in NULL_FORM_CALLS])
+def test_sql_null_and_empty_text_are_one_python_null(call):
+    counts_daf: Daf = make_counts_daf()
+    counts_daf.append({'ballot_id': 'b7', 'precinct': NULL, 'style': 2, 'n': 1, 't': NULL})
+    counts_sdaf: SqlDaf = SqlDaf.from_daf(counts_daf, name='counts')
+    counts_sdaf.sql("UPDATE counts SET precinct = '', t = '' WHERE ballot_id = 'b7'")       # as other code writes it.
+    assert counts_sdaf.sql("SELECT typeof(precinct) FROM counts WHERE ballot_id IN ('b4', 'b7')").to_list() == ['null', 'text']
+    assert call(counts_sdaf) == call(counts_daf)
 
 
 def test_counts_keep_the_order_first_seen():
