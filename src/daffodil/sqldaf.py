@@ -1102,6 +1102,99 @@ class SqlDaf(Daf):
         return result_sdaf
 
 
+    def reduce(                                                             # type: ignore[override]
+            self,
+            func:           Callable[..., Any],         # combines a row with the result so far.
+            by:             str = 'row',                # 'row', 'sparse_row' or 'table'.
+            cols:           T_ls | None = None,         # the columns included. All if None.
+            initial_da:     T_da | None = None,         # the result to start from.
+            indirect_col:   str = '',                   # the column that holds a dict, for 'sparse_row'.
+            silent_error:   bool = False,               # if True, skip rows where func raises.
+            **kwargs:       Any,                        # passed on to func.
+            ) -> Any:
+        """
+        Combine all the rows into one result, using a function, as `Daf.reduce()` does.
+
+        The function is called in Python for each row, with the same arguments and the same
+        result as in `Daf.reduce()`. A sum or a count is a reduction, as with `Daf.sum_da`.
+        The rows are read 10,000 at a time, in order, so memory does not grow with the table.
+
+        - With `by='row'`, each row is a [KeyedList][daffodil.keyedlist.KeyedList] of its
+          values. Unlike in a Daf, writing to it does not change the table.
+        - With `by='sparse_row'`, the function gets the dict held in `indirect_col`, JSON or
+          PYON text decoded as in a Daf, and the result starts as `initial_da` or an empty dict.
+        - With `by='table'`, the function gets this SqlDaf and `cols`.
+
+        For a plain total of columns, `sum()` is faster: SQLite adds them, and no row comes
+        into Python. `by='col'` is not supported, since it needs each whole column in memory.
+
+        Args:
+            func: The function that combines. For example `Daf.sum_da`.
+            by: `row`, `sparse_row` or `table`.
+            cols: The columns included in the reduction. All columns if None.
+            initial_da: The result to start from, instead of zeros.
+            indirect_col: A column that holds a dict. Required for `sparse_row`.
+            silent_error: If True, a row for which the function raises is skipped.
+            **kwargs: Keyword arguments passed on to the function.
+
+        Returns:
+            A dict for `row` and `sparse_row`. The function's result for `table`.
+
+        Raises:
+            ValueError: `sparse_row` is used with no `indirect_col`.
+            NotImplementedError: `by` is `col`, or not recognized.
+
+        Examples:
+            >>> import tempfile
+            >>> SqlDaf.db_path = tempfile.mkdtemp() + '/job.db'
+            >>> votes_sdaf = SqlDaf('votes', cols=['ballot_id', 'v', 'concise_votes'],
+            ...                     lol=[['b1', 1, "{'c0b': 1, 'c0v': 1}"], ['b2', 2, '{"c0b": 1, "c1b": 1}']])
+            >>> votes_sdaf.reduce(Daf.sum_da, cols=['v'])
+            {'ballot_id': '', 'v': 3, 'concise_votes': ''}
+            >>> votes_sdaf.reduce(Daf.sum_da, by='sparse_row', indirect_col='concise_votes')
+            {'c0b': 2, 'c0v': 1, 'c1b': 1}
+        """
+        if by == 'table':
+            return func(self, cols, **kwargs)
+        if by not in ('row', 'sparse_row'):
+            raise NotImplementedError(f"reduce(by={by!r}) is not supported on a SqlDaf.")
+        if by == 'sparse_row' and not indirect_col:
+            raise ValueError("indirect_col must be specified for 'sparse_row' reduction.")
+        if by == 'row' and not len(self):
+            return {}
+
+        hd: T_di = dict(self.hd)
+        cols_iter: Any = None
+        reduction_ma: Any
+        if by == 'row':
+            cols_iter = hd.keys() if cols is None else {col: None for col in hd if col in cols}
+            reduction_ma = initial_da if initial_da is not None else dict.fromkeys(cols_iter, 0)
+            if func is Daf.sum_da:                      # as in Daf.reduce(): the same result, faster.
+                func = Daf.sum_kl
+            elif func is Daf.count_values_da:
+                func = Daf.count_values_kl
+        else:
+            reduction_ma = initial_da or {}
+        indirect_idx: int = hd[indirect_col] if by == 'sparse_row' else 0
+
+        batch_lot: List[Tuple[Any, ...]]
+        vals_t: Tuple[Any, ...]
+        for batch_lot in self._iter_row_batches():
+            for vals_t in batch_lot:
+                try:
+                    if by == 'row':
+                        reduction_ma = func(KeyedList(hd, none_to_null(vals_t)), reduction_ma, cols=cols_iter, **kwargs)
+                    else:
+                        indirect_ma: Any = daf_utils.get_indirect_da({indirect_col: none_to_null(vals_t)[indirect_idx]}, indirect_col)
+                        reduction_ma = func(indirect_ma, reduction_ma, cols=cols, is_sparse=True, **kwargs)
+                except Exception:
+                    if not silent_error:
+                        raise
+        if by == 'row':
+            return {key: reduction_ma.get(key, '') for key in hd}
+        return reduction_ma
+
+
     def to_dict(self) -> T_da:
         """
         Read a table of one row as a dict, as `Daf.to_dict()` does.
@@ -2438,6 +2531,76 @@ class SqlDaf(Daf):
         join_sdaf.pending_params = params
         join_sdaf.is_resolved    = False
         return join_sdaf
+
+
+    def select_cols(                                                        # type: ignore[override]
+            self,
+            cols:           T_ls | None = None,     # the columns to keep, in this order. All if empty.
+            exclude_cols:   T_ls | None = None,     # the columns to leave out.
+            ) -> 'SqlDaf':
+        """
+        Make a new table with only some columns, chosen by name, as `Daf.select_cols()` does.
+
+        The columns come in the order of `cols`. A name given twice is used once. A name that is
+        not a column raises KeyError. With no `cols`, all columns are kept, in this table's order.
+        Then `exclude_cols` leaves out the columns you name. A name in `exclude_cols` that is not
+        a column is ignored. The rows keep their order.
+
+        The result is new rows, as in a Daf, not a selection of this table's rows. It is resolved
+        the first time it is read, into a TEMP table, as a join is. The keyfield and dtypes carry
+        over for the columns kept.
+
+        Args:
+            cols: The names of the columns to keep, in the order you want. If empty, all columns.
+            exclude_cols: The names of the columns to leave out.
+
+        Returns:
+            A SqlDaf of the chosen columns, resolved when first read.
+
+        Raises:
+            KeyError: A name in `cols` is not a column.
+
+        Examples:
+            >>> import tempfile
+            >>> SqlDaf.db_path = tempfile.mkdtemp() + '/job.db'
+            >>> marks_sdaf = SqlDaf('marks', cols=['ballot_id', 'v', 'n'], lol=[['b1', 1, 10], ['b2', 0, 20]], keyfield='ballot_id')
+            >>> marks_sdaf.select_cols(['n', 'ballot_id']).to_daf().lol
+            [[10, 'b1'], [20, 'b2']]
+            >>> marks_sdaf.select_cols(exclude_cols=['v']).columns()
+            ['ballot_id', 'n']
+        """
+        if isinstance(cols, str):
+            cols = [cols]
+        if isinstance(exclude_cols, str):
+            exclude_cols = [exclude_cols]
+        exclude_set: set = set(exclude_cols) if exclude_cols else set()
+        col: str
+        if cols:
+            for col in cols:
+                self.hd[col]                            # a KeyError for a name that is not a column.
+            new_cols: T_ls = [col for col in dict.fromkeys(cols) if col not in exclude_set]
+        else:
+            new_cols = [col for col in self.hd if col not in exclude_set]
+
+        rows_sql, rows_params = self._rows_sql()
+        cols_sql: str = ''.join(f', {quote_name(col)}' for col in new_cols)
+        root_name: str = (self.parent_sdaf or self).name
+        cols_sdaf: SqlDaf = SqlDaf.__new__(SqlDaf)
+        cols_sdaf.conn           = self.conn
+        cols_sdaf._conn_da       = self._conn_da
+        cols_sdaf.db_path        = self.db_path
+        cols_sdaf._name          = self._next_temp_name(root_name)
+        cols_sdaf.keyfield       = self.keyfield if self.keyfield in new_cols else ''
+        cols_sdaf.has_rid        = False
+        cols_sdaf.hd             = {col: idx for idx, col in enumerate(new_cols)}
+        cols_sdaf.dtypes         = {col: typ for col, typ in self.dtypes.items() if col in new_cols}
+        cols_sdaf.is_temp        = True
+        cols_sdaf.parent_sdaf    = None
+        cols_sdaf.pending_sql    = (f'SELECT NULL AS {REF_COL}, ROW_NUMBER() OVER (ORDER BY {ORD_COL}) AS {ORD_COL}{cols_sql} '
+                                    f'FROM ({rows_sql})')
+        cols_sdaf.pending_params = rows_params
+        cols_sdaf.is_resolved    = False
+        return cols_sdaf
 
 
     # ---- copying and saving ----

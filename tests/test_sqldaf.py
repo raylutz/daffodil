@@ -461,6 +461,64 @@ def test_apply_by_table_and_unsupported_arguments():
         marks_sdaf.apply(lambda row: row, by='col')
 
 
+# SqlDaf.reduce
+
+def make_reduce_daf() -> Daf:
+    """ Ints, a float, text that is not a number, NULL, and dicts as PYON, JSON and NULL. """
+    return Daf(lol=[['b1', 1, 2.5, "{'c0b': 1, 'c0v': 1}"],
+                    ['b2', NULL, 'x', '{"c0b": 1, "c1b": 1}'],
+                    ['b3', 3, 1, NULL]],
+               cols=['ballot_id', 'v', 'f', 'concise_votes'])
+
+
+REDUCE_ARGS = [
+    ('sum of all', dict(func=Daf.sum_da)),
+    ('sum of some', dict(func=Daf.sum_da, cols=['v', 'f'])),
+    ('count values', dict(func=Daf.count_values_da, cols=['v'])),
+    ('sparse row', dict(func=Daf.sum_da, by='sparse_row', indirect_col='concise_votes')),
+    ('sparse row, some keys', dict(func=Daf.sum_da, by='sparse_row', indirect_col='concise_votes', cols=['c0b'])),
+    ]
+
+
+@pytest.mark.parametrize('args', [a for _, a in REDUCE_ARGS], ids=[name for name, _ in REDUCE_ARGS])
+def test_reduce_matches_mdaf(args):
+    marks_daf: Daf = make_reduce_daf()
+    marks_sdaf: SqlDaf = SqlDaf.from_daf(marks_daf, name='marks')
+    assert marks_sdaf.reduce(**args) == marks_daf.reduce(**args)
+    assert marks_sdaf.select_where_sql('"ballot_id" != ?', ['b1']).reduce(**args) == marks_daf[1:].reduce(**args)
+
+
+def test_reduce_initial_da_and_silent_error_match_mdaf():
+    marks_daf: Daf = make_reduce_daf()
+    marks_sdaf: SqlDaf = SqlDaf.from_daf(marks_daf, name='marks')
+    assert marks_sdaf.reduce(Daf.sum_da, initial_da={'v': 100}) == marks_daf.reduce(Daf.sum_da, initial_da={'v': 100}) == \
+        {'ballot_id': '', 'v': 104, 'f': 3.5, 'concise_votes': ''}
+    def count_inverse(row, acc, cols):
+        acc['v'] += 1 / row['v']
+        return acc
+    assert marks_sdaf.reduce(count_inverse, silent_error=True) == marks_daf.reduce(count_inverse, silent_error=True)
+    with pytest.raises(TypeError):
+        marks_sdaf.reduce(count_inverse)
+
+
+def test_reduce_over_several_batches():
+    big_sdaf: SqlDaf = SqlDaf.from_daf(Daf(lol=[[i, f"{{'c0v': {i % 3}}}"] for i in range(25000)], cols=['n', 'cv']), name='big')
+    assert big_sdaf.reduce(Daf.sum_da, cols=['n']) == {'n': 25000 * 24999 // 2, 'cv': ''}
+    assert big_sdaf.reduce(Daf.sum_da, by='sparse_row', indirect_col='cv') == {'c0v': 24999}
+
+
+def test_reduce_empty_by_table_and_unsupported():
+    empty_sdaf: SqlDaf = SqlDaf('empty', cols=['a'])
+    assert empty_sdaf.reduce(Daf.sum_da) == Daf(cols=['a']).reduce(Daf.sum_da) == {}
+    assert empty_sdaf.reduce(Daf.sum_da, by='sparse_row', indirect_col='a') == {}
+    marks_sdaf: SqlDaf = SqlDaf.from_daf(make_marks_daf(), name='marks')
+    assert marks_sdaf.reduce(lambda sdaf, cols: len(sdaf), by='table') == 3
+    with pytest.raises(ValueError):
+        marks_sdaf.reduce(Daf.sum_da, by='sparse_row')
+    with pytest.raises(NotImplementedError):
+        marks_sdaf.reduce(Daf.sum_da, by='col')
+
+
 # SqlDaf.sql
 
 def test_sql_select_gives_a_daf_with_null():
@@ -1533,3 +1591,53 @@ def test_join_with_a_table_in_another_file_raises(tmp_path):
     cvr_sdaf: SqlDaf = SqlDaf.from_daf(cvr_daf, name='cvr', db_path=str(tmp_path / 'other.db'))
     with pytest.raises(NotImplementedError, match='another database file'):
         audit_sdaf.join(cvr_sdaf)
+
+
+# ---- select_cols ----
+
+SELECT_COLS_ARGS = [
+    ('some, reordered', dict(cols=['num_votes', 'ballot_id'])),
+    ('one, as a str', dict(cols='contest')),
+    ('a name twice', dict(cols=['contest', 'contest', 'ballot_id'])),
+    ('exclude', dict(exclude_cols=['contest', 'nope'])),
+    ('both', dict(cols=['contest', 'ballot_id', 'num_votes'], exclude_cols=['num_votes'])),
+    ('all', dict()),
+    ]
+
+
+@pytest.mark.parametrize('args', [a for _, a in SELECT_COLS_ARGS], ids=[name for name, _ in SELECT_COLS_ARGS])
+def test_select_cols_matches_mdaf(args):
+    marks_daf: Daf = make_marks_daf()
+    marks_sdaf: SqlDaf = SqlDaf.from_daf(marks_daf, name='marks')
+    cols_sdaf: SqlDaf = marks_sdaf.select_cols(**args)
+    cols_daf: Daf = marks_daf.select_cols(**args)
+    assert cols_sdaf.columns() == cols_daf.columns()
+    assert cols_sdaf.to_daf().lol == cols_daf.lol
+    assert cols_sdaf.keyfield == cols_daf.keyfield
+
+
+def test_select_cols_of_a_selection_and_of_a_join_keeps_the_order():
+    audit_daf, cvr_daf = make_join_pair()
+    audit_sdaf: SqlDaf = SqlDaf.from_daf(audit_daf, name='audit')
+    cvr_sdaf: SqlDaf = SqlDaf.from_daf(cvr_daf, name='cvr')
+    some_sdaf: SqlDaf = audit_sdaf.select_records_daf(['k2', 'k3']).select_cols(['v', 'id'])
+    assert some_sdaf.to_daf().lol == [[NULL, 'k2'], [1, 'k3']]
+    assert some_sdaf['k3'].to_dict() == {'v': 1, 'id': 'k3'}
+    join_sdaf: SqlDaf = audit_sdaf.join(cvr_sdaf, how='left')
+    assert join_sdaf.select_cols(['id', 'w']).to_daf().lol == audit_daf.join(cvr_daf, how='left').select_cols(['id', 'w']).lol
+
+
+def test_select_cols_is_new_rows_and_keeps_dtypes():
+    marks_daf: Daf = make_marks_daf()
+    marks_sdaf: SqlDaf = SqlDaf('marks', cols=marks_daf.columns(), lol=marks_daf.lol, dtypes={'ballot_id': str, 'num_votes': int})
+    cols_sdaf: SqlDaf = marks_sdaf.select_cols(['ballot_id', 'num_votes'])
+    assert cols_sdaf.dtypes == {'ballot_id': str, 'num_votes': int}
+    assert len(cols_sdaf) == 3
+    marks_sdaf.sql('UPDATE marks SET num_votes = 9')
+    assert cols_sdaf.to_daf()[:, 'num_votes'].to_list() == [1, NULL, 0]
+
+
+def test_select_cols_unknown_name_raises_keyerror():
+    marks_sdaf: SqlDaf = SqlDaf.from_daf(make_marks_daf(), name='marks')
+    with pytest.raises(KeyError):
+        marks_sdaf.select_cols(['ballot_id', 'nope'])
