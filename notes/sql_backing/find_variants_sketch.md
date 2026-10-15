@@ -111,7 +111,7 @@ Three of these need their own review before they are built:
 ```python
 def locate_variants_sdaf(
         store:              SqlStore,
-        input_lsdaf:        List[SqlDaf],       # audit, CVR, and optionally the modified CVR
+        input_losdaf:        List[SqlDaf],       # audit, CVR, and optionally the modified CVR
         variants_names_ls:  T_ls,               # names of the two variants tables
         nonvariants_names_ls: T_ls,             # names of the two nonvariants tables
         flag_cols_lol:      T_lols,             # flag columns for audit and CVR
@@ -119,42 +119,42 @@ def locate_variants_sdaf(
         use_concise:        bool,
         ) -> T_lods:                            # report rows, as now
 
-    side_lsdaf: List[SqlDaf] = input_lsdaf[:2]
-    modi_sdaf:  SqlDaf | None = input_lsdaf[2] if len(input_lsdaf) == 3 else None
+    side_losdaf: List[SqlDaf] = input_losdaf[:2]
+    modi_sdaf:  SqlDaf | None = input_losdaf[2] if len(input_losdaf) == 3 else None
 
     # steps 1 and 2
     for name in variants_names_ls:
         store.drop_table(name, missing_ok=True)
-    variants_lsdaf: List[SqlDaf] = [side_lsdaf[i].clone_empty(name=variants_names_ls[i]) for i in range(2)]
+    variants_losdaf: List[SqlDaf] = [side_losdaf[i].clone_empty(name=variants_names_ls[i]) for i in range(2)]
 
     # step 3
     for i in range(2):
-        residue_sdaf: SqlDaf = side_lsdaf[i].select_records_daf(side_lsdaf[1 - i], inverse=True).save_as(f'residue_{i}')
+        residue_sdaf: SqlDaf = side_losdaf[i].select_records_daf(side_losdaf[1 - i], inverse=True).save_as(f'residue_{i}')
         residue_sdaf.to_csv(f'residue_{i}.csv')
-        side_lsdaf[i].delete_records(residue_sdaf)
+        side_losdaf[i].delete_records(residue_sdaf)
 
     # step 4
     for i in range(2):
         if use_concise:
-            flagged_sdaf: SqlDaf = side_lsdaf[i].select_where(
+            flagged_sdaf: SqlDaf = side_losdaf[i].select_where(
                     lambda row: has_variant_flag(row['concise_votes']), cols=['concise_votes'])
         else:
-            flagged_sdaf = side_lsdaf[i].select_where(any_flag_sql(flag_cols_lol[i]))
-        variants_lsdaf[i].concat(flagged_sdaf, skip_existing_keys=True)
+            flagged_sdaf = side_losdaf[i].select_where(any_flag_sql(flag_cols_lol[i]))
+        variants_losdaf[i].concat(flagged_sdaf, skip_existing_keys=True)
 
     # steps 5 and 6
     for i in range(2):
-        variants_lsdaf[i].concat(side_lsdaf[i].select_records_daf(variants_lsdaf[1 - i]), skip_existing_keys=True)
+        variants_losdaf[i].concat(side_losdaf[i].select_records_daf(variants_losdaf[1 - i]), skip_existing_keys=True)
         if modi_sdaf is not None:
-            variants_lsdaf[i].concat(side_lsdaf[i].select_records_daf(modi_sdaf), skip_existing_keys=True)
+            variants_losdaf[i].concat(side_losdaf[i].select_records_daf(modi_sdaf), skip_existing_keys=True)
 
     # step 7
-    nonvariants_lsdaf: List[SqlDaf] = [
-            side_lsdaf[i].select_records_daf(variants_lsdaf[i], inverse=True).save_as(nonvariants_names_ls[i])
+    nonvariants_losdaf: List[SqlDaf] = [
+            side_losdaf[i].select_records_daf(variants_losdaf[i], inverse=True).save_as(nonvariants_names_ls[i])
             for i in range(2)]
 
     # steps 8 and 9
-    pair_sdaf: SqlDaf = nonvariants_lsdaf[0].join(nonvariants_lsdaf[1], tag_other=True)
+    pair_sdaf: SqlDaf = nonvariants_losdaf[0].join(nonvariants_losdaf[1], tag_other=True)
     if use_concise:
         disagreed_sdaf: SqlDaf = (pair_sdaf
                 .select_where('"concise_votes" != "concise_votes_other"')
@@ -165,8 +165,8 @@ def locate_variants_sdaf(
 
     # steps 10 and 11
     for i in range(2):
-        variants_lsdaf[i].concat(nonvariants_lsdaf[i].select_records_daf(disagreed_sdaf), skip_existing_keys=True)
-        nonvariants_lsdaf[i].delete_records(variants_lsdaf[i])
+        variants_losdaf[i].concat(nonvariants_losdaf[i].select_records_daf(disagreed_sdaf), skip_existing_keys=True)
+        nonvariants_losdaf[i].delete_records(variants_losdaf[i])
 
     # steps 12 on: sql() for now
     ...

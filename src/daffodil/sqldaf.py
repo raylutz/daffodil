@@ -2076,9 +2076,9 @@ class SqlDaf(Daf):
 
 # Type aliases for SqlDaf, as daf_types.py has for other types. A SqlDaf variable ends in _sdaf,
 # as in bif_sdaf. They are here, not in daf_types.py, because this module imports that one.
-T_sdaf:     TypeAlias = SqlDaf
-T_lsdaf:    TypeAlias = List[SqlDaf]
-T_dosdaf:   TypeAlias = Dict[str, SqlDaf]
+T_sdaf:      TypeAlias = SqlDaf
+T_losdaf:    TypeAlias = List[SqlDaf]
+T_dosdaf:    TypeAlias = Dict[str, SqlDaf]
 
 
 def _none_safe(converter: Callable[[Any], Any]) -> Callable[[Any], Any]:

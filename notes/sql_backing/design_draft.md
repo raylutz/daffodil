@@ -264,7 +264,7 @@ Q110. NULL in a bool column, decided by Ray on 2026-10-14: Original. `apply_dtyp
     If "not determined" should be kept apart from 0, it would be a change to both Daf and
     SqlDaf together, as its own item, with a check of AuditEngine's bool columns.
 Q111. Names and types, decided by Ray on 2026-10-14. A SqlDaf variable ends in `_sdaf`, and its
-    type is `T_sdaf`, with `T_lsdaf` and `T_dosdaf` for lists and dicts. They are real
+    type is `T_sdaf`, with `T_losdaf` and `T_dosdaf` for lists and dicts. They are real
     TypeAliases of the class, in sqldaf.py, so mypy checks them. Python 3.10 added TypeAlias.
 Q112. Indexing, decided by Ray on 2026-10-14. `sdaf[n]`, `sdaf[n:m]` and `sdaf[key]` return a SqlDaf
     selection, as any selection does, not an ordinary Daf, so a large slice is not pulled into
@@ -385,11 +385,30 @@ Q136. One connection per file, decided by Ray on 2026-10-14: A. Every SqlDaf on 
     - After the change, the port ran on five jobs and gave the results of the first trial:
       Dane, Bartow, Somerset and San Francisco the same as AuditEngine, Rockville the one ballot
       of AuditEngine's stale-table bug.
-Q137. Not decided yet: whether to fix on claude_dev the broken docs link in `Daf.delete_records()`,
-    from beb5218, which fails the strict docs build.
+Q137. The broken docs link in `Daf.delete_records()` on claude_dev, from beb5218, is fixed, decided
+    by Ray on 2026-10-15. The fix is 34d9e6a, on claude_dev.
 Q138. How a file is closed, decided by Ray on 2026-10-14: A. `SqlDaf.close(db_path='')` is a
     class method. It closes one file, the class setting's if no path is given, for every SqlDaf
     on it. Called on an instance, it still closes that file, which the docstring warns.
+Q139. Rerun the five large find_variants jobs only when all of find_variants is ported to SqlDaf.
+    Ray, 2026-10-15. Q121, when sqldaf.py goes to claude_dev, waits for the same point.
+Q142. `SqlDaf.apply()` is wanted, decided by Ray on 2026-10-15. He noted that a registered function
+    cannot return a row. Three ways were measured: streaming in Python, a registered function with
+    json_each, and `to_daf()`. Q150 asks which.
+Q143. groupby, value counts and sums for SqlDaf are wanted, Ray, 2026-10-15.
+Q145. `SqlDaf.split_where()`, decided by Ray on 2026-10-15: A, two `select_where()` selections.
+    "use daffodil when feasible." Built in 68075c7.
+Q148. `split_by_dict()` on Daf and SqlDaf, decided by Ray on 2026-10-15: A, two calls of
+    `select_by_dict()`. His proposal: a dict test is much faster than a function. Built in 68075c7.
+Q154, Q155. A grouping is a KeyedList of Daf, decided by Ray on 2026-10-15. groupby(), group_where()
+    and groupby_cols() return it, on Daf and on SqlDaf. It works as the dict of Daf does today,
+    and has positions too. No new class. On a SqlDaf the values are selections, built from one
+    pass that writes (key, reference) pairs to a label table, so a row can be in any number of
+    groups. Each group's rows are found when it is first read. The group sizes come from `len()`
+    of each group for now; how fast does not matter yet.
+Q156. The suffix for a KeyedList of Daf is _klodaf, type T_klodaf, decided by Ray on 2026-10-15.
+    It follows the rule that a container of containers puts o between them, as in dodaf.
+Q160. T_lsdaf and _lsdaf are renamed T_losdaf and _losdaf by the same rule, Ray, 2026-10-15.
 
 ## Possible future enhancements
 

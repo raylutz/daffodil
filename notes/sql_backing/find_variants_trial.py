@@ -22,7 +22,7 @@ from typing import Any, Dict, List, Tuple
 
 from daffodil.daf import Daf, NULL
 from daffodil.lib.daf_types import T_ls
-from daffodil.sqldaf import SqlDaf, T_sdaf, T_lsdaf
+from daffodil.sqldaf import SqlDaf, T_sdaf, T_losdaf
 
 
 VARIANT_FLAG_RE = r"'c\d+(w|ov|g)'"     # as in sql_variants.py step 4: a writein, overvote or gray contest.
@@ -58,7 +58,7 @@ def timed(func: Any) -> Tuple[Any, float]:
 
 
 def locate_variants_sdaf(
-        side_lsdaf:         T_lsdaf,            # the audit votes and the CVR votes.
+        side_losdaf:         T_losdaf,            # the audit votes and the CVR votes.
         modi_sdaf:          T_sdaf | None,      # the modified CVR votes, if any.
         names_ls:           T_ls,               # the names for the results: audit and cvr.
         prefix:             str,                # put before each result table name.
@@ -88,7 +88,7 @@ def locate_variants_sdaf(
         """ INSERT OR IGNORE of today: add the rows whose key is not in the target yet. """
         target_sdaf.concat(rows_sdaf.select_records_daf(target_sdaf, inverse=True, silent_error=True))
 
-    report(0, 'Input tables.', [len(side_sdaf) for side_sdaf in side_lsdaf], [NULL, NULL])
+    report(0, 'Input tables.', [len(side_sdaf) for side_sdaf in side_losdaf], [NULL, NULL])
 
     # step 1: drop any tables of an earlier run.
     for name in variants_names_ls + nonvariants_names_ls + residue_names_ls:
@@ -97,64 +97,64 @@ def locate_variants_sdaf(
     report(1, 'Dropping any existing variant tables.', [0, 0], [NULL, NULL])
 
     # step 2: empty variants tables, with a unique keyfield.
-    variants_lsdaf: T_lsdaf = []
+    variants_losdaf: T_losdaf = []
     secs_lf = []
     for i in range(2):
-        variants_sdaf, secs_f = timed(lambda: SqlDaf(variants_names_ls[i], side_lsdaf[i].columns(),
+        variants_sdaf, secs_f = timed(lambda: SqlDaf(variants_names_ls[i], side_losdaf[i].columns(),
                                                      keyfield=keyfield).ensure_key_index())
-        variants_lsdaf.append(variants_sdaf)                # each with its own input's columns, as AuditEngine does.
+        variants_losdaf.append(variants_sdaf)                # each with its own input's columns, as AuditEngine does.
         secs_lf.append(secs_f)
-    report(2, 'Create Variant tables with indexes.', [len(sdaf) for sdaf in variants_lsdaf], secs_lf)
+    report(2, 'Create Variant tables with indexes.', [len(sdaf) for sdaf in variants_losdaf], secs_lf)
 
     # step 3: the residue of each side, then deleted from it.
-    residue_lsdaf: T_lsdaf = []
+    residue_losdaf: T_losdaf = []
     secs_lf = []
     for i in range(2):
-        residue_sdaf, secs_f = timed(lambda: side_lsdaf[i].select_records_daf(
-                side_lsdaf[1 - i], inverse=True, silent_error=True).copy(name=residue_names_ls[i]).save())
-        residue_lsdaf.append(residue_sdaf)
+        residue_sdaf, secs_f = timed(lambda: side_losdaf[i].select_records_daf(
+                side_losdaf[1 - i], inverse=True, silent_error=True).copy(name=residue_names_ls[i]).save())
+        residue_losdaf.append(residue_sdaf)
         secs_lf.append(secs_f)
     for i in range(2):
-        _, secs_f = timed(lambda: side_lsdaf[i].delete_records(residue_lsdaf[i], inplace=True, silent_error=True))
+        _, secs_f = timed(lambda: side_losdaf[i].delete_records(residue_losdaf[i], inplace=True, silent_error=True))
         secs_lf[i] += secs_f
-    report(3, 'Remove Missing Records to Residue Tables', [len(sdaf) for sdaf in residue_lsdaf], secs_lf)
-    report(3, 'Remaining ballots in adjusted input tables', [len(sdaf) for sdaf in side_lsdaf], [NULL, NULL])
+    report(3, 'Remove Missing Records to Residue Tables', [len(sdaf) for sdaf in residue_losdaf], secs_lf)
+    report(3, 'Remaining ballots in adjusted input tables', [len(sdaf) for sdaf in side_losdaf], [NULL, NULL])
 
     # step 4: the flagged rows.
     secs_lf = []
     for i in range(2):
-        flagged_sdaf: SqlDaf = side_lsdaf[i].select_where(lambda row: has_variant_flag(row['concise_votes']),
+        flagged_sdaf: SqlDaf = side_losdaf[i].select_where(lambda row: has_variant_flag(row['concise_votes']),
                                                           cols=['concise_votes'])
-        secs_lf.append(timed(lambda: add_new_rows(variants_lsdaf[i], flagged_sdaf))[1])
-    report(4, 'Add records with variant flags', [len(sdaf) for sdaf in variants_lsdaf], secs_lf)
+        secs_lf.append(timed(lambda: add_new_rows(variants_losdaf[i], flagged_sdaf))[1])
+    report(4, 'Add records with variant flags', [len(sdaf) for sdaf in variants_losdaf], secs_lf)
 
     # step 5: harmonize, so each side has the variants of the other.
     secs_lf = []
     for i in range(2):
         secs_lf.append(timed(lambda: add_new_rows(
-                variants_lsdaf[i], side_lsdaf[i].select_records_daf(variants_lsdaf[1 - i], silent_error=True)))[1])
-    report(5, 'Harmonize variant tables', [len(sdaf) for sdaf in variants_lsdaf], secs_lf)
+                variants_losdaf[i], side_losdaf[i].select_records_daf(variants_losdaf[1 - i], silent_error=True)))[1])
+    report(5, 'Harmonize variant tables', [len(sdaf) for sdaf in variants_losdaf], secs_lf)
 
     # step 6: the ballots of the modified CVR.
     if modi_sdaf is not None:
         secs_lf = []
         for i in range(2):
             secs_lf.append(timed(lambda: add_new_rows(
-                    variants_lsdaf[i], side_lsdaf[i].select_records_daf(modi_sdaf, silent_error=True)))[1])
-        report(6, 'Add records from cvr_modified', [len(sdaf) for sdaf in variants_lsdaf], secs_lf)
+                    variants_losdaf[i], side_losdaf[i].select_records_daf(modi_sdaf, silent_error=True)))[1])
+        report(6, 'Add records from cvr_modified', [len(sdaf) for sdaf in variants_losdaf], secs_lf)
 
     # step 7: the rest are nonvariants for now.
-    nonvariants_lsdaf: T_lsdaf = []
+    nonvariants_losdaf: T_losdaf = []
     secs_lf = []
     for i in range(2):
-        nonvariants_sdaf, secs_f = timed(lambda: side_lsdaf[i].select_records_daf(
-                variants_lsdaf[i], inverse=True, silent_error=True).copy(name=nonvariants_names_ls[i]).save())
-        nonvariants_lsdaf.append(nonvariants_sdaf)
+        nonvariants_sdaf, secs_f = timed(lambda: side_losdaf[i].select_records_daf(
+                variants_losdaf[i], inverse=True, silent_error=True).copy(name=nonvariants_names_ls[i]).save())
+        nonvariants_losdaf.append(nonvariants_sdaf)
         secs_lf.append(secs_f)
-    report(7, 'Create nonflagged nonvariants', [len(sdaf) for sdaf in nonvariants_lsdaf], secs_lf)
+    report(7, 'Create nonflagged nonvariants', [len(sdaf) for sdaf in nonvariants_losdaf], secs_lf)
 
     # step 8: the pairs whose concise votes differ as text.
-    pair_sdaf: SqlDaf = nonvariants_lsdaf[0].join(nonvariants_lsdaf[1], tag_other=True)
+    pair_sdaf: SqlDaf = nonvariants_losdaf[0].join(nonvariants_losdaf[1], tag_other=True)
     cv_cols_ls: T_ls = [col for col in pair_sdaf.columns() if col.startswith('concise_votes_')]
     a_cv, b_cv = cv_cols_ls
     text_differ_sdaf: SqlDaf = pair_sdaf.select_where_sql(f'"{a_cv}" IS NOT "{b_cv}"')
@@ -171,20 +171,20 @@ def locate_variants_sdaf(
     secs_lf = []
     for i in range(2):
         secs_lf.append(timed(lambda: add_new_rows(
-                variants_lsdaf[i], nonvariants_lsdaf[i].select_records_daf(disagreed_sdaf, silent_error=True)))[1])
-    report(10, 'Add disagreed ballots to variants', [len(sdaf) for sdaf in variants_lsdaf], secs_lf)
+                variants_losdaf[i], nonvariants_losdaf[i].select_records_daf(disagreed_sdaf, silent_error=True)))[1])
+    report(10, 'Add disagreed ballots to variants', [len(sdaf) for sdaf in variants_losdaf], secs_lf)
 
     # step 11: and are no longer nonvariants.
     secs_lf = []
     for i in range(2):
-        secs_lf.append(timed(lambda: nonvariants_lsdaf[i].delete_records(variants_lsdaf[i], inplace=True, silent_error=True))[1])
-    report(11, 'Remove variant ballot records from nonvariant ballots table.', [len(sdaf) for sdaf in nonvariants_lsdaf], secs_lf)
+        secs_lf.append(timed(lambda: nonvariants_losdaf[i].delete_records(variants_losdaf[i], inplace=True, silent_error=True))[1])
+    report(11, 'Remove variant ballot records from nonvariant ballots table.', [len(sdaf) for sdaf in nonvariants_losdaf], secs_lf)
 
     result_da: Dict[str, Any] = {}
     for i, name in enumerate(names_ls):
-        result_da[f'{name}_variants'] = variants_lsdaf[i]
-        result_da[f'{name}_nonvariants'] = nonvariants_lsdaf[i]
-        result_da[f'{name}_residue'] = residue_lsdaf[i]
+        result_da[f'{name}_variants'] = variants_losdaf[i]
+        result_da[f'{name}_nonvariants'] = nonvariants_losdaf[i]
+        result_da[f'{name}_residue'] = residue_losdaf[i]
     result_da['disagreed_keys'] = disagreed_sdaf.keys()
     result_da['report_daf'] = report_daf
     return result_da
