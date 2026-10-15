@@ -18,6 +18,8 @@
 import pytest
 
 from daffodil.daf import Daf
+from daffodil.daf import Daf, KeysDisabledError
+from daffodil.keyedlist import KeyedList
 
 
 # =====================================================================
@@ -399,3 +401,258 @@ def test_col_to_la_indirect_col():
 def test_col_to_la_indirect_col_missing_key_uses_default():
     daf = Daf(lol=[[1, {'x': 10}], [2, {'x': 20}]], cols=['id', 'meta'])
     assert daf.col_to_la('y', indirect_col='meta', default=-1) == [-1, -1]
+
+
+# ---- from test_daf_select_records_daf_keys.py ----
+# Tests for select_records_daf() given another Daf as the keys (Ray, 2026-10-14).
+
+def make_daf() -> Daf:
+    return Daf(lol=[['r1', 'a'], ['r2', 'b'], ['r3', 'c']], cols=['id', 'v'], keyfield='id')
+
+
+def make_other_daf() -> Daf:
+    return Daf(lol=[['r3', 1], ['r9', 2], ['r1', 3]], cols=['id', 'w'], keyfield='id')
+
+
+def test_a_daf_as_keys_gives_the_same_as_its_keys():
+    data_daf: Daf = make_daf()
+    other_daf: Daf = make_other_daf()
+    assert data_daf.select_records_daf(other_daf, silent_error=True).lol == \
+           data_daf.select_records_daf(other_daf.keys(), silent_error=True).lol == [['r3', 'c'], ['r1', 'a']]
+
+
+def test_a_daf_as_keys_with_inverse():
+    data_daf: Daf = make_daf()
+    assert data_daf.select_records_daf(make_other_daf(), inverse=True, silent_error=True).lol == [['r2', 'b']]
+
+
+def test_a_daf_as_keys_missing_key_raises_unless_silent():
+    with pytest.raises(KeyError):
+        make_daf().select_records_daf(make_other_daf())
+
+
+def test_a_daf_as_keys_shares_rows_and_leaves_the_other_unchanged():
+    data_daf: Daf = make_daf()
+    other_daf: Daf = make_other_daf()
+    selected_daf: Daf = data_daf.select_records_daf(other_daf, silent_error=True)
+    assert selected_daf.lol[0] is data_daf.lol[2]
+    assert other_daf.lol == [['r3', 1], ['r9', 2], ['r1', 3]]
+
+
+def test_a_daf_without_keyfield_as_keys_raises():
+    no_key_daf: Daf = Daf(lol=[['r1']], cols=['id'])
+    with pytest.raises(KeysDisabledError):
+        make_daf().select_records_daf(no_key_daf)
+
+
+def test_an_empty_daf_as_keys():
+    empty_daf: Daf = Daf(cols=['id'], keyfield='id')
+    assert make_daf().select_records_daf(empty_daf).lol == []
+    assert make_daf().select_records_daf(empty_daf, inverse=True).lol == make_daf().lol
+
+
+# ---- from test_daf_inverse_key_selection.py ----
+# Inverse key selection gives the same rows after the fix in gkeys_to_idxs(), which made it linear (2026-10-14).
+
+def make_numbered_daf(n: int) -> Daf:
+    return Daf(lol=[[f'k{i:06d}', i] for i in range(n)], cols=['id', 'n'], keyfield='id')
+
+
+def test_inverse_keeps_the_others_in_order():
+    data_daf: Daf = make_numbered_daf(10)
+    assert data_daf.select_krows(['k000007', 'k000002', 'k000005'], inverse=True)[:, 'n'].to_list() == [0, 1, 3, 4, 6, 8, 9]
+
+
+def test_inverse_with_repeated_keys():
+    data_daf: Daf = make_numbered_daf(5)
+    assert data_daf.select_records_daf(['k000001', 'k000001', 'k000003'], inverse=True)[:, 'n'].to_list() == [0, 2, 4]
+
+
+def test_inverse_of_half_of_a_large_table():
+    data_daf: Daf = make_numbered_daf(200_000)
+    keys_ls: list = [f'k{i:06d}' for i in range(0, 200_000, 2)]
+    kept_daf: Daf = data_daf.select_records_daf(keys_ls, inverse=True)
+    assert len(kept_daf) == 100_000
+    assert kept_daf[:3, 'n'].to_list() == [1, 3, 5]
+    assert kept_daf.lol[0] is data_daf.lol[1]
+
+
+# ---- from test_daf_select_where_idxs.py ----
+# select_where_idxs() gives its function a KeyedList for each row, as select_where() does.
+
+def _daf() -> Daf:
+    return Daf(lol=[[1, 'a', 10], [2, 'b', 20], [3, 'a', 30]], cols=['id', 'v', 'n'], keyfield='id')
+
+
+def test_the_function_gets_a_keyedlist_for_every_row():
+    seen = []
+    _daf().select_where_idxs(lambda row: seen.append(type(row)) or True)
+    assert seen == [KeyedList] * 3
+
+
+def test_the_function_gets_a_keyedlist_in_every_itermode():
+    d = _daf()
+    d._itermode = Daf.ITERMODE_DICT
+    seen = []
+    d.select_where_idxs(lambda row: seen.append(type(row)) or True)
+    assert seen == [KeyedList] * 3
+
+
+def test_positions_of_the_matching_rows():
+    d = _daf()
+    assert d.select_where_idxs(lambda row: row['v'] == 'a') == [0, 2]
+    assert d.select_where_idxs(lambda row: row['n'] > 10) == [1, 2]
+    assert d.select_where_idxs(lambda row: row['n'] > 99) == []
+    assert d.select_where_idxs(lambda row: True) == [0, 1, 2]
+
+
+def test_positions_agree_with_select_where():
+    d = _daf()
+    test = lambda row: row['n'] >= 20 and row['v'] == 'a'
+    assert [d.lol[i] for i in d.select_where_idxs(test)] == d.select_where(test).lol
+
+
+def test_on_a_slice_the_positions_are_those_of_the_slice():
+    d = _daf()
+    assert d[1:].select_where_idxs(lambda row: row['v'] == 'a') == [1]
+
+
+def test_empty_daf_gives_no_positions():
+    assert Daf(cols=['id', 'v']).select_where_idxs(lambda row: True) == []
+
+
+def test_daf_with_rows_and_no_column_names_raises():
+    with pytest.raises(KeysDisabledError):
+        Daf(lol=[[1, 2]]).select_where_idxs(lambda row: True)
+
+
+# ---- from test_daf_select_icols.py ----
+# Column slices through select_icols() and through my_daf[:, slice].
+# Python's own slicing is the model: my_daf[:, a:b:c] should return the columns
+# that list(range(n))[a:b:c] gives.
+
+def _icols_daf() -> Daf:
+    return Daf(lol=[[1, 'a', 10], [2, 'b', 20]], cols=['id', 'v', 'n'])
+
+
+def test_select_icols_positive_slice():
+    result = _icols_daf()[:, 1:3]
+    assert result.columns() == ['v', 'n']
+    assert result.lol == [['a', 10], ['b', 20]]
+
+
+def test_select_icols_negative_start_and_stop():
+    result = _icols_daf()[:, -3:-1]
+    assert result.columns() == ['id', 'v']
+    assert result.lol == [[1, 'a'], [2, 'b']]
+
+
+def test_select_icols_step():
+    result = _icols_daf()[:, ::2]
+    assert result.columns() == ['id', 'n']
+    assert result.lol == [[1, 10], [2, 20]]
+
+
+def test_select_icols_negative_start_no_stop():
+    result = _icols_daf()[:, -2:]
+    assert result.columns() == ['v', 'n']
+    assert result.lol == [['a', 10], ['b', 20]]
+
+
+def test_select_icols_negative_stop_no_start():
+    result = _icols_daf()[:, :-1]
+    assert result.columns() == ['id', 'v']
+    assert result.lol == [[1, 'a'], [2, 'b']]
+
+
+def test_select_icols_positive_start_negative_stop():
+    result = _icols_daf()[:, 1:-1]
+    assert result.columns() == ['v']
+    assert result.lol == [['a'], ['b']]
+
+
+def test_select_icols_negative_step():
+    result = _icols_daf()[:, ::-1]
+    assert result.columns() == ['n', 'v', 'id']
+
+
+def test_select_icols_stop_zero_is_empty():
+    result = _icols_daf()[:, 0:0]
+    assert result.columns() == []
+
+
+def test_select_icols_stop_beyond_end_is_clamped():
+    result = _icols_daf()[:, 1:10]
+    assert result.columns() == ['v', 'n']
+
+
+def test_select_icols_negative_slice_with_flip():
+    result = _icols_daf().select_icols(slice(-2, None), flip=True)
+    assert result.lol == [['a', 'b'], [10, 20]]
+
+
+# ---- from test_daf_delete_records.py ----
+# Tests for delete_records() (Ray, 2026-10-14, decision 104 and item 2 of the mdaf review: inplace=False by default).
+
+def make_delete_daf() -> Daf:
+    return Daf(lol=[['r1', 'a'], ['r2', 'b'], ['r3', 'c'], ['r4', 'd']], cols=['id', 'v'], keyfield='id')
+
+
+def test_default_returns_a_new_daf_and_leaves_this_one():
+    data_daf: Daf = make_delete_daf()
+    result_daf: Daf = data_daf.delete_records(['r2', 'r4'])
+    assert result_daf.lol == [['r1', 'a'], ['r3', 'c']]
+    assert data_daf.lol == make_delete_daf().lol
+    assert result_daf.lol[0] is data_daf.lol[0]
+    assert result_daf == data_daf.select_records_daf(['r2', 'r4'], inverse=True)
+
+
+def test_inplace_deletes_from_this_daf_and_returns_it():
+    data_daf: Daf = make_delete_daf()
+    row_list_la: list = data_daf.lol
+    result_daf: Daf = data_daf.delete_records(['r4', 'r2'], inplace=True)
+    assert result_daf is data_daf
+    assert data_daf.lol == [['r1', 'a'], ['r3', 'c']]
+    assert data_daf.lol is row_list_la
+    assert data_daf['r3', 'v'].to_value() == 'c'
+    assert data_daf.keys() == ['r1', 'r3']
+
+
+def test_inplace_leaves_an_earlier_selection_whole():
+    data_daf: Daf = make_delete_daf()
+    sel_daf: Daf = data_daf.select_where(lambda row: True)
+    data_daf.delete_records(['r2'], inplace=True)
+    assert sel_daf.lol == make_delete_daf().lol
+
+
+def test_missing_key_raises_and_removes_nothing():
+    data_daf: Daf = make_delete_daf()
+    with pytest.raises(KeyError):
+        data_daf.delete_records(['r2', 'r9'], inplace=True)
+    assert data_daf.lol == make_delete_daf().lol
+    with pytest.raises(KeyError):
+        data_daf.delete_records(['r9'])
+
+
+def test_silent_error_ignores_missing_keys():
+    data_daf: Daf = make_delete_daf()
+    assert data_daf.delete_records(['r2', 'r9'], silent_error=True).lol == [['r1', 'a'], ['r3', 'c'], ['r4', 'd']]
+    data_daf.delete_records(['r9'], inplace=True, silent_error=True)
+    assert data_daf.lol == make_delete_daf().lol
+
+
+def test_a_daf_as_keys():
+    data_daf: Daf = make_delete_daf()
+    other_daf: Daf = Daf(lol=[['r3', 0], ['r1', 0]], cols=['id', 'x'], keyfield='id')
+    assert data_daf.delete_records(other_daf).lol == [['r2', 'b'], ['r4', 'd']]
+    data_daf.delete_records(other_daf, inplace=True)
+    assert data_daf.lol == [['r2', 'b'], ['r4', 'd']]
+    with pytest.raises(KeysDisabledError):
+        data_daf.delete_records(Daf(lol=[['r2']], cols=['id']))
+
+
+def test_no_keys():
+    data_daf: Daf = make_delete_daf()
+    assert data_daf.delete_records([]).lol == make_delete_daf().lol
+    assert data_daf.delete_records([], inplace=True) is data_daf
+    assert data_daf.lol == make_delete_daf().lol

@@ -25,6 +25,7 @@ all prior releases. Plans for future moved to ROADMAP.md.
 - On the branch sql_backing, SqlDaf gets `len()`, `to_csv_file()` and `to_csv_buff()`, so code written for a Daf runs on it. `len()` is `len(sdaf)`. `to_csv_file()` writes a local file as it reads the rows, 10,000 at a time, so a table larger than memory can be written; an s3 path is built in memory and uploaded, as a Daf does. The text is the same as `Daf.to_csv_buff()` writes for the same rows, as the tests check. Ray, 2026-10-15, Q151 and Q159.
 
 ### Tests
+- 24 small test files are merged into the files for their areas, each under a heading that names the file it came from. tests/ goes from 58 files to 34. The tests are unchanged, and the count is still 3954. Four helpers were renamed where two files used the same name, and a helper defined twice in test_daf_key_cells.py is defined once. CLAUDE.md now says to add tests to the existing file for their area. Ray, 2026-10-15, Q149.
 - Two bugs in `join()` are recorded as strict xfail tests in `tests/test_daf_join_other_only_rows.py`, not fixed. In a right or outer join, a row found only in the other Daf gets NULL for its key when the two key columns have different names, since `join_records()` looks the key up by the first Daf's column name. It also loses a shared field, which is taken only from the first Daf. Found on 2026-10-14 while matching `SqlDaf.join()` to `Daf.join()`.
 
 ### Fixed

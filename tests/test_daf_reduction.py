@@ -13,6 +13,13 @@
 import pytest
 
 from daffodil.daf import Daf
+import random
+from decimal import Decimal
+from typing import Any
+import numpy as np
+from daffodil.daf import Daf, KeysDisabledError
+from daffodil.keyedlist import KeyedList
+from daffodil.lib.daf_types import T_da
 
 
 # =====================================================================
@@ -223,3 +230,290 @@ def test_multi_groupby_reduce_basic():
     daf = Daf(lol=[['M', 1, 10], ['F', 2, 20], ['M', 3, 30]], cols=['gender', 'x', 'y'])
     result = daf.multi_groupby_reduce(['gender'], func=Daf.sum_da, reduce_cols=['x', 'y'])
     assert result['gender'].lol == [['M', 4, 40], ['F', 2, 20]]
+
+
+# ---- from test_daf_sum_by_col.py ----
+# reduce() with sum_da() or sum_kl(), and so daf_sum() and groupby_cols_reduce(), adds down
+# each column with _sum_by_col() instead of across each row. These tests check that the
+# totals are the same as the row by row path gives, also for floats, where the order of
+# the additions matters.
+
+def _by_row(daf: Daf, cols: Any = None, **kwargs: Any) -> Any:
+    """ The row by row path: silent_error=True keeps reduce() off the column path. """
+    return daf.reduce(Daf.sum_kl, cols=cols, silent_error=True, **kwargs)
+
+
+def _tables() -> list:
+    random.seed(7)
+    floats = [random.uniform(-1e6, 1e6) * 10 ** random.randint(-8, 8) for _ in range(500)]
+    return [
+        Daf(lol=[['a', 1, 10], ['b', 2, 20], ['a', 3, 30]], cols=['g', 'x', 'y']),
+        Daf(lol=[[i, f] for i, f in enumerate(floats)], cols=['i', 'f']),
+        Daf(lol=[['r1', 1, 'abc', ''], ['r2', 2.5, '', 'x'], ['r3', True, 4, None]], cols=['k', 'n', 'm', 'g'], keyfield='k'),
+        Daf(lol=[['r1', 1, 2], ['r2', 3]], cols=['k', 'n', 'm']),
+        Daf(lol=[['r1', 1, 2, 99], ['r2', 3, 4]], cols=['k', 'n', 'm']),
+        Daf(lol=[['a', [1], (2,), {'z': 1}], ['b', [3], (4,), {'z': 2}]], cols=['k', 'l', 't', 'd']),
+        Daf(lol=[['a', Decimal('1.1'), np.int64(5), np.float32(0.5)], ['b', Decimal('2.2'), np.int64(6), 1.5]], cols=['k', 'dec', 'ni', 'nf']),
+        Daf(lol=[['a', True, -0.0], ['b', False, -0.0]], cols=['k', 'b', 'z']),
+        Daf(lol=[['a', 1, 'x'], ['b', 'x', 1], ['c', 2, 'y']], cols=['k', 'p', 'q']),
+    ]
+
+
+COLS: list = [None, 'x', ['x', 'y'], ['zz'], 'zz', [], ['f'], ['n', 'm', 'g'], ['l', 't', 'd'],
+              ['dec', 'ni', 'nf'], ['b', 'z'], ['p', 'q'], ['q', 'p', 'zz', 'k']]
+
+
+@pytest.mark.parametrize('cols', COLS, ids=repr)
+@pytest.mark.parametrize('itable', range(len(_tables())))
+@pytest.mark.parametrize('func', [Daf.sum_da, Daf.sum_kl], ids=['sum_da', 'sum_kl'])
+def test_same_totals_as_by_row(func: Any, itable: int, cols: Any) -> None:
+    daf = _tables()[itable]
+    by_col = daf.reduce(func, cols=cols)
+    by_row = _by_row(daf, cols=cols)
+    assert by_col == by_row
+    assert [type(v) for v in by_col.values()] == [type(v) for v in by_row.values()]
+    assert list(by_col) == daf.columns()
+
+
+def test_float_order_kept() -> None:
+    """ The builtin sum() adds floats with compensation from Python 3.12, which gives another total. """
+    daf = _tables()[1]
+    total = 0
+    for row_la in daf.lol:
+        total = total + row_la[1] + 0
+    assert daf.daf_sum(cols=['f'])['f'] == total
+
+
+def test_daf_sum_and_groupby_cols_reduce() -> None:
+    daf = _tables()[0]
+    assert daf.daf_sum(cols=['x', 'y']) == {'g': '', 'x': 6, 'y': 60}
+    result = daf.groupby_cols_reduce(['g'], Daf.sum_da, reduce_cols=['x', 'y'])
+    assert result.to_lod() == [{'g': 'a', 'x': 4, 'y': 40}, {'g': 'b', 'x': 2, 'y': 20}]
+
+
+def test_table_unchanged() -> None:
+    daf = _tables()[3]
+    daf.daf_sum()
+    assert daf.lol == [['r1', 1, 2], ['r2', 3]]
+
+
+def test_other_options_take_the_row_path() -> None:
+    daf = _tables()[0]
+    assert daf.reduce(Daf.sum_da, cols=['x'], initial_da={'x': 100}) == {'g': '', 'x': 106, 'y': ''}
+    assert daf.reduce(Daf.sum_da, cols=['x', 'y'], astype=float) == {'g': '', 'x': 6.0, 'y': 60.0}
+
+
+def test_empty_and_no_column_names() -> None:
+    assert Daf(cols=['a']).daf_sum() == {}
+    with pytest.raises(KeysDisabledError):
+        Daf(lol=[[1, 2], [3, 4]]).reduce(Daf.sum_da)
+
+
+# --- groupby_cols_reduce() with a sum: one pass, no Daf for each group ---
+
+def _sum_wrapper(row: Any, reduction_da: Any, cols: Any = None, **kwargs: Any) -> Any:
+    """ Not Daf.sum_kl itself, so it takes the old path: a Daf for each group, reduced by row. """
+    return Daf.sum_kl(row, reduction_da, cols=cols, **kwargs)
+
+
+def _state(daf: Daf) -> tuple:
+    return (daf.lol, daf.hd, daf.dtypes, daf.keyfield, daf.name, daf.attrs, type(daf))
+
+
+def _group_table() -> Daf:
+    random.seed(3)
+    lol = [[f'k{i}', random.choice(['a', 'b', '', 'c']), random.randrange(4),
+            random.uniform(-1e3, 1e3) * 10 ** random.randint(-6, 6),
+            random.choice([1, 2.5, 'abc', '', None, True, np.int64(3), [1]])] for i in range(2000)]
+    return Daf(lol=lol, cols=['id', 'g', 'h', 'f', 'm'], keyfield='id', dtypes={'id': str, 'g': str, 'h': int, 'f': float, 'm': int})
+
+
+GROUP_CASES: list = [
+    (['g'], ['f']), (['g'], ['f', 'm']), (['g', 'h'], ['m', 'f']), (['h'], ['m']), (['g', 'h'], ['f']),
+]
+
+
+@pytest.mark.parametrize('case', GROUP_CASES, ids=repr)
+@pytest.mark.parametrize('func', [Daf.sum_da, Daf.sum_kl], ids=['sum_da', 'sum_kl'])
+def test_groupby_cols_reduce_sum_same_as_old_path(func: Any, case: tuple) -> None:
+    daf = _group_table()
+    groupby_colnames, reduce_cols = case
+    new = daf.groupby_cols_reduce(groupby_colnames, func, reduce_cols=reduce_cols)
+    old = daf.groupby_cols_reduce(groupby_colnames, _sum_wrapper, reduce_cols=reduce_cols)
+    assert _state(new) == _state(old)
+    assert len(new) > 1
+
+
+def test_groupby_cols_reduce_sum_empty() -> None:
+    daf = _group_table().clone_empty()
+    new = daf.groupby_cols_reduce(['g'], Daf.sum_da, reduce_cols=['f'])
+    old = daf.groupby_cols_reduce(['g'], _sum_wrapper, reduce_cols=['f'])
+    assert _state(new) == _state(old)
+
+
+def test_groupby_cols_reduce_sum_short_row_raises() -> None:
+    for func in (Daf.sum_da, _sum_wrapper):
+        daf = Daf(lol=[['a', 1, 2], ['b', 3]], cols=['g', 'x', 'y'])
+        with pytest.raises(IndexError):
+            daf.groupby_cols_reduce(['g'], func, reduce_cols=['x', 'y'])
+
+
+@pytest.mark.parametrize('reduce_cols', [None, ['f', 'zz'], ['g', 'f'], ['f', 'f']], ids=repr)
+def test_groupby_cols_reduce_other_cases_unchanged(reduce_cols: Any) -> None:
+    """ These take the old path, so they give what they gave before. """
+    daf = _group_table()
+    new = daf.groupby_cols_reduce(['g'], Daf.sum_da, reduce_cols=reduce_cols)
+    old = daf.groupby_cols_reduce(['g'], _sum_wrapper, reduce_cols=reduce_cols)
+    assert _state(new) == _state(old)
+
+
+# ---- from test_daf_reduce_klist.py ----
+# With by='row', reduce() gives the function a new KeyedList for each row, and uses
+# sum_kl() and count_values_kl() in place of sum_da() and count_values_da(). These
+# tests check that the results are what the dict rows gave before.
+
+def _reduce_with_dicts(daf: Daf, func: Any, cols: Any = None, initial_da: T_da | None = None, **kwargs: Any) -> T_da:
+    """ What reduce(by='row') did before: a dict for each row. """
+    if not daf:
+        return {}
+    if cols is None:
+        cols_iter: Any = daf.hd.keys()
+    elif isinstance(cols, str):
+        cols_iter = [cols]
+    else:
+        cols_iter = {col: None for col in daf.hd.keys() if col in cols}
+    reduction_da = initial_da if initial_da is not None else dict.fromkeys(cols_iter, 0)
+    keys = daf.hd.keys()
+    for row_la in daf.lol:
+        reduction_da = func(dict(zip(keys, row_la)), reduction_da, cols=cols_iter, **kwargs)
+    return {key: reduction_da.get(key, '') for key in daf.hd.keys()}
+
+
+def _klist_tables() -> list:
+    return [
+        Daf(lol=[['a', 1, 10], ['b', 2, 20], ['a', 3, 30]], cols=['g', 'x', 'y']),
+        Daf(lol=[['r1', 1, 'abc', ''], ['r2', 2.5, '', 'x'], ['r3', True, 4, 'x']], cols=['k', 'n', 'm', 'g'], keyfield='k'),
+        Daf(lol=[['r1', 1, 2], ['r2', 3]], cols=['k', 'n', 'm'], keyfield='k'),
+        Daf(lol=[['r1', 1, 2, 99], ['r2', 3, 4]], cols=['k', 'n', 'm']),
+        Daf(lol=[['r1', -1, 0.5]], cols=['k', 'n', 'm']),
+    ]
+
+
+KLIST_COLS: list = [None, ['x', 'y'], 'x', ['n', 'm'], 'n', ['zz'], 'zz', []]
+
+
+@pytest.mark.parametrize('cols', KLIST_COLS, ids=repr)
+@pytest.mark.parametrize('itable', range(len(_klist_tables())))
+@pytest.mark.parametrize('func', [Daf.sum_da, Daf.sum_kl], ids=['sum_da', 'sum_kl'])
+def test_sum_matches_dict_rows(func: Any, itable: int, cols: Any) -> None:
+    daf = _klist_tables()[itable]
+    assert daf.reduce(func, cols=cols) == _reduce_with_dicts(daf, Daf.sum_da, cols=cols)
+
+
+@pytest.mark.parametrize('cols', [['x', 'y'], ['n', 'm']], ids=repr)
+@pytest.mark.parametrize('itable', range(len(_klist_tables())))
+def test_sum_with_astype_matches_dict_rows(itable: int, cols: Any) -> None:
+    daf = _klist_tables()[itable]
+    assert daf.reduce(Daf.sum_da, cols=cols, astype=float) == _reduce_with_dicts(daf, Daf.sum_da, cols=cols, astype=float)
+
+
+def test_sum_with_initial_da() -> None:
+    daf = _klist_tables()[0]
+    assert daf.reduce(Daf.sum_da, cols=['x'], initial_da={'x': 100}) == {'g': '', 'x': 106, 'y': ''}
+
+
+@pytest.mark.parametrize('omit_nulls', [False, True])
+@pytest.mark.parametrize('itable', [0, 1])
+@pytest.mark.parametrize('func', [Daf.count_values_da, Daf.count_values_kl], ids=['count_values_da', 'count_values_kl'])
+def test_count_values_matches_dict_rows(func: Any, itable: int, omit_nulls: bool) -> None:
+    daf = _klist_tables()[itable]
+    cols = daf.columns()[1:]
+    assert daf.reduce(func, cols=cols, omit_nulls=omit_nulls) == \
+        _reduce_with_dicts(daf, Daf.count_values_da, cols=cols, omit_nulls=omit_nulls)
+
+
+def test_count_values_of_dict_cells() -> None:
+    daf = Daf(lol=[['r1', {'a': 1, 'b': 2}], ['r2', {'a': 5}]], cols=['k', 'd'])
+    assert daf.reduce(Daf.count_values_kl, cols=['d']) == {'k': '', 'd': {'a': 6, 'b': 2}}
+
+
+@pytest.mark.parametrize('func', [Daf.count_values_da, Daf.count_values_kl], ids=['count_values_da', 'count_values_kl'])
+def test_count_values_of_list_cells_raises(func: Any) -> None:
+    """ A list cannot be counted. The error names the column. Leaving it out with cols works. """
+    daf = Daf(lol=[['r1', ['a', 'b'], 'x'], ['r2', ['a'], 'x'], ['r3', 'z', 'y']], cols=['k', 'v', 'g'])
+    with pytest.raises(TypeError, match="column 'v' holds a list, which cannot be counted") as exc_info:
+        daf.reduce(func, cols=['v', 'g'])
+    assert isinstance(exc_info.value.__cause__, TypeError)
+    assert daf.reduce(func, cols=['g']) == {'k': '', 'v': '', 'g': {'x': 2, 'y': 1}}
+
+
+@pytest.mark.parametrize('func', [Daf.count_values_da, Daf.count_values_kl], ids=['count_values_da', 'count_values_kl'])
+def test_count_values_called_directly_names_itself(func: Any) -> None:
+    with pytest.raises(TypeError, match=func.__name__ + r"\(\): column 'v'"):
+        func(KeyedList(['v'], [[1]]), {}, ['v'])
+
+
+def test_daf_sum_and_daf_valuecount() -> None:
+    daf = _klist_tables()[0]
+    assert daf.daf_sum(cols=['x', 'y']) == {'g': '', 'x': 6, 'y': 60}
+    assert daf.daf_valuecount(cols=['g'])['g'] == {'a': 2, 'b': 1}
+
+
+def test_groupby_cols_reduce_unchanged() -> None:
+    daf = Daf(lol=[['a', 1, 10], ['b', 2, 20], ['a', 3, 30]], cols=['g', 'x', 'y'])
+    result = daf.groupby_cols_reduce(['g'], Daf.sum_da, reduce_cols=['x', 'y'])
+    assert result.to_lod() == [{'g': 'a', 'x': 4, 'y': 40}, {'g': 'b', 'x': 2, 'y': 20}]
+
+
+def test_each_row_is_a_new_keyedlist() -> None:
+    """ A function that keeps the rows gets each row, not the last row many times. """
+    daf = _klist_tables()[0]
+    rows: list = []
+    def keep(row: Any, reduction_da: T_da, cols: Any) -> T_da:
+        rows.append(row)
+        return reduction_da
+    daf.reduce(keep)
+    assert all(type(row) is KeyedList for row in rows)
+    assert [dict(row) for row in rows] == daf.to_lod()
+
+
+def test_writing_to_the_row_changes_the_table() -> None:
+    daf = _klist_tables()[0]
+    def zero_x(row: Any, reduction_da: T_da, cols: Any) -> T_da:
+        row['x'] = 0
+        return reduction_da
+    daf.reduce(zero_x)
+    assert daf.col('x') == [0, 0, 0]
+
+
+def test_short_row_is_padded_with_null() -> None:
+    daf = _klist_tables()[2]
+    rows: list = []
+    def keep(row: Any, reduction_da: T_da, cols: Any) -> T_da:
+        rows.append(dict(row))
+        return reduction_da
+    daf.reduce(keep)
+    assert rows == [{'k': 'r1', 'n': 1, 'm': 2}, {'k': 'r2', 'n': 3, 'm': ''}]
+    assert daf.lol[1] == ['r2', 3]
+
+
+def test_no_column_names_raises() -> None:
+    daf = Daf(lol=[[1, 2], [3, 4]])
+    with pytest.raises(KeysDisabledError):
+        daf.reduce(Daf.sum_da)
+
+
+def test_silent_error_skips_the_row() -> None:
+    daf = _klist_tables()[0]
+    def fail_on_b(row: Any, reduction_da: T_da, cols: Any) -> T_da:
+        if row['g'] == 'b':
+            raise ValueError('b')
+        return Daf.sum_kl(row, reduction_da, cols=cols)
+    assert daf.reduce(fail_on_b, cols=['x'], silent_error=True) == {'g': '', 'x': 4, 'y': ''}
+    with pytest.raises(ValueError):
+        daf.reduce(fail_on_b, cols=['x'])
+
+
+def test_sum_kl_called_directly_with_a_dict() -> None:
+    assert Daf.sum_kl({'x': 1, 'y': 'abc'}, {'x': 10, 'y': 0}, cols=['x', 'y']) == {'x': 11, 'y': 0}
+    assert Daf.count_values_kl({'g': 'a'}, {}, ['g']) == {'g': {'a': 1}}

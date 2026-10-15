@@ -6,6 +6,15 @@
 import pytest
 
 from daffodil.lib import daf_utils as utils
+import sys
+from typing import Any
+import numpy as np
+from daffodil.lib.daf_utils import json_encode
+from daffodil.daf import Daf
+from daffodil.lib import daf_md as md
+from daffodil.lib import daf_utils
+from daffodil.lib.daf_utils import transpose_lol, transpose_rows_lol
+from daffodil.lib.daf_utils import unflatten_val
 
 
 # --- profile_ls_to_lr ---
@@ -1278,3 +1287,238 @@ def test_get_converter_gives_the_same_result_as_convert_type_value():
 
 def test_get_converter_for_list_uses_the_general_function():
     assert utils.get_converter(list)('[1, 2]') == [1, 2]
+
+
+# ---- from test_json_encode_numpy.py ----
+# NpEncoder converts numpy values for json_encode(). It imports numpy only for a value
+# whose type comes from numpy. These tests check the results with numpy, and that a value
+# JSON cannot encode raises TypeError, with or without numpy.
+
+def test_numpy_values_are_converted() -> None:
+    assert json_encode({'i': np.int64(3), 'f': np.float32(1.5), 'a': np.array([1, 2])}) == '{"i": 3, "f": 1.5, "a": [1, 2]}'
+
+
+def test_plain_values_unchanged() -> None:
+    assert json_encode({'a': [1, 'x', None, True]}) == '{"a": [1, "x", null, true]}'
+    assert json_encode(None) == ''
+
+
+@pytest.mark.parametrize('value', [{1, 2}, object(), np.bool_(True)], ids=['set', 'object', 'numpy bool'])
+def test_value_json_cannot_encode_raises_type_error(value: Any) -> None:
+    with pytest.raises(TypeError, match='is not JSON serializable'):
+        json_encode(value)
+
+
+@pytest.mark.parametrize('value', [{1, 2}, object()], ids=['set', 'object'])
+def test_without_numpy_raises_type_error(monkeypatch: Any, value: Any) -> None:
+    monkeypatch.setitem(sys.modules, 'numpy', None)
+    with pytest.raises(TypeError, match='is not JSON serializable'):
+        json_encode(value)
+    assert json_encode({'a': 1}) == '{"a": 1}'
+
+
+# ---- from test_transpose_zip_numpy.py ----
+# transpose_rows_lol() transposes with zip below TRANSPOSE_NUMPY_MIN_CELLS cells, and with
+# numpy from that size. Without numpy it uses zip at any size. transpose_lol(),
+# Daf.transpose() and the markdown display all use it. These tests check that both ways
+# give the same result, that nothing needs numpy, and that the cells are not copied.
+
+def _lol(num_rows: int, num_cols: int) -> list:
+    return [[f'{irow}-{icol}' if icol % 2 else irow * icol for icol in range(num_cols)] for irow in range(num_rows)]
+
+
+def _by_zip(lol: list) -> list:
+    return [list(col_t) for col_t in zip(*lol)]
+
+
+def _no_numpy(monkeypatch: Any) -> None:
+    """ Make `import numpy` fail, as if it were not installed. """
+    monkeypatch.setitem(sys.modules, 'numpy', None)
+
+
+SHAPES: list = [(0, 0), (1, 1), (1, 5), (5, 1), (3, 4), (40, 7)]
+
+
+@pytest.mark.parametrize('shape', SHAPES, ids=repr)
+@pytest.mark.parametrize('min_cells', [1, 100_000], ids=['numpy', 'zip'])
+def test_same_result_by_zip_and_numpy(monkeypatch: Any, min_cells: int, shape: tuple) -> None:
+    monkeypatch.setattr(daf_utils, 'TRANSPOSE_NUMPY_MIN_CELLS', min_cells)
+    lol = _lol(*shape)
+    assert transpose_rows_lol(lol, shape[1]) == _by_zip(lol)
+    assert transpose_lol(lol) == _by_zip(lol)
+
+
+def test_threshold_is_100000_cells() -> None:
+    assert daf_utils.TRANSPOSE_NUMPY_MIN_CELLS == 100_000
+    lol = _lol(10_000, 10)
+    assert transpose_lol(lol) == _by_zip(lol)
+
+
+@pytest.mark.parametrize('min_cells', [1, 100_000], ids=['numpy', 'zip'])
+def test_cells_are_not_copied(monkeypatch: Any, min_cells: int) -> None:
+    monkeypatch.setattr(daf_utils, 'TRANSPOSE_NUMPY_MIN_CELLS', min_cells)
+    text = 'abc' * 20
+    cell = {'k': [1]}
+    result = transpose_lol([[text, cell], ['x', 'y']])
+    assert result[0][0] is text
+    assert result[1][0] is cell
+
+
+def test_large_table_without_numpy(monkeypatch: Any) -> None:
+    _no_numpy(monkeypatch)
+    monkeypatch.setattr(daf_utils, 'TRANSPOSE_NUMPY_MIN_CELLS', 1)
+    lol = _lol(30, 4)
+    assert transpose_lol(lol) == _by_zip(lol)
+    daf = Daf(lol=lol, cols=['a', 'b', 'c', 'd'])
+    assert daf.transpose().lol == _by_zip(lol)
+
+
+def test_print_without_numpy(monkeypatch: Any) -> None:
+    """ Printing a Daf transposes its rows. It used to need numpy for that. """
+    _no_numpy(monkeypatch)
+    daf = Daf(lol=[[1, 'a'], [2, 'b']], cols=['n', 's'])
+    assert '|  2 |  b |' in repr(daf)
+    assert '|  2 |  b |' in daf.to_md()
+
+
+@pytest.mark.parametrize('min_cells', [1, 100_000], ids=['numpy', 'zip'])
+def test_transpose_lol_ragged_raises(monkeypatch: Any, min_cells: int) -> None:
+    monkeypatch.setattr(daf_utils, 'TRANSPOSE_NUMPY_MIN_CELLS', min_cells)
+    with pytest.raises(RuntimeError, match='ragged list-of-lists'):
+        transpose_lol([[1, 2, 3], [4, 5]])
+    with pytest.raises(RuntimeError, match='ragged list-of-lists'):
+        transpose_lol([[1, 2], [3, 4, 5]])
+    with pytest.raises(RuntimeError):
+        md.md_lol_table([[1, 2, 3], [4, 5]], header=['a', 'b', 'c'])
+
+
+def test_daf_transpose_small_table() -> None:
+    daf = Daf(lol=[[1, 'a'], [2, 'b'], [3, 'c']], cols=['id', 'v'])
+    assert daf.transpose().lol == [[1, 2, 3], ['a', 'b', 'c']]
+    assert daf.transpose(include_header=True).lol == [['id', 1, 2, 3], ['v', 'a', 'b', 'c']]
+    assert Daf(cols=['id', 'v']).transpose().lol == []
+
+
+def test_list_cells_kept_whole_by_zip() -> None:
+    """ Below the threshold, cells that are lists of the same length stay whole. """
+    daf = Daf(lol=[[[1, 2], [3, 4]], [[5, 6], [7, 8]]], cols=['a', 'b'])
+    assert daf.transpose().lol == [[[1, 2], [5, 6]], [[3, 4], [7, 8]]]
+    assert '[1, 2]' in repr(daf)
+
+
+@pytest.mark.parametrize('cell_len', [1, 2, 3])
+def test_list_cells_kept_whole_by_numpy(monkeypatch: Any, cell_len: int) -> None:
+    """ np.fromiter() keeps each cell whole. np.array() looked inside lists of the same length. """
+    monkeypatch.setattr(daf_utils, 'TRANSPOSE_NUMPY_MIN_CELLS', 1)
+    lol = [[list(range(irow * 10 + icol, irow * 10 + icol + cell_len)) for icol in range(3)] for irow in range(4)]
+    daf = Daf(lol=lol, cols=['a', 'b', 'c'])
+    assert daf.transpose().lol == _by_zip(lol)
+    result = transpose_lol(lol)
+    assert result == _by_zip(lol)
+    assert result[1][2] is lol[2][1]
+
+
+@pytest.mark.parametrize('min_cells', [1, 100_000], ids=['numpy', 'zip'])
+def test_tuple_and_dict_cells(monkeypatch: Any, min_cells: int) -> None:
+    monkeypatch.setattr(daf_utils, 'TRANSPOSE_NUMPY_MIN_CELLS', min_cells)
+    lol = [[(1, 2), {'a': 1}], [(3, 4), {'a': 2}]]
+    assert transpose_lol(lol) == [[(1, 2), (3, 4)], [{'a': 1}, {'a': 2}]]
+
+
+RAGGED: list = [
+    ([[1, 2, 3], [4, 5]], ['a', 'b', 'c']),
+    ([[1, 2], [3, 4, 5]], ['a', 'b']),
+    ([[1, 2], [3, 4]], ['a', 'b', 'c']),
+]
+
+
+@pytest.mark.parametrize('ragged', RAGGED, ids=repr)
+@pytest.mark.parametrize('min_cells', [1, 100_000], ids=['numpy', 'zip'])
+def test_daf_transpose_ragged_raises(monkeypatch: Any, min_cells: int, ragged: tuple) -> None:
+    monkeypatch.setattr(daf_utils, 'TRANSPOSE_NUMPY_MIN_CELLS', min_cells)
+    lol, cols = ragged
+    daf = Daf(lol=[list(row) for row in lol], cols=cols)
+    with pytest.raises(ValueError, match=r'transpose\(\): some rows are not as long as the columns.*force_rectangular\(\)'):
+        daf.transpose()
+    assert daf.lol == lol
+
+
+def test_daf_transpose_after_force_rectangular() -> None:
+    daf = Daf(lol=[[1, 2, 3], [4, 5]], cols=['a', 'b', 'c'])
+    assert daf.force_rectangular().transpose().lol == [[1, 4], [2, 5], [3, '']]
+
+
+def test_daf_transpose_no_cols_uses_first_row() -> None:
+    assert Daf(lol=[[1, 2], [3, 4]]).transpose().lol == [[1, 3], [2, 4]]
+    with pytest.raises(ValueError):
+        Daf(lol=[[1, 2], [3]]).transpose()
+
+
+# ---- from test_unflatten_pyjson5.py ----
+# unflatten_val() reads the Pyon text of a dict or list cell with pyjson5 when it is
+# installed, and falls back to ast.literal_eval. These tests check that the result is
+# the same with pyjson5 as without it, for any value that str() writes.
+
+VALUES: list = [
+    {'math': [[95, 0.1], [45, 0.1]], 'gym': [[94, 0.2]]},
+    [1, 2, 3],
+    [],
+    {},
+    (1, 2),
+    (),
+    [(1, 2), (3,)],
+    {1: 'x', 2: 'y'},
+    {'b': True, 'n': None, 'f': False},
+    {'s': "it's", 't': 'say "hi"', 'u': 'a, b: c'},
+    {'n': '\n\t\\'},
+    ['A', 'é', '日本'],
+    {'big': 123456789012345678901234567890},
+    [1.5e+16, -0.0, 0.1, -3],
+    {'k': [1, {'z': []}]},
+    {1, 2},
+    [float('inf')],
+]
+
+
+def _without_pyjson5(monkeypatch: Any, text: str) -> Any:
+    with monkeypatch.context() as m:
+        m.setattr(daf_utils, '_pyjson5_loads', None)
+        return unflatten_val(text)
+
+
+def test_pyjson5_is_installed_for_the_tests() -> None:
+    assert daf_utils._pyjson5_loads is not None
+
+
+@pytest.mark.parametrize('value', VALUES, ids=repr)
+def test_same_result_with_and_without_pyjson5(monkeypatch: Any, value: Any) -> None:
+    text = str(value)
+    assert unflatten_val(text) == _without_pyjson5(monkeypatch, text)
+
+
+@pytest.mark.parametrize('value', [v for v in VALUES if v not in ({1, 2}, [float('inf')])], ids=repr)
+def test_reads_back_the_value(value: Any) -> None:
+    assert unflatten_val(str(value)) == value
+
+
+@pytest.mark.parametrize('text', ['abc', '', '[not pyon', '{broken: ', "'quoted'"], ids=repr)
+def test_text_that_is_not_pyon_stays_text(monkeypatch: Any, text: str) -> None:
+    assert unflatten_val(text) == _without_pyjson5(monkeypatch, text)
+
+
+def test_json_text_is_read(monkeypatch: Any) -> None:
+    text = '{"done": true, "note": null, "n": [1, 2]}'
+    assert unflatten_val(text) == {'done': True, 'note': None, 'n': [1, 2]}
+    assert _without_pyjson5(monkeypatch, text) == {'done': True, 'note': None, 'n': [1, 2]}
+
+
+def test_text_only_pyjson5_reads(monkeypatch: Any) -> None:
+    """ Unquoted keys are JSON5, not Pyon. pyjson5 reads them; without it the text stays. """
+    assert unflatten_val('{a: 1}') == {'a': 1}
+    assert _without_pyjson5(monkeypatch, '{a: 1}') == '{a: 1}'
+
+
+def test_dict_column_round_trip_through_csv() -> None:
+    daf = Daf(lol=[['r1', {'a': [1, 2], 'b': True}], ['r2', {'a': [], 'c': None}]], cols=['k', 'd'], keyfield='k')
+    back = Daf.from_csv_buff(daf.to_csv_buff(), keyfield='k', dtypes={'k': str, 'd': dict})
+    assert back.lol == daf.lol
