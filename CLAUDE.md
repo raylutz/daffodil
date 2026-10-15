@@ -128,6 +128,9 @@ Source code is in src/daffodil and tests are in tests.
   current behavior. Don't refactor it unless asked.
 - Tests are plain pytest functions, grouped by the method they test. They check actual
   output values. Tests must not use the network, so mock any network calls.
+- Add new tests to the existing test file for that area, such as test_daf_selection.py for
+  selections. Do not start a new file for one method, one fix or one case. Ask Ray before
+  making a new test file. On 2026-10-15, 24 small files were merged into the files for their areas.
 - When a test finds a real bug that you aren't fixing, write the test for the correct
   behavior. Mark it with `xfail(strict=True)` and a reason that starts with "BUG:" and names
   the file and line. Never write a test that expects the buggy behavior.

@@ -13,6 +13,7 @@ from typing import Any, Callable
 import pytest
 from daffodil.daf import Daf
 from daffodil.keyedlist import KeyedList
+from daffodil.daf import Daf, KeysDisabledError
 
 
 def _keyed() -> Daf:
@@ -115,12 +116,6 @@ ADDS: list = [
     ('fast lol',          lambda d: d.append(lol=[['r3', 3, 'c'], ['', 4, 'd']], fast=True)),
     ('fast KeyedList',    lambda d: d.append(_blank_row(d), fast=True)),
 ]
-
-
-def _blank_row(daf: Daf) -> Any:
-    row = daf.default_record(astype=KeyedList)
-    row['x'] = 3
-    return row
 
 
 def _blank_row(daf: Daf) -> Any:
@@ -274,3 +269,214 @@ def test_keyedlist_writes_need_set_keyfield() -> None:
         row['k'] = row['k'].upper()
     daf.set_keyfield('k')
     assert daf['R1', 'x'] == 1
+
+
+# ---- from test_daf_keyfield_not_a_column.py ----
+# A keyfield that is not a column raises KeyError in the constructor, the builders and set_keyfield(). A Daf with no column
+# names can still have one, for the columns that come later. If the attribute is edited directly, the failure is reported
+# when a lookup by key is made, and the message says what is wrong.
+
+def test_the_constructor_and_the_builders_raise_keyerror_for_a_keyfield_that_is_not_a_column():
+    with pytest.raises(KeyError, match=r"keyfield 'zz' is not a column. The columns are \['a', 'b'\]"):
+        Daf(lol=[[1, 2]], cols=['a', 'b'], keyfield='zz')
+    with pytest.raises(KeyError, match="keyfield 'zz'"):
+        Daf.from_csv_buff('a,b\n1,2\n', keyfield='zz')
+    with pytest.raises(KeyError, match="is not a column"):
+        Daf(lol=[[1, 2]], cols=['a', 'b'], keyfield=('a', 'zz'))
+
+
+def test_set_keyfield_raises_keyerror_by_default_and_stores_only_if_asked():
+    d = Daf(lol=[[1, 2]], cols=['a', 'b'])
+    with pytest.raises(KeyError, match="set_keyfield.*keyfield 'zz'"):
+        d.set_keyfield('zz')
+    assert d.keyfield == ''
+    d.set_keyfield('zz', silent_error=True)
+    assert d.keyfield == 'zz'
+
+
+def test_an_empty_daf_with_no_columns_can_have_a_keyfield_for_the_columns_that_come_later():
+    d = Daf(keyfield='id')
+    d.append({'id': 1, 'v': 'a'})
+    assert d.columns() == ['id', 'v'] and d.keyfield == 'id' and d.keys() == [1]
+
+
+def test_select_krows_names_a_keyfield_that_is_not_a_column_after_a_direct_edit():
+    d = Daf(lol=[[1, 2], [3, 4]], cols=['a', 'b'])
+    d.keyfield = 'zz'
+    with pytest.raises(KeysDisabledError, match=r"keyfield 'zz' is not a column .*\['a', 'b'\].*set_keyfield"):
+        d.select_krows([1])
+
+
+def test_select_krows_names_a_composite_keyfield_with_a_bad_column_after_a_direct_edit():
+    d = Daf(lol=[[1, 2]], cols=['a', 'b'])
+    d.keyfield = ('a', 'zz')
+    with pytest.raises(KeysDisabledError, match=r"keyfield \('a', 'zz'\) is not a column"):
+        d.select_krows([(1, 2)])
+
+
+def test_select_krows_names_a_keyfield_on_a_daf_with_no_column_names():
+    d = Daf(lol=[[1, 2]], keyfield='a')
+    with pytest.raises(KeysDisabledError, match="has no column names.*set_cols"):
+        d.select_krows([1])
+
+
+def test_a_valid_keyfield_still_works_and_still_raises_keyerror_for_a_missing_key():
+    d = Daf(lol=[[1, 2], [3, 4]], cols=['a', 'b'], keyfield='a')
+    assert d.select_krows([3]).lol == [[3, 4]]
+    with pytest.raises(KeyError):
+        d.select_krows([9])
+
+
+def test_no_keyfield_and_no_kd_says_so():
+    with pytest.raises(KeysDisabledError, match=r"select_krows\(\): key lookups are disabled, as the keyfield is not set and there is no key index"):
+        Daf(lol=[[1, 2]], cols=['a', 'b']).select_krows([1])
+
+
+def test_set_keyfield_with_silent_error_false_raises_keyerror_for_a_bad_column():
+    d = Daf(lol=[[1, 2]], cols=['a', 'b'])
+    with pytest.raises(KeyError):
+        d.set_keyfield('zz', silent_error=False)
+
+
+# ---- from test_daf_keyfield_follows_names.py ----
+# rename_cols() and set_cols() keep the keyfield: it takes the new name of its column.
+# With no column names yet, set_cols() keeps a keyfield that is one of the new names.
+
+def make_daf(keyfield='id') -> Daf:
+    return Daf(lol=[[1, 'a', 5], [2, 'b', 6]], cols=['id', 'v', 'n'], keyfield=keyfield)
+
+
+# =====================================================================
+# rename_cols
+# =====================================================================
+
+def test_rename_cols_keyfield_follows_the_rename_and_lookups_work():
+    d = make_daf().rename_cols({'id': 'ident'})
+    assert d.keyfield == 'ident' and d.keys() == [1, 2]
+    assert d.select_krows([2]).lol == [[2, 'b', 6]]
+
+
+def test_rename_cols_keeps_the_keyfield_when_another_column_is_renamed():
+    d = make_daf().rename_cols({'v': 'w'})
+    assert d.keyfield == 'id' and d.keys() == [1, 2]
+
+
+def test_rename_cols_composite_keyfield_keeps_its_type():
+    d = make_daf(('id', 'v')).rename_cols({'id': 'ident'})
+    assert d.keyfield == ('ident', 'v') and d.keys() == [(1, 'a'), (2, 'b')]
+    d = make_daf(['id', 'v']).rename_cols({'v': 'w'})
+    assert d.keyfield == ['id', 'w']
+
+
+def test_rename_cols_with_no_keyfield_leaves_it_empty():
+    assert make_daf('').rename_cols({'id': 'ident'}).keyfield == ''
+
+
+# =====================================================================
+# set_cols
+# =====================================================================
+
+def test_set_cols_keyfield_follows_by_position_not_by_name():
+    d = make_daf().set_cols(['b', 'id', 'n'])
+    assert d.keyfield == 'b' and d.keys() == [1, 2]
+
+
+def test_set_cols_composite_keyfield_follows():
+    d = make_daf(('id', 'n')).set_cols(['x', 'y', 'z'])
+    assert d.keyfield == ('x', 'z') and d.keys() == [(1, 5), (2, 6)]
+
+
+def test_set_cols_with_no_names_yet_keeps_a_keyfield_that_is_a_new_name():
+    d = Daf(lol=[[1, 'a'], [2, 'b']], keyfield='id')
+    assert d.columns() == [] and d.keyfield == 'id'
+    d.set_cols(['id', 'v'])
+    assert d.keyfield == 'id' and d.keys() == [1, 2]
+
+
+def test_set_cols_with_no_names_yet_clears_a_keyfield_that_is_not_a_new_name():
+    d = Daf(lol=[[1, 'a']], keyfield='id').set_cols(['p', 'q'])
+    assert d.keyfield == ''
+
+
+def test_set_cols_with_no_names_yet_composite_keyfield():
+    assert Daf(lol=[[1, 'a']], keyfield=('id', 'v')).set_cols(['id', 'v']).keyfield == ('id', 'v')
+    assert Daf(lol=[[1, 'a']], keyfield=('id', 'zz')).set_cols(['id', 'v']).keyfield == ''
+
+
+def test_set_cols_default_names_keep_a_keyfield_that_matches_them():
+    d = Daf(lol=[[1, 2]], keyfield='A').set_cols()
+    assert d.columns() == ['A', 'B'] and d.keyfield == 'A'
+
+
+def test_set_cols_renames_the_dtypes_and_the_keyfield_together():
+    d = Daf(lol=[[1, 'a']], cols=['id', 'v'], dtypes={'id': int, 'v': str}, keyfield='id').set_cols(['k', 'w'])
+    assert d.dtypes == {'k': int, 'w': str} and d.keyfield == 'k'
+
+
+# ---- from test_daf_manual_kd.py ----
+# A Daf may have a key index (kd) and no keyfield. The key lookups all honor it, and the messages say what is missing.
+
+def _daf() -> Daf:
+    return Daf(lol=[['x', 1], ['y', 2], ['z', 3]], cols=['n', 'v'], kd={'x': 0, 'y': 1, 'z': 2})
+
+
+def test_the_daf_has_a_kd_and_no_keyfield():
+    d = _daf()
+    assert d.keyfield == '' and d._kd == {'x': 0, 'y': 1, 'z': 2}
+
+
+def test_keys_lists_the_kd():
+    assert _daf().keys() == ['x', 'y', 'z']
+    assert list(_daf().keys(astype='view')) == ['x', 'y', 'z']
+
+
+def test_select_krows_uses_the_kd():
+    assert _daf().select_krows(['y']).lol == [['y', 2]]
+    assert _daf().select_krows(['y'], inverse=True).lol == [['x', 1], ['z', 3]]
+
+
+def test_select_records_daf_uses_the_kd():
+    assert _daf().select_records_daf(['z', 'x']).lol == [['z', 3], ['x', 1]]
+
+
+def test_remove_key_and_remove_keylist_use_the_kd():
+    assert _daf().remove_key('y').lol == [['x', 1], ['z', 3]]
+    assert _daf().remove_keylist(['x', 'z']).lol == [['y', 2]]
+
+
+def test_krows_to_irows_and_select_record_use_the_kd():
+    assert _daf().krows_to_irows(['y']) == [1]
+    assert _daf().select_record('y') == {'n': 'y', 'v': 2}
+
+
+def test_a_missing_key_still_raises_keyerror():
+    with pytest.raises(KeyError):
+        _daf().select_krows(['nope'])
+
+
+NO_KEYS = Daf(lol=[['x', 1]], cols=['n', 'v'])
+
+
+@pytest.mark.parametrize('method, arg', [
+    ('select_krows', ['x']), ('select_records_daf', ['x']), ('remove_key', 'x'), ('remove_keylist', ['x']),
+    ('krows_to_irows', ['x']), ('select_record', 'x'),
+    ])
+def test_no_keyfield_and_no_kd_names_the_method_and_what_is_missing(method, arg):
+    with pytest.raises(KeysDisabledError, match=r"\(\): key lookups are disabled, as the keyfield is not set and there is no key index"):
+        getattr(NO_KEYS, method)(arg)
+
+
+def test_keys_with_silent_error_false_names_what_is_missing():
+    assert NO_KEYS.keys() == []
+    with pytest.raises(KeysDisabledError, match=r"keys\(\): key lookups are disabled"):
+        NO_KEYS.keys(silent_error=False)
+
+
+def test_assign_record_needs_a_keyfield_not_just_a_kd():
+    with pytest.raises(KeysDisabledError, match="assign_record\\(\\): the Daf needs a keyfield"):
+        _daf().assign_record({'n': 'x', 'v': 9})
+
+
+def test_a_daf_with_no_rows_and_a_valid_keyfield_says_the_index_is_empty():
+    with pytest.raises(KeysDisabledError, match="the rowkeys index is empty.*no rows has no keys"):
+        Daf(cols=['a', 'b'], keyfield='a').select_krows([1])
