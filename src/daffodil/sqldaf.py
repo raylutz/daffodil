@@ -3,6 +3,7 @@
 # A Daf whose rows live in a SQLite table.
 # The design and the decisions behind it are in notes/sql_backing/design_draft.md.
 
+import io
 import os
 import csv
 import json
@@ -10,12 +11,13 @@ import sqlite3
 import threading
 import contextlib
 
+from pathlib import Path
 from typing import Any, Callable, ClassVar, Dict, Iterator, List, Tuple, Type, TypeAlias      # noqa: F401
 from collections.abc import Iterable
 
 from daffodil.daf import Daf, NULL
 from daffodil.keyedlist import KeyedList
-from daffodil.lib.daf_types import T_ls, T_la, T_lola, T_di, T_da, T_dtype_dict, T_copybits
+from daffodil.lib.daf_types import T_ls, T_la, T_lola, T_di, T_da, T_dtype_dict, T_copybits, T_buff
 import daffodil.lib.daf_utils as daf_utils
 
 
@@ -860,6 +862,11 @@ class SqlDaf(Daf):
         return int(self.conn.execute(f'SELECT COALESCE(MAX(ord), 0) FROM {quote_name(self.name)}').fetchone()[0])
 
 
+    def len(self) -> int:
+        """ Count the rows, as `len(sdaf)` does. It is here so that code written for a Daf, which calls `daf.len()`, runs on a SqlDaf. """
+        return len(self)
+
+
     def __bool__(self) -> bool:
         """
         Say whether there is at least one row.
@@ -902,6 +909,98 @@ class SqlDaf(Daf):
         lol: T_lola = [none_to_null(row_t) for row_t in self._select_rows()]
         return Daf(lol=lol, cols=self.columns(), keyfield=self.keyfield, name=self.name,
                    dtypes=dict(self.dtypes) if self.dtypes else None)
+
+
+    def _iter_row_batches(self, batch_size: int = 10000) -> Iterator[List[Tuple[Any, ...]]]:
+        """ Read every row in order, a batch at a time, as tuples with SQL NULL as None. Internal use. """
+        self._resolve()
+        rows_sql, rows_params = self._rows_sql()
+        cursor: sqlite3.Cursor = self._execute(f'SELECT {self._cols_sql()} FROM ({rows_sql}) ORDER BY {ORD_COL}', rows_params)
+        while True:
+            try:
+                batch_lot: List[Tuple[Any, ...]] = cursor.fetchmany(batch_size)
+            except sqlite3.OperationalError as exc_info:
+                if self._conn_da['func_error'] is not None:
+                    raise self._conn_da['func_error'] from exc_info
+                raise
+            if not batch_lot:
+                return
+            yield batch_lot
+
+
+    def _write_csv(self, text_f: Any, line_terminator: str | None, include_header: bool) -> None:
+        """ Write the rows as CSV to an open text file, a batch at a time, as `Daf.to_csv_buff()` writes them. Internal use. """
+        csv_writer = csv.writer(text_f, lineterminator='\r\n' if line_terminator is None else line_terminator)
+        if include_header:
+            csv_writer.writerow(self.columns())
+        batch_lot: List[Tuple[Any, ...]]
+        for batch_lot in self._iter_row_batches():
+            csv_writer.writerows(batch_lot)                     # None, a SQL NULL, is written as nothing, as NULL is.
+
+
+    def to_csv_file(                                                        # type: ignore[override]
+            self,
+            file_path:          str | Path = '',
+            line_terminator:    str | None = None,
+            include_header:     bool = True,
+            ) -> str:
+        r"""
+        Write the rows to a CSV file, as `Daf.to_csv_file()` does.
+
+        A local file is written as the rows are read, 10,000 at a time, so a table larger than
+        memory can be written. The text is the same as a Daf of the same rows would write: each
+        cell with `str()`, NULL as nothing, and `
+` line endings by default. A path that starts
+        with s3 is not streamed: the text is built in memory and uploaded, as a Daf does.
+
+        Args:
+            file_path: Where to write the file.
+            line_terminator: The line ending. If None, `
+` is used.
+            include_header: If True, write the column names first.
+
+        Returns:
+            The path that was written.
+
+        Examples:
+            >>> import os, tempfile
+            >>> SqlDaf.db_path = tempfile.mkdtemp() + '/job.db'
+            >>> marks_sdaf = SqlDaf.from_daf(Daf(lol=[['b1', 1], ['b2', '']], cols=['ballot_id', 'v']), name='marks')
+            >>> path = marks_sdaf.to_csv_file(os.path.dirname(SqlDaf.db_path) + '/marks.csv')
+            >>> open(path, newline='').read()
+            'ballot_id,v\r\nb1,1\r\nb2,\r\n'
+        """
+        file_path = str(file_path)
+        if file_path.startswith('s3'):
+            Daf.buff_to_file(self.to_csv_buff(line_terminator=line_terminator, include_header=include_header), file_path)
+            return file_path
+        with open(daf_utils.path_sep_per_os(file_path), 'w', newline='', encoding='utf-8') as csv_f:
+            self._write_csv(csv_f, line_terminator, include_header)
+        return file_path
+
+
+    def to_csv_buff(                                                        # type: ignore[override]
+            self,
+            line_terminator:    str | None = None,
+            include_header:     bool = True,
+            ) -> T_buff:
+        r"""
+        Make CSV text from the rows, as `Daf.to_csv_buff()` does.
+
+        The whole text is built in memory, so use it for a selection of modest size. To write a
+        large table, use `to_csv_file()`, which writes as it reads.
+
+        Args:
+            line_terminator: The line ending. If None, `
+` is used.
+            include_header: If True, write the column names first.
+
+        Returns:
+            The CSV text.
+        """
+        text_f = io.StringIO(newline='')
+        self._write_csv(text_f, line_terminator, include_header)
+        return text_f.getvalue()
 
 
     def to_dict(self) -> T_da:

@@ -368,6 +368,32 @@ def test_to_daf_is_not_tied_to_the_table():
     assert marks_sdaf.to_daf()['b1', 'num_votes'].to_value() == 1
 
 
+def test_len_method_matches_len():
+    marks_sdaf: SqlDaf = SqlDaf.from_daf(make_marks_daf(), name='marks')
+    assert marks_sdaf.len() == len(marks_sdaf) == 3
+    assert marks_sdaf.select_by_dict({'contest': 'c0'}).len() == 2
+
+
+def test_to_csv_matches_mdaf(tmp_path):
+    marks_daf: Daf = Daf(lol=[['b1', 1, 'a,b'], ['b2', NULL, 'x'], ['b3', 2.5, NULL]], cols=['ballot_id', 'n', 'text'])
+    marks_sdaf: SqlDaf = SqlDaf.from_daf(marks_daf, name='marks')
+    assert marks_sdaf.to_csv_buff() == marks_daf.to_csv_buff()
+    assert marks_sdaf.to_csv_buff(line_terminator='\n', include_header=False) == marks_daf.to_csv_buff(line_terminator='\n', include_header=False)
+    path: str = marks_sdaf.to_csv_file(tmp_path / 'marks.csv')
+    assert path == str(tmp_path / 'marks.csv')
+    with open(path, newline='', encoding='utf-8') as csv_f:
+        assert csv_f.read() == marks_daf.to_csv_buff()
+    sel_sdaf: SqlDaf = marks_sdaf.select_where_sql('"n" IS NOT NULL')
+    assert sel_sdaf.to_csv_buff() == marks_daf.select_where(lambda row: row['n'] is not NULL).to_csv_buff()
+
+
+def test_to_csv_file_streams_more_than_one_batch(tmp_path):
+    big_daf: Daf = Daf(lol=[[f'b{i}', i] for i in range(25000)], cols=['ballot_id', 'n'])
+    big_sdaf: SqlDaf = SqlDaf.from_daf(big_daf, name='big')
+    with open(big_sdaf.to_csv_file(tmp_path / 'big.csv'), newline='', encoding='utf-8') as csv_f:
+        assert csv_f.read() == big_daf.to_csv_buff()
+
+
 # SqlDaf.sql
 
 def test_sql_select_gives_a_daf_with_null():
