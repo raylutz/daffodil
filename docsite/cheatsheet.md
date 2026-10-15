@@ -153,13 +153,13 @@ NULL, a missing value, is `''`, the empty string. dtypes describe the columns, a
 
 ## Apply, reduce, group
 
-|                               Code                                |            What it does            |
-| :---------------------------------------------------------------- | :--------------------------------- |
-| `daf.apply(lambda row: {'id': row['id'], 'q2': row['qty'] * 2})`  | a new table, row by row            |
-| `daf.reduce(Daf.sum_da, cols=['qty'])`                            | column sums, as a dict             |
-| `daf.groupby('g')`                                                | a dict of Dafs, one for each value |
-| `daf.groupby_cols_reduce(['g'], Daf.sum_da, reduce_cols=['qty'])` | sums for each group                |
-| `daf.valuecounts_for_colname('g')`                                | counts: `{'x': 2, 'y': 2}`         |
+|                               Code                                |              What it does               |
+| :---------------------------------------------------------------- | :-------------------------------------- |
+| `daf.apply(lambda row: {'id': row['id'], 'q2': row['qty'] * 2})`  | a new table, row by row                 |
+| `daf.reduce(Daf.sum_da, cols=['qty'])`                            | column sums, as a dict                  |
+| `daf.groupby('g')`                                                | a KeyedList of Dafs, one for each value |
+| `daf.groupby_cols_reduce(['g'], Daf.sum_da, reduce_cols=['qty'])` | sums for each group                     |
+| `daf.valuecounts_for_colname('g')`                                | counts: `{'x': 2, 'y': 2}`              |
 
 ## Join and out
 

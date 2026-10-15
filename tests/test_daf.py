@@ -3145,8 +3145,8 @@ class TestDaf(unittest.TestCase):
 
         result_dodaf = daf.groupby(colname='col1')
 
-        expected_dodaf = {}
-        self.assertEqual(result_dodaf, expected_dodaf)
+        self.assertIsInstance(result_dodaf, KeyedList)        # a KeyedList of Daf, Q155.
+        self.assertEqual(len(result_dodaf), 0)
 
     def test_groupby_colname_not_found(self):
         cols = ['col1', 'col2', 'col3']

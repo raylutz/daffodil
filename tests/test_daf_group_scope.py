@@ -4,6 +4,7 @@
 import pytest
 
 from daffodil.daf import Daf, NULL
+from daffodil.keyedlist import KeyedList
 from typing import Any
 from daffodil.daf import Daf
 
@@ -261,5 +262,27 @@ def test_key_index_of_each_group() -> None:
 
 def test_no_rows_gives_no_groups() -> None:
     daf = _table().clone_empty()
-    assert daf.groupby_cols(['g']) == {}
-    assert daf.groupby('g') == {}
+    assert isinstance(daf.groupby_cols(['g']), KeyedList) and len(daf.groupby_cols(['g'])) == 0
+    assert isinstance(daf.groupby('g'), KeyedList) and len(daf.groupby('g')) == 0
+
+
+# groupby(), groupby_cols() and group_where() give a KeyedList of Daf (Q155)
+
+def test_groupings_are_keyedlists_used_as_dicts() -> None:
+    daf = Daf(lol=[['a', 1], ['b', 2], ['a', 3]], cols=['g', 'x'])
+    for groups in (daf.groupby('g'), daf.groupby_cols(['g']), daf.group_where(lambda row: row['g'])):
+        assert isinstance(groups, KeyedList)
+        assert len(groups) == 2
+        first_key = list(groups.keys())[0]
+        assert groups[first_key] is groups.values()[0]
+        assert dict(groups.items()) == groups.to_dict()
+    assert daf.groupby('g')['a'].lol == [['a', 1], ['a', 3]]
+    assert daf.groupby_cols(['g'])[('b',)].lol == [['b', 2]]
+
+
+def test_group_where_true_and_false_with_get() -> None:
+    daf = Daf(lol=[[1], [2], [3]], cols=['n'])
+    groups = daf.group_where(lambda row: row['n'] > 1)
+    assert groups.get(True).lol == [[2], [3]] and groups.get(False).lol == [[1]]
+    groups = daf.group_where(lambda row: row['n'] > 9)
+    assert groups.get(True) is None and len(groups.get(False)) == 3

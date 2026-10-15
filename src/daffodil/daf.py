@@ -117,6 +117,7 @@ from collections.abc import Iterable, Collection, Sequence, Iterator, Hashable  
 # literally at each use site instead avoids the whole issue.
 
 T_dodaf = Dict[str, 'Daf']
+T_klodaf = KeyedList            # a KeyedList of Daf, one Daf for each group, as groupby() gives.
 
 logs = daf_utils                # alias
 
@@ -9922,7 +9923,7 @@ class Daf:
         return names or None
 
 
-    def _new_group_dafs(self, groups: Dict[Any, T_lola], names: T_ls, all_cols: bool) -> Dict[Any, 'Daf']:
+    def _new_group_dafs(self, groups: Dict[Any, T_lola], names: T_ls, all_cols: bool) -> T_klodaf:
         """
         Make the Daf for each group, with the layout of this Daf, or of the columns kept.
 
@@ -9941,7 +9942,7 @@ class Daf:
             group_daf.lol = group_lol                           # adopted, as in clone_empty().
             dodaf[groupkey] = group_daf
 
-        return dodaf
+        return KeyedList(dodaf)
 
 
     def groupby(
@@ -9950,14 +9951,16 @@ class Daf:
             colnames: T_ls | None = None,
             omit_nulls: bool=False,         # do not group to values in column that are null ('')
             cols: T_cs | None = None,
-            ) -> Dict[str, 'Daf'] | Dict[Tuple[str, ...], 'Daf']:
+            ) -> T_klodaf:
 
         """
         Split the Daf into several Daf instances, one for each value of a column.
 
-        The result is a dict. Each key is a value found in the column, in the order
-        first seen. Each value is a Daf of the rows that have it, with all columns, or
-        only the columns in `cols`.
+        The result is a [KeyedList][daffodil.keyedlist.KeyedList] of Daf, a `klodaf`. It
+        works as a dict: `groups[key]`, `keys()`, `items()`, `len()` and `in`. Its values
+        also have positions, so `groups.values()[0]` is the first group. Each key is a value
+        found in the column, in the order first seen. Each value is a Daf of the rows that
+        have it, with all columns, or only the columns in `cols`.
 
         With all columns, a group holds the same row lists as this Daf. Nothing is copied,
         so it is fast and uses little memory. But a cell changed in a group is also changed
@@ -9980,7 +9983,7 @@ class Daf:
                 A keyfield is kept only if all its columns are kept.
 
         Returns:
-            A dict that maps each value, or tuple of values, to a Daf.
+            A KeyedList that maps each value, or tuple of values, to a Daf.
 
         Raises:
             KeyError: The group column, or a name in `cols`, is not a column.
@@ -10020,7 +10023,7 @@ class Daf:
                 # can continue below.
 
         if not self.lol:
-            return {}
+            return KeyedList()
 
         names, idxs, all_cols = self._cols_scope(cols)
         group_idx = self.hd[colname]
@@ -10041,13 +10044,13 @@ class Daf:
         return self._new_group_dafs(groups, names, all_cols)
 
 
-    def groupby_cols(self, colnames: T_ls, cols: T_cs | None = None) -> Dict[Tuple[str, ...], 'Daf']:
+    def groupby_cols(self, colnames: T_ls, cols: T_cs | None = None) -> T_klodaf:
 
         """
         Split the Daf by the values of several columns.
 
-        The result is a dict. Each key is a tuple of the values in the columns, even
-        for one column. Each value is a Daf of the rows that have them, with all
+        The result is a KeyedList of Daf, as `groupby()` gives. Each key is a tuple of the
+        values in the columns, even for one column. Each value is a Daf of the rows that have them, with all
         columns, or only the columns in `cols`. With all columns, the rows are not
         copied. With `cols`, they are new lists of the columns kept, and the other
         columns are never copied.
@@ -10058,7 +10061,7 @@ class Daf:
                 A keyfield is kept only if all its columns are kept.
 
         Returns:
-            A dict that maps each tuple of values to a Daf.
+            A KeyedList that maps each tuple of values to a Daf.
 
         Raises:
             KeyError: A name in `colnames` or `cols` is not a column.
@@ -10100,22 +10103,26 @@ class Daf:
             where: Callable[[Any], Any],
             *,
             indirect_col: str | None = None,
-        ) -> Dict[Any, 'Daf']:
+        ) -> T_klodaf:
 
         """
         Group the rows by the result of a function.
 
         The function gets each row and returns a key, or a list of keys, or None. A row
         goes into the group of each key. A list of keys puts the same row in several
-        groups. None leaves the row out. The groups are Daf instances in a dict. The rows
-        are not copied, so changing a cell in a group changes it here too.
+        groups. None leaves the row out. The groups are Daf instances in a KeyedList, as
+        `groupby()` gives. The rows are not copied, so changing a cell in a group changes it
+        here too.
+
+        To split the rows in two, have the function return True or False. A side with no
+        rows then has no group, so read each side with `.get()`.
 
         Args:
             where: The function. It gets a row and returns None, a key, or an iterable of keys.
             indirect_col: A column that holds a dict, to read names that are not columns from.
 
         Returns:
-            A dict that maps each key to a Daf.
+            A KeyedList that maps each key to a Daf.
 
         Examples:
             >>> d = Daf(lol=[['a', 1, 10], ['b', 2, 20], ['a', 3, 30]], cols=['g', 'x', 'y'])
@@ -10180,7 +10187,7 @@ class Daf:
                     sub_daf._basic_append(row)
 
 
-        return dodaf
+        return KeyedList(dodaf)
 
 
 

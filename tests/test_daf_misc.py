@@ -1554,7 +1554,7 @@ def _share_daf() -> Daf:
 def test_selector_row_sharing_matches_the_readme_table(call, shared):
     daf = _share_daf()
     result = call(daf)
-    if isinstance(result, dict):
+    if isinstance(result, (dict, KeyedList)):
         result = next(iter(result.values()))
     result.lol[0][1] = 'CHANGED'
     assert (daf.lol[0][1] == 'CHANGED' or any(row[1] == 'CHANGED' for row in daf.lol)) is shared
