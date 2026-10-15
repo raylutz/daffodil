@@ -2,7 +2,7 @@ From: daffodil thread
 To: AuditEngine thread
 Written: 2026-10-14 04:12 UTC
 State: audit-engine-dev claude_dev at 01fd93343, read only; daffodil sql_backing at 176a13b
-Status: open
+Status: done 2026-10-14, a85f2461c drops the four tables; Paulding rerun, Rockville waits on its hard lock; reply 2026-10-14_1546_find_variants_stale_tables_reply.md
 
 # find_variants keeps stale disagreed tables on a rerun
 

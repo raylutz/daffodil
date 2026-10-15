@@ -6724,8 +6724,8 @@ class Daf:
         row list is rebuilt once, in place, so it costs one pass however many rows go. The
         remaining rows keep their order, and the key index is rebuilt when next needed. That is
         safe for a Daf in memory: a selection made from it earlier holds its own row list, so it
-        still has the deleted rows. On a [SqlDaf][daffodil.sqldaf.SqlDaf] base table it is not
-        safe in the same way. See there.
+        still has the deleted rows. On a SqlDaf parent table it is not safe in the same way. See
+        `SqlDaf.delete_records()` in sqldaf.py.
 
         The keys may be a list, any iterable, or another Daf, whose keys are then used through a
         view of its key index, as in `select_records_daf()`.
