@@ -263,6 +263,12 @@ class SqlDaf(Daf):
     same value, as a Daf does, Q162. In Python test a value with `val is NULL`. In your own SQL,
     test for both, as `(col IS NULL OR col = '')`.
 
+    Avoid a Python NULL key, the empty string in the keyfield. If you allow one, the results of
+    SqlDaf are undefined, Q163. The key methods compare keys with = in SQL, and SQL NULL equals
+    nothing, so such a row is not found by key, `select_records_daf()`, `delete_records()` or
+    `join()`. The unique index also lets several SQL NULL keys in. A Daf treats a Python NULL key
+    as a key like any other, so the two differ. Give every row a real key.
+
     Until `apply_dtypes()` converts them, values loaded from a CSV file are text, in SQL too.
     Text is never less than a number in SQLite, so `WHERE n < 5` finds nothing on a text
     column, and MAX() gives the last in text order.
@@ -2256,6 +2262,8 @@ class SqlDaf(Daf):
         the order of the keys, as in a Daf. With `inverse=True`, the rows whose key is not among
         them, in this table's order.
 
+        A Python NULL key gives undefined results: see SqlDaf.
+
         As in a Daf, a key that is not found raises KeyError, unless `silent_error` is True. That
         check runs at once, as one query. The selection itself runs when first read.
 
@@ -2306,7 +2314,8 @@ class SqlDaf(Daf):
             silent_error:   bool = False,               # if True, keys that are not found are ignored.
             ) -> 'SqlDaf':
         """
-        Remove the rows with these keys, as `Daf.delete_records()` does.
+        Remove the rows with these keys, as `Daf.delete_records()` does. A Python NULL key gives
+        undefined results: see SqlDaf.
 
         By default nothing is changed: a selection without those rows is returned, as
         `select_records_daf(keys, inverse=True)` gives. That is always safe.
@@ -2443,7 +2452,8 @@ class SqlDaf(Daf):
         the result is this table's.
 
         The keyfields must be unique, as in `Daf.join()`. A repeated key is not checked, and the
-        result is then undefined. Check the keys first if they may repeat.
+        result is then undefined. Check the keys first if they may repeat. A Python NULL key is
+        undefined too: see SqlDaf.
 
         A row found only in the other table, in a right or outer join, takes its key and its
         shared fields from the other table. `Daf.join()` does not yet: see the xfail tests in
@@ -2783,7 +2793,8 @@ class SqlDaf(Daf):
         Set the column that holds the key of each row.
 
         As in a Daf, nothing is built yet. The unique index on the column is made when a key is
-        first used, by `ensure_key_index()`. An empty keyfield clears it.
+        first used, by `ensure_key_index()`. An empty keyfield clears it. Avoid Python NULL in the
+        column: a NULL key gives undefined results, as SqlDaf explains.
 
         On a permanent table with a record in the metadata, the record is changed too, so the
         table opens with this keyfield next time. A table made by other code has no record until

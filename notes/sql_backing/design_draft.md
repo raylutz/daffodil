@@ -429,7 +429,10 @@ Q162. Two kinds of NULL, decided by Ray on 2026-10-15: "if you encounter a '' in
     written by other code, such as AuditEngine, may hold the text ''. Both read as Python NULL, so
     the methods that group, count or select by value treat them as one value. Ray also asked that
     text always say which NULL it means. Built for the value methods: the value counts,
-    `groupby()`, `groupsum_daf()` and `select_by_dict()`. Keys are Q163, not decided.
+    `groupby()`, `groupsum_daf()` and `select_by_dict()`.
+Q163. Python NULL keys, decided by Ray on 2026-10-15: "document that NULL keys should be avoided
+    and if you allow them, then sdaf results will be undefined." No code change. The SqlDaf
+    docstring says so, and the key methods point to it. A Daf treats a Python NULL key as valid.
 ## Possible future enhancements
 
 - Stream the rows of a join, or a selection of one, without building the whole join first.
