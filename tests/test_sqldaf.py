@@ -629,6 +629,42 @@ def test_set_keyfield():
         marks_sdaf.set_keyfield('nothing')
 
 
+# a Python NULL key raises when the key index is made, and on concat(), Q164
+
+@pytest.mark.parametrize('stored_sql', ["NULL", "''"], ids=['SQL NULL', 'empty text'])
+def test_null_key_raises_when_the_index_is_made_and_leaves_no_index(stored_sql):
+    marks_sdaf: SqlDaf = SqlDaf.from_daf(make_marks_daf(), name='marks')
+    marks_sdaf.sql(f"INSERT INTO marks (ballot_id, contest, num_votes) VALUES ({stored_sql}, 'c0', 1)")
+    with pytest.raises(ValueError, match='Python NULL key'):
+        marks_sdaf.ensure_key_index()
+    assert key_indexes(marks_sdaf.conn) == []
+    with pytest.raises(ValueError, match='Python NULL key'):
+        marks_sdaf.select_records_daf(['b1'])          # every key method makes the index first.
+
+
+def test_null_key_from_the_constructor_raises_at_first_key_use():
+    marks_sdaf: SqlDaf = SqlDaf('marks', cols=['ballot_id', 'v'], lol=[['b1', 1], [NULL, 2]], keyfield='ballot_id')
+    assert len(marks_sdaf) == 2                         # nothing is checked until a key is used.
+    with pytest.raises(ValueError, match='Python NULL key'):
+        marks_sdaf['b1']
+
+
+@pytest.mark.parametrize('from_sql', [False, True], ids=['a Daf', 'a SqlDaf'])
+def test_concat_of_a_null_key_raises_and_adds_nothing(from_sql):
+    marks_sdaf: SqlDaf = SqlDaf.from_daf(make_marks_daf(), name='marks')
+    more_daf: Daf = Daf(lol=[['b9', 'c0', 1], [NULL, 'c1', 2]], cols=['ballot_id', 'contest', 'num_votes'], keyfield='ballot_id')
+    more = SqlDaf.from_daf(more_daf, name='more') if from_sql else more_daf
+    with pytest.raises(ValueError, match='Python NULL key'):
+        marks_sdaf.concat(more)
+    assert marks_sdaf.keys() == ['b1', 'b2', 'b3']
+
+
+def test_no_keyfield_allows_null_values():
+    marks_sdaf: SqlDaf = SqlDaf('marks', cols=['ballot_id', 'v'], lol=[[NULL, 1]])
+    marks_sdaf.concat(Daf(lol=[[NULL, 2]], cols=['ballot_id', 'v']))
+    assert marks_sdaf.to_daf().lol == [[NULL, 1], [NULL, 2]]
+
+
 # SqlDaf.apply_dtypes
 
 def test_apply_dtypes_matches_daf():

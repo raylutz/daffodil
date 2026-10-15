@@ -86,6 +86,12 @@ def is_value_sql(col: str, val: Any) -> Tuple[str, Tuple[Any, ...]]:
     return f'{quote_name(col)} IS ?', (val,)
 
 
+def _index_exists_on(conn: sqlite3.Connection, name: str) -> bool:
+    """ Say whether the connection sees an index of this name, in main or TEMP. Internal use. """
+    return conn.execute("SELECT EXISTS (SELECT 1 FROM sqlite_master WHERE type = 'index' AND name = ? "
+                        "UNION ALL SELECT 1 FROM sqlite_temp_master WHERE type = 'index' AND name = ?)", (name, name)).fetchone()[0] == 1
+
+
 def _table_exists_on(conn: sqlite3.Connection, name: str, schema: str = '') -> bool:
     """ Say whether the connection sees a table or view of this name: in `schema` only, or in main and TEMP. Internal use. """
     schemas_ls: T_ls = [schema] if schema else ['main', 'temp']
@@ -267,7 +273,8 @@ class SqlDaf(Daf):
     SqlDaf are undefined, Q163. The key methods compare keys with = in SQL, and SQL NULL equals
     nothing, so such a row is not found by key, `select_records_daf()`, `delete_records()` or
     `join()`. The unique index also lets several SQL NULL keys in. A Daf treats a Python NULL key
-    as a key like any other, so the two differ. Give every row a real key.
+    as a key like any other, so the two differ. Give every row a real key. Making the key index
+    raises ValueError on a Python NULL key, and so does `concat()` of one, Q164.
 
     Until `apply_dtypes()` converts them, values loaded from a CSV file are text, in SQL too.
     Text is never less than a number in SQLite, so `WHERE n < 5` finds nothing on a text
@@ -2390,7 +2397,8 @@ class SqlDaf(Daf):
         changed.
 
         A Daf appends a row whose key is already there without a word. A SqlDaf with a keyfield
-        has a unique index on it, so a repeated key raises instead, and nothing is added.
+        has a unique index on it, so a repeated key raises instead, and nothing is added. A
+        Python NULL key raises ValueError, and nothing is added, Q164.
 
         Args:
             other_instance: The Daf or SqlDaf whose rows are added. It is not changed.
@@ -2401,6 +2409,7 @@ class SqlDaf(Daf):
 
         Raises:
             KeyError: The columns differ.
+            ValueError: A key added is a Python NULL. Nothing is added.
             sqlite3.IntegrityError: A key would be repeated. Nothing is added.
             NotImplementedError: `respect_kd` is True, or the other is a SqlDaf this connection cannot read.
         """
@@ -2417,13 +2426,15 @@ class SqlDaf(Daf):
         if self.keyfield:
             self.ensure_key_index()
 
-        if isinstance(other_instance, SqlDaf):
-            rows_sql, rows_params = other_instance._rows_sql()
-            with self.transaction():
+        with self.transaction():
+            if isinstance(other_instance, SqlDaf):
+                rows_sql, rows_params = other_instance._rows_sql()
                 self._execute(f'INSERT INTO {quote_name(self.name)} ({self._cols_sql()}) '
-                                   f'SELECT {self._cols_sql()} FROM ({rows_sql}) ORDER BY {ORD_COL}', rows_params)
-        else:
-            self._insert_rows(other_instance.lol)
+                              f'SELECT {self._cols_sql()} FROM ({rows_sql}) ORDER BY {ORD_COL}', rows_params)
+            else:
+                self._insert_rows(other_instance.lol)
+            if self.keyfield:
+                self._check_no_null_key('concat')       # the unique index does not stop SQL NULL keys.
         return self
 
 
@@ -2840,11 +2851,16 @@ class SqlDaf(Daf):
         raises instead, so a duplicate is never missed. Once the index is there, adding a row
         with a key that is already present raises too.
 
+        A Python NULL key, SQL NULL or the text '', raises ValueError when the index is made, Q164.
+        SqlDaf's results with one would be undefined, and the unique index does not stop several
+        SQL NULL keys. The check uses the new index, so it costs about 0.3 ms. A Daf accepts a
+        Python NULL key.
+
         Returns:
             This SqlDaf.
 
         Raises:
-            ValueError: There is no keyfield, or this is a selection.
+            ValueError: There is no keyfield, this is a selection, or a key is a Python NULL. Nothing is made.
             sqlite3.IntegrityError: A key is repeated. Nothing is made.
         """
         if self.parent_sdaf is not None:
@@ -2852,10 +2868,21 @@ class SqlDaf(Daf):
         if not self.keyfield:
             raise ValueError(f"SqlDaf.ensure_key_index: '{self.name}' has no keyfield.")
         self._resolve()
-        self.conn.execute(
-                f'CREATE UNIQUE INDEX IF NOT EXISTS {quote_name(self.key_index_name())} '
-                f'ON {quote_name(self.name)} ({quote_name(self.keyfield)})')
+        index_name: str = self.key_index_name()
+        if _index_exists_on(self.conn, index_name):
+            return self
+        with self.transaction():                        # a NULL key leaves no index.
+            self._execute(f'CREATE UNIQUE INDEX {quote_name(index_name)} ON {quote_name(self.name)} ({quote_name(self.keyfield)})')
+            self._check_no_null_key('ensure_key_index')
         return self
+
+
+    def _check_no_null_key(self, method: str) -> None:
+        """ Raise ValueError if a key of this parent is a Python NULL, SQL NULL or ''. Uses the key index. Internal use. """
+        key_sql: str = quote_name(self.keyfield)
+        if self.conn.execute(f"SELECT EXISTS (SELECT 1 FROM {quote_name(self.name)} WHERE {key_sql} IS NULL OR {key_sql} = '')").fetchone()[0]:
+            raise ValueError(f"SqlDaf.{method}: '{self.name}' has a Python NULL key in '{self.keyfield}'. "
+                             "Give every row a real key: SqlDaf's results with a NULL key are undefined.")
 
 
     def apply_dtypes(                                               # type: ignore[override]

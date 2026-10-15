@@ -433,6 +433,12 @@ Q162. Two kinds of NULL, decided by Ray on 2026-10-15: "if you encounter a '' in
 Q163. Python NULL keys, decided by Ray on 2026-10-15: "document that NULL keys should be avoided
     and if you allow them, then sdaf results will be undefined." No code change. The SqlDaf
     docstring says so, and the key methods point to it. A Daf treats a Python NULL key as valid.
+Q164. A Python NULL key raises, decided by Ray on 2026-10-15: A, "not too much overhead compared
+    with creating the index to begin with." `ensure_key_index()` checks the keys once, when it
+    makes the index, and drops the index if one is a Python NULL, SQL NULL or ''. `concat()` checks
+    after adding rows to a table with a keyfield, since the unique index lets SQL NULL keys in.
+    Each raises ValueError, and leaves the table as it was. On 1,000,000 rows the first
+    `ensure_key_index()` took 0.415 s, against 0.399 s before, and later calls 10 us, as before.
 ## Possible future enhancements
 
 - Stream the rows of a join, or a selection of one, without building the whole join first.
