@@ -409,6 +409,10 @@ Q154, Q155. A grouping is a KeyedList of Daf, decided by Ray on 2026-10-15. grou
 Q156. The suffix for a KeyedList of Daf is _klodaf, type T_klodaf, decided by Ray on 2026-10-15.
     It follows the rule that a container of containers puts o between them, as in dodaf.
 Q160. T_lsdaf and _lsdaf are renamed T_losdaf and _losdaf by the same rule, Ray, 2026-10-15.
+Q161. The splits, decided by Ray on 2026-10-15. `split_where()` stays as it is, on Daf and SqlDaf,
+    and is marked deprecated in its docstring, in favour of `group_where()` with a function that
+    returns True or False. No decorator, and no change to AuditEngine's calls. `split_by_dict()`
+    is removed, since it does not map well onto SqlDaf. This replaces Q148.
 
 ## Possible future enhancements
 

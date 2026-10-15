@@ -228,23 +228,3 @@ def test_list_of_dicts_gives_the_same_rows_as_select_where_on_many_rows():
     assert got.lol == d.select_where(lambda row: row['name'] in names).lol
     pairs = [{'grp': g, 'name': f's{g}'} for g in range(50)]
     assert d.select_by_dict(pairs).lol == [r for r in rows if r[1] < 50 and r[2] == f's{r[1]}']
-
-
-# split_by_dict
-
-@pytest.mark.parametrize('selector', [{}, {'v': 'a'}, {'v': 'b', 'n': 20}, [{'v': 'a'}, {'n': 20}], [], {'zz': 1}])
-def test_split_by_dict_gives_the_matches_and_the_rest(selector):
-    d = _daf()
-    yes_daf, no_daf = d.split_by_dict(selector)
-    assert yes_daf.lol == d.select_by_dict(selector).lol
-    assert no_daf.lol == d.select_by_dict(selector, inverse=True).lol
-    assert sorted(yes_daf.col('id') + no_daf.col('id')) == d.col('id')
-
-
-def test_split_by_dict_keyfield_and_shared_rows():
-    d = _daf()
-    yes_daf, no_daf = d.split_by_dict({'v': 'a'}, keyfield='n')
-    assert (yes_daf.keyfield, no_daf.keyfield) == ('n', 'n')
-    yes_daf, no_daf = d.split_by_dict({'v': 'a'})
-    assert (yes_daf.keyfield, no_daf.keyfield) == ('id', 'id')
-    assert yes_daf.lol[0] is d.lol[0] and no_daf.lol[0] is d.lol[1]

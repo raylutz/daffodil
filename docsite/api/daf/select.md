@@ -50,8 +50,6 @@ Reading rows, columns and cells by index, key, or condition.
 
 ::: daffodil.daf.Daf.split_where
 
-::: daffodil.daf.Daf.split_by_dict
-
 ::: daffodil.daf.Daf.select_by_dict
 
 ::: daffodil.daf.Daf.select_first_row_by_dict

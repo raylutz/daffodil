@@ -7679,6 +7679,10 @@ class Daf:
         """
         Split the rows in two, by a function that is true or false for each row.
 
+        This is deprecated. Use `group_where()` with a function that returns True or False.
+        It gives the two groups under the keys True and False. A side with no rows has no
+        group, so read each side with `.get()`.
+
         The function gets each row, as in `select_where()`. Both new Daf instances
         share their rows with this one, so changing a cell in one changes it here
         too. The keyfield and dtypes carry over to both.
@@ -7749,38 +7753,6 @@ class Daf:
         false_daf = Daf(cols=self.columns(), lol=false_lol, keyfield=self.keyfield, dtypes=self.dtypes)
 
         return true_daf, false_daf
-
-
-    def split_by_dict(
-            self,
-            selector_da:    T_da | T_loda,              # a dict of column and value, or a list of them.
-            keyfield:       str | int | T_ta = '',      # the keyfield of both results. This one's if empty.
-            ) -> Tuple['Daf', 'Daf']:
-        """
-        Split the rows in two: those that match a dict, and the rest.
-
-        A row matches as in `select_by_dict()`, which this calls twice, once with
-        `inverse=True`. Use it in place of `split_where()` when the test is that columns
-        equal values. On 1,000,000 rows it took 0.09 s, and `split_where()` 0.37 s,
-        since no function is called for each row.
-
-        Both new Daf instances share their rows with this one, as in `select_by_dict()`.
-
-        Args:
-            selector_da: A dict of column names and values, or a list of such dicts.
-            keyfield: The keyfield of both results. This Daf's if empty.
-
-        Returns:
-            A tuple of the Daf of the rows that match and the Daf of the others.
-
-        Examples:
-            >>> daf = Daf(lol=[[1, 0], [2, 1], [3, 0]], cols=['id', 'is_dup'], keyfield='id')
-            >>> dup_daf, rest_daf = daf.split_by_dict({'is_dup': 1})
-            >>> dup_daf.keys(), rest_daf.keys()
-            ([2], [1, 3])
-        """
-        return (self.select_by_dict(selector_da, keyfield=keyfield),
-                self.select_by_dict(selector_da, inverse=True, keyfield=keyfield))
 
 
     def col(self, 
