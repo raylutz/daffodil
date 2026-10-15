@@ -1447,6 +1447,179 @@ class SqlDaf(Daf):
                 self.select_where(lambda row: not where(row), indirect_col=indirect_col, cols=cols))
 
 
+    # ---- groups ----
+
+    def groupby(                                                            # type: ignore[override]
+            self,
+            colname:        str = '',                   # the column to group by.
+            colnames:       T_ls | None = None,         # several columns to group by, as groupby_cols().
+            omit_nulls:     bool = False,               # if True, leave out rows with NULL in the column.
+            cols:           T_ls | None = None,         # not supported on a SqlDaf yet.
+            ) -> KeyedList:
+        """
+        Group the rows by the values of a column, as `Daf.groupby()` does.
+
+        The result is a KeyedList of selections, one for each value, in the order first seen. It
+        works as a dict, as the result of `Daf.groupby()` does. One query finds the values. Each
+        group is then `select_by_dict()` of its value, so NULL is a value like any other. Nothing
+        is read until a group is read. An index on the column makes each group a quick lookup.
+
+        Args:
+            colname: The column to group by.
+            colnames: Several columns to group by. See `groupby_cols()`.
+            omit_nulls: If True, leave out the rows with NULL in the column.
+            cols: Not supported on a SqlDaf yet.
+
+        Returns:
+            A KeyedList that maps each value to a selection.
+
+        Raises:
+            KeyError: The column is not a column.
+            NotImplementedError: `cols` is given.
+
+        Examples:
+            >>> import tempfile
+            >>> SqlDaf.db_path = tempfile.mkdtemp() + '/job.db'
+            >>> bif_sdaf = SqlDaf.from_daf(Daf(lol=[['b1', 'P1'], ['b2', 'P2'], ['b3', 'P1']], cols=['ballot_id', 'precinct']), name='bif')
+            >>> groups = bif_sdaf.groupby('precinct')
+            >>> {key: group.to_daf().lol for key, group in groups.items()}
+            {'P1': [['b1', 'P1'], ['b3', 'P1']], 'P2': [['b2', 'P2']]}
+        """
+        if isinstance(colname, list) and not colnames:
+            return self.groupby_cols(colname, cols=cols)
+        if colnames and not colname:
+            if len(colnames) > 1:
+                return self.groupby_cols(colnames, cols=cols)
+            colname = colnames[0]
+        groups_kl: KeyedList = self.groupby_cols([colname], cols=cols, omit_nulls=omit_nulls)
+        return KeyedList([key_t[0] for key_t in groups_kl.keys()], groups_kl.values())
+
+
+    def groupby_cols(                                                       # type: ignore[override]
+            self,
+            colnames:       T_ls,                       # the columns to group by.
+            cols:           T_ls | None = None,         # not supported on a SqlDaf yet.
+            omit_nulls:     bool = False,               # if True, leave out rows with NULL in any of the columns.
+            ) -> KeyedList:
+        """
+        Group the rows by the values of several columns, as `Daf.groupby_cols()` does.
+
+        Each key is a tuple of the values, even for one column. Each group is a selection, as in
+        `groupby()`.
+
+        Args:
+            colnames: The columns to group by.
+            cols: Not supported on a SqlDaf yet.
+            omit_nulls: If True, leave out the rows with NULL in any of the columns.
+
+        Returns:
+            A KeyedList that maps each tuple of values to a selection.
+
+        Raises:
+            KeyError: A name in `colnames` is not a column.
+            NotImplementedError: `cols` is given.
+        """
+        if cols is not None:
+            raise NotImplementedError("groupby(cols=) is not supported on a SqlDaf yet. Group, then read the columns you need.")
+        col: str
+        for col in colnames:
+            if col not in self.hd:
+                raise KeyError(col)
+        self._resolve_parent()
+        rows_sql, rows_params = self._rows_sql()
+        group_sql: str = ', '.join(quote_name(col) for col in colnames)
+        where_sql: str = (' WHERE ' + ' AND '.join(f'{quote_name(col)} IS NOT NULL' for col in colnames)) if omit_nulls else ''
+        values_lot: List[Tuple[Any, ...]] = self._fetch(self._execute(
+                f'SELECT {group_sql} FROM ({rows_sql}){where_sql} GROUP BY {group_sql} ORDER BY MIN({ORD_COL})', rows_params))
+        keys_lt: List[Tuple[Any, ...]] = [tuple(none_to_null(values_t)) for values_t in values_lot]
+        return KeyedList(keys_lt, [self.select_by_dict(dict(zip(colnames, key_t))) for key_t in keys_lt])
+
+
+    def group_where(                                                        # type: ignore[override]
+            self,
+            where:          Callable[[Any], Any],       # a function of a row: a key, a list of keys, or None.
+            *,
+            indirect_col:   str | None = None,          # not supported yet.
+            cols:           T_ls | None = None,         # the columns the function reads. All if None.
+            ) -> KeyedList:
+        """
+        Group the rows by the keys a Python function returns, as `Daf.group_where()` does.
+
+        The function gets each row as a KeyedList, as in `select_where()`, and returns a key, a
+        list of keys, or None. A row goes into the group of each key, so a row can be in any
+        number of groups, and None leaves it out. As in `Daf.group_where()`, any iterable other
+        than a str is a list of keys, a tuple too. So to use a tuple as one key, return a list
+        of tuples.
+
+        The function runs once for each row, in one pass, and each (key, row) pair is written to
+        a TEMP table. Each group is then a selection of the rows listed under its key, in the
+        order of this SqlDaf. Nothing more is read until a group is read. The result is a
+        KeyedList of selections, in the order the keys were first returned.
+
+        Name the columns the function reads in `cols`, as in `select_where()`.
+
+        Args:
+            where: A function of a row: a key, a list of keys, or None.
+            indirect_col: Not supported on a SqlDaf yet.
+            cols: The columns the function reads. All if None.
+
+        Returns:
+            A KeyedList that maps each key to a selection.
+
+        Raises:
+            KeyError: A name in `cols` is not a column.
+            NotImplementedError: `indirect_col` is given.
+
+        Examples:
+            >>> import tempfile
+            >>> SqlDaf.db_path = tempfile.mkdtemp() + '/job.db'
+            >>> bif_sdaf = SqlDaf.from_daf(Daf(lol=[['b1', 'P1'], ['b2', 'P2'], ['b3', 'P1']], cols=['ballot_id', 'precinct']), name='bif')
+            >>> groups = bif_sdaf.group_where(lambda row: [row['precinct'], 'all'], cols=['precinct'])
+            >>> {key: len(group) for key, group in groups.items()}
+            {'P1': 2, 'all': 3, 'P2': 1}
+        """
+        if indirect_col is not None:
+            raise NotImplementedError("group_where(indirect_col=) is not supported on a SqlDaf yet.")
+        func_cols: T_ls = list(cols) if cols is not None else list(self.hd)
+        col: str
+        for col in func_cols:
+            if col not in self.hd:
+                raise KeyError(col)
+        func_hd: T_di = {col: idx for idx, col in enumerate(func_cols)}
+        self._resolve_parent()
+        rows_sql, rows_params = self._rows_sql()
+        labels: str = self._next_temp_name((self.parent_sdaf or self).name + '_groups')
+        key_ids_da: Dict[Any, int] = {}                     # each key and its number in the TEMP table, in the order first seen.
+
+        with self.transaction():
+            self._execute(f'CREATE TEMP TABLE {quote_name(labels)} (kid INTEGER, ref)')
+            cursor: sqlite3.Cursor = self._execute(
+                    f'SELECT {REF_COL}{"".join(", " + quote_name(col) for col in func_cols)} FROM ({rows_sql}) ORDER BY {ORD_COL}',
+                    rows_params)
+            insert_sql: str = f'INSERT INTO {quote_name(labels)} (kid, ref) VALUES (?, ?)'
+            while True:
+                batch_lot: List[Tuple[Any, ...]] = cursor.fetchmany(10000)
+                if not batch_lot:
+                    break
+                pairs_lt: List[Tuple[int, Any]] = []
+                row_t: Tuple[Any, ...]
+                for row_t in batch_lot:
+                    keys: Any = where(KeyedList(func_hd, none_to_null(row_t[1:])))
+                    if keys is None:
+                        continue
+                    key: Any
+                    for key in (keys if isinstance(keys, Iterable) and not isinstance(keys, (str, bytes)) else (keys,)):    # as in Daf: a tuple is a list of keys.
+                        kid: int | None = key_ids_da.get(key)
+                        if kid is None:
+                            kid = key_ids_da[key] = len(key_ids_da)
+                        pairs_lt.append((kid, row_t[0]))
+                self.conn.executemany(insert_sql, pairs_lt)
+            self._execute(f'CREATE INDEX {quote_name(labels + "_ix")} ON {quote_name(labels)} (kid, ref)')
+
+        member_sql: str = f'{REF_COL} IN (SELECT ref FROM {quote_name(labels)} WHERE kid = ?)'
+        return KeyedList(list(key_ids_da), [self.select_where_sql(member_sql, [kid]) for kid in key_ids_da.values()])
+
+
     def __getitem__(self, sel: Any) -> 'SqlDaf':
         """
         Select rows by position or by key, as `daf[n]`, `daf[n:m]` and `daf[key]` do.

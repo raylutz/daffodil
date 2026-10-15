@@ -757,6 +757,92 @@ def test_split_where_bad_col_and_indirect_col():
         bif_sdaf.split_where(lambda row: True, indirect_col='x')
 
 
+# groupby, groupby_cols and group_where
+
+def groups_as_lol(groups) -> dict:
+    """ A grouping of Daf or of SqlDaf, as a dict of each key and its rows. """
+    return {key: (group.to_daf() if isinstance(group, SqlDaf) else group).lol for key, group in groups.items()}
+
+
+@pytest.mark.parametrize('args', [
+    {'colname': 'precinct'},
+    {'colname': 'is_bmd'},
+    {'colname': 'is_bmd', 'omit_nulls': True},
+    {'colnames': ['style_num']},
+    {'colnames': ['precinct', 'style_num']},
+    {'colname': ['precinct', 'is_bmd']},
+    ], ids=repr)
+def test_groupby_matches_mdaf(args):
+    bif_daf: Daf = make_bif_daf()
+    bif_sdaf: SqlDaf = SqlDaf.from_daf(bif_daf, name='bif')
+    groups_kl: KeyedList = bif_sdaf.groupby(**args)
+    assert isinstance(groups_kl, KeyedList)
+    assert all(not group.is_resolved for group in groups_kl.values())
+    assert groups_as_lol(groups_kl) == groups_as_lol(bif_daf.groupby(**args))
+    assert list(groups_kl.keys()) == list(bif_daf.groupby(**args).keys())
+
+
+def test_groupby_cols_keys_are_tuples_and_bad_names_raise():
+    bif_sdaf: SqlDaf = SqlDaf.from_daf(make_bif_daf(), name='bif')
+    assert list(bif_sdaf.groupby_cols(['precinct']).keys()) == [('P1',), ('P2',), ('P3',)]
+    with pytest.raises(KeyError):
+        bif_sdaf.groupby('nothing')
+    with pytest.raises(NotImplementedError):
+        bif_sdaf.groupby('precinct', cols=['ballot_id'])
+
+
+GROUP_WHERE_FUNCS = [
+    ('one key', lambda row: row['precinct']),
+    ('overlapping keys', lambda row: [row['precinct'], 'all'] if row['style_num'] > 1 else ['all']),
+    ('none leaves a row out', lambda row: row['precinct'] if row['is_bmd'] is not NULL else None),
+    ('tuple keys in a list', lambda row: [(row['precinct'], row['style_num']), ('any', 0)]),
+    ('a tuple is a list of keys', lambda row: (row['precinct'], 'x')),
+    ('true and false', lambda row: row['style_num'] > 1),
+    ('no row in any group', lambda row: []),
+    ]
+
+
+@pytest.mark.parametrize('func', [f for _, f in GROUP_WHERE_FUNCS], ids=[name for name, _ in GROUP_WHERE_FUNCS])
+def test_group_where_matches_mdaf(func):
+    bif_daf: Daf = make_bif_daf()
+    bif_sdaf: SqlDaf = SqlDaf.from_daf(bif_daf, name='bif')
+    groups_kl: KeyedList = bif_sdaf.group_where(func)
+    expect_kl = bif_daf.group_where(func)
+    assert list(groups_kl.keys()) == list(expect_kl.keys())
+    assert groups_as_lol(groups_kl) == groups_as_lol(expect_kl)
+
+
+def test_group_where_on_a_selection_with_cols_sorted_by_len():
+    bif_sdaf: SqlDaf = SqlDaf.from_daf(make_bif_daf(), name='bif')
+    sel_sdaf: SqlDaf = bif_sdaf.select_where_sql('"ballot_id" != ?', ['b4'])
+    groups_kl: KeyedList = sel_sdaf.group_where(lambda row: [row['precinct'], 'all'], cols=['precinct'])
+    sizes_lt = sorted(((key, group.len()) for key, group in groups_kl.items()), key=lambda kv: kv[1])
+    assert sizes_lt == [('P2', 1), ('P1', 3), ('all', 4)]
+    assert groups_kl['all'].keyfield == 'ballot_id'
+
+
+def test_group_where_raises_errors_as_themselves():
+    bif_sdaf: SqlDaf = SqlDaf.from_daf(make_bif_daf(), name='bif')
+    with pytest.raises(ZeroDivisionError):
+        bif_sdaf.group_where(lambda row: 1 / 0)
+    with pytest.raises(KeyError):
+        bif_sdaf.group_where(lambda row: 1, cols=['nothing'])
+    with pytest.raises(NotImplementedError):
+        bif_sdaf.group_where(lambda row: 1, indirect_col='x')
+
+
+def test_group_where_with_many_overlapping_groups_matches_mdaf():
+    many_daf: Daf = Daf(lol=[[f'b{i}', i] for i in range(3000)], cols=['ballot_id', 'n'], keyfield='ballot_id')
+    many_sdaf: SqlDaf = SqlDaf.from_daf(many_daf, name='many')
+    def strata(row):
+        return [(c, row['n'] % (c + 2)) for c in range(20)]
+    groups_kl: KeyedList = many_sdaf.group_where(strata, cols=['n'])
+    expect_kl = many_daf.group_where(strata)
+    assert len(groups_kl) == len(expect_kl) == sum(c + 2 for c in range(20))
+    assert {key: group.len() for key, group in groups_kl.items()} == {key: len(group) for key, group in expect_kl.items()}
+    assert groups_kl[(7, 3)].keys() == expect_kl[(7, 3)].keys()
+
+
 def test_select_where_sql_with_params_and_null():
     bif_sdaf: SqlDaf = SqlDaf.from_daf(make_bif_daf(), name='bif')
     assert bif_sdaf.select_where_sql('"style_num" >= ? AND "precinct" != ?', [2, 'P2']).to_daf().lol == [

@@ -417,6 +417,9 @@ Q161. The splits, decided by Ray on 2026-10-15. `split_where()` stays as it is, 
 Q150. `SqlDaf.apply()`, decided by Ray on 2026-10-15: A. It reads the rows in batches, calls the
     function in Python and inserts the results into a new TEMP table, in one transaction, with the
     rules of `Daf.apply()`. Not a registered function with json_each, and not `to_daf()`.
+Q152. `SqlDaf.groupby()`, `groupby_cols()` and `group_where()` return a KeyedList of selections,
+    Ray, 2026-10-15. Built on sql_backing: groupby by one query for the values and `select_by_dict()`
+    per value; group_where by one pass that writes (key number, reference) pairs to a TEMP table.
 ## Possible future enhancements
 
 - Stream the rows of a join, or a selection of one, without building the whole join first.
