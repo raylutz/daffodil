@@ -420,6 +420,9 @@ Q150. `SqlDaf.apply()`, decided by Ray on 2026-10-15: A. It reads the rows in ba
 Q152. `SqlDaf.groupby()`, `groupby_cols()` and `group_where()` return a KeyedList of selections,
     Ray, 2026-10-15. Built on sql_backing: groupby by one query for the values and `select_by_dict()`
     per value; group_where by one pass that writes (key number, reference) pairs to a TEMP table.
+    Built on sql_backing for Q143: the valuecounts methods, `value_counts_daf()`, `daf_valuecount()`,
+    `sum()` and `groupsum_daf()`, each by GROUP BY with Daf's results. Reductions with a Python
+    function, such as `groupby_reduce()`, are not built yet.
 ## Possible future enhancements
 
 - Stream the rows of a join, or a selection of one, without building the whole join first.

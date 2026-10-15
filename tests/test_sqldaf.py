@@ -10,7 +10,7 @@ import pytest
 from daffodil.daf import Daf, NULL
 from daffodil.keyedlist import KeyedList
 from daffodil.lib.daf_types import T_ls
-from daffodil.sqldaf import SqlDaf, BLOCKED_LS, RID_COL, META_TABLE, quote_name
+from daffodil.sqldaf import SqlDaf, BLOCKED_LS, SAFE_INHERITED_SET, KEEP_SET, RID_COL, META_TABLE, quote_name
 
 
 @pytest.fixture(autouse=True)
@@ -515,7 +515,12 @@ def test_blocker_covers_every_daf_method_not_defined():
     for name in ('to_daf', 'sql', '__len__', '__bool__', 'num_cols', '__repr__'):
         assert name in defined_ls
     assert 'columns' not in vars(SqlDaf)
-    assert len(BLOCKED_LS) > 190
+    own_set: set = {name for name in vars(SqlDaf) if name not in BLOCKED_LS}
+    for name, attr in vars(Daf).items():                    # every Daf method SqlDaf does not define is blocked.
+        if name in own_set or name in SAFE_INHERITED_SET or name in KEEP_SET:
+            continue
+        if callable(attr) or isinstance(attr, (property, staticmethod, classmethod)):
+            assert name in BLOCKED_LS, name
 
 
 def test_plain_daf_is_unchanged_by_the_blocker():
@@ -841,6 +846,75 @@ def test_group_where_with_many_overlapping_groups_matches_mdaf():
     assert len(groups_kl) == len(expect_kl) == sum(c + 2 for c in range(20))
     assert {key: group.len() for key, group in groups_kl.items()} == {key: len(group) for key, group in expect_kl.items()}
     assert groups_kl[(7, 3)].keys() == expect_kl[(7, 3)].keys()
+
+
+# value counts and sums
+
+def make_counts_daf() -> Daf:
+    return Daf(
+        lol=[['b1', 'P1', 1, 10, 'x'], ['b2', 'P2', 2, NULL, '5'], ['b3', 'P1', 3, 2.5, NULL],
+             ['b4', NULL, NULL, 'abc', 'y'], ['b5', 'P2', 1, 4, 'x'], ['b6', 'P1', 2, 1, 'x']],
+        cols=['ballot_id', 'precinct', 'style', 'n', 't'],
+        keyfield='ballot_id',
+    )
+
+
+COUNT_CALLS = [
+    ('valuecounts_for_colname', lambda d: d.valuecounts_for_colname('precinct')),
+    ('valuecounts_for_colname sorted', lambda d: d.valuecounts_for_colname('style', sort=True)),
+    ('valuecounts_for_colname ascending', lambda d: d.valuecounts_for_colname('style', sort=True, reverse=False)),
+    ('valuecounts_for_colname omit_nulls', lambda d: d.valuecounts_for_colname('precinct', omit_nulls=True)),
+    ('valuecounts_for_colname missing column', lambda d: d.valuecounts_for_colname('nothing')),
+    ('valuecounts_for_colnames_ls', lambda d: d.valuecounts_for_colnames_ls(['precinct', 't'])),
+    ('valuecounts_for_colnames_ls all', lambda d: d.valuecounts_for_colnames_ls()),
+    ('selectedby', lambda d: d.valuecounts_for_colname_selectedby_colname('style', 'precinct', 'P1')),
+    ('selectedby NULL', lambda d: d.valuecounts_for_colname_selectedby_colname('t', 'precinct', NULL)),
+    ('selectedby ls', lambda d: d.valuecounts_for_colnames_ls_selectedby_colname(['style', 't'], 'precinct', 'P2', sort=True)),
+    ('groupedby', lambda d: d.valuecounts_for_colname1_groupedby_colname2('style', 'precinct')),
+    ('groupedby sorted', lambda d: d.valuecounts_for_colname1_groupedby_colname2('t', 'precinct', sort=True)),
+    ('daf_valuecount', lambda d: d.daf_valuecount(cols=['precinct', 't'])),
+    ('daf_valuecount all', lambda d: d.daf_valuecount()),
+    ('value_counts_daf', lambda d: d.value_counts_daf('precinct', sort=True, include_total=True).lol),
+    ('sum', lambda d: d.sum(['style'])),
+    ('sum numeric_only', lambda d: d.sum(['style', 'n', 't'], numeric_only=True)),
+    ('groupsum_daf', lambda d: (d.groupsum_daf('precinct', reduce_cols=['style', 'n', 't']).lol, d.groupsum_daf('precinct').keyfield)),
+    ('groupsum_daf all', lambda d: d.groupsum_daf('precinct').lol),
+    ]
+
+
+@pytest.mark.parametrize('call', [c for _, c in COUNT_CALLS], ids=[name for name, _ in COUNT_CALLS])
+def test_counts_and_sums_match_mdaf(call):
+    counts_daf: Daf = make_counts_daf()
+    counts_sdaf: SqlDaf = SqlDaf.from_daf(counts_daf, name='counts')
+    assert call(counts_sdaf) == call(counts_daf)
+    sel_sdaf: SqlDaf = counts_sdaf.select_where_sql('"ballot_id" != ?', ['b1'])
+    assert call(sel_sdaf) == call(counts_daf.select_where(lambda row: row['ballot_id'] != 'b1'))
+
+
+def test_counts_keep_the_order_first_seen():
+    counts_sdaf: SqlDaf = SqlDaf.from_daf(make_counts_daf(), name='counts')
+    assert list(counts_sdaf.valuecounts_for_colname('t')) == ['x', '5', NULL, 'y']
+
+
+def test_sum_raises_on_text_and_uses_dtypes():
+    counts_daf: Daf = make_counts_daf()
+    counts_sdaf: SqlDaf = SqlDaf.from_daf(counts_daf, name='counts')
+    with pytest.raises(ValueError):
+        counts_sdaf.sum(['n'])
+    with pytest.raises(ValueError):
+        counts_daf.sum(['n'])
+    nums_daf: Daf = Daf(lol=[[1, 2.5], [2, 1]], cols=['i', 'f'], dtypes={'i': int, 'f': float})
+    nums_sdaf: SqlDaf = SqlDaf.from_daf(nums_daf, name='nums')
+    assert nums_sdaf.sum() == nums_daf.sum() == {'i': 3, 'f': 3.5}
+    assert nums_sdaf.sum(['i', 'nothing'], numeric_only=True) == nums_daf.sum(['i', 'nothing'], numeric_only=True)
+
+
+def test_counts_on_an_empty_table():
+    empty_daf: Daf = Daf(cols=['a', 'b'])
+    empty_sdaf: SqlDaf = SqlDaf('empty', ['a', 'b'])
+    for call in (lambda d: d.valuecounts_for_colname('a'), lambda d: d.daf_valuecount(), lambda d: d.sum(),
+                 lambda d: d.groupsum_daf('a').lol):
+        assert call(empty_sdaf) == call(empty_daf)
 
 
 def test_select_where_sql_with_params_and_null():

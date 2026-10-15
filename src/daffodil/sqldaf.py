@@ -1447,6 +1447,355 @@ class SqlDaf(Daf):
                 self.select_where(lambda row: not where(row), indirect_col=indirect_col, cols=cols))
 
 
+    # ---- counts and sums ----
+
+    def _value_counts_lt(self, colnames: T_ls, where_sql: str = '', params: Iterable[Any] = ()) -> List[Tuple[Any, ...]]:
+        """
+        Count each combination of values of some columns, in one GROUP BY. Internal use.
+
+        Gives (value, ..., count) tuples, with SQL NULL as NULL, in the order each combination is
+        first seen, as a dict in a Daf fills.
+        """
+        self._resolve_parent()
+        rows_sql, rows_params = self._rows_sql()
+        group_sql: str = ', '.join(quote_name(col) for col in colnames)
+        where_part: str = f' WHERE {where_sql}' if where_sql else ''
+        cursor: sqlite3.Cursor = self._execute(
+                f'SELECT {group_sql}, COUNT(*) FROM ({rows_sql}){where_part} GROUP BY {group_sql} ORDER BY MIN({ORD_COL})',
+                rows_params + null_to_none(params))
+        return [tuple(none_to_null(row_t)) for row_t in self._fetch(cursor)]
+
+
+    def valuecounts_for_colname(                                            # type: ignore[override]
+            self,
+            colname:    str,                            # the column to count.
+            sort:       bool = False,                   # if True, order by count.
+            reverse:    bool = True,                    # with sort, True puts the most common first.
+            omit_nulls: bool = False,                   # if True, leave out the count of NULL.
+            ) -> T_di:
+        """
+        Count how often each value occurs in one column, as `Daf.valuecounts_for_colname()` does.
+
+        One GROUP BY counts them in SQLite, so no column is read into Python. The values are in
+        the order first seen, or by count with `sort`. NULL is counted as NULL, unless
+        `omit_nulls`. A column that does not exist gives an empty dict.
+
+        Args:
+            colname: The column to count.
+            sort: If True, order by count.
+            reverse: With `sort`, True puts the most common first.
+            omit_nulls: If True, leave out the count of NULL.
+
+        Returns:
+            A dict that maps each value to its count.
+
+        Examples:
+            >>> import tempfile
+            >>> SqlDaf.db_path = tempfile.mkdtemp() + '/job.db'
+            >>> bif_sdaf = SqlDaf.from_daf(Daf(lol=[['b1', 'P1'], ['b2', 'P2'], ['b3', 'P1']], cols=['ballot_id', 'precinct']), name='bif')
+            >>> bif_sdaf.valuecounts_for_colname('precinct', sort=True)
+            {'P1': 2, 'P2': 1}
+        """
+        if colname not in self.hd:
+            return {}
+        valuecounts_di: T_di = {val: count for val, count in self._value_counts_lt([colname])}
+        if omit_nulls:
+            valuecounts_di.pop(NULL, None)
+        if sort:
+            valuecounts_di = dict(sorted(valuecounts_di.items(), key=lambda item: item[1], reverse=reverse))
+        return valuecounts_di
+
+
+    def valuecounts_for_colnames_ls(                                        # type: ignore[override]
+            self,
+            colnames_ls:    T_ls | None = None,         # the columns to count. All if None.
+            sort:           bool = False,
+            reverse:        bool = True,
+            omit_nulls:     bool = False,
+            ) -> Dict[str, T_di]:
+        """
+        Count how often each value occurs, in each of several columns, as `Daf.valuecounts_for_colnames_ls()` does.
+
+        It is one GROUP BY for each column. See `valuecounts_for_colname()`.
+
+        Args:
+            colnames_ls: The columns to count. All if None.
+            sort: If True, order each count by size.
+            reverse: With `sort`, True puts the most common first.
+            omit_nulls: If True, leave out the count of NULL.
+
+        Returns:
+            A dict that maps each column to a dict of value and count.
+        """
+        return {colname: self.valuecounts_for_colname(colname, sort=sort, reverse=reverse, omit_nulls=omit_nulls)
+                for colname in (colnames_ls or self.columns())}
+
+
+    def valuecounts_for_colname_selectedby_colname(                         # type: ignore[override]
+            self,
+            colname:                str,                # the column to count.
+            selectedby_colname:     str,                # the column to test.
+            selectedby_colvalue:    Any,                # only rows where that column has this value are counted.
+            sort:                   bool = False,
+            reverse:                bool = True,
+            ) -> T_di:
+        """
+        Count the values of a column, in the rows where another column has a value, as the Daf method does.
+
+        Args:
+            colname: The column to count.
+            selectedby_colname: The column to test.
+            selectedby_colvalue: Only rows where that column has this value are counted. NULL matches NULL.
+            sort: If True, order the counts by size.
+            reverse: With `sort`, True puts the most common first.
+
+        Returns:
+            A dict that maps each value to its count. It is empty if a column does not exist.
+        """
+        if colname not in self.hd or selectedby_colname not in self.hd:
+            return {}
+        valuecounts_di: T_di = {val: count for val, count in self._value_counts_lt(
+                [colname], f'{quote_name(selectedby_colname)} IS ?', [selectedby_colvalue])}
+        if sort:
+            valuecounts_di = dict(sorted(valuecounts_di.items(), key=lambda item: item[1], reverse=reverse))
+        return valuecounts_di
+
+
+    def valuecounts_for_colnames_ls_selectedby_colname(                     # type: ignore[override]
+            self,
+            colnames_ls:            T_ls | None = None, # the columns to count. All if None.
+            selectedby_colname:     str = '',           # the column to test.
+            selectedby_colvalue:    Any = '',           # only rows where that column has this value are counted.
+            sort:                   bool = False,
+            reverse:                bool = True,
+            ) -> Dict[str, T_di]:
+        """
+        Count the values of several columns, in the rows where another column has a value, as the Daf method does.
+
+        Args:
+            colnames_ls: The columns to count. All if None.
+            selectedby_colname: The column to test.
+            selectedby_colvalue: Only rows where that column has this value are counted.
+            sort: If True, order the counts by size.
+            reverse: With `sort`, True puts the most common first.
+
+        Returns:
+            A dict that maps each column to a dict of value and count.
+        """
+        return {colname: self.valuecounts_for_colname_selectedby_colname(
+                    colname, selectedby_colname, selectedby_colvalue, sort=sort, reverse=reverse)
+                for colname in (colnames_ls or self.columns())}
+
+
+    def valuecounts_for_colname1_groupedby_colname2(                        # type: ignore[override]
+            self,
+            colname1:           str,                    # the column whose values are counted.
+            groupedby_colname2: str,                    # the column whose values form the groups.
+            sort:               bool = False,
+            reverse:            bool = True,
+            ) -> Dict[Any, T_di]:
+        """
+        Count the values of one column, for each value of another, as the Daf method does.
+
+        One GROUP BY of the two columns counts them all. The groups, and the values in each, are
+        in the order first seen. Use it to see whether two columns relate one to one: each group
+        should then hold a single value.
+
+        Args:
+            colname1: The column whose values are counted.
+            groupedby_colname2: The column whose values form the groups.
+            sort: If True, order each count by size.
+            reverse: With `sort`, True puts the most common first.
+
+        Returns:
+            A dict that maps each value of the second column to a dict of value and count.
+        """
+        if colname1 not in self.hd or groupedby_colname2 not in self.hd:
+            return {}
+        valuecounts_dodi: Dict[Any, T_di] = {}
+        for groupval, val, count in self._value_counts_lt([groupedby_colname2, colname1]):
+            valuecounts_dodi.setdefault(groupval, {})[val] = count
+        if sort:
+            valuecounts_dodi = {groupval: dict(sorted(valuecounts_di.items(), key=lambda item: item[1], reverse=reverse))
+                                for groupval, valuecounts_di in valuecounts_dodi.items()}
+        return valuecounts_dodi
+
+
+    def value_counts_daf(                                                   # type: ignore[override]
+            self,
+            colname:        str,                        # the column to count.
+            sort:           bool = False,
+            reverse:        bool = True,
+            include_total:  bool = False,               # if True, add a row with the total.
+            omit_nulls:     bool = False,
+            ) -> Daf:
+        """
+        Count the values of a column into a small Daf in memory, as `Daf.value_counts_daf()` does.
+
+        The counts come from `valuecounts_for_colname()`. The Daf has the columns `colname` and
+        counts, and a row for each value.
+
+        Args:
+            colname: The column to count.
+            sort: If True, order by count.
+            reverse: With `sort`, True puts the most common first.
+            include_total: If True, add a row with the total.
+            omit_nulls: If True, leave out the count of NULL.
+
+        Returns:
+            A Daf in memory, with a row for each value.
+        """
+        value_counts_daf: Daf = Daf.from_lod_to_cols(
+                [self.valuecounts_for_colname(colname, sort=sort, reverse=reverse, omit_nulls=omit_nulls)],
+                cols=[colname, 'counts'])
+        if include_total:
+            value_counts_daf.append({colname: ' **Total** ', 'counts': sum(value_counts_daf.col('counts'))})
+        return value_counts_daf
+
+
+    def daf_valuecount(                                                     # type: ignore[override]
+            self,
+            by:     str = 'row',                        # only 'row', as the default of Daf.
+            cols:   T_ls | None = None,                 # the columns to count. All if None.
+            ) -> T_da:
+        """
+        Count how often each value occurs, in each column, as `Daf.daf_valuecount()` does.
+
+        It gives the same result: a column that is not in `cols` gets NULL in place of its
+        counts, and a table with no rows gives an empty dict. Each column is one GROUP BY.
+
+        Args:
+            by: Only `row` is supported.
+            cols: The columns to count. All if None.
+
+        Returns:
+            A dict that maps each column to a dict of value and count.
+
+        Raises:
+            NotImplementedError: `by` is not `row`.
+        """
+        if by != 'row':
+            raise NotImplementedError(f"daf_valuecount(by={by!r}) is not supported on a SqlDaf.")
+        if not self:
+            return {}
+        count_cols_set: set = set(cols if cols is not None else self.columns())
+        return {colname: (self.valuecounts_for_colname(colname) if colname in count_cols_set else NULL)
+                for colname in self.columns()}
+
+
+    def sum(                                                                # type: ignore[override]
+            self,
+            colnames_ls:    T_ls | None = None,         # the columns to total. All if None.
+            numeric_only:   bool = False,               # if True, total only int and float columns, and text counts as 0.
+            ) -> T_da:
+        """
+        Total the columns, as `Daf.sum()` does, and return a dict of the totals.
+
+        Numbers are totalled by SQLite. A column that also holds text has its text cells read
+        into Python and added as `Daf.sum()` adds them: text that is not a number raises
+        ValueError, or counts as 0 with `numeric_only`. NULL is skipped. Each total starts as a
+        float, and is converted to the dtype of its column if there is one.
+
+        Args:
+            colnames_ls: The columns to total. All if None.
+            numeric_only: If True, total only the columns with an int or float dtype, and count text that is not a number as 0.
+
+        Returns:
+            A dict that maps each column name to its total.
+
+        Raises:
+            ValueError: A text cell cannot be converted to a number.
+
+        Examples:
+            >>> import tempfile
+            >>> SqlDaf.db_path = tempfile.mkdtemp() + '/job.db'
+            >>> SqlDaf.from_daf(Daf(lol=[[1, 10], [2, 20]], cols=['x', 'y']), name='nums').sum()
+            {'x': 3.0, 'y': 30.0}
+        """
+        sum_cols_ls: T_ls
+        if colnames_ls is None:
+            sum_cols_ls = self.columns()
+        elif not (numeric_only and self.dtypes):
+            sum_cols_ls = list(dict.fromkeys(col for col in colnames_ls if col in self.hd))
+        else:
+            sum_cols_ls = list(dict.fromkeys(col for col in colnames_ls if col in self.hd and self.dtypes.get(col) in (int, float)))
+        sums_d: T_da = dict.fromkeys(sum_cols_ls, 0.0)
+        if not sum_cols_ls:
+            return sums_d
+
+        self._resolve_parent()
+        rows_sql, rows_params = self._rows_sql()
+        totals_sql: str = ', '.join(
+                f"TOTAL(CASE WHEN typeof({quote_name(col)}) IN ('integer', 'real') THEN {quote_name(col)} END), "
+                f"SUM(typeof({quote_name(col)}) = 'text')" for col in sum_cols_ls)
+        totals_t: Tuple[Any, ...] = self._fetch(self._execute(f'SELECT {totals_sql} FROM ({rows_sql})', rows_params))[0]
+        icol: int
+        col: str
+        for icol, col in enumerate(sum_cols_ls):
+            sums_d[col] = float(totals_t[2 * icol])
+            if totals_t[2 * icol + 1]:                      # text cells: add them as Daf.sum() does.
+                to_float: Callable[[Any], float] = Daf._safe_tofloat if numeric_only else float
+                text_lot: List[Tuple[Any, ...]] = self._fetch(self._execute(
+                        f"SELECT {quote_name(col)} FROM ({rows_sql}) WHERE typeof({quote_name(col)}) = 'text'", rows_params))
+                sums_d[col] += sum(to_float(text_t[0]) for text_t in text_lot if text_t[0])
+        return daf_utils.set_dict_dtypes(sums_d, dtypes=self.dtypes)
+
+
+    def groupsum_daf(                                                       # type: ignore[override]
+            self,
+            colname:        str,                        # the column to group by.
+            by:             str = 'row',                # only 'row', as the default of Daf.
+            reduce_cols:    T_ls | None = None,         # the columns to add. All but colname if None.
+            ) -> Daf:
+        """
+        Group by a column and add up the other columns of each group, as `Daf.groupsum_daf()` does.
+
+        One GROUP BY does it all in SQLite, and the result is a small Daf in memory, with one
+        row for each value, in the order first seen, and `colname` as its keyfield. As in a
+        Daf, only numbers are added: text, even text of digits, counts as 0, and a column with
+        no numbers in a group totals 0. A column not in `reduce_cols` is NULL.
+
+        Args:
+            colname: The column to group by.
+            by: Only `row` is supported.
+            reduce_cols: The columns to add. All but `colname` if None.
+
+        Returns:
+            A Daf in memory, with one row for each group.
+
+        Raises:
+            KeyError: `colname` is not a column.
+            NotImplementedError: `by` is not `row`.
+
+        Examples:
+            >>> import tempfile
+            >>> SqlDaf.db_path = tempfile.mkdtemp() + '/job.db'
+            >>> nums_sdaf = SqlDaf.from_daf(Daf(lol=[['a', 1, 10], ['b', 2, 20], ['a', 3, 30]], cols=['g', 'x', 'y']), name='nums')
+            >>> nums_sdaf.groupsum_daf('g', reduce_cols=['y']).lol
+            [['a', '', 40], ['b', '', 20]]
+        """
+        if by != 'row':
+            raise NotImplementedError(f"groupsum_daf(by={by!r}) is not supported on a SqlDaf.")
+        if colname not in self.hd:
+            raise KeyError(colname)
+        sum_cols_set: set = set(reduce_cols if reduce_cols is not None else self.columns()) - {colname}
+        self._resolve_parent()
+        rows_sql, rows_params = self._rows_sql()
+        select_ls: T_ls = []
+        col: str
+        for col in self.columns():
+            if col == colname:
+                select_ls.append(quote_name(col))
+            elif col in sum_cols_set:
+                select_ls.append(f"SUM(CASE WHEN typeof({quote_name(col)}) IN ('integer', 'real') THEN {quote_name(col)} ELSE 0 END)")
+            else:
+                select_ls.append('NULL')
+        rows_lot: List[Tuple[Any, ...]] = self._fetch(self._execute(
+                f'SELECT {", ".join(select_ls)} FROM ({rows_sql}) GROUP BY {quote_name(colname)} ORDER BY MIN({ORD_COL})',
+                rows_params))
+        return Daf(lol=[none_to_null(row_t) for row_t in rows_lot], cols=self.columns(), keyfield=colname)
+
+
     # ---- groups ----
 
     def groupby(                                                            # type: ignore[override]
