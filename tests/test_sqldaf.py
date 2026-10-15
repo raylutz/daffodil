@@ -644,6 +644,54 @@ def test_select_by_dict_expectmax_and_keyfield():
         bif_sdaf.select_by_dict('P1')                       # type: ignore[arg-type]
 
 
+@pytest.mark.parametrize('selector', [
+    {'precinct': 'P1'},
+    {'precinct': 'P1', 'style_num': 2},
+    [{'precinct': 'P2'}, {'style_num': 1}],
+    {'is_bmd': NULL},
+    {},
+    [],
+    {'nothing': 1},
+    ])
+def test_split_by_dict_matches_mdaf(selector):
+    bif_daf: Daf = make_bif_daf()
+    bif_sdaf: SqlDaf = SqlDaf.from_daf(bif_daf, name='bif')
+    yes_sdaf, no_sdaf = bif_sdaf.split_by_dict(selector)
+    yes_daf, no_daf = bif_daf.split_by_dict(selector)
+    assert not yes_sdaf.is_resolved and not no_sdaf.is_resolved
+    assert yes_sdaf.to_daf().lol == yes_daf.lol
+    assert no_sdaf.to_daf().lol == no_daf.lol
+    assert len(yes_sdaf) + len(no_sdaf) == len(bif_sdaf)
+
+
+def test_split_by_dict_keyfield():
+    bif_sdaf: SqlDaf = SqlDaf.from_daf(make_bif_daf(), name='bif')
+    yes_sdaf, no_sdaf = bif_sdaf.split_by_dict({'precinct': 'P1'}, keyfield='style_num')
+    assert (yes_sdaf.keyfield, no_sdaf.keyfield) == ('style_num', 'style_num')
+    yes_sdaf, no_sdaf = bif_sdaf.split_by_dict({'precinct': 'P1'})
+    assert (yes_sdaf.keyfield, no_sdaf.keyfield) == ('ballot_id', 'ballot_id')
+
+
+def test_split_where_matches_mdaf():
+    bif_daf: Daf = make_bif_daf()
+    bif_sdaf: SqlDaf = SqlDaf.from_daf(bif_daf, name='bif')
+    def where(row) -> bool:
+        return row['style_num'] > 1
+    yes_sdaf, no_sdaf = bif_sdaf.split_where(where, cols=['style_num'])
+    yes_daf, no_daf = bif_daf.split_where(where)
+    assert not yes_sdaf.is_resolved and not no_sdaf.is_resolved
+    assert yes_sdaf.to_daf().lol == yes_daf.lol
+    assert no_sdaf.to_daf().lol == no_daf.lol
+
+
+def test_split_where_bad_col_and_indirect_col():
+    bif_sdaf: SqlDaf = SqlDaf.from_daf(make_bif_daf(), name='bif')
+    with pytest.raises(KeyError):
+        bif_sdaf.split_where(lambda row: True, cols=['nothing'])
+    with pytest.raises(NotImplementedError):
+        bif_sdaf.split_where(lambda row: True, indirect_col='x')
+
+
 def test_select_where_sql_with_params_and_null():
     bif_sdaf: SqlDaf = SqlDaf.from_daf(make_bif_daf(), name='bif')
     assert bif_sdaf.select_where_sql('"style_num" >= ? AND "precinct" != ?', [2, 'P2']).to_daf().lol == [
