@@ -492,7 +492,7 @@ def test_sql_write_is_committed_and_gives_an_empty_daf():
     lambda sdaf: sdaf[0, 'contest'],
     lambda sdaf: list(sdaf),
     lambda sdaf: sdaf.select_irows([0]),
-    lambda sdaf: sdaf.groupby('contest'),
+    lambda sdaf: sdaf.multi_groupby(['contest']),
     lambda sdaf: sdaf.to_lod(),
     lambda sdaf: sdaf == sdaf,
     lambda sdaf: sdaf.retmode,
