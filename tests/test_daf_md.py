@@ -175,13 +175,13 @@ def test_find_first_markdown_table_with_leading_prose():
     assert end_idx == 3
 
 
-def test_find_first_markdown_table_stops_on_inconsistent_columns():
-    # second row has a different column count, so the table block ends after the first row
-    lines = ["| a | b |", "| 1 | 2 | 3 |"]
+def test_find_first_markdown_table_keeps_a_row_with_another_cell_count():
+    """ The block ends at a line that is not a row. A row with another count stays, so that from_md() can raise. """
+    lines = ["| a | b |", "| 1 | 2 | 3 |", "| 4 | 5 |", "", "| x |"]
     table_lines, start_idx, end_idx = md.find_first_markdown_table(lines)
-    assert table_lines == ["| a | b |"]
+    assert table_lines == ["| a | b |", "| 1 | 2 | 3 |", "| 4 | 5 |"]
     assert start_idx == 0
-    assert end_idx == 0
+    assert end_idx == 2
 
 
 # --- _parse_daf_footer ---
@@ -367,24 +367,26 @@ def test_from_md_abbreviated_table_raises():
         Daf.from_md(md_str)
 
 
-@pytest.mark.xfail(
-    reason=(
-        "The 'Inconsistent column count' RuntimeError in _from_md (after header/separator "
-        "detection) appears unreachable via the public API: find_first_markdown_table already "
-        "truncates a table block at the first row whose column count differs from the block's "
-        "first row, so by the time _from_md validates row lengths, all rows are already uniform. "
-        "Left in place as defensive code; this test documents that it's currently dead."
-    ),
-    strict=True,
-)
 def test_from_md_inconsistent_column_count_raises():
     md_str = (
         "| id | letter |\n"
         "| --- | --- |\n"
         "| 1 | a | extra |\n"
     )
-    with pytest.raises(RuntimeError):
+    with pytest.raises(RuntimeError, match="row 0 of the table has 3 cells, but the header has 2"):
         Daf.from_md(md_str)
+
+
+def test_from_md_raises_for_a_short_row_in_the_middle():
+    """ A short row raises. The rows after it are not dropped. """
+    md_str = "| id | v |\n| -: | -: |\n| 1 | a |\n| 2 |\n| 3 | c |\n"
+    with pytest.raises(RuntimeError, match="row 1 of the table has 1 cells.*line 4 of the text"):
+        Daf.from_md(md_str)
+
+
+def test_from_md_reads_only_the_first_of_two_tables():
+    md_str = "| a | b |\n| - | - |\n| 1 | 2 |\n\n| x |\n| - |\n| 9 |\n"
+    assert Daf.from_md(md_str).lol == [['1', '2']]
 
 
 def test_from_md_cleans_bold_header_cells():

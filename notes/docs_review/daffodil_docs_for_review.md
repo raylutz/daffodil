@@ -4685,6 +4685,9 @@ Only the first table in the text is read. Text before it, such as headings and
 prose, is skipped. A table row starts and ends with `|`. The table must have
 a header row and then a separator row such as `| -: | -: |`. The columns are
 the header cells. A table with no header row is not read, and raises `RuntimeError`.
+The table ends at the first line that is not a row, such as a blank line. A row with
+more or fewer cells than the header raises `RuntimeError`, which names the line, so
+that no row is lost without notice.
 
 A Daf with rows and no column names is written by `to_md()` with the spreadsheet
 names `A`, `B` and so on in the header. Reading that text gives a Daf with those
@@ -4712,7 +4715,8 @@ Returns:
     The new Daf.
 
 Raises:
-    RuntimeError: A table is found but it has no header row and separator row.
+    RuntimeError: A table is found but it has no header row and separator row, or a row
+        has a different number of cells than the header.
 
 Examples:
     >>> from daffodil.daf import Daf
@@ -7408,16 +7412,15 @@ Examples:
 
 
 
-##### wide_to_narrow(id_cols: T_ls, varname_colname: str = 'varname', value_colname: str = 'value') -> 'Daf'
+##### wide_to_narrow(id_cols: T_ls, varname_colname: str = 'variable', value_colname: str = 'value') -> 'Daf'
 
 Turn columns into rows. This is called melt or unpivot.
 
 Each column that is not an id column gives one row for each row of this Daf.
 The row holds the id values, the name of the column, and its value.
 
-The default name of the column of names is `varname`. `narrow_to_wide()` looks for
-`variable` by default. So to go back, pass `varname_colname='variable'` here, or
-`varname_col='varname'` there.
+The default names, `variable` and `value`, are those that `narrow_to_wide()` reads, and
+those that pandas `melt()` uses. So the two methods chain with their defaults.
 
 Args:
     id_cols: The columns that identify a row. They are kept as they are.
@@ -7434,20 +7437,19 @@ Examples:
     >>> d = Daf(lol=[['x', 1, 2], ['y', 3, 4]], cols=['id', 'a', 'b'])
     >>> d.wide_to_narrow(['id'])
     <BLANKLINE>
-    | id | varname | value |
-    | -: | ------: | ----: |
-    |  x |       a |     1 |
-    |  x |       b |     2 |
-    |  y |       a |     3 |
-    |  y |       b |     4 |
+    | id | variable | value |
+    | -: | -------: | ----: |
+    |  x |        a |     1 |
+    |  x |        b |     2 |
+    |  y |        a |     3 |
+    |  y |        b |     4 |
     <BLANKLINE>
     %% daf rows=4; cols=3; keyfield=''; name=''
     <BLANKLINE>
 
-    A round trip, with the names matched:
+    A round trip:
 
-    >>> narrow = d.wide_to_narrow(['id'], varname_colname='variable')
-    >>> narrow.narrow_to_wide(['id']).lol
+    >>> d.wide_to_narrow(['id']).narrow_to_wide(['id']).lol
     [['x', 1, 2], ['y', 3, 4]]
 
 
@@ -7465,8 +7467,7 @@ than once, the last value is kept.
 With `wide_cols`, those are the columns after the ids, in that order. A
 name that is not listed is left out.
 
-The default `varname_col` is `variable`, but `wide_to_narrow()` names that column
-`varname` by default. Match the names to go back and forth.
+The default names, `variable` and `value`, are those that `wide_to_narrow()` writes.
 
 An empty Daf gives an empty Daf.
 

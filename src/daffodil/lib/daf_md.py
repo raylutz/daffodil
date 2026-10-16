@@ -472,6 +472,9 @@ def _from_md(cls, md_str: str) -> 'Daf': # -> "Daf":
     prose, is skipped. A table row starts and ends with `|`. The table must have
     a header row and then a separator row such as `| -: | -: |`. The columns are
     the header cells. A table with no header row is not read, and raises `RuntimeError`.
+    The table ends at the first line that is not a row, such as a blank line. A row with
+    more or fewer cells than the header raises `RuntimeError`, which names the line, so
+    that no row is lost without notice.
 
     A Daf with rows and no column names is written by `to_md()` with the spreadsheet
     names `A`, `B` and so on in the header. Reading that text gives a Daf with those
@@ -499,7 +502,8 @@ def _from_md(cls, md_str: str) -> 'Daf': # -> "Daf":
         The new Daf.
 
     Raises:
-        RuntimeError: A table is found but it has no header row and separator row.
+        RuntimeError: A table is found but it has no header row and separator row, or a row
+            has a different number of cells than the header.
 
     Examples:
         >>> from daffodil.daf import Daf
@@ -607,12 +611,15 @@ def _from_md(cls, md_str: str) -> 'Daf': # -> "Daf":
 
     expected_colnum = len(colnames_ls)
 
-    for row in lol:
+    irow: int
+    row: T_ls
+    for irow, row in enumerate(lol):
 
         if expected_colnum and len(row) != expected_colnum:
 
             raise RuntimeError(
-                "Inconsistent column count in Markdown table."
+                f"from_md(): row {irow} of the table has {len(row)} cells, but the header has "
+                f"{expected_colnum}. The row is line {table_start_idx + 3 + irow} of the text: {data_lines[irow]!r}"
             )
 
     colnames_ls = normalize_colnames(colnames_ls)
@@ -717,16 +724,12 @@ def find_first_markdown_table(
         lines: T_ls,
         ) -> tuple[T_ls | None, int | None, int | None]:
     """
-    Find the first structurally-valid markdown table block.
+    Find the first block of lines that are rows of a Markdown table.
 
-    Rules:
-    - rows must begin and end with '|'
-    - all rows in the block must have same column count
-
-    Notes:
-    - header row is NOT required
-    - separator row is NOT required
-    - first contiguous valid table block is returned
+    A row begins and ends with `|`. The block is every row up to the first line that is not
+    one, such as a blank line or prose. A row with a different number of cells stays in the
+    block. Ending the block there would drop the rows after it with no error, so the caller
+    checks the counts instead. A header row and a separator row are not required here.
 
     Returns:
         (
@@ -748,10 +751,6 @@ def find_first_markdown_table(
             and stripped.rstrip().endswith("|")
         )
 
-    def _parse_row(line: str) -> T_ls:
-
-        return split_md_row(line)
-
     num_lines = len(lines)
 
     for start_idx in range(num_lines):
@@ -760,10 +759,6 @@ def find_first_markdown_table(
 
         if not _looks_like_table_row(line):
             continue
-
-        first_row = _parse_row(line)
-
-        expected_cols = len(first_row)
 
         table_lines = [line]
 
@@ -774,11 +769,6 @@ def find_first_markdown_table(
             next_line = lines[idx]
 
             if not _looks_like_table_row(next_line):
-                break
-
-            row = _parse_row(next_line)
-
-            if len(row) != expected_cols:
                 break
 
             table_lines.append(next_line)
