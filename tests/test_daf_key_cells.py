@@ -55,6 +55,7 @@ WRITES: list = [
     ('rows from a Daf',   lambda d: d.__setitem__(slice(None), Daf(lol=[['q1', 5, 'p'], ['', 6, 'q']], cols=['k', 'x', 'y']))),
     ('assign_record_irow', lambda d: d.assign_record_irow(1, {'x': 9})),
     ('update_record_irow', lambda d: d.update_record_irow(1, {'k': '', 'x': 9})),
+    ('update_record_krow', lambda d: d.update_record_krow('r2', {'k': '', 'x': 9})),
 ]
 
 
@@ -70,7 +71,7 @@ def test_write_of_null_key_is_allowed(write: tuple) -> None:
 @pytest.mark.parametrize('write', WRITES, ids=[w[0] for w in WRITES])
 def test_without_keyfield_null_is_allowed(write: tuple) -> None:
     daf = Daf(lol=[['r1', 1, 'a'], ['r2', 2, 'b']], cols=['k', 'x', 'y'])
-    if write[0] in ('cell by key', 'row by key, dict'):
+    if write[0] in ('cell by key', 'row by key, dict', 'update_record_krow'):
         pytest.skip('selects a row by key')
     write[1](daf)
     assert any(row_la[0] == '' for row_la in daf.lol)
@@ -94,6 +95,49 @@ def test_update_record_irow_keeps_the_key() -> None:
     daf.update_record_irow(0, {'x': 9})
     assert daf.lol[0] == ['r1', 9, 'a']
     assert daf['r1', 'x'] == 9
+
+
+# --- update_record_krow ---
+
+def test_update_record_krow_changes_only_the_named_cells() -> None:
+    daf = _keyed()
+    daf.update_record_krow('r2', {'x': 9, 'nope': 1})
+    assert daf.lol == [['r1', 1, 'a'], ['r2', 9, 'b']]
+
+
+def test_update_record_krow_int_key_is_a_key_not_a_position() -> None:
+    daf = Daf(lol=[[10, 'a'], [20, 'b'], [0, 'c']], cols=['id', 'v'], keyfield='id')
+    daf.update_record_krow(0, {'v': 'q'})
+    assert daf.lol == [[10, 'a'], [20, 'b'], [0, 'q']]
+
+
+def test_update_record_krow_composite_key() -> None:
+    daf = _composite()
+    key_t = next(iter(daf._rebuild_kd_if_invalidated()._kd))
+    daf.update_record_krow(key_t, {daf.columns()[-1]: 99})
+    assert daf.lol[0][-1] == 99
+
+
+@pytest.mark.parametrize('daf, key', [
+    (Daf(lol=[['r1', 1]], cols=['k', 'x'], keyfield='k'), 'zz'),
+    (Daf(cols=['k', 'x'], keyfield='k'), 'r1'),
+], ids=['missing key', 'no rows'])
+def test_update_record_krow_missing_key_raises_and_changes_nothing(daf: Daf, key: str) -> None:
+    before = [row[:] for row in daf.lol]
+    with pytest.raises(KeyError):
+        daf.update_record_krow(key, {'x': 9})
+    assert daf.lol == before
+
+
+def test_update_record_krow_without_keyfield_raises() -> None:
+    with pytest.raises(ValueError, match='no keyfield'):
+        Daf(lol=[['r1', 1]], cols=['k', 'x']).update_record_krow('r1', {'x': 9})
+
+
+def test_update_record_krow_none_record_changes_nothing() -> None:
+    daf = _keyed()
+    assert daf.update_record_krow('zz', None) is daf
+    assert daf.lol == [['r1', 1, 'a'], ['r2', 2, 'b']]
 
 
 # --- adding rows ---
@@ -173,6 +217,7 @@ WRITE_RENAMES: list = [
     ('column list',       lambda d: d.__setitem__((slice(None), 'k'), ['q1', 'r2'])),
     ('assign_record_irow', lambda d: d.assign_record_irow(0, {'k': 'q1', 'x': 1, 'y': 'a'})),
     ('update_record_irow', lambda d: d.update_record_irow(0, {'k': 'q1'})),
+    ('update_record_krow', lambda d: d.update_record_krow('r1', {'k': 'q1'})),
 ]
 
 
@@ -252,9 +297,10 @@ Check = Callable[[Daf], Any]
     lambda d: d.__setitem__((0, 'k'), 'r1'),
     lambda d: d.__setitem__((slice(None), 'x'), 0),
     lambda d: d.update_record_irow(0, {'x': 9}),
+    lambda d: d.update_record_krow('r1', {'x': 9}),
     lambda d: d.assign_record_irow(0, {'k': 'r1', 'x': 9}),
     lambda d: d.set_col_irows('x', [0], 9),
-], ids=['other cell', 'same key', 'other column', 'update other cell', 'same key, new row', 'set other column'])
+], ids=['other cell', 'same key', 'other column', 'update other cell', 'update by key', 'same key, new row', 'set other column'])
 def test_index_kept_when_no_key_changes(write: Check) -> None:
     daf = _keyed()
     kd = daf._kd

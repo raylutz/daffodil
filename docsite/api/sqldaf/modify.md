@@ -8,6 +8,8 @@ Adding rows, changing values, and changing the columns.
 
 ::: daffodil.sqldaf.SqlDaf.assign_record
 
+::: daffodil.sqldaf.SqlDaf.update_record_krow
+
 ::: daffodil.sqldaf.SqlDaf.update_by_keylist
 
 ::: daffodil.sqldaf.SqlDaf.assign_col

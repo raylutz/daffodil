@@ -275,7 +275,7 @@ class SqlDaf(Daf):
     - Functions over rows: `apply()` and `reduce()`.
     - Adding rows: `append()`, `record_append()`, `extend()`, `assign_record()` and `concat()`.
     - Changing values: `sdaf[key, col] = v`, `sdaf[key] = row`, `sdaf[:, col] = values`,
-      `update_by_keylist()`, `assign_col()`, `apply_to_col()` and `apply_in_place()`.
+      `update_record_krow()`, `update_by_keylist()`, `assign_col()`, `apply_to_col()` and `apply_in_place()`.
     - Columns and layout: `insert_col()`, `drop_cols()`, `rename_cols()`, `set_cols()`,
       `set_dtypes()`, `attach_schema()` and `clone_empty()`.
     - Repeated keys: `remove_dups()`. Sorting: `sort_by_colname()` and `sort_by_colnames()`.
@@ -3361,7 +3361,7 @@ class SqlDaf(Daf):
         Put one row in by its key, replacing the row that has that key, as `Daf.assign_record()` does.
 
         The whole row is replaced, in its place. Columns the dict lacks become Python NULL. A new
-        key is added at the end. Use `update_by_keylist()` to change only some cells.
+        key is added at the end. Use `update_record_krow()` to change only some cells.
 
         Args:
             record: The row, as a dict. It must have the keyfield.
@@ -3411,7 +3411,7 @@ class SqlDaf(Daf):
         Change some cells in the rows that have the given keys, as `Daf.update_by_keylist()` does.
 
         Only the columns named in the dict change. A key that is not found is skipped. It is one
-        UPDATE for all the keys. On a selection, the parent's rows change, as a Daf selection
+        UPDATE for all the keys. For one row, `update_record_krow()` raises KeyError for a missing key. On a selection, the parent's rows change, as a Daf selection
         shares its rows.
 
         Args:
@@ -3440,6 +3440,54 @@ class SqlDaf(Daf):
         return self
 
 
+    def update_record_krow(self, key: Any, record: T_da | None = None) -> 'SqlDaf':   # type: ignore[override]
+        """
+        Change some cells in the row that has this key, as `Daf.update_record_krow()` does.
+
+        Only the columns named in the dict change. An int is always a key here, never a
+        position, so it suits a keyfield of ints. It is one UPDATE. On a selection, the
+        parent's row changes, and only a row of the selection is found.
+        For many rows that take the same values, use `update_by_keylist()`.
+
+        Args:
+            key: The key of the row to change.
+            record: The new values, by column name. Names that are not columns are ignored.
+
+        Returns:
+            This SqlDaf, which has been changed. A record of None changes nothing.
+
+        Raises:
+            KeyError: No row has this key.
+            ValueError: There is no keyfield, or the change gives a Python NULL key. Nothing changes.
+            sqlite3.IntegrityError: The change gives a repeated key. Nothing changes.
+
+        Examples:
+            >>> import tempfile
+            >>> SqlDaf.db_path = tempfile.mkdtemp() + '/job.db'
+            >>> ids_sdaf = SqlDaf('ids', cols=['id', 'v'], lol=[[10, 'a'], [20, 'b']], keyfield='id')
+            >>> _ = ids_sdaf.update_record_krow(20, {'v': 'q'})
+            >>> ids_sdaf.select_record(20)
+            {'id': 20, 'v': 'q'}
+        """
+        if record is None:
+            return self
+        key_col: str = self._need_keyfield('update_record_krow')
+        cols_ls: T_ls = [col for col in record if col in self.hd]
+        if not cols_ls:
+            self.select_record(key, silent_error=False)         # still raises KeyError for a missing key, as a Daf does.
+            return self
+        table, _ref_col, scope_sql, scope_params = self._update_scope()
+        set_sql: str = ', '.join(f'{quote_name(col)} = ?' for col in cols_ls)
+        with self.transaction():
+            cursor: sqlite3.Cursor = self._execute(
+                    f'UPDATE {quote_name(table)} SET {set_sql} WHERE {scope_sql} AND {quote_name(key_col)} = ?',
+                    tuple(null_to_none([record[col] for col in cols_ls])) + scope_params + (key,))
+            if cursor.rowcount == 0:
+                raise KeyError(key)
+            self._after_key_change(cols_ls, 'update_record_krow')
+        return self
+
+
     def __setitem__(self, slice_spec: Any, value: Any) -> None:            # type: ignore[override]
         """
         Assign by key and column name, as in `sdaf[key, 'v'] = 1`.
@@ -3456,7 +3504,7 @@ class SqlDaf(Daf):
         A row is found by its key, never by its position, so these work after a delete.
         The key must be a str. An int in brackets is a position in a Daf, so an int row raises
         NotImplementedError, even when the keyfield holds ints. To change a row with an int key,
-        use `update_by_keylist()` or `assign_record()`. On a selection, the parent's rows
+        use `update_record_krow()`. On a selection, the parent's rows
         change, as a Daf selection shares its rows.
 
         Args:

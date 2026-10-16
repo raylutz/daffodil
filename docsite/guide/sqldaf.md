@@ -140,7 +140,7 @@ A change made through a selection depends on the operation:
 
 | Operation on a selection | Effect |
 | :----------------------- | :----- |
-| `sel[key, col] = v`, `update_by_keylist()`, `assign_col()` | changes the parent's rows |
+| `sel[key, col] = v`, `update_record_krow()`, `update_by_keylist()`, `assign_col()` | changes the parent's rows |
 | `copy()` | gives an independent SqlDaf |
 | `copy(inplace=True)` | the selection becomes independent |
 | `append()`, `concat()` | copies the selection, then adds rows to the copy |
@@ -151,8 +151,14 @@ A change made through a selection depends on the operation:
 So copy a selection first when you want to change it without touching its parent.
 
 Assigning with brackets needs a str key, as in `sdaf['a2', 'qty'] = 13`. An int in brackets
-raises NotImplementedError, since it would be a position in a Daf. To change a row with an int
-key, use `update_by_keylist()` or `assign_record()`.
+raises NotImplementedError, since it would be a position in a Daf. To change some cells of the
+row with a key, of any type, use `update_record_krow()`.
+
+```pycon
+>>> _ = items_sdaf.update_record_krow('a3', {'grp': 'z'})
+>>> items_sdaf.select_record('a3')
+{'id': 'a3', 'grp': 'z', 'qty': 7}
+```
 
 ### Many small writes
 
@@ -302,7 +308,7 @@ Use `insert_col()`, `drop_cols()` and `rename_cols()` for that.
   row in the loop does not change the table.
 - **Mixed types in a sort.** Numbers sort before text, where a Daf raises TypeError.
 - **Keys.** An int in brackets is always a position. Assigning with an int raises
-  NotImplementedError. A Python NULL key, the empty string, is not supported. A join assumes
+  NotImplementedError. Use `update_record_krow()` for a row by key. A Python NULL key, the empty string, is not supported. A join assumes
   the keys are unique, and does not check.
 - **Positions after a delete.** A table that has had rows deleted cannot be read by position.
 - **Methods.** Methods not written for SQL raise NotImplementedError.

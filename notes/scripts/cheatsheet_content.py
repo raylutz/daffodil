@@ -80,6 +80,8 @@ SECTIONS = [
         ("daf[:, 'qty'] = 0", 'a column, one value'),
         ("daf[0] = ['a1', 'pen', 'x', 5]", 'a row, from a list'),
         ("daf[0] = {'id': 'a1', 'qty': 5}", 'a row, by name; the columns it lacks become NULL'),
+        ("daf.update_record_krow('b2', {'qty': 4})", 'some cells of the row with this key. An int is a key here'),
+        ("daf.update_record_irow(1, {'qty': 4})", 'some cells of the row at this position'),
     ], []),
 
     ('Build in a loop', [
@@ -135,6 +137,7 @@ SECTIONS = [
         ("sdaf.select_record('a1')", 'one row by key, as a dict'),
         ("sdaf.iloc(0)", 'one row by position, as a dict'),
         ("sdaf['a1', 'qty'].to_value()", 'one value. Brackets give a SqlDaf'),
+        ("sdaf.update_record_krow('a1', {'qty': 4})", 'change some cells of the row with this key'),
         ("sdaf.select_where_sql('qty > ?', [5])", 'a selection by a SQL condition'),
         ("sdaf.select_by_dict({'g': 'x'}).to_daf()", 'a selection, read into memory as a Daf'),
         ("sdaf.groupby('g')", 'a KeyedList of selections, with an index on g'),
@@ -145,7 +148,7 @@ SECTIONS = [
     ], ["The lines run in order. They start from the Daf `daf`, with the columns id, item, g and qty and the keyfield id, "
         "and from the file data.csv, with the columns id and qty.",
         "Brackets return a SqlDaf, even for one cell. Use `.to_value()` for a value, and `select_record()` or `iloc()` for a row.",
-        "An int in brackets is always a position when reading. Assigning with an int, as in `sdaf[20, 'v'] = 1`, raises NotImplementedError. Look up an int key with `select_record()`, and change its row with `update_by_keylist()`.",
+        "An int in brackets is always a position when reading. Assigning with an int, as in `sdaf[20, 'v'] = 1`, raises NotImplementedError. Look up an int key with `select_record()`, and change some of its cells with `update_record_krow()`.",
         "A selection finds its rows when it is first read. After that its rows are fixed, and changes to their values show in it.",
         "Setting a value through a selection changes the parent's row. `append()`, `concat()`, `apply_dtypes()` and a sort on a selection copy it first, and leave the parent as it was.",
         "`to_daf()`, `col()`, `keys()`, `to_lod()` and `sql()` bring their whole result into memory. Select the rows first.",

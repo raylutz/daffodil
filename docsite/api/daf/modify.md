@@ -22,6 +22,8 @@ Adding, changing, removing and reordering records and columns.
 
 ::: daffodil.daf.Daf.update_record_irow
 
+::: daffodil.daf.Daf.update_record_krow
+
 ::: daffodil.daf.Daf.insert_irow
 
 ## Columns

@@ -2015,6 +2015,9 @@ WRITE_OPS: list = [
     lambda daf: daf.assign_record({'id': 'b', 'n': 9}),
     lambda daf: daf.assign_record({'id': 'z', 'n': 9}),
     lambda daf: daf.update_by_keylist(['a', 'zz', 'c'], {'v': 'U', 'bogus': 1}),
+    lambda daf: daf.update_record_krow('b', {'v': 'U', 'bogus': 1}),
+    lambda daf: daf.update_record_krow('c', {'n': ''}),
+    lambda daf: daf.update_record_krow('a', None),
     lambda daf: daf.__setitem__(('b', 'v'), 'Q'),
     lambda daf: daf.__setitem__(('b', 'v'), ['L']),
     lambda daf: daf.__setitem__((slice(None), 'n'), [7, 8, 9]),
@@ -2113,6 +2116,42 @@ def test_write_errors_match_mdaf():
         write_sdaf.apply_in_place(lambda row: row, by='col')
     with pytest.raises(NotImplementedError):
         write_sdaf[0, 'v'] = 1                                          # a position, not a key
+
+
+def test_update_record_krow_errors_match_mdaf():
+    """ A missing key raises KeyError and changes nothing, on both. So does a missing key with no known column. """
+    write_daf: Daf = make_write_daf()
+    write_sdaf: SqlDaf = SqlDaf.from_daf(write_daf, name='w')
+    for record in ({'v': 'q'}, {'bogus': 1}):
+        with pytest.raises(KeyError):
+            write_daf.update_record_krow('zz', record)
+        with pytest.raises(KeyError):
+            write_sdaf.update_record_krow('zz', record)
+    assert write_sdaf.to_daf().lol == write_daf.lol == make_write_daf().lol
+    with pytest.raises(ValueError, match='no keyfield'):
+        SqlDaf('nokey', cols=['a'], lol=[[1]]).update_record_krow(1, {'a': 2})
+
+
+def test_update_record_krow_int_key_and_key_checks():
+    ids_sdaf: SqlDaf = SqlDaf('ids', cols=['id', 'v'], lol=[[10, 'a'], [20, 'b'], [0, 'c']], keyfield='id')
+    ids_sdaf.update_record_krow(0, {'v': 'q'})                          # 0 is a key, not the first row
+    ids_sdaf.update_record_krow(20, {'id': 21})                         # a key may change, and is found by its new value
+    assert ids_sdaf.to_daf().lol == [[10, 'a'], [21, 'b'], [0, 'q']]
+    assert ids_sdaf.select_record(21) == {'id': 21, 'v': 'b'}
+    with pytest.raises(sqlite3.IntegrityError):
+        ids_sdaf.update_record_krow(10, {'id': 0})
+    with pytest.raises(ValueError, match='Python NULL key'):
+        ids_sdaf.update_record_krow(10, {'id': ''})
+    assert ids_sdaf.to_daf().lol == [[10, 'a'], [21, 'b'], [0, 'q']]
+
+
+def test_update_record_krow_through_a_selection():
+    write_sdaf: SqlDaf = SqlDaf.from_daf(make_write_daf(), name='w')
+    tail_sdaf: SqlDaf = write_sdaf.select_where_sql("id <> 'a'")
+    tail_sdaf.update_record_krow('b', {'v': 'B'})
+    with pytest.raises(KeyError):
+        tail_sdaf.update_record_krow('a', {'v': 'no'})                 # 'a' is in the parent, not the selection
+    assert write_sdaf.to_daf().lol == [['a', 'x', 1], ['b', 'B', 2], ['c', 'z', 3]]
 
 
 def test_writes_through_a_selection_change_the_parent():

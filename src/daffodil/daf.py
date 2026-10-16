@@ -8243,15 +8243,14 @@ class Daf:
         return self
 
 
-    #@deprecated("Use 'my_daf[keylist] = record' syntax")
     def update_by_keylist(self, keylist: T_ls | None = None, record: T_da | None = None) -> 'Daf':
         """
         Change some cells in the rows that have the given keys.
 
         Only the columns that are keys of the dict are changed. Other cells keep
         their values. A key that is not found is skipped. This is a bulk form of
-        `my_daf[key, colname] = value`. The row positions do not change, so the key
-        index stays valid.
+        `update_record_krow()`, for rows that all take the same values. The row positions
+        do not change, so the key index stays valid.
 
         Args:
             keylist: The keys of the rows to change.
@@ -8337,6 +8336,56 @@ class Daf:
             # icol = self.hd.get(colname, -1)
             # if icol >= 0:
                 # self.lol[irow][icol] = record_da[colname]
+
+        return self
+
+
+    def update_record_krow(self, key: Any, record: T_da | None = None) -> 'Daf':
+        """
+        Change some cells in the row that has this key.
+
+        Only the columns that are keys of the dict are changed. Other cells keep their
+        values. It is the form of `update_record_irow()` that finds the row by its key.
+        An int is always a key here, never a position, so it suits a keyfield of ints.
+        For many rows that take the same values, use `update_by_keylist()`.
+
+        As with `update_record_irow()`, this does not update the key index (kd), so don't
+        change a key with it. See [`__setitem__`][daffodil.daf.Daf.__setitem__].
+        A record of `None` changes nothing.
+
+        Args:
+            key: The key of the row to change.
+            record: The new values, as a dict of column name and value. Names that are not columns are ignored.
+
+        Returns:
+            This Daf, which has been changed.
+
+        Raises:
+            KeyError: No row has this key.
+            ValueError: The Daf has no keyfield.
+
+        Examples:
+            >>> d = Daf(lol=[[1, 'a', 10], [2, 'b', 20], [3, 'c', 30]], cols=['id', 'v', 'n'], keyfield='id')
+            >>> _ = d.update_record_krow(2, {'v': 'q'})
+            >>> d.select_record(2)
+            {'id': 2, 'v': 'q', 'n': 20}
+        """
+
+        if record is None:
+            return self
+        if not self.keyfield:
+            raise ValueError("update_record_krow(): the Daf has no keyfield.")
+
+        self._rebuild_kd_if_invalidated()
+        irow: int = self._kd[key]                   # a missing key raises KeyError, naming it.
+
+        row_la: T_la = self.lol[irow]
+        hd: T_di = self.hd
+        colname: str
+        val: Any
+        for colname, val in record.items():
+            if colname in hd:
+                row_la[hd[colname]] = val
 
         return self
 
