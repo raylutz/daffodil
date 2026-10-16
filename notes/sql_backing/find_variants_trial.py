@@ -1,9 +1,10 @@
 # find_variants_trial.py
 #
-# A trial port of AuditEngine's locate_variants() to SqlDaf. Question 117 C, 2026-10-14. Steps
-# 12 to 17, the contest-level tables, were added on 2026-10-15. It follows today's steps one for one, as find_variants_sketch.md describes, and
-# compares each result table with the one AuditEngine wrote in a real run. AuditEngine is not
-# changed: its database is copied, and the copy is used.
+# A trial port of AuditEngine's locate_variants() to SqlDaf.
+# It follows AuditEngine's steps one for one, as find_variants_sketch.md describes.
+# It compares each result table with the one AuditEngine wrote in a real run.
+#
+# AuditEngine is not changed. Its database is copied, and the copy is used.
 #
 # Usage:
 #   uv run python notes/sql_backing/find_variants_trial.py <cmpcvr.db> <scratch dir>
@@ -367,7 +368,7 @@ def locate_contest_variants_sdaf(
 VALUECOUNTS_COLS_LS: T_ls = ['batchid', 'style', 'precinct', '__67roup', 'party']   # as in cmpcvr.py. AuditEngine stores group as __67roup.
 DIRECT_SUM_COLS_LS: T_ls = ['blank', 'v', 'is_bmd']                                   # the columns of sumcols_ls in cmpcvr.py. The rest are in concise_votes.
 
-# Stats that cmpcvr.py writes but nothing reads, so they are not made (Q146, Q165).
+# Stats that cmpcvr.py writes but nothing reads, so they are not made.
 # Set one to True to make it again.
 MAKE_KEYS_LS:       bool = False    # the ballot_id of each row: most of the bytes of the stats.
 MAKE_PRECINCT_SUMS: bool = False    # the sums for each precinct: most of the time of the stats.

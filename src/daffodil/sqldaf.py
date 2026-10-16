@@ -27,17 +27,18 @@ ORD_COL = 'daf_ord'                 # the order of the rows, in the queries of a
 RESERVED_COLS = (RID_COL, REF_COL, ORD_COL)
 TEMP_PREFIX = 'daf_tmp_'            # the prefix of every TEMP object SqlDaf makes
 INDEX_PREFIX = 'daf_ix_'            # the prefix of every index SqlDaf makes
-META_TABLE = 'daf_tables'           # the table of metadata, one row per table SqlDaf made (Q125)
+META_TABLE = 'daf_tables'           # the table of metadata, one row per table SqlDaf made
 SAVEPOINT = 'daf_sp'                # the name of a nested transaction. One name can be nested.
 
-# dtypes that apply_dtypes() can store. A list, dict and the like would need JSON text, not yet done.
+# dtypes that apply_dtypes() can store.
+# A list or a dict would need JSON text, which is not built.
 STORABLE_DTYPES = (int, float, bool, str)
 
 # dtypes that the metadata can record, by name.
 DTYPE_BY_NAME: Dict[str, Type] = {'int': int, 'float': float, 'bool': bool, 'str': str, 'list': list, 'dict': dict}
 
 
-# ---- the parts that differ between engines (decision Q89) ----
+# ---- the parts that differ between engines ----
 
 def quote_name(name: str) -> str:
     """
@@ -55,12 +56,12 @@ def placeholders(count: int) -> str:
 
 
 def null_to_none(row_la: Iterable[Any]) -> Tuple[Any, ...]:
-    """ A row on its way into SQL: NULL becomes None. """
+    """ A row on its way into SQL: Python NULL becomes None, which SQLite stores as SQL NULL. """
     return tuple(None if val is NULL else val for val in row_la)
 
 
 def none_to_null(row_t: Tuple[Any, ...]) -> T_la:
-    """ A row on its way out of SQL: None becomes NULL. """
+    """ A row on its way out of SQL: None, from SQL NULL, becomes Python NULL. """
     return [NULL if val is None else val for val in row_t]
 
 
@@ -69,7 +70,7 @@ def value_sql(col: str) -> str:
     A column as SQL, with the text '' read as SQL NULL. Internal use.
 
     Both are Python NULL when read. SqlDaf writes SQL NULL, but a table written by other code
-    may hold ''. Grouping by this puts the two in one group, as a Daf has them, Q162.
+    may hold ''. Grouping by this puts the two in one group, as a Daf has them.
     """
     return f"NULLIF({quote_name(col)}, '')"
 
@@ -78,7 +79,7 @@ def is_value_sql(col: str, val: Any) -> Tuple[str, Tuple[Any, ...]]:
     """
     A condition that a column holds this value, and its parameters. Internal use.
 
-    Python NULL matches both SQL NULL and the text '', Q162. Any other value matches with IS.
+    Python NULL matches both SQL NULL and the text ''. Any other value matches with IS.
     Both forms can use an index on the column.
     """
     if val is NULL or val is None:
@@ -153,7 +154,7 @@ def _load_rows(
         _meta_write(conn, name, keyfield, dtypes)
 
 
-# ---- the metadata of each table, kept in the database (Q125) ----
+# ---- the metadata of each table, kept in the database ----
 
 def _meta_read(conn: sqlite3.Connection, name: str) -> Tuple[str, T_dtype_dict] | None:
     """ The keyfield and dtypes recorded for a table, or None if there is no record. Internal use. """
@@ -273,15 +274,15 @@ class SqlDaf(Daf):
     SQL NULL is the database's. SqlDaf writes Python NULL as SQL NULL, and reads SQL NULL back as
     Python NULL. A table written by other code may hold the text '' instead, which also reads as
     Python NULL. So the methods that group, count or select by value treat SQL NULL and '' as the
-    same value, as a Daf does, Q162. In Python test a value with `val is NULL`. In your own SQL,
+    same value, as a Daf does. In Python test a value with `val is NULL`. In your own SQL,
     test for both, as `(col IS NULL OR col = '')`.
 
     Avoid a Python NULL key, the empty string in the keyfield. If you allow one, the results of
-    SqlDaf are undefined, Q163. The key methods compare keys with = in SQL, and SQL NULL equals
+    SqlDaf are undefined. The key methods compare keys with = in SQL, and SQL NULL equals
     nothing, so such a row is not found by key, `select_records_daf()`, `delete_records()` or
     `join()`. The unique index also lets several SQL NULL keys in. A Daf treats a Python NULL key
     as a key like any other, so the two differ. Give every row a real key. Making the key index
-    raises ValueError on a Python NULL key, and so does `concat()` of one, Q164.
+    raises ValueError on a Python NULL key, and so does `concat()` of one.
 
     Until `apply_dtypes()` converts them, values loaded from a CSV file are text, in SQL too.
     Text is never less than a number in SQLite, so `WHERE n < 5` finds nothing on a text
@@ -303,7 +304,7 @@ class SqlDaf(Daf):
     engine:     str = 'sqlite'          # the database engine. Only SQLite so far.
     db_path:    str = ''                # the database file every SqlDaf opens, unless the constructor names another.
 
-    # The connection open on each file, with its shared state, by thread and real path (Q136).
+    # The connection open on each file, with its shared state, by thread and real path.
     # Every SqlDaf on a file shares it. `close()` closes it.
     _open_conns: ClassVar[Dict[Tuple[int, str], Tuple[sqlite3.Connection, T_da]]] = {}
 
@@ -321,8 +322,8 @@ class SqlDaf(Daf):
 
         With `cols`, a new table is made in the file, with the rows of `lol`, read one at a
         time, so an iterator of any length works. The table, its rows and its metadata are made
-        in one transaction: if any row fails, nothing is made. A NULL cell is stored as SQL
-        NULL. The table gets a hidden first column, daf_rid, an INTEGER PRIMARY KEY, which
+        in one transaction: if any row fails, nothing is made. A Python NULL cell is stored
+        as SQL NULL. The table gets a hidden first column, daf_rid, an INTEGER PRIMARY KEY, which
         numbers the rows in order. It is not one of the `columns()`. The columns are declared
         with no SQL type, so an int stays an int, and text stays text. A cell that holds a list
         or a dict cannot be stored yet.
@@ -411,7 +412,7 @@ class SqlDaf(Daf):
             raise KeyError(keyfield)
 
         self.conn:      sqlite3.Connection  = conn
-        self._conn_da:  T_da            = conn_da       # func_error, temp_count, func_count, no_gaps_ss: shared on one connection.
+        self._conn_da:  T_da            = conn_da       # the state shared by every SqlDaf on this connection.
         self.db_path:   str             = path          # type: ignore[misc]
         self._name:     str             = name
         self.keyfield:  str             = keyfield
@@ -482,7 +483,7 @@ class SqlDaf(Daf):
 
         The first line gives the column names. The rest is read one row at a time, so memory use
         does not grow with the file. An empty cell is stored as SQL NULL, and comes back as NULL.
-        A row shorter than the header is padded with NULL, and a longer one raises ValueError.
+        A row shorter than the header is padded with Python NULL, and a longer one raises ValueError.
         As with the constructor, if any row fails, no table is made.
 
         Args:
@@ -826,9 +827,9 @@ class SqlDaf(Daf):
 
     def _resolve(self) -> 'SqlDaf':
         """
-        Find the rows of a child now, and keep which rows they are. Internal use.
+        Find the rows of a child, and keep which rows they are. Internal use.
 
-        Reading a child does this the first time, as Q113 requires. For a child, it writes a TEMP
+        Reading a child does this the first time. For a child, it writes a TEMP
         table of references, one daf_rid or key per row, in order. The rows stay in the parent.
         On 1,000,000 rows, a selection of 773,698 took 0.20 s. For a join not read yet, it writes
         a TEMP table of the joined rows. A parent, or a child already resolved, is not changed.
@@ -971,7 +972,7 @@ class SqlDaf(Daf):
         Pull every row into an ordinary Daf in memory.
 
         Use it once the rows you need are few enough to hold. The rows come in order. A SQL NULL
-        comes back as NULL. The new Daf has this SqlDaf's name, keyfield and dtypes. Nothing
+        comes back as Python NULL. The new Daf has this SqlDaf's name, keyfield and dtypes. Nothing
         ties it to the table afterwards: a change to one does not show in the other. A child has
         its rows found first.
 
@@ -1010,7 +1011,7 @@ class SqlDaf(Daf):
             csv_writer.writerow(self.columns())
         batch_lot: List[Tuple[Any, ...]]
         for batch_lot in self._iter_row_batches():
-            csv_writer.writerows(batch_lot)                     # None, a SQL NULL, is written as nothing, as NULL is.
+            csv_writer.writerows(batch_lot)                     # SQL NULL is written as an empty cell, as Python NULL is.
 
 
     def to_csv_file(                                                        # type: ignore[override]
@@ -1024,7 +1025,7 @@ class SqlDaf(Daf):
 
         A local file is written as the rows are read, 10,000 at a time, so a table larger than
         memory can be written. The text is the same as a Daf of the same rows would write: each
-        cell with `str()`, NULL as nothing, and `
+        cell with `str()`, Python NULL and SQL NULL as nothing, and `
 ` line endings by default. A path that starts
         with s3 is not streamed: the text is built in memory and uploaded, as a Daf does.
 
@@ -1088,7 +1089,7 @@ class SqlDaf(Daf):
         """
         Apply a Python function to each row, and collect the results in a new table, as `Daf.apply()` does.
 
-        The function gets each row as a dict, with NULL for a missing value, and returns what to
+        The function gets each row as a dict, with Python NULL for a missing value, and returns what to
         add to the new table, by the rules of `Daf.apply()`:
 
         - A dict, or a KeyedList, adds one row.
@@ -1096,7 +1097,7 @@ class SqlDaf(Daf):
         - None, an empty dict or an empty list adds nothing, so the row is left out.
 
         The new table takes its columns from the first row returned. A later row is placed by
-        column name: a column it lacks is NULL, and a name the first row did not have is dropped.
+        column name: a column it lacks is Python NULL, and a name the first row did not have is dropped.
         So have the function return every column in every row. The new table has no keyfield
         and no dtypes, as the new Daf of `Daf.apply()` has none.
 
@@ -1314,7 +1315,7 @@ class SqlDaf(Daf):
         A child has its rows found first.
 
         Returns:
-            The value. NULL for SQL NULL.
+            The value. Python NULL for SQL NULL.
 
         Raises:
             ValueError: The table is not one row and one column.
@@ -1346,7 +1347,7 @@ class SqlDaf(Daf):
             rtype: 'dict' for a dict, or 'list' for a list of the values.
 
         Returns:
-            The row. NULL for SQL NULL.
+            The row. Python NULL for SQL NULL.
 
         Raises:
             IndexError: There is no row at that position.
@@ -1411,8 +1412,8 @@ class SqlDaf(Daf):
         Select the rows for which a SQL condition is true.
 
         The condition is the text after WHERE. Name the columns as they are, in double quotes if
-        they need it, and pass values as `params`, with `?` in the text. NULL in `params` becomes
-        SQL NULL. Test for a missing value with `IS NULL`. This is the fastest way to select,
+        they need it, and pass values as `params`, with `?` in the text. Python NULL in `params`
+        becomes SQL NULL. Test for a missing value with `IS NULL`. This is the fastest way to select,
         since SQLite does all the work.
 
         Nothing runs yet. The rows are found when the selection is first read. See SqlDaf.
@@ -1446,7 +1447,7 @@ class SqlDaf(Daf):
         """
         Select the rows for which a Python function is true, as `Daf.select_where()` does.
 
-        The function gets each row as a [KeyedList][daffodil.keyedlist.KeyedList], with NULL for
+        The function gets each row as a [KeyedList][daffodil.keyedlist.KeyedList], with Python NULL for
         a missing value, and reads cells by name, as in `row['n']`. It is registered with SQLite
         and called for each row when the selection is first read. If it raises, that error is
         raised, as itself.
@@ -1503,9 +1504,9 @@ class SqlDaf(Daf):
         It works as `Daf.select_by_dict()` does, with the SQL written for you. A dict is an AND of
         equalities, and a list of dicts is an OR of those. With `inverse=True`, the rows that do
         not match. An empty dict matches every row, and an empty list none. A dict that names a
-        column that is not there matches no row. NULL as a value matches a missing value.
+        column that is not there matches no row. Python NULL as a value matches a missing value.
 
-        Values are compared with SQL's IS, which treats NULL as a value, so the inverse keeps rows
+        Values are compared with SQL's IS, which treats SQL NULL as a value, so the inverse keeps rows
         with a missing value. As in Python, 1 equals 1.0, and the text '1' does not equal 1.
 
         Nothing runs yet, unless `expectmax` is given: then its rows are found at once, to
@@ -1618,12 +1619,12 @@ class SqlDaf(Daf):
         """
         Count each combination of values of some columns, in one GROUP BY. Internal use.
 
-        Gives (value, ..., count) tuples, with SQL NULL as NULL, in the order each combination is
+        Gives (value, ..., count) tuples, with SQL NULL as Python NULL, in the order each combination is
         first seen, as a dict in a Daf fills.
         """
         self._resolve_parent()
         rows_sql, rows_params = self._rows_sql()
-        group_sql: str = ', '.join(value_sql(col) for col in colnames)          # '' and SQL NULL count as one value, Q162.
+        group_sql: str = ', '.join(value_sql(col) for col in colnames)          # '' and SQL NULL count as one value.
         where_part: str = f' WHERE {where_sql}' if where_sql else ''
         cursor: sqlite3.Cursor = self._execute(
                 f'SELECT {group_sql}, COUNT(*) FROM ({rows_sql}){where_part} GROUP BY {group_sql} ORDER BY MIN({ORD_COL})',
@@ -1636,20 +1637,20 @@ class SqlDaf(Daf):
             colname:    str,                            # the column to count.
             sort:       bool = False,                   # if True, order by count.
             reverse:    bool = True,                    # with sort, True puts the most common first.
-            omit_nulls: bool = False,                   # if True, leave out the count of NULL.
+            omit_nulls: bool = False,                   # if True, leave out the count of Python NULL.
             ) -> T_di:
         """
         Count how often each value occurs in one column, as `Daf.valuecounts_for_colname()` does.
 
         One GROUP BY counts them in SQLite, so no column is read into Python. The values are in
-        the order first seen, or by count with `sort`. NULL is counted as NULL, unless
+        the order first seen, or by count with `sort`. Python NULL is counted as Python NULL, unless
         `omit_nulls`. A column that does not exist gives an empty dict.
 
         Args:
             colname: The column to count.
             sort: If True, order by count.
             reverse: With `sort`, True puts the most common first.
-            omit_nulls: If True, leave out the count of NULL.
+            omit_nulls: If True, leave out the count of Python NULL.
 
         Returns:
             A dict that maps each value to its count.
@@ -1687,7 +1688,7 @@ class SqlDaf(Daf):
             colnames_ls: The columns to count. All if None.
             sort: If True, order each count by size.
             reverse: With `sort`, True puts the most common first.
-            omit_nulls: If True, leave out the count of NULL.
+            omit_nulls: If True, leave out the count of Python NULL.
 
         Returns:
             A dict that maps each column to a dict of value and count.
@@ -1710,7 +1711,7 @@ class SqlDaf(Daf):
         Args:
             colname: The column to count.
             selectedby_colname: The column to test.
-            selectedby_colvalue: Only rows where that column has this value are counted. NULL matches NULL.
+            selectedby_colvalue: Only rows where that column has this value are counted. Python NULL matches Python NULL.
             sort: If True, order the counts by size.
             reverse: With `sort`, True puts the most common first.
 
@@ -1805,7 +1806,7 @@ class SqlDaf(Daf):
             sort: If True, order by count.
             reverse: With `sort`, True puts the most common first.
             include_total: If True, add a row with the total.
-            omit_nulls: If True, leave out the count of NULL.
+            omit_nulls: If True, leave out the count of Python NULL.
 
         Returns:
             A Daf in memory, with a row for each value.
@@ -1826,7 +1827,7 @@ class SqlDaf(Daf):
         """
         Count how often each value occurs, in each column, as `Daf.daf_valuecount()` does.
 
-        It gives the same result: a column that is not in `cols` gets NULL in place of its
+        It gives the same result: a column that is not in `cols` gets Python NULL in place of its
         counts, and a table with no rows gives an empty dict. Each column is one GROUP BY.
 
         Args:
@@ -1858,7 +1859,7 @@ class SqlDaf(Daf):
 
         Numbers are totalled by SQLite. A column that also holds text has its text cells read
         into Python and added as `Daf.sum()` adds them: text that is not a number raises
-        ValueError, or counts as 0 with `numeric_only`. NULL is skipped. Each total starts as a
+        ValueError, or counts as 0 with `numeric_only`. Python NULL is skipped. Each total starts as a
         float, and is converted to the dtype of its column if there is one.
 
         Args:
@@ -1918,7 +1919,7 @@ class SqlDaf(Daf):
         One GROUP BY does it all in SQLite, and the result is a small Daf in memory, with one
         row for each value, in the order first seen, and `colname` as its keyfield. As in a
         Daf, only numbers are added: text, even text of digits, counts as 0, and a column with
-        no numbers in a group totals 0. A column not in `reduce_cols` is NULL.
+        no numbers in a group totals 0. A column not in `reduce_cols` is Python NULL.
 
         Args:
             colname: The column to group by.
@@ -1967,7 +1968,7 @@ class SqlDaf(Daf):
             self,
             colname:        str = '',                   # the column to group by.
             colnames:       T_ls | None = None,         # several columns to group by, as groupby_cols().
-            omit_nulls:     bool = False,               # if True, leave out rows with NULL in the column.
+            omit_nulls:     bool = False,               # if True, leave out rows with Python NULL in the column.
             cols:           T_ls | None = None,         # not supported on a SqlDaf yet.
             ) -> KeyedList:
         """
@@ -1975,13 +1976,13 @@ class SqlDaf(Daf):
 
         The result is a KeyedList of selections, one for each value, in the order first seen. It
         works as a dict, as the result of `Daf.groupby()` does. One query finds the values. Each
-        group is then `select_by_dict()` of its value, so NULL is a value like any other. Nothing
+        group is then `select_by_dict()` of its value, so Python NULL is a value like any other. Nothing
         is read until a group is read. An index on the column makes each group a quick lookup.
 
         Args:
             colname: The column to group by.
             colnames: Several columns to group by. See `groupby_cols()`.
-            omit_nulls: If True, leave out the rows with NULL in the column.
+            omit_nulls: If True, leave out the rows with Python NULL in the column.
             cols: Not supported on a SqlDaf yet.
 
         Returns:
@@ -2013,7 +2014,7 @@ class SqlDaf(Daf):
             self,
             colnames:       T_ls,                       # the columns to group by.
             cols:           T_ls | None = None,         # not supported on a SqlDaf yet.
-            omit_nulls:     bool = False,               # if True, leave out rows with NULL in any of the columns.
+            omit_nulls:     bool = False,               # if True, leave out rows with Python NULL in any of the columns.
             ) -> KeyedList:
         """
         Group the rows by the values of several columns, as `Daf.groupby_cols()` does.
@@ -2024,7 +2025,7 @@ class SqlDaf(Daf):
         Args:
             colnames: The columns to group by.
             cols: Not supported on a SqlDaf yet.
-            omit_nulls: If True, leave out the rows with NULL in any of the columns.
+            omit_nulls: If True, leave out the rows with Python NULL in any of the columns.
 
         Returns:
             A KeyedList that maps each tuple of values to a selection.
@@ -2041,7 +2042,7 @@ class SqlDaf(Daf):
                 raise KeyError(col)
         self._resolve_parent()
         rows_sql, rows_params = self._rows_sql()
-        group_sql: str = ', '.join(value_sql(col) for col in colnames)          # '' and SQL NULL are one group, Q162.
+        group_sql: str = ', '.join(value_sql(col) for col in colnames)          # '' and SQL NULL are one group.
         where_sql: str = (' WHERE ' + ' AND '.join(f'{value_sql(col)} IS NOT NULL' for col in colnames)) if omit_nulls else ''
         values_lot: List[Tuple[Any, ...]] = self._fetch(self._execute(
                 f'SELECT {group_sql} FROM ({rows_sql}){where_sql} GROUP BY {group_sql} ORDER BY MIN({ORD_COL})', rows_params))
@@ -2358,7 +2359,7 @@ class SqlDaf(Daf):
     def delete_records(
             self,
             keys_ls:        Any,                        # the keys of the rows to remove.
-            inplace:        bool = False,               # if True, delete from this SqlDaf; if False, make a selection.
+            inplace:        bool = False,               # True deletes from this SqlDaf. False makes a selection.
             silent_error:   bool = False,               # if True, keys that are not found are ignored.
             ) -> 'SqlDaf':
         """
@@ -2440,7 +2441,7 @@ class SqlDaf(Daf):
 
         A Daf appends a row whose key is already there without a word. A SqlDaf with a keyfield
         has a unique index on it, so a repeated key raises instead, and nothing is added. A
-        Python NULL key raises ValueError, and nothing is added, Q164.
+        Python NULL key raises ValueError, and nothing is added.
 
         Args:
             other_instance: The Daf or SqlDaf whose rows are added. It is not changed.
@@ -2491,7 +2492,7 @@ class SqlDaf(Daf):
             custom_translator_daf:  Daf | None = None,  # not supported yet.
             diagnose:               bool = False,       # not used.
             name:                   str = '',           # the name of the result. Generated if empty.
-            fill:                   Any = NULL,         # only NULL is supported.
+            fill:                   Any = NULL,         # only Python NULL is supported.
             ) -> 'SqlDaf':
         """
         Join two SqlDaf tables on their keyfields, as `Daf.join()` does, in SQL.
@@ -2501,7 +2502,7 @@ class SqlDaf(Daf):
         unless it is in `shared_fields`, and `tag_other` suffixes every column of the other. The
         names are those of the parent tables, or `daf1` and `daf2` if they are the same. The rows
         come as in `Daf.join()`: in this table's order, and for `right` and `outer`, the other
-        table's unmatched rows after, in its order. A cell with no match is NULL. The keyfield of
+        table's unmatched rows after, in its order. A cell with no match is Python NULL. The keyfield of
         the result is this table's.
 
         The keyfields must be unique, as in `Daf.join()`. A repeated key is not checked, and the
@@ -2523,14 +2524,14 @@ class SqlDaf(Daf):
             custom_translator_daf: Not supported on a SqlDaf yet.
             diagnose: Not used.
             name: The name of the result table. Generated if empty.
-            fill: The value for cells that have no match. Only NULL is supported.
+            fill: The value for cells that have no match. Only Python NULL is supported.
 
         Returns:
             A SqlDaf of the joined rows, resolved when first read.
 
         Raises:
             ValueError: `how` is not one of the four, or a table has no keyfield.
-            NotImplementedError: `custom_translator_daf` or a `fill` other than NULL, or a SqlDaf this connection cannot read.
+            NotImplementedError: `custom_translator_daf` or a `fill` other than Python NULL, or a SqlDaf this connection cannot read.
 
         Examples:
             >>> import tempfile
@@ -2545,7 +2546,7 @@ class SqlDaf(Daf):
         if custom_translator_daf is not None:
             raise NotImplementedError("join(custom_translator_daf=) is not supported on a SqlDaf yet.")
         if fill is not NULL:
-            raise NotImplementedError("join(fill=) other than NULL is not supported on a SqlDaf yet.")
+            raise NotImplementedError("join(fill=) other than Python NULL is not supported on a SqlDaf yet.")
         if not isinstance(other_daf, SqlDaf):
             raise NotImplementedError("join: the other must be a SqlDaf. Make one with SqlDaf.from_daf().")
         self._check_same_db(other_daf, 'join')
@@ -2795,7 +2796,7 @@ class SqlDaf(Daf):
             name: The name to keep it under. This SqlDaf's name if empty.
 
         Returns:
-            This SqlDaf, now a permanent table.
+            This SqlDaf, as a permanent table.
 
         Raises:
             ValueError: This is a child, the name is a generated one, or a table of that name exists.
@@ -2847,7 +2848,7 @@ class SqlDaf(Daf):
 
         As in a Daf, nothing is built yet. The unique index on the column is made when a key is
         first used, by `ensure_key_index()`. An empty keyfield clears it. Avoid Python NULL in the
-        column: a NULL key gives undefined results, as SqlDaf explains.
+        column: a Python NULL key gives undefined results, as SqlDaf explains.
 
         On a permanent table with a record in the metadata, the record is changed too, so the
         table opens with this keyfield next time. A table made by other code has no record until
@@ -2893,7 +2894,7 @@ class SqlDaf(Daf):
         raises instead, so a duplicate is never missed. Once the index is there, adding a row
         with a key that is already present raises too.
 
-        A Python NULL key, SQL NULL or the text '', raises ValueError when the index is made, Q164.
+        A Python NULL key, SQL NULL or the text '', raises ValueError when the index is made.
         SqlDaf's results with one would be undefined, and the unique index does not stop several
         SQL NULL keys. The check uses the new index, so it costs about 0.3 ms. A Daf accepts a
         Python NULL key.
@@ -2913,7 +2914,7 @@ class SqlDaf(Daf):
         index_name: str = self.key_index_name()
         if _index_exists_on(self.conn, index_name):
             return self
-        with self.transaction():                        # a NULL key leaves no index.
+        with self.transaction():                        # a Python NULL key leaves no index.
             self._execute(f'CREATE UNIQUE INDEX {quote_name(index_name)} ON {quote_name(self.name)} ({quote_name(self.keyfield)})')
             self._check_no_null_key('ensure_key_index')
         return self
@@ -2924,7 +2925,7 @@ class SqlDaf(Daf):
         key_sql: str = quote_name(self.keyfield)
         if self.conn.execute(f"SELECT EXISTS (SELECT 1 FROM {quote_name(self.name)} WHERE {key_sql} IS NULL OR {key_sql} = '')").fetchone()[0]:
             raise ValueError(f"SqlDaf.{method}: '{self.name}' has a Python NULL key in '{self.keyfield}'. "
-                             "Give every row a real key: SqlDaf's results with a NULL key are undefined.")
+                             "Give every row a real key: SqlDaf's results with a Python NULL key are undefined.")
 
 
     def apply_dtypes(                                               # type: ignore[override]
@@ -2942,7 +2943,7 @@ class SqlDaf(Daf):
         A table loaded from a CSV file holds text. Call this to turn the columns you need into
         numbers. Each value is converted by the same function `Daf.apply_dtypes()` uses, so the
         results are the same as in memory: '12' becomes 12, '2.5' with dtype int becomes 2, and
-        a value that does not convert, such as 'abc', stays as it is. NULL stays NULL, except in
+        a value that does not convert, such as 'abc', stays as it is. Python NULL stays Python NULL, except in
         a bool column, where it becomes 0, as in a Daf. A str column is not touched. All the columns are converted in one pass over the table, in one
         transaction. On 1,000,000 rows, two int columns took 1.8 s.
 
@@ -3011,10 +3012,11 @@ class SqlDaf(Daf):
 
         This is the fallback for anything SqlDaf does not do yet. The statement runs on this
         SqlDaf's connection, so it can use every table in the file, and the TEMP tables of the
-        connection. Refer to this table by `sdaf.name`. Pass values as `params`, with `?` in the statement, instead of putting
-        them in the text.
+        connection. Refer to this table by `sdaf.name`.
 
-        A SELECT gives a Daf of its rows, with its column names. A SQL NULL becomes NULL. A
+        Pass values as `params`, with `?` in the statement, instead of putting them in the text.
+
+        A SELECT gives a Daf of its rows, with its column names. SQL NULL becomes Python NULL. A
         statement that returns no rows, such as UPDATE or CREATE, gives an empty Daf. Outside
         `transaction()`, it is committed when it finishes.
 
@@ -3049,7 +3051,7 @@ T_dosdaf:    TypeAlias = Dict[str, SqlDaf]
 
 def _none_safe(converter: Callable[[Any], Any]) -> Callable[[Any], Any]:
     """
-    Wrap a converter so that it sees NULL where SQL has NULL, as it would in a Daf. Internal use.
+    Wrap a converter so that it sees Python NULL where SQL has SQL NULL, as it would in a Daf. Internal use.
 
     An empty result is stored as SQL NULL again. So NULL stays NULL for int and float, and
     becomes 0 for bool, as `Daf.apply_dtypes()` gives.
@@ -3060,7 +3062,7 @@ def _none_safe(converter: Callable[[Any], Any]) -> Callable[[Any], Any]:
     return convert
 
 
-# ---- block every Daf method that SqlDaf does not define (decision 88) ----
+# ---- block every Daf method that SqlDaf does not define ----
 
 # Daf methods that work unchanged on a SqlDaf, because they read only hd or keyfield.
 SAFE_INHERITED_SET = {

@@ -629,7 +629,7 @@ def test_set_keyfield():
         marks_sdaf.set_keyfield('nothing')
 
 
-# a Python NULL key raises when the key index is made, and on concat(), Q164
+# A Python NULL key raises when the key index is made, and on concat().
 
 @pytest.mark.parametrize('stored_sql', ["NULL", "''"], ids=['SQL NULL', 'empty text'])
 def test_null_key_raises_when_the_index_is_made_and_leaves_no_index(stored_sql):
@@ -987,7 +987,8 @@ def test_counts_and_sums_match_mdaf(call):
     assert call(sel_sdaf) == call(counts_daf.select_where(lambda row: row['ballot_id'] != 'b1'))
 
 
-# Python NULL is stored two ways: SqlDaf writes SQL NULL, and other code may write the text ''. Q162.
+# Python NULL is stored two ways.
+# SqlDaf writes SQL NULL. Other code may write the text ''.
 
 def null_form_rows(d: Any) -> list:
     """ The rows of a selection, of a Daf or of a SqlDaf. """
