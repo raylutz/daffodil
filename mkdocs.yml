@@ -42,6 +42,7 @@ nav:
       - Types and conversion: guide/types.md
       - Apply, reduce and formulas: guide/apply-reduce-formulas.md
       - Joins: guide/joins.md
+      - Tables in SQLite: guide/sqldaf.md
       - Markdown reports: guide/markdown.md
       - Coming from pandas: guide/from-pandas.md
       - Profiling mode: profiling.md
@@ -55,6 +56,12 @@ nav:
       - Apply, reduce and group: api/daf/apply.md
       - Joins and annotation: api/daf/join.md
       - Statistics and reporting: api/daf/report.md
+  - SqlDaf API:
+      - api/sqldaf/index.md
+      - Reading: api/sqldaf/read.md
+      - Selecting and indexing: api/sqldaf/select.md
+      - Modifying: api/sqldaf/modify.md
+      - Apply, reduce, group and join: api/sqldaf/apply.md
   - KeyedList API:
       - KeyedList: api/keyedlist.md
 

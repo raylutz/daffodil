@@ -208,8 +208,8 @@ class SqlDaf(Daf):
     nothing quietly loads a large table into memory. For anything not covered yet, `sql()`
     runs a SQL statement of your own.
 
-    The database is the file named by the class setting `SqlDaf.db_path`. Set it once, as
-    AuditEngine does for each job, and every SqlDaf opens that file. A `db_path` given to the
+    The database is the file named by the class setting `SqlDaf.db_path`. Set it once, for
+    example once for each job, and every SqlDaf opens that file. A `db_path` given to the
     constructor overrides it for that table. With neither, the constructor raises ValueError.
     The class setting `engine` is 'sqlite', the only engine so far.
 
@@ -1048,14 +1048,12 @@ class SqlDaf(Daf):
 
         A local file is written as the rows are read, 10,000 at a time, so a table larger than
         memory can be written. The text is the same as a Daf of the same rows would write: each
-        cell with `str()`, Python NULL and SQL NULL as nothing, and `
-` line endings by default. A path that starts
-        with s3 is not streamed: the text is built in memory and uploaded, as a Daf does.
+        cell with `str()`, Python NULL and SQL NULL as nothing, and `\r\n` line endings by default.
+        A path that starts with s3 is not streamed: the text is built in memory and uploaded, as a Daf does.
 
         Args:
             file_path: Where to write the file.
-            line_terminator: The line ending. If None, `
-` is used.
+            line_terminator: The line ending. If None, `\r\n` is used.
             include_header: If True, write the column names first.
 
         Returns:
@@ -1090,8 +1088,7 @@ class SqlDaf(Daf):
         large table, use `to_csv_file()`, which writes as it reads.
 
         Args:
-            line_terminator: The line ending. If None, `
-` is used.
+            line_terminator: The line ending. If None, `\r\n` is used.
             include_header: If True, write the column names first.
 
         Returns:
@@ -2714,6 +2711,12 @@ class SqlDaf(Daf):
     def iloc_exists(self, irow: int) -> bool:
         """
         Say whether there is a row at this position, from 0.
+
+        Args:
+            irow: The position, from 0.
+
+        Returns:
+            True if a row is there.
 
         Raises:
             ValueError: This is a parent that has had rows deleted. See SqlDaf.
