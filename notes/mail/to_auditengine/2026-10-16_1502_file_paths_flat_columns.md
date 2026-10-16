@@ -25,7 +25,7 @@ back into a list. Two flat str columns remove the problem, for SqlDaf and for CS
 ## What I found
 
 - In CA_SanFrancisco_20241105, full_bif.csv has 1,603,862 rows. Every one holds exactly one
-  path, stored as text like `['Ballot Images/.../00203_00252_000027.tif']`. None has two.
+  path, stored as text like `['D02/Pre_PCT 9241/CGr_Vote by Mail/00006_00363_000077.tif']`. None has two.
 - file_paths appears 125 times in about 20 files under utilities, models and stages, by grep.
   archives.py has 36, models/Ballot.py 21, zip_utils.py 17 and bltbif.py 15.
 - Several readers already accept both a list and a ';' string, as at archives.py:2108 and
