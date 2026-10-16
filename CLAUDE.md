@@ -40,6 +40,42 @@ This applies to code comments, the changelog, docs and chat.
 - Put a date or a name once, at the top of an entry. Don't repeat them through the text.
 - Revise before presenting. Don't hand over a first draft.
 
+## Code comments
+
+These rules apply to code comments, docstrings and test docstrings.
+
+- Write for a human reader, not only for a parser. Use short, plain sentences.
+- Use few backticked names. Leave space between ideas.
+- Put one idea on each line. If a sentence needs "and" to join two claims, split it.
+- Keep each line to about 20 words.
+- Use the active voice and the present tense.
+- Don't use em dashes, double hyphens, semicolons or parenthetical asides. Write a second line
+  instead.
+- Don't name the function or file being commented. The code is right there.
+- Don't use words tied to a session or a time, such as "now", "this round", "recently" or
+  "the fix". State facts, not how they were learned.
+- Don't quote a person, or give the name, date or number of a decision. State the rule or
+  fact that came out of it.
+- Say why the code exists once, in the docstring. A comment at a line points back to it in
+  one line. It doesn't repeat the story.
+- Use one term for each concept throughout a file.
+- Break a long comment block into sections with headers.
+- Comment on blocks of code, to say what each block does at a higher level. Don't comment
+  only on single lines.
+
+Where history goes:
+
+- The story of a change goes in CHANGELOG.md: what an earlier version did, what broke and
+  what changed. The code says what it does and why, once.
+- Who decided, when, and decision numbers such as Q168 go in CHANGELOG.md or notes/.
+- A test docstring follows the same rules. "Regression (name, date): ..." breaks them.
+- Where docs are built from docstrings, as in daffodil, a docstring is published text. It may
+  say why the code works as it does, as a fact, but it holds no history. AuditEngine builds
+  no docs.
+
+Check each new docstring and comment right after writing it. Scan for "--", ";" and a name
+with a date. Slips are most common when writing many new functions quickly.
+
 ## Code style
 
 - The full coding standards are in notes/coding_standards.md in the daffodil repo. Read them before
