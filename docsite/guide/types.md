@@ -81,15 +81,29 @@ values stays easy to read.
 - `to_numpy()` makes one array of one dtype, so a column with NULL becomes text.
 
 ```pycon
->>> from daffodil.daf import NULL
->>> NULL == ''
-True
 >>> gaps = Daf(cols=['g', 'n'], lol=[['x', 1], ['', 2], ['x', '']])
 >>> gaps.sum(['n'])
 {'n': 3.0}
 >>> gaps.valuecounts_for_colname('g'), gaps.valuecounts_for_colname('g', omit_nulls=True)
 ({'x': 2, '': 1}, {'x': 2})
 ```
+
+### Testing for NULL
+
+Test a cell with `is NULL`. It is faster than `== NULL`, by about three times for a number
+cell, since `==` must first try to compare the number with text. It works because Python
+keeps one shared empty string.
+
+```pycon
+>>> from daffodil.daf import NULL
+>>> [val is NULL for val in gaps.col('n')]
+[False, False, True]
+```
+
+- The import is not needed. `NULL = ''` in your own module gives the same object.
+- Do not write `val is ''`. Python warns about `is` with a literal, so use the name.
+- `is NULL` misses an empty NumPy string, or an empty str subclass, written into a cell.
+  Daffodil's own loaders and converters never make these.
 
 ## Writing a CSV file
 
