@@ -529,7 +529,7 @@ Each line is the same task, not the same expression. `daf[x]` selects rows, wher
 - `groupby_cols_reduce()` without `reduce_cols=` reduces nothing.
 - A KeyedList row is not a dict: `isinstance(row, dict)` is False, and `json.dumps(row)` fails. Use `row.to_dict()`.
 - With `append(row, fast=True)` the table keeps the list itself. Do not fill one list in place and append it again.
-- `daf[('a1', 'c3')]` without `, :` is read as `[rows, cols]`. Write `daf[('a1', 'c3'), :]`.
+- `daf[('a1', 'c3')]` without `, :` is read as `[rows, cols]`: row a1, column c3. If a column c3 exists, it returns that one cell, with no error. Otherwise it raises KeyError. Write `daf[('a1', 'c3'), :]` for the range.
 - Methods that do not exist, from old examples: `add_idx()` is `insert_idx_col()`, `to_csv()` is `to_csv_file()`.
 
 ---
@@ -1284,6 +1284,11 @@ The words for 0 are `0`, `false`, `no`, `n`, `f` and `off`. The words for 1 are 
 
 A missing value is NULL, the empty string `''`. It prints as nothing, so a table with missing
 values stays easy to read.
+
+Daffodil fills a missing cell with NULL, as when a dict given to `append()` leaves out a
+column. But it does not turn other values into NULL. A None that you store
+stays None, and `from_pandas_df()` keeps NaN as NaN. Neither is NULL, so `is NULL` is False
+for both. Replace them yourself if you want NULL.
 
 - The sum methods skip it.
 - The value counts include it, as a count for `''`, unless you pass `omit_nulls=True`.
@@ -2685,6 +2690,9 @@ no names, it is the length of the longest row.
 
 Rows that are too long are not cut. That would hide damage, such as an
 unquoted comma that split a value. They raise an error instead.
+
+Each short row is padded in place, so a selection that shares it sees the new cells.
+No row moves, so the key index stays valid.
 
 Returns:
     This Daf, which has been changed.

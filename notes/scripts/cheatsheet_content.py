@@ -254,6 +254,7 @@ MISTAKES = [
     "`groupby_cols_reduce()` without `reduce_cols=` reduces nothing.",
     "A KeyedList row is not a dict: `isinstance(row, dict)` is False, and `json.dumps(row)` fails. Use `row.to_dict()`.",
     "With `append(row, fast=True)` the table keeps the list itself. Do not fill one list in place and append it again.",
-    "`daf[('a1', 'c3')]` without `, :` is read as `[rows, cols]`. Write `daf[('a1', 'c3'), :]`.",
+    "`daf[('a1', 'c3')]` without `, :` is read as `[rows, cols]`: row a1, column c3. If a column c3 exists, "
+    "it returns that one cell, with no error. Otherwise it raises KeyError. Write `daf[('a1', 'c3'), :]` for the range.",
     "Methods that do not exist, from old examples: `add_idx()` is `insert_idx_col()`, `to_csv()` is `to_csv_file()`.",
 ]

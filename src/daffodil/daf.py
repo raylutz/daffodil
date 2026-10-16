@@ -960,6 +960,9 @@ class Daf:
         Rows that are too long are not cut. That would hide damage, such as an
         unquoted comma that split a value. They raise an error instead.
 
+        Each short row is padded in place, so a selection that shares it sees the new cells.
+        No row moves, so the key index stays valid.
+
         Returns:
             This Daf, which has been changed.
 

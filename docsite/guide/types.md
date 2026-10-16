@@ -73,6 +73,11 @@ The words for 0 are `0`, `false`, `no`, `n`, `f` and `off`. The words for 1 are 
 A missing value is NULL, the empty string `''`. It prints as nothing, so a table with missing
 values stays easy to read.
 
+Daffodil fills a missing cell with NULL, as when a dict given to `append()` leaves out a
+column. But it does not turn other values into NULL. A None that you store
+stays None, and `from_pandas_df()` keeps NaN as NaN. Neither is NULL, so `is NULL` is False
+for both. Replace them yourself if you want NULL.
+
 - The sum methods skip it.
 - The value counts include it, as a count for `''`, unless you pass `omit_nulls=True`.
 - `to_pandas_df()` keeps it as `''`, so a number column with NULL becomes an object column.
