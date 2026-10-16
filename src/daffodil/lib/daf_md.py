@@ -3,6 +3,7 @@ from __future__ import annotations
 
 # copyright (c) 2025, 2026 Ray Lutz
 
+import ast
 import re
 #import copy
 import markdown
@@ -471,6 +472,9 @@ def _from_md(cls, md_str: str) -> 'Daf': # -> "Daf":
     prose, is skipped. A table row starts and ends with `|`. The table must have
     a header row and then a separator row such as `| -: | -: |`. The columns are
     the header cells. A table with no header row is not read, and raises `RuntimeError`.
+    The table ends at the first line that is not a row, such as a blank line. A row with
+    more or fewer cells than the header raises `RuntimeError`, which names the line, so
+    that no row is lost without notice.
 
     A Daf with rows and no column names is written by `to_md()` with the spreadsheet
     names `A`, `B` and so on in the header. Reading that text gives a Daf with those
@@ -487,9 +491,9 @@ def _from_md(cls, md_str: str) -> 'Daf': # -> "Daf":
     - Text that `to_md()` shortened, rows and columns it left out, and numbers that
       `smart_fmt` rounded stay that way.
     - A newline in a cell is written as `<br>`, and is read back as `<br>`.
-    - A `|` in a cell is written as `\|`, which this method does not read. The table ends
-      at the row before it, with no error. A `|` in the first row gives no rows at all.
-    - A composite keyfield in the footer is not read back, and raises `KeyError`.
+
+    A `|` in a cell is written as `\|`, and is read back as `|`. A composite keyfield in the
+    footer is read back as the tuple or list it was.
 
     Args:
         md_str: The Markdown text.
@@ -498,7 +502,8 @@ def _from_md(cls, md_str: str) -> 'Daf': # -> "Daf":
         The new Daf.
 
     Raises:
-        RuntimeError: A table is found but it has no header row and separator row.
+        RuntimeError: A table is found but it has no header row and separator row, or a row
+            has a different number of cells than the header.
 
     Examples:
         >>> from daffodil.daf import Daf
@@ -579,9 +584,7 @@ def _from_md(cls, md_str: str) -> 'Daf': # -> "Daf":
 
     def _parse_row(line: str) -> T_ls:
 
-        parts = line.strip().split("|")[1:-1]
-
-        return [cell.strip() for cell in parts]
+        return split_md_row(line)
 
     # ---- Header detection ----
     # A header row followed by a separator row is required (headerless tables
@@ -608,12 +611,15 @@ def _from_md(cls, md_str: str) -> 'Daf': # -> "Daf":
 
     expected_colnum = len(colnames_ls)
 
-    for row in lol:
+    irow: int
+    row: T_ls
+    for irow, row in enumerate(lol):
 
         if expected_colnum and len(row) != expected_colnum:
 
             raise RuntimeError(
-                "Inconsistent column count in Markdown table."
+                f"from_md(): row {irow} of the table has {len(row)} cells, but the header has "
+                f"{expected_colnum}. The row is line {table_start_idx + 3 + irow} of the text: {data_lines[irow]!r}"
             )
 
     colnames_ls = normalize_colnames(colnames_ls)
@@ -718,16 +724,12 @@ def find_first_markdown_table(
         lines: T_ls,
         ) -> tuple[T_ls | None, int | None, int | None]:
     """
-    Find the first structurally-valid markdown table block.
+    Find the first block of lines that are rows of a Markdown table.
 
-    Rules:
-    - rows must begin and end with '|'
-    - all rows in the block must have same column count
-
-    Notes:
-    - header row is NOT required
-    - separator row is NOT required
-    - first contiguous valid table block is returned
+    A row begins and ends with `|`. The block is every row up to the first line that is not
+    one, such as a blank line or prose. A row with a different number of cells stays in the
+    block. Ending the block there would drop the rows after it with no error, so the caller
+    checks the counts instead. A header row and a separator row are not required here.
 
     Returns:
         (
@@ -749,12 +751,6 @@ def find_first_markdown_table(
             and stripped.rstrip().endswith("|")
         )
 
-    def _parse_row(line: str) -> T_ls:
-
-        parts = line.strip().split("|")[1:-1]
-
-        return [cell.strip() for cell in parts]
-
     num_lines = len(lines)
 
     for start_idx in range(num_lines):
@@ -763,10 +759,6 @@ def find_first_markdown_table(
 
         if not _looks_like_table_row(line):
             continue
-
-        first_row = _parse_row(line)
-
-        expected_cols = len(first_row)
 
         table_lines = [line]
 
@@ -777,11 +769,6 @@ def find_first_markdown_table(
             next_line = lines[idx]
 
             if not _looks_like_table_row(next_line):
-                break
-
-            row = _parse_row(next_line)
-
-            if len(row) != expected_cols:
                 break
 
             table_lines.append(next_line)
@@ -813,9 +800,46 @@ def _parse_daf_footer(line: str) -> dict:
         k, v = part.split("=", 1)
         k = k.strip()
         v = v.strip().strip("'\"")
-        meta[k] = v
+        meta[k] = _read_footer_keyfield(v) if k == 'keyfield' else v
 
     return meta
+
+
+def _read_footer_keyfield(text: str) -> Any:
+    """ The keyfield as the footer gives it. A composite keyfield is written as a tuple or a list, and is read back as one. """
+
+    if text[:1] in ('(', '['):
+        try:
+            return ast.literal_eval(text)
+        except (ValueError, SyntaxError):
+            return text                 # not a literal, so a column name that starts with a bracket.
+    return text
+
+
+# A cell divider is a | with no backslash before it. to_md() writes a | inside a cell as \|.
+_MD_CELL_DIVIDER_RE = re.compile(r'(?<!\\)\|')
+
+
+def split_md_row(line: str) -> T_ls:
+    r"""
+    The cells of one row of a Markdown table, as `to_md()` writes it.
+
+    The row starts and ends with `|`, and a `|` divides the cells. A `|` inside a cell is
+    written as `\|`. It does not divide, and it comes back as `|`. Each cell is stripped of
+    the spaces that pad it.
+
+    Args:
+        line: One row of the table.
+
+    Returns:
+        The text of each cell.
+
+    Examples:
+        >>> split_md_row(r'|  a | x\|y |')
+        ['a', 'x|y']
+    """
+    parts_ls: T_ls = _MD_CELL_DIVIDER_RE.split(line.strip())[1:-1]
+    return [cell.strip().replace('\\|', '|') for cell in parts_ls]
 
     
 def escape_md_table_text(s: str) -> str:

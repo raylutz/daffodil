@@ -4057,12 +4057,12 @@ class TestDaf(unittest.TestCase):
         
         # Check the exact content of the narrow DataFrame
         expected_content = [
-            {'ID': 1, 'varname': 'A', 'value': 10},
-            {'ID': 1, 'varname': 'B', 'value': 100},
-            {'ID': 2, 'varname': 'A', 'value': 20},
-            {'ID': 2, 'varname': 'B', 'value': 200},
-            {'ID': 3, 'varname': 'A', 'value': 30},
-            {'ID': 3, 'varname': 'B', 'value': 300}
+            {'ID': 1, 'variable': 'A', 'value': 10},
+            {'ID': 1, 'variable': 'B', 'value': 100},
+            {'ID': 2, 'variable': 'A', 'value': 20},
+            {'ID': 2, 'variable': 'B', 'value': 200},
+            {'ID': 3, 'variable': 'A', 'value': 30},
+            {'ID': 3, 'variable': 'B', 'value': 300}
         ]
         self.assertEqual(len(narrow_daf), 6)  # Ensure correct number of rows
         
@@ -4130,6 +4130,12 @@ class TestDaf(unittest.TestCase):
         self.assertEqual(len(wide_daf.columns()), 3)  # ID, A, B
         
         # Add more assertions based on the expected handling of identifier columns
+
+    def test_wide_to_narrow_and_back_with_the_defaults(self):
+        wide_daf = Daf(cols=['ID', 'A', 'B'], lol=[[1, 10, 100], [2, 20, 200]])
+        narrow_daf = wide_daf.wide_to_narrow(id_cols=['ID'])
+        self.assertEqual(narrow_daf.columns(), ['ID', 'variable', 'value'])
+        self.assertEqual(narrow_daf.narrow_to_wide(id_cols=['ID']), wide_daf)
         
     #==============================
     def test_reduce_lol_cols(self):

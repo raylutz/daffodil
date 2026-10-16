@@ -13225,7 +13225,7 @@ class Daf:
 
     def wide_to_narrow(self,
             id_cols: T_ls      ,                # identify the record but are not used to identify values
-            varname_colname: str = 'varname',   # narrow format provides varname for each value col.
+            varname_colname: str = 'variable',  # narrow format provides varname for each value col.
             value_colname: str = 'value',       # column of values from each value column
             ) -> 'Daf':
         """
@@ -13234,9 +13234,8 @@ class Daf:
         Each column that is not an id column gives one row for each row of this Daf.
         The row holds the id values, the name of the column, and its value.
 
-        The default name of the column of names is `varname`. `narrow_to_wide()` looks for
-        `variable` by default. So to go back, pass `varname_colname='variable'` here, or
-        `varname_col='varname'` there.
+        The default names, `variable` and `value`, are those that `narrow_to_wide()` reads, and
+        those that pandas `melt()` uses. So the two methods chain with their defaults.
 
         Args:
             id_cols: The columns that identify a row. They are kept as they are.
@@ -13253,20 +13252,19 @@ class Daf:
             >>> d = Daf(lol=[['x', 1, 2], ['y', 3, 4]], cols=['id', 'a', 'b'])
             >>> d.wide_to_narrow(['id'])
             <BLANKLINE>
-            | id | varname | value |
-            | -: | ------: | ----: |
-            |  x |       a |     1 |
-            |  x |       b |     2 |
-            |  y |       a |     3 |
-            |  y |       b |     4 |
+            | id | variable | value |
+            | -: | -------: | ----: |
+            |  x |        a |     1 |
+            |  x |        b |     2 |
+            |  y |        a |     3 |
+            |  y |        b |     4 |
             <BLANKLINE>
             %% daf rows=4; cols=3; keyfield=''; name=''
             <BLANKLINE>
 
-            A round trip, with the names matched:
+            A round trip:
 
-            >>> narrow = d.wide_to_narrow(['id'], varname_colname='variable')
-            >>> narrow.narrow_to_wide(['id']).lol
+            >>> d.wide_to_narrow(['id']).narrow_to_wide(['id']).lol
             [['x', 1, 2], ['y', 3, 4]]
         """
         if not isinstance(id_cols, list):
@@ -13307,8 +13305,7 @@ class Daf:
         With `wide_cols`, those are the columns after the ids, in that order. A
         name that is not listed is left out.
 
-        The default `varname_col` is `variable`, but `wide_to_narrow()` names that column
-        `varname` by default. Match the names to go back and forth.
+        The default names, `variable` and `value`, are those that `wide_to_narrow()` writes.
 
         An empty Daf gives an empty Daf.
 

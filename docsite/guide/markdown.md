@@ -50,8 +50,8 @@ For the most faithful copy, pass `shorten_text=False`, leave `smart_fmt`, `max_r
 - The cells come back as text, as from a CSV file, and the dtypes are not kept. See
   [Types and conversion](types.md).
 - A newline in a cell comes back as `<br>`.
-- A `|` in a cell ends the table at the row before it, with no error. This is a known fault.
-- A composite keyfield is not read back, and raises `KeyError`. This is a known fault too.
+
+A `|` in a cell, and a composite keyfield, come back as they were.
 
 For data that must come back exactly, use `to_json()` and `from_json()`, which keep numbers,
 text and the keyfield. A CSV file keeps the text exactly, and `apply_dtypes()` restores the types.

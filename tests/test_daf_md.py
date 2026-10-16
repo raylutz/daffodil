@@ -175,13 +175,13 @@ def test_find_first_markdown_table_with_leading_prose():
     assert end_idx == 3
 
 
-def test_find_first_markdown_table_stops_on_inconsistent_columns():
-    # second row has a different column count, so the table block ends after the first row
-    lines = ["| a | b |", "| 1 | 2 | 3 |"]
+def test_find_first_markdown_table_keeps_a_row_with_another_cell_count():
+    """ The block ends at a line that is not a row. A row with another count stays, so that from_md() can raise. """
+    lines = ["| a | b |", "| 1 | 2 | 3 |", "| 4 | 5 |", "", "| x |"]
     table_lines, start_idx, end_idx = md.find_first_markdown_table(lines)
-    assert table_lines == ["| a | b |"]
+    assert table_lines == ["| a | b |", "| 1 | 2 | 3 |", "| 4 | 5 |"]
     assert start_idx == 0
-    assert end_idx == 0
+    assert end_idx == 2
 
 
 # --- _parse_daf_footer ---
@@ -367,24 +367,26 @@ def test_from_md_abbreviated_table_raises():
         Daf.from_md(md_str)
 
 
-@pytest.mark.xfail(
-    reason=(
-        "The 'Inconsistent column count' RuntimeError in _from_md (after header/separator "
-        "detection) appears unreachable via the public API: find_first_markdown_table already "
-        "truncates a table block at the first row whose column count differs from the block's "
-        "first row, so by the time _from_md validates row lengths, all rows are already uniform. "
-        "Left in place as defensive code; this test documents that it's currently dead."
-    ),
-    strict=True,
-)
 def test_from_md_inconsistent_column_count_raises():
     md_str = (
         "| id | letter |\n"
         "| --- | --- |\n"
         "| 1 | a | extra |\n"
     )
-    with pytest.raises(RuntimeError):
+    with pytest.raises(RuntimeError, match="row 0 of the table has 3 cells, but the header has 2"):
         Daf.from_md(md_str)
+
+
+def test_from_md_raises_for_a_short_row_in_the_middle():
+    """ A short row raises. The rows after it are not dropped. """
+    md_str = "| id | v |\n| -: | -: |\n| 1 | a |\n| 2 |\n| 3 | c |\n"
+    with pytest.raises(RuntimeError, match="row 1 of the table has 1 cells.*line 4 of the text"):
+        Daf.from_md(md_str)
+
+
+def test_from_md_reads_only_the_first_of_two_tables():
+    md_str = "| a | b |\n| - | - |\n| 1 | 2 |\n\n| x |\n| - |\n| 9 |\n"
+    assert Daf.from_md(md_str).lol == [['1', '2']]
 
 
 def test_from_md_cleans_bold_header_cells():
@@ -417,18 +419,28 @@ def test_from_md_keeps_a_newline_as_br():
     assert Daf.from_md(daf.to_md()).lol == [['a', 'l1<br>l2']]
 
 
-@pytest.mark.xfail(strict=True, reason="BUG: src/daffodil/lib/daf_md.py:754 the row parser splits on every |, "
-                                       "including the \\| that to_md() writes, so the table ends before that row, with no error.")
-def test_from_md_reads_a_pipe_in_a_cell():
-    daf = Daf(cols=['id', 't'], lol=[['a', 'q'], ['b', 'x|y'], ['c', 'r']])
-    assert Daf.from_md(daf.to_md(shorten_text=False)).lol == [['a', 'q'], ['b', 'x|y'], ['c', 'r']]
+@pytest.mark.parametrize('text', ['x|y', '|lead', 'trail|', 'a||b', 'a\\|b'])
+def test_from_md_reads_a_pipe_in_a_cell(text):
+    """ to_md() writes a | in a cell as \\|. from_md() reads it back as |, in any row. """
+    daf = Daf(cols=['id', 't'], lol=[['a', 'q'], ['b', text], ['c', 'r']])
+    assert Daf.from_md(daf.to_md(shorten_text=False)).lol == [['a', 'q'], ['b', text], ['c', 'r']]
 
 
-@pytest.mark.xfail(strict=True, reason="BUG: src/daffodil/lib/daf_md.py:815 the footer parser reads a composite keyfield "
-                                       "as the text of a tuple, so Daf() raises KeyError for it.")
-def test_from_md_reads_a_composite_keyfield_from_the_footer():
-    daf = Daf(cols=['a', 'b', 'v'], lol=[[1, 2, 3]], keyfield=('a', 'b'))
-    assert Daf.from_md(daf.to_md(include_summary=True)).keyfield == ('a', 'b')
+def test_from_md_reads_a_pipe_in_the_first_row_and_the_header():
+    daf = Daf(cols=['id', 'a|b'], lol=[['x|y', 1]])
+    back = Daf.from_md(daf.to_md())
+    assert back.columns() == ['id', 'a|b']
+    assert back.lol == [['x|y', '1']]
+
+
+@pytest.mark.parametrize('keyfield', [('a', 'b'), ['a', 'b'], 'a'])
+def test_from_md_reads_the_keyfield_from_the_footer(keyfield):
+    daf = Daf(cols=['a', 'b', 'v'], lol=[[1, 2, 3]], keyfield=keyfield)
+    assert Daf.from_md(daf.to_md(include_summary=True)).keyfield == keyfield
+
+
+def test_split_md_row():
+    assert md.split_md_row(r'|  a | x\|y |   |') == ['a', 'x|y', '']
 
 
 # =====================================================================

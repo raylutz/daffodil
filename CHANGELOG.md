@@ -28,7 +28,7 @@ all prior releases. Plans for future moved to ROADMAP.md.
   - Missing values. The Guide no longer says that counts skip NULL and that pandas and NumPy turn it into their missing value. Value counts include it unless `omit_nulls=True`. `to_pandas_df()` keeps it as text, and `default=` writes into the Daf.
   - Apply and reduce. Advice to pass `cols=` to `apply()` and `to_md()`, which have no such argument, is gone. The Guide gains a custom reduction, and shows that `sum()` and `reduce(Daf.sum_da)` total a column with text differently. `reduce()` says that keys of the result that are not columns are dropped, and that `initial_da` is changed in place. The claim that inserting and deleting rows is cheap is narrowed.
   - Formulas. `apply_formulas()` stops after 100 passes. The docs called that cycle detection, and a circle that settles raises nothing. The Guide states the limit, the `eval()` warning and that changed cells stay changed after an error.
-  - Markdown. The Guide and `from_md()` list what a round trip loses, and point to JSON for an exact copy. Two faults found while checking this have xfail tests, listed under Tests.
+  - Markdown. The Guide and `from_md()` list what a round trip loses, and point to JSON for an exact copy.
   - Reshaping. `wide_to_narrow()` names its column `varname` and `narrow_to_wide()` looks for `variable`. Both docstrings say so, with a round trip.
   - Install. Getting started gains a table of the features that need another package, with the install command for each. README.md and Home point to it. The core still installs only Markdown and xlsx2csv.
   - Home. The pandas comparison is shortened to one table, and the detail moves to a new Guide page, Performance. A claim about `df.T` is narrowed to frames whose columns have different dtypes.
@@ -40,9 +40,15 @@ all prior releases. Plans for future moved to ROADMAP.md.
   - After an outside review by Gemini, of 2026-10-16. The Types guide says that daffodil does not turn None or NaN into NULL, and that `is NULL` is False for both. `force_rectangular()` says that it pads the rows in place, so a selection sees the new cells, and that the key index stays valid. The cheatsheet says that `daf[('a1', 'c3')]` without `, :` returns one cell, with no error, when a column c3 exists.
   - Wording: Parts copied, The reduction function, is removed, and others the review named.
 - `notes/scripts/build_docs_review.py` reads the docs with griffe, as mkdocstrings does. Signatures show `_MISSING`, not the repr of an object, an entry named by a heading option gets that name, and a class lists its members, as KeyedList does on the site.
+- `wide_to_narrow()` names its column of former column names `variable` by default, where it was `varname`. That is the name `narrow_to_wide()` reads by default, and the one pandas `melt()` uses, so the two methods chain with their defaults. Before, the chain raised KeyError. Code that relies on a column named `varname` passes `varname_colname='varname'`. AuditEngine calls neither method. Ray decided this on 2026-10-16, Q205.
+- `from_md()` raises RuntimeError at a row with more or fewer cells than the header. Before, the table ended at such a row, and the rows after it were lost with no error. The check for this existed but could not run, since the table finder ended the table first. The finder now ends a table only at a line that is not a row, such as a blank line. The error gives the row and its line in the text. Ray decided this on 2026-10-16, Q207.
+
+### Fixed
+- `from_md()` reads a `|` in a cell. `to_md()` writes it as `\|`, but `from_md()` split each row on every `|`. That row then seemed to have one more cell, and the table ended at the row before it, with no error. A `|` in the first row gave no rows at all. A new function, `split_md_row()` in daf_md.py, splits only on a `|` with no backslash before it, and turns `\|` back into `|`. It is used in both places that split a row. Ray decided this on 2026-10-16, Q204.
+- `from_md()` reads a composite keyfield from the footer. The footer writes it as the text of a tuple or list, and the parser kept that text, so `Daf()` raised KeyError. A keyfield that starts with `(` or `[` is now read with `ast.literal_eval()`. The footer line is unchanged, so files already written read too. Q204.
 
 ### Tests
-- `tests/test_daf_md.py`: a newline in a cell reads back as `<br>`. Two xfail tests record faults in `from_md()`. A `|` in a cell, which `to_md()` writes as `\|`, ends the table at the row before it, with no error. A composite keyfield in the footer raises KeyError.
+- `tests/test_daf_md.py`: a newline in a cell reads back as `<br>`. A `|` reads back in a cell, in the first row and in a column name, and a keyfield of one name, a tuple or a list reads back from the footer. `split_md_row()` has a test of its own. A row with another cell count raises, and the xfail that recorded the dead check is gone. `wide_to_narrow()` and `narrow_to_wide()` chain with their defaults.
 
 ## [0.8.0] - (2026-10-16)
 ### Added
