@@ -1,4 +1,4 @@
-# Tables in SQLite
+# Tables larger than memory
 
 A [SqlDaf][daffodil.sqldaf.SqlDaf] is a Daf whose rows live in a SQLite table. Use it for a
 table too large to hold in memory. The rows stay in a database file, and SQL does the work.

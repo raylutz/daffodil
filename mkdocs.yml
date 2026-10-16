@@ -42,7 +42,7 @@ nav:
       - Types and conversion: guide/types.md
       - Apply, reduce and formulas: guide/apply-reduce-formulas.md
       - Joins: guide/joins.md
-      - Tables in SQLite: guide/sqldaf.md
+      - Tables larger than memory: guide/sqldaf.md
       - Markdown reports: guide/markdown.md
       - Coming from pandas: guide/from-pandas.md
       - Profiling mode: profiling.md

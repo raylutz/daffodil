@@ -8,6 +8,8 @@ Adoption of this format started in v0.5.10. Prior notes included in fixed sectio
 all prior releases. Plans for future moved to ROADMAP.md.
 
 ## [Unreleased]
+### Changed
+- README.md and the Home page of the docs get a section, Tables larger than memory. It says what SqlDaf is for, how much slower it is than a Daf, and that it supports the most common Daf methods. The Guide page Tables in SQLite is renamed Tables larger than memory, to match. Its address, guide/sqldaf/, is unchanged. Ray decided these on 2026-10-16, Q194 and Q195.
 
 ## [0.8.0] - (2026-10-16)
 ### Added

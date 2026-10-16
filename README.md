@@ -76,7 +76,7 @@ a lookup by key about 11 times faster. So use a Daf for a table that fits in mem
 
 SqlDaf supports the most common Daf methods, under the same names. Any other Daf method
 raises NotImplementedError. The guide page
-[Tables in SQLite](https://raylutz.github.io/daffodil/guide/sqldaf/) shows how to use it.
+[Tables larger than memory](https://raylutz.github.io/daffodil/guide/sqldaf/) shows how to use it.
 
 ## Learn more
 
@@ -91,7 +91,7 @@ raises NotImplementedError. The guide page
 - [Joins](https://raylutz.github.io/daffodil/guide/joins/)
 - [Markdown reports](https://raylutz.github.io/daffodil/guide/markdown/)
 - [Coming from pandas](https://raylutz.github.io/daffodil/guide/from-pandas/)
-- [Tables in SQLite](https://raylutz.github.io/daffodil/guide/sqldaf/), with SqlDaf
+- [Tables larger than memory](https://raylutz.github.io/daffodil/guide/sqldaf/), with SqlDaf
 - [The Daf API](https://raylutz.github.io/daffodil/api/daf/), every method with examples
 - [The SqlDaf API](https://raylutz.github.io/daffodil/api/sqldaf/)
 
