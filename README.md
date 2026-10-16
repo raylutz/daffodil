@@ -67,15 +67,15 @@ measurements.
 
 ## Tables larger than memory
 
-SqlDaf is a Daf whose rows live in a SQLite table, in a file on disk. Its size is limited only
-by disk space, so it suits tables too large to hold in memory. SQL does the work, and a small
-selection comes into memory with `to_daf()`.
+SqlDaf stores a table in a SQLite database file, so its rows stay out of Python memory. It
+supports tables larger than the memory available, and many operations run directly in SQLite.
+A small selection comes into memory as a Daf with `to_daf()`.
 
 A Daf in memory is faster. Whole-table operations ran 2 to 6 times faster in our timings, and
 a lookup by key about 11 times faster. So use a Daf for a table that fits in memory.
 
-SqlDaf supports the most common Daf methods, under the same names. Any other Daf method
-raises NotImplementedError. The guide page
+SqlDaf has the most common Daf methods, under the same names. Some behave differently, because
+the data is in a database. Any other Daf method raises NotImplementedError. The guide page
 [Tables larger than memory](https://raylutz.github.io/daffodil/guide/sqldaf/) shows how to use it.
 
 ## Learn more

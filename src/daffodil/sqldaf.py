@@ -291,11 +291,13 @@ class SqlDaf(Daf):
     under 1 us for a lookup in memory, because each one passes through sqlite3. Many rows in one
     statement are far cheaper per row.
 
-    There are two kinds of NULL. Python NULL is daffodil's missing value, the empty string ''.
-    SQL NULL is the database's. SqlDaf writes Python NULL as SQL NULL, and reads SQL NULL back as
+    There are two kinds of NULL. Python NULL is daffodil's missing value: the empty string '',
+    which daffodil names NULL, as in `from daffodil.daf import NULL`. SQL NULL is the database's.
+    A Python None written to a SqlDaf is stored as SQL NULL too, so it reads back as Python NULL. SqlDaf writes Python NULL as SQL NULL, and reads SQL NULL back as
     Python NULL. A table written by other code may hold the text '' instead, which also reads as
     Python NULL. So the methods that group, count or select by value treat SQL NULL and '' as the
-    same value, as a Daf does. In Python test a value with `val is NULL`. In your own SQL,
+    same value, as a Daf does. In Python, test a value with `val is NULL`. This works because
+    CPython keeps one shared empty string, and it is faster than `val == ''`. In your own SQL,
     test for both, as `(col IS NULL OR col = '')`.
 
     Avoid a Python NULL key, the empty string in the keyfield. If you allow one, the results of
@@ -502,8 +504,8 @@ class SqlDaf(Daf):
         This only reads, as `Daf.from_csv()` does without dtypes. Every value is stored as the
         text of the file. Call `apply_dtypes()` afterwards to convert the columns you need.
 
-        The first line gives the column names. The rest is read one row at a time, so memory use
-        does not grow with the file. An empty cell is stored as SQL NULL, and comes back as NULL.
+        The first line gives the column names. The rest is read one row at a time, so the file
+        is never all in memory. An empty cell is stored as SQL NULL, and comes back as NULL.
         A row shorter than the header is padded with Python NULL, and a longer one raises ValueError.
         As with the constructor, if any row fails, no table is made.
 
@@ -578,8 +580,8 @@ class SqlDaf(Daf):
         """
         Say whether the database file has a table of this name.
 
-        Use it to decide whether to open a table or to build it, as from its CSV files. A file
-        that is not there has no tables, and is not made.
+        Use it to decide whether to open a table or to build it, as from its CSV files.
+        It returns False if the database file does not exist, and does not create the file.
 
         Args:
             name: The name of the table.
@@ -634,13 +636,15 @@ class SqlDaf(Daf):
         an instance, it still closes the file of `db_path`, or of the class setting, not the
         file that instance uses.
 
-        The tables in the file stay. `SqlDaf(name)` opens them again, on a new connection. Every
-        SqlDaf that was on the file can no longer be read: sqlite3 raises ProgrammingError. TEMP
-        tables, such as those made by `copy()`, go. A file that is not open is left as it is.
+        The permanent tables in the file stay, with every committed change.
+        `SqlDaf(name)` opens them again, on a new connection.
+        TEMP tables, such as those made by `copy()` or a sort, are removed.
+        Every SqlDaf that was on the file can no longer be used. sqlite3 raises ProgrammingError.
+        A file that is not open is left as it is.
 
-        Without `close()`, the file stays open until the program ends. Nothing is lost either
-        way, since each statement is committed when it finishes, or at the end of a
-        `transaction()` block.
+        Without `close()`, the file stays open until the program ends.
+        Each statement is committed when it finishes, or at the end of a `transaction()` block.
+        So a committed change is kept either way.
 
         Args:
             db_path: The database file. The class setting `SqlDaf.db_path` if empty.
@@ -660,8 +664,10 @@ class SqlDaf(Daf):
         """
         Delete this table from the database file, with its metadata.
 
-        This cannot be undone. A child has no table of its own to delete: delete its parent, or
-        let the child go. After this, the SqlDaf, and any child of it, can no longer be read.
+        The table is dropped. Inside a `transaction()` block that then raises, the drop is
+        undone with the rest of the block. Otherwise it is final.
+        A child has no table of its own to delete. Delete its parent, or let the child go.
+        After this, the SqlDaf, and any child of it, can no longer be read.
 
         Raises:
             ValueError: This is a child.
@@ -1117,7 +1123,7 @@ class SqlDaf(Daf):
         - None, an empty dict or an empty list adds nothing, so the row is left out.
 
         The new table takes its columns from the first row returned. A later row is placed by
-        column name: a column it lacks is Python NULL, and a name the first row did not have is dropped.
+        column name. A column it lacks gets Python NULL, and a name the first row did not have is dropped.
         So have the function return every column in every row. The new table has no keyfield
         and no dtypes, as the new Daf of `Daf.apply()` has none.
 
@@ -1206,7 +1212,8 @@ class SqlDaf(Daf):
 
         The function is called in Python for each row, with the same arguments and the same
         result as in `Daf.reduce()`. A sum or a count is a reduction, as with `Daf.sum_da`.
-        The rows are read 10,000 at a time, in order, so memory does not grow with the table.
+        The rows are read 10,000 at a time, in order, so the table is never all in memory.
+        Memory use still depends on the result the function builds.
 
         - With `by='row'`, each row is a [KeyedList][daffodil.keyedlist.KeyedList] of its
           values. Unlike in a Daf, writing to it does not change the table.
@@ -1218,7 +1225,7 @@ class SqlDaf(Daf):
         into Python. `by='col'` is not supported, since it needs each whole column in memory.
 
         Args:
-            func: The function that combines. For example `Daf.sum_da`.
+            func: The reduction function, such as `Daf.sum_da`.
             by: `row`, `sparse_row` or `table`.
             cols: The columns included in the reduction. All columns if None.
             initial_da: The result to start from, instead of zeros.
@@ -1356,8 +1363,10 @@ class SqlDaf(Daf):
         """
         Read one row by position, as `Daf.iloc()` does, in one query.
 
-        This makes no selection, and does not find the rows of a child it is called on. In a parent
-        with daf_rid, or a child whose rows are found, the position is looked up directly. Otherwise SQLite
+        On a selection, the position is within the selection's own rows, in its order.
+        The call makes no selection. On a selection whose rows are not yet found, it does not
+        fix them: they are still found when the selection is first read.
+        In a parent with daf_rid, or a child whose rows are found, the position is looked up directly. Otherwise SQLite
         steps over the rows before it, which takes longer the further in it is. A negative
         position counts from the end, which costs a `len()` first.
 
@@ -1400,8 +1409,11 @@ class SqlDaf(Daf):
         Read one row by its key, as a dict, as `Daf.select_record()` does, in one query.
 
         The keyfield's unique index is made first if it is not there yet, so the lookup does not
-        read every row. This makes no selection, and does not find the rows of a child it is called on.
-        It took about 18 us on 1,000,000 rows, or 9 us inside `transaction()`.
+        read every row. It took about 18 us on 1,000,000 rows, or 9 us inside `transaction()`.
+
+        On a selection, only the selection's rows are searched. A key that is in the parent but
+        not in the selection is missing. The call makes no selection. On a selection whose rows
+        are not yet found, it does not fix them: they are still found when it is first read.
 
         Args:
             key: The key of the row.
@@ -2232,7 +2244,7 @@ class SqlDaf(Daf):
             omit_nulls:     bool = False,
             ) -> Daf:
         """
-        Count the values of a column into a small Daf in memory, as `Daf.value_counts_daf()` does.
+        Count the values of a column into a Daf in memory, with one row per value, as `Daf.value_counts_daf()` does.
 
         The counts come from `valuecounts_for_colname()`. The Daf has the columns `colname` and
         counts, and a row for each value.
@@ -2352,8 +2364,8 @@ class SqlDaf(Daf):
         """
         Group by a column and add up the other columns of each group, as `Daf.groupsum_daf()` does.
 
-        One GROUP BY does it all in SQLite, and the result is a small Daf in memory, with one
-        row for each value, in the order first seen, and `colname` as its keyfield. As in a
+        One GROUP BY does it all in SQLite. The result is a Daf in memory, with one row for each
+        value, in the order first seen, and `colname` as its keyfield. As in a
         Daf, only numbers are added: text, even text of digits, counts as 0, and a column with
         no numbers in a group totals 0. A column not in `reduce_cols` is Python NULL.
 
@@ -2416,8 +2428,8 @@ class SqlDaf(Daf):
         is read until a group is read.
 
         The first groupby on a column makes an index on it, in the parent table, unless an index
-        already starts with it. Each group is then a lookup. Without the index, each group read
-        the whole table. On 100,000 rows in 500 groups, summing every group took 2.3 s, against
+        already starts with it. Each group is then a lookup. Without the index, reading each
+        group would need a full scan of the table. On 100,000 rows in 500 groups, summing every group took 2.3 s, against
         14.8 s without it. The index stays with the table, and `drop_cols()` or `rename_cols()`
         of the column drops it.
 
@@ -2610,8 +2622,9 @@ class SqlDaf(Daf):
         Read it with `to_daf()`, or `to_dict()` for one row. For one row as a dict, `iloc()` and
         `select_record()` are cheaper: they make no selection.
 
-        - An int is a position, from 0. Negative counts from the end. A position past the end
-          raises IndexError, as in a Daf.
+        - An int is always a position, from 0, even when the keyfield holds ints. Negative counts
+          from the end. A position past the end raises IndexError, as in a Daf. For an int key,
+          use `select_record()`, or `select_records_daf()` for several.
         - A slice of positions, as in `sdaf[10:20]`. A step is not supported yet. A slice past
           the end is empty, as in a Daf.
         - A str is a key. The keyfield's unique index is made first. A missing key raises
@@ -3440,8 +3453,10 @@ class SqlDaf(Daf):
         - `sdaf[:, col] = values` sets a column. A list goes in row order. A short list leaves the
           rows past its end as they were, and a long one is cut. A single value sets every row.
 
-        A row is found by its key, never by its position, so these work after a delete. An int
-        row is a position in a Daf, so it is not supported here. On a selection, the parent's rows
+        A row is found by its key, never by its position, so these work after a delete.
+        The key must be a str. An int in brackets is a position in a Daf, so an int row raises
+        NotImplementedError, even when the keyfield holds ints. To change a row with an int key,
+        use `update_by_keylist()` or `assign_record()`. On a selection, the parent's rows
         change, as a Daf selection shares its rows.
 
         Args:
@@ -4087,7 +4102,9 @@ class SqlDaf(Daf):
 
         - Python NULL, SQL NULL or '', sorts first, as an empty cell sorts first in a Daf.
         - Text compares by code point, as Python compares it.
-        - `length_priority` sorts by the length of the text first, so numbers held as text sort as numbers.
+        - `length_priority` sorts by the length of the text first, then by the text. That gives
+          numeric order for whole numbers held as text, when none is negative or has a leading zero.
+          It is not a numeric sort for negative numbers or decimals.
         - `as_str` sorts by the text of each value. A float such as 1e20 is written differently by SQLite.
         - A column that mixes numbers and text sorts every number before all text.
           A Daf raises TypeError on such a column instead.
@@ -4447,14 +4464,17 @@ class SqlDaf(Daf):
         daf_tmp_marks_v4, needs one. The keyfield and dtypes are recorded with it, so
         `SqlDaf(name)` opens it as it was.
 
-        - A TEMP table, made by `copy()` or by reading a join, is moved into the file. The TEMP
-          table goes.
+        - A TEMP table, made by `copy()`, a sort or a join, is moved into the file. The TEMP
+          table is removed.
         - A permanent table saved under its own name is left as it is, and its keyfield and
           dtypes are recorded again.
         - A permanent table saved under a new name is copied to it, and this SqlDaf then refers
           to the copy. The first table stays.
 
         A child has no rows of its own. Make it a table first, with `copy(inplace=True)`.
+
+        A name already in use raises ValueError. To replace a table with a sorted or changed copy,
+        delete the old table first, as in `SqlDaf('items').delete()`, then save the copy under its name.
 
         Args:
             name: The name to keep it under. This SqlDaf's name if empty.
@@ -4664,10 +4684,19 @@ class SqlDaf(Daf):
 
         A table loaded from a CSV file holds text. Call this to turn the columns you need into
         numbers. Each value is converted by the same function `Daf.apply_dtypes()` uses, so the
-        results are the same as in memory: '12' becomes 12, '2.5' with dtype int becomes 2, and
-        a value that does not convert, such as 'abc', stays as it is. Python NULL stays Python NULL, except in
-        a bool column, where it becomes 0, as in a Daf. A str column is not touched. All the columns are converted in one pass over the table, in one
-        transaction. On 1,000,000 rows, two int columns took 1.8 s.
+        results are the same as in memory.
+
+        - '12' becomes 12, and '2.5' with dtype int becomes 2.
+        - A value that does not convert, such as 'abc', stays as it is.
+        - Python NULL stays Python NULL, except in a bool column, where it becomes 0, as in a Daf.
+        - A str column is not touched.
+
+        Conversion does not check that every value got the requested type. A converted column
+        can still hold some text. `silent_error` does not change that. It is about a column that
+        has no dtype, not about a value that does not convert.
+
+        All the columns are converted in one pass over the table, in one transaction.
+        On 1,000,000 rows, two int columns took 1.8 s.
 
         Only int, float, bool and str can be converted yet. A list or a dict column stays as the text
         of the file, as Python writes it. `reduce(by='sparse_row')` reads that text as it goes.
@@ -4750,6 +4779,11 @@ class SqlDaf(Daf):
 
         The whole result is pulled into memory, so select only what you need. Do not run BEGIN,
         COMMIT or ROLLBACK here. Use `transaction()`, which every SqlDaf on the file shares.
+
+        A change to a table's columns made here, such as ALTER TABLE, is not seen by a SqlDaf
+        already open on that table. Open it again by name to see the new columns. Nor does it
+        update the keyfield and dtypes that SqlDaf records. For column changes, prefer
+        `insert_col()`, `drop_cols()` and `rename_cols()`, which keep both up to date.
 
         Args:
             stmt: One SQL statement.

@@ -1,48 +1,75 @@
 # Tables larger than memory
 
-A [SqlDaf][daffodil.sqldaf.SqlDaf] is a Daf whose rows live in a SQLite table, in a file on
-disk. Its size is limited only by disk space, so it suits tables too large to hold in memory.
-SQL does the work. When the rows you need are few, pull them into an ordinary Daf with
-`to_daf()`, and work on them there.
+A [SqlDaf][daffodil.sqldaf.SqlDaf] stores a table in a SQLite database file, so its rows stay
+out of Python memory. It supports tables larger than the memory available, and many
+operations run directly in SQLite. It has many of the Daf methods, under the same names. Some
+of them behave differently, because the data is in a database. [Differences from
+Daf](#differences-from-daf) lists them.
 
-A Daf in memory is faster. On 1,000,000 rows, a sort took 2.4 s on a SqlDaf, against 1.0 s on
-a Daf. Whole-table operations ran 2 to 6 times slower in our timings, and a lookup by key took
-about 39 µs, against 3.4 µs. So keep a table in a Daf unless its size calls for SQLite.
+Prefer an ordinary Daf when the table, and any copies you make of it, fit comfortably in
+memory. A Daf is faster. Use SqlDaf when memory becomes the limit.
+[Performance](#performance) gives timings.
 
 ## Making and opening a table
 
 Every SqlDaf opens the database file named by `SqlDaf.db_path`. Set it once, at the start.
-Then make a table as a Daf is made, or load one from a Daf with `from_daf()`.
+Here it is a new file in a temporary folder, so the examples can run anywhere.
 
 ```pycon
 >>> import os, tempfile
 >>> from daffodil.daf import Daf
 >>> from daffodil.sqldaf import SqlDaf
 >>> SqlDaf.db_path = tempfile.mkdtemp() + '/job.db'
->>> votes_daf = Daf(cols=['ballot_id', 'precinct', 'votes'], keyfield='ballot_id',
-...                 lol=[['b1', 'p1', "{'c1': 1}"], ['b2', 'p1', "{'c1': 1, 'c2': 1}"],
-...                      ['b3', 'p2', "{'c2': 1}"]])
->>> votes_sdaf = SqlDaf.from_daf(votes_daf, name='votes')
->>> len(votes_sdaf)
+```
+
+Make a table as a Daf is made: give its name, its columns and its rows. The name must not be
+in use in the file yet, or the constructor raises ValueError.
+
+```pycon
+>>> items_sdaf = SqlDaf('items', cols=['id', 'grp', 'qty'], keyfield='id',
+...                     lol=[['a1', 'x', 3], ['a2', 'x', 12], ['a3', 'y', 7]])
+>>> len(items_sdaf)
 3
 ```
 
 A table in the file opens again by its name alone. Its keyfield and dtypes come back with it,
-from a record that SqlDaf keeps in the same file.
+from a record that SqlDaf keeps in the same file. `from_daf()` makes a table from a Daf.
 
 ```pycon
->>> SqlDaf('votes').keyfield
-'ballot_id'
+>>> SqlDaf('items').keyfield
+'id'
 ```
+
+## Three kinds of result
+
+Methods give one of three kinds of result. Knowing which one you have tells you what a change
+to it does.
+
+| Result | Where its rows are | A change to it |
+| :----- | :----------------- | :------------- |
+| A selection | in its parent's table | changes the parent's rows |
+| An independent SqlDaf | in a table of its own | changes only it |
+| A Daf | in Python memory | changes only it |
+
+- Indexing and the select methods give a selection.
+- `copy()`, a sort, `select_cols()` and a join give an independent SqlDaf.
+- `to_daf()`, `sql()`, `groupsum_daf()` and `value_counts_daf()` give a Daf.
+  `sum()` and the `valuecounts_for_*` methods give a dict.
+
+Whether a table lasts is a separate matter. A table made by the constructor, a loader or
+`save()` is permanent: it stays in the file. A table made by `copy()`, a sort or a join is a
+TEMP table: it is removed when the file is closed. See [Keeping tables](#keeping-tables).
 
 ## Loading a CSV file
 
-`from_csv()` reads a file one row at a time, so memory use does not grow with the file. Every
-value is stored as the text of the file, as `Daf.from_csv()` reads it without dtypes.
+`from_csv()` reads a file one row at a time, so the file is never all in memory. The table is
+named after the file. CSV values are loaded as text, as `Daf.from_csv()` reads them without
+dtypes.
 
-Text is never less than a number in SQLite. So a condition on a number finds nothing until the
-column is converted. `apply_dtypes()` converts it, in the table itself. As with a Daf, name the
-columns to convert with `cols=`, or give a dtype for every column.
+Convert the number columns before filtering, sorting or adding them up. Until then, '12' is
+text, not the number 12, and a condition such as `n < 5` finds nothing. `apply_dtypes()`
+converts a column in the table itself. As with a Daf, name the columns to convert with
+`cols=`, or give a dtype for every column.
 
 ```pycon
 >>> csv_path = os.path.join(os.path.dirname(SqlDaf.db_path), 'marks.csv')
@@ -55,64 +82,107 @@ columns to convert with `cols=`, or give a dtype for every column.
 [['b1', 3]]
 ```
 
-The table is named after the file, here marks. The dtypes are kept with it, so they come back
-when the table is opened again.
+The dtypes are kept with the table, so they come back when it is opened again. A value that
+does not convert, such as 'abc' in an int column, stays as it is. So a converted column can
+still hold some text.
 
 ## Selections
 
-Indexing and the select methods give a selection, a child of the table. It refers to rows of
-its parent and runs no query until it is read. Read it into memory with `to_daf()`.
+Indexing and the select methods give a selection. It refers to rows of its parent table.
+
+A selection finds its rows when it is first read, by `to_daf()`, `len()` or the like. A change
+to the parent before then can change which rows it gets. After that, its rows are fixed. A
+change to the values in those rows still shows in it.
 
 ```pycon
->>> p1_sdaf = votes_sdaf.select_by_dict({'precinct': 'p1'})
->>> p1_sdaf.is_child
-True
->>> p1_sdaf.to_daf().col('ballot_id')
-['b1', 'b2']
+>>> big_sdaf = items_sdaf.select_where_sql('qty > ?', [5])
+>>> items_sdaf['a1', 'qty'] = 9
+>>> big_sdaf.to_daf().col('id')
+['a1', 'a2', 'a3']
+>>> items_sdaf['a1', 'qty'] = 1
+>>> big_sdaf.to_daf().col('qty')
+[1, 12, 7]
 ```
+
+Here a1 joined the selection, since its value changed before the first read. When it changed
+again after the read, a1 stayed in, with its new value.
 
 `select_where_sql()` is the fastest way to select, since SQLite does all the work.
 `select_where()` takes a Python function of a row, as on a Daf, and calls it for every row.
 
+### One row
+
 To read one row, use `select_record()` by key, or `iloc()` by position. Each is one query,
-returns a dict and makes no selection.
+returns a dict and makes no selection. On a selection, they see only the selection's rows.
 
 ```pycon
->>> votes_sdaf.select_record('b3')
-{'ballot_id': 'b3', 'precinct': 'p2', 'votes': "{'c2': 1}"}
+>>> items_sdaf.select_record('a3')
+{'id': 'a3', 'grp': 'y', 'qty': 7}
+>>> items_sdaf.select_where_sql('grp = ?', ['y']).select_record('a1')
+{}
 ```
+
+An int in brackets is always a position, even when the keyfield holds ints. Look up an int
+key with `select_record()`.
 
 ## Changing rows and values
 
 Rows are added and values set as on a Daf. Each change is written to the file at once.
 
 ```pycon
->>> _ = marks_sdaf.append({'ballot_id': 'b4', 'n': 1})
->>> marks_sdaf['b2', 'n'] = 13
->>> marks_sdaf.select_record('b2')
-{'ballot_id': 'b2', 'n': 13}
->>> len(marks_sdaf)
-4
+>>> _ = items_sdaf.append({'id': 'a4', 'grp': 'y', 'qty': 2})
+>>> items_sdaf['a2', 'qty'] = 13
+>>> items_sdaf.select_record('a2')
+{'id': 'a2', 'grp': 'x', 'qty': 13}
 ```
+
+A change made through a selection depends on the operation:
+
+| Operation on a selection | Effect |
+| :----------------------- | :----- |
+| `sel[key, col] = v`, `update_by_keylist()`, `assign_col()` | changes the parent's rows |
+| `copy()` | gives an independent SqlDaf |
+| `copy(inplace=True)` | the selection becomes independent |
+| `append()`, `concat()` | copies the selection, then adds rows to the copy |
+| `apply_dtypes()` | copies the selection, then converts the copy |
+| a sort | copies the selection, then sorts the copy |
+| `delete_records(keys, inplace=True)` | drops those rows from the selection only |
+
+So copy a selection first when you want to change it without touching its parent.
+
+Assigning with brackets needs a str key, as in `sdaf['a2', 'qty'] = 13`. An int in brackets
+raises NotImplementedError, since it would be a position in a Daf. To change a row with an int
+key, use `update_by_keylist()` or `assign_record()`.
+
+### Many small writes
 
 Each write is one statement. For many small writes, put them in one `transaction()`. Then the
 file is locked once for the block, and the writes are committed together, or undone together
 if the block raises.
 
 ```pycon
->>> with marks_sdaf.transaction():
-...     for ballot_id in ('b1', 'b3'):
-...         marks_sdaf[ballot_id, 'n'] = 0
->>> marks_sdaf.col('n')
-[0, 13, 0, 1]
+>>> with items_sdaf.transaction():
+...     for item_id in ('a1', 'a3'):
+...         items_sdaf[item_id, 'qty'] = 0
+>>> items_sdaf.col('qty')
+[0, 13, 0, 2]
 ```
 
-### Deleting rows
+### Removing rows
 
-Don't delete rows from a table that has selections. A selection made before the delete can
-then show a row that was added later, which it never selected. SQLite reuses the row id of a
-deleted last row. Leave rows out with a selection instead, as with a Daf. A table that has had
-rows deleted also cannot be read by position, so `iloc()` and `sdaf[n]` raise ValueError on it.
+To leave rows out without changing the table, use `delete_records(keys)`. By default it
+returns a selection of the other rows, and the table is unchanged.
+
+```pycon
+>>> rest_sdaf = items_sdaf.delete_records(['a4'])
+>>> rest_sdaf.to_daf().col('id'), len(items_sdaf)
+(['a1', 'a2', 'a3'], 4)
+```
+
+`delete_records(keys, inplace=True)` on a parent deletes the rows from the table. Avoid it
+while selections refer to that table. A selection made before the delete can then show a row
+added later, which it never selected. A table that has had rows deleted also cannot be read by
+position, so `iloc()` and `sdaf[n]` raise ValueError on it.
 
 ## Dict cells and reductions
 
@@ -120,14 +190,20 @@ A dict cell stays as the text that a CSV file holds, as written by Python. Nothi
 it when it is stored. A reduction by `sparse_row` reads the text of each cell as it goes.
 
 ```pycon
+>>> votes_sdaf = SqlDaf('votes', cols=['ballot_id', 'precinct', 'votes'], keyfield='ballot_id',
+...                     lol=[['b1', 'p1', "{'c1': 1}"], ['b2', 'p1', "{'c1': 1, 'c2': 1}"],
+...                          ['b3', 'p2', "{'c2': 1}"]])
 >>> votes_sdaf.reduce(Daf.sum_da, by='sparse_row', indirect_col='votes')
 {'c1': 2, 'c2': 2}
 ```
 
+A reduction reads the rows in batches, so the table is never all in memory. Memory use still
+depends on the result your function builds.
+
 ## Groups
 
 `groupby()` gives a selection for each value of a column. It makes an index on that column,
-so each group is found without reading the whole table. The index stays with the table.
+so each group is found without a full scan of the table. The index stays with the table.
 
 ```pycon
 >>> groups_klodaf = votes_sdaf.groupby('precinct')
@@ -137,48 +213,116 @@ so each group is found without reading the whole table. The index stays with the
 ['b3']
 ```
 
+`groupsum_daf()` and the count methods do the work in SQLite and give a Daf with one row per
+group. That Daf is small only when the groups are few.
+
 ## Joins
 
 `join()` joins two tables of the same file on their keyfields, in SQL. The columns and the
 rows come as `Daf.join()` gives them. A cell with no match is Python NULL.
 
 ```pycon
->>> names_sdaf = SqlDaf.from_daf(Daf(cols=['ballot_id', 'precinct'], keyfield='ballot_id',
-...                                  lol=[['b1', 'p1'], ['b2', 'p2']]), name='names')
+>>> names_sdaf = SqlDaf('names', cols=['ballot_id', 'voter'], keyfield='ballot_id',
+...                     lol=[['b1', 'Ann'], ['b2', 'Bo']])
 >>> marks_sdaf.join(names_sdaf, how='left').to_daf().lol
-[['b1', 0, 'p1'], ['b2', 13, 'p2'], ['b3', 0, ''], ['b4', 1, '']]
+[['b1', 3, 'Ann'], ['b2', 12, 'Bo'], ['b3', 7, '']]
 ```
+
+## Keeping tables
+
+A sort changes which table the SqlDaf refers to. It makes a sorted TEMP table, and the table in
+the file keeps its order. `save()` keeps the sorted copy under a name not in use. `close()`
+removes TEMP tables, so save what you want to keep first.
+
+```pycon
+>>> _ = items_sdaf.sort_by_colname('qty', reverse=True)
+>>> items_sdaf.col('id')
+['a2', 'a4', 'a1', 'a3']
+>>> _ = items_sdaf.save('items_by_qty')
+>>> SqlDaf.close()
+>>> SqlDaf('items_by_qty').col('id')
+['a2', 'a4', 'a1', 'a3']
+>>> SqlDaf('items').col('id')
+['a1', 'a2', 'a3', 'a4']
+```
+
+`save()` raises ValueError for a name in use. To replace a table with its sorted copy, delete
+the old table first, as in `SqlDaf('items').delete()`, then save the copy under that name.
+
+`SqlDaf.close()` closes the file for every SqlDaf on it. Permanent tables keep every committed
+change. A SqlDaf made before the close can no longer be used. Open the table again by name.
 
 ## Missing values
 
-There are two kinds of NULL. Python NULL is daffodil's missing value, the empty string.
-SQL NULL is the database's. SqlDaf writes Python NULL as SQL NULL, and reads it back as
-Python NULL. The methods that group, count or select by value treat SQL NULL and the text ''
-as one value, as a Daf does. In your own SQL, test for both, as `(col IS NULL OR col = '')`.
+There are two kinds of NULL. Python NULL is daffodil's missing value: the empty string '',
+which daffodil names NULL, as in `from daffodil.daf import NULL`. SQL NULL is the database's.
+SqlDaf writes Python NULL as SQL NULL, and reads SQL NULL back as Python NULL. A Python None
+is stored as SQL NULL too, so it also reads back as Python NULL.
 
-## What a SqlDaf does not do
+The methods that group, count or select by value treat SQL NULL and the text '' as one value,
+as a Daf does. In Python, test a value with `val is NULL`. In your own SQL, test for both, as
+`(col IS NULL OR col = '')`.
 
-A SqlDaf supports the most common Daf methods, under the same names. Every other Daf method
-raises NotImplementedError, which names it. So nothing quietly loads a large table into memory.
+## Methods a SqlDaf does not have
+
+A SqlDaf has the most common Daf methods, under the same names. Every other Daf method raises
+NotImplementedError, which names it. So nothing quietly loads a large table into memory.
 
 ```pycon
+>>> marks_sdaf = SqlDaf('marks')
 >>> marks_sdaf.transpose()
 Traceback (most recent call last):
 ...
 NotImplementedError: transpose() is not supported on a SqlDaf yet. Use sql(), or to_daf() on a few rows.
 ```
 
-For anything not covered, `sql()` runs a statement of your own. It gives the result as a Daf.
+For anything not covered, `sql()` runs a statement of your own. It gives the whole result as a
+Daf, so select only what you need.
 
 ```pycon
->>> votes_sdaf.sql("SELECT precinct, COUNT(*) AS n FROM votes GROUP BY precinct").lol
-[['p1', 2], ['p2', 1]]
+>>> marks_sdaf.sql("SELECT COUNT(*) AS n FROM marks WHERE n > 5").lol
+[[2]]
 ```
 
-## Tables that last
+A change to a table's columns made with `sql()` is not seen by a SqlDaf already open on it.
+Use `insert_col()`, `drop_cols()` and `rename_cols()` for that.
 
-A table made by `copy()`, or by a sort, is a TEMP table. It goes when the file is closed.
-`save()` makes it a permanent table, under a name, to open again later. `SqlDaf.close()`
-closes the file for every SqlDaf on it.
+## Differences from Daf
+
+- **Types.** A column holds what SQLite stores, such as int, float, text or SQL NULL. A bool
+  is stored as 0 or 1. CSV values are text until `apply_dtypes()` converts them. A dict or list
+  cell stays as its text.
+- **Selections.** A Daf selection holds its rows at once. A SqlDaf selection finds them when
+  first read, and then they are fixed.
+- **Changes through a selection.** Setting a value changes the parent, as on a Daf. Adding
+  rows, converting and sorting copy the selection first, and leave the parent as it was.
+- **Sorting.** A Daf sorts its own rows. A SqlDaf sorts into a new TEMP table, and the table
+  in the file keeps its order.
+- **Rows in a loop.** `for row in sdaf` and `iter_dict()` give copies of the rows. Changing a
+  row in the loop does not change the table.
+- **Mixed types in a sort.** Numbers sort before text, where a Daf raises TypeError.
+- **Keys.** An int in brackets is always a position. Assigning with an int raises
+  NotImplementedError. A Python NULL key, the empty string, is not supported. A join assumes
+  the keys are unique, and does not check.
+- **Positions after a delete.** A table that has had rows deleted cannot be read by position.
+- **Methods.** Methods not written for SQL raise NotImplementedError.
+
+## Performance
+
+These timings were taken on the 4-vCPU machine this library is developed on, with Python 3.13.
+They come from short scripts that are not part of the repository. Each table has short text
+and int columns.
+
+| Operation | Rows | Daf | SqlDaf |
+| :-------- | ---: | --: | -----: |
+| sort by one text column, 6 columns | 1,000,000 | 1.0 s | 2.4 s |
+| group into 500 groups and sum each | 100,000 | 0.73 s | 2.3 s |
+| drop one of 6 columns | 1,000,000 | 0.30 s | 0.73 s |
+| remove repeated keys, 500 keys | 1,000,000 | 0.23 s | 1.5 s |
+| one row by key, `select_record()` | 200,000 | 3.4 µs | 39 µs |
+
+A query passes through sqlite3, which costs about 12 to 24 µs each time. So work in whole
+statements where you can. Many rows in one statement cost far less per row than one row per
+statement. Put many small writes in one `transaction()`.
 
 The [SqlDaf API][daffodil.sqldaf.SqlDaf] lists every method, grouped by what it does.
