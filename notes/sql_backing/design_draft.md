@@ -439,6 +439,10 @@ Q164. A Python NULL key raises, decided by Ray on 2026-10-15: A, "not too much o
     after adding rows to a table with a keyfield, since the unique index lets SQL NULL keys in.
     Each raises ValueError, and leaves the table as it was. On 1,000,000 rows the first
     `ensure_key_index()` took 0.415 s, against 0.399 s before, and later calls 10 us, as before.
+Q165. The unread stats, decided by Ray on 2026-10-16, for Q146: "no request list, and use controls
+    in the code to omit them. No new settings." The find_variants port leaves out the keys list
+    and the precinct sums, behind two constants. The other stats stay. AuditEngine is unchanged,
+    and a mail suggests the same to its thread.
 ## Possible future enhancements
 
 - Stream the rows of a join, or a selection of one, without building the whole join first.

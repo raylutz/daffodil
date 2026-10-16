@@ -367,6 +367,11 @@ def locate_contest_variants_sdaf(
 VALUECOUNTS_COLS_LS: T_ls = ['batchid', 'style', 'precinct', '__67roup', 'party']   # as in cmpcvr.py. AuditEngine stores group as __67roup.
 DIRECT_SUM_COLS_LS: T_ls = ['blank', 'v', 'is_bmd']                                   # the columns of sumcols_ls in cmpcvr.py. The rest are in concise_votes.
 
+# Stats that cmpcvr.py writes but nothing reads, so they are not made (Q146, Q165).
+# Set one to True to make it again.
+MAKE_KEYS_LS:       bool = False    # the ballot_id of each row: most of the bytes of the stats.
+MAKE_PRECINCT_SUMS: bool = False    # the sums for each precinct: most of the time of the stats.
+
 
 def nonvariant_stats_sdaf(
         nonvariants_sdaf:       T_sdaf,         # the audit nonvariants, from steps 1 to 11.
@@ -380,6 +385,9 @@ def nonvariant_stats_sdaf(
     put together, as combined_nonvariants, and totaled. A total of a key of concise_votes reads
     the dict in each row, which is JSON or PYON text. AuditEngine gets sumcols_ls from the
     contests of the job, so here it is given.
+
+    The keys list and the precinct sums are left out unless MAKE_KEYS_LS or MAKE_PRECINCT_SUMS
+    is True.
     """
     indirect_cols_set: set = {col for col in sumcols_ls if col not in DIRECT_SUM_COLS_LS}     # a set: sum_da() tests each key in it.
 
@@ -395,22 +403,25 @@ def nonvariant_stats_sdaf(
     combined_sdaf.concat(partial_wmetadata_sdaf.select_cols(counted_sdaf.columns()))
 
     valuecounts_dodi: Dict[str, Any] = combined_sdaf.valuecounts_for_colnames_ls(VALUECOUNTS_COLS_LS)
-    precinct_sums_dodi: Dict[str, Any] = {precinct: totals_di(group_sdaf, None)       # SQL SUM() of no value is NULL.
-                                          for precinct, group_sdaf in combined_sdaf.groupby('precinct').items()}
-    return {
+    stats_da: Dict[str, Any] = {
         'combined_nonvariants':                         combined_sdaf,
         'nonvariant_sums_di':                           totals_di(combined_sdaf, 0),
         'nonvariant_valuecounts_dodi':                  {sql_unesc_str(col): vc_di for col, vc_di in valuecounts_dodi.items()},
-        'nonvariant_precinct_sums_dodi':                precinct_sums_dodi,
         'nonvariant_precinct_styles_valuecounts_dodi':  counted_sdaf.valuecounts_for_colname1_groupedby_colname2('style', 'precinct'),
-        'nonvariant_keys_ls':                           [str(key) for key in combined_sdaf.keys()],
         'nonvariant_sheets_contests_di':                {'sheets': len(counted_sdaf), 'contests': int(counted_sdaf.sum(['num_contests'])['num_contests'])},
         }
+    if MAKE_PRECINCT_SUMS:
+        stats_da['nonvariant_precinct_sums_dodi'] = {precinct: totals_di(group_sdaf, None)     # SQL SUM() of no value is SQL NULL.
+                                                     for precinct, group_sdaf in combined_sdaf.groupby('precinct').items()}
+    if MAKE_KEYS_LS:
+        stats_da['nonvariant_keys_ls'] = [str(key) for key in combined_sdaf.keys()]
+    return stats_da
 
 
 def compare_stats(stats_da: Dict[str, Any], cmpcvr_dir: str) -> List[Tuple[str, int, int, bool]]:
     """
     Compare each stat with the JSON file AuditEngine wrote, after a JSON round trip of ours.
+    Only the stats that were made are compared.
 
     A list of (name, ours, theirs, same), where ours and theirs are the lengths. A file that
     is not there is shown with -1.

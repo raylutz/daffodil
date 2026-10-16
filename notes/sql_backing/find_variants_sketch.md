@@ -331,3 +331,10 @@ The stats took 10.6 s on San Francisco. Half of it is num_contests, which decode
 every nonvariant, as AuditEngine's calc_num_contests_from_concise_votes() does. Most of the rest
 is `reduce(by='sparse_row')`, which decodes it again. The five large jobs are not run yet. They
 wait until the whole port is done, Q139.
+
+Q146 and Q165, decided by Ray on 2026-10-16. Two stats are written but never read: the keys list
+and the precinct sums. Ray: "no request list, and use controls in the code to omit them. No new
+settings." The port now leaves them out, behind MAKE_KEYS_LS and MAKE_PRECINCT_SUMS, which are
+False. The rest stay, since they may be useful later. On San Francisco the two took 1.9 s of the
+time and 0.87 MB of the 1.07 MB the stats write. The stats now take 6.2 s there, against 10.6 s,
+and the four that are made all match AuditEngine.
