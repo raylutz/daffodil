@@ -1,7 +1,12 @@
+---
+paths:
+  - "**/*.py"
+---
+
 # Coding standards
 
 Ray Lutz, dictated on 2026-10-12. These apply to daffodil, AuditEngine, the ledger app and Ray's other Python
-projects. The Code style section of daffodil's CLAUDE.md says much of the same, in shorter form.
+projects. The Code style section of common.md says much of the same, in shorter form.
 
 ## Layout
 
@@ -53,7 +58,7 @@ projects. The Code style section of daffodil's CLAUDE.md says much of the same, 
   examples and docs, a Daf is called `daf`, as pandas uses `df`.
 - A SqlDaf, a Daf whose rows are in SQLite, ends in `_sdaf`, as in `bif_sdaf`, and its type is `T_sdaf`.
   A list of them is `_losdaf`, `T_losdaf`, and a dict of them `_dosdaf`, `T_dosdaf`. The aliases are in
-  daffodil's sqldaf.py, not daf_types.py, which sqldaf.py imports. Ray, 2026-10-14.
+  daffodil's sqldaf.py, not daf_types.py, which sqldaf.py imports.
 - Common names such as `name` or `count` may leave the suffix off, but it does no harm.
 
 ## Functions
