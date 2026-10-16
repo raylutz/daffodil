@@ -43,3 +43,20 @@ reached 13.2 GB. On 100,000 rows:
 - groupby makes no index, so each group is a full scan. Q176.
 - concise_votes can be stored as JSON text, and reduce(by='sparse_row') reads it.
   apply_dtypes() cannot make it a dict. Q177.
+
+### concise_votes stays as Pyon text
+
+Ray decided on 2026-10-16, Q177. The column stays as the Pyon text that csv.writer() writes,
+such as {'c17b': 21}. Nothing converts it when it is stored. It is decoded only when a reduction
+uses it. Any conversion code goes in a Pyon utilities module.
+
+pyjson5 reads this text as it is. On 100,000 dicts of 30 keys:
+
+    pyjson5.loads on the Pyon text             0.81 s
+    unflatten_val, which tries pyjson5 first   0.86 s
+    json.loads on the same dicts as JSON       0.91 s
+    safe_convert_json_to_obj, used by reduce   2.05 s
+    ast.literal_eval                          11.88 s
+
+pyjson5 rejects None, True, a tuple and a dict with int keys. unflatten_val falls back to
+ast.literal_eval for those.
