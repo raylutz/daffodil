@@ -4174,8 +4174,8 @@ class SqlDaf(Daf):
         undefined too: see SqlDaf.
 
         A row found only in the other table, in a right or outer join, takes its key and its
-        shared fields from the other table. `Daf.join()` does not yet: see the xfail tests in
-        tests/test_daf_join_other_only_rows.py.
+        shared fields from the other table. `Daf.join()` does not do this in every case yet.
+        That is a known bug in `Daf.join()`.
 
         Nothing runs yet. The join is resolved the first time it is read, into a TEMP table of
         new rows, as `Daf.join()` makes new rows. A selection made from it resolves it first.
@@ -4669,7 +4669,8 @@ class SqlDaf(Daf):
         a bool column, where it becomes 0, as in a Daf. A str column is not touched. All the columns are converted in one pass over the table, in one
         transaction. On 1,000,000 rows, two int columns took 1.8 s.
 
-        Only int, float, bool and str can be stored yet. A list or a dict would need JSON text.
+        Only int, float, bool and str can be converted yet. A list or a dict column stays as the text
+        of the file, as Python writes it. `reduce(by='sparse_row')` reads that text as it goes.
 
         On a selection, the rows are first copied into a TEMP table of its own, as
         `copy(inplace=True)` does, and the copy is converted. The parent is not changed. A Daf

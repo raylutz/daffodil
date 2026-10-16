@@ -125,6 +125,22 @@ SECTIONS = [
         ("daf.to_pandas_df()", 'a pandas DataFrame'),
     ], []),
 
+    ('Tables larger than memory', [
+        ("from daffodil.sqldaf import SqlDaf", 'a Daf whose rows live in a SQLite table'),
+        ("SqlDaf.db_path = 'job.db'", 'the database file, set once'),
+        ("sdaf = SqlDaf.from_csv('data.csv', keyfield='id')", 'from a CSV file, read row by row, as text'),
+        ("sdaf = SqlDaf.from_daf(daf, name='items')", 'from a Daf, with its keyfield'),
+        ("sdaf = SqlDaf('items')", 'open a table in the file by its name'),
+        ("sdaf.select_record('a1')", 'one row by key, as a dict, in one query'),
+        ("sdaf.select_where_sql('qty > ?', [5])", 'a selection by a SQL condition'),
+        ("sdaf.select_by_dict({'g': 'x'}).to_daf()", 'a selection, into memory as a Daf'),
+        ("sdaf.groupby('g')", 'a KeyedList of selections, with an index on g'),
+        ("sdaf.sql('SELECT g, SUM(qty) AS n FROM items GROUP BY g')", 'any SQL statement, with a Daf as the result'),
+        ("SqlDaf.close()", 'close the file, for every SqlDaf on it'),
+    ], ["A selection runs no query until it is read, by `to_daf()`, `len()` or the like.",
+        "Daf methods not written for SQL raise NotImplementedError.",
+        "A Daf is faster for a table that fits in memory."]),
+
     (PANDAS_TITLE, [
         ("df['qty']", "daf[:, 'qty']  or  daf.col('qty')"),
         ("df.loc[k]", "daf[k]"),

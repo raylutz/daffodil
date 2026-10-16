@@ -10,6 +10,9 @@ all prior releases. Plans for future moved to ROADMAP.md.
 ## [Unreleased]
 ### Changed
 - README.md and the Home page of the docs get a section, Tables larger than memory. It says what SqlDaf is for, how much slower it is than a Daf, and that it supports the most common Daf methods. The Guide page Tables in SQLite is renamed Tables larger than memory, to match. Its address, guide/sqldaf/, is unchanged. Ray decided these on 2026-10-16, Q194 and Q195.
+- The cheatsheet gets a section, Tables larger than memory, with eleven lines of SqlDaf code. Each one runs as a test, as for the other sections. The test restores `SqlDaf.db_path` afterwards.
+- The Guide page Tables larger than memory covers more: loading a CSV file and converting its text with `apply_dtypes()`, changing rows and values, `transaction()` for many small writes, why rows should not be deleted from a table that has selections, joins, and the NotImplementedError of an unsupported method. Every example runs as a test.
+- Two SqlDaf docstrings: `join()` named a test file that no longer exists, and `apply_dtypes()` said a dict column would need JSON text. A dict or list column stays as the text of the file, which `reduce(by='sparse_row')` reads.
 
 ## [0.8.0] - (2026-10-16)
 ### Added
