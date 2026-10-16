@@ -1971,8 +1971,8 @@ For the most faithful copy, pass `shorten_text=False`, leave `smart_fmt`, `max_r
 - The cells come back as text, as from a CSV file, and the dtypes are not kept. See
   [Types and conversion](types.md).
 - A newline in a cell comes back as `<br>`.
-- A `|` in a cell ends the table at the row before it, with no error. This is a known fault.
-- A composite keyfield is not read back, and raises `KeyError`. This is a known fault too.
+
+A `|` in a cell, and a composite keyfield, come back as they were.
 
 For data that must come back exactly, use `to_json()` and `from_json()`, which keep numbers,
 text and the keyfield. A CSV file keeps the text exactly, and `apply_dtypes()` restores the types.
@@ -4701,9 +4701,9 @@ Markdown is a report format, so a round trip through `to_md()` is not exact:
 - Text that `to_md()` shortened, rows and columns it left out, and numbers that
   `smart_fmt` rounded stay that way.
 - A newline in a cell is written as `<br>`, and is read back as `<br>`.
-- A `|` in a cell is written as `\|`, which this method does not read. The table ends
-  at the row before it, with no error. A `|` in the first row gives no rows at all.
-- A composite keyfield in the footer is not read back, and raises `KeyError`.
+
+A `|` in a cell is written as `\|`, and is read back as `|`. A composite keyfield in the
+footer is read back as the tuple or list it was.
 
 Args:
     md_str: The Markdown text.

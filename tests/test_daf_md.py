@@ -417,18 +417,28 @@ def test_from_md_keeps_a_newline_as_br():
     assert Daf.from_md(daf.to_md()).lol == [['a', 'l1<br>l2']]
 
 
-@pytest.mark.xfail(strict=True, reason="BUG: src/daffodil/lib/daf_md.py:754 the row parser splits on every |, "
-                                       "including the \\| that to_md() writes, so the table ends before that row, with no error.")
-def test_from_md_reads_a_pipe_in_a_cell():
-    daf = Daf(cols=['id', 't'], lol=[['a', 'q'], ['b', 'x|y'], ['c', 'r']])
-    assert Daf.from_md(daf.to_md(shorten_text=False)).lol == [['a', 'q'], ['b', 'x|y'], ['c', 'r']]
+@pytest.mark.parametrize('text', ['x|y', '|lead', 'trail|', 'a||b', 'a\\|b'])
+def test_from_md_reads_a_pipe_in_a_cell(text):
+    """ to_md() writes a | in a cell as \\|. from_md() reads it back as |, in any row. """
+    daf = Daf(cols=['id', 't'], lol=[['a', 'q'], ['b', text], ['c', 'r']])
+    assert Daf.from_md(daf.to_md(shorten_text=False)).lol == [['a', 'q'], ['b', text], ['c', 'r']]
 
 
-@pytest.mark.xfail(strict=True, reason="BUG: src/daffodil/lib/daf_md.py:815 the footer parser reads a composite keyfield "
-                                       "as the text of a tuple, so Daf() raises KeyError for it.")
-def test_from_md_reads_a_composite_keyfield_from_the_footer():
-    daf = Daf(cols=['a', 'b', 'v'], lol=[[1, 2, 3]], keyfield=('a', 'b'))
-    assert Daf.from_md(daf.to_md(include_summary=True)).keyfield == ('a', 'b')
+def test_from_md_reads_a_pipe_in_the_first_row_and_the_header():
+    daf = Daf(cols=['id', 'a|b'], lol=[['x|y', 1]])
+    back = Daf.from_md(daf.to_md())
+    assert back.columns() == ['id', 'a|b']
+    assert back.lol == [['x|y', '1']]
+
+
+@pytest.mark.parametrize('keyfield', [('a', 'b'), ['a', 'b'], 'a'])
+def test_from_md_reads_the_keyfield_from_the_footer(keyfield):
+    daf = Daf(cols=['a', 'b', 'v'], lol=[[1, 2, 3]], keyfield=keyfield)
+    assert Daf.from_md(daf.to_md(include_summary=True)).keyfield == keyfield
+
+
+def test_split_md_row():
+    assert md.split_md_row(r'|  a | x\|y |   |') == ['a', 'x|y', '']
 
 
 # =====================================================================
