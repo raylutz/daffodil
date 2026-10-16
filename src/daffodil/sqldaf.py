@@ -15,7 +15,7 @@ from pathlib import Path
 from typing import Any, Callable, ClassVar, Dict, Iterator, List, Tuple, Type, TypeAlias      # noqa: F401
 from collections.abc import Iterable
 
-from daffodil.daf import Daf, NULL
+from daffodil.daf import Daf, NULL, ColumnNotFoundError
 from daffodil.keyedlist import KeyedList
 from daffodil.lib.daf_types import T_ls, T_la, T_lola, T_di, T_da, T_ss, T_dtype_dict, T_copybits, T_buff
 import daffodil.lib.daf_utils as daf_utils
@@ -266,7 +266,10 @@ class SqlDaf(Daf):
     - Groups and counts: `groupby()`, `groupby_cols()`, `group_where()`, `groupsum_daf()`,
       `sum()`, `daf_valuecount()`, `value_counts_daf()` and the `valuecounts_for_*` methods.
     - Functions over rows: `apply()` and `reduce()`.
-    - Adding and joining: `concat()` and `join()`.
+    - Adding rows: `append()`, `record_append()`, `extend()`, `assign_record()` and `concat()`.
+    - Changing values: `sdaf[key, col] = v`, `sdaf[key] = row`, `sdaf[:, col] = values`,
+      `update_by_keylist()`, `assign_col()`, `apply_to_col()` and `apply_in_place()`.
+    - Joining: `join()`. Choosing columns: `calc_cols()`.
     - Into memory: `to_daf()`, `to_dict()`, `to_list()`, `to_value()`, `to_lod()`, `to_dod()`
       and `to_json()`.
     - Display and files: `to_md()`, `to_md_cols()`, `to_csv_buff()` and `to_csv_file()`.
@@ -2983,7 +2986,7 @@ class SqlDaf(Daf):
 
         Args:
             other_instance: The Daf or SqlDaf whose rows are added. It is not changed.
-            respect_kd: Not supported on a SqlDaf yet.
+            respect_kd: If True, a row whose key is there replaces that row, in its place.
 
         Returns:
             This SqlDaf.
@@ -2992,10 +2995,8 @@ class SqlDaf(Daf):
             KeyError: The columns differ.
             ValueError: A key added is a Python NULL. Nothing is added.
             sqlite3.IntegrityError: A key would be repeated. Nothing is added.
-            NotImplementedError: `respect_kd` is True, or the other is a SqlDaf this connection cannot read.
+            NotImplementedError: The other is a SqlDaf this connection cannot read.
         """
-        if respect_kd:
-            raise NotImplementedError("concat(respect_kd=True) is not supported on a SqlDaf yet.")
         if other_instance.columns() != self.columns():
             raise KeyError(f"concat: columns mismatch: this one has {self.columns()}, the other {other_instance.columns()}.")
         if isinstance(other_instance, SqlDaf):
@@ -3007,16 +3008,569 @@ class SqlDaf(Daf):
         if self.keyfield:
             self.ensure_key_index()
 
+        upsert_sql: str = ''
+        if respect_kd and self.keyfield:
+            upsert_sql = f' ON CONFLICT ({quote_name(self.keyfield)}) DO UPDATE SET {self._excluded_sql()}'
         with self.transaction():
             if isinstance(other_instance, SqlDaf):
                 rows_sql, rows_params = other_instance._rows_sql()
+                # WHERE true lets SQLite tell the ON CONFLICT of an upsert from a join's ON.
                 self._execute(f'INSERT INTO {quote_name(self.name)} ({self._cols_sql()}) '
-                              f'SELECT {self._cols_sql()} FROM ({rows_sql}) ORDER BY {ORD_COL}', rows_params)
+                              f'SELECT {self._cols_sql()} FROM ({rows_sql}) WHERE true ORDER BY {ORD_COL}{upsert_sql}', rows_params)
+            elif upsert_sql:
+                self.conn.executemany(f'INSERT INTO {quote_name(self.name)} ({self._cols_sql()}) '
+                                      f'VALUES ({placeholders(len(self.hd))}){upsert_sql}',
+                                      (null_to_none(row_la) for row_la in other_instance.lol))
             else:
                 self._insert_rows(other_instance.lol)
             if self.keyfield:
                 self._check_no_null_key('concat')       # the unique index does not stop SQL NULL keys.
         return self
+
+
+    # ---- adding rows one at a time, or a few ----
+
+    def _row_from_item(self, item: Any, method: str) -> T_la:
+        """
+        One row in column order, placed as `Daf.append()` places it. Internal use.
+
+        A dict or a KeyedList is placed by column name. A missing name gets Python NULL.
+        A name that is not a column is dropped. A list is in column order, and a short one is padded.
+        """
+        if isinstance(item, (dict, KeyedList)):
+            return [item[col] if col in item else NULL for col in self.hd]
+        if isinstance(item, list):
+            if len(item) > len(self.hd):
+                raise ValueError(f"{method}: a row has {len(item)} values, but '{self.name}' has {len(self.hd)} columns.")
+            return list(item) + [NULL] * (len(self.hd) - len(item))
+        raise TypeError(f"{method}: a row must be a dict, a KeyedList or a list, not {type(item).__name__}.")
+
+
+    def _write_rows(self, rows_lol: Iterable[T_la], respect_kd: bool, method: str) -> 'SqlDaf':
+        """
+        Add rows given in column order, in one transaction. Internal use.
+
+        With `respect_kd` and a keyfield, a row whose key is there replaces that row, in its place.
+        A row that fails leaves the table as it was.
+        """
+        if not self.hd:
+            raise NotImplementedError(f"{method}: '{self.name}' has no columns. Make the table with its columns first.")
+        if self.parent_sdaf is not None:
+            if respect_kd and self.keyfield:
+                raise NotImplementedError(f"{method}(respect_kd=True) on a selection is not supported. "
+                                          "Write to its parent, or copy() the selection first.")
+            self.copy(inplace=True)                     # a selection gets rows of its own, as concat() does.
+        self._resolve()
+        stmt: str = f'INSERT INTO {quote_name(self.name)} ({self._cols_sql()}) VALUES ({placeholders(len(self.hd))})'
+        if self.keyfield:
+            self.ensure_key_index()
+            if respect_kd:
+                stmt += f' ON CONFLICT ({quote_name(self.keyfield)}) DO UPDATE SET {self._excluded_sql()}'
+        row_la: T_la
+        with self.transaction():
+            self.conn.executemany(stmt, (null_to_none(row_la) for row_la in rows_lol))
+            if self.keyfield:
+                self._check_no_null_key(method)
+        return self
+
+
+    def _excluded_sql(self) -> str:
+        """ The SET part of an upsert, which takes every column from the new row. Internal use. """
+        return ', '.join(f'{quote_name(col)} = excluded.{quote_name(col)}' for col in self.hd)
+
+
+    def append(                                                             # type: ignore[override]
+            self,
+            data_item:  Any = None,
+            respect_kd: bool = False,
+            *,
+            lol:        T_lola | None = None,
+            la:         T_la | None = None,
+            fast:       bool = False,
+            ) -> 'SqlDaf':
+        """
+        Add one row, or several, to the end, as `Daf.append()` does.
+
+        - A dict or a KeyedList is one row, placed by column name.
+        - A list of values is one row, in column order. A short list is padded with Python NULL.
+        - A list of dicts is several rows. See `extend()`.
+        - A Daf or a SqlDaf is several rows. See `concat()`.
+        - `lol=` is several rows, each a list. `la=` is one row.
+
+        Each call is one transaction, and each commit writes to disk. On 1,000,000 rows, one
+        call took 9.7 ms on its own, and 55 us inside `transaction()`. So add many rows in one
+        call, with `extend()`, or put a loop of single rows inside `transaction()`.
+
+        Keys are unique in a SqlDaf. A key that is already there raises sqlite3.IntegrityError,
+        and nothing is added. With `respect_kd=True`, the row with that key is replaced, in its place. A
+        Python NULL key raises ValueError, as in `concat()`.
+
+        On a selection, the selection gets rows of its own first, as `concat()` does. Its parent
+        is not changed.
+
+        Args:
+            data_item: A dict, a KeyedList, a list, a list of dicts, or a Daf.
+            respect_kd: If True, replace the row that has the same key.
+            lol: Several rows, each a list in column order.
+            la: One row, a list in column order.
+            fast: Accepted for Daf code. Every row is checked anyway.
+
+        Returns:
+            This SqlDaf, which has been changed.
+
+        Raises:
+            TypeError: More than one of `data_item`, `lol` and `la`, or a row of an unknown type.
+            ValueError: A row has more values than there are columns, or a key is a Python NULL.
+            sqlite3.IntegrityError: A key would be repeated. Nothing is added.
+        """
+        if sum(item is not None for item in (data_item, lol, la)) > 1:
+            raise TypeError("append(): give only one of data_item, lol and la.")
+        if lol is not None:
+            return self.extend(lol=lol, respect_kd=respect_kd)
+        if la is not None:
+            return self._write_rows([self._row_from_item(list(la), 'append')], respect_kd, 'append')
+        if data_item is None:
+            return self
+        if isinstance(data_item, Daf):
+            return self.concat(data_item, respect_kd=respect_kd)
+        if isinstance(data_item, list) and data_item and isinstance(data_item[0], (dict, KeyedList)):
+            return self.extend(data_item, respect_kd=respect_kd)
+        if not isinstance(data_item, (dict, KeyedList, list)):
+            raise TypeError(f"append(): data_item must be a dict, KeyedList, list or Daf, not {type(data_item).__name__}.")
+        if not data_item:
+            return self
+        return self._write_rows([self._row_from_item(data_item, 'append')], respect_kd, 'append')
+
+
+    def record_append(self, record: T_da | KeyedList, respect_kd: bool = True) -> 'SqlDaf':     # type: ignore[override]
+        """
+        Add one row given as a dict or a KeyedList, as `Daf.record_append()` does.
+
+        By default the row with the same key is replaced, in its place. This is the default
+        here, unlike `append()`. An empty record adds nothing.
+
+        Args:
+            record: The row, as a dict or a [KeyedList][daffodil.keyedlist.KeyedList].
+            respect_kd: If True, the default, replace the row that has the same key.
+
+        Returns:
+            This SqlDaf, which has been changed.
+
+        Raises:
+            TypeError: The record is not a dict or a KeyedList.
+            ValueError: The key is a Python NULL.
+            sqlite3.IntegrityError: The key is there, and `respect_kd` is False. Nothing is added.
+        """
+        if not isinstance(record, (dict, KeyedList)):
+            raise TypeError(f"record_append(): the record must be a dict or a KeyedList, not {type(record).__name__}.")
+        if not record:
+            return self
+        return self._write_rows([self._row_from_item(record, 'record_append')], respect_kd, 'record_append')
+
+
+    def extend(                                                             # type: ignore[override]
+            self,
+            records_lod:    List[T_da] | None = None,
+            respect_kd:     bool = False,
+            *,
+            lol:            T_lola | None = None,
+            ) -> 'SqlDaf':
+        """
+        Add several rows, as dicts or as lists, as `Daf.extend()` does.
+
+        Each dict is placed by column name. Each list of `lol` is in column order. All rows are
+        added in one transaction. If one fails, none is added.
+
+        Args:
+            records_lod: The rows, as dicts.
+            respect_kd: If True, replace the row that has the same key.
+            lol: The rows, as lists in column order.
+
+        Returns:
+            This SqlDaf, which has been changed.
+
+        Raises:
+            TypeError: Both `records_lod` and `lol` are given, or a row of `lol` is not a list.
+            ValueError: A row has more values than there are columns, or a key is a Python NULL.
+            sqlite3.IntegrityError: A key would be repeated. Nothing is added.
+        """
+        if records_lod is not None and lol is not None:
+            raise TypeError("extend(): give records_lod or lol, not both.")
+        if lol is not None:
+            row_la: Any
+            for row_la in lol:
+                if not isinstance(row_la, list):
+                    raise TypeError(f"extend(): each row of lol must be a list, not {type(row_la).__name__}.")
+            return self._write_rows((self._row_from_item(row_la, 'extend') for row_la in lol), respect_kd, 'extend')
+        records_lod = [record for record in (records_lod or []) if record]
+        if not records_lod:
+            return self
+        return self._write_rows((self._row_from_item(record, 'extend') for record in records_lod), respect_kd, 'extend')
+
+
+    def assign_record(self, record: T_da) -> 'SqlDaf':                      # type: ignore[override]
+        """
+        Put one row in by its key, replacing the row that has that key, as `Daf.assign_record()` does.
+
+        The whole row is replaced, in its place. Columns the dict lacks become Python NULL. A new
+        key is added at the end. Use `update_by_keylist()` to change only some cells.
+
+        Args:
+            record: The row, as a dict. It must have the keyfield.
+
+        Returns:
+            This SqlDaf, which has been changed.
+
+        Raises:
+            KeyError: The record lacks the keyfield.
+            ValueError: There is no keyfield, or the key is a Python NULL.
+        """
+        key_col: str = self._need_keyfield('assign_record')
+        if key_col not in record:
+            raise KeyError(key_col)
+        return self._write_rows([self._row_from_item(record, 'assign_record')], True, 'assign_record')
+
+
+    # ---- changing values ----
+
+    def _update_scope(self) -> Tuple[str, str, str, Tuple[Any, ...]]:
+        """
+        Where an UPDATE of this SqlDaf's rows goes. Internal use.
+
+        Gives the table, its reference column, and a condition with its parameters. A parent
+        updates its own table. A selection updates its parent's rows that it refers to, as a
+        Daf selection shares its rows.
+        """
+        self._resolve()
+        if self.parent_sdaf is None:
+            ord_col: str = RID_COL if self.has_rid else 'rowid'
+            return self.name, ord_col, '1', ()
+        rows_sql, rows_params = self._rows_sql()
+        ref_col: str = self.parent_sdaf._ref_col()
+        return (self.parent_sdaf.name, ref_col,
+                f'{quote_name(ref_col)} IN (SELECT {REF_COL} FROM ({rows_sql}))', rows_params)
+
+
+    def _after_key_change(self, cols: Iterable[str], method: str) -> None:
+        """ Check the keys of the table that was written, if a write reached the keyfield. Internal use. """
+        root_sdaf: SqlDaf = self.parent_sdaf or self
+        if root_sdaf.keyfield and root_sdaf.keyfield in cols:
+            root_sdaf._check_no_null_key(method)
+
+
+    def update_by_keylist(self, keylist: T_la | None = None, record: T_da | None = None) -> 'SqlDaf':     # type: ignore[override]
+        """
+        Change some cells in the rows that have the given keys, as `Daf.update_by_keylist()` does.
+
+        Only the columns named in the dict change. A key that is not found is skipped. It is one
+        UPDATE for all the keys. On a selection, the parent's rows change, as a Daf selection
+        shares its rows.
+
+        Args:
+            keylist: The keys of the rows to change.
+            record: The new values, by column name. Names that are not columns are ignored.
+
+        Returns:
+            This SqlDaf, which has been changed. With no keyfield, keys or record, nothing happens.
+
+        Raises:
+            ValueError: The change gives a Python NULL key. Nothing changes.
+            sqlite3.IntegrityError: The change gives a repeated key. Nothing changes.
+        """
+        cols_ls: T_ls = [col for col in (record or {}) if col in self.hd]
+        if not self.keyfield or not keylist or not cols_ls:
+            return self
+        key_col: str = self._need_keyfield('update_by_keylist')
+        keys_sql, keys_params = self._key_source_sql(keylist)
+        table, _ref_col, scope_sql, scope_params = self._update_scope()
+        set_sql: str = ', '.join(f'{quote_name(col)} = ?' for col in cols_ls)
+        with self.transaction():
+            self._execute(f'UPDATE {quote_name(table)} SET {set_sql} WHERE {scope_sql} AND '
+                          f'{quote_name(key_col)} IN (SELECT daf_key FROM ({keys_sql}))',
+                          tuple(null_to_none([record[col] for col in cols_ls])) + scope_params + keys_params)   # type: ignore[index]
+            self._after_key_change(cols_ls, 'update_by_keylist')
+        return self
+
+
+    def __setitem__(self, slice_spec: Any, value: Any) -> None:            # type: ignore[override]
+        """
+        Assign by key and column name, as in `sdaf[key, 'v'] = 1`.
+
+        These forms are supported:
+
+        - `sdaf[key, col] = value` sets one cell. A list of one value gives that value, as in a Daf.
+        - `sdaf[key] = row` sets the whole row with that key, from a dict or a list. Columns the
+          row lacks become Python NULL, so a dict without the keyfield empties the key, which
+          raises ValueError.
+        - `sdaf[:, col] = values` sets a column. A list goes in row order. A short list leaves the
+          rows past its end as they were, and a long one is cut. A single value sets every row.
+
+        A row is found by its key, never by its position, so these work after a delete. An int
+        row is a position in a Daf, so it is not supported here. On a selection, the parent's rows
+        change, as a Daf selection shares its rows.
+
+        Args:
+            slice_spec: A key, or a tuple of a key or `:` and a column name.
+            value: The value, row or list to assign.
+
+        Raises:
+            KeyError: The key or the column is not found.
+            NotImplementedError: Any other form, such as an int row or several columns.
+            ValueError: The change gives a Python NULL key. Nothing changes.
+            sqlite3.IntegrityError: The change gives a repeated key. Nothing changes.
+        """
+        rows_sel: Any = slice_spec[0] if isinstance(slice_spec, tuple) and len(slice_spec) == 2 else slice_spec
+        cols_sel: Any = slice_spec[1] if isinstance(slice_spec, tuple) and len(slice_spec) == 2 else slice(None)
+        whole_rows: bool = rows_sel == slice(None)
+        whole_cols: bool = cols_sel == slice(None)
+
+        # A column, for every row.
+        if whole_rows and isinstance(cols_sel, str):
+            if cols_sel not in self.hd:
+                raise KeyError(cols_sel)
+            if isinstance(value, (list, tuple)):
+                self._assign_col_values(cols_sel, list(value), keep_rest=True)
+            else:
+                self._assign_col_values(cols_sel, None, keep_rest=False, default=value)
+            return
+
+        if isinstance(rows_sel, bool) or not isinstance(rows_sel, str) or not (whole_cols or isinstance(cols_sel, str)):
+            raise NotImplementedError(f"sdaf[{slice_spec!r}] = ... is not supported on a SqlDaf. "
+                                      "Use sdaf[key, col], sdaf[key] or sdaf[:, col].")
+
+        # One cell, or one whole row, by key.
+        key_col: str = self._need_keyfield('__setitem__')
+        if whole_cols:
+            row_la: T_la = self._row_from_item(dict(value) if isinstance(value, KeyedList) else value, '__setitem__')
+            values_da: T_da = dict(zip(self.hd, row_la))
+        else:
+            if cols_sel not in self.hd:
+                raise KeyError(cols_sel)
+            if isinstance(value, (list, tuple)) and len(value) == 1:
+                value = value[0]
+            values_da = {cols_sel: value}
+        table, _ref_col, scope_sql, scope_params = self._update_scope()
+        set_sql: str = ', '.join(f'{quote_name(col)} = ?' for col in values_da)
+        with self.transaction():
+            cursor: sqlite3.Cursor = self._execute(
+                    f'UPDATE {quote_name(table)} SET {set_sql} WHERE {scope_sql} AND {quote_name(key_col)} = ?',
+                    tuple(null_to_none(list(values_da.values()))) + scope_params + (rows_sel,))
+            if cursor.rowcount == 0:
+                raise KeyError(rows_sel)
+            self._after_key_change(values_da, '__setitem__')
+
+
+    def _assign_col_values(self, colname: str, vals_la: T_la | None, keep_rest: bool, default: Any = NULL) -> None:
+        """
+        Write a column in row order, in one transaction. Internal use.
+
+        Values go to the rows in order, matched by their place in that order, not by daf_rid.
+        Rows past the end of the list keep their values if `keep_rest`, or else get `default`.
+        With no list, every row gets `default`.
+        """
+        table, ref_col, scope_sql, scope_params = self._update_scope()
+        col_sql: str = quote_name(colname)
+        with self.transaction():
+            if vals_la is None:
+                self._execute(f'UPDATE {quote_name(table)} SET {col_sql} = ? WHERE {scope_sql}',
+                              (None if default is NULL else default,) + scope_params)
+            else:
+                rows_sql, rows_params = self._rows_sql()
+                vals_name: str = self._next_temp_name('vals')
+                self._execute(f'CREATE TEMP TABLE {quote_name(vals_name)} (ord INTEGER PRIMARY KEY, val)')
+                self.conn.executemany(f'INSERT INTO {quote_name(vals_name)} (val) VALUES (?)',
+                                      ((None if val is NULL else val,) for val in vals_la))
+                # Number the rows in order, then join each number to its value.
+                order_sql: str = f'SELECT {REF_COL} AS ref, ROW_NUMBER() OVER (ORDER BY {ORD_COL}) AS rn FROM ({rows_sql})'
+                self._execute(f'UPDATE {quote_name(table)} SET {col_sql} = v.val '
+                              f'FROM ({order_sql}) AS m JOIN {quote_name(vals_name)} AS v ON v.ord = m.rn '
+                              f'WHERE {quote_name(table)}.{quote_name(ref_col)} = m.ref', rows_params)
+                if not keep_rest and len(vals_la) < len(self):
+                    self._execute(f'UPDATE {quote_name(table)} SET {col_sql} = ? '
+                                  f'FROM ({order_sql}) AS m WHERE m.rn > ? '
+                                  f'AND {quote_name(table)}.{quote_name(ref_col)} = m.ref',
+                                  rows_params + (None if default is NULL else default, len(vals_la)))
+                self._execute(f'DROP TABLE {quote_name(vals_name)}')
+            self._after_key_change([colname], 'assign_col')
+
+
+    def assign_col(self, colname: str, la: T_la | None = None, default: Any = NULL) -> 'SqlDaf':   # type: ignore[override]
+        """
+        Fill a column by name with the values of a list, or add it if it is new, as `Daf.assign_col()` does.
+
+        The values go to the rows in order. A short list is filled out with `default`, and a long
+        one is cut. With no list, every row gets `default`. A new column is added at the end, with
+        ALTER TABLE, on a parent only.
+
+        Args:
+            colname: The column name.
+            la: The values, in row order.
+            default: The value for rows that the list does not reach.
+
+        Returns:
+            This SqlDaf, which has been changed.
+
+        Raises:
+            NotImplementedError: The column is new, and this is a selection.
+            ValueError: The change gives a Python NULL key. Nothing changes.
+            sqlite3.IntegrityError: The change gives a repeated key. Nothing changes.
+        """
+        if colname not in self.hd:
+            if self.parent_sdaf is not None:
+                raise NotImplementedError(f"assign_col: '{colname}' is a new column, and '{self.name}' is a selection. "
+                                          "Add the column to its parent.")
+            self._resolve()
+            with self.transaction():
+                self._execute(f'ALTER TABLE {quote_name(self.name)} ADD COLUMN {quote_name(colname)}')
+                self.hd[colname] = len(self.hd)
+        self._assign_col_values(colname, None if la is None else list(la), keep_rest=False, default=default)
+        return self
+
+
+    def apply_to_col(self, col: str, func: Callable, **kwargs: Any) -> 'SqlDaf':     # type: ignore[override]
+        """
+        Replace each value of a column by the result of a function, in place, as `Daf.apply_to_col()` does.
+
+        It is one UPDATE, with the function registered in SQLite. The function gets Python NULL
+        for SQL NULL. An error it raises is raised as itself, and nothing changes.
+
+        Args:
+            col: The column.
+            func: Called as func(value, **kwargs). It returns the new value.
+            **kwargs: Passed on to func.
+
+        Returns:
+            This SqlDaf, which has been changed.
+
+        Raises:
+            ColumnNotFoundError: The name is not a column.
+            ValueError: The change gives a Python NULL key. Nothing changes.
+            sqlite3.IntegrityError: The change gives a repeated key. Nothing changes.
+        """
+        if col not in self.hd:
+            raise ColumnNotFoundError(col)
+
+        def call(val: Any) -> Any:
+            result: Any = func(NULL if val is None else val, **kwargs)
+            return None if result is NULL else result
+
+        func_name: str = self._register_function(call, 1)
+        table, _ref_col, scope_sql, scope_params = self._update_scope()
+        with self.transaction():
+            self._execute(f'UPDATE {quote_name(table)} SET {quote_name(col)} = {func_name}({quote_name(col)}) '
+                          f'WHERE {scope_sql}', scope_params)
+            self._after_key_change([col], 'apply_to_col')
+        return self
+
+
+    def apply_in_place(                                                     # type: ignore[override]
+            self,
+            func:       Callable[..., Any],         # called as func(row, **kwargs).
+            by:         str = 'row',                # 'row' or 'row_klist'.
+            rowkeys:    T_la | None = None,         # the keys of the rows to change. All if None.
+            **kwargs:   Any,                        # passed on to func.
+            ) -> 'SqlDaf':
+        """
+        Apply a function to each row and store the results, as `Daf.apply_in_place()` does.
+
+        With `by='row'`, the function gets each row as a dict and returns a dict. Its values are
+        written back by column name. A column the dict lacks keeps its value. With
+        `by='row_klist'`, the function gets a [KeyedList][daffodil.keyedlist.KeyedList], changes
+        it, and returns nothing. The whole row is written back.
+
+        Rows are read and written in batches, in one transaction. If the function raises, nothing
+        changes. With `rowkeys`, only those rows change, and a key that is not found is skipped,
+        as in a Daf. On a selection, the parent's rows change.
+
+        Args:
+            func: The function to apply to each row.
+            by: 'row' or 'row_klist'.
+            rowkeys: The keys of the rows to change. All rows if None.
+            **kwargs: Passed on to func.
+
+        Returns:
+            This SqlDaf, which has been changed.
+
+        Raises:
+            NotImplementedError: `by` is not 'row' or 'row_klist'.
+            ValueError: With `by='row'` the function returned None, or a key became a Python NULL.
+            sqlite3.IntegrityError: A key became repeated. Nothing changes.
+        """
+        if by not in ('row', 'row_klist'):
+            raise NotImplementedError(f"apply_in_place(by={by!r}) is not supported on a SqlDaf.")
+        if rowkeys is not None:
+            self.select_records_daf(rowkeys, silent_error=True).apply_in_place(func, by=by, **kwargs)
+            return self
+
+        table, ref_col, _scope_sql, _scope_params = self._update_scope()
+        rows_sql, rows_params = self._rows_sql()
+        cols_ls: T_ls = list(self.hd)
+        written_set: set = set()
+        last_ord: Any = None
+        with self.transaction():
+            # Read a batch past the last place seen, change it, write it, and go on.
+            while True:
+                after_sql: str = '' if last_ord is None else f'WHERE {ORD_COL} > ? '
+                batch_lot: List[Tuple[Any, ...]] = self._fetch(self._execute(
+                        f'SELECT {REF_COL}, {ORD_COL}, {self._cols_sql()} FROM ({rows_sql}) {after_sql}'
+                        f'ORDER BY {ORD_COL} LIMIT 10000', rows_params + (() if last_ord is None else (last_ord,))))
+                if not batch_lot:
+                    break
+                last_ord = batch_lot[-1][1]
+                updates_dolt: Dict[Tuple[str, ...], List[Tuple[Any, ...]]] = {}
+                for row_t in batch_lot:
+                    new_da: T_da = self._apply_one(func, by, cols_ls, none_to_null(row_t[2:]), kwargs)
+                    set_cols_t: Tuple[str, ...] = tuple(col for col in new_da if col in self.hd)
+                    updates_dolt.setdefault(set_cols_t, []).append(
+                            tuple(null_to_none([new_da[col] for col in set_cols_t])) + (row_t[0],))
+                set_cols_t2: Tuple[str, ...]
+                for set_cols_t2, params_lt in updates_dolt.items():
+                    if not set_cols_t2:
+                        continue
+                    written_set.update(set_cols_t2)
+                    set_sql: str = ', '.join(f'{quote_name(col)} = ?' for col in set_cols_t2)
+                    self.conn.executemany(f'UPDATE {quote_name(table)} SET {set_sql} WHERE {quote_name(ref_col)} = ?', params_lt)
+            self._after_key_change(written_set, 'apply_in_place')
+        return self
+
+
+    @staticmethod
+    def _apply_one(func: Callable[..., Any], by: str, cols_ls: T_ls, row_la: T_la, kwargs: T_da) -> T_da:
+        """ Run the function of `apply_in_place()` on one row, and give the values to write. Internal use. """
+        if by == 'row_klist':
+            row_kl: KeyedList = KeyedList(dict(zip(cols_ls, range(len(cols_ls)))), row_la)
+            func(row_kl, **kwargs)
+            return dict(row_kl)
+        new_da: Any = func(dict(zip(cols_ls, row_la)), **kwargs)
+        if new_da is None:
+            raise ValueError("apply_in_place: func must return a row for by='row'. "
+                             "None is only valid for by='row_klist'.")
+        return dict(new_da)
+
+
+    def calc_cols(                                                          # type: ignore[override]
+            self,
+            include_cols:   Iterable | None = None,
+            exclude_cols:   Iterable | None = None,
+            include_types:  List[Type] | None = None,
+            exclude_types:  List[Type] | None = None,
+            ) -> T_ls:
+        """
+        Choose column names by rules, as `Daf.calc_cols()` does.
+
+        It reads only the column names and the dtypes, never the rows.
+
+        Args:
+            include_cols: Keep only these names.
+            exclude_cols: Leave out these names.
+            include_types: Keep only columns whose dtype is one of these.
+            exclude_types: Leave out columns whose dtype is one of these.
+
+        Returns:
+            The chosen column names, in column order.
+        """
+        return Daf.calc_cols(self, include_cols=include_cols, exclude_cols=exclude_cols,          # type: ignore[return-value]
+                             include_types=include_types, exclude_types=exclude_types)
 
 
     # ---- joining ----

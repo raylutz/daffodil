@@ -1565,8 +1565,8 @@ def test_concat_columns_must_match():
     bif_sdaf: SqlDaf = SqlDaf.from_daf(make_bif_daf(), name='bif')
     with pytest.raises(KeyError):
         bif_sdaf.concat(Daf(lol=[['b9', 'P1']], cols=['ballot_id', 'precinct']))
-    with pytest.raises(NotImplementedError):
-        bif_sdaf.concat(make_bif_daf(), respect_kd=True)
+    bif_sdaf.concat(make_bif_daf(), respect_kd=True)                   # every key is there, so every row is replaced
+    assert bif_sdaf.to_daf().lol == make_bif_daf().lol
 
 
 def test_concat_duplicate_key_raises_and_adds_nothing():
@@ -1936,3 +1936,158 @@ def test_reading_by_key_and_name_works_after_a_delete():
     assert read_sdaf.select_krows(('b1', 'b4')).to_daf().lol == read_daf.select_krows(('b1', 'b4')).lol
     assert read_sdaf.select_first_row_by_dict({'p': 'P2'}) == dict(read_daf.select_first_row_by_dict({'p': 'P2'}))
     assert read_sdaf.to_md(max_rows=2) == read_daf.to_md(max_rows=2)
+
+
+# ---- writing: adding rows and changing values ----
+
+def make_write_daf() -> Daf:
+    return Daf(cols=['id', 'v', 'n'], lol=[['a', 'x', 1], ['b', 'y', 2], ['c', 'z', 3]], keyfield='id')
+
+
+WRITE_OPS: list = [
+    lambda daf: daf.append({'id': 'd', 'n': 4}),
+    lambda daf: daf.append(KeyedList({'id': 0, 'v': 1}, ['d', 'w'])),
+    lambda daf: daf.append(['d', 'w']),
+    lambda daf: daf.append([{'id': 'd'}, {'id': 'e', 'v': 'q'}]),
+    lambda daf: daf.append(lol=[['d', 'w', 4], ['e']]),
+    lambda daf: daf.append(la=['d', 'w', 4]),
+    lambda daf: daf.append({'id': 'b', 'v': 'B'}, respect_kd=True),
+    lambda daf: daf.append(Daf(cols=['id', 'v', 'n'], lol=[['b', 'w', 4], ['d', 'q', 5]], keyfield='id'), respect_kd=True),
+    lambda daf: daf.append({}),
+    lambda daf: daf.record_append({'id': 'a', 'v': 'A'}),
+    lambda daf: daf.record_append({'id': 'd', 'v': 'D'}),
+    lambda daf: daf.extend([{'id': 'd'}, {}]),
+    lambda daf: daf.extend(lol=[['d', 'w'], ['e', 'q', 9]]),
+    lambda daf: daf.assign_record({'id': 'b', 'n': 9}),
+    lambda daf: daf.assign_record({'id': 'z', 'n': 9}),
+    lambda daf: daf.update_by_keylist(['a', 'zz', 'c'], {'v': 'U', 'bogus': 1}),
+    lambda daf: daf.__setitem__(('b', 'v'), 'Q'),
+    lambda daf: daf.__setitem__(('b', 'v'), ['L']),
+    lambda daf: daf.__setitem__((slice(None), 'n'), [7, 8, 9]),
+    lambda daf: daf.__setitem__((slice(None), 'n'), [7]),
+    lambda daf: daf.__setitem__((slice(None), 'n'), [7, 8, 9, 10]),
+    lambda daf: daf.__setitem__((slice(None), 'v'), 'xyz'),
+    lambda daf: daf.__setitem__('b', {'id': 'b', 'v': 'q'}),
+    lambda daf: daf.assign_col('n', [4, 5, 6]),
+    lambda daf: daf.assign_col('n', [4]),
+    lambda daf: daf.assign_col('n', default=0),
+    lambda daf: daf.assign_col('w', [1, 2]),
+    lambda daf: daf.apply_to_col('v', str.upper),
+    lambda daf: daf.apply_to_col('n', lambda val, k: val * k, k=10),
+    lambda daf: daf.apply_in_place(lambda row: {'n': row['n'] + 1, 'bogus': 0}),
+    lambda daf: daf.apply_in_place(lambda row: row.__setitem__('v', row['v'] * 2), by='row_klist'),
+    lambda daf: daf.apply_in_place(lambda row: {'n': 0}, rowkeys=['a', 'zz']),
+]
+
+
+@pytest.mark.parametrize('op', WRITE_OPS)
+def test_writes_match_mdaf(op):
+    write_daf: Daf = make_write_daf()
+    write_sdaf: SqlDaf = SqlDaf.from_daf(write_daf, name='w')
+    op(write_daf)
+    op(write_sdaf)
+    assert write_sdaf.to_daf().lol == write_daf.lol
+    assert write_sdaf.columns() == write_daf.columns()
+
+
+@pytest.mark.parametrize('op', WRITE_OPS)
+def test_writes_match_mdaf_after_a_delete(op):
+    write_daf: Daf = make_write_daf()
+    write_sdaf: SqlDaf = SqlDaf.from_daf(write_daf, name='w')
+    write_daf.append({'id': 'q', 'v': 'gone', 'n': 0})
+    write_sdaf.append({'id': 'q', 'v': 'gone', 'n': 0})
+    write_daf.delete_records(['a'], inplace=True)
+    write_sdaf.delete_records(['a'], inplace=True)
+    op(write_daf)
+    op(write_sdaf)
+    assert write_sdaf.to_daf().lol == write_daf.lol
+
+
+def test_calc_cols_matches_mdaf():
+    write_daf: Daf = make_write_daf()
+    write_sdaf: SqlDaf = SqlDaf.from_daf(write_daf, name='w')
+    assert write_sdaf.calc_cols(exclude_cols=['v']) == write_daf.calc_cols(exclude_cols=['v']) == ['id', 'n']
+
+
+def test_writes_reject_repeated_and_python_null_keys():
+    write_sdaf: SqlDaf = SqlDaf.from_daf(make_write_daf(), name='w')
+    with pytest.raises(sqlite3.IntegrityError):
+        write_sdaf.append({'id': 'a'})
+    with pytest.raises(sqlite3.IntegrityError):
+        write_sdaf.update_by_keylist(['a'], {'id': 'b'})
+    with pytest.raises(ValueError, match='Python NULL key'):
+        write_sdaf.append({'v': 'no key'})
+    with pytest.raises(ValueError, match='Python NULL key'):
+        write_sdaf['b'] = {'v': 'q'}                                    # a whole row without its key
+    assert write_sdaf.to_daf().lol == make_write_daf().lol
+
+
+def test_writes_are_all_or_nothing():
+    write_sdaf: SqlDaf = SqlDaf.from_daf(make_write_daf(), name='w')
+    with pytest.raises(ValueError):
+        write_sdaf.extend(lol=[['d'], ['e', 1, 2, 3]])
+    with pytest.raises(ZeroDivisionError):
+        write_sdaf.apply_in_place(lambda row: {'n': 1 / (row['n'] - 3)})
+    with pytest.raises(ZeroDivisionError):
+        write_sdaf.apply_to_col('n', lambda val: 1 / (val - 3))
+    assert write_sdaf.to_daf().lol == make_write_daf().lol
+
+
+def test_write_errors_match_mdaf():
+    write_sdaf: SqlDaf = SqlDaf.from_daf(make_write_daf(), name='w')
+    with pytest.raises(TypeError):
+        write_sdaf.append(['d'], la=[1])
+    with pytest.raises(TypeError):
+        write_sdaf.append(('d', 'w'))
+    with pytest.raises(TypeError):
+        write_sdaf.extend(lol=[('d',)])
+    with pytest.raises(TypeError):
+        write_sdaf.record_append(['d'])
+    with pytest.raises(KeyError):
+        write_sdaf['zz', 'v'] = 1
+    with pytest.raises(KeyError):
+        write_sdaf['a', 'zz'] = 1
+    with pytest.raises(KeyError):
+        write_sdaf[:, 'zz'] = 1
+    with pytest.raises(KeyError):
+        write_sdaf.assign_record({'v': 1})
+    with pytest.raises(KeyError):
+        write_sdaf.apply_to_col('zz', str)
+    with pytest.raises(ValueError):
+        write_sdaf.apply_in_place(lambda row: None)
+    with pytest.raises(NotImplementedError):
+        write_sdaf.apply_in_place(lambda row: row, by='col')
+    with pytest.raises(NotImplementedError):
+        write_sdaf[0, 'v'] = 1                                          # a position, not a key
+
+
+def test_writes_through_a_selection_change_the_parent():
+    write_sdaf: SqlDaf = SqlDaf.from_daf(make_write_daf(), name='w')
+    tail_sdaf: SqlDaf = write_sdaf.select_where_sql("id <> 'a'")
+    tail_sdaf['b', 'v'] = 'B'
+    tail_sdaf[:, 'n'] = [20, 30]
+    tail_sdaf.apply_to_col('v', str.upper)
+    tail_sdaf.apply_in_place(lambda row: {'n': row['n'] + 1})
+    tail_sdaf.update_by_keylist(['a', 'c'], {'v': 'C'})                # 'a' is not in the selection
+    assert write_sdaf.to_daf().lol == [['a', 'x', 1], ['b', 'B', 21], ['c', 'C', 31]]
+    with pytest.raises(KeyError):
+        tail_sdaf['a', 'v'] = 'no'
+    with pytest.raises(NotImplementedError):
+        tail_sdaf.assign_col('new', [1])
+    with pytest.raises(NotImplementedError):
+        tail_sdaf.record_append({'id': 'd'})
+
+
+def test_append_to_a_selection_leaves_the_parent():
+    write_sdaf: SqlDaf = SqlDaf.from_daf(make_write_daf(), name='w')
+    tail_sdaf: SqlDaf = write_sdaf.select_where_sql("id <> 'a'")
+    tail_sdaf.append({'id': 'd'})
+    assert tail_sdaf.keys() == ['b', 'c', 'd']
+    assert write_sdaf.keys() == ['a', 'b', 'c']
+
+
+def test_concat_respect_kd_from_a_sqldaf():
+    write_sdaf: SqlDaf = SqlDaf.from_daf(make_write_daf(), name='w')
+    other_sdaf: SqlDaf = SqlDaf('other', cols=['id', 'v', 'n'], lol=[['b', 'B', 0], ['d', 'D', 4]], keyfield='id')
+    write_sdaf.concat(other_sdaf, respect_kd=True)
+    assert write_sdaf.to_daf().lol == [['a', 'x', 1], ['b', 'B', 0], ['c', 'z', 3], ['d', 'D', 4]]
