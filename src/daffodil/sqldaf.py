@@ -2578,25 +2578,59 @@ class SqlDaf(Daf):
           the end is empty, as in a Daf.
         - A str is a key. The keyfield's unique index is made first. A missing key raises
           KeyError, as in a Daf.
+        - A list of keys gives their rows in the order of the list, as `select_records_daf()`
+          does. A missing key raises KeyError, as in a Daf.
+
+        Rows and columns together, as in `sdaf[key, 'col']` or `sdaf[:, ['a', 'b']]`, give new
+        rows with only those columns, as `select_cols()` makes them. The rows part takes any form
+        above, or `:` for all rows. The columns part is a name, a list of names, or `:` for all.
+        Read one value with `to_value()`, as in a Daf.
+
+        A value read this way makes a TEMP table, which costs about 1 ms. In a loop over many
+        keys, `select_record()` is about 30 times faster.
 
         A negative position, or a slice with a negative end, costs a `len()` first. In a parent
         with daf_rid, or a child whose rows are found, positions are looked up directly. Otherwise
         SQLite steps over the rows before them.
 
         Args:
-            sel: An int, a slice or a str.
+            sel: An int, a slice, a key or a list of keys. Or a pair of rows and columns.
 
         Returns:
-            A selection.
+            A selection. New rows of the chosen columns, for a pair.
 
         Raises:
             IndexError: An int position past the end.
-            KeyError: A key that is missing.
-            NotImplementedError: Any other form, such as `sdaf[rows, cols]`, or a slice with a step.
+            KeyError: A key that is missing, or a name that is not a column.
+            NotImplementedError: Any other form, such as a list of positions, or a slice with a step.
             ValueError: An int or a slice, on a parent that has had rows deleted. See SqlDaf.
+
+        Examples:
+            >>> import tempfile
+            >>> SqlDaf.db_path = tempfile.mkdtemp() + '/job.db'
+            >>> marks_sdaf = SqlDaf('marks', cols=['ballot_id', 'v'], lol=[['b1', 1], ['b2', 0], ['b3', 1]], keyfield='ballot_id')
+            >>> marks_sdaf[['b3', 'b1']].to_daf().to_lod()
+            [{'ballot_id': 'b3', 'v': 1}, {'ballot_id': 'b1', 'v': 1}]
+            >>> marks_sdaf['b2', 'v'].to_value()
+            0
         """
+        if isinstance(sel, tuple):
+            # Rows and columns: choose the rows, then the columns.
+            if len(sel) != 2:
+                raise NotImplementedError(f"sdaf[{sel!r}] is not supported on a SqlDaf. Give rows and columns.")
+            rows_sel, cols_sel = sel
+            rows_sdaf: SqlDaf = self if rows_sel == slice(None) else self[rows_sel]
+            if cols_sel == slice(None):
+                return rows_sdaf.select_cols()
+            if not isinstance(cols_sel, (str, list)):
+                raise NotImplementedError(f"sdaf[rows, {cols_sel!r}] is not supported on a SqlDaf. "
+                                          f"Give a column name, a list of names or ':'.")
+            return rows_sdaf.select_cols([cols_sel] if isinstance(cols_sel, str) else cols_sel)
+        if isinstance(sel, list) and all(isinstance(key, str) for key in sel):
+            return self.select_records_daf(sel)
         if isinstance(sel, bool) or not isinstance(sel, (int, slice, str)):
-            raise NotImplementedError(f"sdaf[{sel!r}] is not supported on a SqlDaf yet. Use an int, a slice or a key.")
+            raise NotImplementedError(f"sdaf[{sel!r}] is not supported on a SqlDaf yet. "
+                                      f"Use an int, a slice, a key or a list of keys.")
         if not isinstance(sel, str):
             self._check_positions(f'sdaf[{sel!r}]')
         self._resolve_parent()

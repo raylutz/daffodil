@@ -549,7 +549,7 @@ def test_sql_write_is_committed_and_gives_an_empty_daf():
 # the blocker
 
 @pytest.mark.parametrize('call', [
-    lambda sdaf: sdaf[0, 'contest'],
+    lambda sdaf: sdaf[[0, 1]],
     lambda sdaf: sdaf.irow(0),
     lambda sdaf: sdaf.select_irows([0]),
     lambda sdaf: sdaf.multi_groupby(['contest']),
@@ -1120,7 +1120,9 @@ def test_getitem_errors():
     with pytest.raises(NotImplementedError):
         bif_sdaf[0:4:2]
     with pytest.raises(NotImplementedError):
-        bif_sdaf[0, 'precinct']
+        bif_sdaf[[0, 2]]
+    with pytest.raises(NotImplementedError):
+        bif_sdaf[0, 'precinct', 'style_num']
     nokey_sdaf: SqlDaf = SqlDaf.from_daf(make_bif_daf(), name='nokey', keyfield='').set_keyfield('')
     with pytest.raises(NotImplementedError):
         nokey_sdaf['b1']
@@ -1132,6 +1134,52 @@ def test_getitem_by_key():
     assert bif_sdaf['b3'].to_daf().lol == bif_daf['b3'].lol
     assert bif_sdaf['b3'].to_dict() == bif_daf['b3'].to_dict()
     assert 'daf_ix_bif_ballot_id' in key_indexes(bif_sdaf.conn)
+
+
+def test_getitem_by_key_list_matches_mdaf():
+    bif_daf: Daf = make_bif_daf()
+    bif_sdaf: SqlDaf = SqlDaf.from_daf(bif_daf, name='bif')
+    assert bif_sdaf[['b4', 'b1']].to_daf().lol == bif_daf[['b4', 'b1']].lol
+    with pytest.raises(KeyError):
+        bif_sdaf[['b1', 'nothing']]
+
+
+@pytest.mark.parametrize('sel', [
+    ('b3', 'precinct'), ('b3', ['style_num', 'ballot_id']), (0, 'precinct'), (-1, 'style_num'),
+    (slice(1, 3), 'style_num'), (['b4', 'b2'], 'precinct'), (slice(None), 'precinct'),
+    (slice(None), ['is_bmd', 'precinct']), ('b2', slice(None))])
+def test_getitem_rows_and_cols_matches_mdaf(sel):
+    bif_daf: Daf = make_bif_daf()
+    bif_sdaf: SqlDaf = SqlDaf.from_daf(bif_daf, name='bif')
+    assert bif_sdaf[sel].to_daf().lol == bif_daf[sel].lol
+    assert bif_sdaf[sel].columns() == bif_daf[sel].columns()
+
+
+def test_getitem_one_value():
+    bif_daf: Daf = make_bif_daf()
+    bif_sdaf: SqlDaf = SqlDaf.from_daf(bif_daf, name='bif')
+    assert bif_sdaf['b3', 'style_num'].to_value() == bif_daf['b3', 'style_num'].to_value() == 3
+    assert bif_sdaf.select_by_dict({'precinct': 'P1'})[0, 'ballot_id'].to_value() == 'b1'
+
+
+def test_getitem_rows_and_cols_after_a_delete():
+    bif_daf: Daf = make_bif_daf()
+    bif_sdaf: SqlDaf = SqlDaf.from_daf(bif_daf, name='bif')
+    bif_sdaf.delete_records(['b2'], inplace=True)
+    assert bif_sdaf['b3', 'precinct'].to_value() == 'P1'
+    assert bif_sdaf[:, 'ballot_id'].to_daf().lol == [['b1'], ['b3'], ['b4'], ['b5']]
+    with pytest.raises(ValueError):
+        bif_sdaf[0, 'precinct']
+
+
+def test_getitem_rows_and_cols_errors():
+    bif_sdaf: SqlDaf = SqlDaf.from_daf(make_bif_daf(), name='bif')
+    with pytest.raises(KeyError):
+        bif_sdaf['b1', 'nothing']
+    with pytest.raises(KeyError):
+        bif_sdaf['nothing', 'precinct']
+    with pytest.raises(NotImplementedError):
+        bif_sdaf['b1', 0]
 
 
 # reading one row
