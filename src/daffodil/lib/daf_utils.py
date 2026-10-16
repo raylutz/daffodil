@@ -33,8 +33,18 @@ def is_linux() -> bool:
     return platform.system() == 'Linux'
     
 
-# pyjson5 reads Pyon text, such as a dict cell of a CSV file, about 18 times faster than
-# ast.literal_eval. It is optional: without it, ast.literal_eval reads every cell.
+# ---- Reading Pyon text
+# Pyon is the text that repr() gives, with single quotes, as the CSV writer writes a dict cell.
+# pyjson5 reads Pyon text, such as a dict cell of a CSV file, 14 to 18 times faster than
+# ast.literal_eval. It is optional. Without it, ast.literal_eval reads every cell.
+#
+# Pyon text needs no conversion to JSON before it is stored.
+# pyjson5 reads it a little faster than json.loads reads the same dict as JSON.
+# A regex for the strict form of str keys and int values is about 2.5 times slower than pyjson5.
+# pyjson5 rejects None, True, a tuple and a dict with int keys.
+# For those, unflatten_val falls back to ast.literal_eval.
+# Swapping single quotes for double quotes is not a safe way to read Pyon.
+# It breaks a key with an apostrophe, and it changes None inside a string.
 try:
     import pyjson5                                  # type: ignore
     _pyjson5_loads: Callable[[str], Any] | None = pyjson5.loads
@@ -734,6 +744,8 @@ def safe_convert_json_to_obj(json_str: str, json_name: str='') -> Any:
     # convert directly from JSON to object, except deal with single quotes or None's if found.
     # THIS IS FOR HUMAN_ENTERED JSON WHICH MAY HAVE HUMAN-ERRORS.
     # Do not use this for known-good JSON or PYON
+    # The quote swap breaks a key with an apostrophe.
+    # It also turns None inside a string into null. unflatten_val reads Pyon correctly.
 
     try:
         result_obj    = json.loads(json_str or "{}")
@@ -2276,11 +2288,17 @@ def unexcelstringify(astr: str) -> str:
     return astr
 
 def get_indirect_da(row_da: T_ma, indirect_col: str) -> T_da:
+    """ Return the dict held in one column of a row.
+
+        A cell may hold the dict itself, or its text as JSON or Pyon.
+        The text is read by unflatten_val, which tries pyjson5 first.
+        An empty cell gives an empty dict.
+    """
 
     da = row_da.get(indirect_col, {})
 
     if isinstance(da, str):
-        return safe_convert_json_to_obj(da)
+        return unflatten_val(da) if da else {}       # type: ignore[return-value]
 
     return da
 

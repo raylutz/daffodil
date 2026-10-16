@@ -111,7 +111,7 @@ Three of these need their own review before they are built:
 ```python
 def locate_variants_sdaf(
         store:              SqlStore,
-        input_lsdaf:        List[SqlDaf],       # audit, CVR, and optionally the modified CVR
+        input_losdaf:        List[SqlDaf],       # audit, CVR, and optionally the modified CVR
         variants_names_ls:  T_ls,               # names of the two variants tables
         nonvariants_names_ls: T_ls,             # names of the two nonvariants tables
         flag_cols_lol:      T_lols,             # flag columns for audit and CVR
@@ -119,42 +119,42 @@ def locate_variants_sdaf(
         use_concise:        bool,
         ) -> T_lods:                            # report rows, as now
 
-    side_lsdaf: List[SqlDaf] = input_lsdaf[:2]
-    modi_sdaf:  SqlDaf | None = input_lsdaf[2] if len(input_lsdaf) == 3 else None
+    side_losdaf: List[SqlDaf] = input_losdaf[:2]
+    modi_sdaf:  SqlDaf | None = input_losdaf[2] if len(input_losdaf) == 3 else None
 
     # steps 1 and 2
     for name in variants_names_ls:
         store.drop_table(name, missing_ok=True)
-    variants_lsdaf: List[SqlDaf] = [side_lsdaf[i].clone_empty(name=variants_names_ls[i]) for i in range(2)]
+    variants_losdaf: List[SqlDaf] = [side_losdaf[i].clone_empty(name=variants_names_ls[i]) for i in range(2)]
 
     # step 3
     for i in range(2):
-        residue_sdaf: SqlDaf = side_lsdaf[i].select_records_daf(side_lsdaf[1 - i], inverse=True).save_as(f'residue_{i}')
+        residue_sdaf: SqlDaf = side_losdaf[i].select_records_daf(side_losdaf[1 - i], inverse=True).save_as(f'residue_{i}')
         residue_sdaf.to_csv(f'residue_{i}.csv')
-        side_lsdaf[i].delete_records(residue_sdaf)
+        side_losdaf[i].delete_records(residue_sdaf)
 
     # step 4
     for i in range(2):
         if use_concise:
-            flagged_sdaf: SqlDaf = side_lsdaf[i].select_where(
+            flagged_sdaf: SqlDaf = side_losdaf[i].select_where(
                     lambda row: has_variant_flag(row['concise_votes']), cols=['concise_votes'])
         else:
-            flagged_sdaf = side_lsdaf[i].select_where(any_flag_sql(flag_cols_lol[i]))
-        variants_lsdaf[i].concat(flagged_sdaf, skip_existing_keys=True)
+            flagged_sdaf = side_losdaf[i].select_where(any_flag_sql(flag_cols_lol[i]))
+        variants_losdaf[i].concat(flagged_sdaf, skip_existing_keys=True)
 
     # steps 5 and 6
     for i in range(2):
-        variants_lsdaf[i].concat(side_lsdaf[i].select_records_daf(variants_lsdaf[1 - i]), skip_existing_keys=True)
+        variants_losdaf[i].concat(side_losdaf[i].select_records_daf(variants_losdaf[1 - i]), skip_existing_keys=True)
         if modi_sdaf is not None:
-            variants_lsdaf[i].concat(side_lsdaf[i].select_records_daf(modi_sdaf), skip_existing_keys=True)
+            variants_losdaf[i].concat(side_losdaf[i].select_records_daf(modi_sdaf), skip_existing_keys=True)
 
     # step 7
-    nonvariants_lsdaf: List[SqlDaf] = [
-            side_lsdaf[i].select_records_daf(variants_lsdaf[i], inverse=True).save_as(nonvariants_names_ls[i])
+    nonvariants_losdaf: List[SqlDaf] = [
+            side_losdaf[i].select_records_daf(variants_losdaf[i], inverse=True).save_as(nonvariants_names_ls[i])
             for i in range(2)]
 
     # steps 8 and 9
-    pair_sdaf: SqlDaf = nonvariants_lsdaf[0].join(nonvariants_lsdaf[1], tag_other=True)
+    pair_sdaf: SqlDaf = nonvariants_losdaf[0].join(nonvariants_losdaf[1], tag_other=True)
     if use_concise:
         disagreed_sdaf: SqlDaf = (pair_sdaf
                 .select_where('"concise_votes" != "concise_votes_other"')
@@ -165,8 +165,8 @@ def locate_variants_sdaf(
 
     # steps 10 and 11
     for i in range(2):
-        variants_lsdaf[i].concat(nonvariants_lsdaf[i].select_records_daf(disagreed_sdaf), skip_existing_keys=True)
-        nonvariants_lsdaf[i].delete_records(variants_lsdaf[i])
+        variants_losdaf[i].concat(nonvariants_losdaf[i].select_records_daf(disagreed_sdaf), skip_existing_keys=True)
+        nonvariants_losdaf[i].delete_records(variants_losdaf[i])
 
     # steps 12 on: sql() for now
     ...
@@ -195,4 +195,146 @@ The tag `_other` for the other side's columns is a placeholder. The real suffix 
   `concat(rows_sdaf.select_records_daf(target_sdaf, inverse=True))`. To mention to AuditEngine:
   today INSERT OR IGNORE in sql_variants.py drops a duplicate silently, if one reaches
   find_variants. Ray: duplicates must never be ignored.
-- Steps 12 to 14, the contest-level tables, are not sketched yet.
+- Steps 12 to 18, the contest-level tables, and the stats of cmpcvr.py are in the trial of
+  2026-10-15, below.
+
+## Trial, 2026-10-14
+
+notes/sql_backing/find_variants_trial.py ports steps 1 to 11 one for one with SqlDaf, as above,
+and runs on a copy of a cmpcvr.db that AuditEngine's find_variants has already written. It
+rebuilds the inputs from the trimmed input tables and their residue tables, runs the port, and
+compares each result table with AuditEngine's, as sets of rows. AuditEngine's own code and data
+are not changed; its databases are copied first.
+
+| Job                                    | Inputs | Audit ballots | Time   | Result |
+| :------------------------------------- | -----: | ------------: | -----: | :----- |
+| WI_Dane_20201103_functest              | 2      | 198           |        | all tables the same |
+| GA_Bartow_20201103_functest            | 3      | 214           |        | all tables the same |
+| US_MD_Somerset_20221108_ocrmapped      | 2      | 6,957         | 1.4 s  | all tables the same |
+| US_CO_Broomfield_20231107_aimapper     | 2      | 26,286        |        | all tables the same |
+| CA_SanFrancisco_20241105_pilot_d05     | 3      | 34,534        | 4.0 s  | all tables the same |
+| US_MD_Rockvillecity_20231107_ocrmapped | 2      | 12,637        | 1.3 s  | one ballot differs, see below |
+
+The times include copying the database and comparing. Peak memory was 105 MB at most.
+
+The trial also builds the step report of sql_variants.py: the same columns and step
+descriptions, with the rows and seconds of each step for each side. For San Francisco, every
+row count of steps 0 to 11 is the same as in AuditEngine's saved reports/Find_Variants_Report.md,
+and steps 1 to 11 took about 1.0 s in all, against about 0.9 s there.
+
+The column num_contests is left out of the comparison. cmpcvr.py fills it into audit_nonvariants
+with add_computed_column() after locate_variants() returns, so steps 1 to 11 never set it.
+
+Rockville: the port finds ballot 2760 disagreed, and AuditEngine's run of 2026-09-10 did not.
+Its concise votes differ in contest c1, 4 votes against 5, and AuditEngine's own
+normalize_pyon() says so too. AuditEngine's own step 8 query, run read-only on its stored
+nonvariant tables, finds 2760. But the disagreed tables in that file are empty. In
+sql_variants.py, step 8 makes them with CREATE TABLE IF NOT EXISTS, and they are never dropped,
+while cmpcvr.db is kept from run to run. So on a rerun, step 8 keeps the previous run's
+disagreed tables, and a new disagreement is missed. This is a bug in AuditEngine, not in the
+port. Not reported to AuditEngine yet; that is Ray's call.
+
+The five large jobs were run on 2026-10-14, one at a time, Ray's question 120:
+
+| Job                             | Audit ballots | Steps 1 to 11, port | Same, AuditEngine | Result |
+| :------------------------------ | ------------: | ------------------: | ----------------: | :----- |
+| GA_Paulding_20201103            | 85,589        | 3.0 s               | 3.7 s             | 209 ballots differ, see below |
+| WI_Dane_20201103_aimapper       | 333,574       | 5.7 s               | 10.8 s            | all tables the same |
+| FL_Collier_20201103_ocrmapped   | 417,726       | 6.7 s               | 12.7 s            | all tables the same |
+| WI_Dane_20241105_aimapper       | 367,179       | 7.6 s               | 19.1 s            | all tables the same |
+| GA_Dekalb_20220524_aimapper     | 142,810       | 10.7 s              | 103.1 s           | all tables the same |
+
+The times are the sums of the step times in each report, for both sides: the port's, and
+AuditEngine's saved reports/Find_Variants_Report.md from its own run, on whatever load the box had
+then. Run alone on Collier, the port took 13.0 s of wall time for steps 1 to 11, counting the
+row counts made for the report, and peak memory stayed at 40 MB, the memory of the import. The
+whole trial, with the copy and the comparison, peaked at 0.4 to 0.8 GB, because the comparison
+pulls every result row into Python sets.
+
+Paulding: the same stale-table bug as Rockville, larger. AuditEngine's report agrees with the
+port through step 7, row for row. Its step 8 shows 18 disagreed ballots in 0.00011 s, which is no
+work: CREATE TABLE IF NOT EXISTS found the tables of an earlier run and kept them. AuditEngine's
+own step 8 query, run read-only on its stored nonvariant tables, still finds 209 ballots whose
+concise votes differ after normalize_pyon(). 18 + 209 = 227, the port's count. So that run left
+209 disagreeing ballots among the nonvariants.
+
+## Trial of steps 12 to 18 and the stats, 2026-10-15
+
+find_variants_trial.py now ports the rest of locate_variants(), steps 12 to 18, and the stats
+that cmpcvr.py computes after it. Each step is written with SqlDaf methods, and each result is
+compared with the table or JSON file AuditEngine wrote.
+
+| Step | AuditEngine                                   | Port                                                       |
+| ---: | :-------------------------------------------- | :--------------------------------------------------------- |
+| 12   | extract_contests() through json_each()         | `apply(split_contests)`, one row per contest               |
+| 13   | a JOIN on ballot_id and cidx, with the flag test | `join()` on contest_key, `select_where()`, then `select_records_daf()` |
+| 14   | the same JOIN, negated, then pmvs and wins       | `select_where()`, `apply()` for the column names, `join()` twice |
+| 15   | json_group_object() GROUP BY ballot_id           | the same query through `sql()`, then `apply()` for num_contests |
+| 16   | an empty row for each ballot with none left      | `valuecounts_for_colname()`, `keys()`, `concat()`           |
+| 17   | the blank sheets moved out                       | `select_records_daf()`, `select_where()`, `delete_records()`, `join()` |
+| 18   | the join with votes, then Daf.apply()            | `join()`. The function is AuditEngine's, see below          |
+| stats | add_computed_column(), SUM(json_extract()), GROUP BY | `apply()`, `concat()`, `sum()`, `reduce(by='sparse_row')`, `groupby()`, the value counts |
+
+contest_key is a column the port adds in step 12. It holds the ballot id and the contest index,
+so the one-key `join()` of SqlDaf joins on both. A table made by `apply()` stores every column,
+so contest_key is left out of the comparison.
+
+Two SqlDaf methods were added for this, under Q159: `select_cols()` and `reduce()`, as in Daf.
+Step 15 still uses `sql()`, since SqlDaf has no reduce by group. Step 18 runs AuditEngine's own
+create_contest_variant_record() on each row. Its modules cannot be imported without AuditEngine's
+startup, so the trial checks the join and stops there. In AuditEngine the step would be:
+
+```python
+contest_variants_sdaf = combined_sdaf.join(votes_sdaf).apply(create_contest_variant_record)
+contest_variants_sdaf.to_csv_file(contest_variants_path)
+```
+
+Results, compared as sets of rows. "Same" means the same text and values in every table of steps
+12 to 18, and in partially_agreed.csv.
+
+| Job                                    | Steps 12 to 18 | Stats  | Result |
+| :------------------------------------- | -------------: | -----: | :----- |
+| WI_Dane_20201103_functest              | 0.01 s         | 0.04 s | steps the same; stats from older code |
+| GA_Bartow_20201103_functest            | 0.02 s         | 0.11 s | steps the same; stats from older code |
+| US_MD_Somerset_20221108_ocrmapped      | 1.2 s          | 3.8 s  | steps the same; stats from older code |
+| US_CO_Broomfield_20231107_aimapper     | 0.73 s         | 6.3 s  | steps the same; stats from older code |
+| CA_SanFrancisco_20241105_pilot_d05     | 4.2 s          | 10.6 s | all the same, after Q162           |
+| US_MD_Rockvillecity_20231107_ocrmapped | 0.41 s         | 2.2 s  | only ballot 2760 differs, the stale-table bug |
+
+San Francisco was run by AuditEngine on 2026-10-15 at 15:20, with today's code. Its saved report
+gives the same row count as the port for each of steps 12 to 18. Its times for those steps add to
+5.3 s, without the apply of step 18, and the port's to 5.3 s.
+
+The other jobs were run by older AuditEngine code, from 2026-07-22 to 2026-10-09. Three things
+differ there, and each is that code, not the port:
+
+- concise_votes3 was not written for a job with two inputs. The port writes '{}' there, as
+  today's code does, and the comparison drops it when AuditEngine's table lacks it.
+- The precinct sums were written empty. The comment in cmpcvr.py says that every row failed as
+  malformed JSON then.
+- The contests count was taken from combined_nonvariants. Today it is from the nonvariants
+  alone. In Bartow the difference, 195, is the number of nonvariant contests of the partly
+  agreed ballots.
+
+In San Francisco, every stat matches but one. nonvariant_valuecounts_dodi counts party as
+2,216 empty values, where AuditEngine counts 34,469. AuditEngine's table holds '' as text. A table
+that `apply()` writes holds Python NULL as SQL NULL. Both read as Python NULL, so the count of one replaces the
+count of the other, where a Daf would add them. That is a bug in SqlDaf, Q162.
+
+Fixed by Q162 on 2026-10-15: SqlDaf now treats '' as Python NULL when it counts. Rerun, every stat
+of San Francisco is the same as AuditEngine's.
+
+The order of nonvariant_keys_ls matched only after one change: the empty rows of step 16 are
+added in ballot_id order, as AuditEngine's SELECT DISTINCT returns them through its index.
+
+The stats took 10.6 s on San Francisco. Half of it is num_contests, which decodes the PYON of
+every nonvariant, as AuditEngine's calc_num_contests_from_concise_votes() does. Most of the rest
+is `reduce(by='sparse_row')`, which decodes it again. The five large jobs are not run yet. They
+wait until the whole port is done, Q139.
+
+Q146 and Q165, decided by Ray on 2026-10-16. Two stats are written but never read: the keys list
+and the precinct sums. Ray: "no request list, and use controls in the code to omit them. No new
+settings." The port now leaves them out, behind MAKE_KEYS_LS and MAKE_PRECINCT_SUMS, which are
+False. The rest stay, since they may be useful later. On San Francisco the two took 1.9 s of the
+time and 0.87 MB of the 1.07 MB the stats write. The stats now take 6.2 s there, against 10.6 s,
+and the four that are made all match AuditEngine.

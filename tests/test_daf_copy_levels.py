@@ -198,3 +198,41 @@ def test_copy_keeps_subclass_and_settings():
         assert type(copied) is MyDaf
         assert copied is not daf
         assert (copied.retmode, copied.md_max_rows) == ('val', 3)
+
+
+# copy(inplace=True): the Daf copies into itself
+
+def test_copy_inplace_returns_self_and_frees_a_selection():
+    daf = make_daf()
+    sel = daf.select_where(lambda row: row['id'] > 1)
+    assert sel.lol[0] is daf.lol[1]
+    assert sel.copy(inplace=True) is sel
+    assert sel.lol[0] is not daf.lol[1]
+    daf[1, 'v'] = 'X'
+    assert sel.lol == [[2, ' b ', 20], [3, ' c ', 30]]
+    assert sel.select_record(3) == {'id': 3, 'v': ' c ', 'n': 30}
+
+
+def test_copy_inplace_defaults_to_deep():
+    daf = Daf(lol=[[1, [10]], [2, [20]]], cols=['id', 'cell'], keyfield='id')
+    sel = daf.select_where(lambda row: True)
+    sel.copy(inplace=True)
+    daf.lol[0][1].append(11)
+    assert sel.lol[0][1] == [10]
+    shared = daf.select_where(lambda row: True)
+    shared.copy('editable', inplace=True)
+    daf.lol[0][1].append(12)
+    assert shared.lol[0][1] == [10, 11, 12]                 # editable shares the cells, as without inplace
+
+
+@pytest.mark.parametrize('level', ['shallow', 'sortable', Daf.COPY_OUTER | Daf.COPY_HD])
+def test_copy_inplace_with_a_level_that_shares_rows_raises(level):
+    with pytest.raises(ValueError, match='does not copy the rows'):
+        make_daf().copy(level, inplace=True)
+
+
+def test_copy_inplace_keeps_the_name_unless_given():
+    daf = make_daf()
+    daf.name = 'orig'
+    assert daf.copy(inplace=True).name == 'orig'
+    assert daf.copy(inplace=True, name='work').name == 'work'

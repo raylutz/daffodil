@@ -49,7 +49,7 @@ Some differences to know first:
 | `df.T` | `daf.transpose()` | |
 | `df.apply(f, axis=1)` | `daf.apply(f)` | the row is a dict, and `f` returns one |
 | `df.agg(...)` | `daf.reduce(f)` | |
-| `df.groupby('g')` | `daf.groupby('g')` | a dict of Dafs |
+| `df.groupby('g')` | `daf.groupby('g')` | a KeyedList of Dafs, used as a dict |
 | `df.groupby('g')[cols].sum()` | `daf.groupby_cols_reduce(['g'], Daf.sum_da, reduce_cols=cols)` | name the columns to add |
 | `df.groupby([...])[cols].agg(f)` | `daf.groupby_cols_reduce([...], f, reduce_cols=cols)` | |
 | `df.value_counts('c')` | `daf.valuecounts_for_colname('c')` | a dict |
