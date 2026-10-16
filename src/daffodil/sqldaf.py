@@ -252,19 +252,27 @@ class SqlDaf(Daf):
     To read one row, use `select_record()` by key or `iloc()` by position. Each is one query,
     returns a dict, and makes no selection.
 
-    The methods so far:
+    The methods, by what they do:
 
-    - `len()`, `bool()`, `columns()` and `num_cols()`.
-    - `select_where()`, `select_by_dict()`, `select_where_sql()` and indexing, which select.
-    - `select_record()` and `iloc()`, which read one row.
-    - `select_records_daf()`, `delete_records()` and `keys()`, which work by key, in SQL.
-    - `concat()`, which adds the rows of another Daf or SqlDaf.
-    - `join()`, which joins two SqlDaf tables on their keyfields, as `Daf.join()` does.
-    - `to_daf()`, `to_dict()`, `to_list()` and `to_value()`, which read rows into memory.
-    - `copy()` and `save()`, which copy rows into a table of their own, and keep it.
-    - `close()`, `delete()` and `transaction()`.
-    - `apply_dtypes()`, `set_keyfield()` and `ensure_key_index()`.
-    - `sql()`, to run any SQL statement.
+    - Size: `len()`, `bool()`, `num_rows()`, `num_cols()`, `shape()` and `columns()`.
+    - Looping, in batches: `for row in sdaf`, `iter_dict()`, `iter_klist()` and `iter_list()`.
+    - One row: `select_record()` by key, and `iloc()` by position.
+    - Columns: `col()`, `col_to_la()`, `icol()`, `icol_to_la()` and `cols_to_dol()`.
+    - Selecting: `select_where()`, `select_by_dict()`, `select_where_sql()`, `split_where()`,
+      `select_cols()` and indexing.
+    - By key: `key in sdaf`, `keys()`, `select_records_daf()`, `select_krows()`,
+      `get_existing_keys()` and `delete_records()`.
+    - The first match: `select_first_row_by_dict()`.
+    - Groups and counts: `groupby()`, `groupby_cols()`, `group_where()`, `groupsum_daf()`,
+      `sum()`, `daf_valuecount()`, `value_counts_daf()` and the `valuecounts_for_*` methods.
+    - Functions over rows: `apply()` and `reduce()`.
+    - Adding and joining: `concat()` and `join()`.
+    - Into memory: `to_daf()`, `to_dict()`, `to_list()`, `to_value()`, `to_lod()`, `to_dod()`
+      and `to_json()`.
+    - Display and files: `to_md()`, `to_md_cols()`, `to_csv_buff()` and `to_csv_file()`.
+    - Tables: `from_csv()`, `from_daf()`, `copy()`, `save()`, `delete()` and `table_exists()`.
+    - The database: `close()`, `transaction()` and `sql()`, which runs any SQL statement.
+    - Keys and types: `set_keyfield()`, `ensure_key_index()` and `apply_dtypes()`.
 
     Work with large tables in whole statements. One query costs about 12 to 24 us, against
     under 1 us for a lookup in memory, because each one passes through sqlite3. Many rows in one
@@ -985,13 +993,15 @@ class SqlDaf(Daf):
                    dtypes=dict(self.dtypes) if self.dtypes else None)
 
 
-    def _iter_row_batches(self, batch_size: int = 10000) -> Iterator[List[Tuple[Any, ...]]]:
-        """ Read every row in order, a batch at a time, as tuples with SQL NULL as None. Internal use. """
+    def _iter_row_batches(self, batch_size: int = 10000, cols: T_ls | None = None) -> Iterator[List[Tuple[Any, ...]]]:
+        """ Read every row in order, a batch at a time, as tuples with SQL NULL as None. Only `cols` if given. Internal use. """
         self._resolve()
-        if not self.hd:
-            return                                      # a table with no columns has no rows.
+        cols_ls: T_ls = list(self.hd) if cols is None else cols
+        if not cols_ls:
+            return                                      # no columns to read, so no rows.
         rows_sql, rows_params = self._rows_sql()
-        cursor: sqlite3.Cursor = self._execute(f'SELECT {self._cols_sql()} FROM ({rows_sql}) ORDER BY {ORD_COL}', rows_params)
+        cols_sql: str = ', '.join(quote_name(col) for col in cols_ls)
+        cursor: sqlite3.Cursor = self._execute(f'SELECT {cols_sql} FROM ({rows_sql}) ORDER BY {ORD_COL}', rows_params)
         while True:
             try:
                 batch_lot: List[Tuple[Any, ...]] = cursor.fetchmany(batch_size)
@@ -1405,6 +1415,405 @@ class SqlDaf(Daf):
         return dict(zip(self.hd, none_to_null(rows_lot[0])))
 
 
+    # ---- looping over rows ----
+
+    def __iter__(self) -> Iterator[T_da]:                                   # type: ignore[override]
+        """
+        Loop over the rows as dicts, as in `for row in sdaf`.
+
+        Rows are read in order, in batches, so a table of any size fits in memory. Each dict is a
+        copy: changing it does not change the table. A Daf can give KeyedList rows instead, by its
+        itermode. A SqlDaf always gives dicts. Use `iter_klist()` for KeyedList rows.
+
+        Do not change the table inside the loop. Whether the loop sees the change is not defined.
+
+        Returns:
+            The rows, as dicts.
+        """
+        return self.iter_dict()
+
+
+    def iter_dict(self) -> Iterator[T_da]:                                  # type: ignore[override]
+        """
+        Loop over the rows as dicts, as `Daf.iter_dict()` does.
+
+        Rows are read in order, in batches. SQL NULL comes back as Python NULL. Each dict is a
+        copy, so changing it does not change the table.
+
+        Returns:
+            Each row as a dict of column name to value.
+        """
+        cols_ls: T_ls = list(self.hd)
+        batch_lot: List[Tuple[Any, ...]]
+        for batch_lot in self._iter_row_batches():
+            for row_t in batch_lot:
+                yield dict(zip(cols_ls, none_to_null(row_t)))
+
+
+    def iter_klist(self) -> Iterator[KeyedList]:                            # type: ignore[override]
+        """
+        Loop over the rows as [KeyedList][daffodil.keyedlist.KeyedList] objects.
+
+        A row reads by column name, as in a Daf. But each row is a copy. In a Daf, assigning to a
+        KeyedList row changes the Daf. Here it changes only the copy.
+
+        Returns:
+            Each row as a KeyedList.
+        """
+        batch_lot: List[Tuple[Any, ...]]
+        for batch_lot in self._iter_row_batches():
+            for row_t in batch_lot:
+                yield KeyedList(self.hd, none_to_null(row_t))
+
+
+    def iter_list(self) -> Iterator[T_la]:                                  # type: ignore[override]
+        """
+        Loop over the rows as lists, with the values in column order.
+
+        Each list is a copy. In a Daf, these are the Daf's own row lists, and assigning to one
+        changes the Daf. Here it changes only the copy.
+
+        Returns:
+            Each row as a list.
+        """
+        batch_lot: List[Tuple[Any, ...]]
+        for batch_lot in self._iter_row_batches():
+            for row_t in batch_lot:
+                yield none_to_null(row_t)
+
+
+    # ---- reading columns ----
+
+    def _cols_daf(self, cols_ls: T_ls) -> Daf:
+        """ A Daf of only these columns, in row order. Names that are not columns are left out. Internal use. """
+        cols_ls = [col for col in dict.fromkeys(cols_ls) if col in self.hd]
+        lol: T_lola = []
+        batch_lot: List[Tuple[Any, ...]]
+        for batch_lot in self._iter_row_batches(cols=cols_ls):
+            lol.extend(none_to_null(row_t) for row_t in batch_lot)
+        return Daf(lol=lol, cols=cols_ls)
+
+
+    def num_rows(self) -> int:
+        """ Count the rows, as `len()` does. """
+        return len(self)
+
+
+    def shape(self) -> Tuple[int, int]:
+        """
+        Give the number of rows and the number of columns, as `Daf.shape()` does.
+
+        A table with no rows gives (0, 0), as in a Daf. The rows are counted with `len()`.
+
+        Returns:
+            A tuple of the number of rows and the number of columns.
+        """
+        num_rows: int = len(self)
+        return (num_rows, len(self.hd)) if num_rows else (0, 0)
+
+
+    def col(                                                                # type: ignore[override]
+            self,
+            colname:        str,
+            *,
+            unique:         bool = False,
+            omit_nulls:     bool = False,
+            silent_error:   bool = False,
+            astype:         Callable | str | type | None = None,
+            indirect_col:   str | None = None,
+            default:        Any = NULL,
+            ) -> T_la:
+        """
+        Get one column as a list, by name, as `Daf.col()` does.
+
+        Only that column is read into memory, or only `indirect_col` for a value inside a dict
+        column. The options act as in a Daf. With `omit_nulls`, both SQL NULL and the text '' are
+        left out, since both read as Python NULL.
+
+        Args:
+            colname: The column, or the key inside `indirect_col`.
+            unique: If True, leave out repeated values and keep the order.
+            omit_nulls: If True, leave out Python NULL.
+            silent_error: If True, a name that is not a column gives an empty list.
+            astype: A type or function to convert each value with.
+            indirect_col: A column that holds a dict, to read `colname` from.
+            default: The value for a dict that lacks `colname`.
+
+        Returns:
+            The values of the column, in row order.
+
+        Raises:
+            ColumnNotFoundError: The name is not a column, and `silent_error` is False.
+        """
+        return self.col_to_la(colname, unique=unique, omit_nulls=omit_nulls, silent_error=silent_error,
+                              astype=astype, indirect_col=indirect_col, default=default)
+
+
+    def col_to_la(                                                          # type: ignore[override]
+            self,
+            colname:        str,
+            *,
+            unique:         bool = False,
+            omit_nulls:     bool = False,
+            silent_error:   bool = False,
+            astype:         Callable | str | type | None = None,
+            indirect_col:   str | None = None,
+            default:        Any = NULL,
+            ) -> T_la:
+        """
+        Get one column as a list, by name. This does the same as `col()`. See that method.
+
+        Args:
+            colname: The column, or the key inside `indirect_col`.
+            unique: If True, leave out repeated values and keep the order.
+            omit_nulls: If True, leave out Python NULL.
+            silent_error: If True, a name that is not a column gives an empty list.
+            astype: A type or function to convert each value with.
+            indirect_col: A column that holds a dict, to read `colname` from.
+            default: The value for a dict that lacks `colname`.
+
+        Returns:
+            The values of the column, in row order.
+        """
+        # A plain column is read straight into a list, with the options applied as Daf applies them.
+        if colname in self.hd:
+            vals_la: T_la = [NULL if row_t[0] is None else row_t[0]
+                             for batch_lot in self._iter_row_batches(cols=[colname]) for row_t in batch_lot]
+            if omit_nulls:
+                vals_la = [val for val in vals_la if val is not NULL]     # the text '' is the same object as NULL.
+            if unique:
+                vals_la = list(dict.fromkeys(vals_la))
+            return daf_utils.astype_la(vals_la, astype)
+
+        # A value inside a dict column, or a missing name, goes through Daf, so the results match.
+        return self._cols_daf([indirect_col or '']).col_to_la(colname, unique=unique, omit_nulls=omit_nulls, silent_error=silent_error,
+                                                              astype=astype, indirect_col=indirect_col, default=default)
+
+
+    def icol(self, icol: int) -> T_la:                                      # type: ignore[override]
+        """
+        Get one column as a list, by its place among the columns, as `Daf.icol()` does.
+
+        The place is looked up in the column names, so it does not depend on the rows. A
+        negative place counts from the end. A place out of range raises IndexError, unless the
+        table has no rows, as in a Daf.
+
+        Args:
+            icol: The place of the column, from 0.
+
+        Returns:
+            The values of the column, in row order.
+
+        Raises:
+            IndexError: The place is out of range, and the table has rows.
+        """
+        return self.icol_to_la(icol)
+
+
+    def icol_to_la(self, icol: int, unique: bool = False, omit_nulls: bool = False) -> T_la:     # type: ignore[override]
+        """
+        Get one column as a list, by its place among the columns, with options.
+
+        See `icol()` for the place, and `col()` for the options.
+
+        Args:
+            icol: The place of the column, from 0.
+            unique: If True, leave out repeated values and keep the order.
+            omit_nulls: If True, leave out Python NULL.
+
+        Returns:
+            The values of the column, in row order.
+
+        Raises:
+            IndexError: The place is out of range, and the table has rows.
+        """
+        cols_ls: T_ls = list(self.hd)
+        if not -len(cols_ls) <= icol < len(cols_ls):
+            if not self:
+                return []
+            raise IndexError(f"icol: column {icol} is out of range. '{self.name}' has {len(cols_ls)} columns.")
+        return self.col_to_la(cols_ls[icol], unique=unique, omit_nulls=omit_nulls)
+
+
+    def cols_to_dol(self, colname1: str, colname2: str) -> Dict[Any, T_la]:    # type: ignore[override]
+        """
+        Map each value of one column to the values seen with it in another, as `Daf.cols_to_dol()` does.
+
+        Only the two columns are read into memory. If a name is not a column, or there are no
+        rows, the result is empty.
+
+        Args:
+            colname1: The column of keys.
+            colname2: The column of values.
+
+        Returns:
+            A dict from each value of the first column to the values of the second, in the order first seen.
+        """
+        if colname1 not in self.hd or colname2 not in self.hd:
+            return {}
+        return self._cols_daf([colname1, colname2]).cols_to_dol(colname1, colname2)
+
+
+    # ---- whole-table exports ----
+
+    def to_lod(self) -> List[T_da]:                                         # type: ignore[override]
+        """
+        Make a list of dicts, one for each row, as `Daf.to_lod()` does.
+
+        Every row is read into memory. Use `iter_dict()` to go through the rows one at a time.
+
+        Returns:
+            The rows as dicts, in order.
+        """
+        return list(self.iter_dict())
+
+
+    def to_dod(self, remove_keyfield: bool = True) -> Dict[Any, T_da]:     # type: ignore[override]
+        """
+        Make a dict of dicts, named by the keyfield, as `Daf.to_dod()` does.
+
+        Every row is read into memory, through `to_daf()`.
+
+        Args:
+            remove_keyfield: If True, leave the keyfield out of the inner dicts.
+
+        Returns:
+            Each row as a dict, under its key.
+
+        Raises:
+            KeysDisabledError: There is no keyfield, and there are rows.
+        """
+        return self.to_daf().to_dod(remove_keyfield=remove_keyfield)
+
+
+    def to_json(self, concise: bool = True) -> str:                        # type: ignore[override]
+        """
+        Make JSON text that holds the whole table, as `Daf.to_json()` does.
+
+        Every row is read into memory, through `to_daf()`. The text holds the rows, the column
+        names, the dtypes, the keyfield and the name. `Daf.from_json()` reads it back as a Daf.
+
+        Args:
+            concise: If True, leave out the parts that are empty.
+
+        Returns:
+            The JSON text.
+        """
+        return self.to_daf().to_json(concise=concise)
+
+
+    def daf_to_lol_summary(                                                 # type: ignore[override]
+            self,
+            max_rows:   int = 10,
+            max_cols:   int = 10,
+            disp_cols:  Any = None,
+            ) -> T_lola:
+        """
+        Give the header and the rows to display, as `Daf.daf_to_lol_summary()` does.
+
+        With `max_rows`, only the first and last rows are read, around a row of '...'. Without
+        it, every row is read.
+
+        Args:
+            max_rows: The most rows to show. 0 for all.
+            max_cols: The most columns to show. 0 for all.
+            disp_cols: Names to show in place of the column names.
+
+        Returns:
+            The header, then the rows.
+        """
+        colnames_ls: T_ls = list(disp_cols) if disp_cols else list(self.hd)
+        header_lol: T_lola = [colnames_ls] if colnames_ls else []
+        num_rows: int = len(self) if max_rows else 0
+        if not max_rows or num_rows <= max_rows:
+            result_lol: T_lola = header_lol + [none_to_null(row_t) for row_t in self._select_rows()]
+            return daf_utils.reduce_lol_cols(result_lol, max_cols=max_cols) if max_cols or max_rows else result_lol
+
+        # Read the head in order, and the tail backwards, so neither steps over the middle rows.
+        rows_sql, rows_params = self._rows_sql()
+        first_lol: T_lola = [none_to_null(row_t) for row_t in self._select_rows(limit=(max_rows + 1) // 2)]
+        last_lot: List[Tuple[Any, ...]] = self._execute(
+                f'SELECT {self._cols_sql()} FROM ({rows_sql}) ORDER BY {ORD_COL} DESC LIMIT ?',
+                rows_params + (max_rows // 2,)).fetchall()
+        last_lol: T_lola = [none_to_null(row_t) for row_t in reversed(last_lot)]
+        divider_lol: T_lola = [['...'] * len(self.hd)]
+        return daf_utils.reduce_lol_cols(header_lol + first_lol + divider_lol + last_lol, max_cols=max_cols)
+
+
+    def to_md(                                                              # type: ignore[override]
+            self,
+            max_rows:           int = 0,
+            max_cols:           int = 0,
+            just:               str = '',
+            shorten_text:       bool = True,
+            max_text_len:       int = 80,
+            smart_fmt:          bool = False,
+            include_summary:    bool = False,
+            disp_cols:          Any = None,
+            header:             Any = None,
+            ) -> str:
+        """
+        Make a Markdown table, as `Daf.to_md()` does.
+
+        Set `max_rows` for a large table. Then only the first and last rows are read. Without it,
+        every row is read into memory.
+
+        Args:
+            max_rows: The most rows to show, the first and the last. 0 for all.
+            max_cols: The most columns to show, the first and the last. 0 for all.
+            just: The justification of each column: '<', '^' or '>'.
+            shorten_text: If True, shorten long text, keeping the ends.
+            max_text_len: The length past which text is shortened.
+            smart_fmt: If True, limit the digits after the point in numbers.
+            include_summary: If True, add a line with the shape, keyfield and name.
+            disp_cols: Names to show in place of the column names.
+            header: A header to use in place of the column names.
+
+        Returns:
+            The Markdown text.
+        """
+        md_str: str = Daf.to_md(self, max_rows=max_rows, max_cols=max_cols, just=just, shorten_text=shorten_text,
+                                max_text_len=max_text_len, smart_fmt=smart_fmt, include_summary=False,
+                                disp_cols=disp_cols, header=header)
+        if include_summary:
+            md_str += f"\n%% daf rows={len(self)}; cols={len(self.hd)}; keyfield='{self.keyfield}'; name='{self.name}'\n"
+        return md_str
+
+
+    def to_md_cols(                                                         # type: ignore[override]
+            self,
+            max_rows:           int = 0,
+            max_cols:           int = 0,
+            just:               str = '',
+            shorten_text:       bool = True,
+            max_text_len:       int = 80,
+            smart_fmt:          bool = False,
+            include_summary:    bool = False,
+            disp_cols:          T_ls | None = None,
+            ) -> str:
+        """
+        Make a Markdown table with each row as a column, as `Daf.to_md_cols()` does.
+
+        Set `max_rows` for a large table. Then only the first and last rows are read.
+
+        Args:
+            max_rows: The most rows to show, the first and the last. 0 for all.
+            max_cols: The most columns to show, the first and the last. 0 for all.
+            just: The justification of each column: '<', '^' or '>'.
+            shorten_text: If True, shorten long text, keeping the ends.
+            max_text_len: The length past which text is shortened.
+            smart_fmt: If True, limit the digits after the point in numbers.
+            include_summary: Not used, as in a Daf.
+            disp_cols: Names to show in place of the column names.
+
+        Returns:
+            The Markdown text.
+        """
+        return Daf.to_md_cols(self, max_rows=max_rows, max_cols=max_cols, just=just, shorten_text=shorten_text,
+                              max_text_len=max_text_len, smart_fmt=smart_fmt, include_summary=include_summary,
+                              disp_cols=disp_cols)
+
+
     # ---- selecting ----
 
     def select_where_sql(self, where_sql: str, params: Iterable[Any] = ()) -> 'SqlDaf':
@@ -1611,6 +2020,23 @@ class SqlDaf(Daf):
         """
         return (self.select_where(where, indirect_col=indirect_col, cols=cols),
                 self.select_where(lambda row: not where(row), indirect_col=indirect_col, cols=cols))
+
+
+    def select_first_row_by_dict(self, selector_da: T_da, inverse: bool = False) -> T_da:     # type: ignore[override]
+        """
+        Get the first row that matches every field of a dict, as `Daf.select_first_row_by_dict()` does.
+
+        The matching rule is that of `select_by_dict()`. The search stops at the first match.
+
+        Args:
+            selector_da: The column names and the values they must have.
+            inverse: If True, find the first row that does not match.
+
+        Returns:
+            The row as a dict, or an empty dict if none matches.
+        """
+        found_sdaf: SqlDaf = self.select_by_dict(selector_da, inverse=inverse)
+        return found_sdaf.iloc(0) if found_sdaf.iloc_exists(0) else {}       # type: ignore[return-value]
 
 
     # ---- counts and sums ----
@@ -2295,6 +2721,118 @@ class SqlDaf(Daf):
                 f'(SELECT 1 FROM ({rows_sql}) AS r WHERE r.{quote_name(self.keyfield)} = k.daf_key) LIMIT 1',
                 keys_params + rows_params).fetchone()
         return None if found_t is None else (NULL if found_t[0] is None else found_t[0])
+
+
+    def __contains__(self, key: Any) -> bool:                               # type: ignore[override]
+        """
+        Say whether a row has this key, as in `key in sdaf`.
+
+        It is one lookup on the keyfield, through its index. A table with no rows contains
+        nothing, as in a Daf.
+
+        Args:
+            key: The key to look for.
+
+        Returns:
+            True if a row has this key.
+
+        Raises:
+            ValueError: There is no keyfield, and there are rows.
+        """
+        if not self.keyfield and not self:
+            return False
+        return bool(self.select_record(key))
+
+
+    def get_existing_keys(self, keylist: T_la) -> T_la:                     # type: ignore[override]
+        """
+        Keep the keys of a list that have a row, in the order of the list, as `Daf.get_existing_keys()` does.
+
+        The keys are looked up in SQL, all at once. Without a keyfield, the result is empty, as in a Daf.
+
+        Args:
+            keylist: The keys to check.
+
+        Returns:
+            The keys from the list that have a row.
+        """
+        if not self.keyfield:
+            return []
+        key_col: str = self._need_keyfield('get_existing_keys')
+        keys_sql, keys_params = self._key_source_sql(keylist)
+        rows_sql, rows_params = self._rows_sql()
+        found_lot: List[Tuple[Any, ...]] = self._execute(
+                f'SELECT DISTINCT k.daf_key FROM ({keys_sql}) AS k '
+                f'WHERE EXISTS (SELECT 1 FROM ({rows_sql}) AS r WHERE r.{quote_name(key_col)} = k.daf_key)',
+                keys_params + rows_params).fetchall()
+        found_set: set = {found_t[0] for found_t in found_lot}
+        return [key for key in keylist if key in found_set]
+
+
+    def select_krows(                                                       # type: ignore[override]
+            self,
+            krows:          Any,                        # a key, a list of keys, or a tuple of a first and last key.
+            inverse:        bool = False,               # if True, the rows that are not selected.
+            silent_error:   bool = False,               # if True, keys that are not found are ignored.
+            ) -> 'SqlDaf':
+        """
+        Select rows by key, as `Daf.select_krows()` does.
+
+        - A key, or a list or other iterable of keys, selects those rows, in the order of the keys.
+          This is `select_records_daf()`.
+        - A tuple of two keys selects every row from the first key to the last, both included, in
+          row order. Either may be None, for the start or the end. A tuple of one key runs to the end.
+
+        A key range is found by the place of its keys among the rows, not by row positions. So it
+        works on a table that has had rows deleted.
+
+        A slice is not supported. In a Daf, a slice here means row positions. Use `sdaf[n:m]`.
+
+        Args:
+            krows: A key, a list of keys, or a tuple of a first and last key.
+            inverse: If True, select the rows that are not selected.
+            silent_error: If True, keys that are not found are ignored. A key of a range must be found.
+
+        Returns:
+            A selection.
+
+        Raises:
+            KeyError: A key is not found.
+            NotImplementedError: `krows` is a slice.
+            TypeError: `krows` is None, or a tuple that is empty or longer than two.
+            ValueError: There is no keyfield.
+        """
+        if krows is None:
+            raise TypeError("None is not a valid key selector.")
+        if isinstance(krows, slice):
+            raise NotImplementedError("select_krows() with a slice is not supported on a SqlDaf. "
+                                      "In a Daf it means row positions. Use sdaf[n:m].")
+        if not isinstance(krows, tuple):
+            return self.select_records_daf(krows, inverse=inverse, silent_error=silent_error)
+
+        # A tuple is a range of keys, from the first to the last, in row order.
+        if not 1 <= len(krows) <= 2 or krows == (None,):
+            raise TypeError(f"select_krows: a key range is a tuple of one or two keys, not {krows!r}.")
+        self._resolve()                                 # a child's place numbers stay fixed once found.
+        key_col: str = self._need_keyfield('select_krows')
+        rows_sql, rows_params = self._rows_sql()
+        bounds_ls: List[str] = []
+        bounds_params: Tuple[Any, ...] = ()
+        op: str
+        key: Any
+        for op, key in zip(('>=', '<='), krows):
+            if key is None:
+                continue
+            ord_t: Tuple[Any, ...] | None = self._execute(
+                    f'SELECT {ORD_COL} FROM ({rows_sql}) WHERE {quote_name(key_col)} = ?', rows_params + (key,)).fetchone()
+            if ord_t is None:
+                raise KeyError(key)
+            bounds_ls.append(f'{ORD_COL} {op} ?')
+            bounds_params += (ord_t[0],)
+        range_sql: str = ' AND '.join(bounds_ls) or '1'
+        if inverse:
+            range_sql = f'NOT ({range_sql})'
+        return SqlDaf._new_selection(self, f'SELECT * FROM ({rows_sql}) WHERE {range_sql}', rows_params + bounds_params)
 
 
     def select_records_daf(

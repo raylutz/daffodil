@@ -550,10 +550,10 @@ def test_sql_write_is_committed_and_gives_an_empty_daf():
 
 @pytest.mark.parametrize('call', [
     lambda sdaf: sdaf[0, 'contest'],
-    lambda sdaf: list(sdaf),
+    lambda sdaf: sdaf.irow(0),
     lambda sdaf: sdaf.select_irows([0]),
     lambda sdaf: sdaf.multi_groupby(['contest']),
-    lambda sdaf: sdaf.to_lod(),
+    lambda sdaf: sdaf.transpose(),
     lambda sdaf: sdaf == sdaf,
     lambda sdaf: sdaf.retmode,
     lambda sdaf: sdaf.from_lod([]),
@@ -1772,3 +1772,167 @@ def test_select_cols_unknown_name_raises_keyerror():
     marks_sdaf: SqlDaf = SqlDaf.from_daf(make_marks_daf(), name='marks')
     with pytest.raises(KeyError):
         marks_sdaf.select_cols(['ballot_id', 'nope'])
+
+
+# ---- reading: iteration, columns, keys and exports ----
+
+def make_read_daf() -> Daf:
+    """ Rows with a Python NULL value, a repeated value and a dict column. """
+    return Daf(
+        cols=['k', 'p', 'v', 'j'],
+        lol=[['b1', 'P1', 1, '{"a": 1}'], ['b2', 'P2', NULL, ''], ['b3', 'P1', 3, '{"a": 3}'],
+             ['b4', 'P2', 4, '{}'], ['b5', 'P1', 1, '{"a": 5}']],
+        keyfield='k',
+    )
+
+
+def test_iteration_matches_mdaf():
+    read_daf: Daf = make_read_daf()
+    read_sdaf: SqlDaf = SqlDaf.from_daf(read_daf, name='t')
+    assert list(read_sdaf) == list(read_daf)
+    assert list(read_sdaf.iter_dict()) == list(read_daf.iter_dict())
+    assert [dict(row) for row in read_sdaf.iter_klist()] == [dict(row) for row in read_daf.iter_klist()]
+    assert list(read_sdaf.iter_list()) == list(read_daf.iter_list())
+
+
+def test_iteration_rows_are_copies():
+    read_sdaf: SqlDaf = SqlDaf.from_daf(make_read_daf(), name='t')
+    for row_kl in read_sdaf.iter_klist():
+        row_kl['v'] = 99
+    for row_la in read_sdaf.iter_list():
+        row_la[2] = 99
+    assert 99 not in read_sdaf.col('v')
+
+
+def test_iteration_streams_more_rows_than_a_batch():
+    big_sdaf: SqlDaf = SqlDaf('big', cols=['n'], lol=[[i] for i in range(25000)])
+    assert sum(row['n'] for row in big_sdaf) == sum(range(25000))
+
+
+@pytest.mark.parametrize('kwargs', [
+    {}, {'unique': True}, {'omit_nulls': True}, {'astype': str}, {'unique': True, 'omit_nulls': True}])
+def test_col_matches_mdaf(kwargs):
+    read_daf: Daf = make_read_daf()
+    read_sdaf: SqlDaf = SqlDaf.from_daf(read_daf, name='t')
+    for colname in ('p', 'v'):
+        assert read_sdaf.col(colname, **kwargs) == read_daf.col(colname, **kwargs)
+        assert read_sdaf.col_to_la(colname, **kwargs) == read_daf.col_to_la(colname, **kwargs)
+
+
+def test_col_indirect_and_missing():
+    read_daf: Daf = make_read_daf()
+    read_sdaf: SqlDaf = SqlDaf.from_daf(read_daf, name='t')
+    assert read_sdaf.col('a', indirect_col='j') == read_daf.col('a', indirect_col='j')
+    assert read_sdaf.col('zz', silent_error=True) == []
+    with pytest.raises(Exception) as sdaf_exc:
+        read_sdaf.col('zz')
+    with pytest.raises(Exception) as daf_exc:
+        read_daf.col('zz')
+    assert type(sdaf_exc.value) is type(daf_exc.value)
+
+
+def test_col_omit_nulls_counts_text_empty_as_python_null(job_db):
+    make_plain_table(job_db, [['x', ''], ['y', None], ['z', 'v']])
+    assert SqlDaf('plain').col('b', omit_nulls=True) == ['v']
+
+
+def test_icol_matches_mdaf():
+    read_daf: Daf = make_read_daf()
+    read_sdaf: SqlDaf = SqlDaf.from_daf(read_daf, name='t')
+    assert read_sdaf.icol(1) == read_daf.icol(1)
+    assert read_sdaf.icol(-2) == read_daf.icol(-2)
+    assert read_sdaf.icol_to_la(1, unique=True) == read_daf.icol_to_la(1, unique=True)
+    with pytest.raises(IndexError):
+        read_sdaf.icol(9)
+    assert SqlDaf('empty', cols=['a']).icol(9) == []
+
+
+def test_cols_to_dol_shape_and_num_rows_match_mdaf():
+    read_daf: Daf = make_read_daf()
+    read_sdaf: SqlDaf = SqlDaf.from_daf(read_daf, name='t')
+    assert read_sdaf.cols_to_dol('p', 'v') == read_daf.cols_to_dol('p', 'v')
+    assert read_sdaf.cols_to_dol('p', 'zz') == {}
+    assert read_sdaf.shape() == read_daf.shape() == (5, 4)
+    assert read_sdaf.num_rows() == 5
+    assert SqlDaf('empty', cols=['a']).shape() == (0, 0)
+
+
+def test_contains_and_get_existing_keys_match_mdaf():
+    read_daf: Daf = make_read_daf()
+    read_sdaf: SqlDaf = SqlDaf.from_daf(read_daf, name='t')
+    assert ('b3' in read_sdaf, 'zz' in read_sdaf) == ('b3' in read_daf, 'zz' in read_daf) == (True, False)
+    assert read_sdaf.get_existing_keys(['b4', 'zz', 'b1']) == read_daf.get_existing_keys(['b4', 'zz', 'b1'])
+    p1_sdaf: SqlDaf = read_sdaf.select_by_dict({'p': 'P1'})
+    assert 'b2' not in p1_sdaf
+    assert p1_sdaf.get_existing_keys(['b2', 'b3']) == ['b3']
+    nokey_sdaf: SqlDaf = SqlDaf('nokey', cols=['a'], lol=[[1]])
+    assert nokey_sdaf.get_existing_keys([1]) == []
+    with pytest.raises(ValueError):
+        1 in nokey_sdaf
+    assert 1 not in SqlDaf('nokey_empty', cols=['a'])
+
+
+@pytest.mark.parametrize('krows', [['b3', 'b1'], 'b2', ('b2', 'b4'), ('b3',), (None, 'b2'), ('b2', None)])
+@pytest.mark.parametrize('inverse', [False, True])
+def test_select_krows_matches_mdaf(krows, inverse):
+    read_daf: Daf = make_read_daf()
+    read_sdaf: SqlDaf = SqlDaf.from_daf(read_daf, name='t')
+    assert read_sdaf.select_krows(krows, inverse=inverse).to_daf().lol == read_daf.select_krows(krows, inverse=inverse).lol
+
+
+def test_select_krows_errors():
+    read_sdaf: SqlDaf = SqlDaf.from_daf(make_read_daf(), name='t')
+    with pytest.raises(KeyError):
+        read_sdaf.select_krows(['b1', 'zz'])
+    assert read_sdaf.select_krows(['b1', 'zz'], silent_error=True).to_daf().lol == [make_read_daf().lol[0]]
+    with pytest.raises(KeyError):
+        read_sdaf.select_krows(('b1', 'zz'))
+    with pytest.raises(NotImplementedError):
+        read_sdaf.select_krows(slice(0, 2))
+    with pytest.raises(TypeError):
+        read_sdaf.select_krows(None)
+    with pytest.raises(TypeError):
+        read_sdaf.select_krows(('b1', 'b2', 'b3'))
+
+
+def test_select_first_row_by_dict_matches_mdaf():
+    read_daf: Daf = make_read_daf()
+    read_sdaf: SqlDaf = SqlDaf.from_daf(read_daf, name='t')
+    for selector_da, inverse in (({'p': 'P2'}, False), ({'p': 'P1'}, True), ({'p': 'P9'}, False)):
+        assert read_sdaf.select_first_row_by_dict(selector_da, inverse=inverse) == \
+            dict(read_daf.select_first_row_by_dict(selector_da, inverse=inverse))
+
+
+def test_exports_match_mdaf():
+    read_daf: Daf = make_read_daf()
+    read_sdaf: SqlDaf = SqlDaf.from_daf(read_daf, name='t')
+    assert read_sdaf.to_lod() == read_daf.to_lod()
+    assert read_sdaf.to_dod() == read_daf.to_dod()
+    assert read_sdaf.to_dod(remove_keyfield=False) == read_daf.to_dod(remove_keyfield=False)
+    assert Daf.from_json(read_sdaf.to_json()).lol == read_daf.lol
+    assert read_sdaf.to_md() == read_daf.to_md()
+    assert read_sdaf.to_md_cols() == read_daf.to_md_cols()
+    read_daf.name = 't'
+    assert read_sdaf.to_md(include_summary=True) == read_daf.to_md(include_summary=True)
+
+
+@pytest.mark.parametrize('max_rows, max_cols', [(3, 0), (4, 2), (2, 3), (9, 0), (0, 2)])
+def test_to_md_with_limits_matches_mdaf(max_rows, max_cols):
+    read_daf: Daf = make_read_daf()
+    read_sdaf: SqlDaf = SqlDaf.from_daf(read_daf, name='t')
+    assert read_sdaf.to_md(max_rows=max_rows, max_cols=max_cols) == read_daf.to_md(max_rows=max_rows, max_cols=max_cols)
+    assert read_sdaf.to_md_cols(max_rows=max_rows, max_cols=max_cols) == read_daf.to_md_cols(max_rows=max_rows, max_cols=max_cols)
+
+
+def test_reading_by_key_and_name_works_after_a_delete():
+    read_daf: Daf = make_read_daf()
+    read_sdaf: SqlDaf = SqlDaf.from_daf(read_daf, name='t')
+    read_sdaf.delete_records(['b2'], inplace=True)
+    read_daf.delete_records(['b2'], inplace=True)
+    assert list(read_sdaf) == list(read_daf)
+    assert read_sdaf.col('v') == read_daf.col('v')
+    assert read_sdaf.icol(0) == read_daf.icol(0)
+    assert 'b3' in read_sdaf and 'b2' not in read_sdaf
+    assert read_sdaf.select_krows(('b1', 'b4')).to_daf().lol == read_daf.select_krows(('b1', 'b4')).lol
+    assert read_sdaf.select_first_row_by_dict({'p': 'P2'}) == dict(read_daf.select_first_row_by_dict({'p': 'P2'}))
+    assert read_sdaf.to_md(max_rows=2) == read_daf.to_md(max_rows=2)
