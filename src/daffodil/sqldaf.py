@@ -278,7 +278,7 @@ class SqlDaf(Daf):
       `update_by_keylist()`, `assign_col()`, `apply_to_col()` and `apply_in_place()`.
     - Columns and layout: `insert_col()`, `drop_cols()`, `rename_cols()`, `set_cols()`,
       `set_dtypes()`, `attach_schema()` and `clone_empty()`.
-    - Repeated keys: `remove_dups()`.
+    - Repeated keys: `remove_dups()`. Sorting: `sort_by_colname()` and `sort_by_colnames()`.
     - Joining: `join()`. Choosing columns: `calc_cols()`.
     - Into memory: `to_daf()`, `to_dict()`, `to_list()`, `to_value()`, `to_lod()`, `to_dod()`
       and `to_json()`.
@@ -4022,6 +4022,126 @@ class SqlDaf(Daf):
         return new_sdaf
 
 
+    # ---- sorting ----
+
+    def sort_by_colname(                                                    # type: ignore[override]
+            self,
+            colname:            str,                # the column to sort by.
+            *,
+            reverse:            bool = False,       # if True, sort from high to low.
+            length_priority:    bool = False,       # if True, sort by length first, then by value.
+            as_str:             bool = False,       # if True, sort by the text of each value.
+            ) -> 'SqlDaf':
+        """
+        Sort the rows by one column, in place, as `Daf.sort_by_colname()` does.
+
+        See `sort_by_colnames()` for how the rows are sorted and where they go.
+
+        Args:
+            colname: The column to sort by.
+            reverse: If True, sort from high to low.
+            length_priority: If True, sort by length first, then by value.
+            as_str: If True, sort by the text of each value, and Python NULL sorts as ''.
+
+        Returns:
+            This SqlDaf, now a sorted TEMP table.
+
+        Raises:
+            KeyError: The column name is not found.
+
+        Examples:
+            >>> import tempfile
+            >>> SqlDaf.db_path = tempfile.mkdtemp() + '/job.db'
+            >>> SqlDaf('t', cols=['a'], lol=[['10'], ['99'], ['8']]).sort_by_colname('a', length_priority=True).col('a')
+            ['8', '10', '99']
+        """
+        return self.sort_by_colnames([colname], reverse=reverse, length_priority=length_priority, as_str=as_str)
+
+
+    def sort_by_colnames(                                                   # type: ignore[override]
+            self,
+            colnames:           T_ls,               # the columns to sort by, main key first.
+            reverse:            bool = False,       # if True, sort from high to low.
+            length_priority:    bool = False,       # if True, sort by length first, then by value.
+            as_str:             bool = False,       # if True, sort by the text of each value.
+            ) -> 'SqlDaf':
+        """
+        Sort the rows by several columns, in place, as `Daf.sort_by_colnames()` does.
+
+        The first column is the main sort key. The others break ties.
+        Rows that tie on every column keep their order, as Python's sort keeps them.
+
+        Where the sorted rows go:
+
+        The rows are copied in sorted order into a TEMP table, and this SqlDaf becomes it.
+        This is `copy(inplace=True)` with an ORDER BY, in one statement.
+        The table it came from is not changed, so its other selections stay as they were.
+        A Daf selection sorts its own list of rows, and leaves its parent alone too.
+        On a permanent table, the table in the file keeps its order. Use `save()` to keep the sorted copy.
+        On 1,000,000 rows of 6 columns, a sort by one text column took 2.4 s, against 1.0 s for a Daf.
+
+        How values compare:
+
+        - Python NULL, SQL NULL or '', sorts first, as an empty cell sorts first in a Daf.
+        - Text compares by code point, as Python compares it.
+        - `length_priority` sorts by the length of the text first, so numbers held as text sort as numbers.
+        - `as_str` sorts by the text of each value. A float such as 1e20 is written differently by SQLite.
+        - A column that mixes numbers and text sorts every number before all text.
+          A Daf raises TypeError on such a column instead.
+
+        Args:
+            colnames: The columns to sort by, main key first.
+            reverse: If True, sort from high to low.
+            length_priority: If True, sort by length first, then by value.
+            as_str: If True, sort by the text of each value, and Python NULL sorts as ''.
+
+        Returns:
+            This SqlDaf, now a sorted TEMP table.
+
+        Raises:
+            KeyError: A column name is not found.
+
+        Examples:
+            >>> import tempfile
+            >>> SqlDaf.db_path = tempfile.mkdtemp() + '/job.db'
+            >>> SqlDaf('t', cols=['p', 'q'], lol=[[2, 'b'], [1, 'z'], [1, 'a']]).sort_by_colnames(['p', 'q']).to_daf().lol
+            [[1, 'a'], [1, 'z'], [2, 'b']]
+        """
+        col: str
+        for col in colnames:
+            if col not in self.hd:
+                raise KeyError(col)
+        self._resolve_parent()
+
+        # One ORDER BY term for each sort key, then the row order, to keep ties in place.
+        direction: str = ' DESC' if reverse else ''
+        order_ls: T_ls = []
+        for col in colnames:
+            val_sql: str = (f"COALESCE(CAST({quote_name(col)} AS TEXT), '')" if as_str
+                            else f"NULLIF({quote_name(col)}, '')")
+            if length_priority:
+                order_ls.append(f'length({val_sql}){direction}')
+            order_ls.append(f'{val_sql}{direction}')
+        order_ls.append(ORD_COL)
+
+        root_sdaf: SqlDaf = self.parent_sdaf or self
+        target: str = self._next_temp_name(root_sdaf.name)
+        table_sql: str = _create_table_sql(self.conn, target, list(self.hd), 'temp')
+        rows_sql, rows_params = self._rows_sql()
+        with self.transaction():
+            self._execute(table_sql)
+            self._execute(f'INSERT INTO {quote_name(target)} ({self._cols_sql()}) '
+                          f'SELECT {self._cols_sql()} FROM ({rows_sql}) ORDER BY {", ".join(order_ls)}', rows_params)
+        self._name          = target
+        self.has_rid        = True
+        self.is_temp        = True
+        self.parent_sdaf    = None
+        self.is_resolved    = True
+        self.pending_sql    = ''
+        self.pending_params = ()
+        return self
+
+
     # ---- joining ----
 
     def join(                                                               # type: ignore[override]
@@ -4548,6 +4668,11 @@ class SqlDaf(Daf):
 
         Only int, float, bool and str can be stored yet. A list or a dict would need JSON text.
 
+        On a selection, the rows are first copied into a TEMP table of its own, as
+        `copy(inplace=True)` does, and the copy is converted. The parent is not changed. A Daf
+        selection shares its rows, so there the parent's rows are converted too. Converting is
+        costly, so convert a selection rather than a large parent that is not needed otherwise.
+
         Args:
             dtypes: The types to convert to, by column. It may name columns that are not there. This SqlDaf's dtypes if None.
             cols: Convert only these columns, or this one column. All the columns of the dtypes if None.
@@ -4559,10 +4684,8 @@ class SqlDaf(Daf):
         Raises:
             KeyError: A name in `cols` is not a column.
             ValueError: A column to convert has no dtype, and `silent_error` is False.
-            NotImplementedError: A dtype is not int, float, bool or str, or this is a selection.
+            NotImplementedError: A dtype is not int, float, bool or str.
         """
-        if self.parent_sdaf is not None:
-            raise NotImplementedError(f"apply_dtypes() on the child '{self.name}': convert its parent instead.")
         if dtypes:
             self.dtypes = {**self.dtypes, **dtypes}
         source_dtypes: T_dtype_dict = dtypes or self.dtypes
@@ -4591,6 +4714,8 @@ class SqlDaf(Daf):
         if not convert_dtypes:
             return self
 
+        if self.parent_sdaf is not None:
+            self.copy(inplace=True)                     # a selection becomes a table of its own first.
         set_ls: T_ls = []
         dtype: Any
         for col, dtype in convert_dtypes.items():

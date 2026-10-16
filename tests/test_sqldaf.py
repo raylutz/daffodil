@@ -1368,10 +1368,16 @@ def test_key_references_survive_delete_and_vacuum(job_db):
     assert sel_sdaf.to_daf()[:, 'ballot_id'].to_list() == ['b3', 'b6', 'b9']
 
 
-def test_apply_dtypes_on_a_selection_raises():
-    bif_sdaf: SqlDaf = SqlDaf.from_daf(make_bif_daf(), name='bif')
-    with pytest.raises(NotImplementedError):
-        bif_sdaf.select_by_dict({'precinct': 'P1'}).apply_dtypes(dtypes={'style_num': int})
+def test_apply_dtypes_on_a_selection_converts_a_copy():
+    text_daf: Daf = Daf(cols=['ballot_id', 'precinct', 'n'], lol=[['b1', 'P1', '1'], ['b2', 'P2', '2'], ['b3', 'P1', '3']],
+                        keyfield='ballot_id')
+    text_sdaf: SqlDaf = SqlDaf.from_daf(text_daf, name='bif')
+    p1_sdaf: SqlDaf = text_sdaf.select_by_dict({'precinct': 'P1'})
+    assert p1_sdaf.apply_dtypes(dtypes={'n': int}, cols='n') is p1_sdaf
+    assert p1_sdaf.to_daf().lol == [['b1', 'P1', 1], ['b3', 'P1', 3]]
+    assert not p1_sdaf.is_child and p1_sdaf.is_temp
+    assert text_sdaf.col('n') == ['1', '2', '3']
+    assert p1_sdaf['b3', 'n'].to_value() == 3
 
 
 def test_ensure_key_index_on_a_selection_raises():
@@ -2389,3 +2395,72 @@ def test_drop_and_rename_of_a_grouped_column():
     bif_sdaf.drop_cols(['style_num'])
     assert group_indexes(bif_sdaf.conn) == []
     assert list(bif_sdaf.groupby('pct').keys()) == ['P1', 'P2', 'P3']
+
+
+
+def make_sort_daf() -> Daf:
+    """ Text that sorts differently by length, a Python NULL, and ties to keep in order. """
+    return Daf(cols=['k', 't', 'n'],
+               lol=[['a', '10', 3], ['b', '8', 1], ['c', NULL, 2], ['d', '100', 1], ['e', '8', 2], ['f', 'x', 3]],
+               keyfield='k')
+
+
+SORT_OPS: list = [
+    lambda daf: daf.sort_by_colname('t'),
+    lambda daf: daf.sort_by_colname('t', reverse=True),
+    lambda daf: daf.sort_by_colname('t', length_priority=True),
+    lambda daf: daf.sort_by_colname('t', length_priority=True, reverse=True),
+    lambda daf: daf.sort_by_colname('n'),
+    lambda daf: daf.sort_by_colname('n', reverse=True),
+    lambda daf: daf.sort_by_colname('n', as_str=True),
+    lambda daf: daf.sort_by_colname('n', as_str=True, length_priority=True),
+    lambda daf: daf.sort_by_colnames(['n', 't']),
+    lambda daf: daf.sort_by_colnames(['n', 't'], reverse=True),
+    lambda daf: daf.sort_by_colnames(['n', 'k'], length_priority=True, as_str=True),
+    ]
+
+
+@pytest.mark.parametrize('op', SORT_OPS)
+@pytest.mark.parametrize('deleted', [False, True])
+def test_sorts_match_mdaf(op, deleted):
+    sort_daf: Daf = make_sort_daf()
+    sort_sdaf: SqlDaf = SqlDaf.from_daf(sort_daf, name='s')
+    if deleted:
+        sort_daf = sort_daf.delete_records(['b'])
+        sort_sdaf.delete_records(['b'], inplace=True)
+    assert op(sort_sdaf) is sort_sdaf
+    op(sort_daf)
+    assert sort_sdaf.to_daf().lol == sort_daf.lol
+    assert sort_sdaf.keyfield == 'k'
+
+
+def test_sort_of_a_selection_leaves_the_parent():
+    sort_daf: Daf = make_sort_daf()
+    sort_sdaf: SqlDaf = SqlDaf.from_daf(sort_daf, name='s')
+    sel_sdaf: SqlDaf = sort_sdaf.select_where_sql("k <> 'a'")
+    sel_sdaf.sort_by_colname('n')
+    assert sel_sdaf.keys() == ['b', 'd', 'c', 'e', 'f']
+    assert sel_sdaf[0, 'k'].to_value() == 'b'
+    assert sort_sdaf.keys() == ['a', 'b', 'c', 'd', 'e', 'f']
+    sel_sdaf['b', 'n'] = 9
+    assert sort_sdaf['b', 'n'].to_value() == 1
+
+
+def test_sort_of_a_permanent_table_keeps_the_file_table():
+    sort_sdaf: SqlDaf = SqlDaf.from_daf(make_sort_daf(), name='s')
+    sort_sdaf.sort_by_colname('n')
+    assert sort_sdaf.is_temp and sort_sdaf.name != 's'
+    assert SqlDaf('s').keys() == ['a', 'b', 'c', 'd', 'e', 'f']
+
+
+def test_sort_treats_sql_null_and_empty_text_alike():
+    sort_sdaf: SqlDaf = SqlDaf('s', cols=['k', 'n'], lol=[['a', 2], ['b', NULL], ['c', 1]], keyfield='k')
+    sort_sdaf.sql("INSERT INTO s (k, n) VALUES ('d', '')")
+    assert sort_sdaf.sort_by_colname('n').keys() == ['b', 'd', 'c', 'a']
+
+
+def test_sort_errors_and_mixed_types():
+    sort_sdaf: SqlDaf = SqlDaf('s', cols=['k', 'n'], lol=[['a', 'x'], ['b', 2], ['c', 1]], keyfield='k')
+    with pytest.raises(KeyError):
+        sort_sdaf.sort_by_colname('nothing')
+    assert sort_sdaf.sort_by_colname('n').col('n') == [1, 2, 'x']
