@@ -95,7 +95,8 @@ Source code is in src/daffodil and tests are in tests.
 
 ## Releasing
 
-- Version 0.8.0 was released on 2026-10-16 at 17:18 UTC, from d62784c. It is the first release with SqlDaf. Ray approved it in the chat without an AuditEngine test of a release candidate. Tags look like `v0.8.0`.
+- Version 0.8.1 was released on 2026-10-16 at 23:15 UTC, from 451008a. It has two breaking changes, in `wide_to_narrow()` and `from_md()`. Ray chose 0.8.1 over 0.9.0, to group them with 0.8.0, released the same day. Ray approved PyPI in the chat. Tags look like `v0.8.1`.
+- Version 0.8.0 was released on 2026-10-16 at 17:18 UTC, from d62784c. It is the first release with SqlDaf. Ray approved it in the chat without an AuditEngine test of a release candidate.
 - For 0.7.2, released on 2026-10-12 from e66b189, Ray had AuditEngine test the release candidate on its `-e ../daffodil` install before approving PyPI. When asking for such a test, do not ask it to run `uv sync`: its uv.lock is a stub, so a sync uninstalls most of its venv. The editable install sees a new commit with no sync. AuditEngine asked for this on 2026-10-11.
 - Between releases, `main` carries the next dev version, such as 0.7.2.dev0. A `-e` install then never reads the same as a PyPI release. AuditEngine asked for this on 2026-10-10. The deploy cannot release a dev version, because CHANGELOG.md never has a heading for one.
 - The workflow deploy.yml runs only on a push to the branch `full_deploy`. It checks the version, runs the tests, builds, and deploys the docs. Then it waits for Ray to approve, because he is a required reviewer on the environment `pypi`. After approval it publishes to PyPI and creates the tag and the GitHub Release. The Release notes are the version's section of CHANGELOG.md. The docs header shows the latest GitHub Release.

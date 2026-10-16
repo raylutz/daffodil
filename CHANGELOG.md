@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 Adoption of this format started in v0.5.10. Prior notes included in fixed section for
 all prior releases. Plans for future moved to ROADMAP.md.
 
+## [Unreleased]
+
 ## [0.8.1] - (2026-10-16)
 
 This release has two breaking changes, marked **Breaking** under Changed. `wide_to_narrow()` names a column `variable` by default, where it was `varname`. `from_md()` raises at a row with the wrong number of cells, where it dropped that row and the rest. It also fixes right and outer joins, and `from_md()` with a `|` in a cell.
