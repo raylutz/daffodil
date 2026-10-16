@@ -60,3 +60,16 @@ pyjson5 reads this text as it is. On 100,000 dicts of 30 keys:
 
 pyjson5 rejects None, True, a tuple and a dict with int keys. unflatten_val falls back to
 ast.literal_eval for those.
+
+## When AuditEngine moves to SqlDaf
+
+Ray decided on 2026-10-16, Q187. AuditEngine manages its own runs. The SF sheet 1 run grows
+in steps: the D05 pilot first takes in District 01, and once that works, all 11 districts.
+That is about 400,000 sheet 1 images. The runs stay on Daf until the step to all districts.
+SqlDaf becomes useful at that step, and that is when AuditEngine starts to use it.
+Meanwhile AuditEngine is phasing in the flat file_path and file_path2 columns.
+
+Measured on 2026-10-16, as a Daf of text, before apply_dtypes():
+
+    D05 pilot full_bif, all 4 cards        133,422 rows    241 MB
+    older full-county full_bif           1,603,862 rows   2675 MB
