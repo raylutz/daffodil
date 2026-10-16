@@ -3532,6 +3532,10 @@ class SqlDaf(Daf):
                 self._assign_col_values(cols_sel, None, keep_rest=False, default=value)
             return
 
+        if isinstance(rows_sel, int) and not isinstance(rows_sel, bool):
+            raise NotImplementedError(f"sdaf[{slice_spec!r}] = ...: an int row is a position, as in a Daf, and a SqlDaf "
+                                      "does not assign by position. For a row by key, of any type, use "
+                                      "update_record_krow(key, record).")
         if isinstance(rows_sel, bool) or not isinstance(rows_sel, str) or not (whole_cols or isinstance(cols_sel, str)):
             raise NotImplementedError(f"sdaf[{slice_spec!r}] = ... is not supported on a SqlDaf. "
                                       "Use sdaf[key, col], sdaf[key] or sdaf[:, col].")

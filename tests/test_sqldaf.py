@@ -2114,8 +2114,10 @@ def test_write_errors_match_mdaf():
         write_sdaf.apply_in_place(lambda row: None)
     with pytest.raises(NotImplementedError):
         write_sdaf.apply_in_place(lambda row: row, by='col')
-    with pytest.raises(NotImplementedError):
+    with pytest.raises(NotImplementedError, match='an int row is a position.*update_record_krow'):
         write_sdaf[0, 'v'] = 1                                          # a position, not a key
+    with pytest.raises(NotImplementedError, match='an int row is a position'):
+        write_sdaf[2] = {'id': 'c', 'v': 'q'}
 
 
 def test_update_record_krow_errors_match_mdaf():
