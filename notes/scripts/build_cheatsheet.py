@@ -14,7 +14,7 @@ import sys
 sys.path.insert(0, os.path.dirname(__file__))
 
 from daffodil.daf import Daf                                     # noqa: E402
-from cheatsheet_content import SECTIONS, RULES, MISTAKES, PANDAS_TITLE, indexing_md    # noqa: E402
+from cheatsheet_content import SETUP, SECTIONS, RULES, MISTAKES, PANDAS_TITLE, indexing_md    # noqa: E402
 
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 OUT_PATH = os.path.join(ROOT, 'docsite', 'cheatsheet.md')
@@ -41,8 +41,17 @@ This file is generated from notes/scripts/cheatsheet_content.py. Edit that file,
 '''
 
 
+SETUP_TEXT = '''## Setup
+
+Each task table below starts from this code, with the default modes. The lines within one
+table run in order, so a line may use what the line above it made. The tables do not depend on
+each other. The SqlDaf table is one sequence, from top to bottom.
+'''
+
+
 def build() -> str:
-    parts = [HEADER, '## Indexing at a glance\n\n' + indexing_md()]
+    parts = [HEADER, f'{SETUP_TEXT}\n```python\n{SETUP.strip()}\n```\n',
+             '## Indexing at a glance\n\n' + indexing_md()]
     for title, rows, notes in SECTIONS:
         if title == PANDAS_TITLE:
             cols = ['pandas', 'Daffodil']

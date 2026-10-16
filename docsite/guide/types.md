@@ -9,6 +9,18 @@ Nothing limits what a cell holds, and nothing is converted unless you ask.
 as when reading a CSV file. It is not a schema that checks or forces the cells, and a Daf
 built with `dtypes` keeps its cells as they are.
 
+Three steps are separate:
+
+| Step | What it does |
+| :--- | :----------- |
+| set `dtypes`, or call `set_dtypes()` | declares the types. Nothing is converted |
+| `apply_dtypes()` | tries to convert the cells |
+| `check_schema()` | finds the cells that do not fit their dtypes, and raises |
+
+Conversion is permissive. Text that is not a number stays text, with no error. So after
+`apply_dtypes()`, an `int` column can still hold some text. Call `check_schema()` when you
+need to know that every cell fits.
+
 ## Converting text from a CSV file
 
 A CSV file gives text. `apply_dtypes()` converts the columns in place, and returns the Daf:
@@ -23,7 +35,8 @@ A CSV file gives text. `apply_dtypes()` converts the columns in place, and retur
 [['a1', 3, 1.5, [1, 2]], ['b2', '', 2.0, []]]
 ```
 
-- An empty cell is NULL, the empty string, and stays NULL. See Missing values below.
+- An empty cell is NULL, the empty string, and stays NULL, except in a `bool` column. See
+  Missing values below.
 - A list or dict column is read back from its text, which may be JSON or PYON.
 - Text that does not make an `int` or a `float` is kept as it is.
 - `cols=` converts only the named columns. Converting a column costs time, so convert only
@@ -36,18 +49,46 @@ A CSV file gives text. `apply_dtypes()` converts the columns in place, and retur
 [['a1', 3, 'x']]
 ```
 
-`from_csv()` and `from_csv_buff()` also take `dtypes=`, to set them as the file is read.
+Load the file as text, then call `apply_dtypes()` for the columns you need. `from_csv()` and
+`from_csv_buff()` still take `dtypes=`, and convert as they load, but that is deprecated.
+
+## bool columns
+
+A `bool` column gets 0 or 1. The usual words for true and false are read in lower case,
+capitalized or upper case. An empty cell becomes 0, unlike in an `int` or `float` column.
+Other text stays as it is. Note that `'False'` gives 0, where Python's `bool('False')` is True.
+
+```pycon
+>>> flags = Daf(cols=['ok'], lol=[[''], ['0'], ['1'], ['False'], ['True'], ['no'], ['maybe']])
+>>> _ = flags.apply_dtypes(dtypes={'ok': bool})
+>>> flags.col('ok')
+[0, 0, 1, 0, 1, 0, 'maybe']
+```
+
+The words for 0 are `0`, `false`, `no`, `n`, `f` and `off`. The words for 1 are `1`, `true`,
+`yes`, `y`, `t` and `on`.
 
 ## Missing values
 
 A missing value is NULL, the empty string `''`. It prints as nothing, so a table with missing
-values stays easy to read. The sums and counts of Daffodil skip it. Converting to NumPy or
-pandas turns it into their missing value.
+values stays easy to read.
+
+- The sum methods skip it.
+- The value counts include it, as a count for `''`, unless you pass `omit_nulls=True`.
+- `to_pandas_df()` keeps it as `''`, so a number column with NULL becomes an object column.
+  Pass `default=None` to get NaN in its place. That writes None into the Daf itself. See
+  [to_pandas_df()][daffodil.lib.daf_pandas._to_pandas_df] for a route that leaves the Daf alone.
+- `to_numpy()` makes one array of one dtype, so a column with NULL becomes text.
 
 ```pycon
 >>> from daffodil.daf import NULL
 >>> NULL == ''
 True
+>>> gaps = Daf(cols=['g', 'n'], lol=[['x', 1], ['', 2], ['x', '']])
+>>> gaps.sum(['n'])
+{'n': 3.0}
+>>> gaps.valuecounts_for_colname('g'), gaps.valuecounts_for_colname('g', omit_nulls=True)
+({'x': 2, '': 1}, {'x': 2})
 ```
 
 ## Writing a CSV file

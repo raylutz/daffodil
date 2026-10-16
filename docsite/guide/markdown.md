@@ -40,9 +40,21 @@ Markdown report or a page like this one.
 
 ## Reading Markdown back
 
-With `include_summary=True`, the table ends with a line that gives its keyfield and name.
-`Daf.from_md()` reads the table back, with them. Use `shorten_text=False` so that no text is
-lost. The cells come back as text, as from a CSV file. See [Types and conversion](types.md).
+Markdown is a report format first. A table can be read back, but only some tables come back
+whole. With `include_summary=True`, the table ends with a line that gives its keyfield and
+name. `Daf.from_md()` reads the table back, with them.
+
+For the most faithful copy, pass `shorten_text=False`, leave `smart_fmt`, `max_rows` and
+`max_cols` at their defaults, and include the summary. Even then:
+
+- The cells come back as text, as from a CSV file, and the dtypes are not kept. See
+  [Types and conversion](types.md).
+- A newline in a cell comes back as `<br>`.
+- A `|` in a cell ends the table at the row before it, with no error. This is a known fault.
+- A composite keyfield is not read back, and raises `KeyError`. This is a known fault too.
+
+For data that must come back exactly, use `to_json()` and `from_json()`, which keep numbers,
+text and the keyfield. A CSV file keeps the text exactly, and `apply_dtypes()` restores the types.
 
 ```pycon
 >>> text = daf.to_md(include_summary=True, shorten_text=False)

@@ -6,8 +6,21 @@
 pip install daffodil
 ```
 
-Daffodil needs Python 3.10 or later. It is pure Python. pandas and NumPy are needed only to
-convert to and from them.
+Daffodil needs Python 3.10 or later. The table code is pure Python. Installing it also
+installs two small pure-Python packages: Markdown, and xlsx2csv for Excel files.
+
+Some features need another package, which is not installed with daffodil:
+
+| Feature | Package | Install |
+| :------ | :------ | :------ |
+| `to_pandas_df()`, `from_pandas_df()` | pandas | `pip install daffodil[pandas]` |
+| `to_numpy()`, `from_numpy()`, `to_donpa()`, `sum_np()` | NumPy | `pip install daffodil[numpy]` |
+| faster reading of list and dict cells | pyjson5 | `pip install daffodil[pyjson5]` |
+| `from_csv()` of an `http` or `https` address | requests | `pip install requests` |
+| `from_csv()` and `to_csv_file()` with an `s3://` name | boto3 | `pip install boto3` |
+| `from_pdf()`, which is experimental | pdfplumber | `pip install daffodil[pdf]` |
+
+A method that needs a missing package raises ImportError, or a RuntimeError that names it.
 
 ## Make a table
 
@@ -92,6 +105,10 @@ so these examples assign it to `_`, to keep the output short. See
 
 Read a file, go through it row by row, and build a new table. This is where Daffodil is
 strongest: appending a row is cheap, and nothing is converted.
+
+In the loop, each `row` is a new dict. Assigning a new value to it does not change the
+source table. To change values in place, use `update_record_krow()`, `apply_in_place()`, or
+`iter_klist()`, whose rows write through to the table.
 
 ```pycon
 >>> source = Daf.from_lod([{'name': 'pen', 'price': '1.50'}, {'name': 'ink', 'price': '4.00'}])

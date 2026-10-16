@@ -9,24 +9,26 @@ daf[rows]           rows, all columns
 daf[:, cols]        columns, all rows
 ```
 
-|          You write           |             As rows (first)             |             As columns (second)             |
-| :--------------------------- | :-------------------------------------- | :------------------------------------------ |
-| `:`                          | all rows                                | all columns                                 |
-| `2`                          | row 2, by position                      | column 2, by position                       |
-| `-1`                         | the last row                            | the last column                             |
-| `2:5`, `2:`, `:5`, `::2`     | a slice of rows                         | a slice of columns                          |
-| `range(2, 5)`                | rows 2, 3, 4                            | columns 2, 3, 4                             |
-| `[0, 4, 2]`                  | these rows, in this order               | these columns, in this order                |
-| `[range(0, 2), range(4, 6)]` | rows 0, 1, 4, 5                         | columns 0, 1, 4, 5                          |
-| `'a1'`                       | the row with key `'a1'`                 | the column named `'a1'`                     |
-| `['c3', 'a1']`               | the rows with these keys, in this order | the columns with these names, in this order |
-| `('a1', 'c3')`               | keys a1 through c3, inclusive           | names a1 through c3, inclusive              |
-| `('a1', None)`, `('a1',)`    | key a1 to the end                       | name a1 to the end                          |
-| `(None, 'c3')`               | the start through key c3                | the start through name c3                   |
-| `[]`                         | no rows                                 | no columns                                  |
+|          You write           |                  As rows (first)                  |               As columns (second)               |
+| :--------------------------- | :------------------------------------------------ | :---------------------------------------------- |
+| `:`                          | all rows                                          | all columns                                     |
+| `2`                          | row 2, by position                                | column 2, by position                           |
+| `-1`                         | the last row                                      | the last column                                 |
+| `2:5`, `2:`, `:5`, `::2`     | a slice of rows                                   | a slice of columns                              |
+| `range(2, 5)`                | rows 2, 3, 4                                      | columns 2, 3, 4                                 |
+| `[0, 4, 2]`                  | these rows, in this order                         | these columns, in this order                    |
+| `[range(0, 2), range(4, 6)]` | rows 0, 1, 4, 5                                   | columns 0, 1, 4, 5                              |
+| `'a1'`                       | the row with key `'a1'`                           | the column named `'a1'`                         |
+| `['c3', 'a1']`               | the rows with these keys, in this order           | the columns with these names, in this order     |
+| `('a1', 'c3')`               | the rows from key a1 through key c3, in row order | the columns from a1 through c3, in column order |
+| `('a1', None)`, `('a1',)`    | key a1 to the end                                 | name a1 to the end                              |
+| `(None, 'c3')`               | the start through key c3                          | the start through name c3                       |
+| `[]`                         | no rows                                           | no columns                                      |
 
-- Selecting whole rows, as `daf[rows]` or `daf[rows, :]`, copies no data: the new Daf shares the rows with the original, so a change to a cell in one shows in the other. Selecting some of the columns makes new rows. Use `copy('editable')` for rows of your own.
-- An integer is always a position. A key or a column name that is an integer needs `select_krows()` or `select_kcols()`.
+- Selecting whole rows, as `daf[rows]` or `daf[rows, :]`, copies no data: the new Daf shares the rows with the original, so a change to a cell in one shows in the other. Selecting some of the columns makes new row lists. Use `copy('editable')` for row lists of your own.
+- A list or dict held in a cell is the same object in every selection and in `copy('editable')`. Only `copy('deep')` copies it.
+- An integer alone, or in a list, slice or range, is a position. A key or a column name that is an integer needs `select_krows()` or `select_kcols()`.
+- The two ends of a tuple are always keys or names, of any type, as in `daf[(10, 20), :]` for int keys. The tuple takes the rows between them in the table's order. It does not compare the values. If the second end comes first in the table, the result is empty.
 - Rows by key need a keyfield.
 - A tuple of row keys needs the column part, even if it is `:`, as in `daf[('a1', 'c3'), :]`. A tuple of two standing alone is read as `[rows, cols]`.
 - A list holds integers, or ranges, or strings, not a mix. `None` alone is not a selector.
@@ -71,6 +73,10 @@ A tuple of two keys, or of two names, is an inclusive range. `None` stands for t
 the end. A range of row keys needs the column part, even if it is `:`, because a tuple of two
 items standing alone is read as `[rows, cols]`.
 
+The range follows the order of the rows, not the order of the keys. It starts at the row of
+the first key and ends at the row of the second. The ends of a tuple are always keys, so a
+tuple of ints works for int keys.
+
 ```pycon
 >>> daf[('r2', 'r3'), :].lol
 [['r2', 4, 5, 6], ['r3', 7, 8, 9]]
@@ -82,8 +88,22 @@ items standing alone is read as `[rows, cols]`.
 [1, 2]
 ```
 
-An integer in `[]` is always a position. To reach a key or a column name that is an integer,
-use `select_krows()` and `select_kcols()`.
+Here the keys are not in sorted order. The range from b to a takes b, z and a, the rows
+between them in the table. The range from a to b is empty, as a comes after b in the table:
+
+```pycon
+>>> unsorted = Daf(cols=['id', 'v'], keyfield='id', lol=[['m', 1], ['b', 2], ['z', 3], ['a', 4]])
+>>> unsorted[('b', 'a'), :].col('id')
+['b', 'z', 'a']
+>>> unsorted[('a', 'b'), :].col('id')
+[]
+>>> by_number = Daf(cols=['n', 'v'], keyfield='n', lol=[[10, 'x'], [20, 'y'], [30, 'z']])
+>>> by_number[(20, 30), :].col('n')
+[20, 30]
+```
+
+Outside a tuple, an integer in `[]` is always a position. To reach a key or a column name
+that is an integer, use `select_krows()` and `select_kcols()`.
 
 ## Getting values out
 
@@ -177,3 +197,44 @@ changes the original:
 To change a selection without changing the original, copy it first with
 `copy('editable')`, which gives each row its own list. Adding a column to a selection, as with
 `insert_col()`, copies the shared rows first, so the original keeps its shape.
+
+New row lists still hold the same cell values. A list or dict in a cell is one object, seen
+from the original, from any selection, and from `copy('editable')`. Changing it in place
+shows everywhere. Only `copy('deep')` copies it:
+
+```pycon
+>>> tagged = Daf(cols=['id', 'tags'], lol=[['a', ['x']]])
+>>> cols_only = tagged[:, ['tags']]
+>>> cols_only[0, 'tags'].to_value().append('y')
+>>> tagged.lol
+[['a', ['x', 'y']]]
+>>> deep = tagged.copy('deep')
+>>> deep[0, 'tags'].to_value().append('z')
+>>> tagged.lol
+[['a', ['x', 'y']]]
+```
+
+The same holds for `to_lod()`, `to_dict()`, the rows of a loop, and a KeyedList: each is new,
+but its values are the cells of the table.
+
+## Changing a key
+
+The key index maps each key to its row. It is built at the first lookup, and a write with
+`[]` does not update it. So after you change a key cell, or replace a row, the old key still
+finds the row, and the new key finds nothing. Call `set_keyfield()` with the same keyfield to
+have the index rebuilt:
+
+```pycon
+>>> stock = Daf(cols=['id', 'qty'], keyfield='id', lol=[['a1', 3], ['b2', 10]])
+>>> stock.select_record('a1')
+{'id': 'a1', 'qty': 3}
+>>> stock[0, 'id'] = 'z9'
+>>> stock.select_record('z9')
+{}
+>>> _ = stock.set_keyfield(stock.keyfield)
+>>> stock.select_record('z9')
+{'id': 'z9', 'qty': 3}
+```
+
+A selection that shares the row has its own index, so do the same on each Daf that looks up
+keys after the change.

@@ -18,8 +18,10 @@ the [changelog](https://github.com/raylutz/daffodil/blob/main/CHANGELOG.md).
 pip install daffodil
 ```
 
-Python 3.10 or later. Daffodil is pure Python. pandas and NumPy are needed only to convert to
-and from them.
+Python 3.10 or later. The table code is pure Python. pandas, NumPy and a few other packages
+are needed only for the features that use them, such as `to_pandas_df()`, and are not
+installed with daffodil. The [Install section](https://raylutz.github.io/daffodil/guide/getting-started/#install)
+of the Guide lists them.
 
 ## The data model
 

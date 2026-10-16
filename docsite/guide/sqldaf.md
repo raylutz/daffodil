@@ -45,14 +45,20 @@ from a record that SqlDaf keeps in the same file. `from_daf()` makes a table fro
 Methods give one of three kinds of result. Knowing which one you have tells you what a change
 to it does.
 
-| Result | Where its rows are | A change to it |
-| :----- | :----------------- | :------------- |
-| A selection | in its parent's table | changes the parent's rows |
+| Result | Where its rows are | Replacing an existing cell |
+| :----- | :----------------- | :------------------------- |
+| A selection | in its parent's table | changes the parent's row |
 | An independent SqlDaf | in a table of its own | changes only it |
 | A Daf | in Python memory | changes only it |
 
-- Indexing and the select methods give a selection.
-- `copy()`, a sort, `select_cols()` and a join give an independent SqlDaf.
+Other changes to a selection, such as adding rows, are in the table under
+[Changing rows and values](#changing-rows-and-values).
+
+- Indexing by rows alone, as in `sdaf['a1']` or `sdaf[0:2]`, and the select methods give a
+  selection.
+- Indexing with a column part, as in `sdaf[:, ['id', 'qty']]` or `sdaf['a1', 'qty']`, gives an
+  independent SqlDaf of new rows, as does `select_cols()`.
+- `copy()`, a sort and a join give an independent SqlDaf.
 - `to_daf()`, `sql()`, `groupsum_daf()` and `value_counts_daf()` give a Daf.
   `sum()` and the `valuecounts_for_*` methods give a dict.
 
@@ -90,9 +96,13 @@ still hold some text.
 
 Indexing and the select methods give a selection. It refers to rows of its parent table.
 
-A selection finds its rows when it is first read, by `to_daf()`, `len()` or the like. A change
-to the parent before then can change which rows it gets. After that, its rows are fixed. A
-change to the values in those rows still shows in it.
+A selection fixes its rows the first time it is read whole: by `to_daf()`, `len()`, `bool()`,
+`to_list()` or the like. A change to the parent before then can change which rows it gets.
+After that, its rows are fixed. A change to the values in those rows still shows in it.
+
+Reading one row does not fix the rows. `select_record()` and `iloc()` query the selection as it
+stands, each time. A negative position in `iloc()` is the exception, since it counts with
+`len()` first.
 
 ```pycon
 >>> big_sdaf = items_sdaf.select_where_sql('qty > ?', [5])
@@ -298,8 +308,8 @@ Use `insert_col()`, `drop_cols()` and `rename_cols()` for that.
 - **Types.** A column holds what SQLite stores, such as int, float, text or SQL NULL. A bool
   is stored as 0 or 1. CSV values are text until `apply_dtypes()` converts them. A dict or list
   cell stays as its text.
-- **Selections.** A Daf selection holds its rows at once. A SqlDaf selection finds them when
-  first read, and then they are fixed.
+- **Selections.** A Daf selection holds its rows at once. A SqlDaf selection fixes them when
+  first read whole, by `to_daf()`, `len()` or the like. Reading one row fixes nothing.
 - **Changes through a selection.** Setting a value changes the parent, as on a Daf. Adding
   rows, converting and sorting copy the selection first, and leave the parent as it was.
 - **Sorting.** A Daf sorts its own rows. A SqlDaf sorts into a new TEMP table, and the table

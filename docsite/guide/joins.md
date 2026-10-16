@@ -1,7 +1,12 @@
 # Joins
 
-`join()` combines two tables by their keys, as an SQL join does. Both tables need a keyfield,
-and a row of one matches the row of the other with the same key.
+`join()` combines two tables by their keys. Each table needs a keyfield of one column. A
+composite keyfield is not supported. A row of one table matches the row of the other with the
+same key.
+
+The keys should be unique in both tables. The join is one to one, not many to many as in SQL.
+If a key repeats in the other table, each match gets its last row. If it repeats in the first
+table, each of those rows is in the result.
 
 ```pycon
 >>> from daffodil.daf import Daf
@@ -20,7 +25,9 @@ and a row of one matches the row of the other with the same key.
 - `right`: every row of the second table, with the matching rows of the first.
 - `outer`: every row of both.
 
-A side with no matching row gets NULL. Pass `fill=None` to get `None` instead.
+A side with no matching row gets NULL. Pass `fill=None` to get `None` instead. The rows of the
+first table come first, in its order. In a right or outer join, the rows that only the second
+table has come after them.
 
 ```pycon
 >>> stock.join(prices).col('id')
@@ -51,5 +58,17 @@ List a column in `shared_fields` to keep it once instead. Its value comes from t
 (['id', 'name', 'qty', 'price'], ['a1', 'pen', 3, 1.5])
 ```
 
+A row that only the second table has gets NULL in a shared column, so the second table's value
+is lost. Here d4 had a qty of 5. This is a known fault. Leave out `shared_fields` when such rows
+matter.
+
+```pycon
+>>> stock.join(prices, how='outer', shared_fields=['qty']).lol[-1]
+['d4', '', '', 2.0]
+```
+
+The key of such a row is lost too when the two keyfields have different names. Name them the
+same for a right or outer join.
+
 For other names, give a `custom_translator_daf`, which maps each column of each table to its
-name in the result. See `join()` in the API.
+name in the result. See [join()][daffodil.daf.Daf.join] in the API.

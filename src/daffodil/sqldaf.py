@@ -229,19 +229,24 @@ class SqlDaf(Daf):
       child of a child is a child of the same parent. `is_child` tells them apart, and
       `parent_sdaf` is the parent of a child.
 
-    A child runs nothing when it is made. Its rows are found the first time it is read: by
-    `to_daf()`, `len()`, `bool()`, `to_dict()`, `to_list()` or `to_value()`. After that, it
-    always means the same rows, as a selection of a Daf does. A change to the values in those
+    Making a child does not read its rows. Some methods run a query at once for their
+    arguments: `select_krows()` checks the keys, `select_by_dict()` with `expectmax` finds
+    its rows to count them, and `groupby()` finds the groups. The rows of a child are fixed the first time
+    it is read whole: by `to_daf()`, `len()`, `bool()`, `to_dict()`, `to_list()` or
+    `to_value()`. After that, it always means the same rows, as a selection of a Daf does.
+    `select_record()` and `iloc()` read one row and fix nothing, unless `iloc()` is given a
+    negative position, which needs `len()`. A change to the values in those
     rows shows in it, since it refers to them. `copy(inplace=True)` gives it rows of its own.
 
     Every SqlDaf on one file shares one connection, which it holds in its attributes. So any two
     of them can be joined, and a child of one can be used with another. They also share its
     transactions: see `transaction()`. `SqlDaf.close()` closes the file, for every SqlDaf on it.
     Otherwise it stays open until the program ends. Each statement is committed when it
-    finishes, so nothing is lost either way. `delete()` deletes a table from the file.
+    finishes. So committed changes to permanent tables remain, whether the file is closed or the
+    program ends. `delete()` deletes a table from the file.
 
     A table made by `copy()`, or by reading a join, is a TEMP table. It belongs to the
-    connection, and goes when the connection closes. `save()` makes it a permanent table in the
+    connection, and is removed when the connection closes. `save()` makes it a permanent table in the
     file, under a name, to be opened again later.
 
     Do not delete rows from a parent that has children. `len()` of a child counts its
@@ -4014,7 +4019,7 @@ class SqlDaf(Daf):
 
         No value is converted. `apply_dtypes()` does that.
         On a permanent table with a record, the record is changed too, as `set_keyfield()` changes it.
-        A record holds int, float, bool, str, list and dict.
+        The record can store these dtypes: int, float, bool, str, list and dict.
 
         Args:
             default_type: The type of every column that is not listed.
@@ -4449,7 +4454,7 @@ class SqlDaf(Daf):
         make it a table of its own, independent of its parent. As in a Daf, a level that would
         not copy the rows, such as `sortable`, raises ValueError then.
 
-        The copy is a TEMP table, so it goes when the connection closes. `save()` keeps it in the
+        The copy is a TEMP table, so it is removed when the connection closes. `save()` keeps it in the
         file.
 
         Args:
