@@ -449,6 +449,13 @@ Q166. Static helpers on SqlDaf, decided by Ray on 2026-10-16: no. Fourteen Daf s
     The list: buff_to_file, count_values_da, count_values_kl, derive_join_translator_daf,
     dict_to_md, diff_da, dodaf_to_md, gkeys_to_idxs, join_records, reduce_dodaf_to_daf, sum_da,
     sum_dodis, sum_kl, update_row.
+Q170. Positions after a delete, decided by Ray on 2026-10-16: "that is a quick way to handle it
+    with no additional infrastructure. user is notified and it is just a fact that you can't delete
+    from a table and have indexing work correctly, so a copy is required. Otherwise, select all the
+    rows you want in a select." daf_rid stays fixed, as the reference between tables. A read by
+    position of a parent with gaps in daf_rid raises ValueError, pointing to `copy()`, which numbers
+    the rows again. Renumbering daf_rid in place was rejected, since children refer to rows by it.
+    A lazy map of positions to daf_rid was not needed.
 ## Possible future enhancements
 
 - Stream the rows of a join, or a selection of one, without building the whole join first.

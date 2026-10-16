@@ -17,7 +17,7 @@ from collections.abc import Iterable
 
 from daffodil.daf import Daf, NULL
 from daffodil.keyedlist import KeyedList
-from daffodil.lib.daf_types import T_ls, T_la, T_lola, T_di, T_da, T_dtype_dict, T_copybits, T_buff
+from daffodil.lib.daf_types import T_ls, T_la, T_lola, T_di, T_da, T_ss, T_dtype_dict, T_copybits, T_buff
 import daffodil.lib.daf_utils as daf_utils
 
 
@@ -236,10 +236,15 @@ class SqlDaf(Daf):
     connection, and goes when the connection closes. `save()` makes it a permanent table in the
     file, under a name, to be opened again later.
 
-    Do not delete rows from a parent that has children, or that you read by position.
-    Positions use daf_rid, which then has gaps, and `len()` of a child counts its references,
-    so it would still count a deleted row. Leave rows out with a selection instead, as in a Daf.
-    `to_daf()` does leave a deleted row out.
+    Do not delete rows from a parent that has children. `len()` of a child counts its
+    references, so it would still count a deleted row, though `to_daf()` leaves it out. Leave
+    rows out with a selection instead, as in a Daf.
+
+    A parent that has had rows deleted cannot be read by position. Positions in a parent are
+    looked up by daf_rid, and a delete leaves a gap there. So `iloc()`, `iloc_exists()` and
+    `sdaf[n]` or `sdaf[n:m]` on it raise ValueError. Read positions from `copy()`, which numbers
+    the rows again, or select the rows you want. A selection numbers its own rows, so positions
+    in it always work.
 
     To read one row, use `select_record()` by key or `iloc()` by position. Each is one query,
     returns a dict, and makes no selection.
@@ -373,7 +378,7 @@ class SqlDaf(Daf):
         key_t: Tuple[int, str] = cls._conn_key(path)
         if key_t not in SqlDaf._open_conns:
             SqlDaf._open_conns[key_t] = (sqlite3.connect(path, isolation_level=None),
-                                         {'func_error': None, 'temp_count': 0, 'func_count': 0})
+                                         {'func_error': None, 'temp_count': 0, 'func_count': 0, 'no_gaps_ss': set()})
         return SqlDaf._open_conns[key_t]
 
 
@@ -404,7 +409,7 @@ class SqlDaf(Daf):
             raise KeyError(keyfield)
 
         self.conn:      sqlite3.Connection  = conn
-        self._conn_da:  T_da            = conn_da       # func_error, temp_count, func_count: shared on one connection.
+        self._conn_da:  T_da            = conn_da       # func_error, temp_count, func_count, no_gaps_ss: shared on one connection.
         self.db_path:   str             = path          # type: ignore[misc]
         self._name:     str             = name
         self.keyfield:  str             = keyfield
@@ -859,6 +864,29 @@ class SqlDaf(Daf):
         does in a parent with daf_rid, as long as no row has been deleted from it.
         """
         return self.has_rid if self.parent_sdaf is None else self.is_resolved
+
+
+    def _check_positions(self, method: str) -> None:
+        """
+        Raise ValueError if this is a parent whose daf_rid has gaps, from deleted rows. Internal use.
+
+        Positions in a parent are looked up by daf_rid, so a gap would give the wrong row. A gap is
+        found by comparing MAX(daf_rid) with COUNT(*). A table found without one is kept in a set
+        on the connection, so it is checked once. `delete_records()`, and a statement through
+        `sql()` that changes rows, take it out of the set, to be checked again.
+        """
+        if self.parent_sdaf is not None or not self.has_rid:
+            return                                      # a child numbers its own rows, and other tables use OFFSET.
+        no_gaps_ss: T_ss = self._conn_da['no_gaps_ss']
+        if self.name in no_gaps_ss:
+            return
+        max_rid, count = self.conn.execute(
+                f'SELECT COALESCE(MAX({quote_name(RID_COL)}), 0), COUNT(*) FROM {quote_name(self.name)}').fetchone()
+        if max_rid == count:
+            no_gaps_ss.add(self.name)
+        else:
+            raise ValueError(f"{method}: '{self.name}' has had rows deleted, so it cannot be read by position. "
+                             "Read positions from copy(), which numbers the rows again, or select the rows you want.")
 
 
     def _count_for_position(self) -> int:
@@ -1322,7 +1350,9 @@ class SqlDaf(Daf):
             IndexError: There is no row at that position.
             KeyError: A name in `include_cols` is not a column.
             NotImplementedError: `rtype` is not 'dict' or 'list'.
+            ValueError: This is a parent that has had rows deleted. See SqlDaf.
         """
+        self._check_positions('iloc')
         if rtype not in ('dict', 'list'):
             raise NotImplementedError(f"iloc(rtype='{rtype}') is not supported on a SqlDaf yet. Use 'dict' or 'list'.")
         cols: T_ls = list(include_cols) if include_cols is not None else list(self.hd)
@@ -2131,9 +2161,12 @@ class SqlDaf(Daf):
             IndexError: An int position past the end.
             KeyError: A key that is missing.
             NotImplementedError: Any other form, such as `sdaf[rows, cols]`, or a slice with a step.
+            ValueError: An int or a slice, on a parent that has had rows deleted. See SqlDaf.
         """
         if isinstance(sel, bool) or not isinstance(sel, (int, slice, str)):
             raise NotImplementedError(f"sdaf[{sel!r}] is not supported on a SqlDaf yet. Use an int, a slice or a key.")
+        if not isinstance(sel, str):
+            self._check_positions(f'sdaf[{sel!r}]')
         self._resolve_parent()
         parent_sql, parent_params = self._rows_sql()
 
@@ -2172,7 +2205,13 @@ class SqlDaf(Daf):
 
 
     def iloc_exists(self, irow: int) -> bool:
-        """ Say whether there is a row at this position, from 0. """
+        """
+        Say whether there is a row at this position, from 0.
+
+        Raises:
+            ValueError: This is a parent that has had rows deleted. See SqlDaf.
+        """
+        self._check_positions('iloc_exists')
         rows_sql, rows_params = self._rows_sql()
         if self._is_dense():
             return self._execute(f'SELECT 1 FROM ({rows_sql}) WHERE {ORD_COL} = ?',
@@ -2331,9 +2370,9 @@ class SqlDaf(Daf):
 
         - On a selection, its references to those rows are removed, and the rest renumbered. The
           parent is not changed, so this is safe, as in a Daf.
-        - On a parent, the rows are deleted from the database. Then positions in it, and the
-          `len()` of a selection made from it earlier, are stale: a selection still counts a
-          deleted row, though `to_daf()` leaves it out. So delete in place from a parent
+        - On a parent, the rows are deleted from the database. After that, it cannot be read
+          by position: see SqlDaf. A selection made from it earlier still counts a deleted
+          row in `len()`, though `to_daf()` leaves it out. So delete in place from a parent
           only when nothing else uses it.
 
         The keys may be in any form that `select_records_daf()` takes. A key that is not found
@@ -2365,6 +2404,7 @@ class SqlDaf(Daf):
             with self.transaction():
                 self._execute(f'DELETE FROM {quote_name(self.name)} WHERE {quote_name(key_col)} IN '
                                    f'(SELECT daf_key FROM ({keys_sql}))', keys_params)
+            self._conn_da['no_gaps_ss'].discard(self.name)
             return self
 
         self._resolve()
@@ -2986,12 +3026,16 @@ class SqlDaf(Daf):
         Returns:
             A Daf of the rows the statement returns.
         """
+        changes_before: int = self.conn.total_changes
         cursor: sqlite3.Cursor = self.conn.execute(stmt, null_to_none(params))
-        if cursor.description is None:
-            return Daf()
-        cols: T_ls = [desc_t[0] for desc_t in cursor.description]
-        lol: T_lola = [none_to_null(row_t) for row_t in cursor]
-        return Daf(lol=lol, cols=cols)
+        result_daf: Daf = Daf()
+        if cursor.description is not None:
+            cols: T_ls = [desc_t[0] for desc_t in cursor.description]
+            lol: T_lola = [none_to_null(row_t) for row_t in cursor]
+            result_daf = Daf(lol=lol, cols=cols)
+        if self.conn.total_changes != changes_before:
+            self._conn_da['no_gaps_ss'].clear()         # rows may have been deleted, so check positions again.
+        return result_daf
 
 
 # Type aliases for SqlDaf, as daf_types.py has for other types. A SqlDaf variable ends in _sdaf,

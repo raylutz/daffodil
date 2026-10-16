@@ -1466,6 +1466,64 @@ def test_delete_records_inplace_on_a_base_makes_selections_stale():
     assert len(p1_sdaf) == 3                                    # stale, as the docstring warns
 
 
+def test_delete_records_inplace_on_a_base_stops_positions():
+    bif_daf: Daf = make_bif_daf()
+    bif_sdaf: SqlDaf = SqlDaf.from_daf(bif_daf, name='bif')
+    bif_sdaf.delete_records(['b2'], inplace=True)
+    bif_daf.delete_records(['b2'], inplace=True)
+    for read in (lambda: bif_sdaf.iloc(1), lambda: bif_sdaf.iloc(-1), lambda: bif_sdaf.iloc_exists(1),
+                 lambda: bif_sdaf[1], lambda: bif_sdaf[1:3]):
+        with pytest.raises(ValueError, match="'bif' has had rows deleted"):
+            read()
+    assert bif_sdaf['b3'].to_daf().lol == [bif_daf['b3'].lol[0]]       # by key still works
+    copy_sdaf: SqlDaf = bif_sdaf.copy()
+    assert copy_sdaf.iloc(1) == bif_daf.iloc(1)                         # a copy numbers the rows again
+    assert copy_sdaf[1:3].to_daf().lol == bif_daf[1:3].lol
+    p1_sdaf: SqlDaf = bif_sdaf.select_by_dict({'precinct': 'P1'})
+    assert p1_sdaf.iloc(1) == bif_daf.select_by_dict({'precinct': 'P1'}).iloc(1)   # a selection numbers its own rows
+
+
+def test_positions_after_deleting_only_the_last_row():
+    bif_sdaf: SqlDaf = SqlDaf.from_daf(make_bif_daf(), name='bif')
+    bif_sdaf.delete_records(['b5'], inplace=True)
+    assert bif_sdaf.iloc(-1)['ballot_id'] == 'b4'                       # no gap, so positions still work
+    assert bif_sdaf[1:3].to_daf()[:, 'ballot_id'].to_list() == ['b2', 'b3']
+
+
+def test_positions_check_a_reopened_table_and_sql_deletes(job_db):
+    bif_sdaf: SqlDaf = SqlDaf.from_daf(make_bif_daf(), name='bif')
+    assert bif_sdaf.iloc(1)['ballot_id'] == 'b2'
+    bif_sdaf.sql('SELECT * FROM bif')
+    assert 'bif' in bif_sdaf._conn_da['no_gaps_ss']                     # a SELECT changes no rows, so no check again
+    assert bif_sdaf.sql('DELETE FROM bif WHERE ballot_id = ? RETURNING ballot_id', ['b5']).to_list() == ['b5']
+    assert 'bif' not in bif_sdaf._conn_da['no_gaps_ss']
+    assert bif_sdaf.iloc(-1)['ballot_id'] == 'b4'                       # the last row leaves no gap
+    bif_sdaf.sql('DELETE FROM bif WHERE ballot_id = ?', ['b1'])
+    with pytest.raises(ValueError):
+        bif_sdaf.iloc(1)
+    SqlDaf.close(job_db)
+    with pytest.raises(ValueError):
+        SqlDaf('bif').iloc(1)                                           # found again on a new connection
+
+
+def test_positions_after_delete_and_remake(job_db):
+    bif_sdaf: SqlDaf = SqlDaf.from_daf(make_bif_daf(), name='bif')
+    bif_sdaf.delete_records(['b2'], inplace=True)
+    with pytest.raises(ValueError):
+        bif_sdaf.iloc(1)
+    bif_sdaf.delete()
+    again_sdaf: SqlDaf = SqlDaf.from_daf(make_bif_daf(), name='bif')
+    assert again_sdaf.iloc(1)['ballot_id'] == 'b2'
+
+
+def test_positions_in_a_table_without_rid_after_a_delete(job_db):
+    make_plain_table(job_db, [['x', 1], ['y', 2], ['z', 3]])
+    plain_sdaf: SqlDaf = SqlDaf('plain', keyfield='a')
+    plain_sdaf.sql("DELETE FROM plain WHERE a = 'x'")
+    assert plain_sdaf.iloc(0) == {'a': 'y', 'b': 2}                      # counted by OFFSET, so still right
+    assert plain_sdaf[1:2].to_daf().lol == [['z', 3]]
+
+
 def test_delete_records_missing_key_removes_nothing():
     bif_sdaf: SqlDaf = SqlDaf.from_daf(make_bif_daf(), name='bif')
     with pytest.raises(KeyError):
