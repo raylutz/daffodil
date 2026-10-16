@@ -15,9 +15,9 @@ from pathlib import Path
 from typing import Any, Callable, ClassVar, Dict, Iterator, List, Tuple, Type, TypeAlias      # noqa: F401
 from collections.abc import Iterable
 
-from daffodil.daf import Daf, NULL, ColumnNotFoundError
+from daffodil.daf import Daf, NULL, ColumnNotFoundError, KeysDisabledError
 from daffodil.keyedlist import KeyedList
-from daffodil.lib.daf_types import T_ls, T_la, T_lola, T_di, T_da, T_ss, T_dtype_dict, T_copybits, T_buff
+from daffodil.lib.daf_types import T_ls, T_la, T_lola, T_di, T_da, T_ds, T_ss, T_dtype_dict, T_copybits, T_buff
 import daffodil.lib.daf_utils as daf_utils
 
 
@@ -269,6 +269,9 @@ class SqlDaf(Daf):
     - Adding rows: `append()`, `record_append()`, `extend()`, `assign_record()` and `concat()`.
     - Changing values: `sdaf[key, col] = v`, `sdaf[key] = row`, `sdaf[:, col] = values`,
       `update_by_keylist()`, `assign_col()`, `apply_to_col()` and `apply_in_place()`.
+    - Columns and layout: `insert_col()`, `drop_cols()`, `rename_cols()`, `set_cols()`,
+      `set_dtypes()`, `attach_schema()` and `clone_empty()`.
+    - Repeated keys: `remove_dups()`.
     - Joining: `join()`. Choosing columns: `calc_cols()`.
     - Into memory: `to_daf()`, `to_dict()`, `to_list()`, `to_value()`, `to_lod()`, `to_dod()`
       and `to_json()`.
@@ -3000,6 +3003,63 @@ class SqlDaf(Daf):
         return self
 
 
+    def remove_dups(self, keyfield: str = '') -> Tuple['SqlDaf', 'SqlDaf']:   # type: ignore[override]
+        """
+        Split the rows into those with a unique key and those with a repeated key, as `Daf.remove_dups()` does.
+
+        Only the key column is compared, not the whole row.
+        For each key, the last row is the unique one. The earlier rows with that key are the duplicates.
+        The unique rows come in the order in which their keys first appear.
+        The duplicates keep this table's order.
+
+        Both are selections of this table's rows, as a Daf shares its rows with both.
+        Both have the key column as their keyfield.
+        SQL NULL and '' are one key here, as Python NULL is one key in a Daf.
+        No key index is made, so the column may hold repeated keys.
+        Each side is one GROUP BY, run when it is first read.
+
+        A key of several columns is not supported, since a SqlDaf keyfield is one column.
+
+        Args:
+            keyfield: The column that identifies a row. If empty, the keyfield of this SqlDaf.
+
+        Returns:
+            A tuple of the selection of unique rows and the selection of duplicate rows.
+
+        Raises:
+            KeysDisabledError: There is no `keyfield`, and this SqlDaf has none.
+            KeyError: The key column is not found.
+            NotImplementedError: The key is several columns.
+
+        Examples:
+            >>> import tempfile
+            >>> SqlDaf.db_path = tempfile.mkdtemp() + '/job.db'
+            >>> marks_sdaf = SqlDaf('marks', cols=['id', 'v'], lol=[[1, 'a'], [2, 'b'], [1, 'c']])
+            >>> unique_sdaf, dups_sdaf = marks_sdaf.remove_dups('id')
+            >>> unique_sdaf.to_daf().lol, dups_sdaf.to_daf().lol
+            ([[1, 'c'], [2, 'b']], [[1, 'a']])
+        """
+        key_col: Any = keyfield or self.keyfield
+        if not key_col:
+            raise KeysDisabledError("remove_dups: give a keyfield, or set one on the SqlDaf.")
+        if not isinstance(key_col, str):
+            raise NotImplementedError("remove_dups: a key of several columns is not supported on a SqlDaf.")
+        if key_col not in self.hd:
+            raise KeyError(key_col)
+        self._resolve_parent()
+        rows_sql, rows_params = self._rows_sql()
+
+        # The last row of each key is the unique one. It takes the place of the key's first row.
+        groups_sql: str = (f"SELECT MAX({ORD_COL}) AS last_ord, MIN({ORD_COL}) AS first_ord FROM ({rows_sql}) "
+                           f"GROUP BY COALESCE({quote_name(key_col)}, '')")
+        unique_sql: str = (f'SELECT r.{REF_COL} AS {REF_COL}, g.first_ord AS {ORD_COL}{self._cols_sql("r.", lead=", ")} '
+                           f'FROM ({rows_sql}) AS r JOIN ({groups_sql}) AS g ON r.{ORD_COL} = g.last_ord')
+        dups_sql: str = (f'SELECT * FROM ({rows_sql}) '
+                         f'WHERE {ORD_COL} NOT IN (SELECT last_ord FROM ({groups_sql}))')
+        return (SqlDaf._new_selection(self, unique_sql, rows_params + rows_params, keyfield=key_col),
+                SqlDaf._new_selection(self, dups_sql, rows_params + rows_params, keyfield=key_col))
+
+
     # ---- adding rows ----
 
     def concat(self, other_instance: Daf, respect_kd: bool = False) -> 'SqlDaf':
@@ -3457,6 +3517,8 @@ class SqlDaf(Daf):
             with self.transaction():
                 self._execute(f'ALTER TABLE {quote_name(self.name)} ADD COLUMN {quote_name(colname)}')
                 self.hd[colname] = len(self.hd)
+            if not la and default is NULL:
+                return self                             # ALTER TABLE fills a new column with SQL NULL already.
         self._assign_col_values(colname, None if la is None else list(la), keep_rest=False, default=default)
         return self
 
@@ -3605,6 +3667,319 @@ class SqlDaf(Daf):
         """
         return Daf.calc_cols(self, include_cols=include_cols, exclude_cols=exclude_cols,          # type: ignore[return-value]
                              include_types=include_types, exclude_types=exclude_types)
+
+
+    # ---- column names and layout ----
+
+    def _check_layout_change(self, method: str) -> None:
+        """ Raise NotImplementedError on a child, whose columns are its parent's. Resolve a join not read yet. Internal use. """
+        if self.parent_sdaf is not None:
+            raise NotImplementedError(f"{method}: '{self.name}' is a selection, and its columns are its parent's. "
+                                      "Change the parent, or make the selection a table first, with copy(inplace=True).")
+        self._resolve()
+
+
+    def insert_col(                                                         # type: ignore[override]
+            self,
+            colname:    str,                        # the name of the column.
+            col_la:     T_la | None = None,         # the values, in row order.
+            icol:       int = -1,                   # the position. Only the end: -1, or the number of columns.
+            default:    Any = NULL,                 # the value for rows that the list does not reach.
+            ) -> 'SqlDaf':
+        """
+        Add a named column, or fill it if the name is there, as `Daf.insert_col()` does.
+
+        A new column goes at the end, since ALTER TABLE adds columns only there.
+        Any other position raises NotImplementedError.
+        To read the columns in another order, use `select_cols()`. It gives new rows, in the order you name.
+
+        A list that is too short is filled out with `default`.
+        With no list, every row gets `default`.
+        If the name is there, its values are replaced, and `icol` is ignored.
+        An empty name does nothing.
+        A new column is added on a parent only, as `assign_col()` adds it.
+
+        Args:
+            colname: The name of the column.
+            col_la: The values, in row order.
+            icol: The position. Only the end is supported: -1, or the number of columns.
+            default: The value for rows that the list does not reach.
+
+        Returns:
+            This SqlDaf, which has been changed.
+
+        Raises:
+            NotImplementedError: A new column at a position other than the end, or on a selection.
+
+        Examples:
+            >>> import tempfile
+            >>> SqlDaf.db_path = tempfile.mkdtemp() + '/job.db'
+            >>> marks_sdaf = SqlDaf('marks', cols=['ballot_id', 'v'], lol=[['b1', 1], ['b2', 0]], keyfield='ballot_id')
+            >>> marks_sdaf.insert_col('w', ['x']).to_daf().lol
+            [['b1', 1, 'x'], ['b2', 0, '']]
+        """
+        if not colname:
+            return self
+        if colname not in self.hd and icol not in (-1, len(self.hd)):
+            raise NotImplementedError(f"insert_col: a new column goes at the end of a SqlDaf, not at position {icol}. "
+                                      "Use icol=-1, and select_cols() to read the columns in another order.")
+        return self.assign_col(colname, col_la or [], default)
+
+
+    def drop_cols(self, exclude_cols: T_ls | None = None) -> 'SqlDaf':     # type: ignore[override]
+        """
+        Remove columns from the table, in place, as `Daf.drop_cols()` does.
+
+        Each column goes with ALTER TABLE DROP COLUMN, which rewrites the table.
+        On 1,000,000 rows of 6 columns, one drop took 0.73 s, twice the time of `copy()`.
+        A name that is not a column is ignored. With no names, nothing happens.
+        The dtypes lose the columns dropped.
+
+        If the keyfield is dropped, it is cleared, as in a Daf, and its index goes with it.
+        Set a keyfield again with `set_keyfield()`.
+
+        A selection has its parent's columns, so a drop on one raises NotImplementedError.
+        A selection made before the drop still names the dropped column.
+        Reading it then raises sqlite3.OperationalError, so make it again.
+
+        Args:
+            exclude_cols: The names of the columns to remove.
+
+        Returns:
+            This SqlDaf, which has been changed.
+
+        Raises:
+            NotImplementedError: This is a selection.
+            sqlite3.OperationalError: An index of your own is on a column dropped. Nothing changes.
+
+        Examples:
+            >>> import tempfile
+            >>> SqlDaf.db_path = tempfile.mkdtemp() + '/job.db'
+            >>> marks_sdaf = SqlDaf('marks', cols=['ballot_id', 'v', 'n'], lol=[['b1', 1, 10]], keyfield='ballot_id')
+            >>> marks_sdaf.drop_cols(['v']).columns()
+            ['ballot_id', 'n']
+        """
+        if not exclude_cols:
+            return self
+        self._check_layout_change('drop_cols')
+        drop_ls: T_ls = [col for col in self.hd if col in exclude_cols]
+        if not drop_ls:
+            return self
+        kept_ls: T_ls = [col for col in self.hd if col not in drop_ls]
+        col: str
+        with self.transaction():
+            if self.keyfield in drop_ls:
+                self._execute(f'DROP INDEX IF EXISTS {quote_name(self.key_index_name())}')
+            for col in drop_ls:
+                self._execute(f'ALTER TABLE {quote_name(self.name)} DROP COLUMN {quote_name(col)}')
+            self.hd = {col: idx for idx, col in enumerate(kept_ls)}
+            self.dtypes = {col: typ for col, typ in self.dtypes.items() if col in self.hd}
+            if self.keyfield in drop_ls:
+                self.keyfield = ''
+            self._meta_update()
+        return self
+
+
+    def rename_cols(self, from_to_dict: T_ds) -> 'SqlDaf':                 # type: ignore[override]
+        """
+        Rename columns in place, as `Daf.rename_cols()` does.
+
+        Each is ALTER TABLE RENAME COLUMN, which changes only the schema.
+        On 1,000,000 rows it took 15 ms.
+        Names that are not in the mapping stay as they are.
+        Names in the mapping that are not columns are ignored.
+        Names may be swapped, as in `{'a': 'b', 'b': 'a'}`.
+        The dtypes are renamed too.
+
+        The keyfield follows the rename, as in a Daf.
+        Its index is made again under the new name, the next time a key is used.
+
+        A Daf lets two columns get the same name. A SqlDaf raises then, and nothing changes.
+        A selection has its parent's columns, so a rename on one raises NotImplementedError.
+        A selection made before the rename still names the old columns.
+        Reading it then raises sqlite3.OperationalError, so make it again.
+
+        Args:
+            from_to_dict: Maps old names to new names.
+
+        Returns:
+            This SqlDaf, which has been changed.
+
+        Raises:
+            NotImplementedError: This is a selection.
+            ValueError: A new name is reserved by SqlDaf. Nothing changes.
+            sqlite3.OperationalError: Two columns would have the same name. Nothing changes.
+
+        Examples:
+            >>> import tempfile
+            >>> SqlDaf.db_path = tempfile.mkdtemp() + '/job.db'
+            >>> marks_sdaf = SqlDaf('marks', cols=['id', 'v'], lol=[['b1', 1]], keyfield='id')
+            >>> marks_sdaf.rename_cols({'id': 'ballot_id'}).columns(), marks_sdaf.keyfield
+            (['ballot_id', 'v'], 'ballot_id')
+        """
+        self._check_layout_change('rename_cols')
+        self._rename_by_map({old: new for old, new in from_to_dict.items() if old in self.hd and new != old})
+        return self
+
+
+    def _rename_by_map(self, old_to_new: T_ds) -> None:
+        """
+        Rename columns in the table, the dtypes, the keyfield and the record. Internal use.
+
+        Each old name goes to a temporary name first, and then to its new name. So a swap works.
+        """
+        if not old_to_new:
+            return
+        reserved_ls: T_ls = [new for new in old_to_new.values() if new in RESERVED_COLS]
+        if reserved_ls:
+            raise ValueError(f"SqlDaf: {reserved_ls} reserved, and cannot be column names: {list(RESERVED_COLS)}.")
+        table_sql: str = quote_name(self.name)
+        idx: int
+        old: str
+        new: str
+        with self.transaction():
+            if self.keyfield in old_to_new:
+                self._execute(f'DROP INDEX IF EXISTS {quote_name(self.key_index_name())}')
+            for idx, old in enumerate(old_to_new):
+                self._execute(f'ALTER TABLE {table_sql} RENAME COLUMN {quote_name(old)} TO {quote_name(f"daf_tmp_col_{idx}")}')
+            for idx, new in enumerate(old_to_new.values()):
+                self._execute(f'ALTER TABLE {table_sql} RENAME COLUMN {quote_name(f"daf_tmp_col_{idx}")} TO {quote_name(new)}')
+            self.hd = {old_to_new.get(col, col): idx for col, idx in self.hd.items()}
+            self.dtypes = {old_to_new.get(col, col): typ for col, typ in self.dtypes.items()}
+            self.keyfield = old_to_new.get(self.keyfield, self.keyfield)
+            self._meta_update()
+
+
+    def set_cols(                                                           # type: ignore[override]
+            self,
+            new_cols:       T_ls | None = None,     # the names, in order. Spreadsheet names if None.
+            sanitize_cols:  bool = True,            # if True, make the names unique and not empty.
+            unnamed_prefix: str = 'col',            # the start of a name made for an empty one.
+            ) -> 'SqlDaf':
+        """
+        Set the column names by position, in place, as `Daf.set_cols()` does.
+
+        The names are made as in a Daf.
+        Without a list, they are A, B, C and so on.
+        With `sanitize_cols`, a repeated name gets a suffix, and an empty name becomes the prefix and its position.
+        Each name that changes is renamed as `rename_cols()` renames it, so the rows stay as they are.
+        The keyfield and the dtypes follow the names.
+
+        Args:
+            new_cols: The names, in order. If None, spreadsheet names are made.
+            sanitize_cols: If True, make the names unique and not empty.
+            unnamed_prefix: The start of a name made for an empty one.
+
+        Returns:
+            This SqlDaf, which has been changed.
+
+        Raises:
+            AttributeError: The number of names is not the number of columns, as in a Daf.
+            NotImplementedError: This is a selection.
+
+        Examples:
+            >>> import tempfile
+            >>> SqlDaf.db_path = tempfile.mkdtemp() + '/job.db'
+            >>> SqlDaf('t', cols=['a', 'b', 'c'], lol=[[1, 2, 3]]).set_cols(['x', 'x', '']).columns()
+            ['x', 'x_1', 'col2']
+        """
+        self._check_layout_change('set_cols')
+        if new_cols is None:
+            new_cols = daf_utils._generate_spreadsheet_column_names_list(len(self.hd))
+        elif sanitize_cols:
+            new_cols = daf_utils._sanitize_cols(new_cols, unnamed_prefix=unnamed_prefix)
+        if len(new_cols) != len(self.hd):
+            raise AttributeError("Length of new_cols not the same as existing cols")
+        self._rename_by_map({old: new for old, new in zip(self.hd, new_cols) if old != new})
+        return self
+
+
+    def set_dtypes(                                                         # type: ignore[override]
+            self,
+            default_type:       Type = str,                     # the type of every column not listed.
+            typ_to_cols_dict:   Dict[Type, T_ls] | None = None, # maps a type to the names of its columns.
+            ) -> 'SqlDaf':
+        """
+        Set the dtype of every column, from a default and a few exceptions, as `Daf.set_dtypes()` does.
+
+        No value is converted. `apply_dtypes()` does that.
+        On a permanent table with a record, the record is changed too, as `set_keyfield()` changes it.
+        A record holds int, float, bool, str, list and dict.
+
+        Args:
+            default_type: The type of every column that is not listed.
+            typ_to_cols_dict: Maps a type to the names of the columns of that type.
+
+        Returns:
+            This SqlDaf, which has been changed.
+
+        Raises:
+            NotImplementedError: A type the record cannot hold, on a table with a record. Nothing changes.
+
+        Examples:
+            >>> import tempfile
+            >>> SqlDaf.db_path = tempfile.mkdtemp() + '/job.db'
+            >>> SqlDaf('t', cols=['a', 'b'], lol=[['1', 'x']]).set_dtypes(str, {int: ['a']}).dtypes
+            {'a': <class 'int'>, 'b': <class 'str'>}
+        """
+        old_dtypes: T_dtype_dict = self.dtypes
+        Daf.set_dtypes(self, default_type, typ_to_cols_dict)
+        try:
+            with self.transaction():
+                self._meta_update()
+        except NotImplementedError:
+            self.dtypes = old_dtypes
+            raise
+        return self
+
+
+    def clone_empty(                                                        # type: ignore[override]
+            self,
+            lol:    T_lola | None = None,           # rows for the new table. None for no rows.
+            cols:   T_ls | None = None,             # column names to use instead of these.
+            name:   str = '',                       # the name of the new table. Generated if empty.
+            ) -> 'SqlDaf':
+        """
+        Make a new table with the same layout, as `Daf.clone_empty()` does.
+
+        It has the same columns, keyfield and dtypes, and no rows unless `lol` is given.
+        It is a TEMP table, as `copy()` makes, so `save()` keeps it.
+        With `cols` that differ, it has those columns.
+        The dtypes then keep the entries for the columns still there.
+        The keyfield is cleared if its column is gone.
+
+        Args:
+            lol: Rows for the new table, written as the constructor writes them. None for no rows.
+            cols: Column names to use instead of these.
+            name: The name of the new table. Generated if empty, as in daf_tmp_marks_v4.
+
+        Returns:
+            The new SqlDaf.
+
+        Examples:
+            >>> import tempfile
+            >>> SqlDaf.db_path = tempfile.mkdtemp() + '/job.db'
+            >>> marks_sdaf = SqlDaf('marks', cols=['ballot_id', 'v'], lol=[['b1', 1]], keyfield='ballot_id')
+            >>> empty_sdaf = marks_sdaf.clone_empty()
+            >>> empty_sdaf.columns(), empty_sdaf.keyfield, len(empty_sdaf)
+            (['ballot_id', 'v'], 'ballot_id', 0)
+        """
+        cols_ls: T_ls = list(self.hd) if not cols else ([cols] if isinstance(cols, str) else list(cols))
+        if cols_ls != list(self.hd) and (len(set(cols_ls)) != len(cols_ls) or NULL in cols_ls):
+            cols_ls = daf_utils._sanitize_cols(cols=cols_ls)
+        root_sdaf: SqlDaf = self.parent_sdaf or self
+        target: str = name or self._next_temp_name(root_sdaf.name)
+        table_sql: str = _create_table_sql(self.conn, target, cols_ls, 'temp')
+        with self.transaction():
+            self._execute(table_sql)
+        new_sdaf: SqlDaf = self._new_on_conn(
+                target,
+                self.keyfield if self.keyfield in cols_ls else '',
+                {col: typ for col, typ in self.dtypes.items() if col in cols_ls},
+                is_temp=True)
+        if lol:
+            new_sdaf._insert_rows(lol)
+        return new_sdaf
 
 
     # ---- joining ----
@@ -3994,6 +4369,64 @@ class SqlDaf(Daf):
         self.keyfield = keyfield
         with self.transaction():
             self._meta_update()
+        return self
+
+
+    def attach_schema(self, schema: type) -> 'SqlDaf':                     # type: ignore[override]
+        """
+        Attach a `@schemaclass` to this SqlDaf, as `Daf.attach_schema()` does.
+
+        It stores the schema, then fills in the dtypes and the keyfield, each only if there is none.
+        No value is converted, and nothing is checked against the rows.
+        Call `apply_dtypes()` to convert.
+        On a permanent table with a record, the record is changed too, as `set_keyfield()` changes it.
+
+        A Daf with no columns takes them from the schema.
+        A SqlDaf gets its columns when its table is made, so one with no columns raises NotImplementedError.
+
+        Args:
+            schema: A class decorated with `@schemaclass`.
+
+        Returns:
+            This SqlDaf, which has been changed.
+
+        Raises:
+            TypeError: The class is not a `@schemaclass`.
+            KeyError: The schema's keyfield is not a column.
+            NotImplementedError: This SqlDaf has no columns, or a dtype the record cannot hold.
+
+        Examples:
+            >>> import tempfile
+            >>> from daffodil.lib.schemaclass import schemaclass
+            >>> @schemaclass
+            ... class Mark:
+            ...     __keyfield__ = 'ballot_id'
+            ...     ballot_id: str = ''
+            ...     v: int = 0
+            >>> SqlDaf.db_path = tempfile.mkdtemp() + '/job.db'
+            >>> marks_sdaf = SqlDaf('marks', cols=['ballot_id', 'v'], lol=[['b1', '1']]).attach_schema(Mark)
+            >>> marks_sdaf.keyfield, marks_sdaf.dtypes
+            ('ballot_id', {'ballot_id': <class 'str'>, 'v': <class 'int'>})
+        """
+        if not getattr(schema, '__is_schemaclass__', False):
+            raise TypeError("schema must be a @schemaclass")
+        if not self.hd:
+            raise NotImplementedError(f"attach_schema: '{self.name}' has no columns. Make the table with its columns first.")
+        keyfield: str = self.keyfield or getattr(schema, '__keyfield__', '')
+        if keyfield and keyfield not in self.hd:
+            raise KeyError(keyfield)
+        old_dtypes: T_dtype_dict = self.dtypes
+        old_keyfield: str = self.keyfield
+        if not self.dtypes:
+            self.dtypes = schema.get_dtypes_dict(use_origins=True)                    # type: ignore[attr-defined]
+        self.keyfield = keyfield
+        try:
+            with self.transaction():
+                self._meta_update()
+        except NotImplementedError:
+            self.dtypes, self.keyfield = old_dtypes, old_keyfield
+            raise
+        self.schema = schema
         return self
 
 

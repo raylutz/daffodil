@@ -2139,3 +2139,204 @@ def test_concat_respect_kd_from_a_sqldaf():
     other_sdaf: SqlDaf = SqlDaf('other', cols=['id', 'v', 'n'], lol=[['b', 'B', 0], ['d', 'D', 4]], keyfield='id')
     write_sdaf.concat(other_sdaf, respect_kd=True)
     assert write_sdaf.to_daf().lol == [['a', 'x', 1], ['b', 'B', 0], ['c', 'z', 3], ['d', 'D', 4]]
+
+
+# ---- column names and layout ----
+
+LAYOUT_OPS: list = [
+    lambda daf: daf.insert_col('w', ['p', 'q']),
+    lambda daf: daf.insert_col('w'),
+    lambda daf: daf.insert_col('w', default=5),
+    lambda daf: daf.insert_col('w', ['p'], icol=3),
+    lambda daf: daf.insert_col('v', ['p'], icol=0),
+    lambda daf: daf.insert_col(''),
+    lambda daf: daf.drop_cols(['v']),
+    lambda daf: daf.drop_cols(['v', 'nothing']),
+    lambda daf: daf.drop_cols([]),
+    lambda daf: daf.drop_cols(['id']),
+    lambda daf: daf.rename_cols({'v': 'vv'}),
+    lambda daf: daf.rename_cols({'v': 'n', 'n': 'v'}),
+    lambda daf: daf.rename_cols({'id': 'key', 'nothing': 'x'}),
+    lambda daf: daf.set_cols(['a', 'b', 'c']),
+    lambda daf: daf.set_cols(),
+    lambda daf: daf.set_cols(['a', 'a', '']),
+    lambda daf: daf.set_dtypes(str, {int: ['n']}),
+    ]
+
+
+@pytest.mark.parametrize('op', LAYOUT_OPS)
+@pytest.mark.parametrize('deleted', [False, True])
+def test_layout_ops_match_mdaf(op, deleted):
+    write_daf: Daf = make_write_daf()
+    write_sdaf: SqlDaf = SqlDaf.from_daf(write_daf, name='w')
+    if deleted:
+        write_daf = write_daf.delete_records(['b'])
+        write_sdaf.delete_records(['b'], inplace=True)
+    op(write_daf)
+    op(write_sdaf)
+    assert write_sdaf.columns() == write_daf.columns()
+    assert write_sdaf.to_daf().lol == write_daf.lol
+    assert write_sdaf.keyfield == write_daf.keyfield
+    assert write_sdaf.dtypes == (write_daf.dtypes or {})
+
+
+def test_layout_changes_are_recorded():
+    write_daf: Daf = make_write_daf()
+    write_daf.dtypes = {'id': str, 'v': str, 'n': int}
+    SqlDaf.from_daf(write_daf, name='w').rename_cols({'id': 'key'}).drop_cols(['v']).set_dtypes(str, {float: ['n']})
+    SqlDaf.close()
+    again_sdaf: SqlDaf = SqlDaf('w')
+    assert again_sdaf.columns() == ['key', 'n']
+    assert again_sdaf.keyfield == 'key'
+    assert again_sdaf.dtypes == {'key': str, 'n': float}
+
+
+def test_rename_and_drop_of_the_keyfield_keep_key_lookups_right():
+    write_sdaf: SqlDaf = SqlDaf.from_daf(make_write_daf(), name='w')
+    write_sdaf.ensure_key_index()
+    write_sdaf.rename_cols({'id': 'key'})
+    assert key_indexes(write_sdaf.conn) == []
+    assert write_sdaf['b', 'v'].to_value() == 'y'
+    assert key_indexes(write_sdaf.conn) == ['daf_ix_w_key']
+    write_sdaf.drop_cols(['key'])
+    assert write_sdaf.keyfield == ''
+    assert key_indexes(write_sdaf.conn) == []
+
+
+def test_layout_errors_change_nothing():
+    write_sdaf: SqlDaf = SqlDaf.from_daf(make_write_daf(), name='w')
+    with pytest.raises(sqlite3.OperationalError):
+        write_sdaf.rename_cols({'v': 'n'})
+    with pytest.raises(ValueError):
+        write_sdaf.rename_cols({'v': RID_COL})
+    with pytest.raises(AttributeError):
+        write_sdaf.set_cols(['a'])
+    with pytest.raises(NotImplementedError):
+        write_sdaf.insert_col('w', icol=0)
+    write_sdaf.sql('CREATE INDEX my_ix ON w (v)')
+    with pytest.raises(sqlite3.OperationalError):
+        write_sdaf.drop_cols(['n', 'v'])
+    with pytest.raises(NotImplementedError):
+        write_sdaf.set_dtypes(bytes)
+    assert write_sdaf.columns() == ['id', 'v', 'n']
+    assert write_sdaf.dtypes == {}
+    SqlDaf.close()
+    assert SqlDaf('w').columns() == ['id', 'v', 'n']
+
+
+def test_layout_changes_on_a_selection_raise():
+    write_sdaf: SqlDaf = SqlDaf.from_daf(make_write_daf(), name='w')
+    tail_sdaf: SqlDaf = write_sdaf.select_where_sql("id <> 'a'")
+    for op in (lambda sdaf: sdaf.drop_cols(['v']), lambda sdaf: sdaf.rename_cols({'v': 'vv'}),
+               lambda sdaf: sdaf.set_cols(['a', 'b', 'c']), lambda sdaf: sdaf.insert_col('w')):
+        with pytest.raises(NotImplementedError):
+            op(tail_sdaf)
+    tail_sdaf.insert_col('v', ['B'])
+    assert write_sdaf.col('v') == ['x', 'B', NULL]
+
+
+def test_a_selection_made_before_a_drop_raises_when_read():
+    write_sdaf: SqlDaf = SqlDaf.from_daf(make_write_daf(), name='w')
+    tail_sdaf: SqlDaf = write_sdaf.select_where_sql("id <> 'a'")
+    len(tail_sdaf)
+    write_sdaf.drop_cols(['v'])
+    with pytest.raises(sqlite3.OperationalError):
+        tail_sdaf.to_daf()
+
+
+def test_clone_empty_matches_mdaf():
+    write_daf: Daf = make_write_daf()
+    write_daf.dtypes = {'id': str, 'v': str, 'n': int}
+    write_sdaf: SqlDaf = SqlDaf.from_daf(write_daf, name='w')
+    for kwargs in ({}, {'lol': [['d', 'w', 4]]}, {'cols': ['v', 'n']}, {'cols': ['id', 'id']}):
+        clone_daf: Daf = write_daf.clone_empty(**kwargs)
+        clone_sdaf: SqlDaf = write_sdaf.clone_empty(**kwargs)
+        assert clone_sdaf.columns() == clone_daf.columns()
+        assert clone_sdaf.to_daf().lol == clone_daf.lol
+        assert clone_sdaf.keyfield == clone_daf.keyfield
+        assert clone_sdaf.dtypes == clone_daf.dtypes
+        assert clone_sdaf.is_temp and clone_sdaf.name.startswith('daf_tmp_w_v')
+    assert write_sdaf.select_where_sql("id <> 'a'").clone_empty(name='blank').name == 'blank'
+    assert len(write_sdaf) == 3
+
+
+def make_dups_daf() -> Daf:
+    """ Repeated keys, with SQL NULL and '' as one Python NULL key. """
+    return Daf(cols=['id', 'v'], lol=[[1, 'a'], [2, 'b'], [1, 'c'], [NULL, 'd'], [3, 'e'], [NULL, 'f'], [2, 'g']])
+
+
+@pytest.mark.parametrize('deleted', [False, True])
+def test_remove_dups_matches_mdaf(deleted):
+    dups_daf: Daf = make_dups_daf()
+    dups_sdaf: SqlDaf = SqlDaf.from_daf(dups_daf, name='d')
+    dups_sdaf.sql("UPDATE d SET id = '' WHERE v = 'f'")
+    if deleted:
+        dups_daf = dups_daf.select_where(lambda row: row['v'] != 'e')
+        dups_sdaf.sql("DELETE FROM d WHERE v = 'e'")
+    unique_daf, repeat_daf = dups_daf.remove_dups('id')
+    unique_sdaf, repeat_sdaf = dups_sdaf.remove_dups('id')
+    assert unique_sdaf.to_daf().lol == unique_daf.lol
+    assert repeat_sdaf.to_daf().lol == repeat_daf.lol
+    assert unique_sdaf.keyfield == repeat_sdaf.keyfield == 'id'
+    assert key_indexes(dups_sdaf.conn) == []
+
+
+def test_remove_dups_on_a_selection_and_by_keyfield():
+    dups_daf: Daf = make_dups_daf()
+    dups_sdaf: SqlDaf = SqlDaf.from_daf(dups_daf, name='d')
+    sel_sdaf: SqlDaf = dups_sdaf.select_where_sql("v <> 'a'")
+    unique_daf, repeat_daf = dups_daf.select_where(lambda row: row['v'] != 'a').remove_dups('id')
+    unique_sdaf, repeat_sdaf = sel_sdaf.remove_dups('id')
+    assert unique_sdaf.to_daf().lol == unique_daf.lol
+    assert repeat_sdaf.to_daf().lol == repeat_daf.lol
+    write_sdaf: SqlDaf = SqlDaf.from_daf(make_write_daf(), name='w')
+    assert write_sdaf.remove_dups()[0].to_daf().lol == make_write_daf().lol
+    assert len(write_sdaf.remove_dups()[1]) == 0
+
+
+def test_remove_dups_errors():
+    dups_sdaf: SqlDaf = SqlDaf.from_daf(make_dups_daf(), name='d')
+    with pytest.raises(LookupError):
+        dups_sdaf.remove_dups()
+    with pytest.raises(KeyError):
+        dups_sdaf.remove_dups('nothing')
+    with pytest.raises(NotImplementedError):
+        dups_sdaf.remove_dups(('id', 'v'))
+
+
+def test_attach_schema_matches_mdaf():
+    from daffodil.lib.schemaclass import schemaclass
+
+    @schemaclass
+    class Row:
+        __keyfield__ = 'id'
+        id: str = ''
+        v: list = []
+        n: int = 0
+
+    write_daf: Daf = Daf(cols=['id', 'v', 'n'], lol=[['a', 'x', 1]])
+    write_sdaf: SqlDaf = SqlDaf.from_daf(write_daf, name='w')
+    write_daf.attach_schema(Row)
+    write_sdaf.attach_schema(Row)
+    assert write_sdaf.dtypes == write_daf.dtypes == {'id': str, 'v': list, 'n': int}
+    assert write_sdaf.keyfield == write_daf.keyfield == 'id'
+    assert write_sdaf.schema is Row
+    SqlDaf.close()
+    assert SqlDaf('w').dtypes == {'id': str, 'v': list, 'n': int}
+
+
+def test_attach_schema_keeps_what_is_set():
+    from daffodil.lib.schemaclass import schemaclass
+
+    @schemaclass
+    class Row:
+        __keyfield__ = 'nothing'
+        id: str = ''
+
+    write_sdaf: SqlDaf = SqlDaf('w', cols=['id', 'v'], lol=[['a', 'x']], keyfield='id', dtypes={'id': str, 'v': str})
+    assert write_sdaf.attach_schema(Row).keyfield == 'id'
+    assert write_sdaf.dtypes == {'id': str, 'v': str}
+    with pytest.raises(KeyError):
+        SqlDaf('u', cols=['id'], lol=[['a']]).attach_schema(Row)
+    with pytest.raises(TypeError):
+        write_sdaf.attach_schema(dict)
