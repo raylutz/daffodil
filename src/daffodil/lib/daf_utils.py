@@ -2276,11 +2276,17 @@ def unexcelstringify(astr: str) -> str:
     return astr
 
 def get_indirect_da(row_da: T_ma, indirect_col: str) -> T_da:
+    """ Return the dict held in one column of a row.
+
+        A cell may hold the dict itself, or its text as JSON or Pyon.
+        The text is read by unflatten_val, which tries pyjson5 first.
+        An empty cell gives an empty dict.
+    """
 
     da = row_da.get(indirect_col, {})
 
     if isinstance(da, str):
-        return safe_convert_json_to_obj(da)
+        return unflatten_val(da) if da else {}       # type: ignore[return-value]
 
     return da
 

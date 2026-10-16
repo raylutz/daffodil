@@ -796,6 +796,30 @@ def test_get_indirect_da_missing_col_returns_empty_dict():
     assert utils.get_indirect_da({}, 'meta') == {}
 
 
+def test_get_indirect_da_pyon_string_value():
+    row_da = {'meta': "{'c17b': 21, 'c18b': 0}"}
+    assert utils.get_indirect_da(row_da, 'meta') == {'c17b': 21, 'c18b': 0}
+
+
+def test_get_indirect_da_empty_string_returns_empty_dict():
+    assert utils.get_indirect_da({'meta': ''}, 'meta') == {}
+
+
+def test_get_indirect_da_pyon_with_apostrophe_in_key():
+    """ Pyon quotes such a key with double quotes and the others with single quotes. """
+    row_da = {'meta': repr({'a': 1, "O'Brien": 3})}
+    assert utils.get_indirect_da(row_da, 'meta') == {'a': 1, "O'Brien": 3}
+
+
+def test_get_indirect_da_keeps_none_inside_a_string():
+    row_da = {'meta': "{'name': 'Nonesuch', 'x': None}"}
+    assert utils.get_indirect_da(row_da, 'meta') == {'name': 'Nonesuch', 'x': None}
+
+
+def test_get_indirect_da_trailing_comma():
+    assert utils.get_indirect_da({'meta': "{'a': 1,}"}, 'meta') == {'a': 1}
+
+
 def test_get_indirect_val_basic():
     row_da = {'meta': {'x': 1}}
     assert utils.get_indirect_val(row_da, 'meta', 'x') == 1
