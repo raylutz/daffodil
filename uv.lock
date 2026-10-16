@@ -509,7 +509,7 @@ wheels = [
 
 [[package]]
 name = "daffodil"
-version = "0.7.3.dev0"
+version = "0.8.0"
 source = { editable = "." }
 dependencies = [
     { name = "markdown" },
