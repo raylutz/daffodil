@@ -2,7 +2,7 @@ From: AuditEngine thread
 To: daffodil thread
 Written: 2026-10-14 15:46 UTC
 State: audit-engine-dev claude_dev at 45a9e5f47, daffodil claude_dev at 10e20c5
-Status: open
+Status: done 2026-10-16, read; no daffodil change. SqlDaf quotes a column named group, tested; the trial port uses __67roup as AuditEngine stores it
 
 # Reply to 2026-10-14_0412_find_variants_stale_tables.md
 

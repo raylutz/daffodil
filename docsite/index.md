@@ -120,10 +120,24 @@ If the work is mostly math over whole numeric columns, pandas, NumPy or Polars a
 Daffodil converts to them when needed, with `to_pandas_df()` and `to_numpy()`. Build and
 clean the data as rows in Daffodil, then hand the numeric columns over for the number crunching.
 
+## Tables larger than memory
+
+SqlDaf is a Daf whose rows live in a SQLite table, in a file on disk. Its size is limited only
+by disk space, so it suits tables too large to hold in memory. SQL does the work, and a small
+selection comes into memory with `to_daf()`.
+
+A Daf in memory is faster. Whole-table operations ran 2 to 6 times faster in our timings, and
+a lookup by key about 11 times faster. So use a Daf for a table that fits in memory.
+
+SqlDaf supports the most common Daf methods, under the same names. Any other Daf method
+raises NotImplementedError. The guide page
+[Tables larger than memory](guide/sqldaf.md) shows how to use it.
+
 ## Next
 
 - [Getting started](guide/getting-started.md), then the rest of the Guide in the menu.
 - [Coming from pandas](guide/from-pandas.md): the same tasks side by side.
 - [Daf overview](api/daf/index.md), and the Daf API by section, for every method.
+- [SqlDaf overview](api/sqldaf/index.md), for tables in SQLite.
 - [Changelog](https://github.com/raylutz/daffodil/blob/main/CHANGELOG.md), and the code on
   [GitHub](https://github.com/raylutz/daffodil).

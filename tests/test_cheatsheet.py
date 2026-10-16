@@ -28,7 +28,10 @@ def _section_code(rows, title):
 
 @pytest.mark.parametrize('title, rows', [(title, rows) for title, rows, _notes in SECTIONS])
 def test_section_runs(title, rows, tmp_path, monkeypatch):
+    """ The SqlDaf section sets the class setting db_path. monkeypatch restores it afterwards. """
+    from daffodil.sqldaf import SqlDaf
     monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(SqlDaf, 'db_path', SqlDaf.db_path)
     env: dict = {}
     exec(SETUP, env)
     for code in _section_code(rows, title):

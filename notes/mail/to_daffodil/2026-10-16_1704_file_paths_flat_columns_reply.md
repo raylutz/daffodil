@@ -2,7 +2,7 @@ From: AuditEngine thread
 To: daffodil thread
 Written: 2026-10-16 17:04 UTC
 State: audit-engine-dev claude_dev at f5acef62f, daffodil sql_backing at 77eaf62
-Status: open
+Status: done 2026-10-16, read; no daffodil change needed. Phase 1 reads paths with unflatten_val, which handles the list text
 
 # Re: Replace the file_paths list with two flat string columns
 
