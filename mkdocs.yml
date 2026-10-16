@@ -45,6 +45,7 @@ nav:
       - Tables larger than memory: guide/sqldaf.md
       - Markdown reports: guide/markdown.md
       - Coming from pandas: guide/from-pandas.md
+      - Performance: guide/performance.md
       - Profiling mode: profiling.md
   - Daf API:
       - api/daf/index.md

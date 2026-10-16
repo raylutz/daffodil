@@ -73,6 +73,13 @@ def _apply_schema(
         >>> d = Daf(schema=Person)
         >>> d.columns()
         ['name', 'age']
+
+        On a Daf with rows and no names, it fills the names and dtypes, and converts nothing:
+
+        >>> raw = Daf(lol=[['ann', '7']])
+        >>> _ = raw.apply_schema(Person)
+        >>> raw.columns(), raw.lol
+        (['name', 'age'], [['ann', '7']])
         >>> d.dtypes
         {'name': <class 'str'>, 'age': <class 'int'>}
     """

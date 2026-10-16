@@ -86,7 +86,19 @@ key together, as a tuple:
 ### A key column with repeated values
 
 `append()` does not check the key, which keeps it fast. So data with repeated keys can be
-read in. To find them before you rely on the key:
+read in. Then the key index holds each key once, and points to the last row with it:
+
+- A lookup of the key, as `select_record()` or `daf[key]`, finds the last row.
+- `keys()` gives each key once, in the order of its first row.
+- `join()` matches each row with the last row of that key in the other table.
+
+```pycon
+>>> dup = Daf(cols=['id', 'qty'], lol=[['a1', 3], ['b2', 10], ['a1', 5]], keyfield='id')
+>>> dup.select_record('a1'), dup.keys(), len(dup)
+({'id': 'a1', 'qty': 5}, ['a1', 'b2'], 3)
+```
+
+To find repeated keys before you rely on the key:
 
 1. Read the data with no keyfield.
 2. Count the distinct values against the rows, as below.

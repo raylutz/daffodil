@@ -94,6 +94,10 @@ Creating a Daf from other data and files, and converting it back out.
 
 ::: daffodil.daf.Daf.from_pdf
 
+`from_pdf()` reads one kind of county report, of election participation by precinct, from a
+PDF file, with pdfplumber. It is experimental and written for that report. Its interface may change, so it
+is not documented here.
+
 ::: daffodil.daf.Daf.from_googlesheet
 
 ::: daffodil.daf.Daf.to_googlesheet

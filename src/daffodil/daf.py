@@ -184,7 +184,8 @@ class Daf:
 
     A Daf may have a keyfield. This is a column, or a tuple of columns, whose
     values name the rows. The key index is built the first time a key is needed.
-    It is rebuilt after the rows change.
+    Methods that add, remove or reorder rows keep it up to date, or mark it to be rebuilt.
+    Changing a key value inside a row does not. See `__setitem__()`.
 
     A missing value is `NULL`, which is the empty string. It prints as nothing.
 
@@ -551,6 +552,11 @@ class Daf:
 
         Each row is a dict or a KeyedList, depending on itermode. For plain lists, use
         `iter_list()`.
+
+        In the default itermode, each row is a new dict. Assigning a new value to it does not
+        change the Daf. To change values in a loop, use `iter_klist()`, whose rows write
+        through, or `apply_in_place()`. A list or dict held in a cell is the same object in
+        the dict and the Daf, so changing it in place does show.
 
         Each loop gets a new iterator, which goes through the rows once. It goes through
         the list of rows it started with: rows appended during the loop are seen, but a
@@ -954,6 +960,9 @@ class Daf:
         Rows that are too long are not cut. That would hide damage, such as an
         unquoted comma that split a value. They raise an error instead.
 
+        Each short row is padded in place, so a selection that shares it sees the new cells.
+        No row moves, so the key index stays valid.
+
         Returns:
             This Daf, which has been changed.
 
@@ -1028,18 +1037,18 @@ class Daf:
         """
         Make a copy of the Daf. You choose what the copy shares with the original.
 
-        The copy is always a new object of the same class. What it holds is shared
+        Unless `inplace=True`, the copy is a new object of the same class. What it holds is shared
         with the original unless you ask for its own. Sharing is what makes daffodil
         fast, because nothing is copied that does not have to be. Pick the cheapest
         `level` that is safe for what you do next.
 
         The level is one of four names, or a sum of the `COPY_` constants of `Daf`.
         Without a level, the class setting `copy_level_default` is used. It is `sortable`.
-        To play safe everywhere, set it on a subclass, as in
+        For copies with their own row lists by default, set it on a subclass, as in
         `class SafeDaf(Daf): copy_level_default = 'editable'`. The table gives the cost for
         200,000 rows of 50 columns.
 
-        | Level      | Own in the copy                                       | Cost            |
+        | Level      | Parts copied                                          | Cost            |
         |------------|-------------------------------------------------------|-----------------|
         | `shallow`  | `attrs` and `disp_cols`                               | 0.00002 s       |
         | `sortable` | `shallow`, the row list, `hd`, `dtypes`, the key index | 0.002 s, 2 MB   |
@@ -1053,7 +1062,7 @@ class Daf:
         is shared would leave the index wrong for one of the two. The name `deep` cannot be
         combined with any bit.
 
-        | Constant      | Value | Own in the copy                                           |
+        | Constant      | Value | Parts copied                                              |
         |---------------|------:|-----------------------------------------------------------|
         | `COPY_NONE`   |     0 | nothing. Every part is shared.                            |
         | `COPY_ATTRS`  |     1 | the `attrs` dict, deep copied, and the `disp_cols` list   |
@@ -1503,8 +1512,13 @@ class Daf:
         """
         Return the row keys.
 
-        The keys are the values of the keyfield column, in row order. With a composite
-        keyfield each key is a tuple. The key index is built here if it is needed.
+        The keys come from the key index. There is one for each distinct value of the
+        keyfield, in the order of the first row that has it. With a composite keyfield
+        each key is a tuple. The key index is built here if it is needed.
+
+        A repeated key appears once. The index then points to the last row that has it,
+        so a lookup of that key finds the last row. So `len(keys())` is less than
+        `len(daf)` when keys repeat.
 
         Without a keyfield the answer is an empty list, unless `silent_error` is False.
         Then it raises an error. An index passed in as `kd` is not used by this method.
@@ -1527,6 +1541,9 @@ class Daf:
             >>> d = Daf(lol=[[1, 'a'], [2, 'b']], cols=['id', 'v'], keyfield='id')
             >>> d.keys()
             [1, 2]
+            >>> dup = Daf(cols=['id', 'q'], lol=[['a', 1], ['b', 2], ['a', 3]], keyfield='id')
+            >>> dup.keys(), dup.select_record('a')
+            (['a', 'b'], {'id': 'a', 'q': 3})
         """
 
         # test exists in test_daf.py
@@ -1926,6 +1943,17 @@ class Daf:
         this method to turn the columns you need into numbers, lists and so on. It
         changes the cells where they are and does not make a new table.
 
+        Three steps are separate in daffodil:
+
+        | Step | What it does |
+        |---|---|
+        | set `dtypes`, or `set_dtypes()` | declares the types of the columns. Nothing is converted |
+        | `apply_dtypes()` | tries to convert the cells |
+        | `check_schema()` | finds the cells that do not fit their dtypes |
+
+        Conversion is permissive. Text that is not a number stays as it is, and no error is
+        raised. So a column with an `int` dtype can still hold some text after this call.
+
         Conversion costs time, about 0.04 s for each column of 200,000 rows, so convert
         only the columns that you use. Pass `cols` to name them. A column that is not
         in `cols` is not converted, is not checked, and keeps its entry in the `dtypes`
@@ -1942,7 +1970,7 @@ class Daf:
         Without `cols`, a `dtypes` that leaves out a column of the Daf raises
         `ValueError`, unless `silent_error` is True. Then the column gets `default_type`,
         which is `str` and is not converted, and the `dtypes` of the Daf are replaced by
-        the dict with that column added. That replaced the types of the columns that you
+        the dict with that column added. That replaces the types of the columns that you
         meant to convert later. To convert some columns and not others, use `cols`.
 
         Types must be plain types such as `int`, `float`, `bool`, `str`, `list`,
@@ -1957,7 +1985,13 @@ class Daf:
 
         An empty cell, such as two commas next to each other in a CSV file, is NULL,
         which is the empty string. It stays NULL when its column is converted to `int` or
-        `float`, so a number column can hold NULL. The sum methods, `sum()`, `sum_np()`
+        `float`, so a number column can hold NULL. A `bool` column is the exception: an
+        empty cell becomes 0 there.
+
+        A `bool` column gets 0 or 1. The text `0`, `false`, `no`, `n`, `f` and `off` give 0,
+        and `1`, `true`, `yes`, `y`, `t` and `on` give 1, in lower case, capitalized or upper
+        case. Other text stays as it is. So `'False'` gives 0, where Python's own `bool('False')`
+        is True. None gives 0, and any other value gives 0 or 1 by its truth. The sum methods, `sum()`, `sum_np()`
         and `Daf.sum_da()`, skip a NULL cell. Python's own `sum()` of such a column
         raises `TypeError`, so use the methods of the Daf.
 
@@ -2005,8 +2039,8 @@ class Daf:
 
             An empty cell stays empty, and the sum methods skip it:
 
-            >>> d = Daf.from_csv_buff('a,b\n1,\n,3\n4,5\n', dtypes={'a': int, 'b': int})
-            >>> d.apply_dtypes()
+            >>> d = Daf.from_csv_buff('a,b\n1,\n,3\n4,5\n')
+            >>> d.apply_dtypes(dtypes={'a': int, 'b': int})
             <BLANKLINE>
             | a  | b  |
             | -: | -: |
@@ -2033,20 +2067,12 @@ class Daf:
             >>> d.iloc(0)
             {'a': 1, 'b': '2.5', 'n': 7}
 
-            The same without `cols`, as you had to do before: save the dtypes, keep only
-            the columns to convert, convert with `silent_error=True`, and restore the
-            original. The other columns get the default type `str`, which is skipped:
+            A `bool` column, and text that does not convert:
 
-            >>> d = Daf(lol=[['1', '2.5', '7']], cols=['a', 'b', 'n'],
-            ...         dtypes={'a': int, 'b': float, 'n': int})
-            >>> saved_dtypes = dict(d.dtypes)
-            >>> d.dtypes = {'a': int}
-            >>> _ = d.apply_dtypes(silent_error=True)
-            >>> d.dtypes = saved_dtypes
-            >>> d.iloc(0)
-            {'a': 1, 'b': '2.5', 'n': '7'}
-            >>> d.dtypes == {'a': int, 'b': float, 'n': int}
-            True
+            >>> b = Daf(cols=['ok', 'n'], lol=[['', '1'], ['0', 'x'], ['True', '3'], ['maybe', '']])
+            >>> _ = b.apply_dtypes(dtypes={'ok': bool, 'n': int})
+            >>> b.lol
+            [[0, 1], [0, 'x'], [1, 3], ['maybe', '']]
 
             Your own conversion, here one that records the values that fail:
 
@@ -2833,14 +2859,13 @@ class Daf:
             The rows as dicts.
 
         Examples:
-            >>> Daf(lol=[[1, 'a']], cols=['id', 'v'])
-            <BLANKLINE>
-            | id | v  |
-            | -: | -: |
-            |  1 |  a |
-            <BLANKLINE>
-            %% daf rows=1; cols=2; keyfield=''; name=''
-            <BLANKLINE>
+            >>> d = Daf(lol=[[1, 'a'], [2, ['x']]], cols=['id', 'v'])
+            >>> lod = d.to_lod()
+            >>> lod
+            [{'id': 1, 'v': 'a'}, {'id': 2, 'v': ['x']}]
+            >>> lod[1]['v'].append('y')
+            >>> d.iloc(1)
+            {'id': 2, 'v': ['x', 'y']}
         """
         # test exists in test_daf.py
 
@@ -4032,8 +4057,9 @@ class Daf:
         The values become plain Python values. A two dimensional array gives one row
         for each row of the array. A one dimensional array gives a single row.
 
-        NumPy arrays hold one type. If the array mixes numbers and text, NumPy has
-        already turned everything into text before this method sees it.
+        An array has one dtype. `np.array([[1, 'x']])` makes every value text, before this
+        method sees it, so the Daf gets text too. An array with `dtype=object` keeps each
+        value as the Python object it was, such as an int, a str or None.
 
         Args:
             npa: The NumPy array.
@@ -4198,12 +4224,10 @@ class Daf:
     @classmethod
     def from_googlesheet(cls, spreadsheet_id: str, sheetname: str = 'Sheet1', *, service_account_file: str) -> 'Daf':
         """
-        Read a Google Sheet into a Daf. This is not implemented yet.
+        Read a Google Sheet into a Daf. This is not implemented.
 
-        It raises `NotImplementedError`. The method is a placeholder for the interface, which
-        takes the path of a service account file. An earlier draft read the sheet with the
-        Google API, but it could not be tested here, and it had a placeholder path in its source.
-        The draft is in the history of the repository, in the commit e9e69fd.
+        It always raises `NotImplementedError`. It holds the place of the interface, which
+        takes the path of a service account file.
 
         Args:
             spreadsheet_id: The ID of the Google Sheet.
@@ -4223,12 +4247,10 @@ class Daf:
 
     def to_googlesheet(self, spreadsheet_id: str, sheetname: str = 'Sheet1', *, service_account_file: str) -> 'Daf':
         """
-        Write the Daf to a Google Sheet. This is not implemented yet.
+        Write the Daf to a Google Sheet. This is not implemented.
 
-        It raises `NotImplementedError`. The method is a placeholder for the interface, which
-        takes the path of a service account file. An earlier draft wrote the rows with the Google
-        API, but it could not be tested here, and it had a placeholder path in its source. The draft
-        is in the history of the repository, in the commit e9e69fd.
+        It always raises `NotImplementedError`. It holds the place of the interface, which
+        takes the path of a service account file.
 
         Args:
             spreadsheet_id: The ID of the Google Sheet.
@@ -5075,8 +5097,7 @@ class Daf:
         `d = d.remove_key(2)`.
 
         The new Daf shares the surviving rows with this Daf. Changing a cell in one
-        changes it in the other. Call `copy()` with `level='editable'` if you need rows that
-        are independent.
+        changes it in the other. Call `copy('editable')` if you need row lists of your own.
 
         A tuple is a range of keys, as in `remove_key((2, 3))`. With a composite keyfield, a
         tuple as long as the keyfield, with no tuples inside it, is one key, as in
@@ -5209,7 +5230,9 @@ class Daf:
 
         The result is a new Daf. Its rows are shared with this Daf when you select
         rows, so changing a cell in the result changes it here too. Selecting columns
-        makes new rows, so the result is independent. The keyfield and dtypes carry
+        makes new row lists, so replacing a cell in the result does not change this Daf.
+        A list or dict held in a cell is still the same object in both. Use `copy('deep')`
+        when those must be separate too. The keyfield and dtypes carry
         over if their columns are still there. See [retmode][daffodil.daf.Daf.retmode]
         for getting a bare value or list when the result is one cell, row or column.
 
@@ -5380,6 +5403,9 @@ class Daf:
         which invalidates the kd, so it is rebuilt when it is next needed. Writing other
         columns is safe.
 
+        A selection that shares the row has a key index of its own. Resetting one Daf does
+        not reset the other. Call `set_keyfield()` on each Daf that will look up keys.
+
         A single name, as in `my_daf['x'] = value`, selects the row with that key. It is
         not a column, as it would be in pandas. Use `my_daf[:, 'x']` for a column, or
         `assign_col()` to add one. A name that is not a row key raises an error that
@@ -5410,6 +5436,18 @@ class Daf:
             >>> d[0] = {'v': 'q'}
             >>> d.iloc(0)
             {'id': '', 'v': 'q', 'n': ''}
+
+            A key changed after the index is built is found only after `set_keyfield()`:
+
+            >>> k = Daf(cols=['id', 'q'], lol=[['a', 1], ['b', 2]], keyfield='id')
+            >>> k.select_record('a')
+            {'id': 'a', 'q': 1}
+            >>> k[0, 'id'] = 'z'
+            >>> k.select_record('z')
+            {}
+            >>> _ = k.set_keyfield(k.keyfield)
+            >>> k.select_record('z')
+            {'id': 'z', 'q': 1}
         """
         # One cell and a plain value: write it into lol directly.
         # The general path below does the same for this case, after parsing the selectors.
@@ -6100,9 +6138,8 @@ class Daf:
 
         This is the same as `my_daf[keys]`, with a choice to drop rows and to ignore
         keys that are not found. It works with integer keys, which brackets cannot.
-        The result is a shallow new Daf. It is a new Daf with a new list of rows, and
-        each row is the same list as in this Daf. Use `copy()` if you need to change
-        them independently.
+        The result is a new Daf with its own outer row list. Each row is the same list as
+        in this Daf. Use `copy('editable')` before changing cells in one without the other.
 
         A bare tuple means an inclusive range of keys, so `(1, 2)` is the rows from key
         1 through key 2. For a composite keyfield, give a list of tuples.
@@ -6231,8 +6268,8 @@ class Daf:
         Select rows by position. Those rows are kept, or dropped if `inverse` is True.
 
         This is the same as `my_daf[rows]`, with a choice to drop rows. It is cheap.
-        The result is a shallow new Daf. It is a new Daf with a new list of rows, and
-        each row is the same list as in this Daf, so changing a cell in the result
+        The result is a new Daf with its own outer row list. Each row is the same list as
+        in this Daf, so changing a cell in the result
         changes it here too. This is also so when the selection is empty and `inverse`
         is True, which keeps all the rows. The keyfield, dtypes and column names carry over.
 
@@ -6664,7 +6701,8 @@ class Daf:
 
         The keys may be another Daf. Its keys are then used, through a view of its key index,
         so no list of them is made. That other Daf must have a keyfield. Its rows are not
-        changed. The keys come in its row order, so the rows selected come in that order too.
+        changed. The keys come in the order of its key index, so the rows selected come in
+        that order too. A key that repeats in this Daf selects only its last row. See `keys()`.
 
         The rows are shared with this Daf, as in `select_krows()`. The new Daf has its own
         row list, also with no keys and `inverse` True, so adding a row to one does not
@@ -6962,20 +7000,15 @@ class Daf:
         """
         Make a list of tuples, one tuple for each row.
 
-        This is handy for making composite keys.
+        This is handy for making composite keys. The tuples are new, but the values in them
+        are the same objects as in the Daf.
 
         Returns:
             The rows as tuples.
 
         Examples:
-            >>> Daf(lol=[[1, 'a']], cols=['id', 'v'])
-            <BLANKLINE>
-            | id | v  |
-            | -: | -: |
-            |  1 |  a |
-            <BLANKLINE>
-            %% daf rows=1; cols=2; keyfield=''; name=''
-            <BLANKLINE>
+            >>> Daf(lol=[[1, 'a'], [2, 'b']], cols=['id', 'v']).to_lota()
+            [(1, 'a'), (2, 'b')]
         """
         """ return data from a daf array as a list of tuple of any (List[Tuple[Any...]])
             This is convenient for creating compound keys
@@ -7261,8 +7294,9 @@ class Daf:
         An empty list matches no row. An empty dict matches every row. A dict that names a
         column that is not there matches no row, and the other dicts still apply.
 
-        A Daf with rows and no column names raises `KeysDisabledError`. The new Daf is a shallow new Daf, a live view of this one. It has its own
-        row list, and its rows are the same lists as the rows of this Daf. Changing a value in
+        A Daf with rows and no column names raises `KeysDisabledError`. The new Daf is a live
+        view of this one. It has its own outer row list, and its rows are the same lists as the
+        rows of this Daf. Changing a value in
         it changes this Daf. Adding a column with `insert_col()` or `insert_idx_col()` does not,
         because those copy shared rows first. Use `copy('editable')` for rows of your own.
 
@@ -7983,8 +8017,9 @@ class Daf:
         Remove columns from this Daf, in place.
 
         The rows are rebuilt without those columns, so this copies all the data. Avoid
-        it for large tables. Use the `cols` argument of `apply` and `reduce`, or
-        `select_kcols()` to get a new Daf, instead.
+        it for large tables. Instead, name only the columns you need: with `cols=` in
+        `reduce()`, by reading only those fields in an `apply()` function, or with
+        `select_kcols()` for a new Daf.
 
         The column names and dtypes are updated. A name that is not a column is ignored.
         If a column of the keyfield is dropped, the keyfield is cleared, as in the other
@@ -9114,8 +9149,10 @@ class Daf:
         `formulas_daf` is a Daf of the same shape. Each cell holds a Python
         expression as text. An empty cell is skipped. The result of each expression is
         stored in the same cell of this Daf. The formulas are evaluated again and again
-        until no cell changes, so a cell may use the result of another. A circular
-        set of formulas raises `RuntimeError` after 100 passes.
+        until no cell changes, so a cell may use the result of another. If the cells
+        still change after 100 passes, it raises `RuntimeError`. This is a limit on the
+        passes, not a check for circular formulas. A circle of formulas that settles, such
+        as two cells that copy each other, raises nothing.
 
         In a formula, `$d` is this Daf, `$r` is the row number of the cell and `$c` is
         its column number. References are absolute unless you build them from `$r` and
@@ -10987,8 +11024,10 @@ class Daf:
         The function gets each row, and the result so far, and returns the new result.
         A sum or a count is a reduction. With `by='row'`, the function is called as
         `func(row, result, cols=cols, **kwargs)`. The result starts as 0 for each of
-        the columns, or as `initial_da`. It returns a dict with every column. Columns
-        that are not in `cols` are empty.
+        the columns, or as `initial_da`, which is changed in place. It returns a dict with
+        every column. Columns that are not in `cols` are empty. A key of the result that
+        is not a column of the Daf is dropped, so a reduction by row gives one value for
+        each column. For a result of another shape, use `by='table'`, or a loop.
 
         A plain sum, with `sum_da()` or `sum_kl()` and no other options, adds down each
         column instead of across each row. That is about 5 times faster, and gives the same
@@ -11017,7 +11056,7 @@ class Daf:
         To reduce part of the table, select the rows or columns first, or give `cols`.
 
         Args:
-            func: The function that combines. For example `Daf.sum_da`.
+            func: The reduction function. For example `Daf.sum_da`.
             by: `row`, `col`, `table` or `sparse_row`.
             cols: The columns included in the reduction. All columns if None.
             initial_da: The result to start from, instead of zeros.
@@ -12261,9 +12300,13 @@ class Daf:
         """
         Total the columns, and return a dict of the totals.
 
-        Each total starts as a float. Empty cells are skipped. A cell that is text
-        that is not a number raises `ValueError`, so give `colnames_ls` to leave
-        those columns out. With `numeric_only`, and dtypes of `int` or `float`, only
+        Each total starts as a float. Empty cells are skipped. Text that is a number,
+        such as `'2'`, is converted and added. Other text raises `ValueError`, so give
+        `colnames_ls` to leave those columns out.
+
+        `reduce(Daf.sum_da)` adds differently. It skips every value that is not a number,
+        including the text `'2'`, and never raises. So the two can give different totals
+        for a column that holds text. See the example. With `numeric_only`, and dtypes of `int` or `float`, only
         those columns are totaled, and a cell that is not a number counts as 0. The
         totals are converted to the dtypes, if the Daf has them.
 
@@ -12280,6 +12323,9 @@ class Daf:
         Examples:
             >>> Daf(lol=[[1, 10], [2, 20]], cols=['x', 'y']).sum()
             {'x': 3.0, 'y': 30.0}
+            >>> mixed = Daf(cols=['n'], lol=[[1], ['2'], [''], [3.5]])
+            >>> mixed.sum(['n']), mixed.reduce(Daf.sum_da, cols=['n'])
+            ({'n': 6.5}, {'n': 4.5})
         """
 
 
@@ -12917,8 +12963,14 @@ class Daf:
         """
         Join two Daf instances on their keyfields, as in SQL.
 
-        Both need a keyfield, and it must be a single column. A row of this Daf is
-        joined with the row of `other_daf` that has the same key.
+        Both need a keyfield, and it must be a single column. A composite keyfield, a
+        tuple of columns, raises `KeyError`. A row of this Daf is joined with the row of
+        `other_daf` that has the same key.
+
+        The join is one to one. It is not a many to many join, as in SQL. Each row of this
+        Daf finds at most one row of the other, through its key index. If a key repeats in
+        the other Daf, every match gets its last row. If a key repeats in this Daf, each of
+        those rows is in the result. Check the keys first if they may repeat. See `keys()`.
 
         The types of join are:
 
@@ -12936,6 +12988,16 @@ class Daf:
         When a key has no match, its cells from the other side are NULL, the empty string. Pass
         `fill=None` to get `None` there, as earlier versions did.
         The keyfield of the result is the keyfield of this Daf. The result is a new Daf.
+
+        A row that only the other Daf has, in a right or outer join, comes after the rows
+        of this Daf. Two of its cells can be lost:
+
+        - A column in `shared_fields` takes its value from this Daf only. Such a row has no
+          row here, so the cell is NULL, though the other Daf has a value.
+        - The key is NULL when the two keyfields have different names.
+
+        These are known faults. Name the keyfields the same, and leave
+        out `shared_fields`, when such rows matter.
 
         Args:
             other_daf: The Daf to join with.
@@ -13172,6 +13234,10 @@ class Daf:
         Each column that is not an id column gives one row for each row of this Daf.
         The row holds the id values, the name of the column, and its value.
 
+        The default name of the column of names is `varname`. `narrow_to_wide()` looks for
+        `variable` by default. So to go back, pass `varname_colname='variable'` here, or
+        `varname_col='varname'` there.
+
         Args:
             id_cols: The columns that identify a row. They are kept as they are.
             varname_colname: The name of the new column that holds the old column names.
@@ -13196,6 +13262,12 @@ class Daf:
             <BLANKLINE>
             %% daf rows=4; cols=3; keyfield=''; name=''
             <BLANKLINE>
+
+            A round trip, with the names matched:
+
+            >>> narrow = d.wide_to_narrow(['id'], varname_colname='variable')
+            >>> narrow.narrow_to_wide(['id']).lol
+            [['x', 1, 2], ['y', 3, 4]]
         """
         if not isinstance(id_cols, list):
             raise TypeError("id_cols must be a list")
@@ -13234,6 +13306,9 @@ class Daf:
 
         With `wide_cols`, those are the columns after the ids, in that order. A
         name that is not listed is left out.
+
+        The default `varname_col` is `variable`, but `wide_to_narrow()` names that column
+        `varname` by default. Match the names to go back and forth.
 
         An empty Daf gives an empty Daf.
 

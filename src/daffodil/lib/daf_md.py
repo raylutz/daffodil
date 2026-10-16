@@ -482,6 +482,15 @@ def _from_md(cls, md_str: str) -> 'Daf': # -> "Daf":
     text. Convert them with `apply_dtypes()`. Text with no table, or empty text,
     gives an empty Daf.
 
+    Markdown is a report format, so a round trip through `to_md()` is not exact:
+
+    - Text that `to_md()` shortened, rows and columns it left out, and numbers that
+      `smart_fmt` rounded stay that way.
+    - A newline in a cell is written as `<br>`, and is read back as `<br>`.
+    - A `|` in a cell is written as `\|`, which this method does not read. The table ends
+      at the row before it, with no error. A `|` in the first row gives no rows at all.
+    - A composite keyfield in the footer is not read back, and raises `KeyError`.
+
     Args:
         md_str: The Markdown text.
 

@@ -8,7 +8,7 @@ Some differences to know first:
 
 - `daf[x]` selects rows, where `df[x]` selects a column. A column is `daf[:, 'name']`, or as a
   list, `daf.col('name')`.
-- An integer in `[]` is always a position, as with `iloc`. A key is a value of the keyfield
+- An integer in `[]` is a position, as with `iloc`. Only the ends of a tuple range are keys. A key is a value of the keyfield
   column, which stays in the table, unlike the pandas index.
 - A selection of rows shares the rows with the original. Changing a cell in it changes the
   original. See [Selecting and indexing](selecting.md).
@@ -17,6 +17,9 @@ Some differences to know first:
 - A table prints as Markdown.
 
 ## The same task in each
+
+Each line is the same task, not the same expression. The result type, and whether the table
+is changed, can differ. The notes say how.
 
 | pandas | Daffodil | Notes |
 |---|---|---|
@@ -30,8 +33,8 @@ Some differences to know first:
 | `df.dtypes` | `daf.dtypes` | describes, does not enforce |
 | `df.astype(...)` | `daf.apply_dtypes(dtypes=...)` | in place |
 | `df.head(n)`, `df.tail(n)` | `daf[:n]`, `daf[-n:]` | |
-| `df.iloc[n]` | `daf[n]` | `.to_dict()` for a dict |
-| `df.loc[k]` | `daf[k]` | needs a keyfield. `.to_dict()` for a dict |
+| `df.iloc[n]` | `daf[n]` | a Daf. `.to_dict()` for a dict |
+| `df.loc[k]` | `daf.select_record(k)` | a dict. Needs a keyfield. `daf[k]` also works, but there an int `k` is a position |
 | `df.set_index('id')` | `daf.set_keyfield('id')` | the column stays in the table |
 | `df['c']` | `daf[:, 'c']`, or `daf.col('c')` for a list | |
 | `df[['a', 'b']]` | `daf[:, ['a', 'b']]` | |
@@ -45,16 +48,16 @@ Some differences to know first:
 | (none) | `daf.insert_irow(i, row)` | insert a row anywhere |
 | `df['c'] = vals` | `daf[:, 'c'] = vals` | |
 | `df.rename(columns=...)` | `daf.rename_cols({...})` | |
-| `df.sort_values('c')` | `daf.sort_by_colname('c')` | |
-| `df.T` | `daf.transpose()` | |
+| `df.sort_values('c')` | `daf.copy().sort_by_colname('c')` | `sort_by_colname()` sorts the Daf itself. Copy first to keep the order |
+| `df.T` | `daf.transpose()` | a new Daf |
 | `df.apply(f, axis=1)` | `daf.apply(f)` | the row is a dict, and `f` returns one |
 | `df.agg(...)` | `daf.reduce(f)` | |
 | `df.groupby('g')` | `daf.groupby('g')` | a KeyedList of Dafs, used as a dict |
 | `df.groupby('g')[cols].sum()` | `daf.groupby_cols_reduce(['g'], Daf.sum_da, reduce_cols=cols)` | name the columns to add |
 | `df.groupby([...])[cols].agg(f)` | `daf.groupby_cols_reduce([...], f, reduce_cols=cols)` | |
 | `df.value_counts('c')` | `daf.valuecounts_for_colname('c')` | a dict |
-| `df.merge(other, on='id')` | `daf.join(other)` | both need a keyfield. See [Joins](joins.md). |
-| `df.replace(...)` | `daf.find_replace(pattern, value)` | |
+| `df.merge(other, on='id')` | `daf.join(other)` | on the keyfields, one to one. See [Joins](joins.md) |
+| `df.replace(old, new)` | `daf.replace_in_columns(cols=None, find_values=[old], replacement=new)` | whole cells equal to `old`. `find_replace()` replaces a whole cell that matches a regex |
 | `df.to_markdown()` | `daf.to_md()` | |
 | `df.to_numpy()` | `daf.to_numpy()` | |
 

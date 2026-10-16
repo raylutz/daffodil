@@ -411,6 +411,26 @@ def test_from_md_leading_prose_before_table():
     assert daf.lol == [['1', 'a']]
 
 
+def test_from_md_keeps_a_newline_as_br():
+    """ to_md() writes a newline in a cell as <br>, and from_md() reads it back as <br>. """
+    daf = Daf(cols=['id', 't'], lol=[['a', 'l1\nl2']])
+    assert Daf.from_md(daf.to_md()).lol == [['a', 'l1<br>l2']]
+
+
+@pytest.mark.xfail(strict=True, reason="BUG: src/daffodil/lib/daf_md.py:754 the row parser splits on every |, "
+                                       "including the \\| that to_md() writes, so the table ends before that row, with no error.")
+def test_from_md_reads_a_pipe_in_a_cell():
+    daf = Daf(cols=['id', 't'], lol=[['a', 'q'], ['b', 'x|y'], ['c', 'r']])
+    assert Daf.from_md(daf.to_md(shorten_text=False)).lol == [['a', 'q'], ['b', 'x|y'], ['c', 'r']]
+
+
+@pytest.mark.xfail(strict=True, reason="BUG: src/daffodil/lib/daf_md.py:815 the footer parser reads a composite keyfield "
+                                       "as the text of a tuple, so Daf() raises KeyError for it.")
+def test_from_md_reads_a_composite_keyfield_from_the_footer():
+    daf = Daf(cols=['a', 'b', 'v'], lol=[[1, 2, 3]], keyfield=('a', 'b'))
+    assert Daf.from_md(daf.to_md(include_summary=True)).keyfield == ('a', 'b')
+
+
 # =====================================================================
 # Group 3b -- Daf.dodaf_to_md() / Daf.dodaf_from_md()
 # =====================================================================

@@ -2,14 +2,16 @@
 
 ## Rows, not columns
 
-Daffodil keeps a table as rows, where pandas and Polars keep columns. So working with rows is
-cheap: appending, inserting, deleting, selecting, and going through them one at a time. A
-selection of rows shares the rows, and copies nothing.
+Daffodil keeps a table as rows, where pandas and Polars keep columns. Appending rows and
+going through them one at a time suit that storage. Selecting whole rows reuses their row
+lists, and copies no cells. Inserting or deleting a row in the middle moves the rows after
+it in the outer list, so it costs more in a large table.
 
 Working with columns costs more, as each column is spread across all the rows. Most of the
-time you do not need to: rather than dropping the columns you do not want, name the ones you do,
-as with the `cols` argument of `reduce()` or `to_md()`. For heavy math over whole numeric
-columns, hand them to NumPy or pandas, with `to_numpy()` or `to_pandas_df()`.
+time you do not need to: rather than dropping the columns you do not want, name the ones you
+do. Give `cols=` to `reduce()`. In an `apply()` function, read only the fields you need. To
+show some columns, select them before `to_md()`. For heavy math over whole numeric columns,
+hand them to NumPy or pandas, with `to_numpy()` or `to_pandas_df()`.
 
 ## apply(): a new table, row by row
 
@@ -38,6 +40,36 @@ dict, and the function returns a dict:
 ```
 
 NULL cells are skipped, so the missing `b` of the second row adds nothing.
+
+`sum()` and `reduce(Daf.sum_da)` differ when a column holds text. `sum()` converts text
+that is a number, such as `'2'`, and raises `ValueError` for other text. `Daf.sum_da` skips
+every value that is not a number, and never raises:
+
+```pycon
+>>> mixed = Daf(cols=['n'], lol=[[1], ['2'], [''], [3.5]])
+>>> mixed.sum(['n']), mixed.reduce(Daf.sum_da, cols=['n'])
+({'n': 6.5}, {'n': 4.5})
+```
+
+### Your own reduction
+
+The function gets each row, the result so far, and the columns. It returns the new result.
+The row is a KeyedList, which reads like a dict. The result has one value for each column,
+and starts at 0 unless you give `initial_da`. This one counts the cells that are not NULL:
+
+```pycon
+>>> from daffodil.daf import NULL
+>>> def count_filled(row, result, cols):
+...     for col in cols:
+...         if row[col] is not NULL:
+...             result[col] += 1
+...     return result
+>>> daf.reduce(count_filled, cols=['a', 'b'])
+{'g': '', 'a': 3, 'b': 2}
+```
+
+A key of the result that is not a column is dropped. For a result of another shape, write a
+loop over the rows.
 
 ## Groups
 
@@ -73,8 +105,12 @@ cell alone. In a formula:
 - `$r` is the row of the cell, and `$c` its column.
 
 So a formula is absolute unless it uses `$r` or `$c`, the reverse of a spreadsheet. The
-formulas are evaluated again until nothing changes. Formulas that depend on each other in a
-circle raise `RuntimeError`.
+formulas are evaluated again until no value changes. If the values still change after 100
+passes, it raises `RuntimeError`. This is a limit on the passes, not a check for circular
+formulas. A circle that settles raises nothing.
+
+The formulas run with Python's `eval()`, so use only formulas you trust. If a formula raises,
+the cells already changed stay changed.
 
 This sums each row into the last column, and each column into the last row:
 
