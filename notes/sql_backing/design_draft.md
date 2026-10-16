@@ -456,6 +456,8 @@ Q170. Positions after a delete, decided by Ray on 2026-10-16: "that is a quick w
     position of a parent with gaps in daf_rid raises ValueError, pointing to `copy()`, which numbers
     the rows again. Renumbering daf_rid in place was rejected, since children refer to rows by it.
     A lazy map of positions to daf_rid was not needed.
+Q171. A cached row count, decided by Ray on 2026-10-16: no. "leave length as it is for now. Hard to
+    rely on it." `len()` of a parent runs COUNT(*) each time, 27.5 ms on 1,000,000 rows.
 ## Possible future enhancements
 
 - Stream the rows of a join, or a selection of one, without building the whole join first.
