@@ -56,8 +56,10 @@ the [changelog](https://github.com/raylutz/daffodil/blob/main/CHANGELOG.md).
 pip install daffodil
 ```
 
-Python 3.10 or later. Daffodil is pure Python. pandas and NumPy are needed only to convert to
-and from them.
+Python 3.10 or later. The table code is pure Python. pandas, NumPy and a few other packages
+are needed only for the features that use them, such as `to_pandas_df()`, and are not
+installed with daffodil. The [Install section](https://raylutz.github.io/daffodil/guide/getting-started/#install)
+of the Guide lists them.
 
 ### The data model
 
@@ -156,8 +158,8 @@ files, building records, cleaning, reshaping, and writing them out again.
 pip install daffodil
 ```
 
-Python 3.10 or later. Daffodil is pure Python. pandas and NumPy are needed only to convert
-to and from them.
+Python 3.10 or later. The table code is pure Python. pandas, NumPy and a few other packages
+are needed only for the features that use them. See [Install](guide/getting-started.md#install).
 
 ### Quick start
 
@@ -190,71 +192,29 @@ is no conversion on the way in or out. The data stays the Python objects you put
 
 ### Why not pandas?
 
-pandas stores a table as columns, in NumPy arrays. That is right for heavy numeric work on
-columns. It is costly for data that is built and used as rows.
+pandas stores a table as columns, in NumPy arrays. That suits heavy numeric work on columns.
+It costs more for data that is built and used as rows. pandas has no cheap way to add one row,
+so the usual pattern collects the rows in Python, then converts them all at once. Daffodil needs
+no conversion step.
 
-**pandas has no cheap way to add a row.** pandas removed `DataFrame.append()` in version 2.0.
-What is left copies or reallocates the frame on each row. Adding 5,000 rows one at a time
-took 2.4 s with `pd.concat()`. So the usual pattern is to collect the rows in a list of
-dicts, then convert it all at once with `pd.DataFrame()`. Daffodil needs no conversion step.
-Collect the rows in a list and wrap it, or append each row to the Daf.
+In one benchmark, of 1,000 rows of 1,000 columns, mostly large ints:
 
-The table below builds 1,000 rows of 1,000 columns: one string column and 999 int columns.
-This is the shape of the older benchmarks. The ints run from 0 to 1,000,002, so each one is
-its own Python object, as in most real data.
+| How the table is built | Total time | Peak memory | Kept memory |
+|---|--:|--:|--:|
+| pandas: collect a dict per row, then `pd.DataFrame()` | 543 ms | 89 MB | 8 MB |
+| pandas: collect a list per row, then `pd.DataFrame()` | 479 ms | 60 MB | 8 MB |
+| Daffodil: `append()` each row to the Daf | 173 ms | 36 MB | 36 MB |
 
-| How the table is built | Build | Convert | Total | Peak memory | Kept memory |
-|---|--:|--:|--:|--:|--:|
-| pandas: append a dict per row, then `pd.DataFrame()` | 223 ms | 320 ms | 543 ms | 89 MB | 8 MB |
-| pandas: append a list per row, then `pd.DataFrame()` | 169 ms | 310 ms | 479 ms | 60 MB | 8 MB |
-| pandas: append to a list per column, then `pd.DataFrame()` | 257 ms | 397 ms | 654 ms | 53 MB | 8 MB |
-| Daffodil: `append()` each row to the Daf | 173 ms | 0 ms | 173 ms | 36 MB | 36 MB |
-| Daffodil: append a list per row, then `Daf(lol=...)` | 173 ms | 0 ms | 173 ms | 36 MB | 36 MB |
+Daffodil built the table in about a third of the time, with a lower peak. pandas kept less,
+because it stores these ints as 8-byte numbers. With small ints or text, both kept the same.
+Results depend on the values, the shape and the versions.
+[Performance](guide/performance.md) gives the details, and the script to run it again.
 
-Each case gets the rows one at a time, in a loop. The pandas cases must first collect the
-rows in Python, then convert them. Daffodil appends each row to the table itself.
-
-What the numbers show:
-
-- **No conversion.** Appending each row to a Daf took a third of the time of the pandas
-  patterns, or less. That is as fast as collecting the rows in a plain list.
-- **Lower peak memory.** pandas holds the collected rows and the new frame at once. Its peak
-  was 53 to 89 MB, against 36 MB for Daffodil.
-- **Kept memory depends on the numbers.** A string costs the same in both: pandas keeps a
-  string column as Python objects too. Small ints also cost the same, since Python shares
-  one object for each value from -5 to 256. With ints from 0 to 99, both kept 8 MB here, and
-  with every column text, both kept 65 MB. Large ints and floats are where pandas keeps
-  less. It stores them as 8-byte numbers, while each one in a Daf is a Python object of 24 to
-  32 bytes, plus its 8-byte place in the row. That is why the table above shows 36 MB
-  against 8 MB. A frame can still lose its 8-byte columns. Built from a 2-D NumPy array of
-  mixed rows, or transposed with `df.T`, every column becomes Python objects, and the frame
-  is as large as the Daf or larger.
-- **The shape matters.** A tall, narrow table has more rows to append and fewer cells per
-  row to convert. For 200,000 rows of 10 columns, `append()` took 0.9 s, against 1.1 to
-  1.5 s for the pandas patterns. Collecting the rows in a list and wrapping it took 0.7 s.
-  The difference is the cost of each call to `append()`, about 1 µs.
-- **NumPy values make pandas slower.** Values often come out of NumPy or pandas as NumPy
-  scalars rather than Python ints. For 1,000 dicts of 1,000 such values, `pd.DataFrame()`
-  took 1.75 s, against 0.27 s for the same values as Python ints. `Daf.from_lod()` took
-  0.11 s either way. pandas 1.5.3, 2.1.4 and 2.3.3 all gave the same times.
-
-The conversion is paid again every time data goes into pandas and back out. Turning the
-1,000 by 1,000 frame back into a list of lists took another 101 ms. Daffodil started as the fix
-for exactly that. In its author's programs, moving data in and out of pandas was among the
-slowest steps.
-
-**A selection shares the rows.** Selecting rows builds a new list that points to the same
-row objects. No data is copied. Selecting 100,000 of 200,000 rows took 10 ms. Change a cell
-through the selection, and the original table sees it. A copy is made only when you ask for
-one, at the level you choose. See [copy()][daffodil.daf.Daf.copy].
+**A selection shares the rows.** Selecting rows copies no data, so it is fast. A change to a
+cell through the selection shows in the original. See [copy()][daffodil.daf.Daf.copy].
 
 **Fewer surprises with mixed data.** A column can mix text, numbers and empty cells. Nothing
 is coerced to NaN or to a common dtype behind your back.
-
-Times are the best of three runs on Python 3.10 and pandas 2.3.3, on 2026-10-06 and
-2026-10-07. The script is `notes/scripts/bench_build_rows.py` in the repository. Set
-`BENCH_ROWS=1000` and `BENCH_INTS=999` for the shape above. Older benchmarks, with more operations, are in
-`docs/daf_benchmarks.md`.
 
 ### When to use pandas instead
 
@@ -299,6 +259,24 @@ Daffodil keeps a table as a list of rows, each a plain Python list, with the col
 dict. Every line of code in the task tables is run as a test. The docs are at https://raylutz.github.io/daffodil/.
 This file is generated from notes/scripts/cheatsheet_content.py. Edit that file, not this one.
 
+### Setup
+
+Each task table below starts from this code, with the default modes. The lines within one
+table run in order, so a line may use what the line above it made. The tables do not depend on
+each other. The SqlDaf table is one sequence, from top to bottom.
+
+```python
+from daffodil.daf import Daf, NULL
+from daffodil.keyedlist import KeyedList
+daf = Daf(cols=['id', 'item', 'g', 'qty'], keyfield='id',
+          lol=[['a1', 'pen', 'x', 3], ['b2', 'ink', 'y', 10], ['c3', 'pad', 'x', 7], ['d4', 'cap', 'y', 1]])
+other = Daf(cols=['id', 'price'], keyfield='id', lol=[['a1', 1.5], ['b2', 4.0]])
+lod = [{'id': 'a1', 'qty': 3}, {'id': 'b2', 'qty': 10}]
+types = {'id': str, 'item': str, 'g': str, 'qty': int}
+k, n, row = 'a1', 2, ['e5', 'tag', 'x', 2]
+open('data.csv', 'w').write('id,qty\na1,3\nb2,10\n')
+```
+
 ### Indexing at a glance
 
 ```
@@ -307,24 +285,26 @@ daf[rows]           rows, all columns
 daf[:, cols]        columns, all rows
 ```
 
-|          You write           |             As rows (first)             |             As columns (second)             |
-| :--------------------------- | :-------------------------------------- | :------------------------------------------ |
-| `:`                          | all rows                                | all columns                                 |
-| `2`                          | row 2, by position                      | column 2, by position                       |
-| `-1`                         | the last row                            | the last column                             |
-| `2:5`, `2:`, `:5`, `::2`     | a slice of rows                         | a slice of columns                          |
-| `range(2, 5)`                | rows 2, 3, 4                            | columns 2, 3, 4                             |
-| `[0, 4, 2]`                  | these rows, in this order               | these columns, in this order                |
-| `[range(0, 2), range(4, 6)]` | rows 0, 1, 4, 5                         | columns 0, 1, 4, 5                          |
-| `'a1'`                       | the row with key `'a1'`                 | the column named `'a1'`                     |
-| `['c3', 'a1']`               | the rows with these keys, in this order | the columns with these names, in this order |
-| `('a1', 'c3')`               | keys a1 through c3, inclusive           | names a1 through c3, inclusive              |
-| `('a1', None)`, `('a1',)`    | key a1 to the end                       | name a1 to the end                          |
-| `(None, 'c3')`               | the start through key c3                | the start through name c3                   |
-| `[]`                         | no rows                                 | no columns                                  |
+|          You write           |                  As rows (first)                  |               As columns (second)               |
+| :--------------------------- | :------------------------------------------------ | :---------------------------------------------- |
+| `:`                          | all rows                                          | all columns                                     |
+| `2`                          | row 2, by position                                | column 2, by position                           |
+| `-1`                         | the last row                                      | the last column                                 |
+| `2:5`, `2:`, `:5`, `::2`     | a slice of rows                                   | a slice of columns                              |
+| `range(2, 5)`                | rows 2, 3, 4                                      | columns 2, 3, 4                                 |
+| `[0, 4, 2]`                  | these rows, in this order                         | these columns, in this order                    |
+| `[range(0, 2), range(4, 6)]` | rows 0, 1, 4, 5                                   | columns 0, 1, 4, 5                              |
+| `'a1'`                       | the row with key `'a1'`                           | the column named `'a1'`                         |
+| `['c3', 'a1']`               | the rows with these keys, in this order           | the columns with these names, in this order     |
+| `('a1', 'c3')`               | the rows from key a1 through key c3, in row order | the columns from a1 through c3, in column order |
+| `('a1', None)`, `('a1',)`    | key a1 to the end                                 | name a1 to the end                              |
+| `(None, 'c3')`               | the start through key c3                          | the start through name c3                       |
+| `[]`                         | no rows                                           | no columns                                      |
 
-- Selecting whole rows, as `daf[rows]` or `daf[rows, :]`, copies no data: the new Daf shares the rows with the original, so a change to a cell in one shows in the other. Selecting some of the columns makes new rows. Use `copy('editable')` for rows of your own.
-- An integer is always a position. A key or a column name that is an integer needs `select_krows()` or `select_kcols()`.
+- Selecting whole rows, as `daf[rows]` or `daf[rows, :]`, copies no data: the new Daf shares the rows with the original, so a change to a cell in one shows in the other. Selecting some of the columns makes new row lists. Use `copy('editable')` for row lists of your own.
+- A list or dict held in a cell is the same object in every selection and in `copy('editable')`. Only `copy('deep')` copies it.
+- An integer alone, or in a list, slice or range, is a position. A key or a column name that is an integer needs `select_krows()` or `select_kcols()`.
+- The two ends of a tuple are always keys or names, of any type, as in `daf[(10, 20), :]` for int keys. The tuple takes the rows between them in the table's order. It does not compare the values. If the second end comes first in the table, the result is empty.
 - Rows by key need a keyfield.
 - A tuple of row keys needs the column part, even if it is `:`, as in `daf[('a1', 'c3'), :]`. A tuple of two standing alone is read as `[rows, cols]`.
 - A list holds integers, or ranges, or strings, not a mix. `None` alone is not a selector.
@@ -425,14 +405,14 @@ With `fast=True`, a KeyedList must come from `default_record(astype=KeyedList)` 
 
 ### Reshape
 
-|                    Code                    |       What it does       |
-| :----------------------------------------- | :----------------------- |
-| `daf.sort_by_colname('qty', reverse=True)` | sort the rows            |
-| `daf.insert_col('note', ['', '', '', ''])` | add a column             |
-| `daf.select_cols(exclude_cols=['g'])`      | drop columns             |
-| `daf.transpose()`                          | rows become columns      |
-| `daf.copy('editable')`                     | a copy with its own rows |
-| `daf.rename_cols({'qty': 'n'})`            | rename columns           |
+|                    Code                    |            What it does             |
+| :----------------------------------------- | :---------------------------------- |
+| `daf.sort_by_colname('qty', reverse=True)` | sort the rows of this Daf, in place |
+| `daf.insert_col('note', ['', '', '', ''])` | add a column                        |
+| `daf.select_cols(exclude_cols=['g'])`      | drop columns                        |
+| `daf.transpose()`                          | a new Daf, with rows as columns     |
+| `daf.copy('editable')`                     | a copy with its own rows            |
+| `daf.rename_cols({'qty': 'n'})`            | rename columns                      |
 
 ### Types
 
@@ -453,7 +433,7 @@ NULL, a missing value, is `''`, the empty string. dtypes describe the columns, a
 | `daf.groupby_cols_reduce(['g'], Daf.sum_da, reduce_cols=['qty'])` | sums for each group                     |
 | `daf.valuecounts_for_colname('g')`                                | counts: `{'x': 2, 'y': 2}`              |
 
-### Join and out
+### Joins and export
 
 |             Code              |            What it does             |
 | :---------------------------- | :---------------------------------- |
@@ -491,7 +471,7 @@ Brackets return a SqlDaf, even for one cell. Use `.to_value()` for a value, and 
 
 An int in brackets is always a position when reading. Assigning with an int, as in `sdaf[20, 'v'] = 1`, raises NotImplementedError. Look up an int key with `select_record()`, and change some of its cells with `update_record_krow()`.
 
-A selection finds its rows when it is first read. After that its rows are fixed, and changes to their values show in it.
+A selection fixes its rows the first time `to_daf()`, `len()` or the like reads it whole. After that its rows are fixed, and changes to their values show in it. `select_record()` and `iloc()` with a position of 0 or more read one row, and fix nothing.
 
 Setting a value through a selection changes the parent's row. `append()`, `concat()`, `apply_dtypes()` and a sort on a selection copy it first, and leave the parent as it was.
 
@@ -503,27 +483,40 @@ Daf methods not written for SQL raise NotImplementedError. A Daf is faster for a
 
 ### From pandas
 
-|         pandas         |                    Daffodil                    |
-| :--------------------- | :--------------------------------------------- |
-| `df['qty']`            | `daf[:, 'qty']` or `daf.col('qty')`            |
-| `df.loc[k]`            | `daf[k]`                                       |
-| `df.iloc[n]`           | `daf[n]`                                       |
-| `df.head(n)`           | `daf[:n]`                                      |
-| `df.tail(n)`           | `daf[-n:]`                                     |
-| `df[df.qty > 5]`       | `daf.select_where(lambda row: row['qty'] > 5)` |
-| `pd.concat([df, new])` | `daf.append(row)`                              |
-| `df.merge(other)`      | `daf.join(other)`                              |
-| `df.T`                 | `daf.transpose()`                              |
+|         pandas          |                    Daffodil                    |
+| :---------------------- | :--------------------------------------------- |
+| `df['qty']`             | `daf[:, 'qty']` or `daf.col('qty')`            |
+| `df.loc[k]`             | `daf.select_record(k)`                         |
+| `df.iloc[n]`            | `daf[n]`                                       |
+| `df.head(n)`            | `daf[:n]`                                      |
+| `df.tail(n)`            | `daf[-n:]`                                     |
+| `df[df.qty > 5]`        | `daf.select_where(lambda row: row['qty'] > 5)` |
+| `pd.concat([df, new])`  | `daf.append(row)`                              |
+| `df.merge(other)`       | `daf.join(other)`                              |
+| `df.sort_values('qty')` | `daf.copy().sort_by_colname('qty')`            |
+| `df.T`                  | `daf.transpose()`                              |
 
-`daf[x]` selects rows, where `df[x]` selects a column.
+Each line is the same task, not the same expression. `daf[x]` selects rows, where `df[x]` selects a column.
+
+`select_record(k)` gives a dict. `daf[k]` gives a Daf, and there an int `k` is a position.
+
+`sort_by_colname()` sorts the Daf itself, so copy first to keep the original order.
+
+`join()` is one to one, on the keyfields. See the Joins page of the Guide.
 
 ### Rules
 
 - Import with `from daffodil.daf import Daf`. Name a table `daf`, as pandas uses `df`.
 - A Daf is `lol`, a list of rows, each a plain list, plus `hd`, a dict of column name to position.
-- `daf[rows, cols]` selects. An integer is always a position. A string is a key of the keyfield for rows, and a column name for columns. A tuple of two is an inclusive range.
+- `daf[rows, cols]` selects. An integer is a position. A string is a key of the keyfield for rows, and a column name for columns. A tuple of two is an inclusive range, in row order, and its ends are keys of any type.
 - A selection returns a Daf. Use `.to_value()`, `.to_list()` or `.to_dict()` for plain values, or set `daf.retmode = 'val'`.
-- A selection of rows shares the rows with the original: changing a cell in it changes the original. A selection of columns makes new rows.
+- A selection of rows shares the rows with the original: changing a cell in it changes the original. A selection of columns makes new row lists.
+- `copy()` shares the row lists by default. Use `copy('editable')` for row lists of your own, or `copy('deep')` when a list or dict in a cell must be copied too.
+- `for row in daf` gives each row as a new dict. Assigning to it does not change the table. Use `iter_klist()`, `apply_in_place()` or `update_record_krow()` to change values.
+- `append()` does not check keys, so a key can repeat. A lookup of a repeated key finds its last row.
+- A write with `[]` to a key cell does not update the key index. Call `daf.set_keyfield(daf.keyfield)` after changing keys, before the next lookup.
+- `apply_dtypes()` leaves text that does not convert as it is, with no error. Use `check_schema()` to find it.
+- `sort_by_colname()` sorts the Daf itself. `transpose()` returns a new Daf.
 - `append()`, `apply_dtypes()` and most changing methods return the Daf itself, changed in place.
 - A missing value is NULL, the empty string `''`, not None or NaN.
 - The keyfield column stays in the table. Key lookups are dict lookups, built when first needed.
@@ -551,8 +544,21 @@ Daf methods not written for SQL raise NotImplementedError. A Daf is faster for a
 pip install daffodil
 ```
 
-Daffodil needs Python 3.10 or later. It is pure Python. pandas and NumPy are needed only to
-convert to and from them.
+Daffodil needs Python 3.10 or later. The table code is pure Python. Installing it also
+installs two small pure-Python packages: Markdown, and xlsx2csv for Excel files.
+
+Some features need another package, which is not installed with daffodil:
+
+| Feature | Package | Install |
+| :------ | :------ | :------ |
+| `to_pandas_df()`, `from_pandas_df()` | pandas | `pip install daffodil[pandas]` |
+| `to_numpy()`, `from_numpy()`, `to_donpa()`, `sum_np()` | NumPy | `pip install daffodil[numpy]` |
+| faster reading of list and dict cells | pyjson5 | `pip install daffodil[pyjson5]` |
+| `from_csv()` of an `http` or `https` address | requests | `pip install requests` |
+| `from_csv()` and `to_csv_file()` with an `s3://` name | boto3 | `pip install boto3` |
+| `from_pdf()`, which is experimental | pdfplumber | `pip install daffodil[pdf]` |
+
+A method that needs a missing package raises ImportError, or a RuntimeError that names it.
 
 ### Make a table
 
@@ -637,6 +643,10 @@ so these examples assign it to `_`, to keep the output short. See
 
 Read a file, go through it row by row, and build a new table. This is where Daffodil is
 strongest: appending a row is cheap, and nothing is converted.
+
+In the loop, each `row` is a new dict. Assigning a new value to it does not change the
+source table. To change values in place, use `update_record_krow()`, `apply_in_place()`, or
+`iter_klist()`, whose rows write through to the table.
 
 ```pycon
 >>> source = Daf.from_lod([{'name': 'pen', 'price': '1.50'}, {'name': 'ink', 'price': '4.00'}])
@@ -805,24 +815,26 @@ daf[rows]           rows, all columns
 daf[:, cols]        columns, all rows
 ```
 
-|          You write           |             As rows (first)             |             As columns (second)             |
-| :--------------------------- | :-------------------------------------- | :------------------------------------------ |
-| `:`                          | all rows                                | all columns                                 |
-| `2`                          | row 2, by position                      | column 2, by position                       |
-| `-1`                         | the last row                            | the last column                             |
-| `2:5`, `2:`, `:5`, `::2`     | a slice of rows                         | a slice of columns                          |
-| `range(2, 5)`                | rows 2, 3, 4                            | columns 2, 3, 4                             |
-| `[0, 4, 2]`                  | these rows, in this order               | these columns, in this order                |
-| `[range(0, 2), range(4, 6)]` | rows 0, 1, 4, 5                         | columns 0, 1, 4, 5                          |
-| `'a1'`                       | the row with key `'a1'`                 | the column named `'a1'`                     |
-| `['c3', 'a1']`               | the rows with these keys, in this order | the columns with these names, in this order |
-| `('a1', 'c3')`               | keys a1 through c3, inclusive           | names a1 through c3, inclusive              |
-| `('a1', None)`, `('a1',)`    | key a1 to the end                       | name a1 to the end                          |
-| `(None, 'c3')`               | the start through key c3                | the start through name c3                   |
-| `[]`                         | no rows                                 | no columns                                  |
+|          You write           |                  As rows (first)                  |               As columns (second)               |
+| :--------------------------- | :------------------------------------------------ | :---------------------------------------------- |
+| `:`                          | all rows                                          | all columns                                     |
+| `2`                          | row 2, by position                                | column 2, by position                           |
+| `-1`                         | the last row                                      | the last column                                 |
+| `2:5`, `2:`, `:5`, `::2`     | a slice of rows                                   | a slice of columns                              |
+| `range(2, 5)`                | rows 2, 3, 4                                      | columns 2, 3, 4                                 |
+| `[0, 4, 2]`                  | these rows, in this order                         | these columns, in this order                    |
+| `[range(0, 2), range(4, 6)]` | rows 0, 1, 4, 5                                   | columns 0, 1, 4, 5                              |
+| `'a1'`                       | the row with key `'a1'`                           | the column named `'a1'`                         |
+| `['c3', 'a1']`               | the rows with these keys, in this order           | the columns with these names, in this order     |
+| `('a1', 'c3')`               | the rows from key a1 through key c3, in row order | the columns from a1 through c3, in column order |
+| `('a1', None)`, `('a1',)`    | key a1 to the end                                 | name a1 to the end                              |
+| `(None, 'c3')`               | the start through key c3                          | the start through name c3                       |
+| `[]`                         | no rows                                           | no columns                                      |
 
-- Selecting whole rows, as `daf[rows]` or `daf[rows, :]`, copies no data: the new Daf shares the rows with the original, so a change to a cell in one shows in the other. Selecting some of the columns makes new rows. Use `copy('editable')` for rows of your own.
-- An integer is always a position. A key or a column name that is an integer needs `select_krows()` or `select_kcols()`.
+- Selecting whole rows, as `daf[rows]` or `daf[rows, :]`, copies no data: the new Daf shares the rows with the original, so a change to a cell in one shows in the other. Selecting some of the columns makes new row lists. Use `copy('editable')` for row lists of your own.
+- A list or dict held in a cell is the same object in every selection and in `copy('editable')`. Only `copy('deep')` copies it.
+- An integer alone, or in a list, slice or range, is a position. A key or a column name that is an integer needs `select_krows()` or `select_kcols()`.
+- The two ends of a tuple are always keys or names, of any type, as in `daf[(10, 20), :]` for int keys. The tuple takes the rows between them in the table's order. It does not compare the values. If the second end comes first in the table, the result is empty.
 - Rows by key need a keyfield.
 - A tuple of row keys needs the column part, even if it is `:`, as in `daf[('a1', 'c3'), :]`. A tuple of two standing alone is read as `[rows, cols]`.
 - A list holds integers, or ranges, or strings, not a mix. `None` alone is not a selector.
@@ -867,6 +879,10 @@ A tuple of two keys, or of two names, is an inclusive range. `None` stands for t
 the end. A range of row keys needs the column part, even if it is `:`, because a tuple of two
 items standing alone is read as `[rows, cols]`.
 
+The range follows the order of the rows, not the order of the keys. It starts at the row of
+the first key and ends at the row of the second. The ends of a tuple are always keys, so a
+tuple of ints works for int keys.
+
 ```pycon
 >>> daf[('r2', 'r3'), :].lol
 [['r2', 4, 5, 6], ['r3', 7, 8, 9]]
@@ -878,8 +894,22 @@ items standing alone is read as `[rows, cols]`.
 [1, 2]
 ```
 
-An integer in `[]` is always a position. To reach a key or a column name that is an integer,
-use `select_krows()` and `select_kcols()`.
+Here the keys are not in sorted order. The range from b to a takes b, z and a, the rows
+between them in the table. The range from a to b is empty, as a comes after b in the table:
+
+```pycon
+>>> unsorted = Daf(cols=['id', 'v'], keyfield='id', lol=[['m', 1], ['b', 2], ['z', 3], ['a', 4]])
+>>> unsorted[('b', 'a'), :].col('id')
+['b', 'z', 'a']
+>>> unsorted[('a', 'b'), :].col('id')
+[]
+>>> by_number = Daf(cols=['n', 'v'], keyfield='n', lol=[[10, 'x'], [20, 'y'], [30, 'z']])
+>>> by_number[(20, 30), :].col('n')
+[20, 30]
+```
+
+Outside a tuple, an integer in `[]` is always a position. To reach a key or a column name
+that is an integer, use `select_krows()` and `select_kcols()`.
 
 ### Getting values out
 
@@ -974,6 +1004,47 @@ To change a selection without changing the original, copy it first with
 `copy('editable')`, which gives each row its own list. Adding a column to a selection, as with
 `insert_col()`, copies the shared rows first, so the original keeps its shape.
 
+New row lists still hold the same cell values. A list or dict in a cell is one object, seen
+from the original, from any selection, and from `copy('editable')`. Changing it in place
+shows everywhere. Only `copy('deep')` copies it:
+
+```pycon
+>>> tagged = Daf(cols=['id', 'tags'], lol=[['a', ['x']]])
+>>> cols_only = tagged[:, ['tags']]
+>>> cols_only[0, 'tags'].to_value().append('y')
+>>> tagged.lol
+[['a', ['x', 'y']]]
+>>> deep = tagged.copy('deep')
+>>> deep[0, 'tags'].to_value().append('z')
+>>> tagged.lol
+[['a', ['x', 'y']]]
+```
+
+The same holds for `to_lod()`, `to_dict()`, the rows of a loop, and a KeyedList: each is new,
+but its values are the cells of the table.
+
+### Changing a key
+
+The key index maps each key to its row. It is built at the first lookup, and a write with
+`[]` does not update it. So after you change a key cell, or replace a row, the old key still
+finds the row, and the new key finds nothing. Call `set_keyfield()` with the same keyfield to
+have the index rebuilt:
+
+```pycon
+>>> stock = Daf(cols=['id', 'qty'], keyfield='id', lol=[['a1', 3], ['b2', 10]])
+>>> stock.select_record('a1')
+{'id': 'a1', 'qty': 3}
+>>> stock[0, 'id'] = 'z9'
+>>> stock.select_record('z9')
+{}
+>>> _ = stock.set_keyfield(stock.keyfield)
+>>> stock.select_record('z9')
+{'id': 'z9', 'qty': 3}
+```
+
+A selection that shares the row has its own index, so do the same on each Daf that looks up
+keys after the change.
+
 ---
 
 # Docs page: Guide / Columns, keys and schemas (guide/columns-keys-schemas.md)
@@ -1066,7 +1137,19 @@ key together, as a tuple:
 #### A key column with repeated values
 
 `append()` does not check the key, which keeps it fast. So data with repeated keys can be
-read in. To find them before you rely on the key:
+read in. Then the key index holds each key once, and points to the last row with it:
+
+- A lookup of the key, as `select_record()` or `daf[key]`, finds the last row.
+- `keys()` gives each key once, in the order of its first row.
+- `join()` matches each row with the last row of that key in the other table.
+
+```pycon
+>>> dup = Daf(cols=['id', 'qty'], lol=[['a1', 3], ['b2', 10], ['a1', 5]], keyfield='id')
+>>> dup.select_record('a1'), dup.keys(), len(dup)
+({'id': 'a1', 'qty': 5}, ['a1', 'b2'], 3)
+```
+
+To find repeated keys before you rely on the key:
 
 1. Read the data with no keyfield.
 2. Count the distinct values against the rows, as below.
@@ -1138,6 +1221,18 @@ Nothing limits what a cell holds, and nothing is converted unless you ask.
 as when reading a CSV file. It is not a schema that checks or forces the cells, and a Daf
 built with `dtypes` keeps its cells as they are.
 
+Three steps are separate:
+
+| Step | What it does |
+| :--- | :----------- |
+| set `dtypes`, or call `set_dtypes()` | declares the types. Nothing is converted |
+| `apply_dtypes()` | tries to convert the cells |
+| `check_schema()` | finds the cells that do not fit their dtypes, and raises |
+
+Conversion is permissive. Text that is not a number stays text, with no error. So after
+`apply_dtypes()`, an `int` column can still hold some text. Call `check_schema()` when you
+need to know that every cell fits.
+
 ### Converting text from a CSV file
 
 A CSV file gives text. `apply_dtypes()` converts the columns in place, and returns the Daf:
@@ -1152,7 +1247,8 @@ A CSV file gives text. `apply_dtypes()` converts the columns in place, and retur
 [['a1', 3, 1.5, [1, 2]], ['b2', '', 2.0, []]]
 ```
 
-- An empty cell is NULL, the empty string, and stays NULL. See Missing values below.
+- An empty cell is NULL, the empty string, and stays NULL, except in a `bool` column. See
+  Missing values below.
 - A list or dict column is read back from its text, which may be JSON or PYON.
 - Text that does not make an `int` or a `float` is kept as it is.
 - `cols=` converts only the named columns. Converting a column costs time, so convert only
@@ -1165,19 +1261,61 @@ A CSV file gives text. `apply_dtypes()` converts the columns in place, and retur
 [['a1', 3, 'x']]
 ```
 
-`from_csv()` and `from_csv_buff()` also take `dtypes=`, to set them as the file is read.
+Load the file as text, then call `apply_dtypes()` for the columns you need. `from_csv()` and
+`from_csv_buff()` still take `dtypes=`, and convert as they load, but that is deprecated.
+
+### bool columns
+
+A `bool` column gets 0 or 1. The usual words for true and false are read in lower case,
+capitalized or upper case. An empty cell becomes 0, unlike in an `int` or `float` column.
+Other text stays as it is. Note that `'False'` gives 0, where Python's `bool('False')` is True.
+
+```pycon
+>>> flags = Daf(cols=['ok'], lol=[[''], ['0'], ['1'], ['False'], ['True'], ['no'], ['maybe']])
+>>> _ = flags.apply_dtypes(dtypes={'ok': bool})
+>>> flags.col('ok')
+[0, 0, 1, 0, 1, 0, 'maybe']
+```
+
+The words for 0 are `0`, `false`, `no`, `n`, `f` and `off`. The words for 1 are `1`, `true`,
+`yes`, `y`, `t` and `on`.
 
 ### Missing values
 
 A missing value is NULL, the empty string `''`. It prints as nothing, so a table with missing
-values stays easy to read. The sums and counts of Daffodil skip it. Converting to NumPy or
-pandas turns it into their missing value.
+values stays easy to read.
+
+- The sum methods skip it.
+- The value counts include it, as a count for `''`, unless you pass `omit_nulls=True`.
+- `to_pandas_df()` keeps it as `''`, so a number column with NULL becomes an object column.
+  Pass `default=None` to get NaN in its place. That writes None into the Daf itself. See
+  [to_pandas_df()][daffodil.lib.daf_pandas._to_pandas_df] for a route that leaves the Daf alone.
+- `to_numpy()` makes one array of one dtype, so a column with NULL becomes text.
+
+```pycon
+>>> gaps = Daf(cols=['g', 'n'], lol=[['x', 1], ['', 2], ['x', '']])
+>>> gaps.sum(['n'])
+{'n': 3.0}
+>>> gaps.valuecounts_for_colname('g'), gaps.valuecounts_for_colname('g', omit_nulls=True)
+({'x': 2, '': 1}, {'x': 2})
+```
+
+#### Testing for NULL
+
+Test a cell with `is NULL`. It is faster than `== NULL`, by about three times for a number
+cell, since `==` must first try to compare the number with text. It works because Python
+keeps one shared empty string.
 
 ```pycon
 >>> from daffodil.daf import NULL
->>> NULL == ''
-True
+>>> [val is NULL for val in gaps.col('n')]
+[False, False, True]
 ```
+
+- The import is not needed. `NULL = ''` in your own module gives the same object.
+- Do not write `val is ''`. Python warns about `is` with a literal, so use the name.
+- `is NULL` misses an empty NumPy string, or an empty str subclass, written into a cell.
+  Daffodil's own loaders and converters never make these.
 
 ### Writing a CSV file
 
@@ -1217,14 +1355,16 @@ PYON is like JSON, but it can hold sets, tuples, and dicts with keys that are no
 
 ### Rows, not columns
 
-Daffodil keeps a table as rows, where pandas and Polars keep columns. So working with rows is
-cheap: appending, inserting, deleting, selecting, and going through them one at a time. A
-selection of rows shares the rows, and copies nothing.
+Daffodil keeps a table as rows, where pandas and Polars keep columns. Appending rows and
+going through them one at a time suit that storage. Selecting whole rows reuses their row
+lists, and copies no cells. Inserting or deleting a row in the middle moves the rows after
+it in the outer list, so it costs more in a large table.
 
 Working with columns costs more, as each column is spread across all the rows. Most of the
-time you do not need to: rather than dropping the columns you do not want, name the ones you do,
-as with the `cols` argument of `reduce()` or `to_md()`. For heavy math over whole numeric
-columns, hand them to NumPy or pandas, with `to_numpy()` or `to_pandas_df()`.
+time you do not need to: rather than dropping the columns you do not want, name the ones you
+do. Give `cols=` to `reduce()`. In an `apply()` function, read only the fields you need. To
+show some columns, select them before `to_md()`. For heavy math over whole numeric columns,
+hand them to NumPy or pandas, with `to_numpy()` or `to_pandas_df()`.
 
 ### apply(): a new table, row by row
 
@@ -1253,6 +1393,36 @@ dict, and the function returns a dict:
 ```
 
 NULL cells are skipped, so the missing `b` of the second row adds nothing.
+
+`sum()` and `reduce(Daf.sum_da)` differ when a column holds text. `sum()` converts text
+that is a number, such as `'2'`, and raises `ValueError` for other text. `Daf.sum_da` skips
+every value that is not a number, and never raises:
+
+```pycon
+>>> mixed = Daf(cols=['n'], lol=[[1], ['2'], [''], [3.5]])
+>>> mixed.sum(['n']), mixed.reduce(Daf.sum_da, cols=['n'])
+({'n': 6.5}, {'n': 4.5})
+```
+
+#### Your own reduction
+
+The function gets each row, the result so far, and the columns. It returns the new result.
+The row is a KeyedList, which reads like a dict. The result has one value for each column,
+and starts at 0 unless you give `initial_da`. This one counts the cells that are not NULL:
+
+```pycon
+>>> from daffodil.daf import NULL
+>>> def count_filled(row, result, cols):
+...     for col in cols:
+...         if row[col] is not NULL:
+...             result[col] += 1
+...     return result
+>>> daf.reduce(count_filled, cols=['a', 'b'])
+{'g': '', 'a': 3, 'b': 2}
+```
+
+A key of the result that is not a column is dropped. For a result of another shape, write a
+loop over the rows.
 
 ### Groups
 
@@ -1288,8 +1458,12 @@ cell alone. In a formula:
 - `$r` is the row of the cell, and `$c` its column.
 
 So a formula is absolute unless it uses `$r` or `$c`, the reverse of a spreadsheet. The
-formulas are evaluated again until nothing changes. Formulas that depend on each other in a
-circle raise `RuntimeError`.
+formulas are evaluated again until no value changes. If the values still change after 100
+passes, it raises `RuntimeError`. This is a limit on the passes, not a check for circular
+formulas. A circle that settles raises nothing.
+
+The formulas run with Python's `eval()`, so use only formulas you trust. If a formula raises,
+the cells already changed stay changed.
 
 This sums each row into the last column, and each column into the last row:
 
@@ -1314,8 +1488,13 @@ read with `Daf.from_csv()`.
 
 ## Joins
 
-`join()` combines two tables by their keys, as an SQL join does. Both tables need a keyfield,
-and a row of one matches the row of the other with the same key.
+`join()` combines two tables by their keys. Each table needs a keyfield of one column. A
+composite keyfield is not supported. A row of one table matches the row of the other with the
+same key.
+
+The keys should be unique in both tables. The join is one to one, not many to many as in SQL.
+If a key repeats in the other table, each match gets its last row. If it repeats in the first
+table, each of those rows is in the result.
 
 ```pycon
 >>> from daffodil.daf import Daf
@@ -1334,7 +1513,9 @@ and a row of one matches the row of the other with the same key.
 - `right`: every row of the second table, with the matching rows of the first.
 - `outer`: every row of both.
 
-A side with no matching row gets NULL. Pass `fill=None` to get `None` instead.
+A side with no matching row gets NULL. Pass `fill=None` to get `None` instead. The rows of the
+first table come first, in its order. In a right or outer join, the rows that only the second
+table has come after them.
 
 ```pycon
 >>> stock.join(prices).col('id')
@@ -1365,8 +1546,20 @@ List a column in `shared_fields` to keep it once instead. Its value comes from t
 (['id', 'name', 'qty', 'price'], ['a1', 'pen', 3, 1.5])
 ```
 
+A row that only the second table has gets NULL in a shared column, so the second table's value
+is lost. Here d4 had a qty of 5. This is a known fault. Leave out `shared_fields` when such rows
+matter.
+
+```pycon
+>>> stock.join(prices, how='outer', shared_fields=['qty']).lol[-1]
+['d4', '', '', 2.0]
+```
+
+The key of such a row is lost too when the two keyfields have different names. Name them the
+same for a right or outer join.
+
 For other names, give a `custom_translator_daf`, which maps each column of each table to its
-name in the result. See `join()` in the API.
+name in the result. See [join()][daffodil.daf.Daf.join] in the API.
 
 ---
 
@@ -1419,14 +1612,20 @@ from a record that SqlDaf keeps in the same file. `from_daf()` makes a table fro
 Methods give one of three kinds of result. Knowing which one you have tells you what a change
 to it does.
 
-| Result | Where its rows are | A change to it |
-| :----- | :----------------- | :------------- |
-| A selection | in its parent's table | changes the parent's rows |
+| Result | Where its rows are | Replacing an existing cell |
+| :----- | :----------------- | :------------------------- |
+| A selection | in its parent's table | changes the parent's row |
 | An independent SqlDaf | in a table of its own | changes only it |
 | A Daf | in Python memory | changes only it |
 
-- Indexing and the select methods give a selection.
-- `copy()`, a sort, `select_cols()` and a join give an independent SqlDaf.
+Other changes to a selection, such as adding rows, are in the table under
+[Changing rows and values](#changing-rows-and-values).
+
+- Indexing by rows alone, as in `sdaf['a1']` or `sdaf[0:2]`, and the select methods give a
+  selection.
+- Indexing with a column part, as in `sdaf[:, ['id', 'qty']]` or `sdaf['a1', 'qty']`, gives an
+  independent SqlDaf of new rows, as does `select_cols()`.
+- `copy()`, a sort and a join give an independent SqlDaf.
 - `to_daf()`, `sql()`, `groupsum_daf()` and `value_counts_daf()` give a Daf.
   `sum()` and the `valuecounts_for_*` methods give a dict.
 
@@ -1464,9 +1663,13 @@ still hold some text.
 
 Indexing and the select methods give a selection. It refers to rows of its parent table.
 
-A selection finds its rows when it is first read, by `to_daf()`, `len()` or the like. A change
-to the parent before then can change which rows it gets. After that, its rows are fixed. A
-change to the values in those rows still shows in it.
+A selection fixes its rows the first time it is read whole: by `to_daf()`, `len()`, `bool()`,
+`to_list()` or the like. A change to the parent before then can change which rows it gets.
+After that, its rows are fixed. A change to the values in those rows still shows in it.
+
+Reading one row does not fix the rows. `select_record()` and `iloc()` query the selection as it
+stands, each time. A negative position in `iloc()` is the exception, since it counts with
+`len()` first.
 
 ```pycon
 >>> big_sdaf = items_sdaf.select_where_sql('qty > ?', [5])
@@ -1672,8 +1875,8 @@ Use `insert_col()`, `drop_cols()` and `rename_cols()` for that.
 - **Types.** A column holds what SQLite stores, such as int, float, text or SQL NULL. A bool
   is stored as 0 or 1. CSV values are text until `apply_dtypes()` converts them. A dict or list
   cell stays as its text.
-- **Selections.** A Daf selection holds its rows at once. A SqlDaf selection finds them when
-  first read, and then they are fixed.
+- **Selections.** A Daf selection holds its rows at once. A SqlDaf selection fixes them when
+  first read whole, by `to_daf()`, `len()` or the like. Reading one row fixes nothing.
 - **Changes through a selection.** Setting a value changes the parent, as on a Daf. Adding
   rows, converting and sorting copy the selection first, and leave the parent as it was.
 - **Sorting.** A Daf sorts its own rows. A SqlDaf sorts into a new TEMP table, and the table
@@ -1753,9 +1956,21 @@ Markdown report or a page like this one.
 
 ### Reading Markdown back
 
-With `include_summary=True`, the table ends with a line that gives its keyfield and name.
-`Daf.from_md()` reads the table back, with them. Use `shorten_text=False` so that no text is
-lost. The cells come back as text, as from a CSV file. See [Types and conversion](types.md).
+Markdown is a report format first. A table can be read back, but only some tables come back
+whole. With `include_summary=True`, the table ends with a line that gives its keyfield and
+name. `Daf.from_md()` reads the table back, with them.
+
+For the most faithful copy, pass `shorten_text=False`, leave `smart_fmt`, `max_rows` and
+`max_cols` at their defaults, and include the summary. Even then:
+
+- The cells come back as text, as from a CSV file, and the dtypes are not kept. See
+  [Types and conversion](types.md).
+- A newline in a cell comes back as `<br>`.
+- A `|` in a cell ends the table at the row before it, with no error. This is a known fault.
+- A composite keyfield is not read back, and raises `KeyError`. This is a known fault too.
+
+For data that must come back exactly, use `to_json()` and `from_json()`, which keep numbers,
+text and the keyfield. A CSV file keeps the text exactly, and `apply_dtypes()` restores the types.
 
 ```pycon
 >>> text = daf.to_md(include_summary=True, shorten_text=False)
@@ -1785,7 +2000,7 @@ Some differences to know first:
 
 - `daf[x]` selects rows, where `df[x]` selects a column. A column is `daf[:, 'name']`, or as a
   list, `daf.col('name')`.
-- An integer in `[]` is always a position, as with `iloc`. A key is a value of the keyfield
+- An integer in `[]` is a position, as with `iloc`. Only the ends of a tuple range are keys. A key is a value of the keyfield
   column, which stays in the table, unlike the pandas index.
 - A selection of rows shares the rows with the original. Changing a cell in it changes the
   original. See [Selecting and indexing](selecting.md).
@@ -1794,6 +2009,9 @@ Some differences to know first:
 - A table prints as Markdown.
 
 ### The same task in each
+
+Each line is the same task, not the same expression. The result type, and whether the table
+is changed, can differ. The notes say how.
 
 | pandas | Daffodil | Notes |
 |---|---|---|
@@ -1807,8 +2025,8 @@ Some differences to know first:
 | `df.dtypes` | `daf.dtypes` | describes, does not enforce |
 | `df.astype(...)` | `daf.apply_dtypes(dtypes=...)` | in place |
 | `df.head(n)`, `df.tail(n)` | `daf[:n]`, `daf[-n:]` | |
-| `df.iloc[n]` | `daf[n]` | `.to_dict()` for a dict |
-| `df.loc[k]` | `daf[k]` | needs a keyfield. `.to_dict()` for a dict |
+| `df.iloc[n]` | `daf[n]` | a Daf. `.to_dict()` for a dict |
+| `df.loc[k]` | `daf.select_record(k)` | a dict. Needs a keyfield. `daf[k]` also works, but there an int `k` is a position |
 | `df.set_index('id')` | `daf.set_keyfield('id')` | the column stays in the table |
 | `df['c']` | `daf[:, 'c']`, or `daf.col('c')` for a list | |
 | `df[['a', 'b']]` | `daf[:, ['a', 'b']]` | |
@@ -1822,16 +2040,16 @@ Some differences to know first:
 | (none) | `daf.insert_irow(i, row)` | insert a row anywhere |
 | `df['c'] = vals` | `daf[:, 'c'] = vals` | |
 | `df.rename(columns=...)` | `daf.rename_cols({...})` | |
-| `df.sort_values('c')` | `daf.sort_by_colname('c')` | |
-| `df.T` | `daf.transpose()` | |
+| `df.sort_values('c')` | `daf.copy().sort_by_colname('c')` | `sort_by_colname()` sorts the Daf itself. Copy first to keep the order |
+| `df.T` | `daf.transpose()` | a new Daf |
 | `df.apply(f, axis=1)` | `daf.apply(f)` | the row is a dict, and `f` returns one |
 | `df.agg(...)` | `daf.reduce(f)` | |
 | `df.groupby('g')` | `daf.groupby('g')` | a KeyedList of Dafs, used as a dict |
 | `df.groupby('g')[cols].sum()` | `daf.groupby_cols_reduce(['g'], Daf.sum_da, reduce_cols=cols)` | name the columns to add |
 | `df.groupby([...])[cols].agg(f)` | `daf.groupby_cols_reduce([...], f, reduce_cols=cols)` | |
 | `df.value_counts('c')` | `daf.valuecounts_for_colname('c')` | a dict |
-| `df.merge(other, on='id')` | `daf.join(other)` | both need a keyfield. See [Joins](joins.md). |
-| `df.replace(...)` | `daf.find_replace(pattern, value)` | |
+| `df.merge(other, on='id')` | `daf.join(other)` | on the keyfields, one to one. See [Joins](joins.md) |
+| `df.replace(old, new)` | `daf.replace_in_columns(cols=None, find_values=[old], replacement=new)` | whole cells equal to `old`. `find_replace()` replaces a whole cell that matches a regex |
 | `df.to_markdown()` | `daf.to_md()` | |
 | `df.to_numpy()` | `daf.to_numpy()` | |
 
@@ -1850,6 +2068,82 @@ Some differences to know first:
 >>> daf.sort_by_colname('qty', reverse=True).col('id')
 ['b2', 'c3', 'a1']
 ```
+
+---
+
+# Docs page: Guide / Performance (guide/performance.md)
+
+## Performance
+
+These measurements compare building a table row by row in pandas and in Daffodil. They hold
+for the workloads, values and versions given here. Other data can give other results. For
+SqlDaf against Daf, see [Tables larger than memory](sqldaf.md#performance).
+
+### Building a table row by row
+
+pandas has no cheap way to add a row. pandas removed `DataFrame.append()` in version 2.0.
+What is left copies or reallocates the frame on each row. Adding 5,000 rows one at a time
+took 2.4 s with `pd.concat()`. So the usual pattern is to collect the rows in a list of
+dicts, then convert it all at once with `pd.DataFrame()`. Daffodil needs no conversion step.
+Collect the rows in a list and wrap it, or append each row to the Daf.
+
+The table below builds 1,000 rows of 1,000 columns: one string column and 999 int columns.
+This is the shape of the older benchmarks. The ints run from 0 to 1,000,002, so each one is
+its own Python object, as in most real data.
+
+| How the table is built | Build | Convert | Total | Peak memory | Kept memory |
+|---|--:|--:|--:|--:|--:|
+| pandas: append a dict per row, then `pd.DataFrame()` | 223 ms | 320 ms | 543 ms | 89 MB | 8 MB |
+| pandas: append a list per row, then `pd.DataFrame()` | 169 ms | 310 ms | 479 ms | 60 MB | 8 MB |
+| pandas: append to a list per column, then `pd.DataFrame()` | 257 ms | 397 ms | 654 ms | 53 MB | 8 MB |
+| Daffodil: `append()` each row to the Daf | 173 ms | 0 ms | 173 ms | 36 MB | 36 MB |
+| Daffodil: append a list per row, then `Daf(lol=...)` | 173 ms | 0 ms | 173 ms | 36 MB | 36 MB |
+
+Each case gets the rows one at a time, in a loop. The pandas cases must first collect the
+rows in Python, then convert them. Daffodil appends each row to the table itself.
+
+What the numbers show:
+
+- **No conversion.** Appending each row to a Daf took a third of the time of the pandas
+  patterns, or less, for this shape. That is as fast as collecting the rows in a plain list.
+- **Lower peak memory.** pandas holds the collected rows and the new frame at once. Its peak
+  was 53 to 89 MB here, against 36 MB for Daffodil.
+- **Kept memory depends on the values.** A string cost the same in both, as pandas kept the
+  string column as Python objects too. Small ints also cost the same, since Python shares
+  one object for each value from -5 to 256. With ints from 0 to 99, both kept 8 MB here, and
+  with every column text, both kept 65 MB. Large ints and floats are where pandas keeps
+  less. It stores them as 8-byte numbers, while each one in a Daf is a Python object of 24 to
+  32 bytes, plus its 8-byte place in the row. That is why the table above shows 36 MB
+  against 8 MB. A frame can still lose its 8-byte columns. Built from a 2-D NumPy array of
+  mixed rows, or transposed with `df.T` when its columns have different dtypes, its columns
+  become Python objects, and the frame is as large as the Daf or larger.
+- **The shape matters.** A tall, narrow table has more rows to append and fewer cells per
+  row to convert. For 200,000 rows of 10 columns, `append()` took 0.9 s, against 1.1 to
+  1.5 s for the pandas patterns. Collecting the rows in a list and wrapping it took 0.7 s.
+  The difference is the cost of each call to `append()`, about 1 µs.
+- **NumPy values make pandas slower.** Values often come out of NumPy or pandas as NumPy
+  scalars rather than Python ints. For 1,000 dicts of 1,000 such values, `pd.DataFrame()`
+  took 1.75 s, against 0.27 s for the same values as Python ints. `Daf.from_lod()` took
+  0.11 s either way. pandas 1.5.3, 2.1.4 and 2.3.3 all gave the same times.
+
+The conversion is paid again every time data goes into pandas and back out. Turning the
+1,000 by 1,000 frame back into a list of lists took another 101 ms. Daffodil started as the fix
+for exactly that. In its author's programs, moving data in and out of pandas was among the
+slowest steps.
+
+### Selections
+
+Selecting rows builds a new list that points to the same
+row objects. No data is copied. Selecting 100,000 of 200,000 rows took 10 ms. Change a cell
+through the selection, and the original table sees it. A copy is made only when you ask for
+one, at the level you choose. See [copy()][daffodil.daf.Daf.copy].
+
+### How these were measured
+
+Times are the best of three runs on Python 3.10 and pandas 2.3.3, on 2026-10-06 and
+2026-10-07. The script is `notes/scripts/bench_build_rows.py` in the repository. Set
+`BENCH_ROWS=1000` and `BENCH_INTS=999` for the shape above. Older benchmarks, with more operations, are in
+`docs/daf_benchmarks.md` in the repository.
 
 ---
 
@@ -1959,7 +2253,7 @@ The report lists the runs, then has four Markdown tables, for all stages and for
 ### API
 
 
-##### start(cls: Optional[Type] = None, stage: str = '', data_dir: str | None = None, report_path: str | None = None, print_report: bool = False) -> None
+##### start(stage: str = '', data_dir: str | None = None, report_path: str | None = None, print_report: bool = False) -> None
 
 Start profiling: wrap the public methods of Daf and begin counting.
 
@@ -2033,7 +2327,7 @@ Returns:
 
 
 
-##### report(dodaf: Optional[Dict[str, Any]] = None, path: str | None = None, top: int = 30) -> str
+##### report(dodaf: Dict[str, Any] | None = None, path: str | None = None, top: int = 30) -> str
 
 Return a readable report as Markdown, and write it to a file if `path` is given.
 
@@ -2050,13 +2344,13 @@ Returns:
 
 ##### reset() -> None
 
-Clear all totals. Profiling stays on or off as it was. 
+Clear all totals. Profiling stays on or off as it was.
 
 
 
 ##### is_active() -> bool
 
-True while profiling is on. 
+True while profiling is on.
 
 ---
 
@@ -2080,7 +2374,8 @@ position. That makes rows cheap to build, append and copy.
 
 A Daf may have a keyfield. This is a column, or a tuple of columns, whose
 values name the rows. The key index is built the first time a key is needed.
-It is rebuilt after the rows change.
+Methods that add, remove or reorder rows keep it up to date, or mark it to be rebuilt.
+Changing a key value inside a row does not. See `__setitem__()`.
 
 A missing value is `NULL`, which is the empty string. It prints as nothing.
 
@@ -2107,10 +2402,41 @@ Examples:
     {'a': [1, 2], 'b': {'k': 1}}
 
 
+### Names in the signatures
+
+The signatures use short names for types. Each is `T_` and then letters for the type, read
+from the outside in. They are defined in `daffodil.lib.daf_types`.
+
+| Letter | Means |
+| :----- | :---- |
+| `l` | a list |
+| `d` | a dict with str keys |
+| `id` | a dict with int keys |
+| `t` | a tuple |
+| `s`, `i`, `f`, `b` | str, int, float, bool |
+| `a` | any value |
+| `o` | "of", between two parts |
+
+So `T_ls` is a list of str, `T_da` is a dict of any values, `T_lola` is a list of lists of any
+values, the rows of a Daf, and `T_dols` is a dict of lists of str. A few names do not follow
+the scheme:
+
+| Name | Means |
+| :--- | :---- |
+| `T_cs` | column names: a list of str, the keys of a dict, or a dict |
+| `T_ma` | a row as a dict or a [KeyedList][daffodil.keyedlist.KeyedList] |
+| `T_klodaf` | a KeyedList of Dafs, one for each group, as `groupby()` gives |
+| `T_dtype_dict` | a dict of column name to type, as `dtypes` |
+| `T_lor` | a list of ranges |
+
+A default of `_MISSING` means that no value was given. It lets `None` be a real value that you
+pass. For example, `to_value()` with no `default` raises for an empty selection, and with
+`default=None` it returns None.
+
 ### Constructor
 
 
-##### __init__(self, lol: 'T_lola | None' = None, hd: 'T_di | None' = None, kd: 'Dict[str | int, int] | None' = None, cols: 'T_cs | None' = None, dtypes: 'T_dtype_dict | None' = None, schema: 'type | Daf | None' = None, keyfield: 'str | int | T_ta | T_la' = '', name: 'str' = '', use_copy: 'bool' = False, disp_cols: 'T_cs | None' = None, retmode: 'str' = 'obj', itermode: 'str' = 'dict', attrs: 'T_da | None' = None)
+##### __init__(lol: T_lola | None = None, hd: T_di | None = None, kd: Dict[str | int, int] | None = None, cols: T_cs | None = None, dtypes: T_dtype_dict | None = None, schema: type | Daf | None = None, keyfield: str | int | T_ta | T_la = '', name: str = '', use_copy: bool = False, disp_cols: T_cs | None = None, retmode: str = 'obj', itermode: str = 'dict', attrs: T_da | None = None)
 
 Create a Daf from rows, column names and options.
 
@@ -2239,7 +2565,7 @@ A constant: 'keyedlist'
 
 ##### TYPE_MAP
 
-A constant: {'int': <class 'int'>, 'float': <class 'float'>, 'str': <class 'str'>, 'bool': <class 'bool'>, 'list': <class 'list'>, 'dict': <class 'dict'>}
+A constant: {'int': int, 'float': float, 'str': str, 'bool': bool, 'list': list, 'dict': dict}
 
 
 ---
@@ -2253,7 +2579,7 @@ The shape of a Daf, its column names, its keyfield, copying, and iteration.
 ### Size and shape
 
 
-##### num_rows(self) -> 'int'
+##### num_rows() -> int
 
 Return the number of rows.
 
@@ -2268,7 +2594,7 @@ Examples:
 
 
 
-##### num_cols(self) -> 'int'
+##### num_cols() -> int
 
 Count the columns by looking at the rows.
 
@@ -2288,7 +2614,7 @@ Examples:
 
 
 
-##### len(self) -> 'int'
+##### len() -> int
 
 Return the number of rows.
 
@@ -2304,7 +2630,7 @@ Examples:
 
 
 
-##### __len__(self) -> 'int'
+##### __len__() -> int
 
 Return the number of rows, so `len(d)` works.
 
@@ -2313,7 +2639,7 @@ Returns:
 
 
 
-##### shape(self) -> 'Tuple[int, int]'
+##### shape() -> Tuple[int, int]
 
 Return the number of rows and columns as a tuple.
 
@@ -2330,7 +2656,7 @@ Examples:
 
 
 
-##### is_rectangular(self) -> 'bool'
+##### is_rectangular() -> bool
 
 Check whether every row has the same length.
 
@@ -2349,7 +2675,7 @@ Examples:
 
 
 
-##### force_rectangular(self) -> "'Daf'"
+##### force_rectangular() -> 'Daf'
 
 Pad short rows with empty strings, in place.
 
@@ -2379,7 +2705,7 @@ Examples:
 
 
 
-##### __bool__(self) -> 'bool'
+##### __bool__() -> bool
 
 Say whether the Daf holds data.
 
@@ -2400,7 +2726,7 @@ Examples:
 ### Column names
 
 
-##### columns(self) -> 'T_ls'
+##### columns() -> T_ls
 
 Return the column names.
 
@@ -2416,7 +2742,7 @@ Examples:
 
 
 
-##### calc_cols(self, include_cols: 'Iterable | None' = None, exclude_cols: 'Iterable | None' = None, include_types: 'List[Type] | None' = None, exclude_types: 'List[Type] | None' = None) -> 'Iterable'
+##### calc_cols(include_cols: Iterable | None = None, exclude_cols: Iterable | None = None, include_types: List[Type] | None = None, exclude_types: List[Type] | None = None) -> Iterable
 
 Work out a list of column names from rules.
 
@@ -2446,7 +2772,7 @@ Examples:
 
 
 
-##### rename_cols(self, from_to_dict: 'T_ds') -> "'Daf'"
+##### rename_cols(from_to_dict: T_ds) -> 'Daf'
 
 Rename columns in place.
 
@@ -2472,7 +2798,7 @@ Examples:
 
 
 
-##### set_cols(self, new_cols: 'T_ls | None' = None, sanitize_cols: 'bool' = True, unnamed_prefix: 'str' = 'col') -> "'Daf'"
+##### set_cols(new_cols: T_ls | None = None, sanitize_cols: bool = True, unnamed_prefix: str = 'col') -> 'Daf'
 
 Set the column names, in place.
 
@@ -2517,12 +2843,17 @@ Examples:
 ### Keyfield
 
 
-##### keys(self, *, silent_error: 'bool' = True, astype: 'str' = 'list') -> 'T_la | T_kva'
+##### keys(silent_error: bool = True, astype: str = 'list') -> T_la | T_kva
 
 Return the row keys.
 
-The keys are the values of the keyfield column, in row order. With a composite
-keyfield each key is a tuple. The key index is built here if it is needed.
+The keys come from the key index. There is one for each distinct value of the
+keyfield, in the order of the first row that has it. With a composite keyfield
+each key is a tuple. The key index is built here if it is needed.
+
+A repeated key appears once. The index then points to the last row that has it,
+so a lookup of that key finds the last row. So `len(keys())` is less than
+`len(daf)` when keys repeat.
 
 Without a keyfield the answer is an empty list, unless `silent_error` is False.
 Then it raises an error. An index passed in as `kd` is not used by this method.
@@ -2545,10 +2876,13 @@ Examples:
     >>> d = Daf(lol=[[1, 'a'], [2, 'b']], cols=['id', 'v'], keyfield='id')
     >>> d.keys()
     [1, 2]
+    >>> dup = Daf(cols=['id', 'q'], lol=[['a', 1], ['b', 2], ['a', 3]], keyfield='id')
+    >>> dup.keys(), dup.select_record('a')
+    (['a', 'b'], {'id': 'a', 'q': 3})
 
 
 
-##### set_keyfield(self, keyfield: 'str | T_ta | T_la' = '', *, silent_error: 'bool' = False, force_kd_rebuild: 'bool' = False) -> "'Daf'"
+##### set_keyfield(keyfield: str | T_ta | T_la = '', silent_error: bool = False, force_kd_rebuild: bool = False) -> 'Daf'
 
 Choose the column, or columns, that identify the rows.
 
@@ -2590,7 +2924,7 @@ Examples:
 
 
 
-##### get_existing_keys(self, keylist: 'T_ls') -> 'T_ls'
+##### get_existing_keys(keylist: T_ls) -> T_ls
 
 Keep the keys that are in the Daf.
 
@@ -2610,7 +2944,7 @@ Examples:
 
 
 
-##### __contains__(self, key: 'Any') -> 'bool'
+##### __contains__(key: Any) -> bool
 
 Test whether a key is in the keyfield column.
 
@@ -2635,22 +2969,22 @@ Examples:
 ### Copying and initializing
 
 
-##### copy(self, level: 'str | T_copybits | None' = None, name: 'str' = '', deep: 'bool' = False, for_sorting: 'bool' = False, inplace: 'bool' = False) -> "'Daf'"
+##### copy(level: str | T_copybits | None = None, name: str = '', deep: bool = False, for_sorting: bool = False, inplace: bool = False) -> 'Daf'
 
 Make a copy of the Daf. You choose what the copy shares with the original.
 
-The copy is always a new object of the same class. What it holds is shared
+Unless `inplace=True`, the copy is a new object of the same class. What it holds is shared
 with the original unless you ask for its own. Sharing is what makes daffodil
 fast, because nothing is copied that does not have to be. Pick the cheapest
 `level` that is safe for what you do next.
 
 The level is one of four names, or a sum of the `COPY_` constants of `Daf`.
 Without a level, the class setting `copy_level_default` is used. It is `sortable`.
-To play safe everywhere, set it on a subclass, as in
+For copies with their own row lists by default, set it on a subclass, as in
 `class SafeDaf(Daf): copy_level_default = 'editable'`. The table gives the cost for
 200,000 rows of 50 columns.
 
-| Level      | Own in the copy                                       | Cost            |
+| Level      | Parts copied                                          | Cost            |
 |------------|-------------------------------------------------------|-----------------|
 | `shallow`  | `attrs` and `disp_cols`                               | 0.00002 s       |
 | `sortable` | `shallow`, the row list, `hd`, `dtypes`, the key index | 0.002 s, 2 MB   |
@@ -2664,7 +2998,7 @@ and `COPY_OUTER` imply others: `COPY_ROWS` adds `COPY_OUTER`, and `COPY_OUTER` a
 is shared would leave the index wrong for one of the two. The name `deep` cannot be
 combined with any bit.
 
-| Constant      | Value | Own in the copy                                           |
+| Constant      | Value | Parts copied                                              |
 |---------------|------:|-----------------------------------------------------------|
 | `COPY_NONE`   |     0 | nothing. Every part is shared.                            |
 | `COPY_ATTRS`  |     1 | the `attrs` dict, deep copied, and the `disp_cols` list   |
@@ -2752,7 +3086,7 @@ Examples:
 
 
 
-##### clone_empty(self, lol: 'T_lola | None' = None, cols: 'T_ls | None' = None, name: 'str' = '') -> "'Daf'"
+##### clone_empty(lol: T_lola | None = None, cols: T_ls | None = None, name: str = '') -> 'Daf'
 
 Make a new Daf with the same layout and no rows.
 
@@ -2785,7 +3119,7 @@ Examples:
 
 
 
-##### set_lol(self, new_lol: 'T_lola') -> "'Daf'"
+##### set_lol(new_lol: T_lola) -> 'Daf'
 
 Replace the rows with a new list of lists.
 
@@ -2807,7 +3141,7 @@ Examples:
 ### Iteration and comparison
 
 
-##### retmode(self) -> 'str'
+##### retmode
 
 What a selection like `daf[row, col]` returns: a Daf, or plain values.
 
@@ -2851,7 +3185,7 @@ Examples:
 
 
 
-##### itermode(self) -> 'str'
+##### itermode
 
 What each row is when you loop over a Daf: a dict, or a KeyedList.
 
@@ -2903,12 +3237,17 @@ Examples:
 
 
 
-##### __iter__(self) -> 'Iterator[Dict[str, Any] | KeyedList]'
+##### __iter__() -> Iterator[Dict[str, Any] | KeyedList]
 
 Loop over the rows, as in `for row in daf`.
 
 Each row is a dict or a KeyedList, depending on itermode. For plain lists, use
 `iter_list()`.
+
+In the default itermode, each row is a new dict. Assigning a new value to it does not
+change the Daf. To change values in a loop, use `iter_klist()`, whose rows write
+through, or `apply_in_place()`. A list or dict held in a cell is the same object in
+the dict and the Daf, so changing it in place does show.
 
 Each loop gets a new iterator, which goes through the rows once. It goes through
 the list of rows it started with: rows appended during the loop are seen, but a
@@ -2919,7 +3258,7 @@ Returns:
 
 
 
-##### iter_dict(self) -> 'Iterator[Dict[str, Any]]'
+##### iter_dict() -> Iterator[Dict[str, Any]]
 
 Loop over the rows as dicts, whatever the itermode is.
 
@@ -2946,7 +3285,7 @@ Examples:
 
 
 
-##### iter_klist(self) -> 'Iterator[KeyedList]'
+##### iter_klist() -> Iterator[KeyedList]
 
 Loop over the rows as [KeyedList][daffodil.keyedlist.KeyedList] objects, whatever the
 itermode is.
@@ -2974,7 +3313,7 @@ Examples:
 
 
 
-##### iter_list(self) -> 'Iterator[list]'
+##### iter_list() -> Iterator[list]
 
 Loop over the rows as the plain lists that the Daf stores.
 
@@ -3002,7 +3341,7 @@ Examples:
 
 
 
-##### __eq__(self, other: 'object') -> 'bool'
+##### __eq__(other: object) -> bool
 
 Compare two Daf instances.
 
@@ -3034,7 +3373,7 @@ Column dtypes and schema support.
 ### Dtypes
 
 
-##### set_dtypes(self, default_type: 'Type' = <class 'str'>, typ_to_cols_dict: 'Dict[Type, T_ls] | None' = None) -> "'Daf'"
+##### set_dtypes(default_type: Type = str, typ_to_cols_dict: Dict[Type, T_ls] | None = None) -> 'Daf'
 
 Set the dtype of every column, from a default and a few exceptions.
 
@@ -3060,13 +3399,24 @@ Examples:
 
 
 
-##### apply_dtypes(self, *, dtypes: 'T_dtype_dict | None' = None, cols: 'str | T_ls | None' = None, unflatten: 'bool' = True, from_str: 'bool' = True, default_type: 'Type' = <class 'str'>, silent_error: 'bool' = False) -> "'Daf'"
+##### apply_dtypes(dtypes: T_dtype_dict | None = None, cols: str | T_ls | None = None, unflatten: bool = True, from_str: bool = True, default_type: Type = str, silent_error: bool = False) -> 'Daf'
 
 Convert the columns to their dtypes, in place.
 
 A CSV file is read as text, because that is the fastest way to load it. Call
 this method to turn the columns you need into numbers, lists and so on. It
 changes the cells where they are and does not make a new table.
+
+Three steps are separate in daffodil:
+
+| Step | What it does |
+|---|---|
+| set `dtypes`, or `set_dtypes()` | declares the types of the columns. Nothing is converted |
+| `apply_dtypes()` | tries to convert the cells |
+| `check_schema()` | finds the cells that do not fit their dtypes |
+
+Conversion is permissive. Text that is not a number stays as it is, and no error is
+raised. So a column with an `int` dtype can still hold some text after this call.
 
 Conversion costs time, about 0.04 s for each column of 200,000 rows, so convert
 only the columns that you use. Pass `cols` to name them. A column that is not
@@ -3084,7 +3434,7 @@ columns defined, the names are taken from the dtypes.
 Without `cols`, a `dtypes` that leaves out a column of the Daf raises
 `ValueError`, unless `silent_error` is True. Then the column gets `default_type`,
 which is `str` and is not converted, and the `dtypes` of the Daf are replaced by
-the dict with that column added. That replaced the types of the columns that you
+the dict with that column added. That replaces the types of the columns that you
 meant to convert later. To convert some columns and not others, use `cols`.
 
 Types must be plain types such as `int`, `float`, `bool`, `str`, `list`,
@@ -3099,7 +3449,13 @@ about eight times faster when pyjson5 is installed, as with
 
 An empty cell, such as two commas next to each other in a CSV file, is NULL,
 which is the empty string. It stays NULL when its column is converted to `int` or
-`float`, so a number column can hold NULL. The sum methods, `sum()`, `sum_np()`
+`float`, so a number column can hold NULL. A `bool` column is the exception: an
+empty cell becomes 0 there.
+
+A `bool` column gets 0 or 1. The text `0`, `false`, `no`, `n`, `f` and `off` give 0,
+and `1`, `true`, `yes`, `y`, `t` and `on` give 1, in lower case, capitalized or upper
+case. Other text stays as it is. So `'False'` gives 0, where Python's own `bool('False')`
+is True. None gives 0, and any other value gives 0 or 1 by its truth. The sum methods, `sum()`, `sum_np()`
 and `Daf.sum_da()`, skip a NULL cell. Python's own `sum()` of such a column
 raises `TypeError`, so use the methods of the Daf.
 
@@ -3147,8 +3503,8 @@ Examples:
 
     An empty cell stays empty, and the sum methods skip it:
 
-    >>> d = Daf.from_csv_buff('a,b\n1,\n,3\n4,5\n', dtypes={'a': int, 'b': int})
-    >>> d.apply_dtypes()
+    >>> d = Daf.from_csv_buff('a,b\n1,\n,3\n4,5\n')
+    >>> d.apply_dtypes(dtypes={'a': int, 'b': int})
     <BLANKLINE>
     | a  | b  |
     | -: | -: |
@@ -3175,20 +3531,12 @@ Examples:
     >>> d.iloc(0)
     {'a': 1, 'b': '2.5', 'n': 7}
 
-    The same without `cols`, as you had to do before: save the dtypes, keep only
-    the columns to convert, convert with `silent_error=True`, and restore the
-    original. The other columns get the default type `str`, which is skipped:
+    A `bool` column, and text that does not convert:
 
-    >>> d = Daf(lol=[['1', '2.5', '7']], cols=['a', 'b', 'n'],
-    ...         dtypes={'a': int, 'b': float, 'n': int})
-    >>> saved_dtypes = dict(d.dtypes)
-    >>> d.dtypes = {'a': int}
-    >>> _ = d.apply_dtypes(silent_error=True)
-    >>> d.dtypes = saved_dtypes
-    >>> d.iloc(0)
-    {'a': 1, 'b': '2.5', 'n': '7'}
-    >>> d.dtypes == {'a': int, 'b': float, 'n': int}
-    True
+    >>> b = Daf(cols=['ok', 'n'], lol=[['', '1'], ['0', 'x'], ['True', '3'], ['maybe', '']])
+    >>> _ = b.apply_dtypes(dtypes={'ok': bool, 'n': int})
+    >>> b.lol
+    [[0, 1], [0, 'x'], [1, 3], ['maybe', '']]
 
     Your own conversion, here one that records the values that fail:
 
@@ -3217,7 +3565,7 @@ Examples:
 
 
 
-##### flatten(self, convert_bool_to_int: 'bool' = True, use_pyon: 'bool' = True) -> "'Daf'"
+##### flatten(convert_bool_to_int: bool = True, use_pyon: bool = True) -> 'Daf'
 
 Turn list and dict cells into text, in place.
 
@@ -3251,7 +3599,7 @@ Examples:
 
 
 
-##### strip(self, chrs: 'str' = ' ') -> "'Daf'"
+##### strip(chrs: str = ' ') -> 'Daf'
 
 Remove characters from both ends of every text cell, in place.
 
@@ -3278,7 +3626,7 @@ Examples:
 ### Schema
 
 
-##### _apply_schema(self: 'Daf', schema: 'type | Daf | None' = None) -> 'Daf'
+##### apply_schema(schema: type | Daf | None = None) -> Daf
 
 Attach a schema to this Daf and fill in what the Daf is missing.
 
@@ -3336,12 +3684,19 @@ Examples:
     >>> d = Daf(schema=Person)
     >>> d.columns()
     ['name', 'age']
+
+    On a Daf with rows and no names, it fills the names and dtypes, and converts nothing:
+
+    >>> raw = Daf(lol=[['ann', '7']])
+    >>> _ = raw.apply_schema(Person)
+    >>> raw.columns(), raw.lol
+    (['name', 'age'], [['ann', '7']])
     >>> d.dtypes
     {'name': <class 'str'>, 'age': <class 'int'>}
 
 
 
-##### _attach_schema(self: 'Daf', schema: type) -> 'Daf'
+##### attach_schema(schema: type) -> Daf
 
 Attach a `@schemaclass` to this Daf.
 
@@ -3370,7 +3725,7 @@ Examples:
 
 
 
-##### _check_schema(self: 'Daf', max_report: int = 10) -> 'Daf'
+##### check_schema(max_report: int = 10) -> Daf
 
 Check that every cell fits the dtypes and the required columns. Raise if one does not.
 
@@ -3420,7 +3775,7 @@ Examples:
 
 
 
-##### _default_record(self: 'Daf', astype: type = <class 'dict'>) -> Any
+##### default_record(astype: type = dict) -> Any
 
 Make a new record for this Daf: its columns, with the defaults of the attached schema.
 
@@ -3484,7 +3839,7 @@ Creating a Daf from other data and files, and converting it back out.
 ### Python structures
 
 
-##### from_lod(cls, records_lod: 'T_loda', *, keyfield: 'str | int | T_ta | T_la' = '', dtypes: 'T_dtype_dict | None' = None, name: 'str' = '', cols: 'T_ls | None' = None, ignore_extra_keys: 'bool' = False, fast: 'bool' = False) -> "'Daf'"
+##### from_lod(records_lod: T_loda, keyfield: str | int | T_ta | T_la = '', dtypes: T_dtype_dict | None = None, name: str = '', cols: T_ls | None = None, ignore_extra_keys: bool = False, fast: bool = False) -> 'Daf'
 
 Make a Daf from a list of dicts, one dict for each row.
 
@@ -3564,7 +3919,7 @@ Examples:
 
 
 
-##### to_lod(self) -> 'T_loda'
+##### to_lod() -> T_loda
 
 Make a list of dicts, one dict for each row.
 
@@ -3576,18 +3931,17 @@ Returns:
     The rows as dicts.
 
 Examples:
-    >>> Daf(lol=[[1, 'a']], cols=['id', 'v'])
-    <BLANKLINE>
-    | id | v  |
-    | -: | -: |
-    |  1 |  a |
-    <BLANKLINE>
-    %% daf rows=1; cols=2; keyfield=''; name=''
-    <BLANKLINE>
+    >>> d = Daf(lol=[[1, 'a'], [2, ['x']]], cols=['id', 'v'])
+    >>> lod = d.to_lod()
+    >>> lod
+    [{'id': 1, 'v': 'a'}, {'id': 2, 'v': ['x']}]
+    >>> lod[1]['v'].append('y')
+    >>> d.iloc(1)
+    {'id': 2, 'v': ['x', 'y']}
 
 
 
-##### from_lot(cls, records_lot: 'T_lota', cols: 'T_ls | None' = None, dtypes: 'T_dtype_dict | None' = None, keyfield: 'str | int | T_ta | T_la' = '', name: 'str' = '') -> "'Daf'"
+##### from_lot(records_lot: T_lota, cols: T_ls | None = None, dtypes: T_dtype_dict | None = None, keyfield: str | int | T_ta | T_la = '', name: str = '') -> 'Daf'
 
 Make a Daf from a list of tuples, one tuple for each row.
 
@@ -3625,7 +3979,7 @@ Examples:
 
 
 
-##### from_dod(cls, dod: 'T_doda', keyfield: 'str' = 'rowkey', dtypes: 'T_dtype_dict | None' = None, ignore_extra_keys: 'bool' = False) -> "'Daf'"
+##### from_dod(dod: T_doda, keyfield: str = 'rowkey', dtypes: T_dtype_dict | None = None, ignore_extra_keys: bool = False) -> 'Daf'
 
 Make a Daf from a dict of dicts, where the outer key names the row.
 
@@ -3678,7 +4032,7 @@ Examples:
 
 
 
-##### to_dod(self, remove_keyfield: 'bool' = True) -> 'T_doda'
+##### to_dod(remove_keyfield: bool = True) -> T_doda
 
 Make a dict of dicts, where the keyfield value names each row.
 
@@ -3704,7 +4058,7 @@ Examples:
 
 
 
-##### from_cols_dol(cls, cols_dol: 'T_dola', keyfield: 'str' = '', dtypes: 'T_dtype_dict | None' = None) -> "'Daf'"
+##### from_cols_dol(cols_dol: T_dola, keyfield: str = '', dtypes: T_dtype_dict | None = None) -> 'Daf'
 
 Make a Daf from a dict of lists, where each list is a column.
 
@@ -3738,7 +4092,7 @@ Examples:
 
 
 
-##### to_cols_dol(self) -> 'dict'
+##### to_cols_dol() -> dict
 
 Make a dict of lists, one list of values for each column.
 
@@ -3751,7 +4105,7 @@ Examples:
 
 
 
-##### from_lod_to_cols(cls, lod: 'T_loda', cols: 'List | None' = None, keyfield: 'str' = '', dtypes: 'T_dtype_dict | None' = None) -> "'Daf'"
+##### from_lod_to_cols(lod: T_loda, cols: List | None = None, keyfield: str = '', dtypes: T_dtype_dict | None = None) -> 'Daf'
 
 Make a Daf in which each dict becomes a column, not a row.
 
@@ -3792,7 +4146,7 @@ Examples:
 
 
 
-##### to_attrib_dict(self) -> 'dict'
+##### to_attrib_dict() -> dict
 
 Make a dict with the column names and the rows.
 
@@ -3810,7 +4164,7 @@ Examples:
 ### Values and lists
 
 
-##### to_value(self, default: 'Any' = <object object at 0x77fca2189350>, astype: 'Callable | str | None' = None) -> 'Any'
+##### to_value(default: Any = _MISSING, astype: Callable | str | None = None) -> Any
 
 Get the one value of a Daf that has one row and one column.
 
@@ -3833,7 +4187,7 @@ Examples:
 
 
 
-##### to_list(self, unique: 'bool' = False, flatten: 'bool' = False, omit_nulls: 'bool' = False, default: 'Any' = <object object at 0x77fca2189350>, astype: 'Callable | str | type | None' = None) -> 'list'
+##### to_list(unique: bool = False, flatten: bool = False, omit_nulls: bool = False, default: Any = _MISSING, astype: Callable | str | type | None = None) -> list
 
 Get the values of a Daf that has one row or one column, as a list.
 
@@ -3864,28 +4218,23 @@ Examples:
 
 
 
-##### to_lota(self) -> 'T_lota'
+##### to_lota() -> T_lota
 
 Make a list of tuples, one tuple for each row.
 
-This is handy for making composite keys.
+This is handy for making composite keys. The tuples are new, but the values in them
+are the same objects as in the Daf.
 
 Returns:
     The rows as tuples.
 
 Examples:
-    >>> Daf(lol=[[1, 'a']], cols=['id', 'v'])
-    <BLANKLINE>
-    | id | v  |
-    | -: | -: |
-    |  1 |  a |
-    <BLANKLINE>
-    %% daf rows=1; cols=2; keyfield=''; name=''
-    <BLANKLINE>
+    >>> Daf(lol=[[1, 'a'], [2, 'b']], cols=['id', 'v']).to_lota()
+    [(1, 'a'), (2, 'b')]
 
 
 
-##### to_dict(self) -> 'T_da'
+##### to_dict() -> T_da
 
 Get the one row of a Daf as a dict.
 
@@ -3907,7 +4256,7 @@ Examples:
 
 
 
-##### to_klist(self, irow: 'int' = 0) -> 'KeyedList'
+##### to_klist(irow: int = 0) -> KeyedList
 
 Get one row as a [KeyedList][daffodil.keyedlist.KeyedList].
 
@@ -3933,7 +4282,7 @@ Examples:
 ### CSV, Excel and OpenDocument
 
 
-##### from_csv(cls, source: 'str | Path', **kwargs: 'Any') -> "'Daf'"
+##### from_csv(source: str | Path, kwargs: Any = {}) -> 'Daf'
 
 Read a CSV file, a web address or an S3 object into a Daf.
 
@@ -3972,7 +4321,7 @@ Examples:
 
 
 
-##### from_csv_buff(cls, csv_buff: 'bytes | str | Iterator[str]', keyfield: 'str' = '', dtypes: 'T_dtype_dict | None' = None, noheader: 'bool' = False, user_format: 'bool' = False, sep: 'str' = ',', unflatten: 'bool' = True, include_cols: 'T_ls | None' = None, name: 'str' = '') -> "'Daf'"
+##### from_csv_buff(csv_buff: bytes | str | Iterator[str], keyfield: str = '', dtypes: T_dtype_dict | None = None, noheader: bool = False, user_format: bool = False, sep: str = ',', unflatten: bool = True, include_cols: T_ls | None = None, name: str = '') -> 'Daf'
 
 Make a Daf from CSV text, bytes or an iterator of lines.
 
@@ -4061,7 +4410,7 @@ Examples:
 
 
 
-##### from_csv_file(cls, filepath: 'str', keyfield: 'str' = '', dtypes: 'T_dtype_dict | None' = None, noheader: 'bool' = False, user_format: 'bool' = False, sep: 'str' = ',', unflatten: 'bool' = True, include_cols: 'T_ls | None' = None, name: 'str' = '') -> "'Daf'"
+##### from_csv_file(filepath: str, keyfield: str = '', dtypes: T_dtype_dict | None = None, noheader: bool = False, user_format: bool = False, sep: str = ',', unflatten: bool = True, include_cols: T_ls | None = None, name: str = '') -> 'Daf'
 
 Read a CSV file into a Daf. Deprecated, use `from_csv()`.
 
@@ -4103,7 +4452,7 @@ Examples:
 
 
 
-##### to_csv_file(self, file_path: 'str | Path' = '', line_terminator: 'str | None' = None, include_header: 'bool' = True) -> 'str'
+##### to_csv_file(file_path: str | Path = '', line_terminator: str | None = None, include_header: bool = True) -> str
 
 Write the Daf to a CSV file.
 
@@ -4128,7 +4477,7 @@ Examples:
 
 
 
-##### to_csv_buff(self, line_terminator: 'str | None' = None, include_header: 'bool' = True) -> 'T_buff'
+##### to_csv_buff(line_terminator: str | None = None, include_header: bool = True) -> T_buff
 
 Make CSV text from the Daf.
 
@@ -4160,7 +4509,7 @@ Examples:
 
 
 
-##### buff_to_file(buff: 'T_buff', file_path: 'str | Path', fmt: 'str' = '.csv') -> 'str'
+##### buff_to_file(buff: T_buff, file_path: str | Path, fmt: str = '.csv') -> str
 
 Write text or bytes to a file.
 
@@ -4185,7 +4534,7 @@ Examples:
 
 
 
-##### from_excel_buff(cls, excel_buff: 'bytes', keyfield: 'str' = '', dtypes: 'T_dtype_dict | None' = None, noheader: 'bool' = False, user_format: 'bool' = False, unflatten: 'bool' = True) -> "'Daf'"
+##### from_excel_buff(excel_buff: bytes, keyfield: str = '', dtypes: T_dtype_dict | None = None, noheader: bool = False, user_format: bool = False, unflatten: bool = True) -> 'Daf'
 
 Make a Daf from the bytes of an xlsx file.
 
@@ -4237,7 +4586,7 @@ Examples:
 
 
 
-##### from_ods(cls, source: 'str | Path | bytes', sheet: 'int | str' = 0, keyfield: 'str' = '', dtypes: 'T_dtype_dict | None' = None, noheader: 'bool' = False, unflatten: 'bool' = True, name: 'str' = '') -> "'Daf'"
+##### from_ods(source: str | Path | bytes, sheet: int | str = 0, keyfield: str = '', dtypes: T_dtype_dict | None = None, noheader: bool = False, unflatten: bool = True, name: str = '') -> 'Daf'
 
 Make a Daf from one sheet of an OpenDocument spreadsheet, an .ods file.
 
@@ -4275,7 +4624,7 @@ Raises:
 ### JSON
 
 
-##### to_json(self, concise: 'bool' = True) -> 'str'
+##### to_json(concise: bool = True) -> str
 
 Make JSON text that holds the whole Daf.
 
@@ -4301,7 +4650,7 @@ Examples:
 
 
 
-##### from_json(cls, json_str: 'str') -> "'Daf'"
+##### from_json(json_str: str) -> 'Daf'
 
 Make a Daf from JSON text made by `to_json()`.
 
@@ -4320,7 +4669,7 @@ Examples:
 ### Markdown
 
 
-##### _from_md(cls, md_str: 'str') -> "'Daf'"
+##### from_md(md_str: str) -> 'Daf'
 
 Make a Daf from a Markdown table. This reads what `to_md()` writes.
 
@@ -4338,6 +4687,15 @@ A footer line that starts with `%% daf ` and follows the table may give the
 keyfield and name, as `to_md(include_summary=True)` writes. Every cell is read as
 text. Convert them with `apply_dtypes()`. Text with no table, or empty text,
 gives an empty Daf.
+
+Markdown is a report format, so a round trip through `to_md()` is not exact:
+
+- Text that `to_md()` shortened, rows and columns it left out, and numbers that
+  `smart_fmt` rounded stay that way.
+- A newline in a cell is written as `<br>`, and is read back as `<br>`.
+- A `|` in a cell is written as `\|`, which this method does not read. The table ends
+  at the row before it, with no error. A `|` in the first row gives no rows at all.
+- A composite keyfield in the footer is not read back, and raises `KeyError`.
 
 Args:
     md_str: The Markdown text.
@@ -4366,7 +4724,7 @@ Examples:
 
 
 
-##### dodaf_to_md(dodaf: 'Dict[str, Any]', report_header: 'str' = '', **to_md_kwargs: 'Any') -> 'str'
+##### dodaf_to_md(dodaf: Dict[str, Any], report_header: str = '', to_md_kwargs: Any = {}) -> str
 
 Make one Markdown report from a dict of Daf instances.
 
@@ -4401,7 +4759,7 @@ Examples:
 
 
 
-##### _dodaf_from_md(cls, md_str: 'str', header_level: 'int' = 2) -> 'Dict[str, Any]'
+##### dodaf_from_md(md_str: str, header_level: int = 2) -> Dict[str, Any]
 
 Read a report made by `dodaf_to_md()` back into a dict of Daf instances.
 
@@ -4436,7 +4794,7 @@ Examples:
 ### Pandas and NumPy
 
 
-##### _from_pandas_df(cls, df: Any, keyfield: str = '', name: str = '', use_csv: bool = False, dtypes: Optional[Dict[str, Type]] = None) -> 'Daf'
+##### from_pandas_df(df: T_df, keyfield: str = '', name: str = '', use_csv: bool = False, dtypes: T_dtype_dict | None = None) -> Daf
 
 Make a Daf from a Pandas DataFrame or Series.
 
@@ -4477,7 +4835,7 @@ Examples:
 
 
 
-##### _to_pandas_df(self, cols: Optional[List[str]] = None, *, use_csv: bool = False, use_donpa: bool = False, default: Any = <object object at 0x77fca2189350>, defaulting_cols: Optional[List[str]] = None) -> Any
+##### to_pandas_df(cols: T_ls | None = None, use_csv: bool = False, use_donpa: bool = False, default: Any = _MISSING, defaulting_cols: T_ls | None = None) -> Any
 
 Make a Pandas DataFrame from the Daf.
 
@@ -4513,15 +4871,16 @@ Examples:
 
 
 
-##### from_numpy(cls, npa: 'Any', keyfield: 'str' = '', cols: 'T_la | None' = None, name: 'str' = '') -> "'Daf'"
+##### from_numpy(npa: Any, keyfield: str = '', cols: T_la | None = None, name: str = '') -> 'Daf'
 
 Make a Daf from a NumPy array.
 
 The values become plain Python values. A two dimensional array gives one row
 for each row of the array. A one dimensional array gives a single row.
 
-NumPy arrays hold one type. If the array mixes numbers and text, NumPy has
-already turned everything into text before this method sees it.
+An array has one dtype. `np.array([[1, 'x']])` makes every value text, before this
+method sees it, so the Daf gets text too. An array with `dtype=object` keeps each
+value as the Python object it was, such as an int, a str or None.
 
 Args:
     npa: The NumPy array.
@@ -4546,7 +4905,7 @@ Examples:
 
 
 
-##### to_numpy(self) -> 'T_npa'
+##### to_numpy() -> T_npa
 
 Make a NumPy array of the rows.
 
@@ -4563,7 +4922,7 @@ Examples:
 
 
 
-##### to_donpa(self, colnames: 'T_ls | None' = None, default: 'Any' = <object object at 0x77fca2189350>) -> 'T_donpa'
+##### to_donpa(colnames: T_ls | None = None, default: Any = _MISSING) -> T_donpa
 
 Make a dict of NumPy arrays, one array for each column.
 
@@ -4613,7 +4972,7 @@ Examples:
 ### Other sources
 
 
-##### from_directory(cls, source: 'str | Path', schema: 'type | None' = None, recursive: 'bool' = True, file_pat: 'str | None' = None, include_dirs: 'bool' = False) -> "'Daf'"
+##### from_directory(source: str | Path, schema: type | None = None, recursive: bool = True, file_pat: str | None = None, include_dirs: bool = False) -> 'Daf'
 
 Make a Daf that lists the files in a folder.
 
@@ -4666,20 +5025,22 @@ Examples:
 
 
 
-##### from_pdf(cls, filename, skip_to_header: int = 0, skip_to_table: int = 1)
+##### from_pdf
 
-(no docstring)
+A constant: from_pdf
 
 
+`from_pdf()` reads one kind of county report, of election participation by precinct, from a
+PDF file, with pdfplumber. It is experimental and written for that report. Its interface may change, so it
+is not documented here.
 
-##### from_googlesheet(cls, spreadsheet_id: 'str', sheetname: 'str' = 'Sheet1', *, service_account_file: 'str') -> "'Daf'"
 
-Read a Google Sheet into a Daf. This is not implemented yet.
+##### from_googlesheet(spreadsheet_id: str, sheetname: str = 'Sheet1', service_account_file: str) -> 'Daf'
 
-It raises `NotImplementedError`. The method is a placeholder for the interface, which
-takes the path of a service account file. An earlier draft read the sheet with the
-Google API, but it could not be tested here, and it had a placeholder path in its source.
-The draft is in the history of the repository, in the commit e9e69fd.
+Read a Google Sheet into a Daf. This is not implemented.
+
+It always raises `NotImplementedError`. It holds the place of the interface, which
+takes the path of a service account file.
 
 Args:
     spreadsheet_id: The ID of the Google Sheet.
@@ -4697,14 +5058,12 @@ Examples:
 
 
 
-##### to_googlesheet(self, spreadsheet_id: 'str', sheetname: 'str' = 'Sheet1', *, service_account_file: 'str') -> "'Daf'"
+##### to_googlesheet(spreadsheet_id: str, sheetname: str = 'Sheet1', service_account_file: str) -> 'Daf'
 
-Write the Daf to a Google Sheet. This is not implemented yet.
+Write the Daf to a Google Sheet. This is not implemented.
 
-It raises `NotImplementedError`. The method is a placeholder for the interface, which
-takes the path of a service account file. An earlier draft wrote the rows with the Google
-API, but it could not be tested here, and it had a placeholder path in its source. The draft
-is in the history of the repository, in the commit e9e69fd.
+It always raises `NotImplementedError`. It holds the place of the interface, which
+takes the path of a service account file.
 
 Args:
     spreadsheet_id: The ID of the Google Sheet.
@@ -4731,7 +5090,7 @@ Reading rows, columns and cells by index, key, or condition.
 ### Indexing with brackets
 
 
-##### __getitem__(self, slice_spec: 'slice | int | str | T_li | T_ls | range | T_lor | Tuple[slice | int | str | T_li | T_ls | range | T_lor | Tuple[str, str], slice | int | str | T_li | T_ls | range | T_lor | Tuple[str, str]]') -> 'Any'
+##### __getitem__(slice_spec: slice | int | str | T_li | T_ls | range | T_lor | Tuple[slice | int | str | T_li | T_ls | range | T_lor | Tuple[str, str], slice | int | str | T_li | T_ls | range | T_lor | Tuple[str, str]]) -> Any
 
 Select rows, columns or cells, as in `my_daf[rows, cols]`.
 
@@ -4755,7 +5114,9 @@ cannot be used in brackets. Use `select_krows()` and `select_kcols()` instead.
 
 The result is a new Daf. Its rows are shared with this Daf when you select
 rows, so changing a cell in the result changes it here too. Selecting columns
-makes new rows, so the result is independent. The keyfield and dtypes carry
+makes new row lists, so replacing a cell in the result does not change this Daf.
+A list or dict held in a cell is still the same object in both. Use `copy('deep')`
+when those must be separate too. The keyfield and dtypes carry
 over if their columns are still there. See [retmode][daffodil.daf.Daf.retmode]
 for getting a bare value or list when the result is one cell, row or column.
 
@@ -4825,7 +5186,7 @@ Examples:
 
 
 
-##### __setitem__(self, slice_spec: 'slice | int | str | range | T_li | T_ls | T_lb | T_lor | Tuple[slice | int | str | range | T_lor | T_li | T_ls | T_lb | Tuple[Any, Any], slice | int | str | range | T_lor | T_li | T_ls | T_lb | Tuple[Any, Any]]', value: 'Any') -> "'Daf'"
+##### __setitem__(slice_spec: slice | int | str | range | T_li | T_ls | T_lb | T_lor | Tuple[slice | int | str | range | T_lor | T_li | T_ls | T_lb | Tuple[Any, Any], slice | int | str | range | T_lor | T_li | T_ls | T_lb | Tuple[Any, Any]], value: Any) -> 'Daf'
 
 Assign values to a selection, as in `my_daf[rows, cols] = value`.
 
@@ -4846,6 +5207,9 @@ still finds the row by its old key, and not by the new one. So don't change keys
 this way. If you must, call `set_keyfield()` with the same keyfield afterwards,
 which invalidates the kd, so it is rebuilt when it is next needed. Writing other
 columns is safe.
+
+A selection that shares the row has a key index of its own. Resetting one Daf does
+not reset the other. Call `set_keyfield()` on each Daf that will look up keys.
 
 A single name, as in `my_daf['x'] = value`, selects the row with that key. It is
 not a column, as it would be in pandas. Use `my_daf[:, 'x']` for a column, or
@@ -4878,9 +5242,21 @@ Examples:
     >>> d.iloc(0)
     {'id': '', 'v': 'q', 'n': ''}
 
+    A key changed after the index is built is found only after `set_keyfield()`:
+
+    >>> k = Daf(cols=['id', 'q'], lol=[['a', 1], ['b', 2]], keyfield='id')
+    >>> k.select_record('a')
+    {'id': 'a', 'q': 1}
+    >>> k[0, 'id'] = 'z'
+    >>> k.select_record('z')
+    {}
+    >>> _ = k.set_keyfield(k.keyfield)
+    >>> k.select_record('z')
+    {'id': 'z', 'q': 1}
 
 
-##### set_irows_icols(self, irows: 'slice | int | range | T_li | Iterable | None', icols: 'slice | int | range | T_li | None', value: 'Any') -> "'Daf'"
+
+##### set_irows_icols(irows: slice | int | range | T_li | Iterable | None, icols: slice | int | range | T_li | None, value: Any) -> 'Daf'
 
 Set values at row positions and column positions, in place.
 
@@ -4928,15 +5304,14 @@ Examples:
 ### Rows
 
 
-##### select_krows(self, krows: 'slice | str | T_la | int | T_lota | Tuple[Any, Any] | Iterable | None', inverse: 'bool' = False, silent_error: 'bool' = False) -> "'Daf'"
+##### select_krows(krows: slice | str | T_la | int | T_lota | Tuple[Any, Any] | Iterable | None, inverse: bool = False, silent_error: bool = False) -> 'Daf'
 
 Select rows by key. Rows with those keys are kept, or dropped if `inverse` is True.
 
 This is the same as `my_daf[keys]`, with a choice to drop rows and to ignore
 keys that are not found. It works with integer keys, which brackets cannot.
-The result is a shallow new Daf. It is a new Daf with a new list of rows, and
-each row is the same list as in this Daf. Use `copy()` if you need to change
-them independently.
+The result is a new Daf with its own outer row list. Each row is the same list as
+in this Daf. Use `copy('editable')` before changing cells in one without the other.
 
 A bare tuple means an inclusive range of keys, so `(1, 2)` is the rows from key
 1 through key 2. For a composite keyfield, give a list of tuples.
@@ -4983,13 +5358,13 @@ Examples:
 
 
 
-##### select_irows(self, irows: 'slice | int | T_li | range | T_lor | Iterable | None', inverse: 'bool' = False, invert: 'bool' = False) -> "'Daf'"
+##### select_irows(irows: slice | int | T_li | range | T_lor | Iterable | None, inverse: bool = False, invert: bool = False) -> 'Daf'
 
 Select rows by position. Those rows are kept, or dropped if `inverse` is True.
 
 This is the same as `my_daf[rows]`, with a choice to drop rows. It is cheap.
-The result is a shallow new Daf. It is a new Daf with a new list of rows, and
-each row is the same list as in this Daf, so changing a cell in the result
+The result is a new Daf with its own outer row list. Each row is the same list as
+in this Daf, so changing a cell in the result
 changes it here too. This is also so when the selection is empty and `inverse`
 is True, which keeps all the rows. The keyfield, dtypes and column names carry over.
 
@@ -5044,7 +5419,7 @@ Examples:
 
 
 
-##### irow(self, irow: 'int' = 0, include_cols: 'T_ls | None' = None) -> 'T_da'
+##### irow(irow: int = 0, include_cols: T_ls | None = None) -> T_da
 
 Get one row as a dict, by position.
 
@@ -5068,7 +5443,7 @@ Examples:
 
 
 
-##### irow_la(self, irow: 'int') -> 'T_la'
+##### irow_la(irow: int) -> T_la
 
 Get one row as a list, by position.
 
@@ -5100,7 +5475,7 @@ Examples:
 
 
 
-##### iloc(self, irow: 'int' = 0, include_cols: 'T_ls | None' = None, rtype: 'str' = 'dict') -> 'T_ma | T_la'
+##### iloc(irow: int = 0, include_cols: T_ls | None = None, rtype: str = 'dict') -> T_ma | T_la
 
 Get one row by position, as a dict, a KeyedList or a list.
 
@@ -5134,7 +5509,7 @@ Examples:
 
 
 
-##### select_record(self, key: 'str | int | T_ta', silent_error: 'bool' = True) -> 'T_da'
+##### select_record(key: str | int | T_ta, silent_error: bool = True) -> T_da
 
 Get one row as a dict, by its key.
 
@@ -5163,7 +5538,7 @@ Examples:
 
 
 
-##### select_records_daf(self, keys_ls: "'T_ls | Iterable | Daf'", inverse: 'bool' = False, silent_error: 'bool' = False) -> "'Daf'"
+##### select_records_daf(keys_ls: 'T_ls | Iterable | Daf', inverse: bool = False, silent_error: bool = False) -> 'Daf'
 
 Select several rows by key and return them as a Daf.
 
@@ -5172,7 +5547,8 @@ No keys gives an empty Daf, or all the rows if `inverse` is True.
 
 The keys may be another Daf. Its keys are then used, through a view of its key index,
 so no list of them is made. That other Daf must have a keyfield. Its rows are not
-changed. The keys come in its row order, so the rows selected come in that order too.
+changed. The keys come in the order of its key index, so the rows selected come in
+that order too. A key that repeats in this Daf selects only its last row. See `keys()`.
 
 The rows are shared with this Daf, as in `select_krows()`. The new Daf has its own
 row list, also with no keys and `inverse` True, so adding a row to one does not
@@ -5227,7 +5603,7 @@ Examples:
 ### Columns
 
 
-##### select_kcols(self, kcols: 'slice | str | T_la | int | Tuple[Any, Any] | None', inverse: 'bool' = False, flip: 'bool' = False, silent_error: 'bool' = False) -> "'Daf'"
+##### select_kcols(kcols: slice | str | T_la | int | Tuple[Any, Any] | None, inverse: bool = False, flip: bool = False, silent_error: bool = False) -> 'Daf'
 
 Select columns by name. Columns with those names are kept, or dropped if `inverse` is True.
 
@@ -5277,7 +5653,7 @@ Examples:
 
 
 
-##### select_icols(self, icols: 'slice | int | T_li | range | T_lor | None', flip: 'bool' = False) -> "'Daf'"
+##### select_icols(icols: slice | int | T_li | range | T_lor | None, flip: bool = False) -> 'Daf'
 
 Select columns by position. Those columns are kept, in the order given.
 
@@ -5327,7 +5703,7 @@ Examples:
 
 
 
-##### select_cols(self, cols: 'T_ls | None' = None, exclude_cols: 'T_ls | None' = None) -> "'Daf'"
+##### select_cols(cols: T_ls | None = None, exclude_cols: T_ls | None = None) -> 'Daf'
 
 Make a new Daf with only some columns, chosen by name.
 
@@ -5360,7 +5736,7 @@ Examples:
 
 
 
-##### col(self, colname: 'str', *, unique: 'bool' = False, omit_nulls: 'bool' = False, silent_error: 'bool' = False, astype: 'Callable | str | type | None' = None, indirect_col: 'str | None' = None, default: 'Any | None' = '') -> 'list'
+##### col(colname: str, unique: bool = False, omit_nulls: bool = False, silent_error: bool = False, astype: Callable | str | type | None = None, indirect_col: str | None = None, default: Any | None = '') -> list
 
 Get one column as a list, by name.
 
@@ -5395,7 +5771,7 @@ Examples:
 
 
 
-##### col_to_la(self, colname: 'str', *, unique: 'bool' = False, omit_nulls: 'bool' = False, silent_error: 'bool' = False, astype: 'Callable | str | type | None' = None, indirect_col: 'str | None' = None, default: 'Any | None' = '') -> 'list'
+##### col_to_la(colname: str, unique: bool = False, omit_nulls: bool = False, silent_error: bool = False, astype: Callable | str | type | None = None, indirect_col: str | None = None, default: Any | None = '') -> list
 
 Get one column as a list, by name.
 
@@ -5434,7 +5810,7 @@ Examples:
 
 
 
-##### icol(self, icol: 'int') -> 'list'
+##### icol(icol: int) -> list
 
 Get one column as a list, by position.
 
@@ -5459,7 +5835,7 @@ Examples:
 
 
 
-##### icol_to_la(self, icol: 'int', unique: 'bool' = False, omit_nulls: 'bool' = False) -> 'list'
+##### icol_to_la(icol: int, unique: bool = False, omit_nulls: bool = False) -> list
 
 Get one column as a list, by position, with options.
 
@@ -5495,7 +5871,7 @@ Examples:
 ### By condition
 
 
-##### select_where(self, where: 'Callable', indirect_col: 'str | None' = None) -> "'Daf'"
+##### select_where(where: Callable, indirect_col: str | None = None) -> 'Daf'
 
 Select the rows for which a function is true.
 
@@ -5611,7 +5987,7 @@ Examples:
 
 
 
-##### select_where_idxs(self, where: 'Callable') -> 'T_li'
+##### select_where_idxs(where: Callable) -> T_li
 
 Get the positions of the rows for which a function is true.
 
@@ -5638,7 +6014,7 @@ Examples:
 
 
 
-##### split_where(self, where: 'Callable', *, indirect_col: 'str | None' = None) -> "Tuple['Daf', 'Daf']"
+##### split_where(where: Callable, indirect_col: str | None = None) -> Tuple['Daf', 'Daf']
 
 Split the rows in two, by a function that is true or false for each row.
 
@@ -5680,7 +6056,7 @@ Examples:
 
 
 
-##### select_by_dict(self, selector_da: 'T_da | T_loda', expectmax: 'int' = -1, inverse: 'bool' = False, keyfield: 'str | int | T_ta' = '') -> "'Daf'"
+##### select_by_dict(selector_da: T_da | T_loda, expectmax: int = -1, inverse: bool = False, keyfield: str | int | T_ta = '') -> 'Daf'
 
 Select the rows that match every field of a dict, or any one of a list of dicts.
 
@@ -5707,8 +6083,9 @@ To say "any of these", use a list of dicts.
 An empty list matches no row. An empty dict matches every row. A dict that names a
 column that is not there matches no row, and the other dicts still apply.
 
-A Daf with rows and no column names raises `KeysDisabledError`. The new Daf is a shallow new Daf, a live view of this one. It has its own
-row list, and its rows are the same lists as the rows of this Daf. Changing a value in
+A Daf with rows and no column names raises `KeysDisabledError`. The new Daf is a live
+view of this one. It has its own outer row list, and its rows are the same lists as the
+rows of this Daf. Changing a value in
 it changes this Daf. Adding a column with `insert_col()` or `insert_idx_col()` does not,
 because those copy shared rows first. Use `copy('editable')` for rows of your own.
 
@@ -5774,7 +6151,7 @@ Examples:
 
 
 
-##### select_first_row_by_dict(self, selector_da: 'T_da', inverse: 'bool' = False) -> 'T_ma'
+##### select_first_row_by_dict(selector_da: T_da, inverse: bool = False) -> T_ma
 
 Get the first row that matches every field of a dict.
 
@@ -5799,7 +6176,7 @@ Examples:
 ### Index translation
 
 
-##### krows_to_irows(self, krows: 'slice | str | T_la | int | Tuple[Any, Any] | T_lota | Iterable | None', inverse: 'bool' = False, silent_error: 'bool' = False) -> 'slice | int | T_li | range'
+##### krows_to_irows(krows: slice | str | T_la | int | Tuple[Any, Any] | T_lota | Iterable | None, inverse: bool = False, silent_error: bool = False) -> slice | int | T_li | range
 
 Turn row keys into row positions.
 
@@ -5847,7 +6224,7 @@ Examples:
 
 
 
-##### kcols_to_icols(self, kcols: 'str | T_ls | slice | int | T_li | Tuple[Any, Any] | Iterable | None' = None, inverse: 'bool' = False, silent_error: 'bool' = False) -> 'slice | int | T_li | range | None'
+##### kcols_to_icols(kcols: str | T_ls | slice | int | T_li | Tuple[Any, Any] | Iterable | None = None, inverse: bool = False, silent_error: bool = False) -> slice | int | T_li | range | None
 
 Turn column names into column positions.
 
@@ -5884,7 +6261,7 @@ Examples:
 
 
 
-##### gkeys_to_idxs(keydict: 'Dict[str | int, int]', gkeys: 'str | T_ls | slice | int | T_li | Tuple[Any, Any] | T_lota | Iterable | None' = None, inverse: 'bool' = False, silent_error: 'bool' = False, axis: 'str' = 'rowkeys', name: 'str' = 'unspecified') -> 'slice | int | T_li | range'
+##### gkeys_to_idxs(keydict: Dict[str | int, int], gkeys: str | T_ls | slice | int | T_li | Tuple[Any, Any] | T_lota | Iterable | None = None, inverse: bool = False, silent_error: bool = False, axis: str = 'rowkeys', name: str = 'unspecified') -> slice | int | T_li | range
 
 Turn keys into positions, using a dict of key to position.
 
@@ -5930,7 +6307,7 @@ Adding, changing, removing and reordering records and columns.
 ### Appending
 
 
-##### append(self, data_item: "'Daf' | T_loda | T_da | T_la | KeyedList | None" = None, respect_kd: 'bool' = False, *, lol: 'T_lola | None' = None, la: 'T_la | None' = None, fast: 'bool' = False) -> "'Daf'"
+##### append(data_item: 'Daf' | T_loda | T_da | T_la | KeyedList | None = None, respect_kd: bool = False, lol: T_lola | None = None, la: T_la | None = None, fast: bool = False) -> 'Daf'
 
 Add one row, or several, to the end of the Daf.
 
@@ -6057,7 +6434,7 @@ Examples:
 
 
 
-##### concat(self, other_instance: "'Daf'", respect_kd: 'bool' = False) -> "'Daf'"
+##### concat(other_instance: 'Daf', respect_kd: bool = False) -> 'Daf'
 
 Add the rows of another Daf to the end of this one.
 
@@ -6113,7 +6490,7 @@ Examples:
 
 
 
-##### extend(self, records_lod: 'T_loda | None' = None, respect_kd: 'bool' = False, *, lol: 'T_lola | None' = None) -> "'Daf'"
+##### extend(records_lod: T_loda | None = None, respect_kd: bool = False, lol: T_lola | None = None) -> 'Daf'
 
 Append several records, given as a list of dicts or as a list of lists.
 
@@ -6167,7 +6544,7 @@ Examples:
 
 
 
-##### record_append(self, record: 'T_da | KeyedList', respect_kd: 'bool' = True) -> "'Daf'"
+##### record_append(record: T_da | KeyedList, respect_kd: bool = True) -> 'Daf'
 
 Add one row that is given as a dict or a KeyedList.
 
@@ -6215,7 +6592,7 @@ Examples:
 ### Records
 
 
-##### assign_record(self, record: 'T_da') -> "'Daf'"
+##### assign_record(record: T_da) -> 'Daf'
 
 Put one row in the Daf by its key, replacing a row that has the same key.
 
@@ -6250,7 +6627,7 @@ Examples:
 
 
 
-##### assign_record_irow(self, irow: 'int | None' = None, record: 'T_da | None' = None) -> "'Daf'"
+##### assign_record_irow(irow: int | None = None, record: T_da | None = None) -> 'Daf'
 
 Put one row in the Daf by position, replacing the row there.
 
@@ -6289,7 +6666,7 @@ Examples:
 
 
 
-##### update_by_keylist(self, keylist: 'T_ls | None' = None, record: 'T_da | None' = None) -> "'Daf'"
+##### update_by_keylist(keylist: T_ls | None = None, record: T_da | None = None) -> 'Daf'
 
 Change some cells in the rows that have the given keys.
 
@@ -6320,7 +6697,7 @@ Examples:
 
 
 
-##### update_record_irow(self, irow: 'int' = -1, record: 'T_da | None' = None) -> "'Daf'"
+##### update_record_irow(irow: int = -1, record: T_da | None = None) -> 'Daf'
 
 Change some cells in the row at a position.
 
@@ -6353,7 +6730,7 @@ Examples:
 
 
 
-##### update_record_krow(self, key: 'Any', record: 'T_da | None' = None) -> "'Daf'"
+##### update_record_krow(key: Any, record: T_da | None = None) -> 'Daf'
 
 Change some cells in the row that has this key.
 
@@ -6385,7 +6762,7 @@ Examples:
 
 
 
-##### insert_irow(self, irow: 'int | None' = None, row: 'T_la | T_da | None' = None, default: 'Any' = '') -> "'Daf'"
+##### insert_irow(irow: int | None = None, row: T_la | T_da | None = None, default: Any = '') -> 'Daf'
 
 Insert a row at a position and move the later rows down.
 
@@ -6425,7 +6802,7 @@ Examples:
 ### Columns
 
 
-##### assign_col(self, colname: 'str', la: 'T_la | None' = None, default: 'Any' = '') -> "'Daf'"
+##### assign_col(colname: str, la: T_la | None = None, default: Any = '') -> 'Daf'
 
 Fill a column by name with the values of a list, or add it if it is new.
 
@@ -6451,7 +6828,7 @@ Examples:
 
 
 
-##### assign_icol(self, icol: 'int' = -1, col_la: 'T_la | None' = None, default: 'Any' = '') -> "'Daf'"
+##### assign_icol(icol: int = -1, col_la: T_la | None = None, default: Any = '') -> 'Daf'
 
 Fill a column by position with the values of a list.
 
@@ -6476,7 +6853,7 @@ Examples:
 
 
 
-##### insert_col(self, colname: 'str', col_la: 'T_la | None' = None, icol: 'int' = -1, default: 'Any' = '') -> "'Daf'"
+##### insert_col(colname: str, col_la: T_la | None = None, icol: int = -1, default: Any = '') -> 'Daf'
 
 Add a named column at a position, or overwrite it if the name exists.
 
@@ -6507,7 +6884,7 @@ Examples:
 
 
 
-##### insert_icol(self, icol: 'int' = -1, col_la: 'T_la | None' = None, colname: 'str' = '', default: 'Any' = '') -> "'Daf'"
+##### insert_icol(icol: int = -1, col_la: T_la | None = None, colname: str = '', default: Any = '') -> 'Daf'
 
 Insert a column at a position and move the later columns right.
 
@@ -6536,7 +6913,7 @@ Examples:
 
 
 
-##### insert_idx_col(self, colname: 'str' = 'idx', icol: 'int' = 0, startat: 'int' = 0) -> "'Daf'"
+##### insert_idx_col(colname: str = 'idx', icol: int = 0, startat: int = 0) -> 'Daf'
 
 Insert a column of row numbers.
 
@@ -6558,7 +6935,7 @@ Examples:
 
 
 
-##### set_col_irows(self, colname: 'str', irows: 'T_li', val: 'Any') -> "'Daf'"
+##### set_col_irows(colname: str, irows: T_li, val: Any) -> 'Daf'
 
 Set one value in the given rows of a named column.
 
@@ -6584,7 +6961,7 @@ Examples:
 
 
 
-##### set_icol(self, icol: 'int', val: 'Any') -> "'Daf'"
+##### set_icol(icol: int, val: Any) -> 'Daf'
 
 Set one value in every row of a column, by position.
 
@@ -6607,7 +6984,7 @@ Examples:
 
 
 
-##### set_icol_irows(self, icol: 'int', irows: 'T_li', val: 'Any') -> "'Daf'"
+##### set_icol_irows(icol: int, irows: T_li, val: Any) -> 'Daf'
 
 Set one value in the given rows of a column, by position.
 
@@ -6632,7 +7009,7 @@ Examples:
 ### Removing
 
 
-##### delete_records(self, keys_ls: "'T_ls | Iterable | Daf'", inplace: 'bool' = False, silent_error: 'bool' = False) -> "'Daf'"
+##### delete_records(keys_ls: 'T_ls | Iterable | Daf', inplace: bool = False, silent_error: bool = False) -> 'Daf'
 
 Remove the rows with these keys.
 
@@ -6674,7 +7051,7 @@ Examples:
 
 
 
-##### remove_key(self, keyval: 'str | int | T_la | T_ta | None', silent_error: 'bool' = False) -> "'Daf'"
+##### remove_key(keyval: str | int | T_la | T_ta | None, silent_error: bool = False) -> 'Daf'
 
 Make a new Daf without the row that has the given key.
 
@@ -6685,8 +7062,7 @@ the row out, and this Daf is unchanged. Keep the result, as in
 `d = d.remove_key(2)`.
 
 The new Daf shares the surviving rows with this Daf. Changing a cell in one
-changes it in the other. Call `copy()` with `level='editable'` if you need rows that
-are independent.
+changes it in the other. Call `copy('editable')` if you need row lists of your own.
 
 A tuple is a range of keys, as in `remove_key((2, 3))`. With a composite keyfield, a
 tuple as long as the keyfield, with no tuples inside it, is one key, as in
@@ -6728,7 +7104,7 @@ Examples:
 
 
 
-##### remove_keylist(self, keylist: 'T_ls', silent_error: 'bool' = False) -> "'Daf'"
+##### remove_keylist(keylist: T_ls, silent_error: bool = False) -> 'Daf'
 
 Make a new Daf without the rows that have the given keys.
 
@@ -6771,7 +7147,7 @@ Examples:
 
 
 
-##### remove_dups(self, keyfield: 'str | T_ta | T_la' = '') -> "Tuple['Daf', 'Daf']"
+##### remove_dups(keyfield: str | T_ta | T_la = '') -> Tuple['Daf', 'Daf']
 
 Split the rows into those with a unique key and those with a repeated key.
 
@@ -6817,13 +7193,14 @@ Examples:
 
 
 
-##### drop_cols(self, exclude_cols: 'T_ls | None' = None) -> "'Daf'"
+##### drop_cols(exclude_cols: T_ls | None = None) -> 'Daf'
 
 Remove columns from this Daf, in place.
 
 The rows are rebuilt without those columns, so this copies all the data. Avoid
-it for large tables. Use the `cols` argument of `apply` and `reduce`, or
-`select_kcols()` to get a new Daf, instead.
+it for large tables. Instead, name only the columns you need: with `cols=` in
+`reduce()`, by reading only those fields in an `apply()` function, or with
+`select_kcols()` for a new Daf.
 
 The column names and dtypes are updated. A name that is not a column is ignored.
 If a column of the keyfield is dropped, the keyfield is cleared, as in the other
@@ -6845,7 +7222,7 @@ Examples:
 ### Find and replace
 
 
-##### find_replace(self, find_pat: 'str', replace_val: 'Any') -> "'Daf'"
+##### find_replace(find_pat: str, replace_val: Any) -> 'Daf'
 
 Replace every cell that matches a pattern, in place.
 
@@ -6870,7 +7247,7 @@ Examples:
 
 
 
-##### replace_in_columns(self, cols: 'T_lsi | None', find_values: 'List[Any] | None' = None, replacement: 'Any' = <object object at 0x77fca2189350>) -> "'Daf'"
+##### replace_in_columns(cols: T_lsi | None, find_values: List[Any] | None = None, replacement: Any = _MISSING) -> 'Daf'
 
 Replace listed values with another value, in some columns, in place.
 
@@ -6901,7 +7278,7 @@ Examples:
 ### Sorting
 
 
-##### sort_by_colname(self, colname: 'str', *, reverse: 'bool' = False, length_priority: 'bool' = False, as_str: 'bool' = False) -> "'Daf'"
+##### sort_by_colname(colname: str, reverse: bool = False, length_priority: bool = False, as_str: bool = False) -> 'Daf'
 
 Sort the rows by one column, in place.
 
@@ -6940,7 +7317,7 @@ Examples:
 
 
 
-##### sort_by_colnames(self, colnames: 'T_ls', reverse: 'bool' = False, length_priority: 'bool' = False, as_str: 'bool' = False) -> "'Daf'"
+##### sort_by_colnames(colnames: T_ls, reverse: bool = False, length_priority: bool = False, as_str: bool = False) -> 'Daf'
 
 Sort the rows by several columns, in place.
 
@@ -6979,7 +7356,7 @@ Examples:
 ### Reshaping and splitting
 
 
-##### transpose(self, new_keyfield: 'str' = '', new_cols: 'T_la | None' = None, include_header: 'bool' = False) -> "'Daf'"
+##### transpose(new_keyfield: str = '', new_cols: T_la | None = None, include_header: bool = False) -> 'Daf'
 
 Turn rows into columns and columns into rows.
 
@@ -7023,12 +7400,16 @@ Examples:
 
 
 
-##### wide_to_narrow(self, id_cols: 'T_ls', varname_colname: 'str' = 'varname', value_colname: 'str' = 'value') -> "'Daf'"
+##### wide_to_narrow(id_cols: T_ls, varname_colname: str = 'varname', value_colname: str = 'value') -> 'Daf'
 
 Turn columns into rows. This is called melt or unpivot.
 
 Each column that is not an id column gives one row for each row of this Daf.
 The row holds the id values, the name of the column, and its value.
+
+The default name of the column of names is `varname`. `narrow_to_wide()` looks for
+`variable` by default. So to go back, pass `varname_colname='variable'` here, or
+`varname_col='varname'` there.
 
 Args:
     id_cols: The columns that identify a row. They are kept as they are.
@@ -7055,9 +7436,15 @@ Examples:
     %% daf rows=4; cols=3; keyfield=''; name=''
     <BLANKLINE>
 
+    A round trip, with the names matched:
+
+    >>> narrow = d.wide_to_narrow(['id'], varname_colname='variable')
+    >>> narrow.narrow_to_wide(['id']).lol
+    [['x', 1, 2], ['y', 3, 4]]
 
 
-##### narrow_to_wide(self, id_cols: 'T_cs', varname_col: 'str' = 'variable', value_col: 'str' = 'value', wide_cols: 'T_cs | None' = None) -> "'Daf'"
+
+##### narrow_to_wide(id_cols: T_cs, varname_col: str = 'variable', value_col: str = 'value', wide_cols: T_cs | None = None) -> 'Daf'
 
 Turn rows into columns. This is called pivot or spread.
 
@@ -7069,6 +7456,9 @@ than once, the last value is kept.
 
 With `wide_cols`, those are the columns after the ids, in that order. A
 name that is not listed is left out.
+
+The default `varname_col` is `variable`, but `wide_to_narrow()` names that column
+`varname` by default. Match the names to go back and forth.
 
 An empty Daf gives an empty Daf.
 
@@ -7104,7 +7494,7 @@ Examples:
 
 
 
-##### split_daf_into_ranges(self, chunk_ranges: 'List[Tuple[int, int]]') -> "List['Daf']"
+##### split_daf_into_ranges(chunk_ranges: List[Tuple[int, int]]) -> List['Daf']
 
 Split the rows into several Daf instances, by position ranges.
 
@@ -7140,7 +7530,7 @@ Examples:
 
 
 
-##### split_daf_into_chunks_lodaf(self, max_chunk_size: 'int') -> "List['Daf']"
+##### split_daf_into_chunks_lodaf(max_chunk_size: int) -> List['Daf']
 
 Split the rows evenly into Daf instances of at most a given size.
 
@@ -7169,7 +7559,7 @@ Running functions over rows and columns, and grouping.
 ### Apply
 
 
-##### apply(self, func: 'Callable[..., Any]', by: 'str' = 'row', keylist: 'T_la | T_lota | None' = None, **kwargs: 'Any') -> "'Daf'"
+##### apply(func: Callable[..., Any], by: str = 'row', keylist: T_la | T_lota | None = None, kwargs: Any = {}) -> 'Daf'
 
 Apply a function to each row and collect the results in a new Daf.
 
@@ -7241,7 +7631,7 @@ Examples:
 
 
 
-##### apply_in_place(self, func: 'Callable[..., T_ma | None]', by: 'str' = 'row', rowkeys: 'T_la | T_lota | None' = None, **kwargs: 'Any') -> "'Daf'"
+##### apply_in_place(func: Callable[..., T_ma | None], by: str = 'row', rowkeys: T_la | T_lota | None = None, kwargs: Any = {}) -> 'Daf'
 
 Apply a function to each row and store the results in this Daf.
 
@@ -7286,7 +7676,7 @@ Examples:
 
 
 
-##### update_row(row: 'T_ma', da: 'T_da') -> 'T_ma'
+##### update_row(row: T_ma, da: T_da) -> T_ma
 
 Update a row with the items of a dict, and return the row.
 
@@ -7306,7 +7696,7 @@ Examples:
 
 
 
-##### apply_colwise(self, target_col: 'str', func: 'Callable[[T_da], Any]', *, default: 'Any' = 0) -> "'Daf'"
+##### apply_colwise(target_col: str, func: Callable[[T_da], Any], default: Any = 0) -> 'Daf'
 
 Compute one column from the other columns of each row, in place.
 
@@ -7337,7 +7727,7 @@ Examples:
 
 
 
-##### apply_to_col(self, col: 'str', func: 'Callable', **kwargs: 'Any') -> "'Daf'"
+##### apply_to_col(col: str, func: Callable, kwargs: Any = {}) -> 'Daf'
 
 Replace each value of a column by the result of a function, in place.
 
@@ -7360,15 +7750,17 @@ Examples:
 
 
 
-##### apply_formulas(self, formulas_daf: "'Daf'") -> "'Daf'"
+##### apply_formulas(formulas_daf: 'Daf') -> 'Daf'
 
 Fill cells from spreadsheet like formulas, in place.
 
 `formulas_daf` is a Daf of the same shape. Each cell holds a Python
 expression as text. An empty cell is skipped. The result of each expression is
 stored in the same cell of this Daf. The formulas are evaluated again and again
-until no cell changes, so a cell may use the result of another. A circular
-set of formulas raises `RuntimeError` after 100 passes.
+until no cell changes, so a cell may use the result of another. If the cells
+still change after 100 passes, it raises `RuntimeError`. This is a limit on the
+passes, not a check for circular formulas. A circle of formulas that settles, such
+as two cells that copy each other, raises nothing.
 
 In a formula, `$d` is this Daf, `$r` is the row number of the cell and `$c` is
 its column number. References are absolute unless you build them from `$r` and
@@ -7420,15 +7812,17 @@ Examples:
 ### Reduce
 
 
-##### reduce(self, func: 'Callable[..., Any]', by: 'str' = 'row', cols: 'T_cs | None' = None, initial_da: 'T_ma | None' = None, indirect_col: 'str' = '', silent_error: 'bool' = False, **kwargs: 'Any') -> 'T_ma | T_la'
+##### reduce(func: Callable[..., Any], by: str = 'row', cols: T_cs | None = None, initial_da: T_ma | None = None, indirect_col: str = '', silent_error: bool = False, kwargs: Any = {}) -> T_ma | T_la
 
 Combine all the rows into one result, using a function.
 
 The function gets each row, and the result so far, and returns the new result.
 A sum or a count is a reduction. With `by='row'`, the function is called as
 `func(row, result, cols=cols, **kwargs)`. The result starts as 0 for each of
-the columns, or as `initial_da`. It returns a dict with every column. Columns
-that are not in `cols` are empty.
+the columns, or as `initial_da`, which is changed in place. It returns a dict with
+every column. Columns that are not in `cols` are empty. A key of the result that
+is not a column of the Daf is dropped, so a reduction by row gives one value for
+each column. For a result of another shape, use `by='table'`, or a loop.
 
 A plain sum, with `sum_da()` or `sum_kl()` and no other options, adds down each
 column instead of across each row. That is about 5 times faster, and gives the same
@@ -7457,7 +7851,7 @@ empty Daf gives an empty dict for `by='row'`.
 To reduce part of the table, select the rows or columns first, or give `cols`.
 
 Args:
-    func: The function that combines. For example `Daf.sum_da`.
+    func: The reduction function. For example `Daf.sum_da`.
     by: `row`, `col`, `table` or `sparse_row`.
     cols: The columns included in the reduction. All columns if None.
     initial_da: The result to start from, instead of zeros.
@@ -7479,7 +7873,7 @@ Examples:
 
 
 
-##### daf_sum(self, by: 'str' = 'row', cols: 'T_cs | None' = None, indirect_col: 'str' = '', **kwargs: 'Any') -> 'T_ma'
+##### daf_sum(by: str = 'row', cols: T_cs | None = None, indirect_col: str = '', kwargs: Any = {}) -> T_ma
 
 Add up the columns, using `reduce()` and `sum_kl()`.
 
@@ -7503,13 +7897,17 @@ Examples:
 
 
 
-##### sum(self, colnames_ls: 'T_cs | None' = None, numeric_only: 'bool' = False) -> 'dict'
+##### sum(colnames_ls: T_cs | None = None, numeric_only: bool = False) -> dict
 
 Total the columns, and return a dict of the totals.
 
-Each total starts as a float. Empty cells are skipped. A cell that is text
-that is not a number raises `ValueError`, so give `colnames_ls` to leave
-those columns out. With `numeric_only`, and dtypes of `int` or `float`, only
+Each total starts as a float. Empty cells are skipped. Text that is a number,
+such as `'2'`, is converted and added. Other text raises `ValueError`, so give
+`colnames_ls` to leave those columns out.
+
+`reduce(Daf.sum_da)` adds differently. It skips every value that is not a number,
+including the text `'2'`, and never raises. So the two can give different totals
+for a column that holds text. See the example. With `numeric_only`, and dtypes of `int` or `float`, only
 those columns are totaled, and a cell that is not a number counts as 0. The
 totals are converted to the dtypes, if the Daf has them.
 
@@ -7526,10 +7924,13 @@ Raises:
 Examples:
     >>> Daf(lol=[[1, 10], [2, 20]], cols=['x', 'y']).sum()
     {'x': 3.0, 'y': 30.0}
+    >>> mixed = Daf(cols=['n'], lol=[[1], ['2'], [''], [3.5]])
+    >>> mixed.sum(['n']), mixed.reduce(Daf.sum_da, cols=['n'])
+    ({'n': 6.5}, {'n': 4.5})
 
 
 
-##### sum_np(self, colnames_ls: 'T_cs | None' = None) -> 'dict'
+##### sum_np(colnames_ls: T_cs | None = None) -> dict
 
 Total the columns with NumPy, and return a dict of the totals.
 
@@ -7555,7 +7956,7 @@ Examples:
 
 
 
-##### sum_kl(row_kl: 'Any', reduction_da: 'T_ma', *, cols: 'T_cs | None' = None, astype: 'Type | None' = None, is_sparse: 'bool' = False, diagnose: 'bool' = False) -> 'T_ma'
+##### sum_kl(row_kl: Any, reduction_da: T_ma, cols: T_cs | None = None, astype: Type | None = None, is_sparse: bool = False, diagnose: bool = False) -> T_ma
 
 Add the values of a row to a running total. This is the standard sum for `reduce()`.
 
@@ -7591,7 +7992,7 @@ Examples:
 
 
 
-##### sum_da(row_da: 'T_ma', reduction_da: 'T_ma', *, cols: 'T_cs | None' = None, astype: 'Type | None' = None, is_sparse: 'bool' = False, diagnose: 'bool' = False) -> 'T_ma'
+##### sum_da(row_da: T_ma, reduction_da: T_ma, cols: T_cs | None = None, astype: Type | None = None, is_sparse: bool = False, diagnose: bool = False) -> T_ma
 
 Add the values of a row to a running total. Use it with `reduce()`.
 
@@ -7617,7 +8018,7 @@ Examples:
 
 
 
-##### diff_da(d1_da: 'T_ma', d2_da: 'T_ma', keys: 'T_ls | str | None' = None) -> 'T_da'
+##### diff_da(d1_da: T_ma, d2_da: T_ma, keys: T_ls | str | None = None) -> T_da
 
 Subtract one dict from another, for the keys you name.
 
@@ -7638,7 +8039,7 @@ Examples:
 
 
 
-##### count_values_kl(row_kl: 'Any', reduction_da: 'T_da', cols: 'T_cs', *, omit_nulls: 'bool' = False) -> 'T_da'
+##### count_values_kl(row_kl: Any, reduction_da: T_da, cols: T_cs, omit_nulls: bool = False) -> T_da
 
 Add one row to running counts of the values in each column. This is the standard count for `reduce()`.
 
@@ -7669,7 +8070,7 @@ Examples:
 
 
 
-##### count_values_da(row_da: 'T_ma', reduction_da: 'T_da', cols: 'T_cs', *, omit_nulls: 'bool' = False) -> 'T_da'
+##### count_values_da(row_da: T_ma, reduction_da: T_da, cols: T_cs, omit_nulls: bool = False) -> T_da
 
 Add one row to running counts of the values in each column. Use it with `reduce()`.
 
@@ -7701,7 +8102,7 @@ Examples:
 
 
 
-##### sum_dodis(this_dodi: 'T_dodi', accum_dodi: 'T_dodi') -> 'None'
+##### sum_dodis(this_dodi: T_dodi, accum_dodi: T_dodi) -> None
 
 Add one dict of dicts of numbers into another, in place.
 
@@ -7722,7 +8123,7 @@ Examples:
 ### Group
 
 
-##### groupby(self, colname: 'str' = '', colnames: 'T_ls | None' = None, omit_nulls: 'bool' = False, cols: 'T_cs | None' = None) -> 'T_klodaf'
+##### groupby(colname: str = '', colnames: T_ls | None = None, omit_nulls: bool = False, cols: T_cs | None = None) -> T_klodaf
 
 Split the Daf into several Daf instances, one for each value of a column.
 
@@ -7784,7 +8185,7 @@ Examples:
 
 
 
-##### groupby_cols(self, colnames: 'T_ls', cols: 'T_cs | None' = None) -> 'T_klodaf'
+##### groupby_cols(colnames: T_ls, cols: T_cs | None = None) -> T_klodaf
 
 Split the Daf by the values of several columns.
 
@@ -7821,7 +8222,7 @@ Examples:
 
 
 
-##### group_where(self, where: 'Callable[[Any], Any]', *, indirect_col: 'str | None' = None) -> 'T_klodaf'
+##### group_where(where: Callable[[Any], Any], indirect_col: str | None = None) -> T_klodaf
 
 Group the rows by the result of a function.
 
@@ -7849,7 +8250,7 @@ Examples:
 
 
 
-##### groupby_cols_reduce(self, groupby_colnames: 'T_ls', func: 'Callable[..., Any]', by: 'str' = 'row', reduce_cols: 'T_la | None' = None, diagnose: 'bool' = False, **kwargs: 'Any') -> "'Daf'"
+##### groupby_cols_reduce(groupby_colnames: T_ls, func: Callable[..., Any], by: str = 'row', reduce_cols: T_la | None = None, diagnose: bool = False, kwargs: Any = {}) -> 'Daf'
 
 Group the rows by several columns and reduce each group to one row.
 
@@ -7891,7 +8292,7 @@ Examples:
 
 
 
-##### groupby_reduce(self, colname: 'str', func: 'Callable[..., Any]', by: 'str' = 'row', reduce_cols: 'T_cs | None' = None, diagnose: 'bool' = False, **kwargs: 'Any') -> "'Daf'"
+##### groupby_reduce(colname: str, func: Callable[..., Any], by: str = 'row', reduce_cols: T_cs | None = None, diagnose: bool = False, kwargs: Any = {}) -> 'Daf'
 
 Group the rows by one column and reduce each group to one row.
 
@@ -7930,7 +8331,7 @@ Examples:
 
 
 
-##### multi_groupby(self, groupby_colnames: 'T_cs', colnames: 'T_cs | None' = None, omit_nulls: 'bool' = False) -> "Dict[str, Dict[str, 'Daf']]"
+##### multi_groupby(groupby_colnames: T_cs, colnames: T_cs | None = None, omit_nulls: bool = False) -> Dict[str, Dict[str, 'Daf']]
 
 Group the rows by each of several columns, one column at a time.
 
@@ -7978,7 +8379,7 @@ Examples:
 
 
 
-##### multi_groupby_reduce(self, colnames: 'T_cs', func: 'Callable[..., Any]', by: 'str' = 'row', reduce_cols: 'T_cs | None' = None, diagnose: 'bool' = False, **kwargs: 'Any') -> "Dict[str, 'Daf']"
+##### multi_groupby_reduce(colnames: T_cs, func: Callable[..., Any], by: str = 'row', reduce_cols: T_cs | None = None, diagnose: bool = False, kwargs: Any = {}) -> Dict[str, 'Daf']
 
 Group by each of several columns and reduce each group to one row.
 
@@ -8016,7 +8417,7 @@ Examples:
 
 
 
-##### reduce_dodaf_to_daf(colname: 'str', func: 'Callable[..., Any]', grouped_dodaf: 'T_dodaf', reduce_cols: 'T_la | None' = None, diagnose: 'bool' = False, all_cols: 'T_ls | None' = None, **kwargs: 'Any') -> "'Daf'"
+##### reduce_dodaf_to_daf(colname: str, func: Callable[..., Any], grouped_dodaf: T_dodaf, reduce_cols: T_la | None = None, diagnose: bool = False, all_cols: T_ls | None = None, kwargs: Any = {}) -> 'Daf'
 
 Reduce each Daf in a dict to one row, and join the rows in a Daf.
 
@@ -8053,7 +8454,7 @@ Examples:
 
 
 
-##### groupsum_daf(self, colname: 'str', by: 'str' = 'row', reduce_cols: 'T_cs | None' = None) -> "'Daf'"
+##### groupsum_daf(colname: str, by: str = 'row', reduce_cols: T_cs | None = None) -> 'Daf'
 
 Group by a column and add up the other columns of each group.
 
@@ -8081,7 +8482,7 @@ Examples:
 
 
 
-##### multi_groupsum(self, colnames: 'T_cs | None' = None, by: 'str' = 'row', reduce_cols: 'T_cs | None' = None) -> "Dict[str, 'Daf']"
+##### multi_groupsum(colnames: T_cs | None = None, by: str = 'row', reduce_cols: T_cs | None = None) -> Dict[str, 'Daf']
 
 Group by each of several columns, one at a time, and add up the columns.
 
@@ -8128,7 +8529,7 @@ Examples:
 ### Manifest processing
 
 
-##### manifest_apply(self, func: "Callable[[T_da, T_la | None], Tuple[T_da, 'Daf']]", load_func: "Callable[[T_ma], 'Daf']", save_func: "Callable[[T_da, 'Daf'], str]", by: 'str' = 'row', cols: 'T_la | None' = None, **kwargs: 'Any') -> "'Daf'"
+##### manifest_apply(func: Callable[[T_da, T_la | None], Tuple[T_da, 'Daf']], load_func: Callable[[T_ma], 'Daf'], save_func: Callable[[T_da, 'Daf'], str], by: str = 'row', cols: T_la | None = None, kwargs: Any = {}) -> 'Daf'
 
 Run a function on each chunk that a manifest lists, and save the results.
 
@@ -8176,7 +8577,7 @@ Examples:
 
 
 
-##### manifest_reduce(self, func: 'Callable[..., Any]', load_func: "Callable[[T_ma], 'Daf'] | None" = None, by: 'str' = 'row', cols: 'T_la | None' = None, **kwargs: 'Any') -> 'T_da'
+##### manifest_reduce(func: Callable[..., Any], load_func: Callable[[T_ma], 'Daf'] | None = None, by: str = 'row', cols: T_la | None = None, kwargs: Any = {}) -> T_da
 
 Reduce the chunks that a manifest lists into one row.
 
@@ -8205,7 +8606,7 @@ Examples:
 
 
 
-##### manifest_process(self, func: 'Callable[..., T_da]', **kwargs: 'Any') -> "'Daf'"
+##### manifest_process(func: Callable[..., T_da], kwargs: Any = {}) -> 'Daf'
 
 Call a function once for each chunk that a manifest lists.
 
@@ -8236,7 +8637,7 @@ Examples:
 ### Regex and settings
 
 
-##### set_col2_from_col1_using_regex_select(self, col1: 'str', col2: 'str' = '', regex: 'str' = '') -> "'Daf'"
+##### set_col2_from_col1_using_regex_select(col1: str, col2: str = '', regex: str = '') -> 'Daf'
 
 Fill a column with the part of another column that a regex selects, in place.
 
@@ -8260,7 +8661,7 @@ Examples:
 
 
 
-##### apply_replace_regex(self, col: 'str', col2: 'str' = '', replace_regex: 'str' = '') -> "'Daf'"
+##### apply_replace_regex(col: str, col2: str = '', replace_regex: str = '') -> 'Daf'
 
 Change a column with a pattern of the form `/find/replace/`, in place.
 
@@ -8291,7 +8692,7 @@ Examples:
 
 
 
-##### alter_daf_per_setting(self, settingsdict: 'T_da', setting_name: 'str', setting_select_dict: 'dict', silent_error: 'bool' = False) -> "'Daf'"
+##### alter_daf_per_setting(settingsdict: T_da, setting_name: str, setting_select_dict: dict, silent_error: bool = False) -> 'Daf'
 
 Change this Daf with the replace patterns found in a settings dict.
 
@@ -8323,7 +8724,7 @@ Examples:
 
 
 
-##### alter_daf_per_alter_specs_daf(self, alter_specs_daf: "'Daf'") -> "'Daf'"
+##### alter_daf_per_alter_specs_daf(alter_specs_daf: 'Daf') -> 'Daf'
 
 Change this Daf with the replace patterns listed in a Daf.
 
@@ -8347,7 +8748,7 @@ Examples:
 ### Other
 
 
-##### cols_to_dol(self, colname1: 'str', colname2: 'str') -> 'T_dola'
+##### cols_to_dol(colname1: str, colname2: str) -> T_dola
 
 Make a lookup from the values of one column to the values of another.
 
@@ -8370,7 +8771,7 @@ Examples:
 
 
 
-##### insert_dif_row(self, irow1: 'int', irow2: 'int | None' = None, irow_insert: 'int | None' = None, cols: 'T_ls | None' = None) -> "'Daf'"
+##### insert_dif_row(irow1: int, irow2: int | None = None, irow_insert: int | None = None, cols: T_ls | None = None) -> 'Daf'
 
 Insert a row that holds the difference of two rows.
 
@@ -8404,7 +8805,7 @@ Examples:
 
 
 
-##### insert_dif_rows(self, irows_rli: 'T_rli | None' = None, cols: 'T_ls | None' = None, offset: 'int' = 0) -> "'Daf'"
+##### insert_dif_rows(irows_rli: T_rli | None = None, cols: T_ls | None = None, offset: int = 0) -> 'Daf'
 
 Insert a difference row after each of several rows.
 
@@ -8446,12 +8847,18 @@ Combining two tables.
 ### Join
 
 
-##### join(self, other_daf: "'Daf'", how: 'str' = 'inner', shared_fields: 'T_ls | None' = None, tag_other: 'bool' = False, custom_translator_daf: "'Daf' | None" = None, diagnose: 'bool' = False, name: 'str' = '', fill: 'Any' = '') -> "'Daf'"
+##### join(other_daf: 'Daf', how: str = 'inner', shared_fields: T_ls | None = None, tag_other: bool = False, custom_translator_daf: 'Daf' | None = None, diagnose: bool = False, name: str = '', fill: Any = NULL) -> 'Daf'
 
 Join two Daf instances on their keyfields, as in SQL.
 
-Both need a keyfield, and it must be a single column. A row of this Daf is
-joined with the row of `other_daf` that has the same key.
+Both need a keyfield, and it must be a single column. A composite keyfield, a
+tuple of columns, raises `KeyError`. A row of this Daf is joined with the row of
+`other_daf` that has the same key.
+
+The join is one to one. It is not a many to many join, as in SQL. Each row of this
+Daf finds at most one row of the other, through its key index. If a key repeats in
+the other Daf, every match gets its last row. If a key repeats in this Daf, each of
+those rows is in the result. Check the keys first if they may repeat. See `keys()`.
 
 The types of join are:
 
@@ -8469,6 +8876,16 @@ names. For other names use `custom_translator_daf`, which you can start from
 When a key has no match, its cells from the other side are NULL, the empty string. Pass
 `fill=None` to get `None` there, as earlier versions did.
 The keyfield of the result is the keyfield of this Daf. The result is a new Daf.
+
+A row that only the other Daf has, in a right or outer join, comes after the rows
+of this Daf. Two of its cells can be lost:
+
+- A column in `shared_fields` takes its value from this Daf only. Such a row has no
+  row here, so the cell is NULL, though the other Daf has a value.
+- The key is NULL when the two keyfields have different names.
+
+These are known faults. Name the keyfields the same, and leave
+out `shared_fields`, when such rows matter.
 
 Args:
     other_daf: The Daf to join with.
@@ -8520,7 +8937,7 @@ Examples:
 
 
 
-##### join_records(records: 'List[T_ma | None]', translator_daf: "'Daf'", join_names_ls: 'T_ls | None' = None, fill: 'Any' = '') -> 'T_da'
+##### join_records(records: List[T_ma | None], translator_daf: 'Daf', join_names_ls: T_ls | None = None, fill: Any = NULL) -> T_da
 
 Combine one record from each table into one record, using a translator.
 
@@ -8551,7 +8968,7 @@ Examples:
 
 
 
-##### derive_join_translator(self, other_daf: "'Daf'", shared_fields: 'T_ls | None' = None, omit_other_cols: 'T_ls | None' = None, tag_other: 'bool' = False) -> "'Daf'"
+##### derive_join_translator(other_daf: 'Daf', shared_fields: T_ls | None = None, omit_other_cols: T_ls | None = None, tag_other: bool = False) -> 'Daf'
 
 Work out how the columns of two Daf instances are named in a join.
 
@@ -8582,7 +8999,7 @@ Examples:
 
 
 
-##### derive_join_translator_daf(cls, self_keyfield: 'str', other_keyfield: 'str', self_cols: 'T_cs', other_cols: 'T_cs', self_name: 'str' = '', other_name: 'str' = '', shared_fields: 'T_cs | None' = None, omit_other_cols: 'T_cs | None' = None, tag_other: 'bool' = False) -> "'Daf'"
+##### derive_join_translator_daf(self_keyfield: str, other_keyfield: str, self_cols: T_cs, other_cols: T_cs, self_name: str = '', other_name: str = '', shared_fields: T_cs | None = None, omit_other_cols: T_cs | None = None, tag_other: bool = False) -> 'Daf'
 
 Work out a join translator from column names, with no Daf instances.
 
@@ -8628,7 +9045,7 @@ Examples:
 ### Annotate
 
 
-##### annotate_daf(self, other_daf: "'Daf'", my_to_other_dict: 'T_ds') -> "'Daf'"
+##### annotate_daf(other_daf: 'Daf', my_to_other_dict: T_ds) -> 'Daf'
 
 Copy fields from another Daf into this one, row by row, matching on the key.
 
@@ -8672,7 +9089,7 @@ Value counts, statistics, and Markdown output.
 ### Value counts
 
 
-##### valuecounts_for_colname(self, colname: 'str', sort: 'bool' = False, reverse: 'bool' = True, omit_nulls: 'bool' = False) -> 'T_di'
+##### valuecounts_for_colname(colname: str, sort: bool = False, reverse: bool = True, omit_nulls: bool = False) -> T_di
 
 Count how often each value occurs in one column.
 
@@ -8697,7 +9114,7 @@ Examples:
 
 
 
-##### valuecounts_for_colnames_ls(self, colnames_ls: 'T_cs | None' = None, sort: 'bool' = False, reverse: 'bool' = True, omit_nulls: 'bool' = False) -> 'T_dodi'
+##### valuecounts_for_colnames_ls(colnames_ls: T_cs | None = None, sort: bool = False, reverse: bool = True, omit_nulls: bool = False) -> T_dodi
 
 Count how often each value occurs, in each of several columns.
 
@@ -8717,7 +9134,7 @@ Examples:
 
 
 
-##### valuecounts_for_colname_selectedby_colname(self, colname: 'str', selectedby_colname: 'str', selectedby_colvalue: 'str', sort: 'bool' = False, reverse: 'bool' = True) -> 'T_di'
+##### valuecounts_for_colname_selectedby_colname(colname: str, selectedby_colname: str, selectedby_colvalue: str, sort: bool = False, reverse: bool = True) -> T_di
 
 Count the values of a column, in the rows where another column has a value.
 
@@ -8738,7 +9155,7 @@ Examples:
 
 
 
-##### valuecounts_for_colnames_ls_selectedby_colname(self, colnames_ls: 'T_cs | None' = None, selectedby_colname: 'str' = '', selectedby_colvalue: 'str' = '', sort: 'bool' = False, reverse: 'bool' = True) -> 'T_dodi'
+##### valuecounts_for_colnames_ls_selectedby_colname(colnames_ls: T_cs | None = None, selectedby_colname: str = '', selectedby_colvalue: str = '', sort: bool = False, reverse: bool = True) -> T_dodi
 
 Count the values of several columns, in the rows where another column has a value.
 
@@ -8761,7 +9178,7 @@ Examples:
 
 
 
-##### valuecounts_for_colname1_groupedby_colname2(self, colname1: 'str', groupedby_colname2: 'str', sort: 'bool' = False, reverse: 'bool' = True) -> 'T_dodi'
+##### valuecounts_for_colname1_groupedby_colname2(colname1: str, groupedby_colname2: str, sort: bool = False, reverse: bool = True) -> T_dodi
 
 Count the values of one column, for each value of another.
 
@@ -8784,7 +9201,7 @@ Examples:
 
 
 
-##### value_counts_daf(self, colname: 'str', sort: 'bool' = False, reverse: 'bool' = True, include_total: 'bool' = False, omit_nulls: 'bool' = False) -> "'Daf'"
+##### value_counts_daf(colname: str, sort: bool = False, reverse: bool = True, include_total: bool = False, omit_nulls: bool = False) -> 'Daf'
 
 Make a Daf that lists each value of a column and its count.
 
@@ -8815,7 +9232,7 @@ Examples:
 
 
 
-##### daf_valuecount(self, by: 'str' = 'row', cols: 'T_cs | None' = None) -> 'T_ma'
+##### daf_valuecount(by: str = 'row', cols: T_cs | None = None) -> T_ma
 
 Count how often each value occurs, in each column, using `reduce()` and `count_values_kl()`.
 
@@ -8836,7 +9253,7 @@ Examples:
 ### Statistics
 
 
-##### gen_stats_daf(self, col_def_lot: 'T_lota') -> 'T_doda'
+##### gen_stats_daf(col_def_lot: T_lota) -> T_doda
 
 Work out statistics for columns, given a profile for each.
 
@@ -8865,7 +9282,7 @@ Examples:
 ### Markdown and text
 
 
-##### to_md(self, max_rows: 'int' = 0, max_cols: 'int' = 0, just: 'str' = '', shorten_text: 'bool' = True, max_text_len: 'int' = 80, smart_fmt: 'bool' = False, include_summary: 'bool' = False, disp_cols: 'T_cs | None' = None, header: 'T_cs | None' = None) -> 'str'
+##### to_md(max_rows: int = 0, max_cols: int = 0, just: str = '', shorten_text: bool = True, max_text_len: int = 80, smart_fmt: bool = False, include_summary: bool = False, disp_cols: T_cs | None = None, header: T_cs | None = None) -> str
 
 Make a Markdown table of the Daf.
 
@@ -8904,7 +9321,7 @@ Examples:
 
 
 
-##### to_md_cols(self, max_rows: 'int' = 0, max_cols: 'int' = 0, just: 'str' = '', shorten_text: 'bool' = True, max_text_len: 'int' = 80, smart_fmt: 'bool' = False, include_summary: 'bool' = False, disp_cols: 'T_ls | None' = None) -> 'str'
+##### to_md_cols(max_rows: int = 0, max_cols: int = 0, just: str = '', shorten_text: bool = True, max_text_len: int = 80, smart_fmt: bool = False, include_summary: bool = False, disp_cols: T_ls | None = None) -> str
 
 Make a Markdown table in which each row of the Daf is a column.
 
@@ -8933,7 +9350,7 @@ Examples:
 
 
 
-##### md_daf_table_snippet(self) -> 'str'
+##### md_daf_table_snippet() -> str
 
 Make a short Markdown table of the Daf, with a summary line.
 
@@ -8968,7 +9385,7 @@ Examples:
 
 
 
-##### daf_to_lol_summary(self, max_rows: 'int' = 10, max_cols: 'int' = 10, disp_cols: 'T_cs | None' = None) -> 'T_lola'
+##### daf_to_lol_summary(max_rows: int = 10, max_cols: int = 10, disp_cols: T_cs | None = None) -> T_lola
 
 Make a list of lists for display, with the column names first.
 
@@ -8995,7 +9412,7 @@ Examples:
 
 
 
-##### dict_to_md(da: 'T_da', cols: 'T_ls | None' = None, just: 'str' = '<<') -> 'str'
+##### dict_to_md(da: T_da, cols: T_ls | None = None, just: str = '<<') -> str
 
 Show a dict as a two column Markdown table, for looking at it.
 
@@ -9020,7 +9437,7 @@ Examples:
 
 
 
-##### __str__(self) -> 'str'
+##### __str__() -> str
 
 Show the Daf as a Markdown table.
 
@@ -9034,7 +9451,7 @@ Returns:
 
 
 
-##### __repr__(self) -> 'str'
+##### __repr__() -> str
 
 Show the Daf as a Markdown table, for the Python prompt.
 
@@ -9046,7 +9463,7 @@ Returns:
 
 
 
-##### __format__(self, format_spec: 'str') -> 'str'
+##### __format__(format_spec: str) -> str
 
 Format a Daf that holds one cell.
 
@@ -9108,19 +9525,24 @@ A SqlDaf is a parent or a child.
   child of a child is a child of the same parent. `is_child` tells them apart, and
   `parent_sdaf` is the parent of a child.
 
-A child runs nothing when it is made. Its rows are found the first time it is read: by
-`to_daf()`, `len()`, `bool()`, `to_dict()`, `to_list()` or `to_value()`. After that, it
-always means the same rows, as a selection of a Daf does. A change to the values in those
+Making a child does not read its rows. Some methods run a query at once for their
+arguments: `select_krows()` checks the keys, `select_by_dict()` with `expectmax` finds
+its rows to count them, and `groupby()` finds the groups. The rows of a child are fixed the first time
+it is read whole: by `to_daf()`, `len()`, `bool()`, `to_dict()`, `to_list()` or
+`to_value()`. After that, it always means the same rows, as a selection of a Daf does.
+`select_record()` and `iloc()` read one row and fix nothing, unless `iloc()` is given a
+negative position, which needs `len()`. A change to the values in those
 rows shows in it, since it refers to them. `copy(inplace=True)` gives it rows of its own.
 
 Every SqlDaf on one file shares one connection, which it holds in its attributes. So any two
 of them can be joined, and a child of one can be used with another. They also share its
 transactions: see `transaction()`. `SqlDaf.close()` closes the file, for every SqlDaf on it.
 Otherwise it stays open until the program ends. Each statement is committed when it
-finishes, so nothing is lost either way. `delete()` deletes a table from the file.
+finishes. So committed changes to permanent tables remain, whether the file is closed or the
+program ends. `delete()` deletes a table from the file.
 
 A table made by `copy()`, or by reading a join, is a TEMP table. It belongs to the
-connection, and goes when the connection closes. `save()` makes it a permanent table in the
+connection, and is removed when the connection closes. `save()` makes it a permanent table in the
 file, under a name, to be opened again later.
 
 Do not delete rows from a parent that has children. `len()` of a child counts its
@@ -9206,7 +9628,7 @@ Examples:
 ### Constructor
 
 
-##### __init__(self, name: str, cols: Optional[List[str]] = None, lol: collections.abc.Iterable[collections.abc.Iterable[typing.Any]] | None = None, keyfield: str = '', dtypes: Optional[Dict[str, Type]] = None, db_path: str = '') -> None
+##### __init__(name: str, cols: T_ls | None = None, lol: Iterable[Iterable[Any]] | None = None, keyfield: str = '', dtypes: T_dtype_dict | None = None, db_path: str = '') -> None
 
 Make a new table, or open one that is in the database file.
 
@@ -9242,7 +9664,7 @@ Raises:
 ### Loading a table
 
 
-##### from_csv(cls, path: str, name: str = '', keyfield: str = '', delimiter: str = ',', db_path: str = '') -> 'SqlDaf'
+##### from_csv(path: str, name: str = '', keyfield: str = '', delimiter: str = ',', db_path: str = '') -> SqlDaf
 
 Load a CSV file into a new table, without building it in memory.
 
@@ -9270,7 +9692,7 @@ Raises:
 
 
 
-##### from_daf(cls, data_daf: daffodil.daf.Daf, name: str, keyfield: str = '', db_path: str = '') -> 'SqlDaf'
+##### from_daf(data_daf: Daf, name: str, keyfield: str = '', db_path: str = '') -> SqlDaf
 
 Write an in-memory Daf into a new table.
 
@@ -9293,7 +9715,7 @@ Raises:
 
 
 
-##### table_exists(cls, name: str, db_path: str = '') -> bool
+##### table_exists(name: str, db_path: str = '') -> bool
 
 Say whether the database file has a table of this name.
 
@@ -9314,19 +9736,19 @@ Raises:
 ### Tables
 
 
-##### name(self) -> str
+##### name
 
-The name of the table in the database. `copy(name=)` and `save(name)` give a new one. 
-
-
-
-##### is_child(self) -> bool
-
-True for a child, a selection that refers to rows of its parent. False for a parent, which holds its own rows. 
+The name of the table in the database. `copy(name=)` and `save(name)` give a new one.
 
 
 
-##### copy(self, level: str | int | None = None, name: str = '', deep: bool = False, for_sorting: bool = False, inplace: bool = False) -> 'SqlDaf'
+##### is_child
+
+True for a child, a selection that refers to rows of its parent. False for a parent, which holds its own rows.
+
+
+
+##### copy(level: str | T_copybits | None = None, name: str = '', deep: bool = False, for_sorting: bool = False, inplace: bool = False) -> SqlDaf
 
 Copy the rows into a TEMP table of their own, as `Daf.copy()` copies a Daf.
 
@@ -9339,7 +9761,7 @@ With `inplace=True`, this SqlDaf becomes the copy, and is returned. Use it on a 
 make it a table of its own, independent of its parent. As in a Daf, a level that would
 not copy the rows, such as `sortable`, raises ValueError then.
 
-The copy is a TEMP table, so it goes when the connection closes. `save()` keeps it in the
+The copy is a TEMP table, so it is removed when the connection closes. `save()` keeps it in the
 file.
 
 Args:
@@ -9368,7 +9790,7 @@ Examples:
 
 
 
-##### save(self, name: str = '') -> 'SqlDaf'
+##### save(name: str = '') -> SqlDaf
 
 Keep this table in the database file, as a permanent table, to be opened again later.
 
@@ -9408,7 +9830,7 @@ Examples:
 
 
 
-##### delete(self) -> None
+##### delete() -> None
 
 Delete this table from the database file, with its metadata.
 
@@ -9424,7 +9846,7 @@ Raises:
 ### The database
 
 
-##### close(cls, db_path: str = '') -> None
+##### close(db_path: str = '') -> None
 
 Close a database file: the connection that every SqlDaf on it shares.
 
@@ -9450,7 +9872,7 @@ Raises:
 
 
 
-##### transaction(self) -> Iterator[NoneType]
+##### transaction() -> Iterator[None]
 
 Run the statements inside the `with` block as one transaction, on this database file.
 
@@ -9483,7 +9905,7 @@ Examples:
 
 
 
-##### sql(self, stmt: str, params: collections.abc.Iterable[typing.Any] = ()) -> daffodil.daf.Daf
+##### sql(stmt: str, params: Iterable[Any] = ()) -> Daf
 
 Run a SQL statement of your own, and return its result as a Daf.
 
@@ -9516,7 +9938,7 @@ Returns:
 ### Keys and types
 
 
-##### set_keyfield(self, keyfield: str = '') -> 'SqlDaf'
+##### set_keyfield(keyfield: str = '') -> SqlDaf
 
 Set the column that holds the key of each row.
 
@@ -9539,13 +9961,13 @@ Raises:
 
 
 
-##### key_index_name(self) -> str
+##### key_index_name() -> str
 
-The name of the unique index on the keyfield, as in daf_ix_marks_ballot_id. 
+The name of the unique index on the keyfield, as in daf_ix_marks_ballot_id.
 
 
 
-##### ensure_key_index(self) -> 'SqlDaf'
+##### ensure_key_index() -> SqlDaf
 
 Make the unique index on the keyfield of a parent, if it is not there yet.
 
@@ -9571,7 +9993,7 @@ Raises:
 
 
 
-##### apply_dtypes(self, *, dtypes: Optional[Dict[str, Type]] = None, cols: Union[str, List[str], NoneType] = None, silent_error: bool = False) -> 'SqlDaf'
+##### apply_dtypes(dtypes: T_dtype_dict | None = None, cols: str | T_ls | None = None, silent_error: bool = False) -> SqlDaf
 
 Convert the columns to their dtypes, in place, in the database.
 
@@ -9625,7 +10047,7 @@ Size, looping, single rows and columns, and moving rows into memory.
 ### Size
 
 
-##### __len__(self) -> int
+##### __len__() -> int
 
 Count the rows.
 
@@ -9638,13 +10060,13 @@ Returns:
 
 
 
-##### len(self) -> int
+##### len() -> int
 
-Count the rows, as `len(sdaf)` does. It is here so that code written for a Daf, which calls `daf.len()`, runs on a SqlDaf. 
+Count the rows, as `len(sdaf)` does. It is here so that code written for a Daf, which calls `daf.len()`, runs on a SqlDaf.
 
 
 
-##### __bool__(self) -> bool
+##### __bool__() -> bool
 
 Say whether there is at least one row.
 
@@ -9656,13 +10078,13 @@ Returns:
 
 
 
-##### num_rows(self) -> int
+##### num_rows() -> int
 
-Count the rows, as `len()` does. 
+Count the rows, as `len()` does.
 
 
 
-##### num_cols(self) -> int
+##### num_cols() -> int
 
 Count the columns.
 
@@ -9673,7 +10095,7 @@ Returns:
 
 
 
-##### shape(self) -> Tuple[int, int]
+##### shape() -> Tuple[int, int]
 
 Give the number of rows and the number of columns, as `Daf.shape()` does.
 
@@ -9686,7 +10108,7 @@ Returns:
 ### Looping
 
 
-##### __iter__(self) -> Iterator[Dict[str, Any]]
+##### __iter__() -> Iterator[T_da]
 
 Loop over the rows as dicts, as in `for row in sdaf`.
 
@@ -9701,7 +10123,7 @@ Returns:
 
 
 
-##### iter_dict(self) -> Iterator[Dict[str, Any]]
+##### iter_dict() -> Iterator[T_da]
 
 Loop over the rows as dicts, as `Daf.iter_dict()` does.
 
@@ -9713,7 +10135,7 @@ Returns:
 
 
 
-##### iter_klist(self) -> Iterator[daffodil.keyedlist.KeyedList]
+##### iter_klist() -> Iterator[KeyedList]
 
 Loop over the rows as [KeyedList][daffodil.keyedlist.KeyedList] objects.
 
@@ -9725,7 +10147,7 @@ Returns:
 
 
 
-##### iter_list(self) -> Iterator[List[Any]]
+##### iter_list() -> Iterator[T_la]
 
 Loop over the rows as lists, with the values in column order.
 
@@ -9739,7 +10161,7 @@ Returns:
 ### One row
 
 
-##### select_record(self, key: Any, silent_error: bool = True) -> Dict[str, Any]
+##### select_record(key: Any, silent_error: bool = True) -> T_da
 
 Read one row by its key, as a dict, as `Daf.select_record()` does, in one query.
 
@@ -9763,7 +10185,7 @@ Raises:
 
 
 
-##### iloc(self, irow: int = 0, include_cols: Optional[List[str]] = None, rtype: str = 'dict') -> Union[Dict[str, Any], List[Any]]
+##### iloc(irow: int = 0, include_cols: T_ls | None = None, rtype: str = 'dict') -> T_da | T_la
 
 Read one row by position, as `Daf.iloc()` does, in one query.
 
@@ -9790,7 +10212,7 @@ Raises:
 
 
 
-##### iloc_exists(self, irow: int) -> bool
+##### iloc_exists(irow: int) -> bool
 
 Say whether there is a row at this position, from 0.
 
@@ -9807,7 +10229,7 @@ Raises:
 ### Columns
 
 
-##### col(self, colname: str, *, unique: bool = False, omit_nulls: bool = False, silent_error: bool = False, astype: Union[Callable, str, type, NoneType] = None, indirect_col: str | None = None, default: Any = '') -> List[Any]
+##### col(colname: str, unique: bool = False, omit_nulls: bool = False, silent_error: bool = False, astype: Callable | str | type | None = None, indirect_col: str | None = None, default: Any = NULL) -> T_la
 
 Get one column as a list, by name, as `Daf.col()` does.
 
@@ -9832,7 +10254,7 @@ Raises:
 
 
 
-##### col_to_la(self, colname: str, *, unique: bool = False, omit_nulls: bool = False, silent_error: bool = False, astype: Union[Callable, str, type, NoneType] = None, indirect_col: str | None = None, default: Any = '') -> List[Any]
+##### col_to_la(colname: str, unique: bool = False, omit_nulls: bool = False, silent_error: bool = False, astype: Callable | str | type | None = None, indirect_col: str | None = None, default: Any = NULL) -> T_la
 
 Get one column as a list, by name. This does the same as `col()`. See that method.
 
@@ -9850,7 +10272,7 @@ Returns:
 
 
 
-##### icol(self, icol: int) -> List[Any]
+##### icol(icol: int) -> T_la
 
 Get one column as a list, by its place among the columns, as `Daf.icol()` does.
 
@@ -9869,7 +10291,7 @@ Raises:
 
 
 
-##### icol_to_la(self, icol: int, unique: bool = False, omit_nulls: bool = False) -> List[Any]
+##### icol_to_la(icol: int, unique: bool = False, omit_nulls: bool = False) -> T_la
 
 Get one column as a list, by its place among the columns, with options.
 
@@ -9888,7 +10310,7 @@ Raises:
 
 
 
-##### cols_to_dol(self, colname1: str, colname2: str) -> Dict[Any, List[Any]]
+##### cols_to_dol(colname1: str, colname2: str) -> Dict[Any, T_la]
 
 Map each value of one column to the values seen with it in another, as `Daf.cols_to_dol()` does.
 
@@ -9906,7 +10328,7 @@ Returns:
 ### Into memory
 
 
-##### to_daf(self) -> daffodil.daf.Daf
+##### to_daf() -> Daf
 
 Pull every row into an ordinary Daf in memory.
 
@@ -9920,7 +10342,7 @@ Returns:
 
 
 
-##### to_dict(self) -> Dict[str, Any]
+##### to_dict() -> T_da
 
 Read a table of one row as a dict, as `Daf.to_dict()` does.
 
@@ -9935,7 +10357,7 @@ Raises:
 
 
 
-##### to_list(self) -> List[Any]
+##### to_list() -> T_la
 
 Read a table of one row, or of one column, as a list, as `Daf.to_list()` does.
 
@@ -9950,7 +10372,7 @@ Raises:
 
 
 
-##### to_value(self) -> Any
+##### to_value() -> Any
 
 Read a table of one row and one column as its value, as `Daf.to_value()` does.
 
@@ -9964,7 +10386,7 @@ Raises:
 
 
 
-##### to_lod(self) -> List[Dict[str, Any]]
+##### to_lod() -> List[T_da]
 
 Make a list of dicts, one for each row, as `Daf.to_lod()` does.
 
@@ -9975,7 +10397,7 @@ Returns:
 
 
 
-##### to_dod(self, remove_keyfield: bool = True) -> Dict[Any, Dict[str, Any]]
+##### to_dod(remove_keyfield: bool = True) -> Dict[Any, T_da]
 
 Make a dict of dicts, named by the keyfield, as `Daf.to_dod()` does.
 
@@ -9992,7 +10414,7 @@ Raises:
 
 
 
-##### to_json(self, concise: bool = True) -> str
+##### to_json(concise: bool = True) -> str
 
 Make JSON text that holds the whole table, as `Daf.to_json()` does.
 
@@ -10009,7 +10431,7 @@ Returns:
 ### Display and files
 
 
-##### to_md(self, max_rows: int = 0, max_cols: int = 0, just: str = '', shorten_text: bool = True, max_text_len: int = 80, smart_fmt: bool = False, include_summary: bool = False, disp_cols: Any = None, header: Any = None) -> str
+##### to_md(max_rows: int = 0, max_cols: int = 0, just: str = '', shorten_text: bool = True, max_text_len: int = 80, smart_fmt: bool = False, include_summary: bool = False, disp_cols: Any = None, header: Any = None) -> str
 
 Make a Markdown table, as `Daf.to_md()` does.
 
@@ -10032,7 +10454,7 @@ Returns:
 
 
 
-##### to_md_cols(self, max_rows: int = 0, max_cols: int = 0, just: str = '', shorten_text: bool = True, max_text_len: int = 80, smart_fmt: bool = False, include_summary: bool = False, disp_cols: Optional[List[str]] = None) -> str
+##### to_md_cols(max_rows: int = 0, max_cols: int = 0, just: str = '', shorten_text: bool = True, max_text_len: int = 80, smart_fmt: bool = False, include_summary: bool = False, disp_cols: T_ls | None = None) -> str
 
 Make a Markdown table with each row as a column, as `Daf.to_md_cols()` does.
 
@@ -10053,7 +10475,7 @@ Returns:
 
 
 
-##### daf_to_lol_summary(self, max_rows: int = 10, max_cols: int = 10, disp_cols: Any = None) -> List[List[Any]]
+##### daf_to_lol_summary(max_rows: int = 10, max_cols: int = 10, disp_cols: Any = None) -> T_lola
 
 Give the header and the rows to display, as `Daf.daf_to_lol_summary()` does.
 
@@ -10070,7 +10492,7 @@ Returns:
 
 
 
-##### to_csv_buff(self, line_terminator: str | None = None, include_header: bool = True) -> bytes | str
+##### to_csv_buff(line_terminator: str | None = None, include_header: bool = True) -> T_buff
 
 Make CSV text from the rows, as `Daf.to_csv_buff()` does.
 
@@ -10086,7 +10508,7 @@ Returns:
 
 
 
-##### to_csv_file(self, file_path: str | pathlib.Path = '', line_terminator: str | None = None, include_header: bool = True) -> str
+##### to_csv_file(file_path: str | Path = '', line_terminator: str | None = None, include_header: bool = True) -> str
 
 Write the rows to a CSV file, as `Daf.to_csv_file()` does.
 
@@ -10122,7 +10544,7 @@ Each selection is a child: it refers to rows of its parent, and runs no query un
 ### Indexing with brackets
 
 
-##### __getitem__(self, sel: Any) -> 'SqlDaf'
+##### __getitem__(sel: Any) -> SqlDaf
 
 Select rows by position or by key, as `daf[n]`, `daf[n:m]` and `daf[key]` do.
 
@@ -10177,7 +10599,7 @@ Examples:
 ### By condition
 
 
-##### select_where(self, where: Callable[[Any], Any], indirect_col: str | None = None, cols: Optional[List[str]] = None) -> 'SqlDaf'
+##### select_where(where: Callable[[Any], Any], indirect_col: str | None = None, cols: T_ls | None = None) -> SqlDaf
 
 Select the rows for which a Python function is true, as `Daf.select_where()` does.
 
@@ -10211,7 +10633,7 @@ Examples:
 
 
 
-##### select_where_sql(self, where_sql: str, params: collections.abc.Iterable[typing.Any] = ()) -> 'SqlDaf'
+##### select_where_sql(where_sql: str, params: Iterable[Any] = ()) -> SqlDaf
 
 Select the rows for which a SQL condition is true.
 
@@ -10238,7 +10660,7 @@ Examples:
 
 
 
-##### select_by_dict(self, selector_da: Union[Dict[str, Any], List[Dict[str, Any]]], expectmax: int = -1, inverse: bool = False, keyfield: str = '') -> 'SqlDaf'
+##### select_by_dict(selector_da: T_da | List[T_da], expectmax: int = -1, inverse: bool = False, keyfield: str = '') -> SqlDaf
 
 Select the rows that match every field of a dict, or any one of a list of dicts.
 
@@ -10275,7 +10697,7 @@ Examples:
 
 
 
-##### split_where(self, where: Callable[[Any], Any], *, indirect_col: str | None = None, cols: Optional[List[str]] = None) -> Tuple[ForwardRef('SqlDaf'), ForwardRef('SqlDaf')]
+##### split_where(where: Callable[[Any], Any], indirect_col: str | None = None, cols: T_ls | None = None) -> Tuple[SqlDaf, SqlDaf]
 
 Split the rows in two, by a Python function that is true or false for each row.
 
@@ -10314,7 +10736,7 @@ Examples:
 
 
 
-##### select_first_row_by_dict(self, selector_da: Dict[str, Any], inverse: bool = False) -> Dict[str, Any]
+##### select_first_row_by_dict(selector_da: T_da, inverse: bool = False) -> T_da
 
 Get the first row that matches every field of a dict, as `Daf.select_first_row_by_dict()` does.
 
@@ -10331,7 +10753,7 @@ Returns:
 ### Columns
 
 
-##### select_cols(self, cols: Optional[List[str]] = None, exclude_cols: Optional[List[str]] = None) -> 'SqlDaf'
+##### select_cols(cols: T_ls | None = None, exclude_cols: T_ls | None = None) -> SqlDaf
 
 Make a new table with only some columns, chosen by name, as `Daf.select_cols()` does.
 
@@ -10365,7 +10787,7 @@ Examples:
 
 
 
-##### calc_cols(self, include_cols: collections.abc.Iterable | None = None, exclude_cols: collections.abc.Iterable | None = None, include_types: Optional[List[Type]] = None, exclude_types: Optional[List[Type]] = None) -> List[str]
+##### calc_cols(include_cols: Iterable | None = None, exclude_cols: Iterable | None = None, include_types: List[Type] | None = None, exclude_types: List[Type] | None = None) -> T_ls
 
 Choose column names by rules, as `Daf.calc_cols()` does.
 
@@ -10384,7 +10806,7 @@ Returns:
 ### By key
 
 
-##### __contains__(self, key: Any) -> bool
+##### __contains__(key: Any) -> bool
 
 Say whether a row has this key, as in `key in sdaf`.
 
@@ -10402,7 +10824,7 @@ Raises:
 
 
 
-##### keys(self) -> List[Any]
+##### keys() -> T_la
 
 Get the keys, as a list of the keyfield's values in row order, as `Daf.keys()` does.
 
@@ -10415,7 +10837,7 @@ Returns:
 
 
 
-##### get_existing_keys(self, keylist: List[Any]) -> List[Any]
+##### get_existing_keys(keylist: T_la) -> T_la
 
 Keep the keys of a list that have a row, in the order of the list, as `Daf.get_existing_keys()` does.
 
@@ -10429,7 +10851,7 @@ Returns:
 
 
 
-##### select_krows(self, krows: Any, inverse: bool = False, silent_error: bool = False) -> 'SqlDaf'
+##### select_krows(krows: Any, inverse: bool = False, silent_error: bool = False) -> SqlDaf
 
 Select rows by key, as `Daf.select_krows()` does.
 
@@ -10459,7 +10881,7 @@ Raises:
 
 
 
-##### select_records_daf(self, keys_ls: Any, inverse: bool = False, silent_error: bool = False) -> 'SqlDaf'
+##### select_records_daf(keys_ls: Any, inverse: bool = False, silent_error: bool = False) -> SqlDaf
 
 Select the rows with these keys, as `Daf.select_records_daf()` does.
 
@@ -10504,7 +10926,7 @@ Adding rows, changing values, and changing the columns.
 ### Changing values
 
 
-##### __setitem__(self, slice_spec: Any, value: Any) -> None
+##### __setitem__(slice_spec: Any, value: Any) -> None
 
 Assign by key and column name, as in `sdaf[key, 'v'] = 1`.
 
@@ -10535,7 +10957,7 @@ Raises:
 
 
 
-##### assign_record(self, record: Dict[str, Any]) -> 'SqlDaf'
+##### assign_record(record: T_da) -> SqlDaf
 
 Put one row in by its key, replacing the row that has that key, as `Daf.assign_record()` does.
 
@@ -10554,7 +10976,7 @@ Raises:
 
 
 
-##### update_record_krow(self, key: Any, record: Optional[Dict[str, Any]] = None) -> 'SqlDaf'
+##### update_record_krow(key: Any, record: T_da | None = None) -> SqlDaf
 
 Change some cells in the row that has this key, as `Daf.update_record_krow()` does.
 
@@ -10585,7 +11007,7 @@ Examples:
 
 
 
-##### update_by_keylist(self, keylist: Optional[List[Any]] = None, record: Optional[Dict[str, Any]] = None) -> 'SqlDaf'
+##### update_by_keylist(keylist: T_la | None = None, record: T_da | None = None) -> SqlDaf
 
 Change some cells in the rows that have the given keys, as `Daf.update_by_keylist()` does.
 
@@ -10606,7 +11028,7 @@ Raises:
 
 
 
-##### assign_col(self, colname: str, la: Optional[List[Any]] = None, default: Any = '') -> 'SqlDaf'
+##### assign_col(colname: str, la: T_la | None = None, default: Any = NULL) -> SqlDaf
 
 Fill a column by name with the values of a list, or add it if it is new, as `Daf.assign_col()` does.
 
@@ -10629,7 +11051,7 @@ Raises:
 
 
 
-##### apply_to_col(self, col: str, func: Callable, **kwargs: Any) -> 'SqlDaf'
+##### apply_to_col(col: str, func: Callable, kwargs: Any = {}) -> SqlDaf
 
 Replace each value of a column by the result of a function, in place, as `Daf.apply_to_col()` does.
 
@@ -10651,7 +11073,7 @@ Raises:
 
 
 
-##### apply_in_place(self, func: Callable[..., Any], by: str = 'row', rowkeys: Optional[List[Any]] = None, **kwargs: Any) -> 'SqlDaf'
+##### apply_in_place(func: Callable[..., Any], by: str = 'row', rowkeys: T_la | None = None, kwargs: Any = {}) -> SqlDaf
 
 Apply a function to each row and store the results, as `Daf.apply_in_place()` does.
 
@@ -10682,7 +11104,7 @@ Raises:
 ### Adding rows
 
 
-##### append(self, data_item: Any = None, respect_kd: bool = False, *, lol: Optional[List[List[Any]]] = None, la: Optional[List[Any]] = None, fast: bool = False) -> 'SqlDaf'
+##### append(data_item: Any = None, respect_kd: bool = False, lol: T_lola | None = None, la: T_la | None = None, fast: bool = False) -> SqlDaf
 
 Add one row, or several, to the end, as `Daf.append()` does.
 
@@ -10720,7 +11142,7 @@ Raises:
 
 
 
-##### record_append(self, record: Union[Dict[str, Any], daffodil.keyedlist.KeyedList], respect_kd: bool = True) -> 'SqlDaf'
+##### record_append(record: T_da | KeyedList, respect_kd: bool = True) -> SqlDaf
 
 Add one row given as a dict or a KeyedList, as `Daf.record_append()` does.
 
@@ -10741,7 +11163,7 @@ Raises:
 
 
 
-##### extend(self, records_lod: Optional[List[Dict[str, Any]]] = None, respect_kd: bool = False, *, lol: Optional[List[List[Any]]] = None) -> 'SqlDaf'
+##### extend(records_lod: List[T_da] | None = None, respect_kd: bool = False, lol: T_lola | None = None) -> SqlDaf
 
 Add several rows, as dicts or as lists, as `Daf.extend()` does.
 
@@ -10763,7 +11185,7 @@ Raises:
 
 
 
-##### concat(self, other_instance: daffodil.daf.Daf, respect_kd: bool = False) -> 'SqlDaf'
+##### concat(other_instance: Daf, respect_kd: bool = False) -> SqlDaf
 
 Add the rows of another Daf or SqlDaf to the end of this one, as `Daf.concat()` does.
 
@@ -10796,7 +11218,7 @@ Raises:
 ### Removing rows
 
 
-##### delete_records(self, keys_ls: Any, inplace: bool = False, silent_error: bool = False) -> 'SqlDaf'
+##### delete_records(keys_ls: Any, inplace: bool = False, silent_error: bool = False) -> SqlDaf
 
 Remove the rows with these keys, as `Daf.delete_records()` does. A Python NULL key gives
 undefined results: see SqlDaf.
@@ -10830,7 +11252,7 @@ Raises:
 
 
 
-##### remove_dups(self, keyfield: str = '') -> Tuple[ForwardRef('SqlDaf'), ForwardRef('SqlDaf')]
+##### remove_dups(keyfield: str = '') -> Tuple[SqlDaf, SqlDaf]
 
 Split the rows into those with a unique key and those with a repeated key, as `Daf.remove_dups()` does.
 
@@ -10870,7 +11292,7 @@ Examples:
 ### Columns and layout
 
 
-##### insert_col(self, colname: str, col_la: Optional[List[Any]] = None, icol: int = -1, default: Any = '') -> 'SqlDaf'
+##### insert_col(colname: str, col_la: T_la | None = None, icol: int = -1, default: Any = NULL) -> SqlDaf
 
 Add a named column, or fill it if the name is there, as `Daf.insert_col()` does.
 
@@ -10905,7 +11327,7 @@ Examples:
 
 
 
-##### drop_cols(self, exclude_cols: Optional[List[str]] = None) -> 'SqlDaf'
+##### drop_cols(exclude_cols: T_ls | None = None) -> SqlDaf
 
 Remove columns from the table, in place, as `Daf.drop_cols()` does.
 
@@ -10940,7 +11362,7 @@ Examples:
 
 
 
-##### rename_cols(self, from_to_dict: Dict[str, str]) -> 'SqlDaf'
+##### rename_cols(from_to_dict: T_ds) -> SqlDaf
 
 Rename columns in place, as `Daf.rename_cols()` does.
 
@@ -10979,7 +11401,7 @@ Examples:
 
 
 
-##### set_cols(self, new_cols: Optional[List[str]] = None, sanitize_cols: bool = True, unnamed_prefix: str = 'col') -> 'SqlDaf'
+##### set_cols(new_cols: T_ls | None = None, sanitize_cols: bool = True, unnamed_prefix: str = 'col') -> SqlDaf
 
 Set the column names by position, in place, as `Daf.set_cols()` does.
 
@@ -11009,13 +11431,13 @@ Examples:
 
 
 
-##### set_dtypes(self, default_type: Type = <class 'str'>, typ_to_cols_dict: Optional[Dict[Type, List[str]]] = None) -> 'SqlDaf'
+##### set_dtypes(default_type: Type = str, typ_to_cols_dict: Dict[Type, T_ls] | None = None) -> SqlDaf
 
 Set the dtype of every column, from a default and a few exceptions, as `Daf.set_dtypes()` does.
 
 No value is converted. `apply_dtypes()` does that.
 On a permanent table with a record, the record is changed too, as `set_keyfield()` changes it.
-A record holds int, float, bool, str, list and dict.
+The record can store these dtypes: int, float, bool, str, list and dict.
 
 Args:
     default_type: The type of every column that is not listed.
@@ -11035,7 +11457,7 @@ Examples:
 
 
 
-##### attach_schema(self, schema: type) -> 'SqlDaf'
+##### attach_schema(schema: type) -> SqlDaf
 
 Attach a `@schemaclass` to this SqlDaf, as `Daf.attach_schema()` does.
 
@@ -11073,7 +11495,7 @@ Examples:
 
 
 
-##### clone_empty(self, lol: Optional[List[List[Any]]] = None, cols: Optional[List[str]] = None, name: str = '') -> 'SqlDaf'
+##### clone_empty(lol: T_lola | None = None, cols: T_ls | None = None, name: str = '') -> SqlDaf
 
 Make a new table with the same layout, as `Daf.clone_empty()` does.
 
@@ -11103,7 +11525,7 @@ Examples:
 ### Sorting
 
 
-##### sort_by_colname(self, colname: str, *, reverse: bool = False, length_priority: bool = False, as_str: bool = False) -> 'SqlDaf'
+##### sort_by_colname(colname: str, reverse: bool = False, length_priority: bool = False, as_str: bool = False) -> SqlDaf
 
 Sort the rows by one column, in place, as `Daf.sort_by_colname()` does.
 
@@ -11129,7 +11551,7 @@ Examples:
 
 
 
-##### sort_by_colnames(self, colnames: List[str], reverse: bool = False, length_priority: bool = False, as_str: bool = False) -> 'SqlDaf'
+##### sort_by_colnames(colnames: T_ls, reverse: bool = False, length_priority: bool = False, as_str: bool = False) -> SqlDaf
 
 Sort the rows by several columns, in place, as `Daf.sort_by_colnames()` does.
 
@@ -11185,7 +11607,7 @@ Functions over rows, groups and counts, and joins.
 ### Functions over rows
 
 
-##### apply(self, func: Callable[..., Any], by: str = 'row', keylist: Optional[List[Any]] = None, **kwargs: Any) -> Any
+##### apply(func: Callable[..., Any], by: str = 'row', keylist: T_la | None = None, kwargs: Any = {}) -> Any
 
 Apply a Python function to each row, and collect the results in a new table, as `Daf.apply()` does.
 
@@ -11235,7 +11657,7 @@ Examples:
 
 
 
-##### reduce(self, func: Callable[..., Any], by: str = 'row', cols: Optional[List[str]] = None, initial_da: Optional[Dict[str, Any]] = None, indirect_col: str = '', silent_error: bool = False, **kwargs: Any) -> Any
+##### reduce(func: Callable[..., Any], by: str = 'row', cols: T_ls | None = None, initial_da: T_da | None = None, indirect_col: str = '', silent_error: bool = False, kwargs: Any = {}) -> Any
 
 Combine all the rows into one result, using a function, as `Daf.reduce()` does.
 
@@ -11283,7 +11705,7 @@ Examples:
 ### Groups
 
 
-##### groupby(self, colname: str = '', colnames: Optional[List[str]] = None, omit_nulls: bool = False, cols: Optional[List[str]] = None) -> daffodil.keyedlist.KeyedList
+##### groupby(colname: str = '', colnames: T_ls | None = None, omit_nulls: bool = False, cols: T_ls | None = None) -> KeyedList
 
 Group the rows by the values of a column, as `Daf.groupby()` does.
 
@@ -11321,7 +11743,7 @@ Examples:
 
 
 
-##### groupby_cols(self, colnames: List[str], cols: Optional[List[str]] = None, omit_nulls: bool = False) -> daffodil.keyedlist.KeyedList
+##### groupby_cols(colnames: T_ls, cols: T_ls | None = None, omit_nulls: bool = False) -> KeyedList
 
 Group the rows by the values of several columns, as `Daf.groupby_cols()` does.
 
@@ -11342,7 +11764,7 @@ Raises:
 
 
 
-##### group_where(self, where: Callable[[Any], Any], *, indirect_col: str | None = None, cols: Optional[List[str]] = None) -> daffodil.keyedlist.KeyedList
+##### group_where(where: Callable[[Any], Any], indirect_col: str | None = None, cols: T_ls | None = None) -> KeyedList
 
 Group the rows by the keys a Python function returns, as `Daf.group_where()` does.
 
@@ -11381,7 +11803,7 @@ Examples:
 
 
 
-##### groupsum_daf(self, colname: str, by: str = 'row', reduce_cols: Optional[List[str]] = None) -> daffodil.daf.Daf
+##### groupsum_daf(colname: str, by: str = 'row', reduce_cols: T_ls | None = None) -> Daf
 
 Group by a column and add up the other columns of each group, as `Daf.groupsum_daf()` does.
 
@@ -11411,7 +11833,7 @@ Examples:
 
 
 
-##### sum(self, colnames_ls: Optional[List[str]] = None, numeric_only: bool = False) -> Dict[str, Any]
+##### sum(colnames_ls: T_ls | None = None, numeric_only: bool = False) -> T_da
 
 Total the columns, as `Daf.sum()` does, and return a dict of the totals.
 
@@ -11440,7 +11862,7 @@ Examples:
 ### Counts
 
 
-##### valuecounts_for_colname(self, colname: str, sort: bool = False, reverse: bool = True, omit_nulls: bool = False) -> Dict[str, int]
+##### valuecounts_for_colname(colname: str, sort: bool = False, reverse: bool = True, omit_nulls: bool = False) -> T_di
 
 Count how often each value occurs in one column, as `Daf.valuecounts_for_colname()` does.
 
@@ -11466,7 +11888,7 @@ Examples:
 
 
 
-##### valuecounts_for_colnames_ls(self, colnames_ls: Optional[List[str]] = None, sort: bool = False, reverse: bool = True, omit_nulls: bool = False) -> Dict[str, Dict[str, int]]
+##### valuecounts_for_colnames_ls(colnames_ls: T_ls | None = None, sort: bool = False, reverse: bool = True, omit_nulls: bool = False) -> Dict[str, T_di]
 
 Count how often each value occurs, in each of several columns, as `Daf.valuecounts_for_colnames_ls()` does.
 
@@ -11483,7 +11905,7 @@ Returns:
 
 
 
-##### valuecounts_for_colname_selectedby_colname(self, colname: str, selectedby_colname: str, selectedby_colvalue: Any, sort: bool = False, reverse: bool = True) -> Dict[str, int]
+##### valuecounts_for_colname_selectedby_colname(colname: str, selectedby_colname: str, selectedby_colvalue: Any, sort: bool = False, reverse: bool = True) -> T_di
 
 Count the values of a column, in the rows where another column has a value, as the Daf method does.
 
@@ -11499,7 +11921,7 @@ Returns:
 
 
 
-##### valuecounts_for_colnames_ls_selectedby_colname(self, colnames_ls: Optional[List[str]] = None, selectedby_colname: str = '', selectedby_colvalue: Any = '', sort: bool = False, reverse: bool = True) -> Dict[str, Dict[str, int]]
+##### valuecounts_for_colnames_ls_selectedby_colname(colnames_ls: T_ls | None = None, selectedby_colname: str = '', selectedby_colvalue: Any = '', sort: bool = False, reverse: bool = True) -> Dict[str, T_di]
 
 Count the values of several columns, in the rows where another column has a value, as the Daf method does.
 
@@ -11515,7 +11937,7 @@ Returns:
 
 
 
-##### valuecounts_for_colname1_groupedby_colname2(self, colname1: str, groupedby_colname2: str, sort: bool = False, reverse: bool = True) -> Dict[Any, Dict[str, int]]
+##### valuecounts_for_colname1_groupedby_colname2(colname1: str, groupedby_colname2: str, sort: bool = False, reverse: bool = True) -> Dict[Any, T_di]
 
 Count the values of one column, for each value of another, as the Daf method does.
 
@@ -11534,7 +11956,7 @@ Returns:
 
 
 
-##### value_counts_daf(self, colname: str, sort: bool = False, reverse: bool = True, include_total: bool = False, omit_nulls: bool = False) -> daffodil.daf.Daf
+##### value_counts_daf(colname: str, sort: bool = False, reverse: bool = True, include_total: bool = False, omit_nulls: bool = False) -> Daf
 
 Count the values of a column into a Daf in memory, with one row per value, as `Daf.value_counts_daf()` does.
 
@@ -11553,7 +11975,7 @@ Returns:
 
 
 
-##### daf_valuecount(self, by: str = 'row', cols: Optional[List[str]] = None) -> Dict[str, Any]
+##### daf_valuecount(by: str = 'row', cols: T_ls | None = None) -> T_da
 
 Count how often each value occurs, in each column, as `Daf.daf_valuecount()` does.
 
@@ -11574,7 +11996,7 @@ Raises:
 ### Joins
 
 
-##### join(self, other_daf: 'SqlDaf', how: str = 'inner', shared_fields: Optional[List[str]] = None, tag_other: bool = False, custom_translator_daf: daffodil.daf.Daf | None = None, diagnose: bool = False, name: str = '', fill: Any = '') -> 'SqlDaf'
+##### join(other_daf: SqlDaf, how: str = 'inner', shared_fields: T_ls | None = None, tag_other: bool = False, custom_translator_daf: Daf | None = None, diagnose: bool = False, name: str = '', fill: Any = NULL) -> SqlDaf
 
 Join two SqlDaf tables on their keyfields, as `Daf.join()` does, in SQL.
 
@@ -11710,3 +12132,321 @@ Examples:
     <BLANKLINE>
     %% daf rows=2; cols=2; keyfield=''; name=''
     <BLANKLINE>
+
+##### __getitem__(key: TKey | List[TKey]) -> Any
+
+Get the value for a key, or a list of values for a list of keys.
+
+Args:
+    key: A key, or a list of keys.
+
+Returns:
+    The value. For a list of keys, a list of values in that order. A key of the list that is
+    missing is skipped, so the list can be shorter.
+
+Raises:
+    KeyError: A single key is not found.
+    ValueError: The key is not a list and cannot be hashed.
+
+Examples:
+    >>> klist = KeyedList(['a', 'b', 'c'], [1, 2, 3])
+    >>> klist['b']
+    2
+    >>> klist[['c', 'a']]
+    [3, 1]
+    >>> klist[['a', 'zz']]
+    [1]
+
+##### __setitem__(key: TKey, value: Any) -> None
+
+Set the value for a key, as `row[key] = value`.
+
+A key that exists gets the new value in the list that this KeyedList points at. If
+that list is a row of a Daf, the Daf changes. A key that is new is added at the end of
+the keys, and its value at the end of the list, so a row of a Daf is then longer than
+the others. The index is copied before it gets a new key, so other KeyedLists that
+shared it do not get the key.
+
+Args:
+    key: The key.
+    value: The value.
+
+Examples:
+    >>> row = [1, 2]
+    >>> klist = KeyedList(['a', 'b'], row)
+    >>> klist['b'] = 20
+    >>> klist['c'] = 30
+    >>> row
+    [1, 20, 30]
+    >>> list(klist)
+    ['a', 'b', 'c']
+
+##### __delitem__(key: TKey) -> None
+
+Delete a key and its value, as `del row[key]`.
+
+The value is removed from the list that this KeyedList points at, and the later
+values move down. If that list is a row of a Daf, the row is then shorter than the
+others. The index is rebuilt, and this KeyedList no longer shares it.
+
+Args:
+    key: The key to delete.
+
+Raises:
+    KeyError: The key is not found.
+
+Examples:
+    >>> row = [1, 2, 3]
+    >>> klist = KeyedList(['a', 'b', 'c'], row)
+    >>> del klist['b']
+    >>> row, list(klist)
+    ([1, 3], ['a', 'c'])
+
+##### __len__() -> int
+
+Get the number of values.
+
+Returns:
+    The number of values in the list that this KeyedList points at.
+
+Examples:
+    >>> len(KeyedList(['a', 'b'], [1, 2]))
+    2
+
+##### __iter__() -> Iterator[TKey]
+
+Loop over the keys, as a dict does.
+
+Returns:
+    An iterator of the keys, in the order of their values.
+
+Examples:
+    >>> list(KeyedList(['a', 'b'], [1, 2]))
+    ['a', 'b']
+
+##### __contains__(key: object) -> bool
+
+Test whether a key is one of the keys, as `key in row`.
+
+Args:
+    key: The key to look for.
+
+Returns:
+    True if the key is found.
+
+Examples:
+    >>> 'a' in KeyedList(['a', 'b'], [1, 2])
+    True
+    >>> 'z' in KeyedList(['a', 'b'], [1, 2])
+    False
+
+##### keys() -> KeysView[TKey]
+
+Get the keys, in the order of their values.
+
+This is a keys view of the index itself. When the index is shared with other
+KeyedLists, as it is for the rows of a Daf, it is not a copy. For a list of the
+keys, use `list(row.keys())`.
+
+Returns:
+    The keys.
+
+Examples:
+    >>> KeyedList(['a', 'b'], [1, 2]).keys()
+    dict_keys(['a', 'b'])
+
+##### set_values(new_values: List[Any]) -> None
+
+Point this KeyedList at a different list of values.
+
+This replaces the list that the KeyedList adopted. It does not write into the old
+list. If the old list was a row of a Daf, the row is not changed, and this KeyedList
+stops being a view of it. The new list is adopted, not copied. To change the values
+in the old list, assign to the keys.
+
+Args:
+    new_values: The new list of values, one for each key.
+
+Raises:
+    TypeError: `new_values` is not a list. A tuple is not accepted.
+    ValueError: The list does not have one value for each key.
+
+Examples:
+    >>> row = [1, 2]
+    >>> klist = KeyedList(['a', 'b'], row)
+    >>> klist.set_values([10, 20])
+    >>> klist.values(), row
+    ([10, 20], [1, 2])
+    >>> klist.set_values([1])
+    Traceback (most recent call last):
+        ...
+    ValueError: values length must match keys
+
+##### values(astype: Callable | str | type | None = None) -> List[Any]
+
+Get the values as a list.
+
+With no `astype`, or with `list`, this is the list that the KeyedList adopted, not
+a copy. If it is a row of a Daf, changing it changes the Daf. With any other
+`astype` it is a new list, and the original is not changed. An empty cell, which is
+NULL in daffodil, is not converted. It stays as the empty string.
+
+Args:
+    astype: How to convert each value. A type such as `int`, a function, or one of
+        the names `'int'`, `'str'`, `'float'` and `'bool'`. None does not convert.
+
+Returns:
+    The values.
+
+Raises:
+    ValueError: `astype` is a name that is not supported, or a value cannot be
+        converted by `int` or `float`. Another converter raises its own error.
+
+Examples:
+    >>> klist = KeyedList(['a', 'b'], ['1', '2'])
+    >>> klist.values()
+    ['1', '2']
+    >>> klist.values(int)
+    [1, 2]
+    >>> klist.values('float')
+    [1.0, 2.0]
+    >>> KeyedList(['a', 'b'], ['1', '']).values(int)
+    [1, '']
+    >>> klist.values() is klist.values()
+    True
+    >>> klist.values(int) is klist.values(int)
+    False
+    >>> klist.values('date')
+    Traceback (most recent call last):
+        ...
+    ValueError: astype not supported: date
+
+##### items() -> Iterator[Tuple[TKey, Any]]
+
+Loop over the (key, value) pairs, as `dict.items()` does.
+
+This is an iterator, not a view. It can be used once. To keep the pairs, use
+`list(row.items())`.
+
+Returns:
+    An iterator of (key, value) tuples.
+
+Examples:
+    >>> list(KeyedList(['a', 'b'], [1, 2]).items())
+    [('a', 1), ('b', 2)]
+    >>> pairs = KeyedList(['a'], [1]).items()
+    >>> list(pairs), list(pairs)
+    ([('a', 1)], [])
+
+##### get(key: TKey, default: Any = None) -> Any
+
+Get the value for a key, or a default if the key is not found.
+
+Args:
+    key: The key.
+    default: What to return if the key is not found.
+
+Returns:
+    The value, or `default`.
+
+Raises:
+    TypeError: The key cannot be hashed, such as a list. Unlike `row[...]`, a list
+        of keys is not accepted here.
+
+Examples:
+    >>> klist = KeyedList(['a'], [1])
+    >>> klist.get('a'), klist.get('z'), klist.get('z', 0)
+    (1, None, 0)
+
+##### update(other: KeyedList | Dict[Any, Any]) -> None
+
+Set many keys from a dict or from another KeyedList.
+
+Each key of `other` is assigned as in `row[key] = value`. A key that exists gets
+the new value in the list. A key that is new is added at the end of the keys and of
+the list. If the list is a row of a Daf, that row is then longer than the others,
+so use `update()` only with keys that exist. `other` is not changed.
+
+Args:
+    other: A dict or a KeyedList.
+
+Examples:
+    >>> klist = KeyedList(['a', 'b'], [1, 2])
+    >>> klist.update({'b': 20, 'c': 30})
+    >>> klist.to_dict()
+    {'a': 1, 'b': 20, 'c': 30}
+
+##### to_dict() -> Dict[TKey, Any]
+
+Make a dict of the keys and values.
+
+The dict is independent of this KeyedList. Later writes to the row do not change
+it, and changing it does not change the row. The values are not copied deeply, so a
+list or dict held in a cell is the same object in both.
+
+Returns:
+    A new dict.
+
+Examples:
+    >>> klist = KeyedList(['a', 'b'], [1, 2])
+    >>> as_dict = klist.to_dict()
+    >>> klist['a'] = 99
+    >>> as_dict
+    {'a': 1, 'b': 2}
+
+##### __repr__() -> str
+
+Show the keys and values as a dict.
+
+Returns:
+    The text of the dict.
+
+Examples:
+    >>> KeyedList(['a', 'b'], [1, 2])
+    {'a': 1, 'b': 2}
+
+##### __bool__() -> bool
+
+return true if there is something in the values list.
+
+##### to_json() -> str
+
+Make a JSON string that holds the keys and the values.
+
+The text has the marker `__KeyedList__`, the keys with their positions under `hd`,
+and the `values`. Every value must be one that `json` can write. JSON keys are text,
+so a key that is not a string, such as an int, comes back from `from_json()` as a
+string.
+
+Returns:
+    The JSON text.
+
+Raises:
+    TypeError: A value cannot be written as JSON.
+
+Examples:
+    >>> KeyedList(['a', 'b'], [1, 'x']).to_json()
+    '{"__KeyedList__": true, "hd": {"a": 0, "b": 1}, "values": [1, "x"]}'
+
+##### from_json(json_str: str) -> KeyedList
+
+Make a KeyedList from the text that `to_json()` writes.
+
+Args:
+    json_str: The JSON text.
+
+Returns:
+    The new KeyedList. It has its own list of values.
+
+Raises:
+    ValueError: The text is not JSON, or the JSON does not have the `__KeyedList__`
+        marker.
+
+Examples:
+    >>> klist = KeyedList(['a', 'b'], [1, 'x'])
+    >>> KeyedList.from_json(klist.to_json()).to_dict()
+    {'a': 1, 'b': 'x'}
+    >>> KeyedList.from_json('{"a": 1}')
+    Traceback (most recent call last):
+        ...
+    ValueError: Invalid JSON string for KeyedList

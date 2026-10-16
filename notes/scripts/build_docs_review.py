@@ -5,16 +5,20 @@
 #
 # The file has a review prompt, then the README, then every page of the docs site in the order
 # of the nav in mkdocs.yml. On an API page, each "::: name" directive is replaced by the
-# signature and docstring of that name, as mkdocstrings would render it.
+# signature and docstring of that name.
+#
+# The entries come from griffe, the parser that mkdocstrings uses. So a signature reads as on
+# the site: a default is its source text, such as _MISSING, not the repr of an object. A
+# "heading:" option names the entry, as on the site. A class directive without "members: false"
+# also lists the public members that have a docstring, as the site does.
 #
 # Usage, from the repo root:   uv run python notes/scripts/build_docs_review.py
 
-import importlib
-import inspect
 import os
 import re
 from typing import Any, Iterator, List, Tuple
 
+import griffe
 import yaml
 
 T_ls = List[str]
@@ -82,46 +86,48 @@ def nav_pages(mkdocs_text: str) -> Iterator[Tuple[T_ls, str]]:
     yield from walk(nav_la, [])
 
 
-def resolve(dotted: str) -> Any:
-    """ The object a dotted name refers to, as a module then attributes. A class attribute is read as stored. """
+def signature(obj: Any) -> str:
+    """ The signature of a function as source text, with its annotations and defaults. self and cls are left out. """
 
-    parts_ls: T_ls = dotted.split('.')
-    i: int
-    for i in range(len(parts_ls), 0, -1):
-        try:
-            obj: Any = importlib.import_module('.'.join(parts_ls[:i]))
-        except ImportError:
+    parts_ls: T_ls = []
+    param: Any
+    for param in obj.parameters:
+        if param.name in ('self', 'cls'):
             continue
-        attr: str
-        for attr in parts_ls[i:]:
-            obj = inspect.getattr_static(obj, attr) if inspect.isclass(obj) else getattr(obj, attr)
-        return obj
-    raise ImportError(dotted)
+        prefix: str = {'var positional': '*', 'var keyword': '**'}.get(param.kind.value, '')
+        text: str = prefix + param.name
+        if param.annotation is not None:
+            text += f': {param.annotation}'
+        if param.default is not None and not prefix:
+            text += f' = {param.default}'
+        parts_ls.append(text)
+    returns: str = f' -> {obj.returns}' if obj.returns is not None else ''
+    return f"({', '.join(parts_ls)}){returns}"
 
 
-def api_entry(dotted: str) -> str:
-    """ The heading, signature and docstring of one documented name. """
+def api_entry(pkg: Any, dotted: str, heading: str = '', members: bool = True) -> str:
+    """ The heading, signature and docstring of one documented name, and of a class's members. """
 
-    obj: Any = resolve(dotted)
-    name: str = dotted.rsplit('.', 1)[-1]
-    if isinstance(obj, (classmethod, staticmethod)):
-        obj = obj.__func__
-    elif isinstance(obj, property):
-        obj = obj.fget
-    sig: str = ''
-    if callable(obj) and not inspect.isclass(obj):
-        try:
-            sig = str(inspect.signature(obj))
-        except (TypeError, ValueError):
-            sig = ''
-    doc: str | None = inspect.getdoc(obj) if callable(obj) or inspect.isclass(obj) else None
-    if doc is None and not callable(obj):
-        doc = f'A constant: {obj!r}'
-    return f"\n#### {name}{sig}\n\n{doc or '(no docstring)'}\n"
+    obj: Any = pkg[dotted.split('.', 1)[1]]
+    if obj.is_alias:
+        obj = obj.final_target
+    name: str = heading or obj.name
+    sig: str = signature(obj) if obj.is_function else ''
+    doc: str = obj.docstring.value if obj.docstring else ''
+    if not doc and obj.is_attribute:
+        doc = f'A constant: {obj.value}'
+    entry: str = f"\n#### {name}{sig}\n\n{doc or '(no docstring)'}\n"
+    if obj.is_class and members:
+        member: Any
+        for member in obj.members.values():
+            if member.is_alias or not member.docstring or re.match(r'_[^_]', member.name):
+                continue
+            entry += api_entry(pkg, f'{dotted}.{member.name}', members=False)
+    return entry
 
 
-def render_page(page_text: str) -> str:
-    """ A page with each directive replaced by its entry, and its options dropped. """
+def render_page(pkg: Any, page_text: str) -> str:
+    """ A page with each directive replaced by its entry. Its options give the heading and the members. """
 
     lines_ls: T_ls = page_text.splitlines()
     out_ls: T_ls = []
@@ -129,9 +135,14 @@ def render_page(page_text: str) -> str:
     while i < len(lines_ls):
         match: Any = re.match(r'::: ([\w.]+)\s*$', lines_ls[i])
         if match:
+            options_ls: T_ls = []
             while i + 1 < len(lines_ls) and lines_ls[i + 1].startswith('    '):
                 i += 1
-            out_ls.append(api_entry(match.group(1)))
+                options_ls.append(lines_ls[i].strip())
+            heading_match: Any = re.search(r'heading: "([^"]+)"', '\n'.join(options_ls))
+            out_ls.append(api_entry(pkg, match.group(1),
+                                    heading=heading_match.group(1) if heading_match else '',
+                                    members='members: false' not in options_ls))
         else:
             out_ls.append(lines_ls[i])
         i += 1
@@ -154,6 +165,7 @@ def demote_headings(text: str) -> str:
 def build(readme_text: str, mkdocs_text: str, docs_dir: str) -> str:
     """ The whole review file, from the README, the nav and the page files. """
 
+    pkg: Any = griffe.load('daffodil', search_paths=['src'])
     parts_ls: T_ls = [PROMPT, '# README.md\n\n' + demote_headings(readme_text)]
     trail_ls: T_ls
     path: str
@@ -161,7 +173,7 @@ def build(readme_text: str, mkdocs_text: str, docs_dir: str) -> str:
         with open(os.path.join(docs_dir, path), encoding='utf-8') as page_f:
             page_text: str = page_f.read()
         title: str = ' / '.join(trail_ls) or path
-        parts_ls.append(f'# Docs page: {title} ({path})\n\n' + demote_headings(render_page(page_text)))
+        parts_ls.append(f'# Docs page: {title} ({path})\n\n' + demote_headings(render_page(pkg, page_text)))
     return '\n\n---\n\n'.join(parts_ls) + '\n'
 
 
