@@ -1551,17 +1551,13 @@ List a column in `shared_fields` to keep it once instead. Its value comes from t
 (['id', 'name', 'qty', 'price'], ['a1', 'pen', 3, 1.5])
 ```
 
-A row that only the second table has gets NULL in a shared column, so the second table's value
-is lost. Here d4 had a qty of 5. This is a known fault. Leave out `shared_fields` when such rows
-matter.
+A row that only the second table has takes the shared column from the second table, since
+the first has no row for it. Here d4 has the qty 5 of prices:
 
 ```pycon
 >>> stock.join(prices, how='outer', shared_fields=['qty']).lol[-1]
-['d4', '', '', 2.0]
+['d4', '', 5, 2.0]
 ```
-
-The key of such a row is lost too when the two keyfields have different names. Name them the
-same for a right or outer join.
 
 For other names, give a `custom_translator_daf`, which maps each column of each table to its
 name in the result. See [join()][daffodil.daf.Daf.join] in the API.
@@ -8887,14 +8883,9 @@ When a key has no match, its cells from the other side are NULL, the empty strin
 The keyfield of the result is the keyfield of this Daf. The result is a new Daf.
 
 A row that only the other Daf has, in a right or outer join, comes after the rows
-of this Daf. Two of its cells can be lost:
-
-- A column in `shared_fields` takes its value from this Daf only. Such a row has no
-  row here, so the cell is NULL, though the other Daf has a value.
-- The key is NULL when the two keyfields have different names.
-
-These are known faults. Name the keyfields the same, and leave
-out `shared_fields`, when such rows matter.
+of this Daf. It takes its key, and the columns in `shared_fields`, from the other
+Daf, since this Daf has no row for it. This holds when the keyfields have different
+names too. The key column of the result has the name of this Daf's keyfield.
 
 Args:
     other_daf: The Daf to join with.
@@ -12022,8 +12013,7 @@ result is then undefined. Check the keys first if they may repeat. A Python NULL
 undefined too: see SqlDaf.
 
 A row found only in the other table, in a right or outer join, takes its key and its
-shared fields from the other table. `Daf.join()` does not do this in every case yet.
-That is a known bug in `Daf.join()`.
+shared fields from the other table, as in `Daf.join()`.
 
 Nothing runs yet. The join is resolved the first time it is read, into a TEMP table of
 new rows, as `Daf.join()` makes new rows. A selection made from it resolves it first.
