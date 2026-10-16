@@ -443,6 +443,12 @@ Q165. The unread stats, decided by Ray on 2026-10-16, for Q146: "no request list
     in the code to omit them. No new settings." The find_variants port leaves out the keys list
     and the precinct sums, behind two constants. The other stats stay. AuditEngine is unchanged,
     and a mail suggests the same to its thread.
+Q166. Static helpers on SqlDaf, decided by Ray on 2026-10-16: no. Fourteen Daf static methods
+    read no rows, such as `sum_da()`, `diff_da()` and `dict_to_md()`. They stay blocked on SqlDaf,
+    and are listed as not needed. Call them on Daf, as the find_variants port calls `Daf.sum_da`.
+    The list: buff_to_file, count_values_da, count_values_kl, derive_join_translator_daf,
+    dict_to_md, diff_da, dodaf_to_md, gkeys_to_idxs, join_records, reduce_dodaf_to_daf, sum_da,
+    sum_dodis, sum_kl, update_row.
 ## Possible future enhancements
 
 - Stream the rows of a join, or a selection of one, without building the whole join first.
