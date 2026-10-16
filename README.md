@@ -65,6 +65,19 @@ the data as rows in Daffodil, then hand the numeric columns over with `to_pandas
 `to_numpy()`. The [documentation](https://raylutz.github.io/daffodil/) compares the two, with
 measurements.
 
+## Tables larger than memory
+
+SqlDaf is a Daf whose rows live in a SQLite table, in a file on disk. Its size is limited only
+by disk space, so it suits tables too large to hold in memory. SQL does the work, and a small
+selection comes into memory with `to_daf()`.
+
+A Daf in memory is faster. Whole-table operations ran 2 to 6 times faster in our timings, and
+a lookup by key about 11 times faster. So use a Daf for a table that fits in memory.
+
+SqlDaf supports the most common Daf methods, under the same names. Any other Daf method
+raises NotImplementedError. The guide page
+[Tables in SQLite](https://raylutz.github.io/daffodil/guide/sqldaf/) shows how to use it.
+
 ## Learn more
 
 - [Cheatsheet](https://raylutz.github.io/daffodil/cheatsheet/), everything on one page
@@ -78,7 +91,9 @@ measurements.
 - [Joins](https://raylutz.github.io/daffodil/guide/joins/)
 - [Markdown reports](https://raylutz.github.io/daffodil/guide/markdown/)
 - [Coming from pandas](https://raylutz.github.io/daffodil/guide/from-pandas/)
+- [Tables in SQLite](https://raylutz.github.io/daffodil/guide/sqldaf/), with SqlDaf
 - [The Daf API](https://raylutz.github.io/daffodil/api/daf/), every method with examples
+- [The SqlDaf API](https://raylutz.github.io/daffodil/api/sqldaf/)
 
 Questions and ideas are welcome as [GitHub issues](https://github.com/raylutz/daffodil/issues).
 Daffodil is released under the MIT license.
