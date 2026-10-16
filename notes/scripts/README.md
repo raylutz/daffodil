@@ -12,3 +12,4 @@ Saved on 2026-10-06 from a cloud session whose files do not survive. They are on
 - mkdocs_rendered_tables.yml: a copy of mkdocs.yml that loads the griffe extension in notes/griffe_blankline_extension.py, so the docs render tables. The extension is not enabled in the real mkdocs.yml.
 
 About 230 other scratch files from the session were not kept. They were probes for single questions, and their results are in the CHANGELOG and in notes/docstring_pass_issues.md.
+- build_docs_review.py: writes notes/docs_review/daffodil_docs_for_review.md, all the user docs in one file for a review by another model. It holds a review prompt, the README, and every page of the docs site in nav order, with each API directive replaced by its signature and docstring. Rerun it after the docs change.
