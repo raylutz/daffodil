@@ -458,6 +458,11 @@ Q170. Positions after a delete, decided by Ray on 2026-10-16: "that is a quick w
     A lazy map of positions to daf_rid was not needed.
 Q171. A cached row count, decided by Ray on 2026-10-16: no. "leave length as it is for now. Hard to
     rely on it." `len()` of a parent runs COUNT(*) each time, 27.5 ms on 1,000,000 rows.
+Q169. A reused daf_rid, decided by Ray on 2026-10-16: not fixed, documented. SQLite gives the
+    daf_rid of a deleted last row to the next row added, so a child made before the delete shows
+    that new row. No AUTOINCREMENT. The SqlDaf docstring names the danger, under its rule not to
+    delete from a parent that has children. The gap error of Q170 does not catch it, since
+    deleting only the last row leaves no gap.
 ## Possible future enhancements
 
 - Stream the rows of a join, or a selection of one, without building the whole join first.

@@ -237,8 +237,10 @@ class SqlDaf(Daf):
     file, under a name, to be opened again later.
 
     Do not delete rows from a parent that has children. `len()` of a child counts its
-    references, so it would still count a deleted row, though `to_daf()` leaves it out. Leave
-    rows out with a selection instead, as in a Daf.
+    references, so it would still count a deleted row, though `to_daf()` leaves it out. Worse,
+    SQLite gives the daf_rid of a deleted last row to the next row added. A child made before
+    the delete then shows that new row, which it never selected. Leave rows out with a selection
+    instead, as in a Daf.
 
     A parent that has had rows deleted cannot be read by position. Positions in a parent are
     looked up by daf_rid, and a delete leaves a gap there. So `iloc()`, `iloc_exists()` and
