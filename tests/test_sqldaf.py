@@ -2340,3 +2340,52 @@ def test_attach_schema_keeps_what_is_set():
         SqlDaf('u', cols=['id'], lol=[['a']]).attach_schema(Row)
     with pytest.raises(TypeError):
         write_sdaf.attach_schema(dict)
+
+
+
+def group_indexes(conn: sqlite3.Connection) -> T_ls:
+    """ The indexes groupby() made, in main and TEMP. """
+    return [row_t[0] for row_t in conn.execute(
+            "SELECT name FROM sqlite_master WHERE type = 'index' AND name LIKE 'daf_gx_%' "
+            "UNION ALL SELECT name FROM sqlite_temp_master WHERE type = 'index' AND name LIKE 'daf_gx_%'")]
+
+
+def test_groupby_makes_an_index_on_the_parent_once():
+    bif_daf: Daf = make_bif_daf()
+    bif_sdaf: SqlDaf = SqlDaf.from_daf(bif_daf, name='bif')
+    assert {key: g.to_daf().lol for key, g in bif_sdaf.groupby('precinct').items()} == \
+           {key: g.lol for key, g in bif_daf.groupby('precinct').items()}
+    assert group_indexes(bif_sdaf.conn) == ['daf_gx_bif_precinct']
+    bif_sdaf.select_where_sql('style_num > 1').groupby('precinct')
+    bif_sdaf.groupby_cols(['precinct', 'style_num'])
+    assert group_indexes(bif_sdaf.conn) == ['daf_gx_bif_precinct', 'daf_gx_bif_precinct_style_num']
+    bif_sdaf.groupby('ballot_id')
+    bif_sdaf.ensure_key_index()
+    bif_sdaf.groupby('ballot_id')
+    assert 'daf_gx_bif_ballot_id' in group_indexes(bif_sdaf.conn)
+
+
+def test_groupby_uses_an_index_already_there():
+    bif_sdaf: SqlDaf = SqlDaf.from_daf(make_bif_daf(), name='bif')
+    bif_sdaf.ensure_key_index()
+    bif_sdaf.groupby('ballot_id')
+    bif_sdaf.sql('CREATE INDEX my_ix ON bif (style_num, precinct)')
+    bif_sdaf.groupby('style_num')
+    assert group_indexes(bif_sdaf.conn) == []
+
+
+def test_groupby_index_on_a_temp_table():
+    copy_sdaf: SqlDaf = SqlDaf.from_daf(make_bif_daf(), name='bif').copy()
+    copy_sdaf.groupby('precinct')
+    assert group_indexes(copy_sdaf.conn) == [f'daf_gx_{copy_sdaf.name}_precinct']
+
+
+def test_drop_and_rename_of_a_grouped_column():
+    bif_sdaf: SqlDaf = SqlDaf.from_daf(make_bif_daf(), name='bif')
+    bif_sdaf.groupby('precinct')
+    bif_sdaf.groupby('style_num')
+    bif_sdaf.rename_cols({'precinct': 'pct'})
+    assert group_indexes(bif_sdaf.conn) == ['daf_gx_bif_style_num']
+    bif_sdaf.drop_cols(['style_num'])
+    assert group_indexes(bif_sdaf.conn) == []
+    assert list(bif_sdaf.groupby('pct').keys()) == ['P1', 'P2', 'P3']
