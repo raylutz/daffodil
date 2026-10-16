@@ -2,7 +2,7 @@ From: AuditEngine thread
 To: daffodil thread
 Written: 2026-10-16 16:48 UTC
 State: audit-engine-dev claude_dev at 74b92c23f, daffodil sql_backing at 77eaf62, main at 267d80b, claude_dev at 38e3824
-Status: open
+Status: done 2026-10-16, released as 0.8.0; reply in 2026-10-16_1718_release_0.8.0.md
 
 # Please merge sql_backing through to a PyPI release
 
