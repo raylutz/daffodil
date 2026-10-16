@@ -1483,6 +1483,15 @@ def test_delete_records_inplace_on_a_base_stops_positions():
     assert p1_sdaf.iloc(1) == bif_daf.select_by_dict({'precinct': 'P1'}).iloc(1)   # a selection numbers its own rows
 
 
+def test_delete_records_inplace_then_concat_reuses_the_last_rid():
+    bif_sdaf: SqlDaf = SqlDaf.from_daf(make_bif_daf(), name='bif')
+    tail_sdaf: SqlDaf = bif_sdaf[3:]._resolve()
+    assert tail_sdaf.keys() == ['b4', 'b5']
+    bif_sdaf.delete_records(['b5'], inplace=True)
+    bif_sdaf.concat(Daf(cols=bif_sdaf.columns(), lol=[['b9'] + [NULL] * (bif_sdaf.num_cols() - 1)]))
+    assert tail_sdaf.keys() == ['b4', 'b9']                     # the documented risk of deleting from a parent with children
+
+
 def test_positions_after_deleting_only_the_last_row():
     bif_sdaf: SqlDaf = SqlDaf.from_daf(make_bif_daf(), name='bif')
     bif_sdaf.delete_records(['b5'], inplace=True)
