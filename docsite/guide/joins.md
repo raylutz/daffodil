@@ -58,17 +58,13 @@ List a column in `shared_fields` to keep it once instead. Its value comes from t
 (['id', 'name', 'qty', 'price'], ['a1', 'pen', 3, 1.5])
 ```
 
-A row that only the second table has gets NULL in a shared column, so the second table's value
-is lost. Here d4 had a qty of 5. This is a known fault. Leave out `shared_fields` when such rows
-matter.
+A row that only the second table has takes the shared column from the second table, since
+the first has no row for it. Here d4 has the qty 5 of prices:
 
 ```pycon
 >>> stock.join(prices, how='outer', shared_fields=['qty']).lol[-1]
-['d4', '', '', 2.0]
+['d4', '', 5, 2.0]
 ```
-
-The key of such a row is lost too when the two keyfields have different names. Name them the
-same for a right or outer join.
 
 For other names, give a `custom_translator_daf`, which maps each column of each table to its
 name in the result. See [join()][daffodil.daf.Daf.join] in the API.

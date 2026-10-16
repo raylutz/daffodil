@@ -4248,8 +4248,7 @@ class SqlDaf(Daf):
         undefined too: see SqlDaf.
 
         A row found only in the other table, in a right or outer join, takes its key and its
-        shared fields from the other table. `Daf.join()` does not do this in every case yet.
-        That is a known bug in `Daf.join()`.
+        shared fields from the other table, as in `Daf.join()`.
 
         Nothing runs yet. The join is resolved the first time it is read, into a TEMP table of
         new rows, as `Daf.join()` makes new rows. A selection made from it resolves it first.

@@ -12990,14 +12990,9 @@ class Daf:
         The keyfield of the result is the keyfield of this Daf. The result is a new Daf.
 
         A row that only the other Daf has, in a right or outer join, comes after the rows
-        of this Daf. Two of its cells can be lost:
-
-        - A column in `shared_fields` takes its value from this Daf only. Such a row has no
-          row here, so the cell is NULL, though the other Daf has a value.
-        - The key is NULL when the two keyfields have different names.
-
-        These are known faults. Name the keyfields the same, and leave
-        out `shared_fields`, when such rows matter.
+        of this Daf. It takes its key, and the columns in `shared_fields`, from the other
+        Daf, since this Daf has no row for it. This holds when the keyfields have different
+        names too. The key column of the result has the name of this Daf's keyfield.
 
         Args:
             other_daf: The Daf to join with.
@@ -13118,6 +13113,21 @@ class Daf:
                 result_daf.append(combined_record)
 
         if how in ("right", "outer"):
+            # A row that only the other Daf has. join_records() takes the key and the shared
+            # fields from this Daf, which has no such row. So those cells come from the other row.
+            # A shared field is a column of this Daf that the other Daf has too, and that the
+            # translator does not take from the other Daf.
+            other_mapped_set: set = {row['source_colname'] for row in eff_translator_daf
+                                     if row['source_name'] == join_names_ls[1]}
+            fallback_lot: List[Tuple[str, str]] = []
+            for translator_row in eff_translator_daf:
+                if translator_row['source_name'] != join_names_ls[0]:
+                    continue
+                if translator_row.get('is_keyfield', False):
+                    fallback_lot.append((translator_row['resolved_colname'], other_daf.keyfield))
+                elif translator_row['source_colname'] in other_daf.hd and translator_row['source_colname'] not in other_mapped_set:
+                    fallback_lot.append((translator_row['resolved_colname'], translator_row['source_colname']))
+
             unmatched_keys = [
                 key for key in other_daf._kd if key not in matched_keys
             ]
@@ -13129,6 +13139,10 @@ class Daf:
                     join_names_ls,
                     fill,
                 )
+                resolved_col: str
+                other_col: str
+                for resolved_col, other_col in fallback_lot:
+                    combined_record[resolved_col] = other_row_da[other_col]
                 result_daf.append(combined_record)
 
         if diagnose:

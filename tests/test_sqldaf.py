@@ -1661,7 +1661,7 @@ def test_join_matches_mdaf(how, tag_other):
     assert join_sdaf.keyfield == join_daf.keyfield == 'id'
 
 
-@pytest.mark.parametrize('how', ['inner', 'left'])
+@pytest.mark.parametrize('how', ['inner', 'left', 'right', 'outer'])
 def test_join_shared_fields_match_mdaf(how):
     audit_daf, cvr_daf = make_join_pair()
     audit_sdaf: SqlDaf = SqlDaf.from_daf(audit_daf, name='audit')
@@ -1676,6 +1676,8 @@ def test_join_other_only_row_takes_key_and_shared_field_from_the_other():
     audit_sdaf: SqlDaf = SqlDaf.from_daf(audit_daf, name='audit')
     cvr_sdaf: SqlDaf = SqlDaf.from_daf(cvr_daf, name='cvr')
     assert audit_sdaf.join(cvr_sdaf, how='outer', shared_fields=['name']).to_daf().lol == [
+        ['k3', 'A3', 1, 7], ['k4', 'B4', NULL, 8]]
+    assert audit_daf.join(cvr_daf, how='outer', shared_fields=['name']).lol == [
         ['k3', 'A3', 1, 7], ['k4', 'B4', NULL, 8]]
 
 

@@ -523,15 +523,30 @@ def test_outer_join_keeps_the_key_of_an_other_only_row_when_the_key_names_match(
     assert a_daf.join(b_daf, how='outer').lol[-1] == ['k4', '', '', 'B4', 8]
 
 
-@pytest.mark.xfail(strict=True, reason="BUG: src/daffodil/daf.py:13053 join_records() looks up the key by the first Daf's "
-                                       "column name, so an other-only row gets NULL when the key columns are named differently.")
 def test_outer_join_keeps_the_key_of_an_other_only_row_when_the_key_names_differ():
     a_daf, b_daf = make_pair('ballot')
     assert a_daf.join(b_daf, how='outer').lol[-1][0] == 'k4'
 
 
-@pytest.mark.xfail(strict=True, reason="BUG: src/daffodil/daf.py:13064 join_records() takes a shared field only from the first Daf, "
-                                       "so an other-only row of a right or outer join loses it.")
 def test_outer_join_keeps_a_shared_field_of_an_other_only_row():
     a_daf, b_daf = make_pair('id')
     assert a_daf.join(b_daf, how='outer', shared_fields=['name']).lol[-1] == ['k4', 'B4', '', 8]
+
+
+@pytest.mark.parametrize('other_key', ['id', 'ballot'])
+def test_right_join_takes_the_key_and_shared_fields_of_an_other_only_row(other_key):
+    a_daf, b_daf = make_pair(other_key)
+    assert a_daf.join(b_daf, how='right', shared_fields=['name']).lol == [['k3', 'A3', 1, 7], ['k4', 'B4', '', 8]]
+
+
+def test_outer_join_with_tag_other_keeps_the_key_of_an_other_only_row():
+    a_daf, b_daf = make_pair('ballot')
+    joined_daf = a_daf.join(b_daf, how='outer', tag_other=True)
+    assert joined_daf.columns() == ['id', 'name_daf1', 'v', 'name_daf2', 'w_daf2']
+    assert joined_daf.lol[-1] == ['k4', '', '', 'B4', 8]
+
+
+def test_inner_and_left_join_are_unchanged_by_other_only_rows():
+    a_daf, b_daf = make_pair('id')
+    assert a_daf.join(b_daf, how='inner', shared_fields=['name']).lol == [['k3', 'A3', 1, 7]]
+    assert a_daf.join(b_daf, how='left', shared_fields=['name']).lol == [['k3', 'A3', 1, 7], ['k1', 'A1', 2, '']]
