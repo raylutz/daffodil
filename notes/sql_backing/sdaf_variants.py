@@ -48,7 +48,7 @@ from daffodil.sqldaf import SqlDaf, T_sdaf, T_losdaf
 import daffodil.lib.daf_utils as daf_utils
 
 from models.DB import DB
-from my_types import T_da, T_doda, T_ls, T_loda
+from my_types import T_da, T_di, T_doda, T_dodi, T_ls, T_loda
 from utilities import cmpcvr, generic_cvr, logs, reports, split_bmd, sql_utils, sql_variants, utils
 
 
@@ -644,6 +644,45 @@ def create_comparison_records_sdaf(
 #===================================
 # Nonvariant stats
 
+def precinct_sums_sdaf(
+        rows_sdaf:          SqlDaf,         # the combined nonvariants.
+        precinct_col:       str,            # the precinct column, as stored.
+        direct_cols_ls:     T_ls,           # the columns of sumcols_ls that the table has.
+        sumcols_ls:         T_ls,           # the columns to total, as reduce_nonvariants() makes the list.
+        diagnose:           bool = False,   # if True, show each block of results.
+        ) -> T_dodi:                        # the totals of each precinct, by precinct.
+    """
+    The totals of sumcols_ls for each precinct, as nonvariant_precinct_sums_dodi.
+
+    The rows are grouped by precinct and reduced in blocks, by groupby_reduce().
+    The direct columns are totaled as row values.
+    The other columns are keys of concise_votes, totaled from the dict in each row.
+    A key that no row of a precinct has is None, as SQL SUM() gives it.
+    """
+    # The two reductions, each one table with a row for each precinct.
+    direct_sdaf: SqlDaf = rows_sdaf.groupby_reduce(precinct_col, Daf.sum_da, by='row', reduce_cols=direct_cols_ls, diagnose=diagnose)
+    logs.stsloc(f"Precinct sums: {len(direct_sdaf)} precincts of direct sums", 3)
+    indirect_sdaf: SqlDaf = rows_sdaf.groupby_reduce(precinct_col, Daf.sum_da, by='sparse_row', indirect_col='concise_votes', diagnose=diagnose)
+    logs.stsloc(f"Precinct sums: {len(indirect_sdaf)} precincts of concise_votes sums", 3)
+
+    # The totals of each precinct, in the form of reduce_nonvariants().
+    indirect_dodi: T_dodi = {row_da[precinct_col]: decoded_votes(row_da['concise_votes']) for row_da in indirect_sdaf.iter_dict()}
+    sums_dodi: T_dodi = {}
+    row_da: T_da
+    for row_da in direct_sdaf.iter_dict():
+        precinct: str = row_da[precinct_col]
+        votes_di: T_di = indirect_dodi[precinct]
+        sums_di: T_di = {}
+        col: str
+        for col in sumcols_ls:
+            if col in direct_cols_ls:
+                sums_di[col] = int(row_da[col])
+            else:
+                sums_di[col] = votes_di.get(col)
+        sums_dodi[precinct] = sums_di
+    return sums_dodi
+
+
 def nonvariant_stats_sdaf(
         nonvariants_sdaf:       SqlDaf,         # the audit nonvariants, from step 11. num_contests is set in it.
         partial_wmetadata_sdaf: SqlDaf,         # the partly agreed ballots, from step 17.
@@ -675,11 +714,11 @@ def nonvariant_stats_sdaf(
 
     valuecounts_dodi: T_da = combined_sdaf.valuecounts_for_colnames_ls(stored_cols(combined_sdaf, VALUECOUNTS_COLS_LS))
     precinct_col, style_col = stored_cols(counted_sdaf, ['precinct', 'style'])
+    precinct_sums_dodi: T_dodi = precinct_sums_sdaf(combined_sdaf, precinct_col, direct_cols_ls, sumcols_ls)
     return {
         'nonvariant_sums_di':                           totals_da(combined_sdaf, 0),
         'nonvariant_valuecounts_dodi':                  {sql_utils.sql_unesc_str(col): vc_di for col, vc_di in valuecounts_dodi.items()},
-        'nonvariant_precinct_sums_dodi':                {precinct: totals_da(group_sdaf, None)
-                                                         for precinct, group_sdaf in combined_sdaf.groupby(precinct_col).items()},
+        'nonvariant_precinct_sums_dodi':                precinct_sums_dodi,
         'nonvariant_precinct_styles_valuecounts_dodi':  counted_sdaf.valuecounts_for_colname1_groupedby_colname2(style_col, precinct_col),
         'nonvariant_keys_ls':                           [str(key) for key in combined_sdaf.keys()],
         'nonvariant_sheets_contests_di':                {'sheets': len(counted_sdaf),
