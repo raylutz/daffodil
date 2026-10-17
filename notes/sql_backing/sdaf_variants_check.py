@@ -7,7 +7,8 @@
 # Each is replaced by a stand-in that writes to the scratch folder.
 # pyontools is AuditEngine's own, read from its folder.
 # Step 18's create_contest_variant_record() needs the job's contests, so its stand-in returns the
-# joined row. The joined rows are compared with AuditEngine's view joined_contests instead.
+# joined row, with a dict cell added. The joined rows are compared with AuditEngine's view joined_contests.
+# contest_variants.csv is compared with what DB.save_data() writes of the same records, as a Daf.
 #
 # AuditEngine's inputs were trimmed by step 3, so the residue tables are added back first.
 #
@@ -28,7 +29,7 @@ from typing import Any, Dict, List, Tuple
 from daffodil.daf import Daf
 from daffodil.sqldaf import SqlDaf
 from daffodil.lib.daf_types import T_ls, T_da
-from daffodil.lib import daf_types, daf_sql
+from daffodil.lib import daf_types, daf_sql, daf_utils
 
 AE_ROOT: str = '/home/audit-engine-dev'
 
@@ -97,7 +98,7 @@ def install_stand_ins(work_db_path: str, out_dir: str, sumcols_ls: T_ls) -> T_da
            exception_report     = lambda text: print(text))
     module('reports', save_md_and_html=lambda argsdict, md_report, rootname: record_da['reports'].append(md_report) or [])
     module('sql_utils', get_db_path_from_database_name=lambda name: work_db_path, sql_unesc_str=daf_sql.sql_unesc_str)
-    module('sql_variants', create_contest_variant_record=lambda row_da: row_da)
+    module('sql_variants', create_contest_variant_record=stand_in_contest_variant_record)
     module('cmpcvr', blank_sheets_to_ballot_variants_daf=lambda blank_sheets_daf: blank_sheets_daf)
     module('split_bmd', combine_cvr_records=lambda kept_da, siblings_lda: kept_da)
     indirect_ls: T_ls = [col for col in sumcols_ls if col not in ('blank', 'v', 'is_bmd')]
@@ -107,6 +108,13 @@ def install_stand_ins(work_db_path: str, out_dir: str, sumcols_ls: T_ls) -> T_da
     sys.modules['models'] = models
     sys.modules['models.DB'] = models_db
     sys.modules['utilities'] = utilities
+    return record_da
+
+
+def stand_in_contest_variant_record(row_da: T_da) -> T_da:
+    """ The joined row, with a dict cell that holds True, False and None, as vote_diff_orig may. """
+    record_da: T_da = dict(row_da)
+    record_da['vote_diff_orig'] = {'cidx': row_da['cidx'], 'agreed': False, 'flags': [True, None], 'note': None}
     return record_da
 
 
@@ -174,6 +182,51 @@ def compare_stats(stats_da: T_da, ae_dir: str) -> None:
         ours_a = json.loads(json.dumps(ours_a))
         same: bool = set(ours_a) == set(ae_a) if name == 'nonvariant_keys_ls' else ours_a == ae_a
         print(f'{name:45} {len(ours_a):7} {len(ae_a):7}  {same}')
+
+
+def check_contest_variants(work_db_path: str, out_dir: str, dict_cols_ls: T_ls) -> None:
+    """
+    Compare contest_variants.csv with the file DB.save_data() writes of the same records.
+
+    The reference converts the rows of joined_contests as one Daf, and writes it with CRLF line ends.
+    A dict cell is compared by value, since the reference writes it with str() and the module as JSON.
+    Every other cell is compared as text.
+    """
+    with sqlite3.connect(f'file:{work_db_path}?mode=ro', uri=True) as conn:
+        cursor = conn.execute('SELECT * FROM joined_contests ORDER BY daf_rid')
+        cols_ls: T_ls = [daf_sql.sql_unesc_str(desc[0]) for desc in cursor.description]
+        rows_loda: List[T_da] = [{col: '' if val is None else val for col, val in zip(cols_ls, row) if col != 'daf_rid'}
+                                 for row in cursor]
+    ref_daf: Daf = Daf.from_lod(rows_loda).apply(func=stand_in_contest_variant_record)
+    ref_ls: List[T_ls] = list(csv.reader(ref_daf.to_csv_buff(line_terminator='\r\n', include_header=True).splitlines()))
+
+    with open(os.path.join(out_dir, 'contest_variants.csv'), newline='', encoding='utf-8') as ours_f:
+        ours_text: str = ours_f.read()
+    ours_ls: List[T_ls] = list(csv.reader(ours_text.splitlines()))
+    crlf_ends: bool = ours_text.count('\r\n') == len(ours_ls)
+
+    header_ls: T_ls = ref_ls[0]
+    dict_idx_ls: List[int] = [header_ls.index(col) for col in dict_cols_ls if col in header_ls]
+    num_text_diff: int = 0
+    num_dict_diff: int = 0
+    first_diff: str = ''
+    for ref_row_ls, ours_row_ls in zip(ref_ls[1:], ours_ls[1:]):
+        for idx, (ref_cell, ours_cell) in enumerate(zip(ref_row_ls, ours_row_ls)):
+            if idx in dict_idx_ls:
+                same: bool = daf_utils.normalize_val(ast.literal_eval(ref_cell)) == json.loads(ours_cell)
+                num_dict_diff += not same
+            else:
+                same = ref_cell == ours_cell
+                num_text_diff += not same
+            if not same and not first_diff:
+                first_diff = f'{header_ls[idx]}: reference {ref_cell!r}, module {ours_cell!r}'
+    print(f"\ncontest_variants.csv: {len(ours_ls) - 1} rows, reference {len(ref_ls) - 1}. "
+          f"Same header: {ours_ls[0] == header_ls}. CRLF line ends: {crlf_ends}.")
+    print(f"    cells that differ as text: {num_text_diff}. dict cells that differ in value: {num_dict_diff}.")
+    if first_diff:
+        print(f"    first difference: {first_diff}")
+    if len(ours_ls) > 1:
+        print(f"    first dict cell: reference {ref_ls[1][dict_idx_ls[0]]!r}, module {ours_ls[1][dict_idx_ls[0]]!r}")
 
 
 #===================================
@@ -269,7 +322,9 @@ def main() -> None:
     print(record_da['reports'][0])
     work_conn = sqlite3.connect(work_db_path)
     ae_conn = sqlite3.connect(f'file:{ae_db_path}?mode=ro', uri=True)
-    compare_tables(work_conn, ae_conn, [name for name in sdaf_variants.RESULT_TABLES_LS if name != 'combined_nonvariants'])
+    ae_tables_ls: T_ls = [name for name in sdaf_variants.RESULT_TABLES_LS
+                          if name not in ('combined_nonvariants', sdaf_variants.CONTEST_VARIANTS_TABLE)]
+    compare_tables(work_conn, ae_conn, ae_tables_ls)
     compare_csv_files(out_dir, ae_dir, ['votes_residue.csv', 'cvr_residue.csv', 'partially_agreed.csv',
                                         'audit_variants.csv', 'cvr_variants.csv'])
     compare_stats(stats_da, ae_dir)
@@ -279,14 +334,13 @@ def main() -> None:
     blank_daf: Daf = record_da['saved_dafs']['ballot_variants.csv']
     print(f"\nballot_variants: {len(blank_daf)} blank sheets given, AE file has {len(ae_ballot_variants_lol) - 1} rows. "
           f"group is a column: {'group' in blank_daf.columns()}")
-    joined_daf: Daf = record_da['saved_dafs']['contest_variants.csv']
-    print(f"contest_variants: {len(joined_daf)} rows given to the record function. group is a column: {'group' in joined_daf.columns()}")
     print(f"uploads: {record_da['uploads']}")
     tables_ls: T_ls = sorted(row[0] for row in work_conn.execute("SELECT name FROM sqlite_master WHERE type = 'table'"))
     print(f"tables left: {tables_ls}")
     work_conn.close()
     ae_conn.close()
 
+    check_contest_variants(work_db_path, out_dir, ['vote_diff_orig'])
     check_step_15(sdaf_variants, work_db_path, ae_db_path)
     check_combine_split_bmd(sdaf_variants, scratch_dir)
 

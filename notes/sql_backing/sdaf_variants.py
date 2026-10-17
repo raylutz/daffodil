@@ -40,22 +40,24 @@ A repeated ballot_id in an input raises ValueError.
 import re
 import json
 import time
+import itertools
 
-from typing import Any, Callable, Dict, List, Tuple
+from typing import Any, Callable, Dict, Iterator, List, Tuple
 
 from daffodil.daf import Daf
 from daffodil.sqldaf import SqlDaf, T_sdaf, T_losdaf
 import daffodil.lib.daf_utils as daf_utils
 
 from models.DB import DB
-from my_types import T_da, T_di, T_doda, T_dodi, T_ls, T_loda
+from my_types import T_da, T_di, T_doda, T_dodi, T_la, T_ls, T_loda
 from utilities import cmpcvr, generic_cvr, logs, reports, split_bmd, sql_utils, sql_variants, utils
 
 
 KEYFIELD:           str     = 'ballot_id'
 REPORT_COLS_LS:     T_ls    = ['Step', 'Description', 'Audit recs', 'CVR Recs', 'Audit(s)', 'CVR(s)']
 WORK_PREFIX:        str     = 'sdaf_'       # the TEMP work tables of a run.
-APPLY_BATCH_ROWS:   int     = 10000         # the rows held in memory at a time in steps 15 and 18.
+APPLY_BATCH_ROWS:   int     = 10000         # the rows held in memory at a time in step 18.
+CONTEST_VARIANTS_TABLE: str = 'contest_variants'    # the table of step 18, exported as contest_variants.csv.
 
 # Patterns of sql_variants.py.
 VARIANT_FLAG_PAT:       str         = r"'c\d+(w|ov|g)'"                             # step 4: a writein, overvote or gray contest.
@@ -73,6 +75,7 @@ RESULT_TABLES_LS: T_ls = [
     'audit_variants', 'cvr_variants', 'audit_nonvariants', 'cvr_nonvariants', 'votes_residue', 'cvr_residue',
     'audit_variants_by_contest', 'cvr_variants_by_contest', 'nonvariant_contests', 'combined_contest_variants',
     'partial_nonvariants', 'partial_nonvariants_wmetadata', 'blank_sheets', 'joined_contests', 'combined_nonvariants',
+    CONTEST_VARIANTS_TABLE,
     ]
 
 
@@ -585,42 +588,77 @@ def check_variants_per_ballot(
                      f"more than find_variants_max_variants_per_ballot = {max_per_ballot} per ballot.")
 
 
-def contest_variants_daf_of(
+def cell_text(val: Any) -> Any:
+    """
+    A dict, list or tuple cell as compact JSON text, for a table cell. Other values are kept.
+
+    SQLite cannot hold a dict.
+    True and False are written as 1 and 0, and None as NULLSTR, by normalize_val().
+    So the text holds no true or null, and AuditEngine's PYON reader reads it too.
+    """
+    if isinstance(val, (dict, list, tuple)):
+        text_a: Any = json.dumps(daf_utils.normalize_val(val), separators=(',', ':'), ensure_ascii=False)
+    else:
+        text_a = val
+    return text_a
+
+
+def converted_batch_daf(
+        batch_loda:     T_loda,                         # the joined rows of one batch, with names decoded.
+        record_func:    Callable[[T_da], T_da],         # the function that converts a row.
+        ) -> Daf:                                       # the converted rows, with each dict cell as text.
+    """
+    Convert a batch of joined rows to contest_variants rows, with `Daf.apply()`.
+
+    The result has no keyfield, since a ballot has a row for each of its variant contests.
+    """
+    batch_daf: Daf = Daf.from_lod(batch_loda)
+    converted_daf: Daf = batch_daf.apply(func=record_func)
+
+    # Each dict cell written as text, so the block can go into a table.
+    row_la: T_la
+    for row_la in converted_daf.lol:
+        idx: int
+        val: Any
+        for idx, val in enumerate(row_la):
+            if isinstance(val, (dict, list, tuple)):
+                row_la[idx] = cell_text(val)
+    return converted_daf
+
+
+def contest_variants_sdaf_of(
         joined_sdaf:    SqlDaf,                         # the variant contests with the metadata of the ballot.
         record_func:    Callable[[T_da], T_da],         # create_contest_variant_record() of sql_variants.py.
-        ) -> Daf:                                       # the contest_variants rows.
+        name:           str,                            # the name of the result table.
+        ) -> SqlDaf | None:                             # the contest_variants rows, or None if there are none.
     """
     Convert each variant contest to a contest_variants row, as create_comparison_records() does.
 
     The rows are read APPLY_BATCH_ROWS at a time, with their names decoded.
-    Each batch is converted with `Daf.apply()`, as create_comparison_records() converts the whole table.
-    So only the result is held in memory, not the joined rows too.
+    Each batch is converted in Python, and the block is added to the result table.
+    So memory holds one batch, not the whole result.
+    The first block makes the table, with the columns the record function gives.
     """
-    contest_variants_daf: Daf | None = None
-    batch_loda: T_loda = []
-    row_da: T_da
-    for row_da in joined_sdaf.iter_dict():
-        batch_loda.append(decoded_row(row_da))
-        if len(batch_loda) >= APPLY_BATCH_ROWS:
-            contest_variants_daf = add_batch(contest_variants_daf, batch_loda, record_func)
-            batch_loda = []
-    if batch_loda or contest_variants_daf is None:
-        contest_variants_daf = add_batch(contest_variants_daf, batch_loda, record_func)
-    return contest_variants_daf
+    # A table of an earlier run goes first, before the rows are read.
+    drop_table(joined_sdaf, name)
+    result_sdaf: SqlDaf | None = None
+    num_block: int = 0
+    rows_iter: Iterator[T_da] = joined_sdaf.iter_dict()
+    while True:
+        # One batch of joined rows.
+        batch_loda: T_loda = [decoded_row(row_da) for row_da in itertools.islice(rows_iter, APPLY_BATCH_ROWS)]
+        if not batch_loda:
+            break
 
-
-def add_batch(
-        result_daf:     Daf | None,                     # the rows so far, or None for the first batch.
-        batch_loda:     T_loda,                         # the joined rows of this batch.
-        record_func:    Callable[[T_da], T_da],         # the function that converts a row.
-        ) -> Daf:                                       # the rows so far, with this batch.
-    """ Convert a batch of rows and add them to the result. The first batch makes the result. """
-    batch_daf: Daf = Daf.from_lod(batch_loda, keyfield=KEYFIELD) if batch_loda else Daf()
-    converted_daf: Daf = batch_daf.apply(func=record_func)
-    if result_daf is None:
-        return converted_daf
-    result_daf.concat(converted_daf)
-    return result_daf
+        # The batch converted and added to the table.
+        block_daf: Daf = converted_batch_daf(batch_loda, record_func)
+        if result_sdaf is None:
+            result_sdaf = SqlDaf.from_daf(block_daf, name)
+        else:
+            result_sdaf.concat(block_daf)
+        num_block += 1
+        logs.stsloc(f"Step 18: block {num_block}, {len(block_daf)} rows. Table {name} has {len(result_sdaf)} rows.", 3)
+    return result_sdaf
 
 
 def create_comparison_records_sdaf(
@@ -655,13 +693,19 @@ def create_comparison_records_sdaf(
             silent_error    = True,
             )
 
-    contest_variants_daf: Daf = contest_variants_daf_of(joined_sdaf, sql_variants.create_contest_variant_record)
-    logs.stsloc(f"Applied create_contest_variant_record() to create contest_variants_daf\n{contest_variants_daf}", 3)
+    contest_variants_sdaf: SqlDaf | None = contest_variants_sdaf_of(
+            joined_sdaf, sql_variants.create_contest_variant_record, CONTEST_VARIANTS_TABLE)
+    num_rows2: int = len(contest_variants_sdaf) if contest_variants_sdaf is not None else 0
+    logs.stsloc(f"Applied create_contest_variant_record() to create {CONTEST_VARIANTS_TABLE}: {num_rows2} rows", 3)
     elapsed_secs2: float = time.perf_counter() - start_f
 
     # The save is not timed, as in create_comparison_records(), since it also uploads the file.
-    DB.save_data(contest_variants_daf, dirname=dirname, name='contest_variants.csv', rtype='daf', local_mirror=True)
-    return joined_sdaf, num_rows1, elapsed_secs1, len(contest_variants_daf), elapsed_secs2
+    # With no rows, the empty Daf is saved, as before.
+    if contest_variants_sdaf is not None:
+        export_csv(contest_variants_sdaf, dirname, 'contest_variants.csv')
+    else:
+        DB.save_data(Daf(), dirname=dirname, name='contest_variants.csv', rtype='daf', local_mirror=True)
+    return joined_sdaf, num_rows1, elapsed_secs1, num_rows2, elapsed_secs2
 
 
 #===================================
