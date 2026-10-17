@@ -583,6 +583,47 @@ def _convert_str(val: Any) -> Any:
     return f"{val}"
 
 
+def normalize_val(val: Any) -> Any:
+    """
+    Put a value into daffodil's form, at any depth in a dict, list or tuple.
+
+    A bool becomes the int 1 or 0.
+    None and NaN become NULLSTR, the empty string.
+    Other values are kept as they are.
+
+    Use it on a dict or list cell before it is written as JSON or PYON.
+    Otherwise JSON writes true and null, and PYON writes True and None.
+    In daffodil's form, a cell holds only numbers, text and NULLSTR, as a CSV file does.
+
+    The result is a new dict, list or tuple. The original is not changed.
+    A dict key is kept as it is.
+
+    Args:
+        val: the value to put into daffodil's form.
+
+    Returns:
+        The value with each bool, None and NaN replaced.
+
+    Examples:
+        >>> normalize_val({'a': True, 'b': False, 'c': None, 'd': [float('nan'), 2, 'x']})
+        {'a': 1, 'b': 0, 'c': '', 'd': ['', 2, 'x']}
+    """
+    if isinstance(val, bool):
+        # a bool is also an int, so it is tested first.
+        result_a: Any = int(val)
+    elif val is None or val != val:
+        result_a = NULL
+    elif isinstance(val, dict):
+        result_a = {key: normalize_val(item) for key, item in val.items()}
+    elif isinstance(val, list):
+        result_a = [normalize_val(item) for item in val]
+    elif isinstance(val, tuple):
+        result_a = tuple(normalize_val(item) for item in val)
+    else:
+        result_a = val
+    return result_a
+
+
 def _bool_words() -> Dict[Any, int]:
     """ The text that means false or true, in the usual spellings, so that each cell is one dict lookup. """
     words: Dict[Any, int] = {'': 0, '0': 0, '0.0': 0, '1': 1, '1.0': 1}

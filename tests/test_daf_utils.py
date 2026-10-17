@@ -263,6 +263,40 @@ def test_astype_value_unsupported_string_raises():
         utils.astype_value('x', 'not_a_type')
 
 
+# --- normalize_val ---
+
+@pytest.mark.parametrize('val, expected', [
+    (True,          1),
+    (False,         0),
+    (None,          ''),
+    (float('nan'),  ''),
+    (0,             0),
+    (2.5,           2.5),
+    ('True',        'True'),
+    ('',            ''),
+])
+def test_normalize_val_scalar(val, expected):
+    result = utils.normalize_val(val)
+    assert result == expected
+    assert type(result) is type(expected)
+
+
+def test_normalize_val_nested_and_original_kept():
+    """ Values are replaced at any depth. Keys and the original are kept. """
+    original_da = {'a': True, 'b': [None, False, (True, 3)], 'c': {'d': float('nan')}, True: 'k'}
+    result_da = utils.normalize_val(original_da)
+    assert result_da == {'a': 1, 'b': ['', 0, (1, 3)], 'c': {'d': ''}, True: 'k'}
+    assert type(result_da['b'][2]) is tuple
+    assert original_da['a'] is True
+    assert original_da['b'][0] is None
+
+
+def test_normalize_val_then_json_has_no_true_or_null():
+    import json
+    text = json.dumps(utils.normalize_val({'a': True, 'b': None}), separators=(',', ':'))
+    assert text == '{"a":1,"b":""}'
+
+
 # --- unflatten_val ---
 
 def test_unflatten_val_list():
