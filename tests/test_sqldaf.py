@@ -973,6 +973,97 @@ def test_groupby_reduce_of_no_rows_and_bad_args():
         empty_sdaf.groupby_reduce('g', Daf.sum_da, by='table')
 
 
+@pytest.mark.parametrize('func', [Daf.sum_da, _update_da])
+def test_groupby_aggregate_of_a_dict_column_matches_groupby_reduce(func):
+    """ One column of dict cells: the same rows as groupby_reduce() by sparse row. """
+    rows_sdaf: SqlDaf = SqlDaf.from_daf(GROUPBY_REDUCE_DAF, name='rows')
+    expected_lol: list = rows_sdaf.groupby_reduce('g', func, by='sparse_row', indirect_col='cv').to_daf().lol
+    result_sdaf: SqlDaf = rows_sdaf.groupby_aggregate('g', func, 'cv')
+    assert result_sdaf.to_daf().lol == expected_lol
+    assert result_sdaf.columns() == ['g', 'cv']
+    assert result_sdaf.keyfield == 'g'
+
+
+def test_groupby_aggregate_merges_in_row_order():
+    """ A later row of a group overwrites an earlier one, so the rows come in the order of the table. """
+    rows_sdaf: SqlDaf = SqlDaf('rows', cols=['g', 'cv'], lol=[['b', "{'k': 1}"], ['a', "{'k': 5}"], ['b', '{"k": 2}'], ['b', "{'k': 3}"]])
+    assert rows_sdaf.groupby_aggregate('g', _update_da, 'cv').to_daf().lol == [['a', '{"k":5}'], ['b', '{"k":3}']]
+
+
+def test_groupby_aggregate_of_several_columns_matches_mdaf():
+    """ Several columns: the same totals as Daf.groupby_reduce(), and only the result columns. """
+    rows_sdaf: SqlDaf = SqlDaf.from_daf(GROUPBY_REDUCE_DAF, name='rows')
+    mdaf_lol: list = sorted(GROUPBY_REDUCE_DAF.groupby_reduce('g', Daf.sum_da, reduce_cols=['x']).lol)
+    result_sdaf: SqlDaf = rows_sdaf.groupby_aggregate('g', Daf.sum_da, ['x', 'cv'], result_cols=['x'])
+    assert result_sdaf.to_daf().lol == [[g, x] for g, x, _cv in mdaf_lol]
+
+
+def test_groupby_aggregate_of_a_plain_column_gives_its_value():
+    rows_sdaf: SqlDaf = SqlDaf.from_daf(GROUPBY_REDUCE_DAF, name='rows')
+    assert rows_sdaf.groupby_aggregate('g', Daf.sum_da, 'x').to_daf().lol == [['', 4], ['b1', 9], ['b2', 9]]
+
+
+def test_groupby_aggregate_by_two_columns_with_null_and_empty_text_together():
+    """ SQL NULL and the text '' are one group, first, as in groupby_reduce(). """
+    conn = sqlite3.connect(SqlDaf.db_path)
+    conn.execute('CREATE TABLE other (p, s, n)')
+    conn.executemany('INSERT INTO other VALUES (?, ?, ?)',
+                     [('P1', 'x', 1), (None, 'x', 2), ('', 'x', 3), ('P1', 'y', 4), ('P1', 'x', 5)])
+    conn.commit()
+    conn.close()
+    result_sdaf: SqlDaf = SqlDaf('other').groupby_aggregate(['p', 's'], Daf.sum_da, ['n', 's'], result_cols=['n'])
+    assert result_sdaf.to_daf().lol == [['', 'x', 5], ['P1', 'x', 6], ['P1', 'y', 4]]
+    assert result_sdaf.keyfield == ''
+
+
+def test_groupby_aggregate_of_more_columns_than_one_call_takes():
+    """ 150 columns go to the function, more than the 127 arguments of one call on SQLite 3.37. """
+    cols_ls: list = [f'c{idx}' for idx in range(150)]
+    rows_sdaf: SqlDaf = SqlDaf('wide', cols=['g'] + cols_ls, lol=[['a'] + [1] * 150, ['a'] + [2] * 150, ['b'] + [5] * 150])
+    result_daf: Daf = rows_sdaf.groupby_aggregate('g', Daf.sum_da, cols_ls).to_daf()
+    assert result_daf.lol == [['a'] + [3] * 150, ['b'] + [5] * 150]
+
+
+def test_groupby_aggregate_writes_results_in_daffodil_form():
+    """ A dict result is JSON text, True is 1, and None is Python NULL, stored as SQL NULL. """
+    def set_flags(row_da: dict, reduction_da: dict, *, cols: Any = None) -> dict:
+        reduction_da['flags'] = {'seen': True, 'none': None}
+        reduction_da['ok'] = True
+        reduction_da['gone'] = None
+        return reduction_da
+    rows_sdaf: SqlDaf = SqlDaf('rows', cols=['g', 'flags', 'ok', 'gone'], lol=[['a', '', '', '']])
+    result_sdaf: SqlDaf = rows_sdaf.groupby_aggregate('g', set_flags, ['flags', 'ok', 'gone'])
+    assert result_sdaf.to_daf().lol == [['a', '{"seen":1,"none":""}', 1, '']]
+    stored_lt: list = result_sdaf.conn.execute(f'SELECT "gone" FROM temp."{result_sdaf.name}"').fetchall()
+    assert stored_lt == [(None,)]
+
+
+def test_groupby_aggregate_raises_the_function_error_as_itself():
+    def broken(row_da: dict, reduction_da: dict, **kwargs: Any) -> dict:
+        raise ValueError('a bad row')
+    rows_sdaf: SqlDaf = SqlDaf.from_daf(GROUPBY_REDUCE_DAF, name='rows')
+    with pytest.raises(ValueError, match='a bad row'):
+        rows_sdaf.groupby_aggregate('g', broken, 'cv')
+    with pytest.raises(ValueError, match='a bad row'):
+        rows_sdaf.groupby_aggregate('g', broken, ['x', 'cv'])
+
+
+def test_groupby_aggregate_of_no_rows_and_bad_names():
+    empty_sdaf: SqlDaf = SqlDaf('empty', cols=['g', 'cv'])
+    assert empty_sdaf.groupby_aggregate('g', Daf.sum_da, 'cv').to_daf().lol == []
+    with pytest.raises(KeyError):
+        empty_sdaf.groupby_aggregate('nope', Daf.sum_da, 'cv')
+    with pytest.raises(KeyError):
+        empty_sdaf.groupby_aggregate('g', Daf.sum_da, ['nope'])
+
+
+def test_groupby_aggregate_of_a_selection():
+    """ Only the selected rows are grouped. """
+    rows_sdaf: SqlDaf = SqlDaf.from_daf(GROUPBY_REDUCE_DAF, name='rows')
+    selected_sdaf: SqlDaf = rows_sdaf.select_where(lambda row: row['x'] > 2, cols=['x'])
+    assert selected_sdaf.groupby_aggregate('g', Daf.sum_da, 'x').to_daf().lol == [['', 4], ['b1', 7], ['b2', 8]]
+
+
 def test_groupby_cols_keys_are_tuples_and_bad_names_raise():
     bif_sdaf: SqlDaf = SqlDaf.from_daf(make_bif_daf(), name='bif')
     assert list(bif_sdaf.groupby_cols(['precinct']).keys()) == [('P1',), ('P2',), ('P3',)]

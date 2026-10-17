@@ -202,7 +202,7 @@ def update_da(
         diagnose:       bool = False,           # given by Daf.reduce(). Not used.
         ) -> T_da:                              # the result, with the row merged in.
     """
-    Merge the dict of a row into the result, for `groupby_reduce()` with `by='sparse_row'`.
+    Merge the dict of a row into the result, for `groupby_aggregate()` of a dict column.
 
     Each key takes the row's value, as `dict.update()` does.
     The contests of a ballot have their own keys, so nothing is overwritten.
@@ -510,8 +510,8 @@ def locate_contest_variants_sdaf(
     # Step 15: the contests that agree, put back together, one row per ballot.
     # The contest dicts of each ballot are merged in row order, as json_group_object() merges them.
     start_f = time.perf_counter()
-    partial_sdaf: SqlDaf = nonvariant_contests_sdaf.groupby_reduce(
-            'ballot_id', update_da, by='sparse_row', indirect_col='concise_votes')
+    # A registered aggregate merges them inside SQLite, one ballot at a time.
+    partial_sdaf: SqlDaf = nonvariant_contests_sdaf.groupby_aggregate('ballot_id', update_da, 'concise_votes')
     logs.stsloc(f"Step 15: {len(partial_sdaf)} ballots recombined from {len(nonvariant_contests_sdaf)} contests. "
                 f"First: {partial_sdaf.iloc(0) if len(partial_sdaf) else ''}", 3)
 
@@ -716,20 +716,20 @@ def precinct_sums_sdaf(
         precinct_col:       str,            # the precinct column, as stored.
         direct_cols_ls:     T_ls,           # the columns of sumcols_ls that the table has.
         sumcols_ls:         T_ls,           # the columns to total, as reduce_nonvariants() makes the list.
-        diagnose:           bool = False,   # if True, show each block of results.
+        diagnose:           bool = False,   # if True, show each query and its first results.
         ) -> T_dodi:                        # the totals of each precinct, by precinct.
     """
     The totals of sumcols_ls for each precinct, as nonvariant_precinct_sums_dodi.
 
-    The rows are grouped by precinct and reduced in blocks, by groupby_reduce().
+    The rows are grouped by precinct and reduced inside SQLite, by groupby_aggregate().
     The direct columns are totaled as row values.
     The other columns are keys of concise_votes, totaled from the dict in each row.
     A key that no row of a precinct has is None, as SQL SUM() gives it.
     """
     # The two reductions, each one table with a row for each precinct.
-    direct_sdaf: SqlDaf = rows_sdaf.groupby_reduce(precinct_col, Daf.sum_da, by='row', reduce_cols=direct_cols_ls, diagnose=diagnose)
+    direct_sdaf: SqlDaf = rows_sdaf.groupby_aggregate(precinct_col, Daf.sum_da, direct_cols_ls, diagnose=diagnose)
     logs.stsloc(f"Precinct sums: {len(direct_sdaf)} precincts of direct sums", 3)
-    indirect_sdaf: SqlDaf = rows_sdaf.groupby_reduce(precinct_col, Daf.sum_da, by='sparse_row', indirect_col='concise_votes', diagnose=diagnose)
+    indirect_sdaf: SqlDaf = rows_sdaf.groupby_aggregate(precinct_col, Daf.sum_da, 'concise_votes', diagnose=diagnose)
     logs.stsloc(f"Precinct sums: {len(indirect_sdaf)} precincts of concise_votes sums", 3)
 
     # The totals of each precinct, in the form of reduce_nonvariants().

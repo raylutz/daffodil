@@ -608,20 +608,26 @@ def normalize_val(val: Any) -> Any:
         >>> normalize_val({'a': True, 'b': False, 'c': None, 'd': [float('nan'), 2, 'x']})
         {'a': 1, 'b': 0, 'c': '', 'd': ['', 2, 'x']}
     """
-    if isinstance(val, bool):
-        # a bool is also an int, so it is tested first.
-        result_a: Any = int(val)
+    # An int or a str, the usual cells, is kept with no call.
+    # The exact class is tested, since a bool is also an int.
+    if val.__class__ in _PLAIN_CLASSES:
+        result_a: Any = val
+    elif isinstance(val, bool):
+        result_a = int(val)
     elif val is None or val != val:
         result_a = NULL
     elif isinstance(val, dict):
-        result_a = {key: normalize_val(item) for key, item in val.items()}
+        result_a = {key: item if item.__class__ in _PLAIN_CLASSES else normalize_val(item) for key, item in val.items()}
     elif isinstance(val, list):
-        result_a = [normalize_val(item) for item in val]
+        result_a = [item if item.__class__ in _PLAIN_CLASSES else normalize_val(item) for item in val]
     elif isinstance(val, tuple):
-        result_a = tuple(normalize_val(item) for item in val)
+        result_a = tuple(item if item.__class__ in _PLAIN_CLASSES else normalize_val(item) for item in val)
     else:
         result_a = val
     return result_a
+
+
+_PLAIN_CLASSES: Tuple[type, ...] = (int, str)      # the values normalize_val() keeps as they are, with no test.
 
 
 def _bool_words() -> Dict[Any, int]:

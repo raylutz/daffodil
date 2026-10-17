@@ -264,8 +264,7 @@ def check_step_15(sdaf_variants: Any, work_db_path: str, ae_db_path: str) -> Non
     contests_sdaf: SqlDaf = SqlDaf('nonvariant_contests')
 
     # Piece 1: the merged dict of each ballot.
-    merged_sdaf: SqlDaf = contests_sdaf.groupby_reduce(
-            'ballot_id', sdaf_variants.update_da, by='sparse_row', indirect_col='concise_votes')
+    merged_sdaf: SqlDaf = contests_sdaf.groupby_aggregate('ballot_id', sdaf_variants.update_da, 'concise_votes')
     merged_ds: Dict[Any, str] = {row_da['ballot_id']: row_da['concise_votes'] for row_da in merged_sdaf.iter_dict()}
 
     # Piece 2: num_contests of each.
