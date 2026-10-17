@@ -722,12 +722,12 @@ def precinct_sums_sdaf(
     The totals of sumcols_ls for each precinct, as nonvariant_precinct_sums_dodi.
 
     The rows are grouped by precinct and reduced inside SQLite, by groupby_aggregate().
-    The direct columns are totaled as row values.
+    The direct columns hold numbers, so SQL totals them, with func='sum'.
     The other columns are keys of concise_votes, totaled from the dict in each row.
     A key that no row of a precinct has is None, as SQL SUM() gives it.
     """
     # The two reductions, each one table with a row for each precinct.
-    direct_sdaf: SqlDaf = rows_sdaf.groupby_aggregate(precinct_col, Daf.sum_da, direct_cols_ls, diagnose=diagnose)
+    direct_sdaf: SqlDaf = rows_sdaf.groupby_aggregate(precinct_col, 'sum', direct_cols_ls, diagnose=diagnose)
     logs.stsloc(f"Precinct sums: {len(direct_sdaf)} precincts of direct sums", 3)
     indirect_sdaf: SqlDaf = rows_sdaf.groupby_aggregate(precinct_col, Daf.sum_da, 'concise_votes', diagnose=diagnose)
     logs.stsloc(f"Precinct sums: {len(indirect_sdaf)} precincts of concise_votes sums", 3)

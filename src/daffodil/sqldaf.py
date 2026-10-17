@@ -10,10 +10,9 @@ import json
 import sqlite3
 import threading
 import contextlib
-import itertools
 
 from pathlib import Path
-from typing import Any, Callable, ClassVar, Dict, Iterator, List, Tuple, Type, TypeAlias      # noqa: F401
+from typing import Any, Callable, ClassVar, Dict, Iterator, List, Tuple, Type, TypeAlias, cast      # noqa: F401
 from collections.abc import Iterable
 
 from daffodil.daf import Daf, NULL, ColumnNotFoundError, KeysDisabledError
@@ -90,48 +89,6 @@ def is_value_sql(col: str, val: Any) -> Tuple[str, Tuple[Any, ...]]:
     return f'{quote_name(col)} IS ?', (val,)
 
 
-def iter_group_blocks(
-        batches:    Iterable[List[Tuple[Any, ...]]],    # rows sorted by the group column, a batch at a time.
-        key_idx:    int,                                # the place of the group column in each row.
-        ) -> Iterator[Dict[Any, T_lola]]:               # each block: the rows of each whole group, by its value.
-    """
-    Make blocks of whole groups from batches of rows sorted by one column. Internal use.
-
-    Each block holds the groups that end in one batch, with SQL NULL as Python NULL.
-    The last group of a batch may go on in the next one.
-    So it is held back, and the rows of the next batch are added to it.
-    The last group of all is a block of its own.
-    A group larger than a batch is held whole.
-    """
-    carry_key: Any = NULL
-    carry_lol: T_lola = []
-    batch_lot: List[Tuple[Any, ...]]
-    for batch_lot in batches:
-        block_dolol: Dict[Any, T_lola] = {}
-        if carry_lol:
-            block_dolol[carry_key] = carry_lol
-
-        # The rows of one group are together, so groupby() finds each group.
-        group_key: Any
-        group_rows: Iterator[Tuple[Any, ...]]
-        for group_key, group_rows in itertools.groupby(batch_lot, key=lambda row_t: row_t[key_idx]):
-            key: Any = NULL if group_key is None else group_key
-            rows_lol: T_lola = [none_to_null(row_t) for row_t in group_rows]
-            if key in block_dolol:
-                block_dolol[key].extend(rows_lol)       # only the group carried from the batch before.
-            else:
-                block_dolol[key] = rows_lol
-
-        # The last group is held back, since it may go on in the next batch.
-        carry_key = key
-        carry_lol = block_dolol.pop(carry_key)
-        if block_dolol:
-            yield block_dolol
-    if carry_lol:
-        last_block_dolol: Dict[Any, T_lola] = {carry_key: carry_lol}
-        yield last_block_dolol
-
-
 #===================================
 # Python aggregates for groupby_aggregate()
 
@@ -178,10 +135,12 @@ class CellReduction:
     Any other cell is given as a row of one column.
     The result is the reduced dict, as JSON text.
     If the cells were not dicts, the result is the value of the column in the reduced dict.
+    With sparse set, the result is always the reduced dict.
     """
     func:           Callable[..., Any]
     col:            str
     call_kwargs:    T_da
+    sparse:         bool = False
 
     def __init__(self) -> None:
         self.reduction_da: T_da = {}
@@ -199,7 +158,7 @@ class CellReduction:
         self.reduction_da = self.func(row_da, self.reduction_da, **self.call_kwargs)
 
     def finalize(self) -> Any:
-        result_a: Any = self.reduction_da.get(self.col, NULL) if self.saw_value else self.reduction_da
+        result_a: Any = self.reduction_da.get(self.col, NULL) if self.saw_value and not self.sparse else self.reduction_da
         return aggregate_result_cell(result_a)
 
 
@@ -231,6 +190,51 @@ class RowReduction:
         results_la: T_la = [aggregate_result_cell(self.reduction_da.get(col, NULL)) for col in self.result_cols]
         results_text: str = json.dumps(results_la, separators=(',', ':'), ensure_ascii=False)
         return results_text
+
+
+class GroupReduction:
+    """
+    The aggregate of `groupby_reduce()` by row. Internal use.
+
+    A subclass sets func, read_cols, reduce_cols, result_cols and call_kwargs.
+    Each row comes packed, as for RowReduction.
+    The rows of the group are kept as they are stored, with SQL NULL as Python NULL.
+    At the end they are one Daf, reduced by `Daf.reduce()`.
+    So the function is called just as `Daf.groupby_reduce()` calls it.
+    A plain sum then adds down each column, which is much faster than a call for each row.
+    """
+    func:           Callable[..., Any]
+    read_cols:      T_ls
+    reduce_cols:    T_ls
+    result_cols:    T_ls
+    call_kwargs:    T_da
+
+    def __init__(self) -> None:
+        self.rows_lol: T_lola = []
+
+    def step(self, packed_text: str) -> None:
+        chunks_lol: T_lola = json.loads(packed_text)
+        self.rows_lol.append([NULL if val is None else val for chunk_la in chunks_lol for val in chunk_la])
+
+    def finalize(self) -> str:
+        group_daf: Daf = Daf(lol=self.rows_lol, cols=self.read_cols)
+        reduction_da: T_da = cast(T_da, group_daf.reduce(self.func, cols=self.reduce_cols, **self.call_kwargs))
+        results_la: T_la = [aggregate_result_cell(reduction_da.get(col, NULL)) for col in self.result_cols]
+        results_text: str = json.dumps(results_la, separators=(',', ':'), ensure_ascii=False)
+        return results_text
+
+
+def packed_row_sql(cols: T_ls) -> str:
+    """
+    SQL for a row as one JSON array of arrays, for `RowReduction`. Internal use.
+
+    Each inner array holds at most ARRAY_CHUNK columns.
+    A call takes at most 127 arguments on SQLite 3.37.
+    """
+    chunks_ls: T_ls = [', '.join(quote_name(col) for col in cols[start:start + ARRAY_CHUNK])
+                       for start in range(0, len(cols), ARRAY_CHUNK)]
+    row_sql: str = 'json_array(' + ', '.join(f'json_array({chunk})' for chunk in chunks_ls) + ')'
+    return row_sql
 
 
 def _index_exists_on(conn: sqlite3.Connection, name: str) -> bool:
@@ -1217,30 +1221,6 @@ class SqlDaf(Daf):
                 if self._conn_da['func_error'] is not None:
                     raise self._conn_da['func_error'] from exc_info
                 raise
-            if not batch_lot:
-                return
-            yield batch_lot
-
-
-    def _iter_sorted_row_batches(
-            self,
-            colname:    str,                # the column to sort by.
-            cols:       T_ls,               # the columns to read.
-            batch_size: int = 10000,        # the rows of each batch.
-            ) -> Iterator[List[Tuple[Any, ...]]]:
-        """
-        Read the rows sorted by one column, a batch at a time, as tuples with SQL NULL as None. Internal use.
-
-        The sort is that of `sort_by_colname()`, with SQL NULL and '' together, first.
-        Rows that tie keep their order. Nothing is written, not even a sorted copy.
-        """
-        self._resolve()
-        rows_sql, rows_params = self._rows_sql()
-        cols_sql: str = ', '.join(quote_name(col) for col in cols)
-        query: str = f'SELECT {cols_sql} FROM ({rows_sql}) ORDER BY {value_sql(colname)}, {ORD_COL}'
-        cursor: sqlite3.Cursor = self._execute(query, rows_params)
-        while True:
-            batch_lot: List[Tuple[Any, ...]] = cursor.fetchmany(batch_size)
             if not batch_lot:
                 return
             yield batch_lot
@@ -2685,8 +2665,8 @@ class SqlDaf(Daf):
             func:           Callable[..., Any],         # reduces the rows of one group, as in Daf.reduce().
             by:             str = 'row',                # 'row' or 'sparse_row', as in Daf.reduce().
             reduce_cols:    T_ls | None = None,         # the columns to reduce. All except colname if None.
-            diagnose:       bool = False,               # if True, show each block as it is reduced.
-            batch_size:     int = 10000,                # the rows read at a time.
+            diagnose:       bool = False,               # if True, show the query and the first results.
+            batch_size:     int = 10000,                # not used. Kept so that existing calls work.
             **kwargs:       Any,                        # passed on to func, and indirect_col for 'sparse_row'.
             ) -> 'SqlDaf':
         """
@@ -2695,23 +2675,30 @@ class SqlDaf(Daf):
         Use it to turn many rows of one key into one row, such as the contests of a ballot
         into one record of the ballot.
 
-        The rows are read once, sorted by the column, a batch at a time.
-        The groups that end in a batch are reduced together, as one block, by
-        `Daf.reduce_dodaf_to_daf()`. Each block of results is added to the new table.
-        A group that goes on into the next batch is held back until it ends.
-        So memory holds one batch and its results, and the largest group whole.
-        No query is made for each group, as `groupby()` would need.
+        The groups are reduced inside SQLite, in one query, by a registered aggregate,
+        as `groupby_aggregate()` does. No query is made for each group.
+
+        - With `by='row'`, the rows of each group become a Daf of the columns the group holds.
+          These are `reduce_cols`, or all columns. The cells are as stored, so a dict cell is text.
+          `Daf.reduce()` reduces it, so the function is called just as `Daf.groupby_reduce()` calls it.
+          A plain `Daf.sum_da` adds down each column there, with no call for each row.
+        - With `by='sparse_row'`, the function gets the dict held in the cell of `indirect_col`.
+          Its `cols` is `reduce_cols`, and the reduction starts as an empty dict.
+
+        For totals of columns that hold only numbers, `groupby_aggregate()` with `func='sum'` is
+        several times faster.
 
         The new table has a row for each value of the column, with the column as its keyfield.
-        With `by='row'` it has the columns of this table. With `by='sparse_row'` it has two:
-        this column, and the column named by `indirect_col`. That cell holds the dict of the
-        group, with only the keys found in the group, as compact JSON text.
+        With `by='row'` it has the columns of this table. The columns not reduced are empty.
+        With `by='sparse_row'` it has two: this column, and the column named by `indirect_col`.
+        That cell holds the dict of the group, with only the keys found in the group, as compact JSON text.
+        Results are in daffodil form, as `groupby_aggregate()` describes.
         The new table is a TEMP table, as `copy()` makes. Keep it with `save(name)`.
 
         It differs from `Daf.groupby_reduce()` in three ways:
 
-        - The rows are in the sorted order of the column, not in the order first seen. Python NULL
-          comes first. The sort is that of `sort_by_colname()`.
+        - The rows are in the sorted order of the column, not in the order first seen.
+          SQL NULL and '' are one group, first.
         - Each group is a plain Daf of the rows, with no keyfield and no dtypes.
         - `by='table'` is not supported.
 
@@ -2720,8 +2707,8 @@ class SqlDaf(Daf):
             func: The reduction function, such as `Daf.sum_da`. See `Daf.reduce()`.
             by: `row` or `sparse_row`. See `Daf.reduce()`.
             reduce_cols: The columns to reduce. All columns except `colname` if None.
-            diagnose: If True, show the groups and results of each block.
-            batch_size: The rows read from the table at a time.
+            diagnose: If True, show the query and the first rows of the result.
+            batch_size: Not used. It is kept so that existing calls work.
             **kwargs: Keyword arguments passed on to the function, and `indirect_col` for `sparse_row`.
 
         Returns:
@@ -2746,65 +2733,40 @@ class SqlDaf(Daf):
             raise NotImplementedError(f"groupby_reduce(by={by!r}) is not supported on a SqlDaf. Use 'row' or 'sparse_row'.")
 
         # The columns each group holds, as in Daf.groupby_reduce().
-        # The group column is read last when the groups do not hold it.
         scope_ls: T_ls | None = Daf._reduce_scope(self, by, reduce_cols, kwargs)     # it reads only the column names.
         group_cols_ls: T_ls = scope_ls if scope_ls else self.columns()
-        holds_key: bool = colname in group_cols_ls
-        read_cols_ls: T_ls = group_cols_ls if holds_key else group_cols_ls + [colname]
-        key_idx: int = read_cols_ls.index(colname)
+        func_kwargs: T_da = {key: val for key, val in kwargs.items() if key != 'indirect_col'}
 
-        # The columns of the new table. A dict cell is written as JSON text, since SQLite cannot hold a dict.
-        out_cols_ls: T_ls = [colname, kwargs['indirect_col']] if by == 'sparse_row' else self.columns()
-        dict_col: str = kwargs['indirect_col'] if by == 'sparse_row' else ''
+        # The aggregate, as Daf.reduce() calls the function.
+        agg_cls: Type[Any]
+        if by == 'sparse_row':
+            indirect_col: str = kwargs['indirect_col']
+            agg_cls = type('BoundCellReduction', (CellReduction,), {
+                    'func':         staticmethod(func),
+                    'col':          indirect_col,
+                    'call_kwargs':  {'cols': reduce_cols, 'is_sparse': True, **func_kwargs},
+                    'sparse':       True,
+                    })
+            return self._aggregate_groups([colname], agg_cls, quote_name(indirect_col), [indirect_col],
+                                          [colname, indirect_col], 'groupby_reduce', diagnose)
 
-        target: str = self._next_temp_name((self.parent_sdaf or self).name)
-        num_block: int = 0
-        with self.transaction():
-            self._execute(_create_table_sql(self.conn, target, out_cols_ls, 'temp'))
-            result_sdaf: SqlDaf = self._new_on_conn(target, colname, None, is_temp=True)
-            batches: Iterator[List[Tuple[Any, ...]]] = self._iter_sorted_row_batches(colname, read_cols_ls, batch_size)
-            block_dolol: Dict[Any, T_lola]
-            for block_dolol in iter_group_blocks(batches, key_idx):
-
-                # Each group as a Daf, as Daf.groupby() would give it.
-                block_dodaf: Dict[Any, Daf] = {}
-                group_key: Any
-                group_lol: T_lola
-                for group_key, group_lol in block_dolol.items():
-                    rows_lol: T_lola = group_lol if holds_key else [row_la[:-1] for row_la in group_lol]
-                    block_dodaf[group_key] = Daf(lol=rows_lol, cols=group_cols_ls)
-
-                # The block reduced, one row for each group, by the code of Daf.groupby_reduce().
-                reduced_daf: Daf = Daf.reduce_dodaf_to_daf(
-                        colname         = colname,
-                        func            = func,
-                        grouped_dodaf   = block_dodaf,
-                        reduce_cols     = list(reduce_cols) if reduce_cols is not None else None,
-                        by              = by,
-                        all_cols        = self.columns() if scope_ls else None,
-                        **kwargs,
-                        )
-                num_block += 1
-                if diagnose:
-                    daf_utils.sts(f"groupby_reduce('{colname}'): block {num_block}, {len(block_dodaf)} groups, "
-                                  f"{sum(len(group_lol) for group_lol in block_dolol.values())} rows. "
-                                  f"Results:\n{reduced_daf}", 3)
-
-                # The results added to the new table, by column name.
-                out_lol: T_lola = []
-                row_da: T_da
-                for row_da in reduced_daf.iter_dict():
-                    if dict_col:
-                        row_da[dict_col] = json.dumps(row_da[dict_col], separators=(',', ':'))
-                    out_lol.append([row_da.get(col, NULL) for col in out_cols_ls])
-                result_sdaf._insert_rows(out_lol)
-        return result_sdaf
+        reduced_cols_ls: T_ls = group_cols_ls if reduce_cols is None else [col for col in group_cols_ls if col in reduce_cols]
+        result_cols_ls: T_ls = [col for col in group_cols_ls if col != colname]
+        agg_cls = type('BoundGroupReduction', (GroupReduction,), {
+                'func':         staticmethod(func),
+                'read_cols':    group_cols_ls,
+                'reduce_cols':  reduced_cols_ls,
+                'result_cols':  result_cols_ls,
+                'call_kwargs':  func_kwargs,
+                })
+        return self._aggregate_groups([colname], agg_cls, packed_row_sql(group_cols_ls), result_cols_ls,
+                                      self.columns(), 'groupby_reduce', diagnose)
 
 
     def groupby_aggregate(
             self,
             groupby_cols:   str | T_ls,                 # the column, or columns, to group by.
-            func:           Callable[..., Any],         # reduces the rows of a group, as in Daf.reduce().
+            func:           Callable[..., Any] | str,   # reduces the rows of a group, as in Daf.reduce(). Or 'sum'.
             reduce_cols:    str | T_ls,                 # the columns given to the function.
             result_cols:    T_ls | None = None,         # the columns of the result. reduce_cols if None.
             diagnose:       bool = False,               # if True, show the query and the first results.
@@ -2841,13 +2803,24 @@ class SqlDaf(Daf):
         With one grouping column, it is the keyfield. The table is a TEMP table, as `copy()` makes.
         Keep it with `save(name)`.
 
-        For plain totals of plain columns, SQL is faster still: use `sum()` on each group.
+        **Totals in SQL.** With `func='sum'`, each result column is the total of that column,
+        added by SQL's own `SUM()`, with no Python call.
+        It is for columns that hold only numbers and empty cells, and it is several times faster.
+        It gives the totals of `Daf.sum_da`, with three differences:
+
+        - A number stored as text, such as '3', is skipped, as `sum_da` skips text.
+          A table read from CSV may hold numbers as text. Convert such a column first.
+        - SQLite 3.43 and later add floats more exactly than Python does.
+          So a total of floats may differ from `sum_da` in its last digits.
+        - A total of integers over 2**63 raises an overflow error.
+
+        A group with no numbers has a total of 0.
 
         An error in the function is raised as itself, not as the short error SQLite reports.
 
         Args:
             groupby_cols: The column, or columns, to group by.
-            func: The reduction function, such as `Daf.sum_da`.
+            func: The reduction function, such as `Daf.sum_da`, or `sum` for totals in SQL.
             reduce_cols: The columns given to the function.
             result_cols: The columns of the result, filled from the reduction. `reduce_cols` if None.
             diagnose: If True, show the query and the first rows of the result.
@@ -2876,8 +2849,8 @@ class SqlDaf(Daf):
         for col in group_cols_ls + reduce_cols_ls:
             if col not in self.hd:
                 raise KeyError(col)
-        self._resolve()
-        rows_sql, rows_params = self._rows_sql()
+        if func == 'sum':
+            return self._sum_groups(group_cols_ls, result_cols_ls, diagnose)
 
         # The aggregate, by the number of columns.
         agg_cls: Type[Any]
@@ -2898,39 +2871,102 @@ class SqlDaf(Daf):
                     'result_cols':  result_cols_ls,
                     'call_kwargs':  kwargs,
                     })
-            # The row as one JSON array of arrays, since a call takes at most 127 arguments on SQLite 3.37.
-            chunks_ls: T_ls = [', '.join(quote_name(col) for col in read_cols_ls[start:start + ARRAY_CHUNK])
-                               for start in range(0, len(read_cols_ls), ARRAY_CHUNK)]
-            arg_sql = 'json_array(' + ', '.join(f'json_array({chunk})' for chunk in chunks_ls) + ')'
-        agg_name: str = self._register_aggregate(agg_cls, 1)
+            arg_sql = packed_row_sql(read_cols_ls)
+        return self._aggregate_groups(group_cols_ls, agg_cls, arg_sql, result_cols_ls,
+                                      group_cols_ls + result_cols_ls, 'groupby_aggregate', diagnose)
 
-        # The query. The rows are sorted first, so each group comes to the function in the order of the table.
-        # SQLite 3.37 has no ORDER BY inside an aggregate call, so a sorted subquery gives the order.
-        group_names_ls: T_ls = [f'daf_g{idx}' for idx in range(len(group_cols_ls))]
-        groups_sql: str = ', '.join(f'{value_sql(col)} AS {name}' for col, name in zip(group_cols_ls, group_names_ls))
+
+    def _sum_groups(
+            self,
+            group_cols:     T_ls,                       # the columns to group by.
+            sum_cols:       T_ls,                       # the columns to total.
+            diagnose:       bool,                       # if True, show the query and the first results.
+            ) -> 'SqlDaf':
+        """
+        Make a new table of the totals of each group, added by SQL. Internal use.
+
+        Only integers and floats are added, so text and empty cells are skipped, as `Daf.sum_da` skips them.
+        A group with nothing to add has a total of 0.
+        """
+        col: str
+        for col in sum_cols:
+            if col not in self.hd:
+                raise KeyError(col)
+        self._resolve()
+        rows_sql, rows_params = self._rows_sql()
+        group_names_ls: T_ls = [f'daf_g{idx}' for idx in range(len(group_cols))]
+        groups_sql: str = ', '.join(f'{value_sql(col)} AS {name}' for col, name in zip(group_cols, group_names_ls))
         names_sql: str = ', '.join(group_names_ls)
-        sorted_sql: str = (f'SELECT {groups_sql}, {arg_sql} AS daf_arg FROM ({rows_sql}) '
-                           f'ORDER BY {names_sql}, {ORD_COL}')
-        grouped_sql: str = f'SELECT {names_sql}, {agg_name}(daf_arg) AS daf_res FROM ({sorted_sql}) GROUP BY {names_sql}'
-        if len(reduce_cols_ls) == 1 and len(result_cols_ls) == 1:
-            results_sql: str = "NULLIF(daf_res, '')"
-        else:
-            results_sql = ', '.join(f"NULLIF(json_extract(daf_res, '$[{idx}]'), '')" for idx in range(len(result_cols_ls)))
-        out_cols_ls: T_ls = group_cols_ls + result_cols_ls
+        sums_sql: str = ', '.join(f"COALESCE(SUM(CASE WHEN typeof({quote_name(col)}) IN ('integer', 'real') "
+                                  f"THEN {quote_name(col)} END), 0)" for col in sum_cols)
+        out_cols_ls: T_ls = group_cols + sum_cols
+        selected_sql: str = f'{groups_sql}, {sums_sql}' if sum_cols else groups_sql
         target: str = self._next_temp_name((self.parent_sdaf or self).name)
         insert_sql: str = (f'INSERT INTO temp.{quote_name(target)} ({", ".join(quote_name(col) for col in out_cols_ls)}) '
-                           f'SELECT {names_sql}, {results_sql} FROM ({grouped_sql}) ORDER BY {names_sql}')
+                           f'SELECT {selected_sql} FROM ({rows_sql}) GROUP BY {names_sql} ORDER BY {names_sql}')
         if diagnose:
-            daf_utils.sts(f"groupby_aggregate({group_cols_ls}): {insert_sql}", 3)
+            daf_utils.sts(f"groupby_aggregate({group_cols}, 'sum'): {insert_sql}", 3)
 
         # The new table, filled by the one query.
         with self.transaction():
             self._execute(_create_table_sql(self.conn, target, out_cols_ls, 'temp'))
             self._execute(insert_sql, rows_params)
-        keyfield: str = group_cols_ls[0] if len(group_cols_ls) == 1 else ''
+        keyfield: str = group_cols[0] if len(group_cols) == 1 else ''
         result_sdaf: SqlDaf = self._new_on_conn(target, keyfield, None, is_temp=True)
         if diagnose:
-            daf_utils.sts(f"groupby_aggregate({group_cols_ls}): {len(result_sdaf)} groups. First:\n{result_sdaf.head(3)}", 3)
+            daf_utils.sts(f"groupby_aggregate({group_cols}, 'sum'): {len(result_sdaf)} groups. First:\n{result_sdaf.head(3)}", 3)
+        return result_sdaf
+
+
+    def _aggregate_groups(
+            self,
+            group_cols:     T_ls,                       # the columns to group by.
+            agg_cls:        Type[Any],                  # a bound CellReduction or RowReduction.
+            arg_sql:        str,                        # the SQL of the one argument of the aggregate.
+            result_cols:    T_ls,                       # the columns the aggregate fills.
+            table_cols:     T_ls,                       # the columns of the new table, in order.
+            label:          str,                        # the method named in diagnose output.
+            diagnose:       bool,                       # if True, show the query and the first results.
+            ) -> 'SqlDaf':
+        """
+        Make a new table with one row for each group, filled by a Python aggregate. Internal use.
+
+        This is the query of `groupby_aggregate()` and `groupby_reduce()`.
+        A CellReduction returns the cell itself, and a RowReduction returns a JSON array of the result columns.
+        A column of the table that is neither grouped nor filled is empty.
+        """
+        self._resolve()
+        rows_sql, rows_params = self._rows_sql()
+        agg_name: str = self._register_aggregate(agg_cls, 1)
+
+        # The query. The rows are sorted first, so each group comes to the function in the order of the table.
+        # SQLite 3.37 has no ORDER BY inside an aggregate call, so a sorted subquery gives the order.
+        group_names_ls: T_ls = [f'daf_g{idx}' for idx in range(len(group_cols))]
+        groups_sql: str = ', '.join(f'{value_sql(col)} AS {name}' for col, name in zip(group_cols, group_names_ls))
+        names_sql: str = ', '.join(group_names_ls)
+        sorted_sql: str = (f'SELECT {groups_sql}, {arg_sql} AS daf_arg FROM ({rows_sql}) '
+                           f'ORDER BY {names_sql}, {ORD_COL}')
+        grouped_sql: str = f'SELECT {names_sql}, {agg_name}(daf_arg) AS daf_res FROM ({sorted_sql}) GROUP BY {names_sql}'
+        if issubclass(agg_cls, CellReduction):
+            results_sql: str = "NULLIF(daf_res, '')"
+        else:
+            results_sql = ', '.join(f"NULLIF(json_extract(daf_res, '$[{idx}]'), '')" for idx in range(len(result_cols)))
+        out_cols_ls: T_ls = group_cols + result_cols
+        selected_sql: str = f'{names_sql}, {results_sql}' if result_cols else names_sql
+        target: str = self._next_temp_name((self.parent_sdaf or self).name)
+        insert_sql: str = (f'INSERT INTO temp.{quote_name(target)} ({", ".join(quote_name(col) for col in out_cols_ls)}) '
+                           f'SELECT {selected_sql} FROM ({grouped_sql}) ORDER BY {names_sql}')
+        if diagnose:
+            daf_utils.sts(f"{label}({group_cols}): {insert_sql}", 3)
+
+        # The new table, filled by the one query.
+        with self.transaction():
+            self._execute(_create_table_sql(self.conn, target, table_cols, 'temp'))
+            self._execute(insert_sql, rows_params)
+        keyfield: str = group_cols[0] if len(group_cols) == 1 else ''
+        result_sdaf: SqlDaf = self._new_on_conn(target, keyfield, None, is_temp=True)
+        if diagnose:
+            daf_utils.sts(f"{label}({group_cols}): {len(result_sdaf)} groups. First:\n{result_sdaf.head(3)}", 3)
         return result_sdaf
 
 
