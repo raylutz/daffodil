@@ -397,6 +397,18 @@ def test_to_csv_file_streams_more_than_one_batch(tmp_path):
         assert csv_f.read() == big_daf.to_csv_buff()
 
 
+def test_to_csv_decodes_a_stored_name_in_the_header():
+    """ A table another program stored with encoded names writes them decoded. The rows are unchanged. """
+    conn = sqlite3.connect(SqlDaf.db_path)
+    conn.execute('CREATE TABLE votes (ballot_id TEXT, __67roup TEXT, caf__E9 INTEGER)')
+    conn.execute("INSERT INTO votes VALUES ('b1', 'g1', 3)")
+    conn.commit()
+    conn.close()
+    votes_sdaf: SqlDaf = SqlDaf('votes')
+    assert votes_sdaf.columns() == ['ballot_id', '__67roup', 'caf__E9']
+    assert votes_sdaf.to_csv_buff() == 'ballot_id,group,caf\u00e9\r\nb1,g1,3\r\n'
+
+
 def test_a_table_with_no_columns_reads_as_empty():
     empty_sdaf: SqlDaf = SqlDaf('empty', [])
     assert len(empty_sdaf) == 0 and not empty_sdaf

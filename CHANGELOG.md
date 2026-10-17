@@ -9,6 +9,9 @@ all prior releases. Plans for future moved to ROADMAP.md.
 
 ## [Unreleased]
 
+### Changed
+- SqlDaf's `to_csv_file()` and `to_csv_buff()` write a column name stored with the `__HH` encoding decoded. AuditEngine stores the column group as `__67roup`, and its own exporter writes `group`. So a SqlDaf export of its table now has the same header. The rows are unchanged. The new `sql_decode_name()` in daf_sql.py decodes a name without the unquoting of `sql_unesc_str()`. Ray decided this on 2026-10-17. A test is in `tests/test_sqldaf.py`.
+
 ## [0.8.1] - (2026-10-16)
 
 This release has two breaking changes, marked **Breaking** under Changed. `wide_to_narrow()` names a column `variable` by default, where it was `varname`. `from_md()` raises at a row with the wrong number of cells, where it dropped that row and the rest. It also fixes right and outer joins, and `from_md()` with a `|` in a cell.

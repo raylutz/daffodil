@@ -19,6 +19,7 @@ from daffodil.daf import Daf, NULL, ColumnNotFoundError, KeysDisabledError
 from daffodil.keyedlist import KeyedList
 from daffodil.lib.daf_types import T_ls, T_la, T_lola, T_di, T_da, T_ds, T_ss, T_dtype_dict, T_copybits, T_buff
 import daffodil.lib.daf_utils as daf_utils
+import daffodil.lib.daf_sql as daf_sql
 
 
 RID_COL = 'daf_rid'                 # the INTEGER PRIMARY KEY of each table SqlDaf makes
@@ -1042,7 +1043,7 @@ class SqlDaf(Daf):
         """ Write the rows as CSV to an open text file, a batch at a time, as `Daf.to_csv_buff()` writes them. Internal use. """
         csv_writer = csv.writer(text_f, lineterminator='\r\n' if line_terminator is None else line_terminator)
         if include_header:
-            csv_writer.writerow(self.columns())
+            csv_writer.writerow([daf_sql.sql_decode_name(col) for col in self.columns()])     # a name stored with the __HH encoding is written decoded.
         batch_lot: List[Tuple[Any, ...]]
         for batch_lot in self._iter_row_batches():
             csv_writer.writerows(batch_lot)                     # SQL NULL is written as an empty cell, as Python NULL is.
@@ -1060,6 +1061,8 @@ class SqlDaf(Daf):
         A local file is written as the rows are read, 10,000 at a time, so a table larger than
         memory can be written. The text is the same as a Daf of the same rows would write: each
         cell with `str()`, Python NULL and SQL NULL as nothing, and `\r\n` line endings by default.
+        A column name stored with the `__HH` encoding is written decoded. So a table that another
+        program stored with a column `__67roup` is written with the header `group`.
         A path that starts with s3 is not streamed: the text is built in memory and uploaded, as a Daf does.
 
         Args:

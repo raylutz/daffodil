@@ -62,6 +62,15 @@ def sql_unesc_str(escaped_name: str) -> str:
 decode_colname_from_sqlcol = sql_unesc_str
 
 
+def sql_decode_name(stored_name: str) -> str:
+    """ Decode each __HH, __uHHHH or __UHHHHHHHH in a stored name as its character.
+
+        Another program may store a name with this encoding, such as group as __67roup.
+        Quotes and spaces are left as they are, unlike `sql_unesc_str()`.
+    """
+    return _SQL_DECODE_RE.sub(lambda x: chr(int(x.group(1) or x.group(2) or x.group(3), 16)), stored_name)
+
+
 # A minimal list of reserved SQL words; you can expand this
 _RESERVED_SQL_WORDS_SET = {
     'select', 'from', 'where', 'group', 'order', 'by', 'user', 'value', 'insert',
