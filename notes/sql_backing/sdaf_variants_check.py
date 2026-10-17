@@ -198,6 +198,44 @@ def check_combine_split_bmd(sdaf_variants: Any, scratch_dir: str) -> None:
 
 
 #===================================
+# Step 15, piece by piece
+
+def check_step_15(sdaf_variants: Any, work_db_path: str, ae_db_path: str) -> None:
+    """
+    Show each piece of step 15 on the run's nonvariant_contests, against AuditEngine's partial_nonvariants.
+
+    AuditEngine's table is taken before step 16 adds the empty shells and step 17 moves the blank sheets.
+    So it is compared only on the ballots step 15 makes.
+    """
+    SqlDaf.db_path = work_db_path
+    contests_sdaf: SqlDaf = SqlDaf('nonvariant_contests')
+
+    # Piece 1: the merged dict of each ballot.
+    merged_sdaf: SqlDaf = contests_sdaf.groupby_reduce(
+            'ballot_id', sdaf_variants.update_da, by='sparse_row', indirect_col='concise_votes')
+    merged_ds: Dict[Any, str] = {row_da['ballot_id']: row_da['concise_votes'] for row_da in merged_sdaf.iter_dict()}
+
+    # Piece 2: num_contests of each.
+    merged_sdaf.insert_col('num_contests', default=0)
+    merged_sdaf.apply_in_place(lambda row_da: {'num_contests': sdaf_variants.num_contests_of(row_da['concise_votes'])})
+    counts_di: Dict[Any, int] = {row_da['ballot_id']: row_da['num_contests'] for row_da in merged_sdaf.iter_dict()}
+    SqlDaf.close()
+
+    with sqlite3.connect(f'file:{ae_db_path}?mode=ro', uri=True) as ae_conn:
+        ae_lt: List[tuple] = list(ae_conn.execute('SELECT ballot_id, concise_votes, num_contests FROM partial_nonvariants'))
+    # Step 17 moved the blank sheets out of AuditEngine's table, so only the ballots in both are compared.
+    ae_text_ds: Dict[Any, str] = {row[0]: row[1] for row in ae_lt if row[0] in merged_ds}
+    ae_counts_di: Dict[Any, int] = {row[0]: row[2] for row in ae_lt if row[0] in merged_ds}
+    both_text_ds: Dict[Any, str] = {key: merged_ds[key] for key in ae_text_ds}
+    both_counts_di: Dict[Any, int] = {key: counts_di[key] for key in ae_counts_di}
+    print(f'\nstep 15: {len(merged_ds)} ballots merged, {len(ae_text_ds)} of them in AE partial_nonvariants. '
+          f'Same text: {both_text_ds == ae_text_ds}. Same num_contests: {both_counts_di == ae_counts_di}.')
+    first_key: Any = next(iter(ae_text_ds))
+    print(f'  first ballot {first_key}: sdaf {merged_ds[first_key][:70]}\n'
+          f'  {"":{len(str(first_key)) + 15}}sql  {ae_text_ds.get(first_key, "")[:70]}')
+
+
+#===================================
 
 def main() -> None:
     ae_dir, scratch_dir = sys.argv[1], sys.argv[2]
@@ -249,6 +287,7 @@ def main() -> None:
     work_conn.close()
     ae_conn.close()
 
+    check_step_15(sdaf_variants, work_db_path, ae_db_path)
     check_combine_split_bmd(sdaf_variants, scratch_dir)
 
 

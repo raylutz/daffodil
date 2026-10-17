@@ -45,23 +45,24 @@ from typing import Any, Callable, Dict, List, Tuple
 
 from daffodil.daf import Daf
 from daffodil.sqldaf import SqlDaf, T_sdaf, T_losdaf
+import daffodil.lib.daf_utils as daf_utils
 
 from models.DB import DB
 from my_types import T_da, T_doda, T_ls, T_loda
-from pyontools import pyontools
 from utilities import cmpcvr, generic_cvr, logs, reports, split_bmd, sql_utils, sql_variants, utils
 
 
 KEYFIELD:           str     = 'ballot_id'
 REPORT_COLS_LS:     T_ls    = ['Step', 'Description', 'Audit recs', 'CVR Recs', 'Audit(s)', 'CVR(s)']
 WORK_PREFIX:        str     = 'sdaf_'       # the TEMP work tables of a run.
-APPLY_BATCH_ROWS:   int     = 10000         # the rows read into memory at a time in step 18.
+APPLY_BATCH_ROWS:   int     = 10000         # the rows held in memory at a time in steps 15 and 18.
 
 # Patterns of sql_variants.py.
 VARIANT_FLAG_PAT:       str         = r"'c\d+(w|ov|g)'"                             # step 4: a writein, overvote or gray contest.
 CONTEST_FLAG_PAT:       str         = r"""['"]c\d+(?:ov|w|g)['"](?=\s*:)"""        # steps 13 and 14.
 CONTEST_KEY_RE:         re.Pattern  = re.compile(r'^c(\d+)(b|ov|uv|g|w|o|v|r)')   # extract_contests().
 BLANK_CONCISE_KEY_RE:   re.Pattern  = re.compile(r'^c\d+(b|uv)$')                  # move_blank_sheets_to_table().
+CONTEST_START_RE:       re.Pattern  = re.compile(r'^c\d+b')                       # the key that starts a contest, for num_contests.
 
 # Columns of reduce_nonvariants() in cmpcvr.py, by their decoded names.
 DIRECT_SUM_COLS_LS:     T_ls    = ['blank', 'v', 'is_bmd']
@@ -80,7 +81,8 @@ RESULT_TABLES_LS: T_ls = [
 
 def decoded_row(row_da: T_da) -> T_da:
     """ The row with each stored name decoded, as AuditEngine's own reader gives it. """
-    return {sql_utils.sql_unesc_str(col): val for col, val in row_da.items()}
+    decoded_da: T_da = {sql_utils.sql_unesc_str(col): val for col, val in row_da.items()}
+    return decoded_da
 
 
 def decoded_daf(rows_daf: Daf) -> Daf:
@@ -94,30 +96,49 @@ def decoded_daf(rows_daf: Daf) -> Daf:
 def stored_cols(rows_sdaf: SqlDaf, decoded_cols_ls: T_ls) -> T_ls:
     """ The stored names of these columns, given by their decoded names. """
     stored_by_decoded_ds: Dict[str, str] = {sql_utils.sql_unesc_str(col): col for col in rows_sdaf.columns()}
-    return [stored_by_decoded_ds[col] for col in decoded_cols_ls]
+    stored_ls: T_ls = [stored_by_decoded_ds[col] for col in decoded_cols_ls]
+    return stored_ls
 
 
 #===================================
 # Row functions
 
 def decoded_votes(concise_votes: Any) -> T_da:
-    """ The dict of a concise_votes cell, PYON or JSON text. An empty cell gives an empty dict. """
-    return pyontools.pyon_decode(concise_votes) or {}
+    """
+    The dict of a concise_votes cell, PYON or JSON text, read with pyjson5 by `unflatten_val()`.
+
+    An empty cell gives an empty dict.
+    Text that is not a dict raises ValueError, so bad data stops the run.
+    """
+    if not concise_votes:
+        return {}
+    votes_a: Any = daf_utils.unflatten_val(concise_votes)
+    if not isinstance(votes_a, dict):
+        raise ValueError(f"sdaf_variants: a concise_votes cell is not a dict: {str(concise_votes)[:80]!r}")
+    return votes_a
 
 
 def has_variant_flag(concise_votes: Any) -> bool:
     """ The test of step 4: the ballot has a writein, an overvote or a gray contest. """
-    return utils.safe_regex_search(VARIANT_FLAG_PAT, concise_votes)
+    flagged: bool = utils.safe_regex_search(VARIANT_FLAG_PAT, concise_votes)
+    return flagged
 
 
 def has_contest_flag(concise_votes: Any) -> bool:
     """ The test of steps 13 and 14, on the votes of one contest. """
-    return utils.safe_regex_search(CONTEST_FLAG_PAT, concise_votes)
+    flagged: bool = utils.safe_regex_search(CONTEST_FLAG_PAT, concise_votes)
+    return flagged
 
 
 def concise_votes_differ(concise_votes1: Any, concise_votes2: Any) -> bool:
-    """ The test of step 9: the votes still differ once each is normalized. """
-    return pyontools.normalize_pyon(concise_votes1) != pyontools.normalize_pyon(concise_votes2)
+    """
+    The test of step 9: the votes still differ once each is decoded.
+
+    normalize_pyon() of sql_variants.py sorts the keys of each and compares the text.
+    Two dicts are equal whatever the order of their keys, so comparing the dicts is the same test.
+    """
+    differ: bool = decoded_votes(concise_votes1) != decoded_votes(concise_votes2)
+    return differ
 
 
 def split_contests(row_da: T_da) -> T_loda:
@@ -137,27 +158,59 @@ def split_contests(row_da: T_da) -> T_loda:
         if match:
             by_cidx_doda.setdefault(int(match.group(1)), {})[key] = val
 
-    return [{'contest_key':     f"{row_da['ballot_id']}/{cidx}",
-             'ballot_id':       row_da['ballot_id'],
-             'cidx':            cidx,
-             'concise_votes':   contest_votes_json(votes_da),
-             } for cidx, votes_da in by_cidx_doda.items()]
+    contests_loda: T_loda = []
+    cidx: int
+    votes_da: T_da
+    for cidx, votes_da in by_cidx_doda.items():
+        contests_loda.append({'contest_key':     f"{row_da['ballot_id']}/{cidx}",
+                              'ballot_id':       row_da['ballot_id'],
+                              'cidx':            cidx,
+                              'concise_votes':   contest_votes_json(votes_da)})
+    return contests_loda
 
 
 def contest_votes_json(votes_da: T_da) -> str:
     """ The votes of one contest as JSON, with sorted keys and no spaces. """
-    return json.dumps(dict(sorted(votes_da.items())), separators=(',', ':'))
+    votes_json: str = json.dumps(dict(sorted(votes_da.items())), separators=(',', ':'))
+    return votes_json
 
 
 def is_blank_sheet(concise_votes: Any) -> bool:
     """ The test of step 17: every contest on the sheet is fully undervoted. """
     votes_da: T_da = decoded_votes(concise_votes)
-    return any(key.endswith('b') for key in votes_da) and all(BLANK_CONCISE_KEY_RE.match(key) for key in votes_da)
+    has_contest: bool = any(key.endswith('b') for key in votes_da)
+    all_blank: bool = all(BLANK_CONCISE_KEY_RE.match(key) for key in votes_da)
+    blank: bool = has_contest and all_blank
+    return blank
 
 
 def num_contests_of(concise_votes: Any) -> int:
     """ The contests of a ballot: the keys that start a contest, as calc_num_contests_from_concise_votes() counts them. """
-    return len([key for key in decoded_votes(concise_votes) if re.search(r'^c\d+b', key)])
+    num_contests: int = len([key for key in decoded_votes(concise_votes) if CONTEST_START_RE.match(key)])
+    return num_contests
+
+
+def update_da(
+        row_da:         T_da,                   # the dict of one row.
+        reduction_da:   T_da,                   # the result so far. It is changed.
+        *,
+        cols:           Any = None,             # the keys to take. All if None.
+        is_sparse:      bool = False,           # given by Daf.reduce(). Not used.
+        diagnose:       bool = False,           # given by Daf.reduce(). Not used.
+        ) -> T_da:                              # the result, with the row merged in.
+    """
+    Merge the dict of a row into the result, for `groupby_reduce()` with `by='sparse_row'`.
+
+    Each key takes the row's value, as `dict.update()` does.
+    The contests of a ballot have their own keys, so nothing is overwritten.
+    """
+    key: str
+    val: Any
+    for key, val in row_da.items():
+        if cols and key not in cols:
+            continue
+        reduction_da[key] = val
+    return reduction_da
 
 
 #===================================
@@ -438,9 +491,16 @@ def locate_contest_variants_sdaf(
            len(combined_sdaf), time.perf_counter() - start_f)
 
     # Step 15: the contests that agree, put back together, one row per ballot.
-    # The table is made under its name in the file, as sql_variants.py makes it.
+    # The contest dicts of each ballot are merged in row order, as json_group_object() merges them.
     start_f = time.perf_counter()
-    partial_sdaf: SqlDaf = SqlDaf.from_daf(recombined_contests_daf(nonvariant_contests_sdaf), name='partial_nonvariants')
+    partial_sdaf: SqlDaf = nonvariant_contests_sdaf.groupby_reduce(
+            'ballot_id', update_da, by='sparse_row', indirect_col='concise_votes')
+    logs.stsloc(f"Step 15: {len(partial_sdaf)} ballots recombined from {len(nonvariant_contests_sdaf)} contests. "
+                f"First: {partial_sdaf.iloc(0) if len(partial_sdaf) else ''}", 3)
+
+    # num_contests, counted from each merged dict.
+    partial_sdaf.insert_col('num_contests', default=0)
+    partial_sdaf.apply_in_place(lambda row_da: {'num_contests': num_contests_of(row_da['concise_votes'])})
     report(15, "Recombine 'nonvariant_contests' into 'partial_nonvariants'", len(partial_sdaf), time.perf_counter() - start_f)
 
     # Step 16: an empty row for each variant ballot that has no contest that agrees.
@@ -472,29 +532,6 @@ def locate_contest_variants_sdaf(
         'partial_nonvariants_wmetadata':    partial_wmetadata_sdaf,
         'blank_sheets':                     blank_sheets_sdaf,
         }
-
-
-def recombined_contests_daf(contests_sdaf: SqlDaf) -> Daf:
-    """
-    One row per ballot, with the votes of its contests put back together, as recombine_nonvariants() does.
-
-    The text is what json_group_object() of SQLite gives there.
-    The keys are in the order of the rows, then of each contest's keys.
-    The JSON has no spaces.
-    num_contests is counted from the votes.
-    """
-    votes_by_ballot_doda: Dict[Any, T_da] = {}
-    row_da: T_da
-    for row_da in contests_sdaf.iter_dict():
-        votes_by_ballot_doda.setdefault(row_da['ballot_id'], {}).update(json.loads(row_da['concise_votes']))
-
-    rows_lol: List[List[Any]] = []
-    ballot_id: Any
-    votes_da: T_da
-    for ballot_id, votes_da in votes_by_ballot_doda.items():
-        concise_votes: str = json.dumps(votes_da, separators=(',', ':'))
-        rows_lol.append([ballot_id, concise_votes, num_contests_of(concise_votes)])
-    return Daf(lol=rows_lol, cols=['ballot_id', 'concise_votes', 'num_contests'], keyfield=KEYFIELD)
 
 
 #===================================
