@@ -15,14 +15,13 @@ From there it does all that find_variants_using_sql() does:
 
 The import stays in cmpcvr.py, since it is file input from S3.
 The work on the tables is done with SqlDaf methods.
-Step 15 is the one SQL query left, since SqlDaf has no reduce by group yet.
 
 Names
 -----
 AuditEngine's import stores some column names encoded, such as group as __67roup.
 SqlDaf shows a name as it is stored.
 So each row given to an AuditEngine function has its names decoded first.
-AuditEngine's own reader decodes them in the same way.
+AuditEngine's own reader decodes them with sql_unesc_str() of sql_utils.py, and so does this module.
 SqlDaf decodes them in the header of a CSV file.
 
 Tables left in cmpcvr.db
@@ -46,7 +45,6 @@ from typing import Any, Callable, Dict, List, Tuple
 
 from daffodil.daf import Daf
 from daffodil.sqldaf import SqlDaf, T_sdaf, T_losdaf
-from daffodil.lib.daf_sql import sql_decode_name
 
 from models.DB import DB
 from my_types import T_da, T_doda, T_ls, T_loda
@@ -82,12 +80,12 @@ RESULT_TABLES_LS: T_ls = [
 
 def decoded_row(row_da: T_da) -> T_da:
     """ The row with each stored name decoded, as AuditEngine's own reader gives it. """
-    return {sql_decode_name(col): val for col, val in row_da.items()}
+    return {sql_utils.sql_unesc_str(col): val for col, val in row_da.items()}
 
 
 def decoded_daf(rows_daf: Daf) -> Daf:
     """ The Daf with each stored column name decoded. """
-    renames_ds: Dict[str, str] = {col: sql_decode_name(col) for col in rows_daf.columns() if sql_decode_name(col) != col}
+    renames_ds: Dict[str, str] = {col: sql_utils.sql_unesc_str(col) for col in rows_daf.columns() if sql_utils.sql_unesc_str(col) != col}
     if renames_ds:
         rows_daf.rename_cols(renames_ds)
     return rows_daf
@@ -95,7 +93,7 @@ def decoded_daf(rows_daf: Daf) -> Daf:
 
 def stored_cols(rows_sdaf: SqlDaf, decoded_cols_ls: T_ls) -> T_ls:
     """ The stored names of these columns, given by their decoded names. """
-    stored_by_decoded_ds: Dict[str, str] = {sql_decode_name(col): col for col in rows_sdaf.columns()}
+    stored_by_decoded_ds: Dict[str, str] = {sql_utils.sql_unesc_str(col): col for col in rows_sdaf.columns()}
     return [stored_by_decoded_ds[col] for col in decoded_cols_ls]
 
 
@@ -440,16 +438,9 @@ def locate_contest_variants_sdaf(
            len(combined_sdaf), time.perf_counter() - start_f)
 
     # Step 15: the contests that agree, put back together, one row per ballot.
-    # SqlDaf has no reduce by group yet, so this is the query of recombine_nonvariants().
+    # The table is made under its name in the file, as sql_variants.py makes it.
     start_f = time.perf_counter()
-    recombined_name: str = f'{WORK_PREFIX}recombined'
-    nonvariant_contests_sdaf.sql(f'DROP TABLE IF EXISTS temp."{recombined_name}"')
-    nonvariant_contests_sdaf.sql(
-            f'CREATE TEMP TABLE "{recombined_name}" AS SELECT ballot_id, json_group_object(key, value) AS concise_votes '
-            f'FROM (SELECT ballot_id, json_each.key AS key, json_each.value AS value '
-            f'FROM "{nonvariant_contests_sdaf.name}", json_each(concise_votes)) GROUP BY ballot_id')
-    partial_sdaf: SqlDaf = SqlDaf(recombined_name).apply(
-            lambda row_da: row_da | {'num_contests': num_contests_of(row_da['concise_votes'])}).copy().set_keyfield('ballot_id')
+    partial_sdaf: SqlDaf = SqlDaf.from_daf(recombined_contests_daf(nonvariant_contests_sdaf), name='partial_nonvariants')
     report(15, "Recombine 'nonvariant_contests' into 'partial_nonvariants'", len(partial_sdaf), time.perf_counter() - start_f)
 
     # Step 16: an empty row for each variant ballot that has no contest that agrees.
@@ -481,6 +472,29 @@ def locate_contest_variants_sdaf(
         'partial_nonvariants_wmetadata':    partial_wmetadata_sdaf,
         'blank_sheets':                     blank_sheets_sdaf,
         }
+
+
+def recombined_contests_daf(contests_sdaf: SqlDaf) -> Daf:
+    """
+    One row per ballot, with the votes of its contests put back together, as recombine_nonvariants() does.
+
+    The text is what json_group_object() of SQLite gives there.
+    The keys are in the order of the rows, then of each contest's keys.
+    The JSON has no spaces.
+    num_contests is counted from the votes.
+    """
+    votes_by_ballot_doda: Dict[Any, T_da] = {}
+    row_da: T_da
+    for row_da in contests_sdaf.iter_dict():
+        votes_by_ballot_doda.setdefault(row_da['ballot_id'], {}).update(json.loads(row_da['concise_votes']))
+
+    rows_lol: List[List[Any]] = []
+    ballot_id: Any
+    votes_da: T_da
+    for ballot_id, votes_da in votes_by_ballot_doda.items():
+        concise_votes: str = json.dumps(votes_da, separators=(',', ':'))
+        rows_lol.append([ballot_id, concise_votes, num_contests_of(concise_votes)])
+    return Daf(lol=rows_lol, cols=['ballot_id', 'concise_votes', 'num_contests'], keyfield=KEYFIELD)
 
 
 #===================================
@@ -626,7 +640,7 @@ def nonvariant_stats_sdaf(
     precinct_col, style_col = stored_cols(counted_sdaf, ['precinct', 'style'])
     return {
         'nonvariant_sums_di':                           totals_da(combined_sdaf, 0),
-        'nonvariant_valuecounts_dodi':                  {sql_decode_name(col): vc_di for col, vc_di in valuecounts_dodi.items()},
+        'nonvariant_valuecounts_dodi':                  {sql_utils.sql_unesc_str(col): vc_di for col, vc_di in valuecounts_dodi.items()},
         'nonvariant_precinct_sums_dodi':                {precinct: totals_da(group_sdaf, None)
                                                          for precinct, group_sdaf in combined_sdaf.groupby(precinct_col).items()},
         'nonvariant_precinct_styles_valuecounts_dodi':  counted_sdaf.valuecounts_for_colname1_groupedby_colname2(style_col, precinct_col),
@@ -735,7 +749,7 @@ def find_variants_sdaf(
         stats_da: T_da = nonvariant_stats_sdaf(
                 nonvariants_sdaf        = ballots_da['nonvariants_losdaf'][0],
                 partial_wmetadata_sdaf  = tables_dsdaf['partial_nonvariants_wmetadata'],
-                sumcols_ls              = nonvariant_sumcols_ls([sql_decode_name(col) for col in side_losdaf[0].columns()], use_concise),
+                sumcols_ls              = nonvariant_sumcols_ls([sql_utils.sql_unesc_str(col) for col in side_losdaf[0].columns()], use_concise),
                 )
         tables_dsdaf['combined_nonvariants'] = stats_da.pop('combined_nonvariants')
 

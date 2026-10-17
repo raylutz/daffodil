@@ -28,7 +28,7 @@ from typing import Any, Dict, List, Tuple
 from daffodil.daf import Daf
 from daffodil.sqldaf import SqlDaf
 from daffodil.lib.daf_types import T_ls, T_da
-from daffodil.lib import daf_types
+from daffodil.lib import daf_types, daf_sql
 
 AE_ROOT: str = '/home/audit-engine-dev'
 
@@ -96,7 +96,7 @@ def install_stand_ins(work_db_path: str, out_dir: str, sumcols_ls: T_ls) -> T_da
            prog_loc             = lambda: 'sdaf_variants',
            exception_report     = lambda text: print(text))
     module('reports', save_md_and_html=lambda argsdict, md_report, rootname: record_da['reports'].append(md_report) or [])
-    module('sql_utils', get_db_path_from_database_name=lambda name: work_db_path)
+    module('sql_utils', get_db_path_from_database_name=lambda name: work_db_path, sql_unesc_str=daf_sql.sql_unesc_str)
     module('sql_variants', create_contest_variant_record=lambda row_da: row_da)
     module('cmpcvr', blank_sheets_to_ballot_variants_daf=lambda blank_sheets_daf: blank_sheets_daf)
     module('split_bmd', combine_cvr_records=lambda kept_da, siblings_lda: kept_da)
@@ -179,11 +179,11 @@ def compare_stats(stats_da: T_da, ae_dir: str) -> None:
 #===================================
 # Split BMD CVR records
 
-def check_combine_split_bmd(sdaf_variants: Any) -> None:
+def check_combine_split_bmd(sdaf_variants: Any, scratch_dir: str) -> None:
     """ combine_split_bmd_sdaf() on a small table, with a stand-in that adds the votes of the siblings. """
     sdaf_variants.split_bmd.combine_cvr_records = lambda kept_da, siblings_lda: kept_da | {
             'v': kept_da['v'] + sum(sib['v'] for sib in siblings_lda), 'concise_votes': {'n': len(siblings_lda)}}
-    SqlDaf.db_path = os.path.join(os.path.dirname(SqlDaf.db_path), 'bmd_check.db')
+    SqlDaf.db_path = os.path.join(scratch_dir, 'bmd_check.db')
     cvr_sdaf = SqlDaf('cvr', cols=['ballot_id', 'v', 'concise_votes', 'style'], keyfield='ballot_id',
                       lol=[['b1', 1, '{}', 's'], ['b2', 2, '{}', 's'], ['b3', 4, '{}', 's'], ['b4', 8, '{}', 's']])
     num_combined: int = sdaf_variants.combine_split_bmd_sdaf(cvr_sdaf, {
@@ -249,7 +249,7 @@ def main() -> None:
     work_conn.close()
     ae_conn.close()
 
-    check_combine_split_bmd(sdaf_variants)
+    check_combine_split_bmd(sdaf_variants, scratch_dir)
 
 
 if __name__ == '__main__':

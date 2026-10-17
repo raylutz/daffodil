@@ -10,7 +10,7 @@ all prior releases. Plans for future moved to ROADMAP.md.
 ## [Unreleased]
 
 ### Changed
-- SqlDaf's `to_csv_file()` and `to_csv_buff()` write a column name stored with the `__HH` encoding decoded. AuditEngine stores the column group as `__67roup`, and its own exporter writes `group`. So a SqlDaf export of its table now has the same header. The rows are unchanged. The new `sql_decode_name()` in daf_sql.py decodes a name without the unquoting of `sql_unesc_str()`. Ray decided this on 2026-10-17. A test is in `tests/test_sqldaf.py`.
+- SqlDaf's `to_csv_file()` and `to_csv_buff()` write a column name stored with the `__HH` encoding decoded. AuditEngine stores the column group as `__67roup`, and its own exporter writes `group`. So a SqlDaf export of its table now has the same header. The rows are unchanged. The header is decoded with `sql_unesc_str()` of daf_sql.py, as AuditEngine's exporter decodes it with its copy in sql_utils.py. Ray decided this on 2026-10-17. A test is in `tests/test_sqldaf.py`.
 
 ## [0.8.1] - (2026-10-16)
 

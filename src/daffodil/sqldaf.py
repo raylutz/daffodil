@@ -1043,7 +1043,7 @@ class SqlDaf(Daf):
         """ Write the rows as CSV to an open text file, a batch at a time, as `Daf.to_csv_buff()` writes them. Internal use. """
         csv_writer = csv.writer(text_f, lineterminator='\r\n' if line_terminator is None else line_terminator)
         if include_header:
-            csv_writer.writerow([daf_sql.sql_decode_name(col) for col in self.columns()])     # a name stored with the __HH encoding is written decoded.
+            csv_writer.writerow([daf_sql.sql_unesc_str(col) for col in self.columns()])     # a name stored with the __HH encoding is written decoded.
         batch_lot: List[Tuple[Any, ...]]
         for batch_lot in self._iter_row_batches():
             csv_writer.writerows(batch_lot)                     # SQL NULL is written as an empty cell, as Python NULL is.
