@@ -213,6 +213,20 @@ def update_da(
     return reduction_da
 
 
+def keep_no_value(
+        row_da:         T_da,                   # the dict of one row. Not used.
+        reduction_da:   T_da,                   # the result so far, returned as it is.
+        **kwargs:       Any,                    # given by Daf.reduce(). Not used.
+        ) -> T_da:                              # the result, unchanged.
+    """
+    Keep nothing of the rows, for `groupby_reduce()` with `by='row'`.
+
+    The result has one row for each value of the group column, with the other cells empty.
+    So it gives the distinct values of the column, as a table keyed by it.
+    """
+    return reduction_da
+
+
 #===================================
 # Tables
 
@@ -506,16 +520,25 @@ def locate_contest_variants_sdaf(
     # Step 16: an empty row for each variant ballot that has no contest that agrees.
     # They are added in ballot_id order, as the index of sql_variants.py gives them.
     start_f = time.perf_counter()
-    combined_ids_ls: list = list(combined_sdaf.valuecounts_for_colname('ballot_id'))
-    partial_ids_set: set = set(partial_sdaf.keys())
-    missing_ls: list = sorted(ballot_id for ballot_id in combined_ids_ls if ballot_id not in partial_ids_set)
-    partial_sdaf.concat(Daf(lol=[[ballot_id, '{}', 0] for ballot_id in missing_ls], cols=['ballot_id', 'concise_votes', 'num_contests']))
+
+    # The variant ballots, one row each, keyed and sorted by ballot_id.
+    # The reduction keeps no value, so only ballot_id is read.
+    variant_ids_sdaf: SqlDaf = combined_sdaf.groupby_reduce('ballot_id', keep_no_value, by='row', reduce_cols=['ballot_id'])
+    logs.stsloc(f"Step 16: {len(variant_ids_sdaf)} variant ballots in {len(combined_sdaf)} contest rows", 3)
+
+    # The variant ballots with no row in partial_nonvariants.
+    missing_sdaf: SqlDaf = variant_ids_sdaf.select_records_daf(partial_sdaf, inverse=True, silent_error=True)
+    logs.stsloc(f"Step 16: {len(missing_sdaf)} variant ballots have no contest that agrees", 3)
+
+    # An empty shell for each of them.
+    shells_sdaf: SqlDaf = missing_sdaf.apply(lambda row_da: {'ballot_id': row_da['ballot_id'], 'concise_votes': '{}', 'num_contests': 0})
+    partial_sdaf.concat(shells_sdaf)
     report(16, 'Ensure_partial_nonvariants_have_all_variant_ballots (even empty shells)', len(partial_sdaf), time.perf_counter() - start_f)
 
     # Step 17: the sheets blank on both sides leave partial_nonvariants for blank_sheets.
     start_f = time.perf_counter()
     metadata_sdaf: SqlDaf = votes_sdaf.select_cols(exclude_cols=['concise_votes', 'num_contests'])
-    blank_sdaf: SqlDaf = (partial_sdaf.select_records_daf(combined_ids_ls, inverse=True, silent_error=True)
+    blank_sdaf: SqlDaf = (partial_sdaf.select_records_daf(variant_ids_sdaf, inverse=True, silent_error=True)
                           .select_where(lambda row: is_blank_sheet(row['concise_votes']), cols=['concise_votes'])
                           .copy())
     blank_sheets_sdaf: SqlDaf = blank_sdaf.join(metadata_sdaf).copy()
