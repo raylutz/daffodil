@@ -201,6 +201,15 @@ def test_groupby_reduce_basic():
     assert result.keyfield == 'gender'
 
 
+def test_groupby_reduce_sparse_row_keeps_each_group_concise():
+    """ Each group's dict is one cell, with only its own keys. A key the first group lacks is kept. """
+    daf = Daf(lol=[['p1', "{'a': 1}"], ['p2', "{'a': 2, 'b': 5}"], ['p1', "{'a': 3}"]], cols=['g', 'cv'])
+    result = daf.groupby_reduce('g', Daf.sum_da, by='sparse_row', indirect_col='cv')
+    assert result.columns() == ['g', 'cv']
+    assert result.keyfield == 'g'
+    assert result.lol == [['p1', {'a': 4}], ['p2', {'a': 2, 'b': 5}]]
+
+
 # =====================================================================
 # multi_groupby / multi_groupby_reduce
 # =====================================================================

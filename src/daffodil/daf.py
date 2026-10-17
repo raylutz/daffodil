@@ -10517,6 +10517,10 @@ class Daf:
         column. The columns in `reduce_cols` hold the reduced values. Other columns are
         empty. For each group, `func` is used as in `reduce()`.
 
+        With `by='sparse_row'`, the result stays concise. It has two columns: this column,
+        and the column named by `indirect_col`. That cell holds the dict of the group, with
+        only the keys found in the group. Each group's dict may have other keys.
+
         With `reduce_cols`, and `by` of `row` or `sparse_row`, each group holds only those
         columns, and the `indirect_col` if there is one. The other columns are never copied,
         which is much faster for a wide table. A function that reads another column of the
@@ -10728,6 +10732,13 @@ class Daf:
 
             if diagnose:
                 logs.sts(f"Post reduction: {Daf.from_lod([cast(T_da, reduction_da)])=}", 3)
+
+            # A sparse reduction stays concise. The dict of each group is one cell, in the column
+            # named for the indirect column, and holds only the keys found in the group.
+            if kwargs.get('by') == 'sparse_row':
+                sparse_record_da: T_da = {colname: colval, kwargs['indirect_col']: reduction_da}
+                result_daf.append(sparse_record_da)
+                continue
 
             # add colname:colval to the dict, as it is removed by the reduction func.
             reduction_da[colname] = colval

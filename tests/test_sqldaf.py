@@ -2,6 +2,7 @@
 # Tests for SqlDaf in sqldaf.py: making and opening tables, loading, reading, selecting, keys, joins and the blocker.
 
 import os
+import json
 import sqlite3
 import threading
 
@@ -12,7 +13,7 @@ import pytest
 from daffodil.daf import Daf, NULL
 from daffodil.keyedlist import KeyedList
 from daffodil.lib.daf_types import T_ls
-from daffodil.sqldaf import SqlDaf, BLOCKED_LS, SAFE_INHERITED_SET, KEEP_SET, RID_COL, META_TABLE, quote_name
+from daffodil.sqldaf import SqlDaf, BLOCKED_LS, SAFE_INHERITED_SET, KEEP_SET, RID_COL, META_TABLE, quote_name, iter_group_blocks
 
 
 @pytest.fixture(autouse=True)
@@ -893,6 +894,83 @@ def test_groupby_matches_mdaf(args):
     assert all(not group.is_resolved for group in groups_kl.values())
     assert groups_as_lol(groups_kl) == groups_as_lol(bif_daf.groupby(**args))
     assert list(groups_kl.keys()) == list(bif_daf.groupby(**args).keys())
+
+
+# SqlDaf.groupby_reduce and its pieces
+
+def test_iter_group_blocks_carries_a_group_across_batches():
+    """ A group that goes on into the next batch is held back, and comes out whole. SQL NULL and '' are one group. """
+    batches = [[(None, 1), ('', 2), ('a', 3)], [('a', 4), ('a', 5)], [('a', 6), ('b', 7)], [('c', 8)]]
+    assert list(iter_group_blocks(batches, key_idx=0)) == [
+            {NULL: [[NULL, 1], [NULL, 2]]},
+            {'a': [['a', 3], ['a', 4], ['a', 5], ['a', 6]]},
+            {'b': [['b', 7]]},
+            {'c': [['c', 8]]}]
+    assert list(iter_group_blocks([], key_idx=0)) == []
+
+
+def test_iter_sorted_row_batches_puts_null_first_and_keeps_ties_in_order():
+    conn = sqlite3.connect(SqlDaf.db_path)
+    conn.execute('CREATE TABLE other (g, n)')
+    conn.executemany('INSERT INTO other VALUES (?, ?)', [('b', 1), ('', 2), ('a', 3), (None, 4), ('b', 5), ('a', 6), (2, 7)])
+    conn.commit()
+    conn.close()
+    other_sdaf: SqlDaf = SqlDaf('other')
+    batches_ll: list = list(other_sdaf._iter_sorted_row_batches('g', ['g', 'n'], batch_size=3))
+    assert [len(batch_lot) for batch_lot in batches_ll] == [3, 3, 1]
+    assert [row_t for batch_lot in batches_ll for row_t in batch_lot] == [
+            ('', 2), (None, 4), (2, 7), ('a', 3), ('a', 6), ('b', 1), ('b', 5)]
+
+
+def _update_da(row_da: dict, reduction_da: dict, *, cols: Any = None, is_sparse: bool = False, diagnose: bool = False) -> dict:
+    """ A reducer that merges each row's dict into the result. """
+    for key, val in row_da.items():
+        if cols and key not in cols:
+            continue
+        reduction_da[key] = val
+    return reduction_da
+
+
+GROUPBY_REDUCE_DAF = Daf(lol=[['b2', 1, "{'c0b': 1, 'c0v': 1}"], ['b1', 2, "{'c0b': 1}"], ['b2', 3, "{'c1b': 1}"],
+                              ['', 4, "{'c0b': 1}"], ['b2', 5, "{'c2b': 1, 'c2v': 2}"], ['b1', 7, "{'c1v': 1}"]],
+                         cols=['g', 'x', 'cv'])
+
+
+@pytest.mark.parametrize('batch_size', [1, 2, 3, 10000])
+@pytest.mark.parametrize('args', [
+    dict(func=Daf.sum_da, reduce_cols=['x']),
+    dict(func=Daf.sum_da),
+    dict(func=Daf.sum_da, by='sparse_row', indirect_col='cv'),
+    dict(func=_update_da, by='sparse_row', indirect_col='cv'),
+    ])
+def test_groupby_reduce_matches_mdaf(args, batch_size):
+    """ The rows are those of Daf.groupby_reduce(), in key order, with a dict cell as JSON text. """
+    rows_sdaf: SqlDaf = SqlDaf.from_daf(GROUPBY_REDUCE_DAF, name='rows')
+    result_sdaf: SqlDaf = rows_sdaf.groupby_reduce('g', batch_size=batch_size, **args)
+    mdaf_lol: list = sorted(GROUPBY_REDUCE_DAF.groupby_reduce('g', **args).lol)
+    if args.get('by') == 'sparse_row':
+        mdaf_lol = [[key, json.dumps(votes_da, separators=(',', ':'))] for key, votes_da in mdaf_lol]
+    assert result_sdaf.to_daf().lol == mdaf_lol
+    assert result_sdaf.keyfield == 'g'
+
+
+def test_groupby_reduce_merges_concise_votes_in_row_order():
+    rows_sdaf: SqlDaf = SqlDaf.from_daf(GROUPBY_REDUCE_DAF, name='rows')
+    result_sdaf: SqlDaf = rows_sdaf.groupby_reduce('g', _update_da, by='sparse_row', indirect_col='cv', batch_size=2)
+    assert result_sdaf.columns() == ['g', 'cv']
+    assert result_sdaf.to_daf().lol == [
+            ['', '{"c0b":1}'],
+            ['b1', '{"c0b":1,"c1v":1}'],
+            ['b2', '{"c0b":1,"c0v":1,"c1b":1,"c2b":1,"c2v":2}']]
+
+
+def test_groupby_reduce_of_no_rows_and_bad_args():
+    empty_sdaf: SqlDaf = SqlDaf('empty', cols=['g', 'cv'])
+    assert empty_sdaf.groupby_reduce('g', Daf.sum_da, by='sparse_row', indirect_col='cv').to_daf().lol == []
+    with pytest.raises(KeyError):
+        empty_sdaf.groupby_reduce('nope', Daf.sum_da)
+    with pytest.raises(NotImplementedError):
+        empty_sdaf.groupby_reduce('g', Daf.sum_da, by='table')
 
 
 def test_groupby_cols_keys_are_tuples_and_bad_names_raise():

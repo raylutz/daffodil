@@ -9,7 +9,11 @@ all prior releases. Plans for future moved to ROADMAP.md.
 
 ## [Unreleased]
 
+### Added
+- `SqlDaf.groupby_reduce()` groups the rows by one column and reduces each group to one row, as `Daf.groupby_reduce()` does, with `by='row'` or `by='sparse_row'`. The rows are read once, sorted by the column, 10,000 at a time. The groups that end in a batch are reduced together in Python, by `Daf.reduce_dodaf_to_daf()`, and the results are written back as a block. A group that goes on into the next batch is held back until it ends. So no query is made for each group, and memory holds one batch and the largest group. This does what a registered SQLite function cannot, since that returns one value, not a record. `diagnose=True` shows each block. The rows come in the sorted order of the column, and `by='table'` is not supported. Ray decided this on 2026-10-17, Q217, Q220 and Q224. Tests are in `tests/test_sqldaf.py`.
+
 ### Changed
+- **Breaking.** `Daf.groupby_reduce(by='sparse_row')` keeps each group's result concise. The result has two columns, the group column and the column named by `indirect_col`, whose cell holds the group's dict with only the keys found in it. Before, the keys were spread into columns taken from the first group, and a key that group lacked was dropped with no error, so a sum was lost. On a SqlDaf the cell is compact JSON text. Ray decided this on 2026-10-17, Q222. A test is in `tests/test_daf_reduction.py`.
 - SqlDaf's `to_csv_file()` and `to_csv_buff()` write a column name stored with the `__HH` encoding decoded. AuditEngine stores the column group as `__67roup`, and its own exporter writes `group`. So a SqlDaf export of its table now has the same header. The rows are unchanged. The header is decoded with `sql_unesc_str()` of daf_sql.py, as AuditEngine's exporter decodes it with its copy in sql_utils.py. Ray decided this on 2026-10-17. A test is in `tests/test_sqldaf.py`.
 
 ## [0.8.1] - (2026-10-16)
