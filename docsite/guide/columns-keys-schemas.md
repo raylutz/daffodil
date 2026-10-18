@@ -8,6 +8,15 @@ position. The rows hold only their cells.
 ```pycon
 >>> from daffodil.daf import Daf
 >>> daf = Daf(cols=['id', 'qty'], lol=[['a1', 3], ['b2', 10]])
+>>> daf
+<BLANKLINE>
+| id | qty |
+| -: | --: |
+| a1 |   3 |
+| b2 |  10 |
+<BLANKLINE>
+%% daf rows=2; cols=2; keyfield=''; name=''
+<BLANKLINE>
 >>> daf.hd
 {'id': 0, 'qty': 1}
 ```
@@ -21,6 +30,15 @@ A Daf with no names can be given spreadsheet names, or names of your own, with `
 
 ```pycon
 >>> raw = Daf(lol=[[1, 2], [3, 4]])
+>>> raw
+<BLANKLINE>
+| A  | B  |
+| -: | -: |
+|  1 |  2 |
+|  3 |  4 |
+<BLANKLINE>
+%% daf rows=2; cols=2; keyfield=''; name=''
+<BLANKLINE>
 >>> raw.columns()
 []
 >>> _ = raw.set_cols()
@@ -46,6 +64,15 @@ With `noheader=True`, the first line is data, and the Daf has no names until you
 
 ```pycon
 >>> n = Daf.from_csv_buff('1,2\n3,4\n', noheader=True)
+>>> n
+<BLANKLINE>
+| A  | B  |
+| -: | -: |
+|  1 |  2 |
+|  3 |  4 |
+<BLANKLINE>
+%% daf rows=2; cols=2; keyfield=''; name=''
+<BLANKLINE>
 >>> n.columns(), n.lol
 ([], [['1', '2'], ['3', '4']])
 ```
@@ -65,6 +92,15 @@ needs it, so a table that is only appended to never builds one.
 
 ```pycon
 >>> daf = Daf(cols=['id', 'qty'], lol=[['a1', 3], ['b2', 10]], keyfield='id')
+>>> daf
+<BLANKLINE>
+| id | qty |
+| -: | --: |
+| a1 |   3 |
+| b2 |  10 |
+<BLANKLINE>
+%% daf rows=2; cols=2; keyfield='id'; name=''
+<BLANKLINE>
 >>> daf.select_record('b2')
 {'id': 'b2', 'qty': 10}
 >>> daf['b2', 'qty'].to_value()
@@ -79,6 +115,15 @@ key together, as a tuple:
 ```pycon
 >>> votes = Daf(cols=['precinct', 'contest', 'n'], lol=[['p1', 'mayor', 40], ['p1', 'council', 31]],
 ...             keyfield=('precinct', 'contest'))
+>>> votes
+<BLANKLINE>
+| precinct | contest | n  |
+| -------: | ------: | -: |
+|       p1 |   mayor | 40 |
+|       p1 | council | 31 |
+<BLANKLINE>
+%% daf rows=2; cols=3; keyfield='('precinct', 'contest')'; name=''
+<BLANKLINE>
 >>> votes.select_record(('p1', 'council'))
 {'precinct': 'p1', 'contest': 'council', 'n': 31}
 ```
@@ -94,6 +139,16 @@ read in. Then the key index holds each key once, and points to the last row with
 
 ```pycon
 >>> dup = Daf(cols=['id', 'qty'], lol=[['a1', 3], ['b2', 10], ['a1', 5]], keyfield='id')
+>>> dup
+<BLANKLINE>
+| id | qty |
+| -: | --: |
+| a1 |   3 |
+| b2 |  10 |
+| a1 |   5 |
+<BLANKLINE>
+%% daf rows=3; cols=2; keyfield='id'; name=''
+<BLANKLINE>
 >>> dup.select_record('a1'), dup.keys(), len(dup)
 ({'id': 'a1', 'qty': 5}, ['a1', 'b2'], 3)
 ```
@@ -107,6 +162,16 @@ To find repeated keys before you rely on the key:
 
 ```pycon
 >>> daf = Daf(cols=['id', 'qty'], lol=[['a1', 3], ['b2', 10], ['a1', 5]])
+>>> daf
+<BLANKLINE>
+| id | qty |
+| -: | --: |
+| a1 |   3 |
+| b2 |  10 |
+| a1 |   5 |
+<BLANKLINE>
+%% daf rows=3; cols=2; keyfield=''; name=''
+<BLANKLINE>
 >>> ids = daf.col('id')
 >>> len(ids), len(set(ids))
 (3, 2)

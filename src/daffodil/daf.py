@@ -201,6 +201,15 @@ class Daf:
 
     Examples:
         >>> daf = Daf(lol=[[1, 'a'], [2, 'b']], cols=['id', 'v'], keyfield='id')
+        >>> daf
+        <BLANKLINE>
+        | id | v  |
+        | -: | -: |
+        |  1 |  a |
+        |  2 |  b |
+        <BLANKLINE>
+        %% daf rows=2; cols=2; keyfield='id'; name=''
+        <BLANKLINE>
         >>> daf.columns()
         ['id', 'v']
         >>> daf.select_record(2)
@@ -208,6 +217,14 @@ class Daf:
         >>> daf.shape()
         (2, 2)
         >>> e = Daf(lol=[[[1, 2], {'k': 1}]], cols=['a', 'b'], dtypes={'a': int, 'b': str})
+        >>> e
+        <BLANKLINE>
+        |   a    |    b     |
+        | -----: | -------: |
+        | [1, 2] | {'k': 1} |
+        <BLANKLINE>
+        %% daf rows=1; cols=2; keyfield=''; name=''
+        <BLANKLINE>
         >>> e.iloc(0)
         {'a': [1, 2], 'b': {'k': 1}}
     """
@@ -304,6 +321,15 @@ class Daf:
 
         Examples:
             >>> daf = Daf(lol=[[1, 'a'], [2, 'b']], cols=['id', 'v'], keyfield='id')
+            >>> daf
+            <BLANKLINE>
+            | id | v  |
+            | -: | -: |
+            |  1 |  a |
+            |  2 |  b |
+            <BLANKLINE>
+            %% daf rows=2; cols=2; keyfield='id'; name=''
+            <BLANKLINE>
             >>> daf.num_rows()
             2
             >>> Daf(lol=[[1, 2]], cols=['a', 'a']).columns()
@@ -452,6 +478,15 @@ class Daf:
 
         Examples:
             >>> daf = Daf(cols=['x', 'y'], lol=[[1, 2], [3, 4]])
+            >>> daf
+            <BLANKLINE>
+            | x  | y  |
+            | -: | -: |
+            |  1 |  2 |
+            |  3 |  4 |
+            <BLANKLINE>
+            %% daf rows=2; cols=2; keyfield=''; name=''
+            <BLANKLINE>
             >>> type(daf[0, 'x']).__name__
             'Daf'
             >>> daf.retmode = 'val'
@@ -506,6 +541,15 @@ class Daf:
 
         Examples:
             >>> daf = Daf(cols=['x', 'y'], lol=[[1, 2], [3, 4]])
+            >>> daf
+            <BLANKLINE>
+            | x  | y  |
+            | -: | -: |
+            |  1 |  2 |
+            |  3 |  4 |
+            <BLANKLINE>
+            %% daf rows=2; cols=2; keyfield=''; name=''
+            <BLANKLINE>
             >>> for row in daf:
             ...     row['y'] = 0
             >>> daf
@@ -588,6 +632,15 @@ class Daf:
 
         Examples:
             >>> daf = Daf(cols=['x', 'y'], lol=[[1, 2], [3, 4]])
+            >>> daf
+            <BLANKLINE>
+            | x  | y  |
+            | -: | -: |
+            |  1 |  2 |
+            |  3 |  4 |
+            <BLANKLINE>
+            %% daf rows=2; cols=2; keyfield=''; name=''
+            <BLANKLINE>
             >>> list(daf.iter_dict())
             [{'x': 1, 'y': 2}, {'x': 3, 'y': 4}]
             >>> for row in daf.iter_dict():
@@ -619,6 +672,15 @@ class Daf:
 
         Examples:
             >>> daf = Daf(cols=['x', 'y'], lol=[[1, 2], [3, 4]])
+            >>> daf
+            <BLANKLINE>
+            | x  | y  |
+            | -: | -: |
+            |  1 |  2 |
+            |  3 |  4 |
+            <BLANKLINE>
+            %% daf rows=2; cols=2; keyfield=''; name=''
+            <BLANKLINE>
             >>> [row['x'] for row in daf.iter_klist()]
             [1, 3]
             >>> for row in daf.iter_klist():
@@ -673,6 +735,15 @@ class Daf:
 
         Examples:
             >>> daf = Daf(cols=['x', 'y'], lol=[[1, 2], [3, 4]])
+            >>> daf
+            <BLANKLINE>
+            | x  | y  |
+            | -: | -: |
+            |  1 |  2 |
+            |  3 |  4 |
+            <BLANKLINE>
+            %% daf rows=2; cols=2; keyfield=''; name=''
+            <BLANKLINE>
             >>> [row[0] for row in daf.iter_list()]
             [1, 3]
             >>> for row in daf.iter_list():
@@ -774,6 +845,14 @@ class Daf:
 
         Examples:
             >>> a = Daf(lol=[[1]], cols=['x'])
+            >>> a
+            <BLANKLINE>
+            | x  |
+            | -: |
+            |  1 |
+            <BLANKLINE>
+            %% daf rows=1; cols=1; keyfield=''; name=''
+            <BLANKLINE>
             >>> a == Daf(lol=[[1]], cols=['x'])
             True
             >>> a == Daf(lol=[[1]], cols=['x'], keyfield='x')
@@ -831,6 +910,15 @@ class Daf:
 
         Examples:
             >>> daf = Daf(lol=[[1, 'a'], [2, 'b']], cols=['id', 'v'], keyfield='id')
+            >>> daf
+            <BLANKLINE>
+            | id | v  |
+            | -: | -: |
+            |  1 |  a |
+            |  2 |  b |
+            <BLANKLINE>
+            %% daf rows=2; cols=2; keyfield='id'; name=''
+            <BLANKLINE>
             >>> 2 in daf, 5 in daf
             (True, False)
         """
@@ -918,6 +1006,16 @@ class Daf:
 
         Examples:
             >>> daf = Daf(cols=['x'], lol=[[1], [2], [3]])
+            >>> daf
+            <BLANKLINE>
+            | x  |
+            | -: |
+            |  1 |
+            |  2 |
+            |  3 |
+            <BLANKLINE>
+            %% daf rows=3; cols=1; keyfield=''; name=''
+            <BLANKLINE>
             >>> daf.len(), len(daf)
             (3, 3)
         """
@@ -1122,6 +1220,15 @@ class Daf:
 
         Examples:
             >>> daf = Daf(lol=[[2, 'b'], [1, 'a']], cols=['id', 'v'], name='orig')
+            >>> daf
+            <BLANKLINE>
+            | id | v  |
+            | -: | -: |
+            |  2 |  b |
+            |  1 |  a |
+            <BLANKLINE>
+            %% daf rows=2; cols=2; keyfield=''; name='orig'
+            <BLANKLINE>
             >>> c = daf.copy(name='work')
             >>> c.name, daf.name
             ('work', 'orig')
@@ -1133,6 +1240,15 @@ class Daf:
             >>> daf.num_rows()
             3
             >>> daf = Daf(lol=[[2, 'b'], [1, 'a']], cols=['id', 'v'])
+            >>> daf
+            <BLANKLINE>
+            | id | v  |
+            | -: | -: |
+            |  2 |  b |
+            |  1 |  a |
+            <BLANKLINE>
+            %% daf rows=2; cols=2; keyfield=''; name=''
+            <BLANKLINE>
             >>> e = daf.copy('editable')
             >>> e[0, 'v'] = 'X'
             >>> daf.iloc(0)
@@ -1305,6 +1421,14 @@ class Daf:
 
         Examples:
             >>> daf = Daf(lol=[[1, 2, 3]], cols=['a', 'b', 'c'])
+            >>> daf
+            <BLANKLINE>
+            | a  | b  | c  |
+            | -: | -: | -: |
+            |  1 |  2 |  3 |
+            <BLANKLINE>
+            %% daf rows=1; cols=3; keyfield=''; name=''
+            <BLANKLINE>
             >>> daf.calc_cols(exclude_cols='b')
             ['a', 'c']
         """
@@ -1392,9 +1516,25 @@ class Daf:
 
         Examples:
             >>> daf = Daf(lol=[[1, 2]], cols=['a', 'b'])
+            >>> daf
+            <BLANKLINE>
+            | a  | b  |
+            | -: | -: |
+            |  1 |  2 |
+            <BLANKLINE>
+            %% daf rows=1; cols=2; keyfield=''; name=''
+            <BLANKLINE>
             >>> daf.rename_cols({'b': 'c'}).columns()
             ['a', 'c']
             >>> k = Daf(lol=[[1, 'x']], cols=['id', 'v'], keyfield='id')
+            >>> k
+            <BLANKLINE>
+            | id | v  |
+            | -: | -: |
+            |  1 |  x |
+            <BLANKLINE>
+            %% daf rows=1; cols=2; keyfield='id'; name=''
+            <BLANKLINE>
             >>> k.rename_cols({'id': 'ident'}).keyfield
             'ident'
         """
@@ -1468,9 +1608,25 @@ class Daf:
             >>> Daf(lol=[[1, 2, 3]]).set_cols(['a', 'a', '']).columns()
             ['a', 'a_1', 'col2']
             >>> daf = Daf(lol=[[1, 'x']], keyfield='id').set_cols(['id', 'v'])
+            >>> daf
+            <BLANKLINE>
+            | id | v  |
+            | -: | -: |
+            |  1 |  x |
+            <BLANKLINE>
+            %% daf rows=1; cols=2; keyfield='id'; name=''
+            <BLANKLINE>
             >>> daf.keyfield
             'id'
             >>> daf = Daf(lol=[[1, 'x']], cols=['a', 'b'], keyfield='a').set_cols(['id', 'v'])
+            >>> daf
+            <BLANKLINE>
+            | id | v  |
+            | -: | -: |
+            |  1 |  x |
+            <BLANKLINE>
+            %% daf rows=1; cols=2; keyfield='id'; name=''
+            <BLANKLINE>
             >>> daf.keyfield
             'id'
         """
@@ -1539,9 +1695,28 @@ class Daf:
 
         Examples:
             >>> daf = Daf(lol=[[1, 'a'], [2, 'b']], cols=['id', 'v'], keyfield='id')
+            >>> daf
+            <BLANKLINE>
+            | id | v  |
+            | -: | -: |
+            |  1 |  a |
+            |  2 |  b |
+            <BLANKLINE>
+            %% daf rows=2; cols=2; keyfield='id'; name=''
+            <BLANKLINE>
             >>> daf.keys()
             [1, 2]
             >>> dup = Daf(cols=['id', 'q'], lol=[['a', 1], ['b', 2], ['a', 3]], keyfield='id')
+            >>> dup
+            <BLANKLINE>
+            | id | q  |
+            | -: | -: |
+            |  a |  1 |
+            |  b |  2 |
+            |  a |  3 |
+            <BLANKLINE>
+            %% daf rows=3; cols=2; keyfield='id'; name=''
+            <BLANKLINE>
             >>> dup.keys(), dup.select_record('a')
             (['a', 'b'], {'id': 'a', 'q': 3})
         """
@@ -1602,6 +1777,15 @@ class Daf:
 
         Examples:
             >>> daf = Daf(lol=[[1, 'a'], [2, 'b']], cols=['id', 'v'])
+            >>> daf
+            <BLANKLINE>
+            | id | v  |
+            | -: | -: |
+            |  1 |  a |
+            |  2 |  b |
+            <BLANKLINE>
+            %% daf rows=2; cols=2; keyfield=''; name=''
+            <BLANKLINE>
             >>> daf.set_keyfield('id').keys()
             [1, 2]
             >>> daf.set_keyfield(['id', 'v']).keys()
@@ -1845,6 +2029,15 @@ class Daf:
 
         Examples:
             >>> daf = Daf(lol=[[1, 'a'], [2, 'b']], cols=['id', 'v'], keyfield='id')
+            >>> daf
+            <BLANKLINE>
+            | id | v  |
+            | -: | -: |
+            |  1 |  a |
+            |  2 |  b |
+            <BLANKLINE>
+            %% daf rows=2; cols=2; keyfield='id'; name=''
+            <BLANKLINE>
             >>> daf.get_existing_keys([1, 5, 2])
             [1, 2]
         """
@@ -1891,6 +2084,14 @@ class Daf:
 
         Examples:
             >>> daf = Daf(lol=[['1', '2', 'x']], cols=['a', 'b', 'c'])
+            >>> daf
+            <BLANKLINE>
+            | a  | b  | c  |
+            | -: | -: | -: |
+            |  1 |  2 |  x |
+            <BLANKLINE>
+            %% daf rows=1; cols=3; keyfield=''; name=''
+            <BLANKLINE>
             >>> daf.set_dtypes(str, {int: ['a', 'b']}).dtypes
             {'a': <class 'int'>, 'b': <class 'int'>, 'c': <class 'str'>}
         """
@@ -2028,6 +2229,14 @@ class Daf:
 
         Examples:
             >>> daf = Daf(lol=[['1', '2.5', 'x']], cols=['a', 'b', 'c'])
+            >>> daf
+            <BLANKLINE>
+            | a  |  b  | c  |
+            | -: | --: | -: |
+            |  1 | 2.5 |  x |
+            <BLANKLINE>
+            %% daf rows=1; cols=3; keyfield=''; name=''
+            <BLANKLINE>
             >>> daf.apply_dtypes(dtypes={'a': int, 'b': float, 'c': str})
             <BLANKLINE>
             | a  |  b  | c  |
@@ -2040,6 +2249,16 @@ class Daf:
             An empty cell stays empty, and the sum methods skip it:
 
             >>> daf = Daf.from_csv_buff('a,b\n1,\n,3\n4,5\n')
+            >>> daf
+            <BLANKLINE>
+            | a  | b  |
+            | -: | -: |
+            |  1 |    |
+            |    |  3 |
+            |  4 |  5 |
+            <BLANKLINE>
+            %% daf rows=3; cols=2; keyfield=''; name=''
+            <BLANKLINE>
             >>> daf.apply_dtypes(dtypes={'a': int, 'b': int})
             <BLANKLINE>
             | a  | b  |
@@ -2058,6 +2277,14 @@ class Daf:
 
             >>> daf = Daf(lol=[['1', '2.5', '7']], cols=['a', 'b', 'n'],
             ...         dtypes={'a': int, 'b': float, 'n': int})
+            >>> daf
+            <BLANKLINE>
+            | a  |  b  | n  |
+            | -: | --: | -: |
+            |  1 | 2.5 |  7 |
+            <BLANKLINE>
+            %% daf rows=1; cols=3; keyfield=''; name=''
+            <BLANKLINE>
             >>> _ = daf.apply_dtypes(cols=['a'])
             >>> daf.iloc(0)
             {'a': 1, 'b': '2.5', 'n': '7'}
@@ -2070,6 +2297,17 @@ class Daf:
             A `bool` column, and text that does not convert:
 
             >>> b = Daf(cols=['ok', 'n'], lol=[['', '1'], ['0', 'x'], ['True', '3'], ['maybe', '']])
+            >>> b
+            <BLANKLINE>
+            |  ok   | n  |
+            | ----: | -: |
+            |       |  1 |
+            |     0 |  x |
+            |  True |  3 |
+            | maybe |    |
+            <BLANKLINE>
+            %% daf rows=4; cols=2; keyfield=''; name=''
+            <BLANKLINE>
             >>> _ = b.apply_dtypes(dtypes={'ok': bool, 'n': int})
             >>> b.lol
             [[0, 1], [0, 'x'], [1, 3], ['maybe', '']]
@@ -2084,6 +2322,16 @@ class Daf:
             ...         bad.append(value)
             ...         return ''
             >>> daf = Daf(lol=[['1'], ['x'], ['3']], cols=['n'])
+            >>> daf
+            <BLANKLINE>
+            | n  |
+            | -: |
+            |  1 |
+            |  x |
+            |  3 |
+            <BLANKLINE>
+            %% daf rows=3; cols=1; keyfield=''; name=''
+            <BLANKLINE>
             >>> _ = daf.apply_to_col('n', to_int)
             >>> daf.dtypes = {'n': int}
             >>> daf
@@ -2281,6 +2529,14 @@ class Daf:
 
         Examples:
             >>> daf = Daf(lol=[[[1, 2], True]], cols=['a', 'b'], dtypes={'a': list, 'b': bool})
+            >>> daf
+            <BLANKLINE>
+            |   a    |  b   |
+            | -----: | ---: |
+            | [1, 2] | True |
+            <BLANKLINE>
+            %% daf rows=1; cols=2; keyfield=''; name=''
+            <BLANKLINE>
             >>> daf.flatten()
             <BLANKLINE>
             |   a    | b  |
@@ -2526,6 +2782,14 @@ class Daf:
 
         Examples:
             >>> daf = Daf(lol=[[1, 'a']], cols=['id', 'v'], keyfield='id')
+            >>> daf
+            <BLANKLINE>
+            | id | v  |
+            | -: | -: |
+            |  1 |  a |
+            <BLANKLINE>
+            %% daf rows=1; cols=2; keyfield='id'; name=''
+            <BLANKLINE>
             >>> c = daf.clone_empty()
             >>> c.columns(), c.keyfield, c.num_rows()
             (['id', 'v'], 'id', 0)
@@ -2566,6 +2830,14 @@ class Daf:
 
         Examples:
             >>> daf = Daf(lol=[[1, 'a']], cols=['id', 'v'], keyfield='id')
+            >>> daf
+            <BLANKLINE>
+            | id | v  |
+            | -: | -: |
+            |  1 |  a |
+            <BLANKLINE>
+            %% daf rows=1; cols=2; keyfield='id'; name=''
+            <BLANKLINE>
             >>> daf.set_lol([[5, 'q'], [6, 'r']]).keys()
             [5, 6]
         """
@@ -2860,6 +3132,15 @@ class Daf:
 
         Examples:
             >>> daf = Daf(lol=[[1, 'a'], [2, ['x']]], cols=['id', 'v'])
+            >>> daf
+            <BLANKLINE>
+            | id |   v   |
+            | -: | ----: |
+            |  1 |     a |
+            |  2 | ['x'] |
+            <BLANKLINE>
+            %% daf rows=2; cols=2; keyfield=''; name=''
+            <BLANKLINE>
             >>> lod = daf.to_lod()
             >>> lod
             [{'id': 1, 'v': 'a'}, {'id': 2, 'v': ['x']}]
@@ -2997,6 +3278,14 @@ class Daf:
 
         Examples:
             >>> daf = Daf(lol=[[1, 'a']], cols=['id', 'v'], keyfield='id')
+            >>> daf
+            <BLANKLINE>
+            | id | v  |
+            | -: | -: |
+            |  1 |  a |
+            <BLANKLINE>
+            %% daf rows=1; cols=2; keyfield='id'; name=''
+            <BLANKLINE>
             >>> daf.to_dod()
             {1: {'v': 'a'}}
             >>> daf.to_dod(remove_keyfield=False)
@@ -3735,6 +4024,14 @@ class Daf:
             >>> import os, tempfile
             >>> path = os.path.join(tempfile.mkdtemp(), 'x.csv')
             >>> daf = Daf(lol=[[1, 'a']], cols=['id', 'v'])
+            >>> daf
+            <BLANKLINE>
+            | id | v  |
+            | -: | -: |
+            |  1 |  a |
+            <BLANKLINE>
+            %% daf rows=1; cols=2; keyfield=''; name=''
+            <BLANKLINE>
             >>> daf.to_csv_file(path) == path
             True
         """
@@ -3780,6 +4077,14 @@ class Daf:
 
         Examples:
             >>> daf = Daf(lol=[[1, 'a']], cols=['id', 'v'])
+            >>> daf
+            <BLANKLINE>
+            | id | v  |
+            | -: | -: |
+            |  1 |  a |
+            <BLANKLINE>
+            %% daf rows=1; cols=2; keyfield=''; name=''
+            <BLANKLINE>
             >>> daf.to_csv_buff(line_terminator='\n')
             'id,v\n1,a\n'
             >>> Daf(lol=[[{1: 'a'}]], cols=['x']).to_csv_buff(line_terminator='\n')
@@ -4172,6 +4477,16 @@ class Daf:
             >>> Daf(lol=[[1, 'a'], [2, 'b']], cols=['id', 'v']).to_donpa(['id'])['id'].tolist()
             [1, 2]
             >>> daf = Daf(lol=[[1, 5], [2, ''], [None, 7]], cols=['n', 'm'])
+            >>> daf
+            <BLANKLINE>
+            |  n   | m  |
+            | ---: | -: |
+            |    1 |  5 |
+            |    2 |    |
+            | None |  7 |
+            <BLANKLINE>
+            %% daf rows=3; cols=2; keyfield=''; name=''
+            <BLANKLINE>
             >>> daf.to_donpa(['m'])['m'].tolist()
             ['5', '', '7']
             >>> daf.to_donpa(['n', 'm'], default=0)['m'].tolist()
@@ -4353,6 +4668,14 @@ class Daf:
 
         Examples:
             >>> daf = Daf(lol=[[1, 'a']], cols=['id', 'v'], keyfield='id')
+            >>> daf
+            <BLANKLINE>
+            | id | v  |
+            | -: | -: |
+            |  1 |  a |
+            <BLANKLINE>
+            %% daf rows=1; cols=2; keyfield='id'; name=''
+            <BLANKLINE>
             >>> Daf.from_json(daf.to_json()) == daf
             True
         """
@@ -4468,6 +4791,14 @@ class Daf:
 
         Examples:
             >>> daf = Daf(lol=[[1, 'a']], cols=['id', 'v'], keyfield='id')
+            >>> daf
+            <BLANKLINE>
+            | id | v  |
+            | -: | -: |
+            |  1 |  a |
+            <BLANKLINE>
+            %% daf rows=1; cols=2; keyfield='id'; name=''
+            <BLANKLINE>
             >>> daf.append({'v': 'b', 'id': 2})
             <BLANKLINE>
             | id | v  |
@@ -4512,6 +4843,14 @@ class Daf:
             %% daf rows=5; cols=2; keyfield='id'; name=''
             <BLANKLINE>
             >>> e = Daf(lol=[[1, 'a']], cols=['id', 'v'])
+            >>> e
+            <BLANKLINE>
+            | id | v  |
+            | -: | -: |
+            |  1 |  a |
+            <BLANKLINE>
+            %% daf rows=1; cols=2; keyfield=''; name=''
+            <BLANKLINE>
             >>> e.append(None).append({}).append([])
             <BLANKLINE>
             | id | v  |
@@ -4688,7 +5027,25 @@ class Daf:
 
         Examples:
             >>> a = Daf(lol=[[1, 'a1'], [2, 'a2']], cols=['id', 'v'], keyfield='id')
+            >>> a
+            <BLANKLINE>
+            | id | v  |
+            | -: | -: |
+            |  1 | a1 |
+            |  2 | a2 |
+            <BLANKLINE>
+            %% daf rows=2; cols=2; keyfield='id'; name=''
+            <BLANKLINE>
             >>> b = Daf(lol=[[2, 'b2'], [3, 'b3']], cols=['id', 'v'])
+            >>> b
+            <BLANKLINE>
+            | id | v  |
+            | -: | -: |
+            |  2 | b2 |
+            |  3 | b3 |
+            <BLANKLINE>
+            %% daf rows=2; cols=2; keyfield=''; name=''
+            <BLANKLINE>
             >>> a.concat(b)
             <BLANKLINE>
             | id | v  |
@@ -4701,6 +5058,15 @@ class Daf:
             %% daf rows=4; cols=2; keyfield='id'; name=''
             <BLANKLINE>
             >>> a = Daf(lol=[[1, 'a1'], [2, 'a2']], cols=['id', 'v'], keyfield='id')
+            >>> a
+            <BLANKLINE>
+            | id | v  |
+            | -: | -: |
+            |  1 | a1 |
+            |  2 | a2 |
+            <BLANKLINE>
+            %% daf rows=2; cols=2; keyfield='id'; name=''
+            <BLANKLINE>
             >>> a.concat(b, respect_kd=True)
             <BLANKLINE>
             | id | v  |
@@ -4811,6 +5177,14 @@ class Daf:
 
         Examples:
             >>> daf = Daf(lol=[[1, 'a']], cols=['id', 'v'], keyfield='id')
+            >>> daf
+            <BLANKLINE>
+            | id | v  |
+            | -: | -: |
+            |  1 |  a |
+            <BLANKLINE>
+            %% daf rows=1; cols=2; keyfield='id'; name=''
+            <BLANKLINE>
             >>> daf.extend([{'id': 2, 'v': 'b'}, {'id': 1, 'v': 'new'}], respect_kd=True)
             <BLANKLINE>
             | id |  v  |
@@ -4916,6 +5290,15 @@ class Daf:
 
         Examples:
             >>> daf = Daf(lol=[[1, 'a'], [2, 'b']], cols=['id', 'v'], keyfield='id')
+            >>> daf
+            <BLANKLINE>
+            | id | v  |
+            | -: | -: |
+            |  1 |  a |
+            |  2 |  b |
+            <BLANKLINE>
+            %% daf rows=2; cols=2; keyfield='id'; name=''
+            <BLANKLINE>
             >>> daf.record_append({'id': 2, 'v': 'new'})
             <BLANKLINE>
             | id |  v  |
@@ -5117,6 +5500,15 @@ class Daf:
 
         Examples:
             >>> daf = Daf(lol=[[1, 'a'], [2, 'b']], cols=['id', 'v'], keyfield='id')
+            >>> daf
+            <BLANKLINE>
+            | id | v  |
+            | -: | -: |
+            |  1 |  a |
+            |  2 |  b |
+            <BLANKLINE>
+            %% daf rows=2; cols=2; keyfield='id'; name=''
+            <BLANKLINE>
             >>> daf.remove_key(1)
             <BLANKLINE>
             | id | v  |
@@ -5128,6 +5520,15 @@ class Daf:
             >>> daf.num_rows()
             2
             >>> c = Daf(lol=[['a', 1], ['a', 2]], cols=['g', 'n'], keyfield=('g', 'n'))
+            >>> c
+            <BLANKLINE>
+            | g  | n  |
+            | -: | -: |
+            |  a |  1 |
+            |  a |  2 |
+            <BLANKLINE>
+            %% daf rows=2; cols=2; keyfield='('g', 'n')'; name=''
+            <BLANKLINE>
             >>> c.remove_key(('a', 1))
             <BLANKLINE>
             | g  | n  |
@@ -5173,6 +5574,16 @@ class Daf:
 
         Examples:
             >>> daf = Daf(lol=[[1, 'a'], [2, 'b'], [3, 'c']], cols=['id', 'v'], keyfield='id')
+            >>> daf
+            <BLANKLINE>
+            | id | v  |
+            | -: | -: |
+            |  1 |  a |
+            |  2 |  b |
+            |  3 |  c |
+            <BLANKLINE>
+            %% daf rows=3; cols=2; keyfield='id'; name=''
+            <BLANKLINE>
             >>> daf.remove_keylist([1, 3])
             <BLANKLINE>
             | id | v  |
@@ -5182,6 +5593,15 @@ class Daf:
             %% daf rows=1; cols=2; keyfield='id'; name=''
             <BLANKLINE>
             >>> d2 = Daf(lol=[[1, 'a', 0], [2, 'b', 1]], cols=['p', 'q', 'r'], keyfield=['p', 'q'])
+            >>> d2
+            <BLANKLINE>
+            | p  | q  | r  |
+            | -: | -: | -: |
+            |  1 |  a |  0 |
+            |  2 |  b |  1 |
+            <BLANKLINE>
+            %% daf rows=2; cols=3; keyfield='['p', 'q']'; name=''
+            <BLANKLINE>
             >>> d2.remove_keylist([(1, 'a')])
             <BLANKLINE>
             | p  | q  | r  |
@@ -5252,6 +5672,16 @@ class Daf:
 
         Examples:
             >>> daf = Daf(lol=[[1, 'a', 10], [2, 'b', 20], [3, 'c', 30]], cols=['id', 'v', 'n'], keyfield='id')
+            >>> daf
+            <BLANKLINE>
+            | id | v  | n  |
+            | -: | -: | -: |
+            |  1 |  a | 10 |
+            |  2 |  b | 20 |
+            |  3 |  c | 30 |
+            <BLANKLINE>
+            %% daf rows=3; cols=3; keyfield='id'; name=''
+            <BLANKLINE>
             >>> daf[1]
             <BLANKLINE>
             | id | v  | n  |
@@ -5421,6 +5851,16 @@ class Daf:
 
         Examples:
             >>> daf = Daf(lol=[[1, 'a', 10], [2, 'b', 20], [3, 'c', 30]], cols=['id', 'v', 'n'], keyfield='id')
+            >>> daf
+            <BLANKLINE>
+            | id | v  | n  |
+            | -: | -: | -: |
+            |  1 |  a | 10 |
+            |  2 |  b | 20 |
+            |  3 |  c | 30 |
+            <BLANKLINE>
+            %% daf rows=3; cols=3; keyfield='id'; name=''
+            <BLANKLINE>
             >>> daf[1, 'v'] = 'z'
             >>> daf[:, 'n'] = [1, 2, 3]
             >>> daf
@@ -5440,6 +5880,15 @@ class Daf:
             A key changed after the index is built is found only after `set_keyfield()`:
 
             >>> k = Daf(cols=['id', 'q'], lol=[['a', 1], ['b', 2]], keyfield='id')
+            >>> k
+            <BLANKLINE>
+            | id | q  |
+            | -: | -: |
+            |  a |  1 |
+            |  b |  2 |
+            <BLANKLINE>
+            %% daf rows=2; cols=2; keyfield='id'; name=''
+            <BLANKLINE>
             >>> k.select_record('a')
             {'id': 'a', 'q': 1}
             >>> k[0, 'id'] = 'z'
@@ -5661,6 +6110,16 @@ class Daf:
 
         Examples:
             >>> daf = Daf(lol=[[1, 'a', 10], [2, 'b', 20], [3, 'c', 30]], cols=['id', 'v', 'n'])
+            >>> daf
+            <BLANKLINE>
+            | id | v  | n  |
+            | -: | -: | -: |
+            |  1 |  a | 10 |
+            |  2 |  b | 20 |
+            |  3 |  c | 30 |
+            <BLANKLINE>
+            %% daf rows=3; cols=3; keyfield=''; name=''
+            <BLANKLINE>
             >>> daf.set_irows_icols([0, 1], [1, 2], 'Z')
             <BLANKLINE>
             | id | v  | n  |
@@ -5851,6 +6310,16 @@ class Daf:
 
         Examples:
             >>> daf = Daf(lol=[['r1', 'a', 10], ['r2', 'b', ''], ['r3', 'a', 30]], cols=['id', 'v', 'n'], keyfield='id')
+            >>> daf
+            <BLANKLINE>
+            | id | v  | n  |
+            | -: | -: | -: |
+            | r1 |  a | 10 |
+            | r2 |  b |    |
+            | r3 |  a | 30 |
+            <BLANKLINE>
+            %% daf rows=3; cols=3; keyfield='id'; name=''
+            <BLANKLINE>
 
             >>> daf.krows_to_irows('r2')
             [1]
@@ -5928,6 +6397,16 @@ class Daf:
 
         Examples:
             >>> daf = Daf(lol=[['r1', 'a', 10], ['r2', 'b', ''], ['r3', 'a', 30]], cols=['id', 'v', 'n'], keyfield='id')
+            >>> daf
+            <BLANKLINE>
+            | id | v  | n  |
+            | -: | -: | -: |
+            | r1 |  a | 10 |
+            | r2 |  b |    |
+            | r3 |  a | 30 |
+            <BLANKLINE>
+            %% daf rows=3; cols=3; keyfield='id'; name=''
+            <BLANKLINE>
 
             >>> daf.kcols_to_icols('v')
             [1]
@@ -6158,6 +6637,16 @@ class Daf:
 
         Examples:
             >>> daf = Daf(lol=[[1, 'a', 10], [2, 'b', 20], [3, 'c', 30]], cols=['id', 'v', 'n'], keyfield='id')
+            >>> daf
+            <BLANKLINE>
+            | id | v  | n  |
+            | -: | -: | -: |
+            |  1 |  a | 10 |
+            |  2 |  b | 20 |
+            |  3 |  c | 30 |
+            <BLANKLINE>
+            %% daf rows=3; cols=3; keyfield='id'; name=''
+            <BLANKLINE>
             >>> daf.select_krows([3, 1])
             <BLANKLINE>
             | id | v  | n  |
@@ -6231,6 +6720,16 @@ class Daf:
 
         Examples:
             >>> daf = Daf(lol=[[1, 'a', 10], [2, 'b', 20], [3, 'c', 30]], cols=['id', 'v', 'n'], keyfield='id')
+            >>> daf
+            <BLANKLINE>
+            | id | v  | n  |
+            | -: | -: | -: |
+            |  1 |  a | 10 |
+            |  2 |  b | 20 |
+            |  3 |  c | 30 |
+            <BLANKLINE>
+            %% daf rows=3; cols=3; keyfield='id'; name=''
+            <BLANKLINE>
             >>> daf.select_kcols(['n', 'id'])
             <BLANKLINE>
             | n  | id |
@@ -6286,6 +6785,16 @@ class Daf:
 
         Examples:
             >>> daf = Daf(lol=[[1, 'a', 10], [2, 'b', 20], [3, 'c', 30]], cols=['id', 'v', 'n'], keyfield='id')
+            >>> daf
+            <BLANKLINE>
+            | id | v  | n  |
+            | -: | -: | -: |
+            |  1 |  a | 10 |
+            |  2 |  b | 20 |
+            |  3 |  c | 30 |
+            <BLANKLINE>
+            %% daf rows=3; cols=3; keyfield='id'; name=''
+            <BLANKLINE>
             >>> daf.select_irows(1)
             <BLANKLINE>
             | id | v  | n  |
@@ -6440,6 +6949,16 @@ class Daf:
 
         Examples:
             >>> daf = Daf(lol=[[1, 'a', 10], [2, 'b', 20], [3, 'c', 30]], cols=['id', 'v', 'n'], keyfield='id')
+            >>> daf
+            <BLANKLINE>
+            | id | v  | n  |
+            | -: | -: | -: |
+            |  1 |  a | 10 |
+            |  2 |  b | 20 |
+            |  3 |  c | 30 |
+            <BLANKLINE>
+            %% daf rows=3; cols=3; keyfield='id'; name=''
+            <BLANKLINE>
             >>> daf.select_icols([2, 0])
             <BLANKLINE>
             | n  | id |
@@ -6618,6 +7137,16 @@ class Daf:
 
         Examples:
             >>> daf = Daf(lol=[[1, 'a', 10], [2, 'b', 20], [3, 'c', 30]], cols=['id', 'v', 'n'], keyfield='id')
+            >>> daf
+            <BLANKLINE>
+            | id | v  | n  |
+            | -: | -: | -: |
+            |  1 |  a | 10 |
+            |  2 |  b | 20 |
+            |  3 |  c | 30 |
+            <BLANKLINE>
+            %% daf rows=3; cols=3; keyfield='id'; name=''
+            <BLANKLINE>
             >>> daf.select_record(2)
             {'id': 2, 'v': 'b', 'n': 20}
             >>> daf.select_record(9)
@@ -6722,6 +7251,16 @@ class Daf:
 
         Examples:
             >>> daf = Daf(lol=[['r1', 'a', 10], ['r2', 'b', ''], ['r3', 'a', 30]], cols=['id', 'v', 'n'], keyfield='id')
+            >>> daf
+            <BLANKLINE>
+            | id | v  | n  |
+            | -: | -: | -: |
+            | r1 |  a | 10 |
+            | r2 |  b |    |
+            | r3 |  a | 30 |
+            <BLANKLINE>
+            %% daf rows=3; cols=3; keyfield='id'; name=''
+            <BLANKLINE>
 
             >>> daf.select_records_daf(['r3', 'r1'])
             <BLANKLINE>
@@ -6750,6 +7289,15 @@ class Daf:
             The keys of another Daf, without making a list of them:
 
             >>> other = Daf(lol=[['r3', 1], ['r9', 2]], cols=['id', 'w'], keyfield='id')
+            >>> other
+            <BLANKLINE>
+            | id | w  |
+            | -: | -: |
+            | r3 |  1 |
+            | r9 |  2 |
+            <BLANKLINE>
+            %% daf rows=2; cols=2; keyfield='id'; name=''
+            <BLANKLINE>
             >>> daf.select_records_daf(other, silent_error=True).to_lod()
             [{'id': 'r3', 'v': 'a', 'n': 30}]
         """
@@ -6810,6 +7358,16 @@ class Daf:
 
         Examples:
             >>> daf = Daf(lol=[['r1', 'a'], ['r2', 'b'], ['r3', 'c']], cols=['id', 'v'], keyfield='id')
+            >>> daf
+            <BLANKLINE>
+            | id | v  |
+            | -: | -: |
+            | r1 |  a |
+            | r2 |  b |
+            | r3 |  c |
+            <BLANKLINE>
+            %% daf rows=3; cols=2; keyfield='id'; name=''
+            <BLANKLINE>
             >>> daf.delete_records(['r2']).to_lod()
             [{'id': 'r1', 'v': 'a'}, {'id': 'r3', 'v': 'c'}]
             >>> len(daf)
@@ -6852,6 +7410,16 @@ class Daf:
 
         Examples:
             >>> daf = Daf(lol=[['r1', 'a', 10], ['r2', 'b', ''], ['r3', 'a', 30]], cols=['id', 'v', 'n'], keyfield='id')
+            >>> daf
+            <BLANKLINE>
+            | id | v  | n  |
+            | -: | -: | -: |
+            | r1 |  a | 10 |
+            | r2 |  b |    |
+            | r3 |  a | 30 |
+            <BLANKLINE>
+            %% daf rows=3; cols=3; keyfield='id'; name=''
+            <BLANKLINE>
 
             >>> daf.irow_la(1)
             ['r2', 'b', '']
@@ -6890,6 +7458,16 @@ class Daf:
 
         Examples:
             >>> daf = Daf(lol=[[1, 'a', 10], [2, 'b', 20], [3, 'c', 30]], cols=['id', 'v', 'n'], keyfield='id')
+            >>> daf
+            <BLANKLINE>
+            | id | v  | n  |
+            | -: | -: | -: |
+            |  1 |  a | 10 |
+            |  2 |  b | 20 |
+            |  3 |  c | 30 |
+            <BLANKLINE>
+            %% daf rows=3; cols=3; keyfield='id'; name=''
+            <BLANKLINE>
             >>> daf[1, 'n'].to_value()
             20
         """
@@ -6937,6 +7515,16 @@ class Daf:
 
         Examples:
             >>> daf = Daf(lol=[[1, 'a', 10], [2, 'b', 20], [3, 'c', 30]], cols=['id', 'v', 'n'], keyfield='id')
+            >>> daf
+            <BLANKLINE>
+            | id | v  | n  |
+            | -: | -: | -: |
+            |  1 |  a | 10 |
+            |  2 |  b | 20 |
+            |  3 |  c | 30 |
+            <BLANKLINE>
+            %% daf rows=3; cols=3; keyfield='id'; name=''
+            <BLANKLINE>
             >>> daf[:, 'v'].to_list()
             ['a', 'b', 'c']
             >>> daf[1].to_list()
@@ -7043,6 +7631,16 @@ class Daf:
 
         Examples:
             >>> daf = Daf(lol=[[1, 'a', 10], [2, 'b', 20], [3, 'c', 30]], cols=['id', 'v', 'n'], keyfield='id')
+            >>> daf
+            <BLANKLINE>
+            | id | v  | n  |
+            | -: | -: | -: |
+            |  1 |  a | 10 |
+            |  2 |  b | 20 |
+            |  3 |  c | 30 |
+            <BLANKLINE>
+            %% daf rows=3; cols=3; keyfield='id'; name=''
+            <BLANKLINE>
             >>> daf[1].to_dict()
             {'id': 2, 'v': 'b', 'n': 20}
         """
@@ -7075,6 +7673,16 @@ class Daf:
 
         Examples:
             >>> daf = Daf(lol=[[1, 'a', 10], [2, 'b', 20], [3, 'c', 30]], cols=['id', 'v', 'n'], keyfield='id')
+            >>> daf
+            <BLANKLINE>
+            | id | v  | n  |
+            | -: | -: | -: |
+            |  1 |  a | 10 |
+            |  2 |  b | 20 |
+            |  3 |  c | 30 |
+            <BLANKLINE>
+            %% daf rows=3; cols=3; keyfield='id'; name=''
+            <BLANKLINE>
             >>> daf.to_klist(1)['v']
             'b'
         """
@@ -7100,6 +7708,16 @@ class Daf:
 
         Examples:
             >>> daf = Daf(lol=[[1, 'a', 10], [2, 'b', 20], [3, 'c', 30]], cols=['id', 'v', 'n'], keyfield='id')
+            >>> daf
+            <BLANKLINE>
+            | id | v  | n  |
+            | -: | -: | -: |
+            |  1 |  a | 10 |
+            |  2 |  b | 20 |
+            |  3 |  c | 30 |
+            <BLANKLINE>
+            %% daf rows=3; cols=3; keyfield='id'; name=''
+            <BLANKLINE>
             >>> daf.irow(1, include_cols=['n'])
             {'n': 20}
         """
@@ -7131,6 +7749,16 @@ class Daf:
 
         Examples:
             >>> daf = Daf(lol=[[1, 'a', 10], [2, 'b', 20], [3, 'c', 30]], cols=['id', 'v', 'n'], keyfield='id')
+            >>> daf
+            <BLANKLINE>
+            | id | v  | n  |
+            | -: | -: | -: |
+            |  1 |  a | 10 |
+            |  2 |  b | 20 |
+            |  3 |  c | 30 |
+            <BLANKLINE>
+            %% daf rows=3; cols=3; keyfield='id'; name=''
+            <BLANKLINE>
             >>> daf.iloc(1)
             {'id': 2, 'v': 'b', 'n': 20}
             >>> daf.iloc(1, rtype='list')
@@ -7316,6 +7944,16 @@ class Daf:
 
         Examples:
             >>> daf = Daf(lol=[[1, 'a', 10], [2, 'b', 20], [3, 'c', 30]], cols=['id', 'v', 'n'], keyfield='id')
+            >>> daf
+            <BLANKLINE>
+            | id | v  | n  |
+            | -: | -: | -: |
+            |  1 |  a | 10 |
+            |  2 |  b | 20 |
+            |  3 |  c | 30 |
+            <BLANKLINE>
+            %% daf rows=3; cols=3; keyfield='id'; name=''
+            <BLANKLINE>
             >>> daf.select_by_dict({'v': 'b'})
             <BLANKLINE>
             | id | v  | n  |
@@ -7419,6 +8057,16 @@ class Daf:
 
         Examples:
             >>> daf = Daf(lol=[[1, 'a', 10], [2, 'b', 20], [3, 'c', 30]], cols=['id', 'v', 'n'], keyfield='id')
+            >>> daf
+            <BLANKLINE>
+            | id | v  | n  |
+            | -: | -: | -: |
+            |  1 |  a | 10 |
+            |  2 |  b | 20 |
+            |  3 |  c | 30 |
+            <BLANKLINE>
+            %% daf rows=3; cols=3; keyfield='id'; name=''
+            <BLANKLINE>
             >>> daf.select_first_row_by_dict({'v': 'b'})
             {'id': 2, 'v': 'b', 'n': 20}
             >>> daf.select_first_row_by_dict({'v': 'zz'})
@@ -7476,6 +8124,16 @@ class Daf:
 
         Examples:
             >>> daf = Daf(lol=[[1, 'a', 10], [2, 'b', 20], [3, 'c', 30]], cols=['id', 'v', 'n'], keyfield='id')
+            >>> daf
+            <BLANKLINE>
+            | id | v  | n  |
+            | -: | -: | -: |
+            |  1 |  a | 10 |
+            |  2 |  b | 20 |
+            |  3 |  c | 30 |
+            <BLANKLINE>
+            %% daf rows=3; cols=3; keyfield='id'; name=''
+            <BLANKLINE>
             >>> daf.select_where(lambda row: row['n'] > 10)
             <BLANKLINE>
             | id | v  | n  |
@@ -7486,6 +8144,17 @@ class Daf:
             %% daf rows=2; cols=3; keyfield='id'; name=''
             <BLANKLINE>
             >>> daf = Daf(lol=[[1, 'a', 10], [2, 'b', 20], [3, 'c', 30], [4, 'a', 40]], cols=['id', 'v', 'n'])
+            >>> daf
+            <BLANKLINE>
+            | id | v  | n  |
+            | -: | -: | -: |
+            |  1 |  a | 10 |
+            |  2 |  b | 20 |
+            |  3 |  c | 30 |
+            |  4 |  a | 40 |
+            <BLANKLINE>
+            %% daf rows=4; cols=3; keyfield=''; name=''
+            <BLANKLINE>
             >>> keep = {'a', 'c'}
             >>> daf.select_where(lambda row: row['v'] in keep)
             <BLANKLINE>
@@ -7528,6 +8197,15 @@ class Daf:
             The values can come from another Daf. Make the set once, outside the function:
 
             >>> other = Daf(lol=[['a'], ['c']], cols=['v'], keyfield='v')
+            >>> other
+            <BLANKLINE>
+            | v  |
+            | -: |
+            |  a |
+            |  c |
+            <BLANKLINE>
+            %% daf rows=2; cols=1; keyfield='v'; name=''
+            <BLANKLINE>
             >>> other_keys = set(other.keys())
             >>> daf.select_where(lambda row: row['v'] in other_keys)
             <BLANKLINE>
@@ -7609,6 +8287,16 @@ class Daf:
 
         Examples:
             >>> daf = Daf(lol=[[1, 'a', 10], [2, 'b', 20], [3, 'c', 30]], cols=['id', 'v', 'n'], keyfield='id')
+            >>> daf
+            <BLANKLINE>
+            | id | v  | n  |
+            | -: | -: | -: |
+            |  1 |  a | 10 |
+            |  2 |  b | 20 |
+            |  3 |  c | 30 |
+            <BLANKLINE>
+            %% daf rows=3; cols=3; keyfield='id'; name=''
+            <BLANKLINE>
             >>> daf.select_where_idxs(lambda row: row['n'] > 10)
             [1, 2]
         """
@@ -7653,6 +8341,16 @@ class Daf:
 
         Examples:
             >>> daf = Daf(lol=[[1, 'a'], [2, 'b'], [1, 'c']], cols=['id', 'v'])
+            >>> daf
+            <BLANKLINE>
+            | id | v  |
+            | -: | -: |
+            |  1 |  a |
+            |  2 |  b |
+            |  1 |  c |
+            <BLANKLINE>
+            %% daf rows=3; cols=2; keyfield=''; name=''
+            <BLANKLINE>
             >>> unique, dups = daf.remove_dups('id')
             >>> unique
             <BLANKLINE>
@@ -7731,6 +8429,16 @@ class Daf:
 
         Examples:
             >>> daf = Daf(lol=[[1, 'a', 10], [2, 'b', 20], [3, 'c', 30]], cols=['id', 'v', 'n'], keyfield='id')
+            >>> daf
+            <BLANKLINE>
+            | id | v  | n  |
+            | -: | -: | -: |
+            |  1 |  a | 10 |
+            |  2 |  b | 20 |
+            |  3 |  c | 30 |
+            <BLANKLINE>
+            %% daf rows=3; cols=3; keyfield='id'; name=''
+            <BLANKLINE>
             >>> big, small = daf.split_where(lambda row: row['n'] > 10)
             >>> big
             <BLANKLINE>
@@ -7827,6 +8535,16 @@ class Daf:
 
         Examples:
             >>> daf = Daf(lol=[[1, 'a', 10], [2, 'b', 20], [3, 'c', 30]], cols=['id', 'v', 'n'], keyfield='id')
+            >>> daf
+            <BLANKLINE>
+            | id | v  | n  |
+            | -: | -: | -: |
+            |  1 |  a | 10 |
+            |  2 |  b | 20 |
+            |  3 |  c | 30 |
+            <BLANKLINE>
+            %% daf rows=3; cols=3; keyfield='id'; name=''
+            <BLANKLINE>
             >>> daf.col('v')
             ['a', 'b', 'c']
             >>> daf.col('n', astype=str)
@@ -7884,6 +8602,16 @@ class Daf:
 
         Examples:
             >>> daf = Daf(lol=[['r1', 'a', 10], ['r2', 'b', ''], ['r3', 'a', 30]], cols=['id', 'v', 'n'], keyfield='id')
+            >>> daf
+            <BLANKLINE>
+            | id | v  | n  |
+            | -: | -: | -: |
+            | r1 |  a | 10 |
+            | r2 |  b |    |
+            | r3 |  a | 30 |
+            <BLANKLINE>
+            %% daf rows=3; cols=3; keyfield='id'; name=''
+            <BLANKLINE>
 
             >>> daf.col_to_la('v')
             ['a', 'b', 'a']
@@ -7950,6 +8678,16 @@ class Daf:
 
         Examples:
             >>> daf = Daf(lol=[[1, 'a', 10], [2, 'b', 20], [3, 'c', 30]], cols=['id', 'v', 'n'], keyfield='id')
+            >>> daf
+            <BLANKLINE>
+            | id | v  | n  |
+            | -: | -: | -: |
+            |  1 |  a | 10 |
+            |  2 |  b | 20 |
+            |  3 |  c | 30 |
+            <BLANKLINE>
+            %% daf rows=3; cols=3; keyfield='id'; name=''
+            <BLANKLINE>
             >>> daf.icol(1)
             ['a', 'b', 'c']
             >>> daf.icol(-1)
@@ -7979,6 +8717,16 @@ class Daf:
 
         Examples:
             >>> daf = Daf(lol=[['r1', 'a', 10], ['r2', 'b', ''], ['r3', 'a', 30]], cols=['id', 'v', 'n'], keyfield='id')
+            >>> daf
+            <BLANKLINE>
+            | id | v  | n  |
+            | -: | -: | -: |
+            | r1 |  a | 10 |
+            | r2 |  b |    |
+            | r3 |  a | 30 |
+            <BLANKLINE>
+            %% daf rows=3; cols=3; keyfield='id'; name=''
+            <BLANKLINE>
 
             >>> daf.icol_to_la(1)
             ['a', 'b', 'a']
@@ -8034,6 +8782,16 @@ class Daf:
 
         Examples:
             >>> daf = Daf(lol=[[1, 'a', 10], [2, 'b', 20], [3, 'c', 30]], cols=['id', 'v', 'n'], keyfield='id')
+            >>> daf
+            <BLANKLINE>
+            | id | v  | n  |
+            | -: | -: | -: |
+            |  1 |  a | 10 |
+            |  2 |  b | 20 |
+            |  3 |  c | 30 |
+            <BLANKLINE>
+            %% daf rows=3; cols=3; keyfield='id'; name=''
+            <BLANKLINE>
             >>> daf.drop_cols(['v']).columns()
             ['id', 'n']
         """
@@ -8097,6 +8855,16 @@ class Daf:
 
         Examples:
             >>> daf = Daf(lol=[[1, 'a', 10], [2, 'b', 20], [3, 'c', 30]], cols=['id', 'v', 'n'], keyfield='id')
+            >>> daf
+            <BLANKLINE>
+            | id | v  | n  |
+            | -: | -: | -: |
+            |  1 |  a | 10 |
+            |  2 |  b | 20 |
+            |  3 |  c | 30 |
+            <BLANKLINE>
+            %% daf rows=3; cols=3; keyfield='id'; name=''
+            <BLANKLINE>
             >>> daf.select_cols(['n', 'id']).columns()
             ['n', 'id']
             >>> daf.select_cols(exclude_cols=['v']).columns()
@@ -8190,6 +8958,16 @@ class Daf:
 
         Examples:
             >>> daf = Daf(lol=[[1, 'a', 10], [2, 'b', 20], [3, 'c', 30]], cols=['id', 'v', 'n'], keyfield='id')
+            >>> daf
+            <BLANKLINE>
+            | id | v  | n  |
+            | -: | -: | -: |
+            |  1 |  a | 10 |
+            |  2 |  b | 20 |
+            |  3 |  c | 30 |
+            <BLANKLINE>
+            %% daf rows=3; cols=3; keyfield='id'; name=''
+            <BLANKLINE>
             >>> _ = daf.assign_record({'id': 2, 'v': 'new'})
             >>> daf
             <BLANKLINE>
@@ -8250,6 +9028,16 @@ class Daf:
 
         Examples:
             >>> daf = Daf(lol=[[1, 'a', 10], [2, 'b', 20], [3, 'c', 30]], cols=['id', 'v', 'n'], keyfield='id')
+            >>> daf
+            <BLANKLINE>
+            | id | v  | n  |
+            | -: | -: | -: |
+            |  1 |  a | 10 |
+            |  2 |  b | 20 |
+            |  3 |  c | 30 |
+            <BLANKLINE>
+            %% daf rows=3; cols=3; keyfield='id'; name=''
+            <BLANKLINE>
             >>> _ = daf.assign_record_irow(1, {'v': 'q'})
             >>> daf.iloc(1)
             {'id': '', 'v': 'q', 'n': ''}
@@ -8296,6 +9084,16 @@ class Daf:
 
         Examples:
             >>> daf = Daf(lol=[[1, 'a', 10], [2, 'b', 20], [3, 'c', 30]], cols=['id', 'v', 'n'], keyfield='id')
+            >>> daf
+            <BLANKLINE>
+            | id | v  | n  |
+            | -: | -: | -: |
+            |  1 |  a | 10 |
+            |  2 |  b | 20 |
+            |  3 |  c | 30 |
+            <BLANKLINE>
+            %% daf rows=3; cols=3; keyfield='id'; name=''
+            <BLANKLINE>
             >>> daf.update_by_keylist([1, 3, 9], {'v': 'q'})
             <BLANKLINE>
             | id | v  | n  |
@@ -8346,6 +9144,16 @@ class Daf:
 
         Examples:
             >>> daf = Daf(lol=[[1, 'a', 10], [2, 'b', 20], [3, 'c', 30]], cols=['id', 'v', 'n'], keyfield='id')
+            >>> daf
+            <BLANKLINE>
+            | id | v  | n  |
+            | -: | -: | -: |
+            |  1 |  a | 10 |
+            |  2 |  b | 20 |
+            |  3 |  c | 30 |
+            <BLANKLINE>
+            %% daf rows=3; cols=3; keyfield='id'; name=''
+            <BLANKLINE>
             >>> _ = daf.update_record_irow(1, {'v': 'q'})
             >>> daf.iloc(1)
             {'id': 2, 'v': 'q', 'n': 20}
@@ -8401,6 +9209,16 @@ class Daf:
 
         Examples:
             >>> daf = Daf(lol=[[1, 'a', 10], [2, 'b', 20], [3, 'c', 30]], cols=['id', 'v', 'n'], keyfield='id')
+            >>> daf
+            <BLANKLINE>
+            | id | v  | n  |
+            | -: | -: | -: |
+            |  1 |  a | 10 |
+            |  2 |  b | 20 |
+            |  3 |  c | 30 |
+            <BLANKLINE>
+            %% daf rows=3; cols=3; keyfield='id'; name=''
+            <BLANKLINE>
             >>> _ = daf.update_record_krow(2, {'v': 'q'})
             >>> daf.select_record(2)
             {'id': 2, 'v': 'q', 'n': 20}
@@ -8449,6 +9267,16 @@ class Daf:
 
         Examples:
             >>> daf = Daf(lol=[[1, 'a', 10], [2, 'b', 20], [3, 'c', 30]], cols=['id', 'v', 'n'], keyfield='id')
+            >>> daf
+            <BLANKLINE>
+            | id | v  | n  |
+            | -: | -: | -: |
+            |  1 |  a | 10 |
+            |  2 |  b | 20 |
+            |  3 |  c | 30 |
+            <BLANKLINE>
+            %% daf rows=3; cols=3; keyfield='id'; name=''
+            <BLANKLINE>
             >>> _ = daf.assign_icol(1, ['x', 'y'], default='D')
             >>> daf.col('v')
             ['x', 'y', 'D']
@@ -8546,6 +9374,16 @@ class Daf:
 
         Examples:
             >>> daf = Daf(lol=[[1, 'a', 10], [2, 'b', 20], [3, 'c', 30]], cols=['id', 'v', 'n'], keyfield='id')
+            >>> daf
+            <BLANKLINE>
+            | id | v  | n  |
+            | -: | -: | -: |
+            |  1 |  a | 10 |
+            |  2 |  b | 20 |
+            |  3 |  c | 30 |
+            <BLANKLINE>
+            %% daf rows=3; cols=3; keyfield='id'; name=''
+            <BLANKLINE>
             >>> daf.insert_icol(1, ['x', 'y', 'z'], colname='new').columns()
             ['id', 'new', 'v', 'n']
         """
@@ -8595,6 +9433,16 @@ class Daf:
 
         Examples:
             >>> daf = Daf(lol=[[1, 'a', 10], [2, 'b', 20], [3, 'c', 30]], cols=['id', 'v', 'n'], keyfield='id')
+            >>> daf
+            <BLANKLINE>
+            | id | v  | n  |
+            | -: | -: | -: |
+            |  1 |  a | 10 |
+            |  2 |  b | 20 |
+            |  3 |  c | 30 |
+            <BLANKLINE>
+            %% daf rows=3; cols=3; keyfield='id'; name=''
+            <BLANKLINE>
             >>> daf.insert_irow(1, {'id': 9, 'v': 'z'})
             <BLANKLINE>
             | id | v  | n  |
@@ -8649,6 +9497,16 @@ class Daf:
 
         Examples:
             >>> daf = Daf(lol=[[1, 'a', 10], [2, 'b', 20], [3, 'c', 30]], cols=['id', 'v', 'n'], keyfield='id')
+            >>> daf
+            <BLANKLINE>
+            | id | v  | n  |
+            | -: | -: | -: |
+            |  1 |  a | 10 |
+            |  2 |  b | 20 |
+            |  3 |  c | 30 |
+            <BLANKLINE>
+            %% daf rows=3; cols=3; keyfield='id'; name=''
+            <BLANKLINE>
             >>> daf.assign_col('w', default=0).columns()
             ['id', 'v', 'n', 'w']
             >>> daf.col('w')
@@ -8701,6 +9559,16 @@ class Daf:
 
         Examples:
             >>> daf = Daf(lol=[[1, 'a', 10], [2, 'b', 20], [3, 'c', 30]], cols=['id', 'v', 'n'], keyfield='id')
+            >>> daf
+            <BLANKLINE>
+            | id | v  | n  |
+            | -: | -: | -: |
+            |  1 |  a | 10 |
+            |  2 |  b | 20 |
+            |  3 |  c | 30 |
+            <BLANKLINE>
+            %% daf rows=3; cols=3; keyfield='id'; name=''
+            <BLANKLINE>
             >>> daf.insert_col('w', ['x', 'y', 'z'], icol=1).columns()
             ['id', 'w', 'v', 'n']
             >>> daf.insert_col('k', default=5).col('k')
@@ -8739,6 +9607,16 @@ class Daf:
 
         Examples:
             >>> daf = Daf(lol=[[1, 'a', 10], [2, 'b', 20], [3, 'c', 30]], cols=['id', 'v', 'n'], keyfield='id')
+            >>> daf
+            <BLANKLINE>
+            | id | v  | n  |
+            | -: | -: | -: |
+            |  1 |  a | 10 |
+            |  2 |  b | 20 |
+            |  3 |  c | 30 |
+            <BLANKLINE>
+            %% daf rows=3; cols=3; keyfield='id'; name=''
+            <BLANKLINE>
             >>> daf.insert_idx_col().col('idx')
             [0, 1, 2]
         """
@@ -8772,6 +9650,16 @@ class Daf:
 
         Examples:
             >>> daf = Daf(lol=[[1, 'a', 10], [2, 'b', 20], [3, 'c', 30]], cols=['id', 'v', 'n'], keyfield='id')
+            >>> daf
+            <BLANKLINE>
+            | id | v  | n  |
+            | -: | -: | -: |
+            |  1 |  a | 10 |
+            |  2 |  b | 20 |
+            |  3 |  c | 30 |
+            <BLANKLINE>
+            %% daf rows=3; cols=3; keyfield='id'; name=''
+            <BLANKLINE>
             >>> daf.set_col_irows('v', [0, 2], 'Z').col('v')
             ['Z', 'b', 'Z']
         """
@@ -8802,6 +9690,16 @@ class Daf:
 
         Examples:
             >>> daf = Daf(lol=[[1, 'a', 10], [2, 'b', 20], [3, 'c', 30]], cols=['id', 'v', 'n'], keyfield='id')
+            >>> daf
+            <BLANKLINE>
+            | id | v  | n  |
+            | -: | -: | -: |
+            |  1 |  a | 10 |
+            |  2 |  b | 20 |
+            |  3 |  c | 30 |
+            <BLANKLINE>
+            %% daf rows=3; cols=3; keyfield='id'; name=''
+            <BLANKLINE>
             >>> daf.set_icol(1, 'Z').col('v')
             ['Z', 'Z', 'Z']
         """
@@ -8832,6 +9730,16 @@ class Daf:
 
         Examples:
             >>> daf = Daf(lol=[[1, 'a', 10], [2, 'b', 20], [3, 'c', 30]], cols=['id', 'v', 'n'], keyfield='id')
+            >>> daf
+            <BLANKLINE>
+            | id | v  | n  |
+            | -: | -: | -: |
+            |  1 |  a | 10 |
+            |  2 |  b | 20 |
+            |  3 |  c | 30 |
+            <BLANKLINE>
+            %% daf rows=3; cols=3; keyfield='id'; name=''
+            <BLANKLINE>
             >>> _ = daf.set_icol_irows(1, [0, 9, -1], 'Z')
             >>> daf.col('v')
             ['Z', 'b', 'c']
@@ -8870,6 +9778,16 @@ class Daf:
 
         Examples:
             >>> daf = Daf(lol=[[1, 'a', 10], [2, 'b', 20], [3, 'c', 30]], cols=['id', 'v', 'n'], keyfield='id')
+            >>> daf
+            <BLANKLINE>
+            | id | v  | n  |
+            | -: | -: | -: |
+            |  1 |  a | 10 |
+            |  2 |  b | 20 |
+            |  3 |  c | 30 |
+            <BLANKLINE>
+            %% daf rows=3; cols=3; keyfield='id'; name=''
+            <BLANKLINE>
             >>> _ = daf.find_replace(r'^[ab]$', 'HIT')
             >>> daf.col('v')
             ['HIT', 'HIT', 'c']
@@ -8914,6 +9832,16 @@ class Daf:
 
         Examples:
             >>> daf = Daf(lol=[[1, 'a', 10], [2, 'b', 20], [3, 'c', 30]], cols=['id', 'v', 'n'], keyfield='id')
+            >>> daf
+            <BLANKLINE>
+            | id | v  | n  |
+            | -: | -: | -: |
+            |  1 |  a | 10 |
+            |  2 |  b | 20 |
+            |  3 |  c | 30 |
+            <BLANKLINE>
+            %% daf rows=3; cols=3; keyfield='id'; name=''
+            <BLANKLINE>
             >>> daf.replace_in_columns(['v'], ['a', 'c'], '-').col('v')
             ['-', 'b', '-']
         """
@@ -8977,6 +9905,16 @@ class Daf:
 
         Examples:
             >>> daf = Daf(lol=[[1, 'a', 10], [2, 'b', 20], [3, 'c', 30]], cols=['id', 'v', 'n'], keyfield='id')
+            >>> daf
+            <BLANKLINE>
+            | id | v  | n  |
+            | -: | -: | -: |
+            |  1 |  a | 10 |
+            |  2 |  b | 20 |
+            |  3 |  c | 30 |
+            <BLANKLINE>
+            %% daf rows=3; cols=3; keyfield='id'; name=''
+            <BLANKLINE>
             >>> parts = daf.split_daf_into_ranges([(0, 2), (2, 3)])
             >>> parts[0]
             <BLANKLINE>
@@ -9018,6 +9956,20 @@ class Daf:
 
         Examples:
             >>> daf = Daf(lol=[[i] for i in range(7)], cols=['a'])
+            >>> daf
+            <BLANKLINE>
+            | a  |
+            | -: |
+            |  0 |
+            |  1 |
+            |  2 |
+            |  3 |
+            |  4 |
+            |  5 |
+            |  6 |
+            <BLANKLINE>
+            %% daf rows=7; cols=1; keyfield=''; name=''
+            <BLANKLINE>
             >>> [len(part) for part in daf.split_daf_into_chunks_lodaf(3)]
             [3, 2, 2]
         """
@@ -9063,9 +10015,31 @@ class Daf:
 
         Examples:
             >>> daf = Daf(lol=[['10'], ['99'], ['8'], ['100']], cols=['a'])
+            >>> daf
+            <BLANKLINE>
+            |  a  |
+            | --: |
+            |  10 |
+            |  99 |
+            |   8 |
+            | 100 |
+            <BLANKLINE>
+            %% daf rows=4; cols=1; keyfield=''; name=''
+            <BLANKLINE>
             >>> daf.sort_by_colname('a', length_priority=True).col('a')
             ['8', '10', '99', '100']
             >>> daf = Daf(lol=[[10], [None], [2], ['']], cols=['n'])
+            >>> daf
+            <BLANKLINE>
+            |  n   |
+            | ---: |
+            |   10 |
+            | None |
+            |    2 |
+            |      |
+            <BLANKLINE>
+            %% daf rows=4; cols=1; keyfield=''; name=''
+            <BLANKLINE>
             >>> daf.sort_by_colname('n', as_str=True, length_priority=True).col('n')
             [None, '', 2, 10]
         """
@@ -9110,6 +10084,16 @@ class Daf:
 
         Examples:
             >>> daf = Daf(lol=[[2, 'b'], [1, 'z'], [1, 'a']], cols=['p', 'q'])
+            >>> daf
+            <BLANKLINE>
+            | p  | q  |
+            | -: | -: |
+            |  2 |  b |
+            |  1 |  z |
+            |  1 |  a |
+            <BLANKLINE>
+            %% daf rows=3; cols=2; keyfield=''; name=''
+            <BLANKLINE>
             >>> daf.sort_by_colnames(['p', 'q'])
             <BLANKLINE>
             | p  | q  |
@@ -9182,11 +10166,33 @@ class Daf:
 
         Examples:
             >>> daf = Daf(cols=['A', 'B', 'C'], lol=[[1, 2, 0], [4, 5, 0], [7, 8, 0], [0, 0, 0]])
+            >>> daf
+            <BLANKLINE>
+            | A  | B  | C  |
+            | -: | -: | -: |
+            |  1 |  2 |  0 |
+            |  4 |  5 |  0 |
+            |  7 |  8 |  0 |
+            |  0 |  0 |  0 |
+            <BLANKLINE>
+            %% daf rows=4; cols=3; keyfield=''; name=''
+            <BLANKLINE>
             >>> f = Daf(cols=['A', 'B', 'C'], lol=[
             ...     ['', '', 'sum($d[$r,:$c])'],
             ...     ['', '', 'sum($d[$r,:$c])'],
             ...     ['', '', 'sum($d[$r,:$c])'],
             ...     ['sum($d[:$r,$c])', 'sum($d[:$r,$c])', 'sum($d[:$r,$c])']])
+            >>> f
+            <BLANKLINE>
+            |        A        |        B        |        C        |
+            | --------------: | --------------: | --------------: |
+            |                 |                 | sum($d[$r,:$c]) |
+            |                 |                 | sum($d[$r,:$c]) |
+            |                 |                 | sum($d[$r,:$c]) |
+            | sum($d[:$r,$c]) | sum($d[:$r,$c]) | sum($d[:$r,$c]) |
+            <BLANKLINE>
+            %% daf rows=4; cols=3; keyfield=''; name=''
+            <BLANKLINE>
             >>> _ = daf.apply_formulas(f)
             >>> daf
             <BLANKLINE>
@@ -9296,6 +10302,17 @@ class Daf:
 
         Examples:
             >>> daf = Daf(lol=[['a', 'b'], ['b', 'd'], ['a', 'f'], ['b', 'd']], cols=['c1', 'c2'])
+            >>> daf
+            <BLANKLINE>
+            | c1 | c2 |
+            | -: | -: |
+            |  a |  b |
+            |  b |  d |
+            |  a |  f |
+            |  b |  d |
+            <BLANKLINE>
+            %% daf rows=4; cols=2; keyfield=''; name=''
+            <BLANKLINE>
             >>> daf.cols_to_dol('c1', 'c2')
             {'a': ['b', 'f'], 'b': ['d']}
         """
@@ -9352,6 +10369,16 @@ class Daf:
 
         Examples:
             >>> daf = Daf(lol=[[1, 10], [3, 14], [6, 20]], cols=['a', 'n'])
+            >>> daf
+            <BLANKLINE>
+            | a  | n  |
+            | -: | -: |
+            |  1 | 10 |
+            |  3 | 14 |
+            |  6 | 20 |
+            <BLANKLINE>
+            %% daf rows=3; cols=2; keyfield=''; name=''
+            <BLANKLINE>
             >>> daf.insert_dif_row(0)
             <BLANKLINE>
             | a  | n  |
@@ -9404,6 +10431,16 @@ class Daf:
 
         Examples:
             >>> daf = Daf(lol=[[1, 10], [3, 14], [6, 20]], cols=['a', 'n'])
+            >>> daf
+            <BLANKLINE>
+            | a  | n  |
+            | -: | -: |
+            |  1 | 10 |
+            |  3 | 14 |
+            |  6 | 20 |
+            <BLANKLINE>
+            %% daf rows=3; cols=2; keyfield=''; name=''
+            <BLANKLINE>
             >>> daf.insert_dif_rows()
             <BLANKLINE>
             | a  | n  |
@@ -9455,7 +10492,25 @@ class Daf:
 
         Examples:
             >>> a = Daf(lol=[[1, 'x'], [2, 'y']], cols=['id', 'v'], keyfield='id')
+            >>> a
+            <BLANKLINE>
+            | id | v  |
+            | -: | -: |
+            |  1 |  x |
+            |  2 |  y |
+            <BLANKLINE>
+            %% daf rows=2; cols=2; keyfield='id'; name=''
+            <BLANKLINE>
             >>> o = Daf(lol=[[1, 'P'], [2, 'Q']], cols=['id', 'w'], keyfield='id')
+            >>> o
+            <BLANKLINE>
+            | id | w  |
+            | -: | -: |
+            |  1 |  P |
+            |  2 |  Q |
+            <BLANKLINE>
+            %% daf rows=2; cols=2; keyfield='id'; name=''
+            <BLANKLINE>
             >>> a.annotate_daf(o, {'v': 'w'})
             <BLANKLINE>
             | id | v  |
@@ -9554,6 +10609,16 @@ class Daf:
 
         Examples:
             >>> daf = Daf(lol=[['a', 1, 10], ['b', 2, 20], ['a', 3, 30]], cols=['g', 'x', 'y'])
+            >>> daf
+            <BLANKLINE>
+            | g  | x  | y  |
+            | -: | -: | -: |
+            |  a |  1 | 10 |
+            |  b |  2 | 20 |
+            |  a |  3 | 30 |
+            <BLANKLINE>
+            %% daf rows=3; cols=3; keyfield=''; name=''
+            <BLANKLINE>
             >>> daf.apply(lambda row: {'g': row['g'].upper(), 'z': row['y'] * 2})
             <BLANKLINE>
             | g  | z  |
@@ -9694,6 +10759,16 @@ class Daf:
 
         Examples:
             >>> daf = Daf(lol=[['a', 1, 10], ['b', 2, 20], ['a', 3, 30]], cols=['g', 'x', 'y'])
+            >>> daf
+            <BLANKLINE>
+            | g  | x  | y  |
+            | -: | -: | -: |
+            |  a |  1 | 10 |
+            |  b |  2 | 20 |
+            |  a |  3 | 30 |
+            <BLANKLINE>
+            %% daf rows=3; cols=3; keyfield=''; name=''
+            <BLANKLINE>
             >>> _ = daf.apply_in_place(lambda row: {**row, 'y': row['y'] + 1})
             >>> daf.col('y')
             [11, 21, 31]
@@ -9835,6 +10910,15 @@ class Daf:
             ...     saved.append(daf.to_lod())
             ...     return 'saved'
             >>> manifest = Daf(cols=['chunk'], lol=[['a'], ['b']])
+            >>> manifest
+            <BLANKLINE>
+            | chunk |
+            | ----: |
+            |     a |
+            |     b |
+            <BLANKLINE>
+            %% daf rows=2; cols=1; keyfield=''; name=''
+            <BLANKLINE>
             >>> result = manifest.manifest_apply(double, load, save, by='table')
             >>> result
             <BLANKLINE>
@@ -9904,6 +10988,15 @@ class Daf:
         Examples:
             >>> store = {'c1': Daf(lol=[[1, 2], [3, 4]], cols=['a', 'b']), 'c2': Daf(lol=[[10, 20]], cols=['a', 'b'])}
             >>> manifest = Daf(lol=[['c1'], ['c2']], cols=['chunk'])
+            >>> manifest
+            <BLANKLINE>
+            | chunk |
+            | ----: |
+            |    c1 |
+            |    c2 |
+            <BLANKLINE>
+            %% daf rows=2; cols=1; keyfield=''; name=''
+            <BLANKLINE>
             >>> manifest.manifest_reduce(Daf.sum_da, load_func=lambda spec: store[spec['chunk']])
             {'a': 14, 'b': 26}
         """
@@ -9949,6 +11042,15 @@ class Daf:
 
         Examples:
             >>> manifest = Daf(lol=[['c1'], ['c2']], cols=['chunk'])
+            >>> manifest
+            <BLANKLINE>
+            | chunk |
+            | ----: |
+            |    c1 |
+            |    c2 |
+            <BLANKLINE>
+            %% daf rows=2; cols=1; keyfield=''; name=''
+            <BLANKLINE>
             >>> manifest.manifest_process(lambda spec: {'chunk': spec['chunk'], 'seen': True})
             <BLANKLINE>
             | chunk | seen |
@@ -10076,6 +11178,16 @@ class Daf:
 
         Examples:
             >>> daf = Daf(lol=[['a', 1, 10], ['b', 2, 20], ['a', 3, 30]], cols=['g', 'x', 'y'])
+            >>> daf
+            <BLANKLINE>
+            | g  | x  | y  |
+            | -: | -: | -: |
+            |  a |  1 | 10 |
+            |  b |  2 | 20 |
+            |  a |  3 | 30 |
+            <BLANKLINE>
+            %% daf rows=3; cols=3; keyfield=''; name=''
+            <BLANKLINE>
             >>> groups = daf.groupby('g')
             >>> list(groups)
             ['a', 'b']
@@ -10154,6 +11266,16 @@ class Daf:
 
         Examples:
             >>> daf = Daf(lol=[['a', 1, 10], ['b', 2, 20], ['a', 3, 30]], cols=['g', 'x', 'y'])
+            >>> daf
+            <BLANKLINE>
+            | g  | x  | y  |
+            | -: | -: | -: |
+            |  a |  1 | 10 |
+            |  b |  2 | 20 |
+            |  a |  3 | 30 |
+            <BLANKLINE>
+            %% daf rows=3; cols=3; keyfield=''; name=''
+            <BLANKLINE>
             >>> list(daf.groupby_cols(['g']))
             [('a',), ('b',)]
             >>> daf.groupby_cols(['g'], cols=['y'])[('a',)]
@@ -10212,6 +11334,16 @@ class Daf:
 
         Examples:
             >>> daf = Daf(lol=[['a', 1, 10], ['b', 2, 20], ['a', 3, 30]], cols=['g', 'x', 'y'])
+            >>> daf
+            <BLANKLINE>
+            | g  | x  | y  |
+            | -: | -: | -: |
+            |  a |  1 | 10 |
+            |  b |  2 | 20 |
+            |  a |  3 | 30 |
+            <BLANKLINE>
+            %% daf rows=3; cols=3; keyfield=''; name=''
+            <BLANKLINE>
             >>> groups = daf.group_where(lambda row: [row['g'], 'all'])
             >>> {key: len(group) for key, group in groups.items()}
             {'a': 2, 'all': 3, 'b': 1}
@@ -10318,6 +11450,16 @@ class Daf:
 
         Examples:
             >>> daf = Daf(lol=[['a', 1, 10], ['b', 2, 20], ['a', 3, 30]], cols=['g', 'x', 'y'])
+            >>> daf
+            <BLANKLINE>
+            | g  | x  | y  |
+            | -: | -: | -: |
+            |  a |  1 | 10 |
+            |  b |  2 | 20 |
+            |  a |  3 | 30 |
+            <BLANKLINE>
+            %% daf rows=3; cols=3; keyfield=''; name=''
+            <BLANKLINE>
             >>> daf.groupby_cols_reduce(['g'], Daf.sum_da, reduce_cols=['y'])
             <BLANKLINE>
             | g  | y  |
@@ -10536,6 +11678,16 @@ class Daf:
 
         Examples:
             >>> daf = Daf(lol=[['a', 1, 10], ['b', 2, 20], ['a', 3, 30]], cols=['g', 'x', 'y'])
+            >>> daf
+            <BLANKLINE>
+            | g  | x  | y  |
+            | -: | -: | -: |
+            |  a |  1 | 10 |
+            |  b |  2 | 20 |
+            |  a |  3 | 30 |
+            <BLANKLINE>
+            %% daf rows=3; cols=3; keyfield=''; name=''
+            <BLANKLINE>
             >>> daf.groupby_reduce('g', Daf.sum_da, reduce_cols=['y'])
             <BLANKLINE>
             | g  | x  | y  |
@@ -10605,6 +11757,16 @@ class Daf:
 
         Examples:
             >>> daf = Daf(lol=[['a', 1, 10], ['b', 2, 20], ['a', 3, 30]], cols=['g', 'x', 'y'])
+            >>> daf
+            <BLANKLINE>
+            | g  | x  | y  |
+            | -: | -: | -: |
+            |  a |  1 | 10 |
+            |  b |  2 | 20 |
+            |  a |  3 | 30 |
+            <BLANKLINE>
+            %% daf rows=3; cols=3; keyfield=''; name=''
+            <BLANKLINE>
             >>> groups = daf.multi_groupby(['g', 'x'])
             >>> list(groups), list(groups['g'])
             (['g', 'x'], ['a', 'b'])
@@ -10783,6 +11945,16 @@ class Daf:
 
         Examples:
             >>> daf = Daf(lol=[['a', 1, 10], ['b', 2, 20], ['a', 3, 30]], cols=['g', 'x', 'y'])
+            >>> daf
+            <BLANKLINE>
+            | g  | x  | y  |
+            | -: | -: | -: |
+            |  a |  1 | 10 |
+            |  b |  2 | 20 |
+            |  a |  3 | 30 |
+            <BLANKLINE>
+            %% daf rows=3; cols=3; keyfield=''; name=''
+            <BLANKLINE>
             >>> daf.multi_groupby_reduce(['g'], Daf.sum_da, reduce_cols=['y'])['g']
             <BLANKLINE>
             | g  | x  | y  |
@@ -10849,6 +12021,15 @@ class Daf:
 
         Examples:
             >>> daf = Daf(lol=[[1, 2], [3, 0]], cols=['a', 'b'])
+            >>> daf
+            <BLANKLINE>
+            | a  | b  |
+            | -: | -: |
+            |  1 |  2 |
+            |  3 |  0 |
+            <BLANKLINE>
+            %% daf rows=2; cols=2; keyfield=''; name=''
+            <BLANKLINE>
             >>> daf.apply_colwise('ratio', lambda row: row['a'] / row['b'], default=-1.0)
             <BLANKLINE>
             | a  | b  | ratio |
@@ -10997,6 +12178,16 @@ class Daf:
 
         Examples:
             >>> daf = Daf(lol=[['a', 1, 10], ['b', 2, 20], ['a', 3, 30]], cols=['g', 'x', 'y'])
+            >>> daf
+            <BLANKLINE>
+            | g  | x  | y  |
+            | -: | -: | -: |
+            |  a |  1 | 10 |
+            |  b |  2 | 20 |
+            |  a |  3 | 30 |
+            <BLANKLINE>
+            %% daf rows=3; cols=3; keyfield=''; name=''
+            <BLANKLINE>
             >>> daf.daf_sum(cols=['y'])
             {'g': '', 'x': '', 'y': 60}
         """
@@ -11073,6 +12264,16 @@ class Daf:
 
         Examples:
             >>> daf = Daf(lol=[['a', 1, 10], ['b', 2, 20], ['a', 3, 30]], cols=['g', 'x', 'y'])
+            >>> daf
+            <BLANKLINE>
+            | g  | x  | y  |
+            | -: | -: | -: |
+            |  a |  1 | 10 |
+            |  b |  2 | 20 |
+            |  a |  3 | 30 |
+            <BLANKLINE>
+            %% daf rows=3; cols=3; keyfield=''; name=''
+            <BLANKLINE>
             >>> daf.reduce(Daf.sum_da, cols=['x', 'y'])
             {'g': '', 'x': 6, 'y': 60}
         """
@@ -11677,6 +12878,16 @@ class Daf:
 
         Examples:
             >>> daf = Daf(lol=[['a', 1, 10], ['b', 2, 20], ['a', 3, 30]], cols=['g', 'x', 'y'])
+            >>> daf
+            <BLANKLINE>
+            | g  | x  | y  |
+            | -: | -: | -: |
+            |  a |  1 | 10 |
+            |  b |  2 | 20 |
+            |  a |  3 | 30 |
+            <BLANKLINE>
+            %% daf rows=3; cols=3; keyfield=''; name=''
+            <BLANKLINE>
             >>> daf.daf_valuecount(cols=['g'])['g']
             {'a': 2, 'b': 1}
         """
@@ -11709,6 +12920,16 @@ class Daf:
 
         Examples:
             >>> daf = Daf(lol=[['a', 1, 10], ['b', 2, 20], ['a', 3, 30]], cols=['g', 'x', 'y'])
+            >>> daf
+            <BLANKLINE>
+            | g  | x  | y  |
+            | -: | -: | -: |
+            |  a |  1 | 10 |
+            |  b |  2 | 20 |
+            |  a |  3 | 30 |
+            <BLANKLINE>
+            %% daf rows=3; cols=3; keyfield=''; name=''
+            <BLANKLINE>
             >>> daf.groupsum_daf('g', reduce_cols=['y'])
             <BLANKLINE>
             | g  | x  | y  |
@@ -11752,6 +12973,16 @@ class Daf:
 
         Examples:
             >>> daf = Daf(lol=[['a', 'x', 1], ['a', 'y', 2], ['b', 'x', 3]], cols=['g', 'k', 'n'])
+            >>> daf
+            <BLANKLINE>
+            | g  | k  | n  |
+            | -: | -: | -: |
+            |  a |  x |  1 |
+            |  a |  y |  2 |
+            |  b |  x |  3 |
+            <BLANKLINE>
+            %% daf rows=3; cols=3; keyfield=''; name=''
+            <BLANKLINE>
             >>> sums = daf.multi_groupsum(colnames=['g', 'k'], reduce_cols=['n'])
             >>> sums['g']
             <BLANKLINE>
@@ -11804,6 +13035,15 @@ class Daf:
 
         Examples:
             >>> daf = Daf(lol=[[1, 'ab12'], [2, 'cd34']], cols=['id', 's'])
+            >>> daf
+            <BLANKLINE>
+            | id |  s   |
+            | -: | ---: |
+            |  1 | ab12 |
+            |  2 | cd34 |
+            <BLANKLINE>
+            %% daf rows=2; cols=2; keyfield=''; name=''
+            <BLANKLINE>
             >>> _ = daf.set_col2_from_col1_using_regex_select('s', regex=r'(\d+)')
             >>> daf.col('s')
             ['12', '34']
@@ -11853,6 +13093,14 @@ class Daf:
 
         Examples:
             >>> daf = Daf(lol=[[1, 'ab12']], cols=['id', 's'])
+            >>> daf
+            <BLANKLINE>
+            | id |  s   |
+            | -: | ---: |
+            |  1 | ab12 |
+            <BLANKLINE>
+            %% daf rows=1; cols=2; keyfield=''; name=''
+            <BLANKLINE>
             >>> daf.apply_replace_regex('s', replace_regex='/ab//').col('s')
             ['12']
         """
@@ -11908,6 +13156,15 @@ class Daf:
 
         Examples:
             >>> daf = Daf(lol=[['04_1'], ['05_2']], cols=['ballot_id'])
+            >>> daf
+            <BLANKLINE>
+            | ballot_id |
+            | --------: |
+            |      04_1 |
+            |      05_2 |
+            <BLANKLINE>
+            %% daf rows=2; cols=1; keyfield=''; name=''
+            <BLANKLINE>
             >>> spec = {'spec_name': 'a.zip', 'colname': 'ballot_id', 'replace_regex': r'/^04_/14_/'}
             >>> daf.alter_daf_per_setting({'fix': [spec]}, 'fix', {'spec_name': 'a.zip'}).col('ballot_id')
             ['14_1', '05_2']
@@ -11953,7 +13210,24 @@ class Daf:
 
         Examples:
             >>> daf = Daf(lol=[['04_1'], ['05_2']], cols=['ballot_id'])
+            >>> daf
+            <BLANKLINE>
+            | ballot_id |
+            | --------: |
+            |      04_1 |
+            |      05_2 |
+            <BLANKLINE>
+            %% daf rows=2; cols=1; keyfield=''; name=''
+            <BLANKLINE>
             >>> specs = Daf.from_lod([{'colname': 'ballot_id', 'replace_regex': r'/^04_/14_/'}])
+            >>> specs
+            <BLANKLINE>
+            |  colname  | replace_regex |
+            | --------: | ------------: |
+            | ballot_id |    /^04_/14_/ |
+            <BLANKLINE>
+            %% daf rows=1; cols=2; keyfield=''; name=''
+            <BLANKLINE>
             >>> daf.alter_daf_per_alter_specs_daf(specs).col('ballot_id')
             ['14_1', '05_2']
         """
@@ -11980,6 +13254,15 @@ class Daf:
 
         Examples:
             >>> daf = Daf(lol=[[1, 5], [2, 6]], cols=['a', 'b'])
+            >>> daf
+            <BLANKLINE>
+            | a  | b  |
+            | -: | -: |
+            |  1 |  5 |
+            |  2 |  6 |
+            <BLANKLINE>
+            %% daf rows=2; cols=2; keyfield=''; name=''
+            <BLANKLINE>
             >>> _ = daf.apply_to_col('b', lambda value: value * 2)
             >>> daf.col('b')
             [10, 12]
@@ -12324,6 +13607,17 @@ class Daf:
             >>> Daf(lol=[[1, 10], [2, 20]], cols=['x', 'y']).sum()
             {'x': 3.0, 'y': 30.0}
             >>> mixed = Daf(cols=['n'], lol=[[1], ['2'], [''], [3.5]])
+            >>> mixed
+            <BLANKLINE>
+            |  n  |
+            | --: |
+            |   1 |
+            |   2 |
+            |     |
+            | 3.5 |
+            <BLANKLINE>
+            %% daf rows=4; cols=1; keyfield=''; name=''
+            <BLANKLINE>
             >>> mixed.sum(['n']), mixed.reduce(Daf.sum_da, cols=['n'])
             ({'n': 6.5}, {'n': 4.5})
         """
@@ -12433,6 +13727,17 @@ class Daf:
 
         Examples:
             >>> daf = Daf(lol=[['a'], ['b'], ['a'], ['']], cols=['g'])
+            >>> daf
+            <BLANKLINE>
+            | g  |
+            | -: |
+            |  a |
+            |  b |
+            |  a |
+            |    |
+            <BLANKLINE>
+            %% daf rows=4; cols=1; keyfield=''; name=''
+            <BLANKLINE>
             >>> daf.valuecounts_for_colname('g', sort=True, omit_nulls=True)
             {'a': 2, 'b': 1}
         """
@@ -12481,6 +13786,15 @@ class Daf:
 
         Examples:
             >>> daf = Daf(lol=[['a', 'x'], ['b', 'x']], cols=['g', 'h'])
+            >>> daf
+            <BLANKLINE>
+            | g  | h  |
+            | -: | -: |
+            |  a |  x |
+            |  b |  x |
+            <BLANKLINE>
+            %% daf rows=2; cols=2; keyfield=''; name=''
+            <BLANKLINE>
             >>> daf.valuecounts_for_colnames_ls()
             {'g': {'a': 1, 'b': 1}, 'h': {'x': 2}}
         """
@@ -12522,6 +13836,16 @@ class Daf:
 
         Examples:
             >>> daf = Daf(lol=[['a', 'x'], ['b', 'x'], ['a', 'y']], cols=['g', 'h'])
+            >>> daf
+            <BLANKLINE>
+            | g  | h  |
+            | -: | -: |
+            |  a |  x |
+            |  b |  x |
+            |  a |  y |
+            <BLANKLINE>
+            %% daf rows=3; cols=2; keyfield=''; name=''
+            <BLANKLINE>
             >>> daf.valuecounts_for_colname_selectedby_colname('g', 'h', 'x')
             {'a': 1, 'b': 1}
         """
@@ -12575,6 +13899,16 @@ class Daf:
 
         Examples:
             >>> daf = Daf(lol=[['a', 'x', 1], ['a', 'y', 2], ['b', 'x', 3]], cols=['g', 'k', 'n'])
+            >>> daf
+            <BLANKLINE>
+            | g  | k  | n  |
+            | -: | -: | -: |
+            |  a |  x |  1 |
+            |  a |  y |  2 |
+            |  b |  x |  3 |
+            <BLANKLINE>
+            %% daf rows=3; cols=3; keyfield=''; name=''
+            <BLANKLINE>
             >>> daf.valuecounts_for_colnames_ls_selectedby_colname(['k'], 'g', 'a')
             {'k': {'x': 1, 'y': 1}}
             >>> daf.valuecounts_for_colnames_ls_selectedby_colname(['g', 'k'], 'g', 'a')
@@ -12626,6 +13960,16 @@ class Daf:
 
         Examples:
             >>> daf = Daf(lol=[['a', 'x'], ['b', 'x'], ['a', 'y']], cols=['g', 'h'])
+            >>> daf
+            <BLANKLINE>
+            | g  | h  |
+            | -: | -: |
+            |  a |  x |
+            |  b |  x |
+            |  a |  y |
+            <BLANKLINE>
+            %% daf rows=3; cols=2; keyfield=''; name=''
+            <BLANKLINE>
             >>> daf.valuecounts_for_colname1_groupedby_colname2('g', 'h')
             {'x': {'a': 1, 'b': 1}, 'y': {'a': 1}}
         """
@@ -12685,6 +14029,15 @@ class Daf:
 
         Examples:
             >>> daf = Daf(lol=[[1], [3]], cols=['n'])
+            >>> daf
+            <BLANKLINE>
+            | n  |
+            | -: |
+            |  1 |
+            |  3 |
+            <BLANKLINE>
+            %% daf rows=2; cols=1; keyfield=''; name=''
+            <BLANKLINE>
             >>> daf.gen_stats_daf([('n', int, '', 'scalar')])['n']['mean']
             2
         """
@@ -12731,6 +14084,15 @@ class Daf:
 
         Examples:
             >>> daf = Daf(lol=[[1, 'a'], [2, 'b']], cols=['id', 'v'])
+            >>> daf
+            <BLANKLINE>
+            | id | v  |
+            | -: | -: |
+            |  1 |  a |
+            |  2 |  b |
+            <BLANKLINE>
+            %% daf rows=2; cols=2; keyfield=''; name=''
+            <BLANKLINE>
             >>> daf.transpose(include_header=True)
             <BLANKLINE>
             | key | A  | B  |
@@ -12806,7 +14168,23 @@ class Daf:
 
         Examples:
             >>> a = Daf(lol=[[1, 'x']], cols=['id', 'name'], keyfield='id')
+            >>> a
+            <BLANKLINE>
+            | id | name |
+            | -: | ---: |
+            |  1 |    x |
+            <BLANKLINE>
+            %% daf rows=1; cols=2; keyfield='id'; name=''
+            <BLANKLINE>
             >>> b = Daf(lol=[[1, 'y']], cols=['id', 'name'], keyfield='id')
+            >>> b
+            <BLANKLINE>
+            | id | name |
+            | -: | ---: |
+            |  1 |    y |
+            <BLANKLINE>
+            %% daf rows=1; cols=2; keyfield='id'; name=''
+            <BLANKLINE>
             >>> a.derive_join_translator(b).col('resolved_colname')
             ['id', 'name_daf1', 'name_daf2']
         """
@@ -13014,7 +14392,25 @@ class Daf:
 
         Examples:
             >>> a = Daf(lol=[[1, 'Alice'], [2, 'Bob']], cols=['id', 'name'], keyfield='id')
+            >>> a
+            <BLANKLINE>
+            | id | name  |
+            | -: | ----: |
+            |  1 | Alice |
+            |  2 |   Bob |
+            <BLANKLINE>
+            %% daf rows=2; cols=2; keyfield='id'; name=''
+            <BLANKLINE>
             >>> b = Daf(lol=[[1, 50], [3, 70]], cols=['id', 'salary'], keyfield='id')
+            >>> b
+            <BLANKLINE>
+            | id | salary |
+            | -: | -----: |
+            |  1 |     50 |
+            |  3 |     70 |
+            <BLANKLINE>
+            %% daf rows=2; cols=2; keyfield='id'; name=''
+            <BLANKLINE>
             >>> a.join(b)
             <BLANKLINE>
             | id | name  | salary |
@@ -13264,6 +14660,15 @@ class Daf:
 
         Examples:
             >>> daf = Daf(lol=[['x', 1, 2], ['y', 3, 4]], cols=['id', 'a', 'b'])
+            >>> daf
+            <BLANKLINE>
+            | id | a  | b  |
+            | -: | -: | -: |
+            |  x |  1 |  2 |
+            |  y |  3 |  4 |
+            <BLANKLINE>
+            %% daf rows=2; cols=3; keyfield=''; name=''
+            <BLANKLINE>
             >>> daf.wide_to_narrow(['id'])
             <BLANKLINE>
             | id | variable | value |
@@ -13334,6 +14739,17 @@ class Daf:
 
         Examples:
             >>> daf = Daf(lol=[['x', 'a', 1], ['y', 'a', 3], ['x', 'b', 2], ['y', 'b', 4]], cols=['id', 'variable', 'value'])
+            >>> daf
+            <BLANKLINE>
+            | id | variable | value |
+            | -: | -------: | ----: |
+            |  x |        a |     1 |
+            |  y |        a |     3 |
+            |  x |        b |     2 |
+            |  y |        b |     4 |
+            <BLANKLINE>
+            %% daf rows=4; cols=3; keyfield=''; name=''
+            <BLANKLINE>
             >>> daf.narrow_to_wide(['id'])
             <BLANKLINE>
             | id | a  | b  |
@@ -13619,9 +15035,36 @@ class Daf:
 
         Examples:
             >>> daf = Daf(lol=[[1, 'a'], [2, 'b']], cols=['x', 'y'])
+            >>> daf
+            <BLANKLINE>
+            | x  | y  |
+            | -: | -: |
+            |  1 |  a |
+            |  2 |  b |
+            <BLANKLINE>
+            %% daf rows=2; cols=2; keyfield=''; name=''
+            <BLANKLINE>
             >>> daf.daf_to_lol_summary()
             [['x', 'y'], [1, 'a'], [2, 'b']]
             >>> big = Daf(lol=[[i, i] for i in range(20)], cols=['x', 'y'])
+            >>> big
+            <BLANKLINE>
+            |  x  |  y  |
+            | --: | --: |
+            |   0 |   0 |
+            |   1 |   1 |
+            |   2 |   2 |
+            |   3 |   3 |
+            |   4 |   4 |
+            | ... | ... |
+            |  15 |  15 |
+            |  16 |  16 |
+            |  17 |  17 |
+            |  18 |  18 |
+            |  19 |  19 |
+            <BLANKLINE>
+            %% daf rows=20; cols=2; keyfield=''; name=''
+            <BLANKLINE>
             >>> big.daf_to_lol_summary(max_rows=4)
             [['x', 'y'], [0, 0], [1, 1], ['...', '...'], [18, 18], [19, 19]]
         """
@@ -13722,6 +15165,16 @@ class Daf:
 
         Examples:
             >>> daf = Daf(lol=[['a'], ['b'], ['a']], cols=['g'])
+            >>> daf
+            <BLANKLINE>
+            | g  |
+            | -: |
+            |  a |
+            |  b |
+            |  a |
+            <BLANKLINE>
+            %% daf rows=3; cols=1; keyfield=''; name=''
+            <BLANKLINE>
             >>> daf.value_counts_daf('g', sort=True)
             <BLANKLINE>
             | g  | counts |

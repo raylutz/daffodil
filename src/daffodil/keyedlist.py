@@ -94,6 +94,15 @@ class KeyedList:
 
         >>> from daffodil.daf import Daf
         >>> daf = Daf(cols=['x', 'y'], lol=[[1, 2], [3, 4]])
+        >>> daf
+        <BLANKLINE>
+        | x  | y  |
+        | -: | -: |
+        |  1 |  2 |
+        |  3 |  4 |
+        <BLANKLINE>
+        %% daf rows=2; cols=2; keyfield=''; name=''
+        <BLANKLINE>
         >>> for row in daf.iter_klist():
         ...     row['y'] = 0
         >>> daf

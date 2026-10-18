@@ -67,6 +67,16 @@ is changed, can differ. The notes say how.
 >>> from daffodil.daf import Daf
 >>> daf = Daf.from_lod([{'id': 'a1', 'g': 'x', 'qty': 3}, {'id': 'b2', 'g': 'y', 'qty': 10},
 ...                    {'id': 'c3', 'g': 'x', 'qty': 7}], keyfield='id')
+>>> daf
+<BLANKLINE>
+| id | g  | qty |
+| -: | -: | --: |
+| a1 |  x |   3 |
+| b2 |  y |  10 |
+| c3 |  x |   7 |
+<BLANKLINE>
+%% daf rows=3; cols=3; keyfield='id'; name=''
+<BLANKLINE>
 >>> daf[:2].col('id')
 ['a1', 'b2']
 >>> daf.select_where(lambda row: row['qty'] > 5).col('id')

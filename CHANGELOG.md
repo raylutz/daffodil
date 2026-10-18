@@ -9,6 +9,14 @@ all prior releases. Plans for future moved to ROADMAP.md.
 
 ## [Unreleased]
 
+### Changed
+- Docstring and Guide examples show each new Daf as a table, with its summary line, before the operation on it. There are 157 in the docstrings and 29 on the Guide pages. Examples about printing, a ragged Daf and `from_directory()`, whose paths and times change, are left as they were. Each table runs as a doctest. Ray decided this on 2026-10-18, Q249.
+- Docstring examples name a Daf `daf`, not `d`, as CLAUDE.md asks. 425 names changed in the examples, and 2 in the text.
+- The docs build loads a hook, notes/scripts/mkdocs_hooks.py. It shows the `<BLANKLINE>` of a doctest as a blank line on the Guide pages, as mkdocstrings already does on the API pages.
+
+### Tests
+- A strict xfail in tests/test_daf_md.py: printing a ragged Daf pads its short rows in place. `reduce_lol_cols()` says it does not alter the lol, but it calls `equal_cols_lol()`, which does. Not fixed yet. Q250.
+
 ## [0.8.1] - (2026-10-16)
 
 This release has two breaking changes, marked **Breaking** under Changed. `wide_to_narrow()` names a column `variable` by default, where it was `varname`. `from_md()` raises at a row with the wrong number of cells, where it dropped that row and the rest. It also fixes right and outer joins, and `from_md()` with a `|` in a cell.

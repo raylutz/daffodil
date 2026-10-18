@@ -46,6 +46,17 @@ new Daf.
 >>> from daffodil.daf import Daf
 >>> daf = Daf(cols=['id', 'a', 'b', 'c'], keyfield='id',
 ...          lol=[['r1', 1, 2, 3], ['r2', 4, 5, 6], ['r3', 7, 8, 9], ['r4', 10, 11, 12]])
+>>> daf
+<BLANKLINE>
+| id | a  | b  | c  |
+| -: | -: | -: | -: |
+| r1 |  1 |  2 |  3 |
+| r2 |  4 |  5 |  6 |
+| r3 |  7 |  8 |  9 |
+| r4 | 10 | 11 | 12 |
+<BLANKLINE>
+%% daf rows=4; cols=4; keyfield='id'; name=''
+<BLANKLINE>
 >>> daf[1].lol
 [['r2', 4, 5, 6]]
 >>> daf[-1].lol
@@ -93,11 +104,32 @@ between them in the table. The range from a to b is empty, as a comes after b in
 
 ```pycon
 >>> unsorted = Daf(cols=['id', 'v'], keyfield='id', lol=[['m', 1], ['b', 2], ['z', 3], ['a', 4]])
+>>> unsorted
+<BLANKLINE>
+| id | v  |
+| -: | -: |
+|  m |  1 |
+|  b |  2 |
+|  z |  3 |
+|  a |  4 |
+<BLANKLINE>
+%% daf rows=4; cols=2; keyfield='id'; name=''
+<BLANKLINE>
 >>> unsorted[('b', 'a'), :].col('id')
 ['b', 'z', 'a']
 >>> unsorted[('a', 'b'), :].col('id')
 []
 >>> by_number = Daf(cols=['n', 'v'], keyfield='n', lol=[[10, 'x'], [20, 'y'], [30, 'z']])
+>>> by_number
+<BLANKLINE>
+| n  | v  |
+| -: | -: |
+| 10 |  x |
+| 20 |  y |
+| 30 |  z |
+<BLANKLINE>
+%% daf rows=3; cols=2; keyfield='n'; name=''
+<BLANKLINE>
 >>> by_number[(20, 30), :].col('n')
 [20, 30]
 ```
@@ -204,6 +236,14 @@ shows everywhere. Only `copy('deep')` copies it:
 
 ```pycon
 >>> tagged = Daf(cols=['id', 'tags'], lol=[['a', ['x']]])
+>>> tagged
+<BLANKLINE>
+| id | tags  |
+| -: | ----: |
+|  a | ['x'] |
+<BLANKLINE>
+%% daf rows=1; cols=2; keyfield=''; name=''
+<BLANKLINE>
 >>> cols_only = tagged[:, ['tags']]
 >>> cols_only[0, 'tags'].to_value().append('y')
 >>> tagged.lol
@@ -226,6 +266,15 @@ have the index rebuilt:
 
 ```pycon
 >>> stock = Daf(cols=['id', 'qty'], keyfield='id', lol=[['a1', 3], ['b2', 10]])
+>>> stock
+<BLANKLINE>
+| id | qty |
+| -: | --: |
+| a1 |   3 |
+| b2 |  10 |
+<BLANKLINE>
+%% daf rows=2; cols=2; keyfield='id'; name=''
+<BLANKLINE>
 >>> stock.select_record('a1')
 {'id': 'a1', 'qty': 3}
 >>> stock[0, 'id'] = 'z9'

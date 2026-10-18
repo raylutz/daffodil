@@ -77,6 +77,14 @@ def _apply_schema(
         On a Daf with rows and no names, it fills the names and dtypes, and converts nothing:
 
         >>> raw = Daf(lol=[['ann', '7']])
+        >>> raw
+        <BLANKLINE>
+        |  A  | B  |
+        | --: | -: |
+        | ann |  7 |
+        <BLANKLINE>
+        %% daf rows=1; cols=2; keyfield=''; name=''
+        <BLANKLINE>
         >>> _ = raw.apply_schema(Person)
         >>> raw.columns(), raw.lol
         (['name', 'age'], [['ann', '7']])
@@ -460,7 +468,25 @@ def _check_schema(self: 'Daf', max_report: int = 10) -> 'Daf':
         ... | id   | str   | yes      |
         ... | n    | int   |          |
         ... ''')
+        >>> schema
+        <BLANKLINE>
+        | Name | dtype | Required |
+        | ---: | ----: | -------: |
+        |   id |   str |      yes |
+        |    n |   int |          |
+        <BLANKLINE>
+        %% daf rows=2; cols=3; keyfield=''; name=''
+        <BLANKLINE>
         >>> daf = Daf.from_csv_buff('id,n\\na,1\\n,x\\n')
+        >>> daf
+        <BLANKLINE>
+        | id | n  |
+        | -: | -: |
+        |  a |  1 |
+        |    |  x |
+        <BLANKLINE>
+        %% daf rows=2; cols=2; keyfield=''; name=''
+        <BLANKLINE>
         >>> daf = daf.apply_schema(schema).apply_dtypes(dtypes=daf.dtypes)
         >>> daf.check_schema()
         Traceback (most recent call last):

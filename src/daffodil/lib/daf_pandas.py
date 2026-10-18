@@ -187,6 +187,15 @@ def _to_pandas_df(
     Examples:
         >>> from daffodil.daf import Daf
         >>> daf = Daf(lol=[[1, 'a'], [2, 'b']], cols=['id', 'v'])
+        >>> daf
+        <BLANKLINE>
+        | id | v  |
+        | -: | -: |
+        |  1 |  a |
+        |  2 |  b |
+        <BLANKLINE>
+        %% daf rows=2; cols=2; keyfield=''; name=''
+        <BLANKLINE>
         >>> daf.to_pandas_df().values.tolist()
         [[1, 'a'], [2, 'b']]
     """
