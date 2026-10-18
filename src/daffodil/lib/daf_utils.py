@@ -1043,9 +1043,10 @@ def reduce_lol_cols(lol: T_lola, max_cols:int=10, divider_str: str='...') -> T_l
     if not max_cols or not lol:
         return lol
         
-    lol = equal_cols_lol(lol)
-    
-    num_cols = len(lol[0])
+    # A short row is padded as a copy, so a ragged Daf stays as it is when printed.
+    num_cols: int = max(len(row_la) for row_la in lol)
+    lol = [row_la if len(row_la) == num_cols else row_la + [''] * (num_cols - len(row_la))
+           for row_la in lol]
 
     if num_cols <= max_cols:
         return lol

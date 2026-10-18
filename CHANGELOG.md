@@ -10,12 +10,12 @@ all prior releases. Plans for future moved to ROADMAP.md.
 ## [Unreleased]
 
 ### Changed
-- Docstring and Guide examples show each new Daf as a table, with its summary line, before the operation on it. There are 157 in the docstrings and 29 on the Guide pages. Examples about printing, a ragged Daf and `from_directory()`, whose paths and times change, are left as they were. Each table runs as a doctest. Ray decided this on 2026-10-18, Q249.
+- Docstring and Guide examples show each new Daf as a table, with its summary line, before the operation on it. There are 158 in the docstrings and 29 on the Guide pages. Examples about printing, and `from_directory()`, whose paths and times change, are left as they were. Each table runs as a doctest. Ray decided this on 2026-10-18, Q249.
 - Docstring examples name a Daf `daf`, not `d`, as CLAUDE.md asks. 425 names changed in the examples, and 2 in the text.
 - The docs build loads a hook, notes/scripts/mkdocs_hooks.py. It shows the `<BLANKLINE>` of a doctest as a blank line on the Guide pages, as mkdocstrings already does on the API pages.
 
-### Tests
-- A strict xfail in tests/test_daf_md.py: printing a ragged Daf pads its short rows in place. `reduce_lol_cols()` says it does not alter the lol, but it calls `equal_cols_lol()`, which does. Not fixed yet. Q250.
+### Fixed
+- Printing a ragged Daf no longer pads its short rows. `reduce_lol_cols()` said it did not alter the lol, but it called `equal_cols_lol()`, which pads in place. So printing made a ragged Daf rectangular. It now pads copies of the short rows only. The table looks the same. Ray decided this on 2026-10-18, Q250. The test is in tests/test_daf_md.py.
 
 ## [0.8.1] - (2026-10-16)
 
