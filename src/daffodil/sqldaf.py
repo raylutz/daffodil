@@ -2564,6 +2564,11 @@ class SqlDaf(Daf):
         Daf, only numbers are added: text, even text of digits, counts as 0, and a column with
         no numbers in a group totals 0. A column not in `reduce_cols` is Python NULL.
 
+        Empty cells do not change the type of a total. SQL NULL and the text '' are skipped,
+        so a column of integers with empty cells totals as an int, as in a Daf.
+        A total is a float only when the group holds a float.
+        A plain SQL `SUM()` would count '' as 0 and make the total a float, which is why it is not used.
+
         Args:
             colname: The column to group by.
             by: Only `row` is supported.
