@@ -59,7 +59,9 @@ SUM(CASE WHEN typeof(v) IN
 ## SQLite version limits
 
 - AuditEngine runs SQLite 3.37.2, from the system Python 3.11 on Ubuntu 22.04.
-  daffodil's uv Python has 3.53.1. The Lambda image version is not known yet (Q235).
+  daffodil's uv Python has 3.53.1.
+- AuditEngine's Lambdas do not use SqlDaf or SQLite, by Ray on 2026-10-18. SqlDaf runs only in local
+  stages that work on whole tables, such as find_variants. So only the EC2 SQLite matters, and Q235 is closed.
 - 3.37 has no ORDER BY inside an aggregate call. A sorted subquery gives the row order instead.
 - A function call takes at most 127 arguments. `json_object()` failed at 64 columns on 3.37.
   So a row is packed as a JSON array of arrays of at most 100 columns, `ARRAY_CHUNK`.
@@ -177,7 +179,6 @@ All by Ray. Q217, Q220, Q224 for the first `groupby_reduce()`. Q234, Q237 and Q2
 
 - Q242: step 16 needs only the distinct ballot ids. A `SELECT DISTINCT` would do. SqlDaf has no
   method for it yet.
-- Q235: the SQLite version in AuditEngine's Lambda image.
 - Q236: a CI job on an old SQLite, such as 3.37.
 - `groupsum_daf()` returns a Daf in memory. A large result might want a SqlDaf.
 
