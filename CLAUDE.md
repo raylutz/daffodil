@@ -170,6 +170,22 @@ Source code is in src/daffodil and tests are in tests.
 - Never pass extra keywords to `breakpoint()` in daffodil. Python's default hook rejects them
   with a TypeError.
 
+## Research first, and the engineering notebook
+
+- Before designing a new method or operand, or changing one, research the area first. Search
+  Daf, SqlDaf, src/daffodil/lib and the cheatsheet for methods that already do it, or part of it.
+  Read the notebook entries for the area. On 2026-10-17 a SQL sum was added to
+  `groupby_aggregate()` that `groupsum_daf()` already did, and then removed.
+- The engineering notebook is `notes/engineering_notebook/`, as AuditEngine keeps one. Each file
+  is one subject, named `<YYYY-MM-DD_HHMM>_<semantic_title>.md`, by the UTC time it was started.
+- It holds what does not belong in code comments or CHANGELOG.md: the research, the existing
+  methods found, what was tried with its timings, what was rejected and why, the decisions with
+  their Q numbers, what is still open, and pointers to the code, tests and commits.
+- Write it so a new thread can read it and be up to date on the subject.
+- Add to the entry for a subject, rather than starting a second one. Start a new file for a new subject.
+- A code comment may point to an entry in one line. A docstring does not, since it is published.
+- CHANGELOG.md keeps one line for each change. The notebook holds the detail.
+
 # Handoff protocol (EC2 box)
 
 This thread runs on Ray's EC2 box, in /home/daffodil, in its own tmux session. The box has no
