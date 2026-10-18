@@ -471,6 +471,15 @@ class SqlDaf(Daf):
         >>> import tempfile
         >>> SqlDaf.db_path = tempfile.mkdtemp() + '/job.db'
         >>> marks_sdaf = SqlDaf('marks', cols=['ballot_id', 'v'], lol=[['b1', 1], ['b2', '']], keyfield='ballot_id')
+        >>> marks_sdaf.to_daf()
+        <BLANKLINE>
+        | ballot_id | v  |
+        | --------: | -: |
+        |        b1 |  1 |
+        |        b2 |    |
+        <BLANKLINE>
+        %% daf rows=2; cols=2; keyfield='ballot_id'; name='marks'
+        <BLANKLINE>
         >>> marks_sdaf.sql('SELECT ballot_id FROM marks WHERE v IS NULL').to_list()
         ['b2']
         >>> SqlDaf('marks').keyfield
@@ -862,6 +871,14 @@ class SqlDaf(Daf):
             >>> import tempfile
             >>> SqlDaf.db_path = tempfile.mkdtemp() + '/job.db'
             >>> marks_sdaf = SqlDaf('marks', cols=['ballot_id', 'v'], lol=[['b1', 1]])
+            >>> marks_sdaf.to_daf()
+            <BLANKLINE>
+            | ballot_id | v  |
+            | --------: | -: |
+            |        b1 |  1 |
+            <BLANKLINE>
+            %% daf rows=1; cols=2; keyfield=''; name='marks'
+            <BLANKLINE>
             >>> with marks_sdaf.transaction():
             ...     _ = marks_sdaf.sql("UPDATE marks SET v = 2")
             >>> marks_sdaf.to_daf().lol
@@ -1263,6 +1280,15 @@ class SqlDaf(Daf):
             >>> import os, tempfile
             >>> SqlDaf.db_path = tempfile.mkdtemp() + '/job.db'
             >>> marks_sdaf = SqlDaf.from_daf(Daf(lol=[['b1', 1], ['b2', '']], cols=['ballot_id', 'v']), name='marks')
+            >>> marks_sdaf.to_daf()
+            <BLANKLINE>
+            | ballot_id | v  |
+            | --------: | -: |
+            |        b1 |  1 |
+            |        b2 |    |
+            <BLANKLINE>
+            %% daf rows=2; cols=2; keyfield=''; name='marks'
+            <BLANKLINE>
             >>> path = marks_sdaf.to_csv_file(os.path.dirname(SqlDaf.db_path) + '/marks.csv')
             >>> open(path, newline='').read()
             'ballot_id,v\r\nb1,1\r\nb2,\r\n'
@@ -1348,6 +1374,15 @@ class SqlDaf(Daf):
             >>> import tempfile
             >>> SqlDaf.db_path = tempfile.mkdtemp() + '/job.db'
             >>> votes_sdaf = SqlDaf.from_daf(Daf(lol=[['b1', 'c0,c1'], ['b2', '']], cols=['ballot_id', 'contests']), name='votes')
+            >>> votes_sdaf.to_daf()
+            <BLANKLINE>
+            | ballot_id | contests |
+            | --------: | -------: |
+            |        b1 |    c0,c1 |
+            |        b2 |          |
+            <BLANKLINE>
+            %% daf rows=2; cols=2; keyfield=''; name='votes'
+            <BLANKLINE>
             >>> def split(row):
             ...     return [{'ballot_id': row['ballot_id'], 'contest': c} for c in row['contests'].split(',') if c]
             >>> votes_sdaf.apply(split).to_daf().lol
@@ -1439,6 +1474,15 @@ class SqlDaf(Daf):
             >>> SqlDaf.db_path = tempfile.mkdtemp() + '/job.db'
             >>> votes_sdaf = SqlDaf('votes', cols=['ballot_id', 'v', 'concise_votes'],
             ...                     lol=[['b1', 1, "{'c0b': 1, 'c0v': 1}"], ['b2', 2, '{"c0b": 1, "c1b": 1}']])
+            >>> votes_sdaf.to_daf()
+            <BLANKLINE>
+            | ballot_id | v  |    concise_votes     |
+            | --------: | -: | -------------------: |
+            |        b1 |  1 | {'c0b': 1, 'c0v': 1} |
+            |        b2 |  2 | {"c0b": 1, "c1b": 1} |
+            <BLANKLINE>
+            %% daf rows=2; cols=3; keyfield=''; name='votes'
+            <BLANKLINE>
             >>> votes_sdaf.reduce(Daf.sum_da, cols=['v'])
             {'ballot_id': '', 'v': 3, 'concise_votes': ''}
             >>> votes_sdaf.reduce(Daf.sum_da, by='sparse_row', indirect_col='concise_votes')
@@ -2054,6 +2098,15 @@ class SqlDaf(Daf):
             >>> import tempfile
             >>> SqlDaf.db_path = tempfile.mkdtemp() + '/job.db'
             >>> marks_sdaf = SqlDaf.from_daf(Daf(lol=[['b1', 1], ['b2', 0]], cols=['ballot_id', 'v']), name='marks')
+            >>> marks_sdaf.to_daf()
+            <BLANKLINE>
+            | ballot_id | v  |
+            | --------: | -: |
+            |        b1 |  1 |
+            |        b2 |  0 |
+            <BLANKLINE>
+            %% daf rows=2; cols=2; keyfield=''; name='marks'
+            <BLANKLINE>
             >>> marks_sdaf.select_where_sql('"v" = ?', [0]).to_list()
             ['b2', 0]
         """
@@ -2097,6 +2150,15 @@ class SqlDaf(Daf):
             >>> import tempfile
             >>> SqlDaf.db_path = tempfile.mkdtemp() + '/job.db'
             >>> marks_sdaf = SqlDaf.from_daf(Daf(lol=[['b1', 1], ['b2', 0]], cols=['ballot_id', 'v']), name='marks')
+            >>> marks_sdaf.to_daf()
+            <BLANKLINE>
+            | ballot_id | v  |
+            | --------: | -: |
+            |        b1 |  1 |
+            |        b2 |  0 |
+            <BLANKLINE>
+            %% daf rows=2; cols=2; keyfield=''; name='marks'
+            <BLANKLINE>
             >>> marks_sdaf.select_where(lambda row: row['v'] == 1, cols=['v']).to_list()
             ['b1', 1]
         """
@@ -2154,6 +2216,15 @@ class SqlDaf(Daf):
             >>> import tempfile
             >>> SqlDaf.db_path = tempfile.mkdtemp() + '/job.db'
             >>> marks_sdaf = SqlDaf.from_daf(Daf(lol=[['b1', 1], ['b2', '']], cols=['ballot_id', 'v']), name='marks')
+            >>> marks_sdaf.to_daf()
+            <BLANKLINE>
+            | ballot_id | v  |
+            | --------: | -: |
+            |        b1 |  1 |
+            |        b2 |    |
+            <BLANKLINE>
+            %% daf rows=2; cols=2; keyfield=''; name='marks'
+            <BLANKLINE>
             >>> marks_sdaf.select_by_dict({'v': ''}).to_list()
             ['b2', '']
         """
@@ -2230,6 +2301,16 @@ class SqlDaf(Daf):
             >>> import tempfile
             >>> SqlDaf.db_path = tempfile.mkdtemp() + '/job.db'
             >>> marks_sdaf = SqlDaf.from_daf(Daf(lol=[['b1', 10], ['b2', 20], ['b3', 30]], cols=['ballot_id', 'n']), name='marks')
+            >>> marks_sdaf.to_daf()
+            <BLANKLINE>
+            | ballot_id | n  |
+            | --------: | -: |
+            |        b1 | 10 |
+            |        b2 | 20 |
+            |        b3 | 30 |
+            <BLANKLINE>
+            %% daf rows=3; cols=2; keyfield=''; name='marks'
+            <BLANKLINE>
             >>> big_sdaf, small_sdaf = marks_sdaf.split_where(lambda row: row['n'] > 10, cols=['n'])
             >>> big_sdaf.to_daf().lol, small_sdaf.to_daf().lol
             ([['b2', 20], ['b3', 30]], [['b1', 10]])
@@ -2301,6 +2382,16 @@ class SqlDaf(Daf):
             >>> import tempfile
             >>> SqlDaf.db_path = tempfile.mkdtemp() + '/job.db'
             >>> bif_sdaf = SqlDaf.from_daf(Daf(lol=[['b1', 'P1'], ['b2', 'P2'], ['b3', 'P1']], cols=['ballot_id', 'precinct']), name='bif')
+            >>> bif_sdaf.to_daf()
+            <BLANKLINE>
+            | ballot_id | precinct |
+            | --------: | -------: |
+            |        b1 |       P1 |
+            |        b2 |       P2 |
+            |        b3 |       P1 |
+            <BLANKLINE>
+            %% daf rows=3; cols=2; keyfield=''; name='bif'
+            <BLANKLINE>
             >>> bif_sdaf.valuecounts_for_colname('precinct', sort=True)
             {'P1': 2, 'P2': 1}
         """
@@ -2584,6 +2675,16 @@ class SqlDaf(Daf):
             >>> import tempfile
             >>> SqlDaf.db_path = tempfile.mkdtemp() + '/job.db'
             >>> nums_sdaf = SqlDaf.from_daf(Daf(lol=[['a', 1, 10], ['b', 2, 20], ['a', 3, 30]], cols=['g', 'x', 'y']), name='nums')
+            >>> nums_sdaf.to_daf()
+            <BLANKLINE>
+            | g  | x  | y  |
+            | -: | -: | -: |
+            |  a |  1 | 10 |
+            |  b |  2 | 20 |
+            |  a |  3 | 30 |
+            <BLANKLINE>
+            %% daf rows=3; cols=3; keyfield=''; name='nums'
+            <BLANKLINE>
             >>> nums_sdaf.groupsum_daf('g', reduce_cols=['y']).lol
             [['a', '', 40], ['b', '', 20]]
         """
@@ -2649,6 +2750,16 @@ class SqlDaf(Daf):
             >>> import tempfile
             >>> SqlDaf.db_path = tempfile.mkdtemp() + '/job.db'
             >>> bif_sdaf = SqlDaf.from_daf(Daf(lol=[['b1', 'P1'], ['b2', 'P2'], ['b3', 'P1']], cols=['ballot_id', 'precinct']), name='bif')
+            >>> bif_sdaf.to_daf()
+            <BLANKLINE>
+            | ballot_id | precinct |
+            | --------: | -------: |
+            |        b1 |       P1 |
+            |        b2 |       P2 |
+            |        b3 |       P1 |
+            <BLANKLINE>
+            %% daf rows=3; cols=2; keyfield=''; name='bif'
+            <BLANKLINE>
             >>> groups = bif_sdaf.groupby('precinct')
             >>> {key: group.to_daf().lol for key, group in groups.items()}
             {'P1': [['b1', 'P1'], ['b3', 'P1']], 'P2': [['b2', 'P2']]}
@@ -2726,6 +2837,16 @@ class SqlDaf(Daf):
             >>> SqlDaf.db_path = tempfile.mkdtemp() + '/job.db'
             >>> votes_sdaf = SqlDaf('votes', cols=['precinct', 'concise_votes'],
             ...                     lol=[['P2', "{'c0v': 1}"], ['P1', "{'c0v': 1, 'c1v': 1}"], ['P2', "{'c1v': 1}"]])
+            >>> votes_sdaf.to_daf()
+            <BLANKLINE>
+            | precinct |    concise_votes     |
+            | -------: | -------------------: |
+            |       P2 |           {'c0v': 1} |
+            |       P1 | {'c0v': 1, 'c1v': 1} |
+            |       P2 |           {'c1v': 1} |
+            <BLANKLINE>
+            %% daf rows=3; cols=2; keyfield=''; name='votes'
+            <BLANKLINE>
             >>> sums_sdaf = votes_sdaf.groupby_reduce('precinct', Daf.sum_da, by='sparse_row', indirect_col='concise_votes')
             >>> sums_sdaf.to_daf().lol
             [['P1', '{"c0v":1,"c1v":1}'], ['P2', '{"c0v":1,"c1v":1}']]
@@ -2829,6 +2950,16 @@ class SqlDaf(Daf):
             >>> SqlDaf.db_path = tempfile.mkdtemp() + '/job.db'
             >>> votes_sdaf = SqlDaf('votes', cols=['precinct', 'v', 'concise_votes'],
             ...                     lol=[['P2', 1, "{'c0v': 1}"], ['P1', 1, "{'c0v': 1, 'c1v': 1}"], ['P2', 0, "{'c1v': 1}"]])
+            >>> votes_sdaf.to_daf()
+            <BLANKLINE>
+            | precinct | v  |    concise_votes     |
+            | -------: | -: | -------------------: |
+            |       P2 |  1 |           {'c0v': 1} |
+            |       P1 |  1 | {'c0v': 1, 'c1v': 1} |
+            |       P2 |  0 |           {'c1v': 1} |
+            <BLANKLINE>
+            %% daf rows=3; cols=3; keyfield=''; name='votes'
+            <BLANKLINE>
             >>> votes_sdaf.groupby_aggregate('precinct', Daf.sum_da, 'concise_votes').to_daf().lol
             [['P1', '{"c0v":1,"c1v":1}'], ['P2', '{"c0v":1,"c1v":1}']]
             >>> votes_sdaf.groupby_aggregate('precinct', Daf.sum_da, ['v', 'concise_votes'], result_cols=['v']).to_daf().lol
@@ -3022,6 +3153,16 @@ class SqlDaf(Daf):
             >>> import tempfile
             >>> SqlDaf.db_path = tempfile.mkdtemp() + '/job.db'
             >>> bif_sdaf = SqlDaf.from_daf(Daf(lol=[['b1', 'P1'], ['b2', 'P2'], ['b3', 'P1']], cols=['ballot_id', 'precinct']), name='bif')
+            >>> bif_sdaf.to_daf()
+            <BLANKLINE>
+            | ballot_id | precinct |
+            | --------: | -------: |
+            |        b1 |       P1 |
+            |        b2 |       P2 |
+            |        b3 |       P1 |
+            <BLANKLINE>
+            %% daf rows=3; cols=2; keyfield=''; name='bif'
+            <BLANKLINE>
             >>> groups = bif_sdaf.group_where(lambda row: [row['precinct'], 'all'], cols=['precinct'])
             >>> {key: len(group) for key, group in groups.items()}
             {'P1': 2, 'all': 3, 'P2': 1}
@@ -3114,6 +3255,16 @@ class SqlDaf(Daf):
             >>> import tempfile
             >>> SqlDaf.db_path = tempfile.mkdtemp() + '/job.db'
             >>> marks_sdaf = SqlDaf('marks', cols=['ballot_id', 'v'], lol=[['b1', 1], ['b2', 0], ['b3', 1]], keyfield='ballot_id')
+            >>> marks_sdaf.to_daf()
+            <BLANKLINE>
+            | ballot_id | v  |
+            | --------: | -: |
+            |        b1 |  1 |
+            |        b2 |  0 |
+            |        b3 |  1 |
+            <BLANKLINE>
+            %% daf rows=3; cols=2; keyfield='ballot_id'; name='marks'
+            <BLANKLINE>
             >>> marks_sdaf[['b3', 'b1']].to_daf().to_lod()
             [{'ballot_id': 'b3', 'v': 1}, {'ballot_id': 'b1', 'v': 1}]
             >>> marks_sdaf['b2', 'v'].to_value()
@@ -3418,6 +3569,16 @@ class SqlDaf(Daf):
             >>> import tempfile
             >>> SqlDaf.db_path = tempfile.mkdtemp() + '/job.db'
             >>> marks_daf = Daf(lol=[['b1', 1], ['b2', 0], ['b3', 1]], cols=['ballot_id', 'v'], keyfield='ballot_id')
+            >>> marks_daf
+            <BLANKLINE>
+            | ballot_id | v  |
+            | --------: | -: |
+            |        b1 |  1 |
+            |        b2 |  0 |
+            |        b3 |  1 |
+            <BLANKLINE>
+            %% daf rows=3; cols=2; keyfield='ballot_id'; name=''
+            <BLANKLINE>
             >>> marks_sdaf = SqlDaf.from_daf(marks_daf, name='marks')
             >>> marks_sdaf.select_records_daf(['b3', 'b1']).to_daf().to_lod()
             [{'ballot_id': 'b3', 'v': 1}, {'ballot_id': 'b1', 'v': 1}]
@@ -3543,6 +3704,16 @@ class SqlDaf(Daf):
             >>> import tempfile
             >>> SqlDaf.db_path = tempfile.mkdtemp() + '/job.db'
             >>> marks_sdaf = SqlDaf('marks', cols=['id', 'v'], lol=[[1, 'a'], [2, 'b'], [1, 'c']])
+            >>> marks_sdaf.to_daf()
+            <BLANKLINE>
+            | id | v  |
+            | -: | -: |
+            |  1 |  a |
+            |  2 |  b |
+            |  1 |  c |
+            <BLANKLINE>
+            %% daf rows=3; cols=2; keyfield=''; name='marks'
+            <BLANKLINE>
             >>> unique_sdaf, dups_sdaf = marks_sdaf.remove_dups('id')
             >>> unique_sdaf.to_daf().lol, dups_sdaf.to_daf().lol
             ([[1, 'c'], [2, 'b']], [[1, 'a']])
@@ -3919,6 +4090,15 @@ class SqlDaf(Daf):
             >>> import tempfile
             >>> SqlDaf.db_path = tempfile.mkdtemp() + '/job.db'
             >>> ids_sdaf = SqlDaf('ids', cols=['id', 'v'], lol=[[10, 'a'], [20, 'b']], keyfield='id')
+            >>> ids_sdaf.to_daf()
+            <BLANKLINE>
+            | id | v  |
+            | -: | -: |
+            | 10 |  a |
+            | 20 |  b |
+            <BLANKLINE>
+            %% daf rows=2; cols=2; keyfield='id'; name='ids'
+            <BLANKLINE>
             >>> _ = ids_sdaf.update_record_krow(20, {'v': 'q'})
             >>> ids_sdaf.select_record(20)
             {'id': 20, 'v': 'q'}
@@ -4277,6 +4457,15 @@ class SqlDaf(Daf):
             >>> import tempfile
             >>> SqlDaf.db_path = tempfile.mkdtemp() + '/job.db'
             >>> marks_sdaf = SqlDaf('marks', cols=['ballot_id', 'v'], lol=[['b1', 1], ['b2', 0]], keyfield='ballot_id')
+            >>> marks_sdaf.to_daf()
+            <BLANKLINE>
+            | ballot_id | v  |
+            | --------: | -: |
+            |        b1 |  1 |
+            |        b2 |  0 |
+            <BLANKLINE>
+            %% daf rows=2; cols=2; keyfield='ballot_id'; name='marks'
+            <BLANKLINE>
             >>> marks_sdaf.insert_col('w', ['x']).to_daf().lol
             [['b1', 1, 'x'], ['b2', 0, '']]
         """
@@ -4318,6 +4507,14 @@ class SqlDaf(Daf):
             >>> import tempfile
             >>> SqlDaf.db_path = tempfile.mkdtemp() + '/job.db'
             >>> marks_sdaf = SqlDaf('marks', cols=['ballot_id', 'v', 'n'], lol=[['b1', 1, 10]], keyfield='ballot_id')
+            >>> marks_sdaf.to_daf()
+            <BLANKLINE>
+            | ballot_id | v  | n  |
+            | --------: | -: | -: |
+            |        b1 |  1 | 10 |
+            <BLANKLINE>
+            %% daf rows=1; cols=3; keyfield='ballot_id'; name='marks'
+            <BLANKLINE>
             >>> marks_sdaf.drop_cols(['v']).columns()
             ['ballot_id', 'n']
         """
@@ -4377,6 +4574,14 @@ class SqlDaf(Daf):
             >>> import tempfile
             >>> SqlDaf.db_path = tempfile.mkdtemp() + '/job.db'
             >>> marks_sdaf = SqlDaf('marks', cols=['id', 'v'], lol=[['b1', 1]], keyfield='id')
+            >>> marks_sdaf.to_daf()
+            <BLANKLINE>
+            | id | v  |
+            | -: | -: |
+            | b1 |  1 |
+            <BLANKLINE>
+            %% daf rows=1; cols=2; keyfield='id'; name='marks'
+            <BLANKLINE>
             >>> marks_sdaf.rename_cols({'id': 'ballot_id'}).columns(), marks_sdaf.keyfield
             (['ballot_id', 'v'], 'ballot_id')
         """
@@ -4524,6 +4729,14 @@ class SqlDaf(Daf):
             >>> import tempfile
             >>> SqlDaf.db_path = tempfile.mkdtemp() + '/job.db'
             >>> marks_sdaf = SqlDaf('marks', cols=['ballot_id', 'v'], lol=[['b1', 1]], keyfield='ballot_id')
+            >>> marks_sdaf.to_daf()
+            <BLANKLINE>
+            | ballot_id | v  |
+            | --------: | -: |
+            |        b1 |  1 |
+            <BLANKLINE>
+            %% daf rows=1; cols=2; keyfield='ballot_id'; name='marks'
+            <BLANKLINE>
             >>> empty_sdaf = marks_sdaf.clone_empty()
             >>> empty_sdaf.columns(), empty_sdaf.keyfield, len(empty_sdaf)
             (['ballot_id', 'v'], 'ballot_id', 0)
@@ -4723,7 +4936,25 @@ class SqlDaf(Daf):
             >>> import tempfile
             >>> SqlDaf.db_path = tempfile.mkdtemp() + '/job.db'
             >>> a_sdaf = SqlDaf.from_daf(Daf(lol=[[1, 'Alice'], [2, 'Bob']], cols=['id', 'name'], keyfield='id'), name='a')
+            >>> a_sdaf.to_daf()
+            <BLANKLINE>
+            | id | name  |
+            | -: | ----: |
+            |  1 | Alice |
+            |  2 |   Bob |
+            <BLANKLINE>
+            %% daf rows=2; cols=2; keyfield='id'; name='a'
+            <BLANKLINE>
             >>> b_sdaf = SqlDaf.from_daf(Daf(lol=[[1, 50], [3, 70]], cols=['id', 'salary'], keyfield='id'), name='b')
+            >>> b_sdaf.to_daf()
+            <BLANKLINE>
+            | id | salary |
+            | -: | -----: |
+            |  1 |     50 |
+            |  3 |     70 |
+            <BLANKLINE>
+            %% daf rows=2; cols=2; keyfield='id'; name='b'
+            <BLANKLINE>
             >>> a_sdaf.join(b_sdaf, how='left').to_daf().lol
             [[1, 'Alice', 50], [2, 'Bob', '']]
         """
@@ -4841,6 +5072,15 @@ class SqlDaf(Daf):
             >>> import tempfile
             >>> SqlDaf.db_path = tempfile.mkdtemp() + '/job.db'
             >>> marks_sdaf = SqlDaf('marks', cols=['ballot_id', 'v', 'n'], lol=[['b1', 1, 10], ['b2', 0, 20]], keyfield='ballot_id')
+            >>> marks_sdaf.to_daf()
+            <BLANKLINE>
+            | ballot_id | v  | n  |
+            | --------: | -: | -: |
+            |        b1 |  1 | 10 |
+            |        b2 |  0 | 20 |
+            <BLANKLINE>
+            %% daf rows=2; cols=3; keyfield='ballot_id'; name='marks'
+            <BLANKLINE>
             >>> marks_sdaf.select_cols(['n', 'ballot_id']).to_daf().lol
             [[10, 'b1'], [20, 'b2']]
             >>> marks_sdaf.select_cols(exclude_cols=['v']).columns()
@@ -4922,6 +5162,15 @@ class SqlDaf(Daf):
             >>> import tempfile
             >>> SqlDaf.db_path = tempfile.mkdtemp() + '/job.db'
             >>> marks_sdaf = SqlDaf('marks', cols=['ballot_id', 'v'], lol=[['b1', 1], ['b2', 0]])
+            >>> marks_sdaf.to_daf()
+            <BLANKLINE>
+            | ballot_id | v  |
+            | --------: | -: |
+            |        b1 |  1 |
+            |        b2 |  0 |
+            <BLANKLINE>
+            %% daf rows=2; cols=2; keyfield=''; name='marks'
+            <BLANKLINE>
             >>> sel_sdaf = marks_sdaf.select_where_sql('v = 1')
             >>> sel_sdaf.copy(inplace=True).is_child
             False
@@ -4994,6 +5243,15 @@ class SqlDaf(Daf):
             >>> import tempfile
             >>> SqlDaf.db_path = tempfile.mkdtemp() + '/job.db'
             >>> marks_sdaf = SqlDaf('marks', cols=['ballot_id', 'v'], lol=[['b1', 1], ['b2', 0]], keyfield='ballot_id')
+            >>> marks_sdaf.to_daf()
+            <BLANKLINE>
+            | ballot_id | v  |
+            | --------: | -: |
+            |        b1 |  1 |
+            |        b2 |  0 |
+            <BLANKLINE>
+            %% daf rows=2; cols=2; keyfield='ballot_id'; name='marks'
+            <BLANKLINE>
             >>> agreed_sdaf = marks_sdaf.select_where_sql('v = 1').copy(name='agreed').save()
             >>> SqlDaf('agreed').keyfield, len(SqlDaf('agreed'))
             ('ballot_id', 1)
@@ -5093,6 +5351,14 @@ class SqlDaf(Daf):
             ...     v: int = 0
             >>> SqlDaf.db_path = tempfile.mkdtemp() + '/job.db'
             >>> marks_sdaf = SqlDaf('marks', cols=['ballot_id', 'v'], lol=[['b1', '1']]).attach_schema(Mark)
+            >>> marks_sdaf.to_daf()
+            <BLANKLINE>
+            | ballot_id | v  |
+            | --------: | -: |
+            |        b1 |  1 |
+            <BLANKLINE>
+            %% daf rows=1; cols=2; keyfield='ballot_id'; name='marks'
+            <BLANKLINE>
             >>> marks_sdaf.keyfield, marks_sdaf.dtypes
             ('ballot_id', {'ballot_id': <class 'str'>, 'v': <class 'int'>})
         """

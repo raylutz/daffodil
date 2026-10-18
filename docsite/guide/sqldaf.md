@@ -45,6 +45,16 @@ in use in the file yet, or the constructor raises ValueError.
 ```pycon
 >>> items_sdaf = SqlDaf('items', cols=['id', 'grp', 'qty'], keyfield='id',
 ...                     lol=[['a1', 'x', 3], ['a2', 'x', 12], ['a3', 'y', 7]])
+>>> items_sdaf.to_daf()
+<BLANKLINE>
+| id | grp | qty |
+| -: | --: | --: |
+| a1 |   x |   3 |
+| a2 |   x |  12 |
+| a3 |   y |   7 |
+<BLANKLINE>
+%% daf rows=3; cols=3; keyfield='id'; name='items'
+<BLANKLINE>
 >>> len(items_sdaf)
 3
 ```
@@ -98,6 +108,16 @@ converts a column in the table itself. As with a Daf, name the columns to conver
 >>> csv_path = os.path.join(os.path.dirname(SqlDaf.db_path), 'marks.csv')
 >>> _ = open(csv_path, 'w').write('ballot_id,n\nb1,3\nb2,12\nb3,7\n')
 >>> marks_sdaf = SqlDaf.from_csv(csv_path, keyfield='ballot_id')
+>>> marks_sdaf.to_daf()
+<BLANKLINE>
+| ballot_id | n  |
+| --------: | -: |
+|        b1 |  3 |
+|        b2 | 12 |
+|        b3 |  7 |
+<BLANKLINE>
+%% daf rows=3; cols=2; keyfield='ballot_id'; name='marks'
+<BLANKLINE>
 >>> marks_sdaf.select_where_sql('n < ?', [5]).to_daf().lol
 []
 >>> _ = marks_sdaf.apply_dtypes(dtypes={'n': int}, cols='n')
@@ -226,6 +246,16 @@ it when it is stored. A reduction by `sparse_row` reads the text of each cell as
 >>> votes_sdaf = SqlDaf('votes', cols=['ballot_id', 'precinct', 'votes'], keyfield='ballot_id',
 ...                     lol=[['b1', 'p1', "{'c1': 1}"], ['b2', 'p1', "{'c1': 1, 'c2': 1}"],
 ...                          ['b3', 'p2', "{'c2': 1}"]])
+>>> votes_sdaf.to_daf()
+<BLANKLINE>
+| ballot_id | precinct |       votes        |
+| --------: | -------: | -----------------: |
+|        b1 |       p1 |          {'c1': 1} |
+|        b2 |       p1 | {'c1': 1, 'c2': 1} |
+|        b3 |       p2 |          {'c2': 1} |
+<BLANKLINE>
+%% daf rows=3; cols=3; keyfield='ballot_id'; name='votes'
+<BLANKLINE>
 >>> votes_sdaf.reduce(Daf.sum_da, by='sparse_row', indirect_col='votes')
 {'c1': 2, 'c2': 2}
 ```
@@ -257,6 +287,15 @@ rows come as `Daf.join()` gives them. A cell with no match is Python NULL.
 ```pycon
 >>> names_sdaf = SqlDaf('names', cols=['ballot_id', 'voter'], keyfield='ballot_id',
 ...                     lol=[['b1', 'Ann'], ['b2', 'Bo']])
+>>> names_sdaf.to_daf()
+<BLANKLINE>
+| ballot_id | voter |
+| --------: | ----: |
+|        b1 |   Ann |
+|        b2 |    Bo |
+<BLANKLINE>
+%% daf rows=2; cols=2; keyfield='ballot_id'; name='names'
+<BLANKLINE>
 >>> marks_sdaf.join(names_sdaf, how='left').to_daf().lol
 [['b1', 3, 'Ann'], ['b2', 12, 'Bo'], ['b3', 7, '']]
 ```
