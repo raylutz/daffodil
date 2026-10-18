@@ -136,6 +136,15 @@ Tested in a scratch venv of Python 3.11.11, whose own sqlite3 has SQLite 3.37.2,
   votes, but not PYON with True, False or None. On SF the precinct concise sums by
   `json_each` GROUP BY in SQL took 2.51 s, against 1.18 s by `groupby_aggregate(sum_da)`, with the same totals.
   So JSON5 is a capability, not a speed gain.
+- **Which PYON JSON5 reads.** Run on SQLite 3.51.1 with `json_each`, 2026-10-18.
+  - Read: single or double quotes, escaped quotes, '' values, ints, floats, 1e20, inf,
+    nested dicts and lists, non-ASCII text and \x escapes.
+  - Malformed JSON: True, False, None, tuples, int dict keys and \U escapes.
+  - nan reads as SQL NULL, with no error.
+  - Python repr writes \U only for an astral character that is not printable, so it is rare.
+  - So PYON reads in SQL once True, False and None are written as 1, 0 and ''.
+    Tuples and int keys must also be absent. Concise votes have neither.
+  - This narrows the Q219 exception. SQLite reads such PYON as it is, so pure JSON is not needed there.
 - Daffodil is pure Python. Either driver would be a compiled dependency, best kept optional.
 
 ## Moving to a newer SQLite
