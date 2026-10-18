@@ -12,8 +12,28 @@ table, each of those rows is in the result.
 >>> from daffodil.daf import Daf
 >>> stock = Daf(cols=['id', 'name', 'qty'], keyfield='id', name='stock',
 ...             lol=[['a1', 'pen', 3], ['b2', 'ink', 10], ['c3', 'pad', 7]])
+>>> stock
+<BLANKLINE>
+| id | name | qty |
+| -: | ---: | --: |
+| a1 |  pen |   3 |
+| b2 |  ink |  10 |
+| c3 |  pad |   7 |
+<BLANKLINE>
+%% daf rows=3; cols=3; keyfield='id'; name='stock'
+<BLANKLINE>
 >>> prices = Daf(cols=['id', 'price', 'qty'], keyfield='id', name='prices',
 ...              lol=[['a1', 1.5, 100], ['b2', 4.0, 50], ['d4', 2.0, 5]])
+>>> prices
+<BLANKLINE>
+| id | price | qty |
+| -: | ----: | --: |
+| a1 |   1.5 | 100 |
+| b2 |   4.0 |  50 |
+| d4 |   2.0 |   5 |
+<BLANKLINE>
+%% daf rows=3; cols=3; keyfield='id'; name='prices'
+<BLANKLINE>
 ```
 
 ## Join types
@@ -45,7 +65,23 @@ table's name as a suffix, or `_daf1` and `_daf2` for tables with no name:
 >>> stock.join(prices).columns()
 ['id', 'name', 'qty_stock', 'price', 'qty_prices']
 >>> one = Daf(cols=['id', 'q'], keyfield='id', lol=[['a', 1]])
+>>> one
+<BLANKLINE>
+| id | q  |
+| -: | -: |
+|  a |  1 |
+<BLANKLINE>
+%% daf rows=1; cols=2; keyfield='id'; name=''
+<BLANKLINE>
 >>> two = Daf(cols=['id', 'q'], keyfield='id', lol=[['a', 2]])
+>>> two
+<BLANKLINE>
+| id | q  |
+| -: | -: |
+|  a |  2 |
+<BLANKLINE>
+%% daf rows=1; cols=2; keyfield='id'; name=''
+<BLANKLINE>
 >>> one.join(two).columns()
 ['id', 'q_daf1', 'q_daf2']
 ```

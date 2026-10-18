@@ -43,6 +43,15 @@ From a list of dicts, the columns are the keys:
 
 ```pycon
 >>> d2 = Daf.from_lod([{'id': 'a1', 'qty': 3}, {'id': 'b2', 'qty': 10}])
+>>> d2
+<BLANKLINE>
+| id | qty |
+| -: | --: |
+| a1 |   3 |
+| b2 |  10 |
+<BLANKLINE>
+%% daf rows=2; cols=2; keyfield=''; name=''
+<BLANKLINE>
 >>> d2.columns()
 ['id', 'qty']
 ```
@@ -113,6 +122,15 @@ source table. To change values in place, use `update_record_krow()`, `apply_in_p
 
 ```pycon
 >>> source = Daf.from_lod([{'name': 'pen', 'price': '1.50'}, {'name': 'ink', 'price': '4.00'}])
+>>> source
+<BLANKLINE>
+| name | price |
+| ---: | ----: |
+|  pen |  1.50 |
+|  ink |  4.00 |
+<BLANKLINE>
+%% daf rows=2; cols=2; keyfield=''; name=''
+<BLANKLINE>
 >>> out = Daf(cols=['name', 'price_cents'])
 >>> for row in source:
 ...     _ = out.append({'name': row['name'], 'price_cents': round(float(row['price']) * 100)})

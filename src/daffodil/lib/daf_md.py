@@ -508,8 +508,8 @@ def _from_md(cls, md_str: str) -> 'Daf': # -> "Daf":
     Examples:
         >>> from daffodil.daf import Daf
         >>> text = "| id | v |\n| -: | -: |\n|  1 | a |\n|  2 | b |\n\n%% daf rows=2; cols=2; keyfield='id'; name='nm'\n"
-        >>> d = Daf.from_md(text)
-        >>> d
+        >>> daf = Daf.from_md(text)
+        >>> daf
         <BLANKLINE>
         | id | v  |
         | -: | -: |

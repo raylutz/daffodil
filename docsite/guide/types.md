@@ -28,6 +28,15 @@ A CSV file gives text. `apply_dtypes()` converts the columns in place, and retur
 ```pycon
 >>> from daffodil.daf import Daf
 >>> daf = Daf.from_csv_buff('id,qty,price,tags\na1,3,1.5,"[1, 2]"\nb2,,2.0,[]\n')
+>>> daf
+<BLANKLINE>
+| id | qty | price |  tags  |
+| -: | --: | ----: | -----: |
+| a1 |   3 |   1.5 | [1, 2] |
+| b2 |     |   2.0 |     [] |
+<BLANKLINE>
+%% daf rows=2; cols=4; keyfield=''; name=''
+<BLANKLINE>
 >>> daf.lol
 [['a1', '3', '1.5', '[1, 2]'], ['b2', '', '2.0', '[]']]
 >>> _ = daf.apply_dtypes(dtypes={'id': str, 'qty': int, 'price': float, 'tags': list})
@@ -44,6 +53,14 @@ A CSV file gives text. `apply_dtypes()` converts the columns in place, and retur
 
 ```pycon
 >>> e = Daf.from_csv_buff('id,qty,note\na1,3,x\n')
+>>> e
+<BLANKLINE>
+| id | qty | note |
+| -: | --: | ---: |
+| a1 |   3 |    x |
+<BLANKLINE>
+%% daf rows=1; cols=3; keyfield=''; name=''
+<BLANKLINE>
 >>> _ = e.apply_dtypes(dtypes={'id': str, 'qty': int, 'note': str}, cols=['qty'])
 >>> e.lol
 [['a1', 3, 'x']]
@@ -60,6 +77,20 @@ Other text stays as it is. Note that `'False'` gives 0, where Python's `bool('Fa
 
 ```pycon
 >>> flags = Daf(cols=['ok'], lol=[[''], ['0'], ['1'], ['False'], ['True'], ['no'], ['maybe']])
+>>> flags
+<BLANKLINE>
+|  ok   |
+| ----: |
+|       |
+|     0 |
+|     1 |
+| False |
+|  True |
+|    no |
+| maybe |
+<BLANKLINE>
+%% daf rows=7; cols=1; keyfield=''; name=''
+<BLANKLINE>
 >>> _ = flags.apply_dtypes(dtypes={'ok': bool})
 >>> flags.col('ok')
 [0, 0, 1, 0, 1, 0, 'maybe']
@@ -87,6 +118,16 @@ for both. Replace them yourself if you want NULL.
 
 ```pycon
 >>> gaps = Daf(cols=['g', 'n'], lol=[['x', 1], ['', 2], ['x', '']])
+>>> gaps
+<BLANKLINE>
+| g  | n  |
+| -: | -: |
+|  x |  1 |
+|    |  2 |
+|  x |    |
+<BLANKLINE>
+%% daf rows=3; cols=2; keyfield=''; name=''
+<BLANKLINE>
 >>> gaps.sum(['n'])
 {'n': 3.0}
 >>> gaps.valuecounts_for_colname('g'), gaps.valuecounts_for_colname('g', omit_nulls=True)
@@ -118,6 +159,15 @@ set or tuple in a cell is written as PYON, the Python form of the value, and is 
 
 ```pycon
 >>> f = Daf(cols=['id', 'tags'], lol=[['a', [1, 2]], ['b', {'k': (1, 2)}]])
+>>> f
+<BLANKLINE>
+| id |     tags      |
+| -: | ------------: |
+|  a |        [1, 2] |
+|  b | {'k': (1, 2)} |
+<BLANKLINE>
+%% daf rows=2; cols=2; keyfield=''; name=''
+<BLANKLINE>
 >>> print(f.to_csv_buff())
 id,tags
 a,"[1, 2]"

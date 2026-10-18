@@ -21,6 +21,16 @@ dict, and the function returns a dict:
 ```pycon
 >>> from daffodil.daf import Daf
 >>> daf = Daf(cols=['g', 'a', 'b'], lol=[['x', 1, 2], ['y', 3, ''], ['x', 5, 6]])
+>>> daf
+<BLANKLINE>
+| g  | a  | b  |
+| -: | -: | -: |
+|  x |  1 |  2 |
+|  y |  3 |    |
+|  x |  5 |  6 |
+<BLANKLINE>
+%% daf rows=3; cols=3; keyfield=''; name=''
+<BLANKLINE>
 >>> doubled = daf.apply(lambda row: {'g': row['g'], 'a2': row['a'] * 2})
 >>> doubled.columns(), doubled.lol
 (['g', 'a2'], [['x', 2], ['y', 6], ['x', 10]])
@@ -47,6 +57,17 @@ every value that is not a number, and never raises:
 
 ```pycon
 >>> mixed = Daf(cols=['n'], lol=[[1], ['2'], [''], [3.5]])
+>>> mixed
+<BLANKLINE>
+|  n  |
+| --: |
+|   1 |
+|   2 |
+|     |
+| 3.5 |
+<BLANKLINE>
+%% daf rows=4; cols=1; keyfield=''; name=''
+<BLANKLINE>
 >>> mixed.sum(['n']), mixed.reduce(Daf.sum_da, cols=['n'])
 ({'n': 6.5}, {'n': 4.5})
 ```
@@ -116,11 +137,33 @@ This sums each row into the last column, and each column into the last row:
 
 ```pycon
 >>> data = Daf(cols=['A', 'B', 'C'], lol=[[1, 2, 0], [4, 5, 0], [7, 8, 0], [0, 0, 0]])
+>>> data
+<BLANKLINE>
+| A  | B  | C  |
+| -: | -: | -: |
+|  1 |  2 |  0 |
+|  4 |  5 |  0 |
+|  7 |  8 |  0 |
+|  0 |  0 |  0 |
+<BLANKLINE>
+%% daf rows=4; cols=3; keyfield=''; name=''
+<BLANKLINE>
 >>> row_sum, col_sum = "sum($d[$r, :$c])", "sum($d[:$r, $c])"
 >>> formulas = Daf(cols=['A', 'B', 'C'], lol=[['', '', row_sum],
 ...                                           ['', '', row_sum],
 ...                                           ['', '', row_sum],
 ...                                           [col_sum, col_sum, col_sum]])
+>>> formulas
+<BLANKLINE>
+|        A         |        B         |        C         |
+| ---------------: | ---------------: | ---------------: |
+|                  |                  | sum($d[$r, :$c]) |
+|                  |                  | sum($d[$r, :$c]) |
+|                  |                  | sum($d[$r, :$c]) |
+| sum($d[:$r, $c]) | sum($d[:$r, $c]) | sum($d[:$r, $c]) |
+<BLANKLINE>
+%% daf rows=4; cols=3; keyfield=''; name=''
+<BLANKLINE>
 >>> _ = data.apply_formulas(formulas)
 >>> data.lol
 [[1, 2, 3], [4, 5, 9], [7, 8, 15], [12, 15, 27]]

@@ -31,6 +31,10 @@ theme:
 extra_css:
   - stylesheets/extra.css
 
+# Shows the <BLANKLINE> of a doctest as a blank line on the Guide pages.
+hooks:
+  - notes/scripts/mkdocs_hooks.py
+
 nav:
   - Home: index.md
   - Cheatsheet: cheatsheet.md

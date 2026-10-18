@@ -61,6 +61,21 @@ text and the keyfield. A CSV file keeps the text exactly, and `apply_dtypes()` r
 >>> text.splitlines()[-1]
 "%% daf rows=8; cols=3; keyfield='id'; name='stock'"
 >>> back = Daf.from_md(text)
+>>> back
+<BLANKLINE>
+| id |   item   | qty |
+| -: | -------: | --: |
+| r1 |        x |   1 |
+| r2 |       xx |   2 |
+| r3 |      xxx |   3 |
+| r4 |     xxxx |   4 |
+| r5 |    xxxxx |   5 |
+| r6 |   xxxxxx |   6 |
+| r7 |  xxxxxxx |   7 |
+| r8 | xxxxxxxx |   8 |
+<BLANKLINE>
+%% daf rows=8; cols=3; keyfield='id'; name='stock'
+<BLANKLINE>
 >>> back.columns(), back.keyfield, back.name
 (['id', 'item', 'qty'], 'id', 'stock')
 >>> back.lol[1]
