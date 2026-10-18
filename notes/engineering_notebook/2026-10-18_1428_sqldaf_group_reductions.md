@@ -103,6 +103,39 @@ Times in seconds. The box was shared, so expect about 10% noise.
   against 0.40 s for `sum_da` through the aggregate. Same totals.
 - What remains in the precinct sums is Python work, about 2.27 million key additions.
 
+## APSW and other SQLite drivers
+
+Looked at on 2026-10-18, because Ray asked whether APSW helps.
+Tested in a scratch venv of Python 3.11.11, whose own sqlite3 has SQLite 3.37.2, as AuditEngine's does.
+
+| Problem on 3.37 | stdlib sqlite3, 3.37.2 | pysqlite3-binary 0.5.4, 3.51.1 | apsw 3.54.0.0, 3.54.0 |
+| :-- | :-- | :-- | :-- |
+| ORDER BY inside an aggregate | syntax error | works | works |
+| json_each, json_extract on PYON | malformed JSON | works | works |
+| A call with 200 arguments | too many arguments | works | works |
+| json_object with 64 pairs | too many arguments | works | works |
+| An error inside an aggregate | SQLite's short message | SQLite's short message | the KeyError itself |
+| Python aggregate, 1,000,000 rows | 0.78 s | | 0.75 s |
+
+- **APSW** bundles a current SQLite inside its wheel. Its version tracks SQLite, 3.54.0.0 on 2026-10-13.
+  It passes Python errors through, with Python frames in the traceback.
+  It is not DB-API. There are no implicit transactions, and aggregates are registered by a factory
+  that returns the state with step and final functions.
+  sqldaf.py has about 140 lines that use the sqlite3 API, and AuditEngine's sql_utils.py about 60.
+  Its Linux wheels are manylinux_2_28, which needs glibc 2.28.
+- **pysqlite3-binary** is the stdlib sqlite3 module built with a newer SQLite. Its API is the same, so
+  `import pysqlite3.dbapi2 as sqlite3` would be the whole change. Its wheels are manylinux2014,
+  glibc 2.17. It does not pass errors through.
+- **Lambda.** The python3.11 Lambda runtime is Amazon Linux 2, with glibc 2.26, by the Powertools build
+  guide. A manylinux_2_28 wheel does not install there. python3.12 and later are Amazon Linux 2023,
+  glibc 2.34. What AuditEngine's compute-service-base:3.11 is built on is not known yet (Q235).
+- **Speed.** Neither driver makes the Python work faster. The aggregate cost the same in both.
+- **JSON5.** SQLite 3.42 and later read JSON5, which allows single quotes. So json_each reads concise
+  votes, but not PYON with True, False or None. On SF the precinct concise sums by
+  `json_each` GROUP BY in SQL took 2.51 s, against 1.18 s by `groupby_aggregate(sum_da)`, with the same totals.
+  So JSON5 is a capability, not a speed gain.
+- Daffodil is pure Python. Either driver would be a compiled dependency, best kept optional.
+
 ## Rejected or set aside
 
 - **Writers that turn dict cells into JSON.** Too slow, and seldom needed (Q240).
