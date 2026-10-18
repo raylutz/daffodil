@@ -98,8 +98,8 @@ def _from_pandas_df(
         >>> import pandas as pd
         >>> from daffodil.daf import Daf
         >>> df = pd.DataFrame({'id': [1, 2], 'v': ['a', 'b']})
-        >>> d = Daf.from_pandas_df(df, keyfield='id')
-        >>> d
+        >>> daf = Daf.from_pandas_df(df, keyfield='id')
+        >>> daf
         <BLANKLINE>
         | id | v  |
         | -: | -: |
@@ -186,8 +186,8 @@ def _to_pandas_df(
 
     Examples:
         >>> from daffodil.daf import Daf
-        >>> d = Daf(lol=[[1, 'a'], [2, 'b']], cols=['id', 'v'])
-        >>> d.to_pandas_df().values.tolist()
+        >>> daf = Daf(lol=[[1, 'a'], [2, 'b']], cols=['id', 'v'])
+        >>> daf.to_pandas_df().values.tolist()
         [[1, 'a'], [2, 'b']]
     """
     import pandas as pd     # type: ignore

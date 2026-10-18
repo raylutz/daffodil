@@ -70,8 +70,8 @@ def _apply_schema(
         ... class Person:
         ...     name: str = ''
         ...     age: int = 0
-        >>> d = Daf(schema=Person)
-        >>> d.columns()
+        >>> daf = Daf(schema=Person)
+        >>> daf.columns()
         ['name', 'age']
 
         On a Daf with rows and no names, it fills the names and dtypes, and converts nothing:
@@ -80,7 +80,7 @@ def _apply_schema(
         >>> _ = raw.apply_schema(Person)
         >>> raw.columns(), raw.lol
         (['name', 'age'], [['ann', '7']])
-        >>> d.dtypes
+        >>> daf.dtypes
         {'name': <class 'str'>, 'age': <class 'int'>}
     """
 
@@ -312,10 +312,10 @@ def _default_record(self: 'Daf', astype: type = dict) -> Any:
         {'name': '', 'age': 0}
         >>> Daf(cols=['age', 'city'], schema=Person).default_record()
         {'age': 0, 'city': ''}
-        >>> d = Daf(schema=Person)
-        >>> row = d.default_record(astype=KeyedList)
+        >>> daf = Daf(schema=Person)
+        >>> row = daf.default_record(astype=KeyedList)
         >>> row['age'] = 41
-        >>> row.hd is d.hd, row.to_dict()
+        >>> row.hd is daf.hd, row.to_dict()
         (True, {'name': '', 'age': 41})
     """
     if astype is not dict and astype is not KeyedList:
@@ -460,9 +460,9 @@ def _check_schema(self: 'Daf', max_report: int = 10) -> 'Daf':
         ... | id   | str   | yes      |
         ... | n    | int   |          |
         ... ''')
-        >>> d = Daf.from_csv_buff('id,n\\na,1\\n,x\\n')
-        >>> d = d.apply_schema(schema).apply_dtypes(dtypes=d.dtypes)
-        >>> d.check_schema()
+        >>> daf = Daf.from_csv_buff('id,n\\na,1\\n,x\\n')
+        >>> daf = daf.apply_schema(schema).apply_dtypes(dtypes=daf.dtypes)
+        >>> daf.check_schema()
         Traceback (most recent call last):
         ...
         ValueError: check_schema(): 2 cells do not fit the schema:

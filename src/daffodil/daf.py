@@ -200,12 +200,12 @@ class Daf:
     [itermode][daffodil.daf.Daf.itermode].
 
     Examples:
-        >>> d = Daf(lol=[[1, 'a'], [2, 'b']], cols=['id', 'v'], keyfield='id')
-        >>> d.columns()
+        >>> daf = Daf(lol=[[1, 'a'], [2, 'b']], cols=['id', 'v'], keyfield='id')
+        >>> daf.columns()
         ['id', 'v']
-        >>> d.select_record(2)
+        >>> daf.select_record(2)
         {'id': 2, 'v': 'b'}
-        >>> d.shape()
+        >>> daf.shape()
         (2, 2)
         >>> e = Daf(lol=[[[1, 2], {'k': 1}]], cols=['a', 'b'], dtypes={'a': int, 'b': str})
         >>> e.iloc(0)
@@ -303,8 +303,8 @@ class Daf:
             KeyError: The `keyfield` is not a column, or one of its columns is not.
 
         Examples:
-            >>> d = Daf(lol=[[1, 'a'], [2, 'b']], cols=['id', 'v'], keyfield='id')
-            >>> d.num_rows()
+            >>> daf = Daf(lol=[[1, 'a'], [2, 'b']], cols=['id', 'v'], keyfield='id')
+            >>> daf.num_rows()
             2
             >>> Daf(lol=[[1, 2]], cols=['a', 'a']).columns()
             ['a', 'a_1']
@@ -587,12 +587,12 @@ class Daf:
             Iterator[Dict[str, Any]]: Each row as a dict of column name to value.
 
         Examples:
-            >>> d = Daf(cols=['x', 'y'], lol=[[1, 2], [3, 4]])
-            >>> list(d.iter_dict())
+            >>> daf = Daf(cols=['x', 'y'], lol=[[1, 2], [3, 4]])
+            >>> list(daf.iter_dict())
             [{'x': 1, 'y': 2}, {'x': 3, 'y': 4}]
-            >>> for row in d.iter_dict():
+            >>> for row in daf.iter_dict():
             ...     row['y'] = 0
-            >>> d
+            >>> daf
             <BLANKLINE>
             | x  | y  |
             | -: | -: |
@@ -618,12 +618,12 @@ class Daf:
             Iterator[KeyedList]: Each row as a KeyedList.
 
         Examples:
-            >>> d = Daf(cols=['x', 'y'], lol=[[1, 2], [3, 4]])
-            >>> [row['x'] for row in d.iter_klist()]
+            >>> daf = Daf(cols=['x', 'y'], lol=[[1, 2], [3, 4]])
+            >>> [row['x'] for row in daf.iter_klist()]
             [1, 3]
-            >>> for row in d.iter_klist():
+            >>> for row in daf.iter_klist():
             ...     row['y'] = 0
-            >>> d
+            >>> daf
             <BLANKLINE>
             | x  | y  |
             | -: | -: |
@@ -672,12 +672,12 @@ class Daf:
             Iterator[list]: Each row as a list.
 
         Examples:
-            >>> d = Daf(cols=['x', 'y'], lol=[[1, 2], [3, 4]])
-            >>> [row[0] for row in d.iter_list()]
+            >>> daf = Daf(cols=['x', 'y'], lol=[[1, 2], [3, 4]])
+            >>> [row[0] for row in daf.iter_list()]
             [1, 3]
-            >>> for row in d.iter_list():
+            >>> for row in daf.iter_list():
             ...     row[1] = 9
-            >>> d
+            >>> daf
             <BLANKLINE>
             | x  | y  |
             | -: | -: |
@@ -830,8 +830,8 @@ class Daf:
             KeyError: The Daf has rows but no keyfield, and no key index was adopted.
 
         Examples:
-            >>> d = Daf(lol=[[1, 'a'], [2, 'b']], cols=['id', 'v'], keyfield='id')
-            >>> 2 in d, 5 in d
+            >>> daf = Daf(lol=[[1, 'a'], [2, 'b']], cols=['id', 'v'], keyfield='id')
+            >>> 2 in daf, 5 in daf
             (True, False)
         """
         if not self:
@@ -917,8 +917,8 @@ class Daf:
             The number of rows.
 
         Examples:
-            >>> d = Daf(cols=['x'], lol=[[1], [2], [3]])
-            >>> d.len(), len(d)
+            >>> daf = Daf(cols=['x'], lol=[[1], [2], [3]])
+            >>> daf.len(), len(daf)
             (3, 3)
         """
         return self.num_rows()
@@ -1121,30 +1121,30 @@ class Daf:
             ValueError: `level` is a name that is not one of the four, or `inplace` with a level that does not copy the rows.
 
         Examples:
-            >>> d = Daf(lol=[[2, 'b'], [1, 'a']], cols=['id', 'v'], name='orig')
-            >>> c = d.copy(name='work')
-            >>> c.name, d.name
+            >>> daf = Daf(lol=[[2, 'b'], [1, 'a']], cols=['id', 'v'], name='orig')
+            >>> c = daf.copy(name='work')
+            >>> c.name, daf.name
             ('work', 'orig')
             >>> _ = c.append([3, 'c'])
-            >>> d.num_rows()
+            >>> daf.num_rows()
             2
-            >>> s = d.copy('shallow')
+            >>> s = daf.copy('shallow')
             >>> _ = s.append([3, 'c'])
-            >>> d.num_rows()
+            >>> daf.num_rows()
             3
-            >>> d = Daf(lol=[[2, 'b'], [1, 'a']], cols=['id', 'v'])
-            >>> e = d.copy('editable')
+            >>> daf = Daf(lol=[[2, 'b'], [1, 'a']], cols=['id', 'v'])
+            >>> e = daf.copy('editable')
             >>> e[0, 'v'] = 'X'
-            >>> d.iloc(0)
+            >>> daf.iloc(0)
             {'id': 2, 'v': 'b'}
-            >>> m = d.copy(Daf.COPY_OUTER | Daf.COPY_HD)
+            >>> m = daf.copy(Daf.COPY_OUTER | Daf.COPY_HD)
             >>> m[0, 'v'] = 'Y'
-            >>> d.iloc(0)
+            >>> daf.iloc(0)
             {'id': 2, 'v': 'Y'}
-            >>> sel = d.select_where(lambda row: row['id'] == 1)
+            >>> sel = daf.select_where(lambda row: row['id'] == 1)
             >>> sel.copy(inplace=True) is sel
             True
-            >>> d[1, 'v'] = 'Z'
+            >>> daf[1, 'v'] = 'Z'
             >>> sel.lol
             [[1, 'a']]
         """
@@ -1304,8 +1304,8 @@ class Daf:
             RuntimeError: A type rule is given and no dtypes are set.
 
         Examples:
-            >>> d = Daf(lol=[[1, 2, 3]], cols=['a', 'b', 'c'])
-            >>> d.calc_cols(exclude_cols='b')
+            >>> daf = Daf(lol=[[1, 2, 3]], cols=['a', 'b', 'c'])
+            >>> daf.calc_cols(exclude_cols='b')
             ['a', 'c']
         """
 
@@ -1391,8 +1391,8 @@ class Daf:
             This Daf, which has been changed.
 
         Examples:
-            >>> d = Daf(lol=[[1, 2]], cols=['a', 'b'])
-            >>> d.rename_cols({'b': 'c'}).columns()
+            >>> daf = Daf(lol=[[1, 2]], cols=['a', 'b'])
+            >>> daf.rename_cols({'b': 'c'}).columns()
             ['a', 'c']
             >>> k = Daf(lol=[[1, 'x']], cols=['id', 'v'], keyfield='id')
             >>> k.rename_cols({'id': 'ident'}).keyfield
@@ -1467,11 +1467,11 @@ class Daf:
             ['A', 'B', 'C']
             >>> Daf(lol=[[1, 2, 3]]).set_cols(['a', 'a', '']).columns()
             ['a', 'a_1', 'col2']
-            >>> d = Daf(lol=[[1, 'x']], keyfield='id').set_cols(['id', 'v'])
-            >>> d.keyfield
+            >>> daf = Daf(lol=[[1, 'x']], keyfield='id').set_cols(['id', 'v'])
+            >>> daf.keyfield
             'id'
-            >>> d = Daf(lol=[[1, 'x']], cols=['a', 'b'], keyfield='a').set_cols(['id', 'v'])
-            >>> d.keyfield
+            >>> daf = Daf(lol=[[1, 'x']], cols=['a', 'b'], keyfield='a').set_cols(['id', 'v'])
+            >>> daf.keyfield
             'id'
         """
 
@@ -1538,8 +1538,8 @@ class Daf:
             ValueError: `astype` is neither `list` nor `view`.
 
         Examples:
-            >>> d = Daf(lol=[[1, 'a'], [2, 'b']], cols=['id', 'v'], keyfield='id')
-            >>> d.keys()
+            >>> daf = Daf(lol=[[1, 'a'], [2, 'b']], cols=['id', 'v'], keyfield='id')
+            >>> daf.keys()
             [1, 2]
             >>> dup = Daf(cols=['id', 'q'], lol=[['a', 1], ['b', 2], ['a', 3]], keyfield='id')
             >>> dup.keys(), dup.select_record('a')
@@ -1601,10 +1601,10 @@ class Daf:
             KeyError: The keyfield is not a column, and `silent_error` is not True.
 
         Examples:
-            >>> d = Daf(lol=[[1, 'a'], [2, 'b']], cols=['id', 'v'])
-            >>> d.set_keyfield('id').keys()
+            >>> daf = Daf(lol=[[1, 'a'], [2, 'b']], cols=['id', 'v'])
+            >>> daf.set_keyfield('id').keys()
             [1, 2]
-            >>> d.set_keyfield(['id', 'v']).keys()
+            >>> daf.set_keyfield(['id', 'v']).keys()
             [(1, 'a'), (2, 'b')]
             >>> e = Daf(cols=['id', 'v']).set_keyfield('id')
             >>> e.keyfield
@@ -1844,8 +1844,8 @@ class Daf:
             The keys from the list that have a row.
 
         Examples:
-            >>> d = Daf(lol=[[1, 'a'], [2, 'b']], cols=['id', 'v'], keyfield='id')
-            >>> d.get_existing_keys([1, 5, 2])
+            >>> daf = Daf(lol=[[1, 'a'], [2, 'b']], cols=['id', 'v'], keyfield='id')
+            >>> daf.get_existing_keys([1, 5, 2])
             [1, 2]
         """
 
@@ -1890,8 +1890,8 @@ class Daf:
             NotImplementedError: The Daf has no column names.
 
         Examples:
-            >>> d = Daf(lol=[['1', '2', 'x']], cols=['a', 'b', 'c'])
-            >>> d.set_dtypes(str, {int: ['a', 'b']}).dtypes
+            >>> daf = Daf(lol=[['1', '2', 'x']], cols=['a', 'b', 'c'])
+            >>> daf.set_dtypes(str, {int: ['a', 'b']}).dtypes
             {'a': <class 'int'>, 'b': <class 'int'>, 'c': <class 'str'>}
         """
 
@@ -2027,8 +2027,8 @@ class Daf:
             TypeError: A cell in an `int` or `float` column is not text and not a number.
 
         Examples:
-            >>> d = Daf(lol=[['1', '2.5', 'x']], cols=['a', 'b', 'c'])
-            >>> d.apply_dtypes(dtypes={'a': int, 'b': float, 'c': str})
+            >>> daf = Daf(lol=[['1', '2.5', 'x']], cols=['a', 'b', 'c'])
+            >>> daf.apply_dtypes(dtypes={'a': int, 'b': float, 'c': str})
             <BLANKLINE>
             | a  |  b  | c  |
             | -: | --: | -: |
@@ -2039,8 +2039,8 @@ class Daf:
 
             An empty cell stays empty, and the sum methods skip it:
 
-            >>> d = Daf.from_csv_buff('a,b\n1,\n,3\n4,5\n')
-            >>> d.apply_dtypes(dtypes={'a': int, 'b': int})
+            >>> daf = Daf.from_csv_buff('a,b\n1,\n,3\n4,5\n')
+            >>> daf.apply_dtypes(dtypes={'a': int, 'b': int})
             <BLANKLINE>
             | a  | b  |
             | -: | -: |
@@ -2050,21 +2050,21 @@ class Daf:
             <BLANKLINE>
             %% daf rows=3; cols=2; keyfield=''; name=''
             <BLANKLINE>
-            >>> d.sum()
+            >>> daf.sum()
             {'a': 5, 'b': 8}
 
             Convert only some columns with `cols`. The others stay text, and the
             `dtypes` of the Daf are not changed:
 
-            >>> d = Daf(lol=[['1', '2.5', '7']], cols=['a', 'b', 'n'],
+            >>> daf = Daf(lol=[['1', '2.5', '7']], cols=['a', 'b', 'n'],
             ...         dtypes={'a': int, 'b': float, 'n': int})
-            >>> _ = d.apply_dtypes(cols=['a'])
-            >>> d.iloc(0)
+            >>> _ = daf.apply_dtypes(cols=['a'])
+            >>> daf.iloc(0)
             {'a': 1, 'b': '2.5', 'n': '7'}
-            >>> d.dtypes == {'a': int, 'b': float, 'n': int}
+            >>> daf.dtypes == {'a': int, 'b': float, 'n': int}
             True
-            >>> _ = d.apply_dtypes(cols=['n'])
-            >>> d.iloc(0)
+            >>> _ = daf.apply_dtypes(cols=['n'])
+            >>> daf.iloc(0)
             {'a': 1, 'b': '2.5', 'n': 7}
 
             A `bool` column, and text that does not convert:
@@ -2083,10 +2083,10 @@ class Daf:
             ...     except ValueError:
             ...         bad.append(value)
             ...         return ''
-            >>> d = Daf(lol=[['1'], ['x'], ['3']], cols=['n'])
-            >>> _ = d.apply_to_col('n', to_int)
-            >>> d.dtypes = {'n': int}
-            >>> d
+            >>> daf = Daf(lol=[['1'], ['x'], ['3']], cols=['n'])
+            >>> _ = daf.apply_to_col('n', to_int)
+            >>> daf.dtypes = {'n': int}
+            >>> daf
             <BLANKLINE>
             | n  |
             | -: |
@@ -2280,8 +2280,8 @@ class Daf:
             ValueError: `use_pyon` is False.
 
         Examples:
-            >>> d = Daf(lol=[[[1, 2], True]], cols=['a', 'b'], dtypes={'a': list, 'b': bool})
-            >>> d.flatten()
+            >>> daf = Daf(lol=[[[1, 2], True]], cols=['a', 'b'], dtypes={'a': list, 'b': bool})
+            >>> daf.flatten()
             <BLANKLINE>
             |   a    | b  |
             | -----: | -: |
@@ -2525,8 +2525,8 @@ class Daf:
             The new Daf.
 
         Examples:
-            >>> d = Daf(lol=[[1, 'a']], cols=['id', 'v'], keyfield='id')
-            >>> c = d.clone_empty()
+            >>> daf = Daf(lol=[[1, 'a']], cols=['id', 'v'], keyfield='id')
+            >>> c = daf.clone_empty()
             >>> c.columns(), c.keyfield, c.num_rows()
             (['id', 'v'], 'id', 0)
         """
@@ -2565,8 +2565,8 @@ class Daf:
             This Daf, which has been changed.
 
         Examples:
-            >>> d = Daf(lol=[[1, 'a']], cols=['id', 'v'], keyfield='id')
-            >>> d.set_lol([[5, 'q'], [6, 'r']]).keys()
+            >>> daf = Daf(lol=[[1, 'a']], cols=['id', 'v'], keyfield='id')
+            >>> daf.set_lol([[5, 'q'], [6, 'r']]).keys()
             [5, 6]
         """
         """ set the lol with the value passed, leaving other settings,
@@ -2859,12 +2859,12 @@ class Daf:
             The rows as dicts.
 
         Examples:
-            >>> d = Daf(lol=[[1, 'a'], [2, ['x']]], cols=['id', 'v'])
-            >>> lod = d.to_lod()
+            >>> daf = Daf(lol=[[1, 'a'], [2, ['x']]], cols=['id', 'v'])
+            >>> lod = daf.to_lod()
             >>> lod
             [{'id': 1, 'v': 'a'}, {'id': 2, 'v': ['x']}]
             >>> lod[1]['v'].append('y')
-            >>> d.iloc(1)
+            >>> daf.iloc(1)
             {'id': 2, 'v': ['x', 'y']}
         """
         # test exists in test_daf.py
@@ -2921,8 +2921,8 @@ class Daf:
             KeyError: `dtypes` does not name the `keyfield` column.
 
         Examples:
-            >>> d = Daf.from_dod({'r0': {'x': 1}, 'r1': {'x': 2}})
-            >>> d
+            >>> daf = Daf.from_dod({'r0': {'x': 1}, 'r1': {'x': 2}})
+            >>> daf
             <BLANKLINE>
             | rowkey | x  |
             | -----: | -: |
@@ -2996,10 +2996,10 @@ class Daf:
             KeysDisabledError: The Daf has no keyfield.
 
         Examples:
-            >>> d = Daf(lol=[[1, 'a']], cols=['id', 'v'], keyfield='id')
-            >>> d.to_dod()
+            >>> daf = Daf(lol=[[1, 'a']], cols=['id', 'v'], keyfield='id')
+            >>> daf.to_dod()
             {1: {'v': 'a'}}
-            >>> d.to_dod(remove_keyfield=False)
+            >>> daf.to_dod(remove_keyfield=False)
             {1: {'id': 1, 'v': 'a'}}
         """
 
@@ -3058,8 +3058,8 @@ class Daf:
             ValueError: A list has a different length from the first.
 
         Examples:
-            >>> d = Daf.from_cols_dol({'A': [1, 2, 3], 'B': [4, 5, 6]})
-            >>> d
+            >>> daf = Daf.from_cols_dol({'A': [1, 2, 3], 'B': [4, 5, 6]})
+            >>> daf
             <BLANKLINE>
             | A  | B  |
             | -: | -: |
@@ -3181,8 +3181,8 @@ class Daf:
                 Name all the keys.
 
         Examples:
-            >>> d = Daf.from_lod_to_cols([{'A': 1, 'B': 2}, {'A': 4, 'B': 5}], cols=['Feature', 'T1', 'T2'])
-            >>> d
+            >>> daf = Daf.from_lod_to_cols([{'A': 1, 'B': 2}, {'A': 4, 'B': 5}], cols=['Feature', 'T1', 'T2'])
+            >>> daf
             <BLANKLINE>
             | Feature | T1 | T2 |
             | ------: | -: | -: |
@@ -3289,8 +3289,8 @@ class Daf:
             ...     for icol, value in enumerate(row):
             ...         _ = sheet.write(irow, icol, value)
             >>> workbook.close()
-            >>> d = Daf.from_excel_buff(buff.getvalue(), keyfield='id')
-            >>> d
+            >>> daf = Daf.from_excel_buff(buff.getvalue(), keyfield='id')
+            >>> daf
             <BLANKLINE>
             | id | v  |
             | -: | -: |
@@ -3531,8 +3531,8 @@ class Daf:
                 of the columns come from the header.
 
         Examples:
-            >>> d = Daf.from_csv_buff('id,v\n1,a\n2,"b,c"\n')
-            >>> d
+            >>> daf = Daf.from_csv_buff('id,v\n1,a\n2,"b,c"\n')
+            >>> daf
             <BLANKLINE>
             | id |  v  |
             | -: | --: |
@@ -3549,8 +3549,8 @@ class Daf:
             <BLANKLINE>
             %% daf rows=1; cols=2; keyfield=''; name=''
             <BLANKLINE>
-            >>> d = Daf.from_csv_buff('a,b,c\n1,2,3\n4,5,6\n', include_cols=['c', 'a'])
-            >>> d
+            >>> daf = Daf.from_csv_buff('a,b,c\n1,2,3\n4,5,6\n', include_cols=['c', 'a'])
+            >>> daf
             <BLANKLINE>
             | c  | a  |
             | -: | -: |
@@ -3559,10 +3559,10 @@ class Daf:
             <BLANKLINE>
             %% daf rows=2; cols=2; keyfield=''; name=''
             <BLANKLINE>
-            >>> d = Daf.from_csv_buff('id,v\n1,a\n2\n')
-            >>> d.is_rectangular()
+            >>> daf = Daf.from_csv_buff('id,v\n1,a\n2\n')
+            >>> daf.is_rectangular()
             False
-            >>> d.force_rectangular()
+            >>> daf.force_rectangular()
             <BLANKLINE>
             | id | v  |
             | -: | -: |
@@ -3734,8 +3734,8 @@ class Daf:
         Examples:
             >>> import os, tempfile
             >>> path = os.path.join(tempfile.mkdtemp(), 'x.csv')
-            >>> d = Daf(lol=[[1, 'a']], cols=['id', 'v'])
-            >>> d.to_csv_file(path) == path
+            >>> daf = Daf(lol=[[1, 'a']], cols=['id', 'v'])
+            >>> daf.to_csv_file(path) == path
             True
         """
         if isinstance(file_path, Path):  # Convert Path object to string
@@ -3779,8 +3779,8 @@ class Daf:
             The CSV text.
 
         Examples:
-            >>> d = Daf(lol=[[1, 'a']], cols=['id', 'v'])
-            >>> d.to_csv_buff(line_terminator='\n')
+            >>> daf = Daf(lol=[[1, 'a']], cols=['id', 'v'])
+            >>> daf.to_csv_buff(line_terminator='\n')
             'id,v\n1,a\n'
             >>> Daf(lol=[[{1: 'a'}]], cols=['x']).to_csv_buff(line_terminator='\n')
             "x\n{1: 'a'}\n"
@@ -3893,8 +3893,8 @@ class Daf:
             >>> for name in ('b.txt', 'a.csv', os.path.join('sub', 'c.csv')):
             ...     with open(os.path.join(folder, name), 'w') as f:
             ...         n = f.write('hello')
-            >>> d = Daf.from_directory(folder)
-            >>> sorted(d.col('basename')), d.col('size')
+            >>> daf = Daf.from_directory(folder)
+            >>> sorted(daf.col('basename')), daf.col('size')
             (['a.csv', 'b.txt', 'c.csv'], [5, 5, 5])
             >>> sorted(Daf.from_directory(folder, recursive=False).col('basename'))
             ['a.csv', 'b.txt']
@@ -4171,12 +4171,12 @@ class Daf:
         Examples:
             >>> Daf(lol=[[1, 'a'], [2, 'b']], cols=['id', 'v']).to_donpa(['id'])['id'].tolist()
             [1, 2]
-            >>> d = Daf(lol=[[1, 5], [2, ''], [None, 7]], cols=['n', 'm'])
-            >>> d.to_donpa(['m'])['m'].tolist()
+            >>> daf = Daf(lol=[[1, 5], [2, ''], [None, 7]], cols=['n', 'm'])
+            >>> daf.to_donpa(['m'])['m'].tolist()
             ['5', '', '7']
-            >>> d.to_donpa(['n', 'm'], default=0)['m'].tolist()
+            >>> daf.to_donpa(['n', 'm'], default=0)['m'].tolist()
             [5, 0, 7]
-            >>> d
+            >>> daf
             <BLANKLINE>
             |  n   | m  |
             | ---: | -: |
@@ -4352,8 +4352,8 @@ class Daf:
             The new Daf.
 
         Examples:
-            >>> d = Daf(lol=[[1, 'a']], cols=['id', 'v'], keyfield='id')
-            >>> Daf.from_json(d.to_json()) == d
+            >>> daf = Daf(lol=[[1, 'a']], cols=['id', 'v'], keyfield='id')
+            >>> Daf.from_json(daf.to_json()) == daf
             True
         """
         # Deserialize JSON string into a Daf object
@@ -4467,8 +4467,8 @@ class Daf:
             ValueError: A list has more values than there are columns.
 
         Examples:
-            >>> d = Daf(lol=[[1, 'a']], cols=['id', 'v'], keyfield='id')
-            >>> d.append({'v': 'b', 'id': 2})
+            >>> daf = Daf(lol=[[1, 'a']], cols=['id', 'v'], keyfield='id')
+            >>> daf.append({'v': 'b', 'id': 2})
             <BLANKLINE>
             | id | v  |
             | -: | -: |
@@ -4477,7 +4477,7 @@ class Daf:
             <BLANKLINE>
             %% daf rows=2; cols=2; keyfield='id'; name=''
             <BLANKLINE>
-            >>> d.append([3, 'c'])
+            >>> daf.append([3, 'c'])
             <BLANKLINE>
             | id | v  |
             | -: | -: |
@@ -4487,7 +4487,7 @@ class Daf:
             <BLANKLINE>
             %% daf rows=3; cols=2; keyfield='id'; name=''
             <BLANKLINE>
-            >>> d.append(lol=[[4, 'd'], [5, 'e']])
+            >>> daf.append(lol=[[4, 'd'], [5, 'e']])
             <BLANKLINE>
             | id | v  |
             | -: | -: |
@@ -4499,7 +4499,7 @@ class Daf:
             <BLANKLINE>
             %% daf rows=5; cols=2; keyfield='id'; name=''
             <BLANKLINE>
-            >>> d.append({'id': 2, 'v': 'new'}, respect_kd=True)
+            >>> daf.append({'id': 2, 'v': 'new'}, respect_kd=True)
             <BLANKLINE>
             | id |  v  |
             | -: | --: |
@@ -4810,8 +4810,8 @@ class Daf:
             ValueError: A row of `lol` has more values than there are columns.
 
         Examples:
-            >>> d = Daf(lol=[[1, 'a']], cols=['id', 'v'], keyfield='id')
-            >>> d.extend([{'id': 2, 'v': 'b'}, {'id': 1, 'v': 'new'}], respect_kd=True)
+            >>> daf = Daf(lol=[[1, 'a']], cols=['id', 'v'], keyfield='id')
+            >>> daf.extend([{'id': 2, 'v': 'b'}, {'id': 1, 'v': 'new'}], respect_kd=True)
             <BLANKLINE>
             | id |  v  |
             | -: | --: |
@@ -4820,7 +4820,7 @@ class Daf:
             <BLANKLINE>
             %% daf rows=2; cols=2; keyfield='id'; name=''
             <BLANKLINE>
-            >>> d.extend(lol=[[3, 'c'], [4]])
+            >>> daf.extend(lol=[[3, 'c'], [4]])
             <BLANKLINE>
             | id |  v  |
             | -: | --: |
@@ -4915,8 +4915,8 @@ class Daf:
             This Daf, which has been changed.
 
         Examples:
-            >>> d = Daf(lol=[[1, 'a'], [2, 'b']], cols=['id', 'v'], keyfield='id')
-            >>> d.record_append({'id': 2, 'v': 'new'})
+            >>> daf = Daf(lol=[[1, 'a'], [2, 'b']], cols=['id', 'v'], keyfield='id')
+            >>> daf.record_append({'id': 2, 'v': 'new'})
             <BLANKLINE>
             | id |  v  |
             | -: | --: |
@@ -4925,7 +4925,7 @@ class Daf:
             <BLANKLINE>
             %% daf rows=2; cols=2; keyfield='id'; name=''
             <BLANKLINE>
-            >>> d.record_append({'id': 2, 'v': 'dup'}, respect_kd=False)
+            >>> daf.record_append({'id': 2, 'v': 'dup'}, respect_kd=False)
             <BLANKLINE>
             | id |  v  |
             | -: | --: |
@@ -5094,7 +5094,7 @@ class Daf:
 
         This does not remove the row from this Daf. It returns a new Daf that leaves
         the row out, and this Daf is unchanged. Keep the result, as in
-        `d = d.remove_key(2)`.
+        `daf = daf.remove_key(2)`.
 
         The new Daf shares the surviving rows with this Daf. Changing a cell in one
         changes it in the other. Call `copy('editable')` if you need row lists of your own.
@@ -5116,8 +5116,8 @@ class Daf:
             KeyError: The key is not found and `silent_error` is False.
 
         Examples:
-            >>> d = Daf(lol=[[1, 'a'], [2, 'b']], cols=['id', 'v'], keyfield='id')
-            >>> d.remove_key(1)
+            >>> daf = Daf(lol=[[1, 'a'], [2, 'b']], cols=['id', 'v'], keyfield='id')
+            >>> daf.remove_key(1)
             <BLANKLINE>
             | id | v  |
             | -: | -: |
@@ -5125,7 +5125,7 @@ class Daf:
             <BLANKLINE>
             %% daf rows=1; cols=2; keyfield='id'; name=''
             <BLANKLINE>
-            >>> d.num_rows()
+            >>> daf.num_rows()
             2
             >>> c = Daf(lol=[['a', 1], ['a', 2]], cols=['g', 'n'], keyfield=('g', 'n'))
             >>> c.remove_key(('a', 1))
@@ -5172,8 +5172,8 @@ class Daf:
             KeyError: A key is not found and `silent_error` is False.
 
         Examples:
-            >>> d = Daf(lol=[[1, 'a'], [2, 'b'], [3, 'c']], cols=['id', 'v'], keyfield='id')
-            >>> d.remove_keylist([1, 3])
+            >>> daf = Daf(lol=[[1, 'a'], [2, 'b'], [3, 'c']], cols=['id', 'v'], keyfield='id')
+            >>> daf.remove_keylist([1, 3])
             <BLANKLINE>
             | id | v  |
             | -: | -: |
@@ -5251,8 +5251,8 @@ class Daf:
             TypeError: A selector is None, or has a type that is not accepted.
 
         Examples:
-            >>> d = Daf(lol=[[1, 'a', 10], [2, 'b', 20], [3, 'c', 30]], cols=['id', 'v', 'n'], keyfield='id')
-            >>> d[1]
+            >>> daf = Daf(lol=[[1, 'a', 10], [2, 'b', 20], [3, 'c', 30]], cols=['id', 'v', 'n'], keyfield='id')
+            >>> daf[1]
             <BLANKLINE>
             | id | v  | n  |
             | -: | -: | -: |
@@ -5260,7 +5260,7 @@ class Daf:
             <BLANKLINE>
             %% daf rows=1; cols=3; keyfield='id'; name=''
             <BLANKLINE>
-            >>> d[1:]
+            >>> daf[1:]
             <BLANKLINE>
             | id | v  | n  |
             | -: | -: | -: |
@@ -5269,7 +5269,7 @@ class Daf:
             <BLANKLINE>
             %% daf rows=2; cols=3; keyfield='id'; name=''
             <BLANKLINE>
-            >>> d[:, 'v']
+            >>> daf[:, 'v']
             <BLANKLINE>
             | v  |
             | -: |
@@ -5279,7 +5279,7 @@ class Daf:
             <BLANKLINE>
             %% daf rows=3; cols=1; keyfield=''; name=''
             <BLANKLINE>
-            >>> d[[2, 0], ['n', 'id']]
+            >>> daf[[2, 0], ['n', 'id']]
             <BLANKLINE>
             | n  | id |
             | -: | -: |
@@ -5288,9 +5288,9 @@ class Daf:
             <BLANKLINE>
             %% daf rows=2; cols=2; keyfield='id'; name=''
             <BLANKLINE>
-            >>> d[1, 'n'].to_value()
+            >>> daf[1, 'n'].to_value()
             20
-            >>> d[(1, 2), :]
+            >>> daf[(1, 2), :]
             <BLANKLINE>
             | id | v  | n  |
             | -: | -: | -: |
@@ -5420,10 +5420,10 @@ class Daf:
             KeysDisabledError: A row is selected by key, and the Daf has no keyfield.
 
         Examples:
-            >>> d = Daf(lol=[[1, 'a', 10], [2, 'b', 20], [3, 'c', 30]], cols=['id', 'v', 'n'], keyfield='id')
-            >>> d[1, 'v'] = 'z'
-            >>> d[:, 'n'] = [1, 2, 3]
-            >>> d
+            >>> daf = Daf(lol=[[1, 'a', 10], [2, 'b', 20], [3, 'c', 30]], cols=['id', 'v', 'n'], keyfield='id')
+            >>> daf[1, 'v'] = 'z'
+            >>> daf[:, 'n'] = [1, 2, 3]
+            >>> daf
             <BLANKLINE>
             | id | v  | n  |
             | -: | -: | -: |
@@ -5433,8 +5433,8 @@ class Daf:
             <BLANKLINE>
             %% daf rows=3; cols=3; keyfield='id'; name=''
             <BLANKLINE>
-            >>> d[0] = {'v': 'q'}
-            >>> d.iloc(0)
+            >>> daf[0] = {'v': 'q'}
+            >>> daf.iloc(0)
             {'id': '', 'v': 'q', 'n': ''}
 
             A key changed after the index is built is found only after `set_keyfield()`:
@@ -5660,8 +5660,8 @@ class Daf:
             This Daf, which has been changed.
 
         Examples:
-            >>> d = Daf(lol=[[1, 'a', 10], [2, 'b', 20], [3, 'c', 30]], cols=['id', 'v', 'n'])
-            >>> d.set_irows_icols([0, 1], [1, 2], 'Z')
+            >>> daf = Daf(lol=[[1, 'a', 10], [2, 'b', 20], [3, 'c', 30]], cols=['id', 'v', 'n'])
+            >>> daf.set_irows_icols([0, 1], [1, 2], 'Z')
             <BLANKLINE>
             | id | v  | n  |
             | -: | -: | -: |
@@ -5671,7 +5671,7 @@ class Daf:
             <BLANKLINE>
             %% daf rows=3; cols=3; keyfield=''; name=''
             <BLANKLINE>
-            >>> d.set_irows_icols(2, None, ['x', 'y', 'z']).iloc(2)
+            >>> daf.set_irows_icols(2, None, ['x', 'y', 'z']).iloc(2)
             {'id': 'x', 'v': 'y', 'n': 'z'}
         """
         """ set rows and cols in given daf.
@@ -5850,19 +5850,19 @@ class Daf:
             KeyError: A key is not found and `silent_error` is False.
 
         Examples:
-            >>> d = Daf(lol=[['r1', 'a', 10], ['r2', 'b', ''], ['r3', 'a', 30]], cols=['id', 'v', 'n'], keyfield='id')
+            >>> daf = Daf(lol=[['r1', 'a', 10], ['r2', 'b', ''], ['r3', 'a', 30]], cols=['id', 'v', 'n'], keyfield='id')
 
-            >>> d.krows_to_irows('r2')
+            >>> daf.krows_to_irows('r2')
             [1]
-            >>> d.krows_to_irows(['r3', 'r1'])
+            >>> daf.krows_to_irows(['r3', 'r1'])
             [2, 0]
-            >>> d.krows_to_irows(('r1', 'r2'))
+            >>> daf.krows_to_irows(('r1', 'r2'))
             slice(0, 2, 1)
-            >>> d.krows_to_irows(['r1'], inverse=True)
+            >>> daf.krows_to_irows(['r1'], inverse=True)
             [1, 2]
-            >>> d.krows_to_irows(['zz'], silent_error=True)
+            >>> daf.krows_to_irows(['zz'], silent_error=True)
             []
-            >>> d.krows_to_irows(['zz'])
+            >>> daf.krows_to_irows(['zz'])
             Traceback (most recent call last):
                 ...
             KeyError: 'zz'
@@ -5927,17 +5927,17 @@ class Daf:
             KeyError: A name is not found and `silent_error` is False.
 
         Examples:
-            >>> d = Daf(lol=[['r1', 'a', 10], ['r2', 'b', ''], ['r3', 'a', 30]], cols=['id', 'v', 'n'], keyfield='id')
+            >>> daf = Daf(lol=[['r1', 'a', 10], ['r2', 'b', ''], ['r3', 'a', 30]], cols=['id', 'v', 'n'], keyfield='id')
 
-            >>> d.kcols_to_icols('v')
+            >>> daf.kcols_to_icols('v')
             [1]
-            >>> d.kcols_to_icols(['n', 'id'])
+            >>> daf.kcols_to_icols(['n', 'id'])
             [2, 0]
-            >>> d.kcols_to_icols(('id', 'v'))
+            >>> daf.kcols_to_icols(('id', 'v'))
             slice(0, 2, 1)
-            >>> d.kcols_to_icols('v', inverse=True)
+            >>> daf.kcols_to_icols('v', inverse=True)
             [0, 2]
-            >>> d.kcols_to_icols('zz')
+            >>> daf.kcols_to_icols('zz')
             Traceback (most recent call last):
                 ...
             KeyError: 'zz'
@@ -6157,8 +6157,8 @@ class Daf:
             KeyError: A key is not found and `silent_error` is False.
 
         Examples:
-            >>> d = Daf(lol=[[1, 'a', 10], [2, 'b', 20], [3, 'c', 30]], cols=['id', 'v', 'n'], keyfield='id')
-            >>> d.select_krows([3, 1])
+            >>> daf = Daf(lol=[[1, 'a', 10], [2, 'b', 20], [3, 'c', 30]], cols=['id', 'v', 'n'], keyfield='id')
+            >>> daf.select_krows([3, 1])
             <BLANKLINE>
             | id | v  | n  |
             | -: | -: | -: |
@@ -6167,7 +6167,7 @@ class Daf:
             <BLANKLINE>
             %% daf rows=2; cols=3; keyfield='id'; name=''
             <BLANKLINE>
-            >>> d.select_krows([1, 2], inverse=True)
+            >>> daf.select_krows([1, 2], inverse=True)
             <BLANKLINE>
             | id | v  | n  |
             | -: | -: | -: |
@@ -6175,7 +6175,7 @@ class Daf:
             <BLANKLINE>
             %% daf rows=1; cols=3; keyfield='id'; name=''
             <BLANKLINE>
-            >>> d.select_krows([1, 9], silent_error=True)
+            >>> daf.select_krows([1, 9], silent_error=True)
             <BLANKLINE>
             | id | v  | n  |
             | -: | -: | -: |
@@ -6230,8 +6230,8 @@ class Daf:
             KeyError: A name is not found and `silent_error` is False.
 
         Examples:
-            >>> d = Daf(lol=[[1, 'a', 10], [2, 'b', 20], [3, 'c', 30]], cols=['id', 'v', 'n'], keyfield='id')
-            >>> d.select_kcols(['n', 'id'])
+            >>> daf = Daf(lol=[[1, 'a', 10], [2, 'b', 20], [3, 'c', 30]], cols=['id', 'v', 'n'], keyfield='id')
+            >>> daf.select_kcols(['n', 'id'])
             <BLANKLINE>
             | n  | id |
             | -: | -: |
@@ -6241,9 +6241,9 @@ class Daf:
             <BLANKLINE>
             %% daf rows=3; cols=2; keyfield='id'; name=''
             <BLANKLINE>
-            >>> d.select_kcols('v', inverse=True).columns()
+            >>> daf.select_kcols('v', inverse=True).columns()
             ['id', 'n']
-            >>> d.select_kcols('v', flip=True)
+            >>> daf.select_kcols('v', flip=True)
             <BLANKLINE>
             | A  | B  | C  |
             | -: | -: | -: |
@@ -6285,8 +6285,8 @@ class Daf:
             IndexError: A single position is out of range.
 
         Examples:
-            >>> d = Daf(lol=[[1, 'a', 10], [2, 'b', 20], [3, 'c', 30]], cols=['id', 'v', 'n'], keyfield='id')
-            >>> d.select_irows(1)
+            >>> daf = Daf(lol=[[1, 'a', 10], [2, 'b', 20], [3, 'c', 30]], cols=['id', 'v', 'n'], keyfield='id')
+            >>> daf.select_irows(1)
             <BLANKLINE>
             | id | v  | n  |
             | -: | -: | -: |
@@ -6294,7 +6294,7 @@ class Daf:
             <BLANKLINE>
             %% daf rows=1; cols=3; keyfield='id'; name=''
             <BLANKLINE>
-            >>> d.select_irows(1, inverse=True)
+            >>> daf.select_irows(1, inverse=True)
             <BLANKLINE>
             | id | v  | n  |
             | -: | -: | -: |
@@ -6303,7 +6303,7 @@ class Daf:
             <BLANKLINE>
             %% daf rows=2; cols=3; keyfield='id'; name=''
             <BLANKLINE>
-            >>> d.select_irows(1, invert=True)
+            >>> daf.select_irows(1, invert=True)
             <BLANKLINE>
             | id | v  | n  |
             | -: | -: | -: |
@@ -6312,7 +6312,7 @@ class Daf:
             <BLANKLINE>
             %% daf rows=2; cols=3; keyfield='id'; name=''
             <BLANKLINE>
-            >>> d.select_irows(slice(1, None))
+            >>> daf.select_irows(slice(1, None))
             <BLANKLINE>
             | id | v  | n  |
             | -: | -: | -: |
@@ -6439,8 +6439,8 @@ class Daf:
             IndexError: A position is beyond the end of some row.
 
         Examples:
-            >>> d = Daf(lol=[[1, 'a', 10], [2, 'b', 20], [3, 'c', 30]], cols=['id', 'v', 'n'], keyfield='id')
-            >>> d.select_icols([2, 0])
+            >>> daf = Daf(lol=[[1, 'a', 10], [2, 'b', 20], [3, 'c', 30]], cols=['id', 'v', 'n'], keyfield='id')
+            >>> daf.select_icols([2, 0])
             <BLANKLINE>
             | n  | id |
             | -: | -: |
@@ -6450,9 +6450,9 @@ class Daf:
             <BLANKLINE>
             %% daf rows=3; cols=2; keyfield='id'; name=''
             <BLANKLINE>
-            >>> d.select_icols(slice(-2, None)).columns()
+            >>> daf.select_icols(slice(-2, None)).columns()
             ['v', 'n']
-            >>> d.select_icols([0, 1], flip=True)
+            >>> daf.select_icols([0, 1], flip=True)
             <BLANKLINE>
             | A  | B  | C  |
             | -: | -: | -: |
@@ -6617,10 +6617,10 @@ class Daf:
             KeyError: The key is not found and `silent_error` is False.
 
         Examples:
-            >>> d = Daf(lol=[[1, 'a', 10], [2, 'b', 20], [3, 'c', 30]], cols=['id', 'v', 'n'], keyfield='id')
-            >>> d.select_record(2)
+            >>> daf = Daf(lol=[[1, 'a', 10], [2, 'b', 20], [3, 'c', 30]], cols=['id', 'v', 'n'], keyfield='id')
+            >>> daf.select_record(2)
             {'id': 2, 'v': 'b', 'n': 20}
-            >>> d.select_record(9)
+            >>> daf.select_record(9)
             {}
         """
         """ Select one record from daf using the key and return as a single T_da dict.
@@ -6721,9 +6721,9 @@ class Daf:
             KeyError: A key is not found and `silent_error` is False.
 
         Examples:
-            >>> d = Daf(lol=[['r1', 'a', 10], ['r2', 'b', ''], ['r3', 'a', 30]], cols=['id', 'v', 'n'], keyfield='id')
+            >>> daf = Daf(lol=[['r1', 'a', 10], ['r2', 'b', ''], ['r3', 'a', 30]], cols=['id', 'v', 'n'], keyfield='id')
 
-            >>> d.select_records_daf(['r3', 'r1'])
+            >>> daf.select_records_daf(['r3', 'r1'])
             <BLANKLINE>
             | id | v  | n  |
             | -: | -: | -: |
@@ -6732,25 +6732,25 @@ class Daf:
             <BLANKLINE>
             %% daf rows=2; cols=3; keyfield='id'; name=''
             <BLANKLINE>
-            >>> d.select_records_daf([])
+            >>> daf.select_records_daf([])
             <BLANKLINE>
             <BLANKLINE>
             %% daf rows=0; cols=0; keyfield='id'; name=''
             <BLANKLINE>
-            >>> kept = d.select_records_daf([], inverse=True)
-            >>> kept == d
+            >>> kept = daf.select_records_daf([], inverse=True)
+            >>> kept == daf
             True
             >>> _ = kept.append(['r4', 'd', 40])
-            >>> d.num_rows(), kept.num_rows()
+            >>> daf.num_rows(), kept.num_rows()
             (3, 4)
             >>> kept[0, 'v'] = 'Q'
-            >>> d.iloc(0)['v']
+            >>> daf.iloc(0)['v']
             'Q'
 
             The keys of another Daf, without making a list of them:
 
             >>> other = Daf(lol=[['r3', 1], ['r9', 2]], cols=['id', 'w'], keyfield='id')
-            >>> d.select_records_daf(other, silent_error=True).to_lod()
+            >>> daf.select_records_daf(other, silent_error=True).to_lod()
             [{'id': 'r3', 'v': 'a', 'n': 30}]
         """
 
@@ -6809,13 +6809,13 @@ class Daf:
             KeyError: A key is not found and `silent_error` is False. Nothing is removed.
 
         Examples:
-            >>> d = Daf(lol=[['r1', 'a'], ['r2', 'b'], ['r3', 'c']], cols=['id', 'v'], keyfield='id')
-            >>> d.delete_records(['r2']).to_lod()
+            >>> daf = Daf(lol=[['r1', 'a'], ['r2', 'b'], ['r3', 'c']], cols=['id', 'v'], keyfield='id')
+            >>> daf.delete_records(['r2']).to_lod()
             [{'id': 'r1', 'v': 'a'}, {'id': 'r3', 'v': 'c'}]
-            >>> len(d)
+            >>> len(daf)
             3
-            >>> _ = d.delete_records(['r2', 'r9'], inplace=True, silent_error=True)
-            >>> d.to_lod()
+            >>> _ = daf.delete_records(['r2', 'r9'], inplace=True, silent_error=True)
+            >>> daf.to_lod()
             [{'id': 'r1', 'v': 'a'}, {'id': 'r3', 'v': 'c'}]
         """
         if not inplace:
@@ -6851,15 +6851,15 @@ class Daf:
             IndexError: The position is out of range.
 
         Examples:
-            >>> d = Daf(lol=[['r1', 'a', 10], ['r2', 'b', ''], ['r3', 'a', 30]], cols=['id', 'v', 'n'], keyfield='id')
+            >>> daf = Daf(lol=[['r1', 'a', 10], ['r2', 'b', ''], ['r3', 'a', 30]], cols=['id', 'v', 'n'], keyfield='id')
 
-            >>> d.irow_la(1)
+            >>> daf.irow_la(1)
             ['r2', 'b', '']
-            >>> row = d.irow_la(0)
+            >>> row = daf.irow_la(0)
             >>> row[1] = 'Z'
-            >>> d.iloc(0)
+            >>> daf.iloc(0)
             {'id': 'r1', 'v': 'Z', 'n': 10}
-            >>> d.irow_la(9)
+            >>> daf.irow_la(9)
             Traceback (most recent call last):
                 ...
             IndexError: list index out of range
@@ -6889,8 +6889,8 @@ class Daf:
             ValueError: The Daf is not one cell and no default is given.
 
         Examples:
-            >>> d = Daf(lol=[[1, 'a', 10], [2, 'b', 20], [3, 'c', 30]], cols=['id', 'v', 'n'], keyfield='id')
-            >>> d[1, 'n'].to_value()
+            >>> daf = Daf(lol=[[1, 'a', 10], [2, 'b', 20], [3, 'c', 30]], cols=['id', 'v', 'n'], keyfield='id')
+            >>> daf[1, 'n'].to_value()
             20
         """
 
@@ -6936,10 +6936,10 @@ class Daf:
             ValueError: The Daf has more than one row and more than one column.
 
         Examples:
-            >>> d = Daf(lol=[[1, 'a', 10], [2, 'b', 20], [3, 'c', 30]], cols=['id', 'v', 'n'], keyfield='id')
-            >>> d[:, 'v'].to_list()
+            >>> daf = Daf(lol=[[1, 'a', 10], [2, 'b', 20], [3, 'c', 30]], cols=['id', 'v', 'n'], keyfield='id')
+            >>> daf[:, 'v'].to_list()
             ['a', 'b', 'c']
-            >>> d[1].to_list()
+            >>> daf[1].to_list()
             [2, 'b', 20]
         """
         """ return data from a daf array as a list
@@ -7042,8 +7042,8 @@ class Daf:
             ValueError: The Daf has more than one row.
 
         Examples:
-            >>> d = Daf(lol=[[1, 'a', 10], [2, 'b', 20], [3, 'c', 30]], cols=['id', 'v', 'n'], keyfield='id')
-            >>> d[1].to_dict()
+            >>> daf = Daf(lol=[[1, 'a', 10], [2, 'b', 20], [3, 'c', 30]], cols=['id', 'v', 'n'], keyfield='id')
+            >>> daf[1].to_dict()
             {'id': 2, 'v': 'b', 'n': 20}
         """
         """ alias for iloc
@@ -7074,8 +7074,8 @@ class Daf:
             IndexError: The position is out of range, for a Daf that has rows.
 
         Examples:
-            >>> d = Daf(lol=[[1, 'a', 10], [2, 'b', 20], [3, 'c', 30]], cols=['id', 'v', 'n'], keyfield='id')
-            >>> d.to_klist(1)['v']
+            >>> daf = Daf(lol=[[1, 'a', 10], [2, 'b', 20], [3, 'c', 30]], cols=['id', 'v', 'n'], keyfield='id')
+            >>> daf.to_klist(1)['v']
             'b'
         """
         return cast(KeyedList, self.iloc(irow, rtype='klist'))
@@ -7099,8 +7099,8 @@ class Daf:
             IndexError: The position is out of range, for a Daf that has rows.
 
         Examples:
-            >>> d = Daf(lol=[[1, 'a', 10], [2, 'b', 20], [3, 'c', 30]], cols=['id', 'v', 'n'], keyfield='id')
-            >>> d.irow(1, include_cols=['n'])
+            >>> daf = Daf(lol=[[1, 'a', 10], [2, 'b', 20], [3, 'c', 30]], cols=['id', 'v', 'n'], keyfield='id')
+            >>> daf.irow(1, include_cols=['n'])
             {'n': 20}
         """
         return cast(T_da, self.iloc(irow, include_cols))
@@ -7130,12 +7130,12 @@ class Daf:
             ValueError: `rtype` is not one of the three names.
 
         Examples:
-            >>> d = Daf(lol=[[1, 'a', 10], [2, 'b', 20], [3, 'c', 30]], cols=['id', 'v', 'n'], keyfield='id')
-            >>> d.iloc(1)
+            >>> daf = Daf(lol=[[1, 'a', 10], [2, 'b', 20], [3, 'c', 30]], cols=['id', 'v', 'n'], keyfield='id')
+            >>> daf.iloc(1)
             {'id': 2, 'v': 'b', 'n': 20}
-            >>> d.iloc(1, rtype='list')
+            >>> daf.iloc(1, rtype='list')
             [2, 'b', 20]
-            >>> d.iloc(-1)
+            >>> daf.iloc(-1)
             {'id': 3, 'v': 'c', 'n': 30}
         """
         """ Select one record from daf using the idx and return as a single T_da dict
@@ -7315,8 +7315,8 @@ class Daf:
             TypeError: `selector_da` is not a dict, or a list or tuple of dicts.
 
         Examples:
-            >>> d = Daf(lol=[[1, 'a', 10], [2, 'b', 20], [3, 'c', 30]], cols=['id', 'v', 'n'], keyfield='id')
-            >>> d.select_by_dict({'v': 'b'})
+            >>> daf = Daf(lol=[[1, 'a', 10], [2, 'b', 20], [3, 'c', 30]], cols=['id', 'v', 'n'], keyfield='id')
+            >>> daf.select_by_dict({'v': 'b'})
             <BLANKLINE>
             | id | v  | n  |
             | -: | -: | -: |
@@ -7324,7 +7324,7 @@ class Daf:
             <BLANKLINE>
             %% daf rows=1; cols=3; keyfield='id'; name=''
             <BLANKLINE>
-            >>> d.select_by_dict({'v': 'b'}, inverse=True)
+            >>> daf.select_by_dict({'v': 'b'}, inverse=True)
             <BLANKLINE>
             | id | v  | n  |
             | -: | -: | -: |
@@ -7333,7 +7333,7 @@ class Daf:
             <BLANKLINE>
             %% daf rows=2; cols=3; keyfield='id'; name=''
             <BLANKLINE>
-            >>> d.select_by_dict([{'v': 'a'}, {'v': 'c'}])
+            >>> daf.select_by_dict([{'v': 'a'}, {'v': 'c'}])
             <BLANKLINE>
             | id | v  | n  |
             | -: | -: | -: |
@@ -7342,7 +7342,7 @@ class Daf:
             <BLANKLINE>
             %% daf rows=2; cols=3; keyfield='id'; name=''
             <BLANKLINE>
-            >>> d.select_by_dict([{'v': 'a', 'n': 10}, {'v': 'c', 'n': 99}])
+            >>> daf.select_by_dict([{'v': 'a', 'n': 10}, {'v': 'c', 'n': 99}])
             <BLANKLINE>
             | id | v  | n  |
             | -: | -: | -: |
@@ -7351,7 +7351,7 @@ class Daf:
             %% daf rows=1; cols=3; keyfield='id'; name=''
             <BLANKLINE>
             >>> names = ['a', 'b']
-            >>> d.select_by_dict([{'v': name} for name in names], inverse=True)
+            >>> daf.select_by_dict([{'v': name} for name in names], inverse=True)
             <BLANKLINE>
             | id | v  | n  |
             | -: | -: | -: |
@@ -7418,10 +7418,10 @@ class Daf:
             The row, as a dict or a KeyedList according to `itermode`. An empty dict if none matches.
 
         Examples:
-            >>> d = Daf(lol=[[1, 'a', 10], [2, 'b', 20], [3, 'c', 30]], cols=['id', 'v', 'n'], keyfield='id')
-            >>> d.select_first_row_by_dict({'v': 'b'})
+            >>> daf = Daf(lol=[[1, 'a', 10], [2, 'b', 20], [3, 'c', 30]], cols=['id', 'v', 'n'], keyfield='id')
+            >>> daf.select_first_row_by_dict({'v': 'b'})
             {'id': 2, 'v': 'b', 'n': 20}
-            >>> d.select_first_row_by_dict({'v': 'zz'})
+            >>> daf.select_first_row_by_dict({'v': 'zz'})
             {}
         """
 
@@ -7475,8 +7475,8 @@ class Daf:
             The new Daf.
 
         Examples:
-            >>> d = Daf(lol=[[1, 'a', 10], [2, 'b', 20], [3, 'c', 30]], cols=['id', 'v', 'n'], keyfield='id')
-            >>> d.select_where(lambda row: row['n'] > 10)
+            >>> daf = Daf(lol=[[1, 'a', 10], [2, 'b', 20], [3, 'c', 30]], cols=['id', 'v', 'n'], keyfield='id')
+            >>> daf.select_where(lambda row: row['n'] > 10)
             <BLANKLINE>
             | id | v  | n  |
             | -: | -: | -: |
@@ -7485,9 +7485,9 @@ class Daf:
             <BLANKLINE>
             %% daf rows=2; cols=3; keyfield='id'; name=''
             <BLANKLINE>
-            >>> d = Daf(lol=[[1, 'a', 10], [2, 'b', 20], [3, 'c', 30], [4, 'a', 40]], cols=['id', 'v', 'n'])
+            >>> daf = Daf(lol=[[1, 'a', 10], [2, 'b', 20], [3, 'c', 30], [4, 'a', 40]], cols=['id', 'v', 'n'])
             >>> keep = {'a', 'c'}
-            >>> d.select_where(lambda row: row['v'] in keep)
+            >>> daf.select_where(lambda row: row['v'] in keep)
             <BLANKLINE>
             | id | v  | n  |
             | -: | -: | -: |
@@ -7497,7 +7497,7 @@ class Daf:
             <BLANKLINE>
             %% daf rows=3; cols=3; keyfield=''; name=''
             <BLANKLINE>
-            >>> d.select_where(lambda row: row['v'] not in keep)
+            >>> daf.select_where(lambda row: row['v'] not in keep)
             <BLANKLINE>
             | id | v  | n  |
             | -: | -: | -: |
@@ -7505,7 +7505,7 @@ class Daf:
             <BLANKLINE>
             %% daf rows=1; cols=3; keyfield=''; name=''
             <BLANKLINE>
-            >>> d.select_where(lambda row: row['v'] in keep and row['n'] > 15)
+            >>> daf.select_where(lambda row: row['v'] in keep and row['n'] > 15)
             <BLANKLINE>
             | id | v  | n  |
             | -: | -: | -: |
@@ -7514,7 +7514,7 @@ class Daf:
             <BLANKLINE>
             %% daf rows=2; cols=3; keyfield=''; name=''
             <BLANKLINE>
-            >>> d.select_where(lambda row: row['id'] % 2 == 0 or row['v'] == 'c')
+            >>> daf.select_where(lambda row: row['id'] % 2 == 0 or row['v'] == 'c')
             <BLANKLINE>
             | id | v  | n  |
             | -: | -: | -: |
@@ -7529,7 +7529,7 @@ class Daf:
 
             >>> other = Daf(lol=[['a'], ['c']], cols=['v'], keyfield='v')
             >>> other_keys = set(other.keys())
-            >>> d.select_where(lambda row: row['v'] in other_keys)
+            >>> daf.select_where(lambda row: row['v'] in other_keys)
             <BLANKLINE>
             | id | v  | n  |
             | -: | -: | -: |
@@ -7542,7 +7542,7 @@ class Daf:
 
             For a large Daf, the faster form picks the positions from the column:
 
-            >>> d.select_irows([irow for irow, v in enumerate(d.col('v')) if v in keep])
+            >>> daf.select_irows([irow for irow, v in enumerate(daf.col('v')) if v in keep])
             <BLANKLINE>
             | id | v  | n  |
             | -: | -: | -: |
@@ -7608,8 +7608,8 @@ class Daf:
             KeysDisabledError: The Daf has rows and no column names.
 
         Examples:
-            >>> d = Daf(lol=[[1, 'a', 10], [2, 'b', 20], [3, 'c', 30]], cols=['id', 'v', 'n'], keyfield='id')
-            >>> d.select_where_idxs(lambda row: row['n'] > 10)
+            >>> daf = Daf(lol=[[1, 'a', 10], [2, 'b', 20], [3, 'c', 30]], cols=['id', 'v', 'n'], keyfield='id')
+            >>> daf.select_where_idxs(lambda row: row['n'] > 10)
             [1, 2]
         """
 
@@ -7652,8 +7652,8 @@ class Daf:
             KeyError: A key column is not found.
 
         Examples:
-            >>> d = Daf(lol=[[1, 'a'], [2, 'b'], [1, 'c']], cols=['id', 'v'])
-            >>> unique, dups = d.remove_dups('id')
+            >>> daf = Daf(lol=[[1, 'a'], [2, 'b'], [1, 'c']], cols=['id', 'v'])
+            >>> unique, dups = daf.remove_dups('id')
             >>> unique
             <BLANKLINE>
             | id | v  |
@@ -7730,8 +7730,8 @@ class Daf:
             A tuple of the Daf of the rows where the function is true and the Daf of the others.
 
         Examples:
-            >>> d = Daf(lol=[[1, 'a', 10], [2, 'b', 20], [3, 'c', 30]], cols=['id', 'v', 'n'], keyfield='id')
-            >>> big, small = d.split_where(lambda row: row['n'] > 10)
+            >>> daf = Daf(lol=[[1, 'a', 10], [2, 'b', 20], [3, 'c', 30]], cols=['id', 'v', 'n'], keyfield='id')
+            >>> big, small = daf.split_where(lambda row: row['n'] > 10)
             >>> big
             <BLANKLINE>
             | id | v  | n  |
@@ -7826,10 +7826,10 @@ class Daf:
             RuntimeError: The name is empty.
 
         Examples:
-            >>> d = Daf(lol=[[1, 'a', 10], [2, 'b', 20], [3, 'c', 30]], cols=['id', 'v', 'n'], keyfield='id')
-            >>> d.col('v')
+            >>> daf = Daf(lol=[[1, 'a', 10], [2, 'b', 20], [3, 'c', 30]], cols=['id', 'v', 'n'], keyfield='id')
+            >>> daf.col('v')
             ['a', 'b', 'c']
-            >>> d.col('n', astype=str)
+            >>> daf.col('n', astype=str)
             ['10', '20', '30']
         """
 
@@ -7883,17 +7883,17 @@ class Daf:
             RuntimeError: The name is empty.
 
         Examples:
-            >>> d = Daf(lol=[['r1', 'a', 10], ['r2', 'b', ''], ['r3', 'a', 30]], cols=['id', 'v', 'n'], keyfield='id')
+            >>> daf = Daf(lol=[['r1', 'a', 10], ['r2', 'b', ''], ['r3', 'a', 30]], cols=['id', 'v', 'n'], keyfield='id')
 
-            >>> d.col_to_la('v')
+            >>> daf.col_to_la('v')
             ['a', 'b', 'a']
-            >>> d.col_to_la('v', unique=True)
+            >>> daf.col_to_la('v', unique=True)
             ['a', 'b']
-            >>> d.col_to_la('n', omit_nulls=True)
+            >>> daf.col_to_la('n', omit_nulls=True)
             [10, 30]
-            >>> d.col_to_la('n', astype=str)
+            >>> daf.col_to_la('n', astype=str)
             ['10', '', '30']
-            >>> d.col_to_la('zz', silent_error=True)
+            >>> daf.col_to_la('zz', silent_error=True)
             []
         """
 
@@ -7949,10 +7949,10 @@ class Daf:
             IndexError: The position is out of range, for a Daf that has rows.
 
         Examples:
-            >>> d = Daf(lol=[[1, 'a', 10], [2, 'b', 20], [3, 'c', 30]], cols=['id', 'v', 'n'], keyfield='id')
-            >>> d.icol(1)
+            >>> daf = Daf(lol=[[1, 'a', 10], [2, 'b', 20], [3, 'c', 30]], cols=['id', 'v', 'n'], keyfield='id')
+            >>> daf.icol(1)
             ['a', 'b', 'c']
-            >>> d.icol(-1)
+            >>> daf.icol(-1)
             [10, 20, 30]
         """
 
@@ -7978,15 +7978,15 @@ class Daf:
             IndexError: The position is out of range, for a Daf that has rows.
 
         Examples:
-            >>> d = Daf(lol=[['r1', 'a', 10], ['r2', 'b', ''], ['r3', 'a', 30]], cols=['id', 'v', 'n'], keyfield='id')
+            >>> daf = Daf(lol=[['r1', 'a', 10], ['r2', 'b', ''], ['r3', 'a', 30]], cols=['id', 'v', 'n'], keyfield='id')
 
-            >>> d.icol_to_la(1)
+            >>> daf.icol_to_la(1)
             ['a', 'b', 'a']
-            >>> d.icol_to_la(-1)
+            >>> daf.icol_to_la(-1)
             [10, '', 30]
-            >>> d.icol_to_la(1, unique=True)
+            >>> daf.icol_to_la(1, unique=True)
             ['a', 'b']
-            >>> d.icol_to_la(5)
+            >>> daf.icol_to_la(5)
             Traceback (most recent call last):
                 ...
             IndexError: icol: column position 5 is out of range for 3 columns.
@@ -8033,8 +8033,8 @@ class Daf:
             This Daf, which has been changed.
 
         Examples:
-            >>> d = Daf(lol=[[1, 'a', 10], [2, 'b', 20], [3, 'c', 30]], cols=['id', 'v', 'n'], keyfield='id')
-            >>> d.drop_cols(['v']).columns()
+            >>> daf = Daf(lol=[[1, 'a', 10], [2, 'b', 20], [3, 'c', 30]], cols=['id', 'v', 'n'], keyfield='id')
+            >>> daf.drop_cols(['v']).columns()
             ['id', 'n']
         """
 
@@ -8096,10 +8096,10 @@ class Daf:
             KeyError: A name in `cols` is not a column.
 
         Examples:
-            >>> d = Daf(lol=[[1, 'a', 10], [2, 'b', 20], [3, 'c', 30]], cols=['id', 'v', 'n'], keyfield='id')
-            >>> d.select_cols(['n', 'id']).columns()
+            >>> daf = Daf(lol=[[1, 'a', 10], [2, 'b', 20], [3, 'c', 30]], cols=['id', 'v', 'n'], keyfield='id')
+            >>> daf.select_cols(['n', 'id']).columns()
             ['n', 'id']
-            >>> d.select_cols(exclude_cols=['v']).columns()
+            >>> daf.select_cols(exclude_cols=['v']).columns()
             ['id', 'n']
         """
 
@@ -8189,9 +8189,9 @@ class Daf:
             KeysDisabledError: The Daf has no keyfield.
 
         Examples:
-            >>> d = Daf(lol=[[1, 'a', 10], [2, 'b', 20], [3, 'c', 30]], cols=['id', 'v', 'n'], keyfield='id')
-            >>> _ = d.assign_record({'id': 2, 'v': 'new'})
-            >>> d
+            >>> daf = Daf(lol=[[1, 'a', 10], [2, 'b', 20], [3, 'c', 30]], cols=['id', 'v', 'n'], keyfield='id')
+            >>> _ = daf.assign_record({'id': 2, 'v': 'new'})
+            >>> daf
             <BLANKLINE>
             | id |  v  | n  |
             | -: | --: | -: |
@@ -8249,15 +8249,15 @@ class Daf:
             IndexError: A negative position is before the first row, for a Daf that has rows.
 
         Examples:
-            >>> d = Daf(lol=[[1, 'a', 10], [2, 'b', 20], [3, 'c', 30]], cols=['id', 'v', 'n'], keyfield='id')
-            >>> _ = d.assign_record_irow(1, {'v': 'q'})
-            >>> d.iloc(1)
+            >>> daf = Daf(lol=[[1, 'a', 10], [2, 'b', 20], [3, 'c', 30]], cols=['id', 'v', 'n'], keyfield='id')
+            >>> _ = daf.assign_record_irow(1, {'v': 'q'})
+            >>> daf.iloc(1)
             {'id': '', 'v': 'q', 'n': ''}
-            >>> _ = d.assign_record_irow(-1, {'id': 9})
-            >>> d.iloc(-1)
+            >>> _ = daf.assign_record_irow(-1, {'id': 9})
+            >>> daf.iloc(-1)
             {'id': 9, 'v': '', 'n': ''}
-            >>> _ = d.assign_record_irow(record={'id': 10})
-            >>> d.iloc(-1), len(d)
+            >>> _ = daf.assign_record_irow(record={'id': 10})
+            >>> daf.iloc(-1), len(daf)
             ({'id': 10, 'v': '', 'n': ''}, 4)
         """
 
@@ -8295,8 +8295,8 @@ class Daf:
             This Daf, which has been changed. With no keyfield, rows, keys or record, nothing happens.
 
         Examples:
-            >>> d = Daf(lol=[[1, 'a', 10], [2, 'b', 20], [3, 'c', 30]], cols=['id', 'v', 'n'], keyfield='id')
-            >>> d.update_by_keylist([1, 3, 9], {'v': 'q'})
+            >>> daf = Daf(lol=[[1, 'a', 10], [2, 'b', 20], [3, 'c', 30]], cols=['id', 'v', 'n'], keyfield='id')
+            >>> daf.update_by_keylist([1, 3, 9], {'v': 'q'})
             <BLANKLINE>
             | id | v  | n  |
             | -: | -: | -: |
@@ -8345,12 +8345,12 @@ class Daf:
             IndexError: The position is out of range, for a Daf that has rows and columns.
 
         Examples:
-            >>> d = Daf(lol=[[1, 'a', 10], [2, 'b', 20], [3, 'c', 30]], cols=['id', 'v', 'n'], keyfield='id')
-            >>> _ = d.update_record_irow(1, {'v': 'q'})
-            >>> d.iloc(1)
+            >>> daf = Daf(lol=[[1, 'a', 10], [2, 'b', 20], [3, 'c', 30]], cols=['id', 'v', 'n'], keyfield='id')
+            >>> _ = daf.update_record_irow(1, {'v': 'q'})
+            >>> daf.iloc(1)
             {'id': 2, 'v': 'q', 'n': 20}
-            >>> _ = d.update_record_irow(record={'n': 99})
-            >>> d.iloc(-1)
+            >>> _ = daf.update_record_irow(record={'n': 99})
+            >>> daf.iloc(-1)
             {'id': 3, 'v': 'c', 'n': 99}
         """
 
@@ -8400,9 +8400,9 @@ class Daf:
             ValueError: The Daf has no keyfield.
 
         Examples:
-            >>> d = Daf(lol=[[1, 'a', 10], [2, 'b', 20], [3, 'c', 30]], cols=['id', 'v', 'n'], keyfield='id')
-            >>> _ = d.update_record_krow(2, {'v': 'q'})
-            >>> d.select_record(2)
+            >>> daf = Daf(lol=[[1, 'a', 10], [2, 'b', 20], [3, 'c', 30]], cols=['id', 'v', 'n'], keyfield='id')
+            >>> _ = daf.update_record_krow(2, {'v': 'q'})
+            >>> daf.select_record(2)
             {'id': 2, 'v': 'q', 'n': 20}
         """
 
@@ -8448,9 +8448,9 @@ class Daf:
             This Daf, which has been changed.
 
         Examples:
-            >>> d = Daf(lol=[[1, 'a', 10], [2, 'b', 20], [3, 'c', 30]], cols=['id', 'v', 'n'], keyfield='id')
-            >>> _ = d.assign_icol(1, ['x', 'y'], default='D')
-            >>> d.col('v')
+            >>> daf = Daf(lol=[[1, 'a', 10], [2, 'b', 20], [3, 'c', 30]], cols=['id', 'v', 'n'], keyfield='id')
+            >>> _ = daf.assign_icol(1, ['x', 'y'], default='D')
+            >>> daf.col('v')
             ['x', 'y', 'D']
         """
         # from utilities import daf_utils
@@ -8545,8 +8545,8 @@ class Daf:
             This Daf, which has been changed.
 
         Examples:
-            >>> d = Daf(lol=[[1, 'a', 10], [2, 'b', 20], [3, 'c', 30]], cols=['id', 'v', 'n'], keyfield='id')
-            >>> d.insert_icol(1, ['x', 'y', 'z'], colname='new').columns()
+            >>> daf = Daf(lol=[[1, 'a', 10], [2, 'b', 20], [3, 'c', 30]], cols=['id', 'v', 'n'], keyfield='id')
+            >>> daf.insert_icol(1, ['x', 'y', 'z'], colname='new').columns()
             ['id', 'new', 'v', 'n']
         """
 
@@ -8594,8 +8594,8 @@ class Daf:
             TypeError: The row is not a list or a dict. This includes the default, None.
 
         Examples:
-            >>> d = Daf(lol=[[1, 'a', 10], [2, 'b', 20], [3, 'c', 30]], cols=['id', 'v', 'n'], keyfield='id')
-            >>> d.insert_irow(1, {'id': 9, 'v': 'z'})
+            >>> daf = Daf(lol=[[1, 'a', 10], [2, 'b', 20], [3, 'c', 30]], cols=['id', 'v', 'n'], keyfield='id')
+            >>> daf.insert_irow(1, {'id': 9, 'v': 'z'})
             <BLANKLINE>
             | id | v  | n  |
             | -: | -: | -: |
@@ -8648,10 +8648,10 @@ class Daf:
             This Daf, which has been changed.
 
         Examples:
-            >>> d = Daf(lol=[[1, 'a', 10], [2, 'b', 20], [3, 'c', 30]], cols=['id', 'v', 'n'], keyfield='id')
-            >>> d.assign_col('w', default=0).columns()
+            >>> daf = Daf(lol=[[1, 'a', 10], [2, 'b', 20], [3, 'c', 30]], cols=['id', 'v', 'n'], keyfield='id')
+            >>> daf.assign_col('w', default=0).columns()
             ['id', 'v', 'n', 'w']
-            >>> d.col('w')
+            >>> daf.col('w')
             [0, 0, 0]
         """
 
@@ -8700,10 +8700,10 @@ class Daf:
             This Daf, which has been changed.
 
         Examples:
-            >>> d = Daf(lol=[[1, 'a', 10], [2, 'b', 20], [3, 'c', 30]], cols=['id', 'v', 'n'], keyfield='id')
-            >>> d.insert_col('w', ['x', 'y', 'z'], icol=1).columns()
+            >>> daf = Daf(lol=[[1, 'a', 10], [2, 'b', 20], [3, 'c', 30]], cols=['id', 'v', 'n'], keyfield='id')
+            >>> daf.insert_col('w', ['x', 'y', 'z'], icol=1).columns()
             ['id', 'w', 'v', 'n']
-            >>> d.insert_col('k', default=5).col('k')
+            >>> daf.insert_col('k', default=5).col('k')
             [5, 5, 5]
         """
 
@@ -8738,8 +8738,8 @@ class Daf:
             This Daf, which has been changed.
 
         Examples:
-            >>> d = Daf(lol=[[1, 'a', 10], [2, 'b', 20], [3, 'c', 30]], cols=['id', 'v', 'n'], keyfield='id')
-            >>> d.insert_idx_col().col('idx')
+            >>> daf = Daf(lol=[[1, 'a', 10], [2, 'b', 20], [3, 'c', 30]], cols=['id', 'v', 'n'], keyfield='id')
+            >>> daf.insert_idx_col().col('idx')
             [0, 1, 2]
         """
 
@@ -8771,8 +8771,8 @@ class Daf:
             KeyError: The column name is not found.
 
         Examples:
-            >>> d = Daf(lol=[[1, 'a', 10], [2, 'b', 20], [3, 'c', 30]], cols=['id', 'v', 'n'], keyfield='id')
-            >>> d.set_col_irows('v', [0, 2], 'Z').col('v')
+            >>> daf = Daf(lol=[[1, 'a', 10], [2, 'b', 20], [3, 'c', 30]], cols=['id', 'v', 'n'], keyfield='id')
+            >>> daf.set_col_irows('v', [0, 2], 'Z').col('v')
             ['Z', 'b', 'Z']
         """
 
@@ -8801,8 +8801,8 @@ class Daf:
             IndexError: The position is beyond the end of a row.
 
         Examples:
-            >>> d = Daf(lol=[[1, 'a', 10], [2, 'b', 20], [3, 'c', 30]], cols=['id', 'v', 'n'], keyfield='id')
-            >>> d.set_icol(1, 'Z').col('v')
+            >>> daf = Daf(lol=[[1, 'a', 10], [2, 'b', 20], [3, 'c', 30]], cols=['id', 'v', 'n'], keyfield='id')
+            >>> daf.set_icol(1, 'Z').col('v')
             ['Z', 'Z', 'Z']
         """
 
@@ -8831,9 +8831,9 @@ class Daf:
             This Daf, which has been changed.
 
         Examples:
-            >>> d = Daf(lol=[[1, 'a', 10], [2, 'b', 20], [3, 'c', 30]], cols=['id', 'v', 'n'], keyfield='id')
-            >>> _ = d.set_icol_irows(1, [0, 9, -1], 'Z')
-            >>> d.col('v')
+            >>> daf = Daf(lol=[[1, 'a', 10], [2, 'b', 20], [3, 'c', 30]], cols=['id', 'v', 'n'], keyfield='id')
+            >>> _ = daf.set_icol_irows(1, [0, 9, -1], 'Z')
+            >>> daf.col('v')
             ['Z', 'b', 'c']
         """
 
@@ -8869,9 +8869,9 @@ class Daf:
             This Daf, which has been changed.
 
         Examples:
-            >>> d = Daf(lol=[[1, 'a', 10], [2, 'b', 20], [3, 'c', 30]], cols=['id', 'v', 'n'], keyfield='id')
-            >>> _ = d.find_replace(r'^[ab]$', 'HIT')
-            >>> d.col('v')
+            >>> daf = Daf(lol=[[1, 'a', 10], [2, 'b', 20], [3, 'c', 30]], cols=['id', 'v', 'n'], keyfield='id')
+            >>> _ = daf.find_replace(r'^[ab]$', 'HIT')
+            >>> daf.col('v')
             ['HIT', 'HIT', 'c']
         """
 
@@ -8913,8 +8913,8 @@ class Daf:
             TypeError: A column is neither a name nor a position.
 
         Examples:
-            >>> d = Daf(lol=[[1, 'a', 10], [2, 'b', 20], [3, 'c', 30]], cols=['id', 'v', 'n'], keyfield='id')
-            >>> d.replace_in_columns(['v'], ['a', 'c'], '-').col('v')
+            >>> daf = Daf(lol=[[1, 'a', 10], [2, 'b', 20], [3, 'c', 30]], cols=['id', 'v', 'n'], keyfield='id')
+            >>> daf.replace_in_columns(['v'], ['a', 'c'], '-').col('v')
             ['-', 'b', '-']
         """
 
@@ -8976,8 +8976,8 @@ class Daf:
             A list of Daf instances, one for each range.
 
         Examples:
-            >>> d = Daf(lol=[[1, 'a', 10], [2, 'b', 20], [3, 'c', 30]], cols=['id', 'v', 'n'], keyfield='id')
-            >>> parts = d.split_daf_into_ranges([(0, 2), (2, 3)])
+            >>> daf = Daf(lol=[[1, 'a', 10], [2, 'b', 20], [3, 'c', 30]], cols=['id', 'v', 'n'], keyfield='id')
+            >>> parts = daf.split_daf_into_ranges([(0, 2), (2, 3)])
             >>> parts[0]
             <BLANKLINE>
             | id | v  | n  |
@@ -9017,8 +9017,8 @@ class Daf:
             A list of Daf instances.
 
         Examples:
-            >>> d = Daf(lol=[[i] for i in range(7)], cols=['a'])
-            >>> [len(part) for part in d.split_daf_into_chunks_lodaf(3)]
+            >>> daf = Daf(lol=[[i] for i in range(7)], cols=['a'])
+            >>> [len(part) for part in daf.split_daf_into_chunks_lodaf(3)]
             [3, 2, 2]
         """
         # from utilities import daf_utils
@@ -9062,11 +9062,11 @@ class Daf:
             TypeError: The column holds values that cannot be compared, and `as_str` is False.
 
         Examples:
-            >>> d = Daf(lol=[['10'], ['99'], ['8'], ['100']], cols=['a'])
-            >>> d.sort_by_colname('a', length_priority=True).col('a')
+            >>> daf = Daf(lol=[['10'], ['99'], ['8'], ['100']], cols=['a'])
+            >>> daf.sort_by_colname('a', length_priority=True).col('a')
             ['8', '10', '99', '100']
-            >>> d = Daf(lol=[[10], [None], [2], ['']], cols=['n'])
-            >>> d.sort_by_colname('n', as_str=True, length_priority=True).col('n')
+            >>> daf = Daf(lol=[[10], [None], [2], ['']], cols=['n'])
+            >>> daf.sort_by_colname('n', as_str=True, length_priority=True).col('n')
             [None, '', 2, 10]
         """
         if not self or len(self) <= 1:
@@ -9109,8 +9109,8 @@ class Daf:
             TypeError: A column holds values that cannot be compared, and `as_str` is False.
 
         Examples:
-            >>> d = Daf(lol=[[2, 'b'], [1, 'z'], [1, 'a']], cols=['p', 'q'])
-            >>> d.sort_by_colnames(['p', 'q'])
+            >>> daf = Daf(lol=[[2, 'b'], [1, 'z'], [1, 'a']], cols=['p', 'q'])
+            >>> daf.sort_by_colnames(['p', 'q'])
             <BLANKLINE>
             | p  | q  |
             | -: | -: |
@@ -9181,14 +9181,14 @@ class Daf:
             RuntimeError: The shapes differ, or the formulas never settle.
 
         Examples:
-            >>> d = Daf(cols=['A', 'B', 'C'], lol=[[1, 2, 0], [4, 5, 0], [7, 8, 0], [0, 0, 0]])
+            >>> daf = Daf(cols=['A', 'B', 'C'], lol=[[1, 2, 0], [4, 5, 0], [7, 8, 0], [0, 0, 0]])
             >>> f = Daf(cols=['A', 'B', 'C'], lol=[
             ...     ['', '', 'sum($d[$r,:$c])'],
             ...     ['', '', 'sum($d[$r,:$c])'],
             ...     ['', '', 'sum($d[$r,:$c])'],
             ...     ['sum($d[:$r,$c])', 'sum($d[:$r,$c])', 'sum($d[:$r,$c])']])
-            >>> _ = d.apply_formulas(f)
-            >>> d
+            >>> _ = daf.apply_formulas(f)
+            >>> daf
             <BLANKLINE>
             | A  | B  | C  |
             | -: | -: | -: |
@@ -9295,8 +9295,8 @@ class Daf:
             A dict that maps each value of the first column to a list of values of the second.
 
         Examples:
-            >>> d = Daf(lol=[['a', 'b'], ['b', 'd'], ['a', 'f'], ['b', 'd']], cols=['c1', 'c2'])
-            >>> d.cols_to_dol('c1', 'c2')
+            >>> daf = Daf(lol=[['a', 'b'], ['b', 'd'], ['a', 'f'], ['b', 'd']], cols=['c1', 'c2'])
+            >>> daf.cols_to_dol('c1', 'c2')
             {'a': ['b', 'f'], 'b': ['d']}
         """
 
@@ -9351,8 +9351,8 @@ class Daf:
             This Daf, which has been changed.
 
         Examples:
-            >>> d = Daf(lol=[[1, 10], [3, 14], [6, 20]], cols=['a', 'n'])
-            >>> d.insert_dif_row(0)
+            >>> daf = Daf(lol=[[1, 10], [3, 14], [6, 20]], cols=['a', 'n'])
+            >>> daf.insert_dif_row(0)
             <BLANKLINE>
             | a  | n  |
             | -: | -: |
@@ -9403,8 +9403,8 @@ class Daf:
             This Daf, which has been changed.
 
         Examples:
-            >>> d = Daf(lol=[[1, 10], [3, 14], [6, 20]], cols=['a', 'n'])
-            >>> d.insert_dif_rows()
+            >>> daf = Daf(lol=[[1, 10], [3, 14], [6, 20]], cols=['a', 'n'])
+            >>> daf.insert_dif_rows()
             <BLANKLINE>
             | a  | n  |
             | -: | -: |
@@ -9553,8 +9553,8 @@ class Daf:
             NotImplementedError: `by` is `col`, or is not recognized.
 
         Examples:
-            >>> d = Daf(lol=[['a', 1, 10], ['b', 2, 20], ['a', 3, 30]], cols=['g', 'x', 'y'])
-            >>> d.apply(lambda row: {'g': row['g'].upper(), 'z': row['y'] * 2})
+            >>> daf = Daf(lol=[['a', 1, 10], ['b', 2, 20], ['a', 3, 30]], cols=['g', 'x', 'y'])
+            >>> daf.apply(lambda row: {'g': row['g'].upper(), 'z': row['y'] * 2})
             <BLANKLINE>
             | g  | z  |
             | -: | -: |
@@ -9564,7 +9564,7 @@ class Daf:
             <BLANKLINE>
             %% daf rows=3; cols=2; keyfield=''; name=''
             <BLANKLINE>
-            >>> d.apply(lambda row: row if row['y'] > 15 else None)
+            >>> daf.apply(lambda row: row if row['y'] > 15 else None)
             <BLANKLINE>
             | g  | x  | y  |
             | -: | -: | -: |
@@ -9573,7 +9573,7 @@ class Daf:
             <BLANKLINE>
             %% daf rows=2; cols=3; keyfield=''; name=''
             <BLANKLINE>
-            >>> d.apply(lambda row: [{'g': row['g'], 'part': 1}, {'g': row['g'], 'part': 2}] if row['x'] == 2 else None)
+            >>> daf.apply(lambda row: [{'g': row['g'], 'part': 1}, {'g': row['g'], 'part': 2}] if row['x'] == 2 else None)
             <BLANKLINE>
             | g  | part |
             | -: | ---: |
@@ -9632,7 +9632,7 @@ class Daf:
         Update a row with the items of a dict, and return the row.
 
         This is a small helper to use inside `apply()`, as in
-        `d.apply(lambda row: Daf.update_row(row, {'z': 0}))`. It is a static method.
+        `daf.apply(lambda row: Daf.update_row(row, {'z': 0}))`. It is a static method.
 
         Args:
             row: The row, as a dict. It is changed.
@@ -9693,12 +9693,12 @@ class Daf:
             NotImplementedError: `by` is not `row` or `row_klist`.
 
         Examples:
-            >>> d = Daf(lol=[['a', 1, 10], ['b', 2, 20], ['a', 3, 30]], cols=['g', 'x', 'y'])
-            >>> _ = d.apply_in_place(lambda row: {**row, 'y': row['y'] + 1})
-            >>> d.col('y')
+            >>> daf = Daf(lol=[['a', 1, 10], ['b', 2, 20], ['a', 3, 30]], cols=['g', 'x', 'y'])
+            >>> _ = daf.apply_in_place(lambda row: {**row, 'y': row['y'] + 1})
+            >>> daf.col('y')
             [11, 21, 31]
-            >>> _ = d.apply_in_place(lambda row: row.__setitem__('y', 0), by='row_klist')
-            >>> d.col('y')
+            >>> _ = daf.apply_in_place(lambda row: row.__setitem__('y', 0), by='row_klist')
+            >>> daf.col('y')
             [0, 0, 0]
         """
         if rowkeys is None:
@@ -10075,8 +10075,8 @@ class Daf:
             KeyError: The group column, or a name in `cols`, is not a column.
 
         Examples:
-            >>> d = Daf(lol=[['a', 1, 10], ['b', 2, 20], ['a', 3, 30]], cols=['g', 'x', 'y'])
-            >>> groups = d.groupby('g')
+            >>> daf = Daf(lol=[['a', 1, 10], ['b', 2, 20], ['a', 3, 30]], cols=['g', 'x', 'y'])
+            >>> groups = daf.groupby('g')
             >>> list(groups)
             ['a', 'b']
             >>> groups['a']
@@ -10088,7 +10088,7 @@ class Daf:
             <BLANKLINE>
             %% daf rows=2; cols=3; keyfield=''; name=''
             <BLANKLINE>
-            >>> d.groupby('g', cols=['y'])['a']
+            >>> daf.groupby('g', cols=['y'])['a']
             <BLANKLINE>
             | y  |
             | -: |
@@ -10153,10 +10153,10 @@ class Daf:
             KeyError: A name in `colnames` or `cols` is not a column.
 
         Examples:
-            >>> d = Daf(lol=[['a', 1, 10], ['b', 2, 20], ['a', 3, 30]], cols=['g', 'x', 'y'])
-            >>> list(d.groupby_cols(['g']))
+            >>> daf = Daf(lol=[['a', 1, 10], ['b', 2, 20], ['a', 3, 30]], cols=['g', 'x', 'y'])
+            >>> list(daf.groupby_cols(['g']))
             [('a',), ('b',)]
-            >>> d.groupby_cols(['g'], cols=['y'])[('a',)]
+            >>> daf.groupby_cols(['g'], cols=['y'])[('a',)]
             <BLANKLINE>
             | y  |
             | -: |
@@ -10211,8 +10211,8 @@ class Daf:
             A KeyedList that maps each key to a Daf.
 
         Examples:
-            >>> d = Daf(lol=[['a', 1, 10], ['b', 2, 20], ['a', 3, 30]], cols=['g', 'x', 'y'])
-            >>> groups = d.group_where(lambda row: [row['g'], 'all'])
+            >>> daf = Daf(lol=[['a', 1, 10], ['b', 2, 20], ['a', 3, 30]], cols=['g', 'x', 'y'])
+            >>> groups = daf.group_where(lambda row: [row['g'], 'all'])
             >>> {key: len(group) for key, group in groups.items()}
             {'a': 2, 'all': 3, 'b': 1}
         """
@@ -10317,8 +10317,8 @@ class Daf:
             The Daf with one row for each group.
 
         Examples:
-            >>> d = Daf(lol=[['a', 1, 10], ['b', 2, 20], ['a', 3, 30]], cols=['g', 'x', 'y'])
-            >>> d.groupby_cols_reduce(['g'], Daf.sum_da, reduce_cols=['y'])
+            >>> daf = Daf(lol=[['a', 1, 10], ['b', 2, 20], ['a', 3, 30]], cols=['g', 'x', 'y'])
+            >>> daf.groupby_cols_reduce(['g'], Daf.sum_da, reduce_cols=['y'])
             <BLANKLINE>
             | g  | y  |
             | -: | -: |
@@ -10535,8 +10535,8 @@ class Daf:
             The Daf with one row for each group.
 
         Examples:
-            >>> d = Daf(lol=[['a', 1, 10], ['b', 2, 20], ['a', 3, 30]], cols=['g', 'x', 'y'])
-            >>> d.groupby_reduce('g', Daf.sum_da, reduce_cols=['y'])
+            >>> daf = Daf(lol=[['a', 1, 10], ['b', 2, 20], ['a', 3, 30]], cols=['g', 'x', 'y'])
+            >>> daf.groupby_reduce('g', Daf.sum_da, reduce_cols=['y'])
             <BLANKLINE>
             | g  | x  | y  |
             | -: | -: | -: |
@@ -10604,11 +10604,11 @@ class Daf:
             KeyError: A group column, or a name in `colnames`, is not a column.
 
         Examples:
-            >>> d = Daf(lol=[['a', 1, 10], ['b', 2, 20], ['a', 3, 30]], cols=['g', 'x', 'y'])
-            >>> groups = d.multi_groupby(['g', 'x'])
+            >>> daf = Daf(lol=[['a', 1, 10], ['b', 2, 20], ['a', 3, 30]], cols=['g', 'x', 'y'])
+            >>> groups = daf.multi_groupby(['g', 'x'])
             >>> list(groups), list(groups['g'])
             (['g', 'x'], ['a', 'b'])
-            >>> d.multi_groupby(['g'], colnames=['y'])['g']['a']
+            >>> daf.multi_groupby(['g'], colnames=['y'])['g']['a']
             <BLANKLINE>
             | y  |
             | -: |
@@ -10782,8 +10782,8 @@ class Daf:
             A dict that maps each column to its Daf.
 
         Examples:
-            >>> d = Daf(lol=[['a', 1, 10], ['b', 2, 20], ['a', 3, 30]], cols=['g', 'x', 'y'])
-            >>> d.multi_groupby_reduce(['g'], Daf.sum_da, reduce_cols=['y'])['g']
+            >>> daf = Daf(lol=[['a', 1, 10], ['b', 2, 20], ['a', 3, 30]], cols=['g', 'x', 'y'])
+            >>> daf.multi_groupby_reduce(['g'], Daf.sum_da, reduce_cols=['y'])['g']
             <BLANKLINE>
             | g  | x  | y  |
             | -: | -: | -: |
@@ -10848,8 +10848,8 @@ class Daf:
             This Daf, which has been changed.
 
         Examples:
-            >>> d = Daf(lol=[[1, 2], [3, 0]], cols=['a', 'b'])
-            >>> d.apply_colwise('ratio', lambda row: row['a'] / row['b'], default=-1.0)
+            >>> daf = Daf(lol=[[1, 2], [3, 0]], cols=['a', 'b'])
+            >>> daf.apply_colwise('ratio', lambda row: row['a'] / row['b'], default=-1.0)
             <BLANKLINE>
             | a  | b  | ratio |
             | -: | -: | ----: |
@@ -10996,8 +10996,8 @@ class Daf:
             A dict with a total for each column.
 
         Examples:
-            >>> d = Daf(lol=[['a', 1, 10], ['b', 2, 20], ['a', 3, 30]], cols=['g', 'x', 'y'])
-            >>> d.daf_sum(cols=['y'])
+            >>> daf = Daf(lol=[['a', 1, 10], ['b', 2, 20], ['a', 3, 30]], cols=['g', 'x', 'y'])
+            >>> daf.daf_sum(cols=['y'])
             {'g': '', 'x': '', 'y': 60}
         """
 
@@ -11072,8 +11072,8 @@ class Daf:
             NotImplementedError: `by` is not recognized.
 
         Examples:
-            >>> d = Daf(lol=[['a', 1, 10], ['b', 2, 20], ['a', 3, 30]], cols=['g', 'x', 'y'])
-            >>> d.reduce(Daf.sum_da, cols=['x', 'y'])
+            >>> daf = Daf(lol=[['a', 1, 10], ['b', 2, 20], ['a', 3, 30]], cols=['g', 'x', 'y'])
+            >>> daf.reduce(Daf.sum_da, cols=['x', 'y'])
             {'g': '', 'x': 6, 'y': 60}
         """
         if by == 'table':
@@ -11676,8 +11676,8 @@ class Daf:
             not in `cols` is empty.
 
         Examples:
-            >>> d = Daf(lol=[['a', 1, 10], ['b', 2, 20], ['a', 3, 30]], cols=['g', 'x', 'y'])
-            >>> d.daf_valuecount(cols=['g'])['g']
+            >>> daf = Daf(lol=[['a', 1, 10], ['b', 2, 20], ['a', 3, 30]], cols=['g', 'x', 'y'])
+            >>> daf.daf_valuecount(cols=['g'])['g']
             {'a': 2, 'b': 1}
         """
 
@@ -11708,8 +11708,8 @@ class Daf:
             The Daf with one row for each group.
 
         Examples:
-            >>> d = Daf(lol=[['a', 1, 10], ['b', 2, 20], ['a', 3, 30]], cols=['g', 'x', 'y'])
-            >>> d.groupsum_daf('g', reduce_cols=['y'])
+            >>> daf = Daf(lol=[['a', 1, 10], ['b', 2, 20], ['a', 3, 30]], cols=['g', 'x', 'y'])
+            >>> daf.groupsum_daf('g', reduce_cols=['y'])
             <BLANKLINE>
             | g  | x  | y  |
             | -: | -: | -: |
@@ -11751,8 +11751,8 @@ class Daf:
             ValueError: No `colnames` are given.
 
         Examples:
-            >>> d = Daf(lol=[['a', 'x', 1], ['a', 'y', 2], ['b', 'x', 3]], cols=['g', 'k', 'n'])
-            >>> sums = d.multi_groupsum(colnames=['g', 'k'], reduce_cols=['n'])
+            >>> daf = Daf(lol=[['a', 'x', 1], ['a', 'y', 2], ['b', 'x', 3]], cols=['g', 'k', 'n'])
+            >>> sums = daf.multi_groupsum(colnames=['g', 'k'], reduce_cols=['n'])
             >>> sums['g']
             <BLANKLINE>
             | g  | k  | n  |
@@ -11771,7 +11771,7 @@ class Daf:
             <BLANKLINE>
             %% daf rows=2; cols=3; keyfield='k'; name=''
             <BLANKLINE>
-            >>> d.multi_groupsum()
+            >>> daf.multi_groupsum()
             Traceback (most recent call last):
                 ...
             ValueError: multi_groupsum: colnames is required
@@ -11803,9 +11803,9 @@ class Daf:
             This Daf, which has been changed.
 
         Examples:
-            >>> d = Daf(lol=[[1, 'ab12'], [2, 'cd34']], cols=['id', 's'])
-            >>> _ = d.set_col2_from_col1_using_regex_select('s', regex=r'(\d+)')
-            >>> d.col('s')
+            >>> daf = Daf(lol=[[1, 'ab12'], [2, 'cd34']], cols=['id', 's'])
+            >>> _ = daf.set_col2_from_col1_using_regex_select('s', regex=r'(\d+)')
+            >>> daf.col('s')
             ['12', '34']
         """
 
@@ -11852,8 +11852,8 @@ class Daf:
             This Daf, which has been changed.
 
         Examples:
-            >>> d = Daf(lol=[[1, 'ab12']], cols=['id', 's'])
-            >>> d.apply_replace_regex('s', replace_regex='/ab//').col('s')
+            >>> daf = Daf(lol=[[1, 'ab12']], cols=['id', 's'])
+            >>> daf.apply_replace_regex('s', replace_regex='/ab//').col('s')
             ['12']
         """
 
@@ -11907,9 +11907,9 @@ class Daf:
             KeyError: The setting is missing and `silent_error` is False.
 
         Examples:
-            >>> d = Daf(lol=[['04_1'], ['05_2']], cols=['ballot_id'])
+            >>> daf = Daf(lol=[['04_1'], ['05_2']], cols=['ballot_id'])
             >>> spec = {'spec_name': 'a.zip', 'colname': 'ballot_id', 'replace_regex': r'/^04_/14_/'}
-            >>> d.alter_daf_per_setting({'fix': [spec]}, 'fix', {'spec_name': 'a.zip'}).col('ballot_id')
+            >>> daf.alter_daf_per_setting({'fix': [spec]}, 'fix', {'spec_name': 'a.zip'}).col('ballot_id')
             ['14_1', '05_2']
         """
 
@@ -11952,9 +11952,9 @@ class Daf:
             This Daf, which has been changed.
 
         Examples:
-            >>> d = Daf(lol=[['04_1'], ['05_2']], cols=['ballot_id'])
+            >>> daf = Daf(lol=[['04_1'], ['05_2']], cols=['ballot_id'])
             >>> specs = Daf.from_lod([{'colname': 'ballot_id', 'replace_regex': r'/^04_/14_/'}])
-            >>> d.alter_daf_per_alter_specs_daf(specs).col('ballot_id')
+            >>> daf.alter_daf_per_alter_specs_daf(specs).col('ballot_id')
             ['14_1', '05_2']
         """
         for alter_spec_da in alter_specs_daf:
@@ -11979,12 +11979,12 @@ class Daf:
             This Daf, which has been changed.
 
         Examples:
-            >>> d = Daf(lol=[[1, 5], [2, 6]], cols=['a', 'b'])
-            >>> _ = d.apply_to_col('b', lambda value: value * 2)
-            >>> d.col('b')
+            >>> daf = Daf(lol=[[1, 5], [2, 6]], cols=['a', 'b'])
+            >>> _ = daf.apply_to_col('b', lambda value: value * 2)
+            >>> daf.col('b')
             [10, 12]
-            >>> _ = d.apply_to_col('b', lambda value, factor: value * factor, factor=10)
-            >>> d.col('b')
+            >>> _ = daf.apply_to_col('b', lambda value, factor: value * factor, factor=10)
+            >>> daf.col('b')
             [100, 120]
         """
 
@@ -12432,8 +12432,8 @@ class Daf:
             A dict that maps each value to its count.
 
         Examples:
-            >>> d = Daf(lol=[['a'], ['b'], ['a'], ['']], cols=['g'])
-            >>> d.valuecounts_for_colname('g', sort=True, omit_nulls=True)
+            >>> daf = Daf(lol=[['a'], ['b'], ['a'], ['']], cols=['g'])
+            >>> daf.valuecounts_for_colname('g', sort=True, omit_nulls=True)
             {'a': 2, 'b': 1}
         """
 
@@ -12480,8 +12480,8 @@ class Daf:
             A dict that maps each column to a dict of value and count.
 
         Examples:
-            >>> d = Daf(lol=[['a', 'x'], ['b', 'x']], cols=['g', 'h'])
-            >>> d.valuecounts_for_colnames_ls()
+            >>> daf = Daf(lol=[['a', 'x'], ['b', 'x']], cols=['g', 'h'])
+            >>> daf.valuecounts_for_colnames_ls()
             {'g': {'a': 1, 'b': 1}, 'h': {'x': 2}}
         """
 
@@ -12521,8 +12521,8 @@ class Daf:
             A dict that maps each value to its count. It is empty if a column does not exist.
 
         Examples:
-            >>> d = Daf(lol=[['a', 'x'], ['b', 'x'], ['a', 'y']], cols=['g', 'h'])
-            >>> d.valuecounts_for_colname_selectedby_colname('g', 'h', 'x')
+            >>> daf = Daf(lol=[['a', 'x'], ['b', 'x'], ['a', 'y']], cols=['g', 'h'])
+            >>> daf.valuecounts_for_colname_selectedby_colname('g', 'h', 'x')
             {'a': 1, 'b': 1}
         """
 
@@ -12574,10 +12574,10 @@ class Daf:
             A dict that maps each column to a dict of value and count.
 
         Examples:
-            >>> d = Daf(lol=[['a', 'x', 1], ['a', 'y', 2], ['b', 'x', 3]], cols=['g', 'k', 'n'])
-            >>> d.valuecounts_for_colnames_ls_selectedby_colname(['k'], 'g', 'a')
+            >>> daf = Daf(lol=[['a', 'x', 1], ['a', 'y', 2], ['b', 'x', 3]], cols=['g', 'k', 'n'])
+            >>> daf.valuecounts_for_colnames_ls_selectedby_colname(['k'], 'g', 'a')
             {'k': {'x': 1, 'y': 1}}
-            >>> d.valuecounts_for_colnames_ls_selectedby_colname(['g', 'k'], 'g', 'a')
+            >>> daf.valuecounts_for_colnames_ls_selectedby_colname(['g', 'k'], 'g', 'a')
             {'g': {'a': 2}, 'k': {'x': 1, 'y': 1}}
         """
 
@@ -12625,8 +12625,8 @@ class Daf:
             A dict that maps each value of the second column to a dict of value and count.
 
         Examples:
-            >>> d = Daf(lol=[['a', 'x'], ['b', 'x'], ['a', 'y']], cols=['g', 'h'])
-            >>> d.valuecounts_for_colname1_groupedby_colname2('g', 'h')
+            >>> daf = Daf(lol=[['a', 'x'], ['b', 'x'], ['a', 'y']], cols=['g', 'h'])
+            >>> daf.valuecounts_for_colname1_groupedby_colname2('g', 'h')
             {'x': {'a': 1, 'b': 1}, 'y': {'a': 1}}
         """
 
@@ -12684,8 +12684,8 @@ class Daf:
             NotImplementedError: A profile is not one of the five.
 
         Examples:
-            >>> d = Daf(lol=[[1], [3]], cols=['n'])
-            >>> d.gen_stats_daf([('n', int, '', 'scalar')])['n']['mean']
+            >>> daf = Daf(lol=[[1], [3]], cols=['n'])
+            >>> daf.gen_stats_daf([('n', int, '', 'scalar')])['n']['mean']
             2
         """
 
@@ -12730,8 +12730,8 @@ class Daf:
             ValueError: A row is not as long as the columns.
 
         Examples:
-            >>> d = Daf(lol=[[1, 'a'], [2, 'b']], cols=['id', 'v'])
-            >>> d.transpose(include_header=True)
+            >>> daf = Daf(lol=[[1, 'a'], [2, 'b']], cols=['id', 'v'])
+            >>> daf.transpose(include_header=True)
             <BLANKLINE>
             | key | A  | B  |
             | --: | -: | -: |
@@ -12740,9 +12740,9 @@ class Daf:
             <BLANKLINE>
             %% daf rows=2; cols=3; keyfield=''; name=''
             <BLANKLINE>
-            >>> d.transpose().columns()
+            >>> daf.transpose().columns()
             ['A', 'B']
-            >>> d.transpose(include_header=True).columns()
+            >>> daf.transpose(include_header=True).columns()
             ['key', 'A', 'B']
         """
 
@@ -13263,8 +13263,8 @@ class Daf:
             TypeError: `id_cols` is not a list.
 
         Examples:
-            >>> d = Daf(lol=[['x', 1, 2], ['y', 3, 4]], cols=['id', 'a', 'b'])
-            >>> d.wide_to_narrow(['id'])
+            >>> daf = Daf(lol=[['x', 1, 2], ['y', 3, 4]], cols=['id', 'a', 'b'])
+            >>> daf.wide_to_narrow(['id'])
             <BLANKLINE>
             | id | variable | value |
             | -: | -------: | ----: |
@@ -13278,7 +13278,7 @@ class Daf:
 
             A round trip:
 
-            >>> d.wide_to_narrow(['id']).narrow_to_wide(['id']).lol
+            >>> daf.wide_to_narrow(['id']).narrow_to_wide(['id']).lol
             [['x', 1, 2], ['y', 3, 4]]
         """
         if not isinstance(id_cols, list):
@@ -13333,8 +13333,8 @@ class Daf:
             The new Daf.
 
         Examples:
-            >>> d = Daf(lol=[['x', 'a', 1], ['y', 'a', 3], ['x', 'b', 2], ['y', 'b', 4]], cols=['id', 'variable', 'value'])
-            >>> d.narrow_to_wide(['id'])
+            >>> daf = Daf(lol=[['x', 'a', 1], ['y', 'a', 3], ['x', 'b', 2], ['y', 'b', 4]], cols=['id', 'variable', 'value'])
+            >>> daf.narrow_to_wide(['id'])
             <BLANKLINE>
             | id | a  | b  |
             | -: | -: | -: |
@@ -13343,7 +13343,7 @@ class Daf:
             <BLANKLINE>
             %% daf rows=2; cols=3; keyfield=''; name=''
             <BLANKLINE>
-            >>> d.narrow_to_wide(['id'], wide_cols=['b', 'a'])
+            >>> daf.narrow_to_wide(['id'], wide_cols=['b', 'a'])
             <BLANKLINE>
             | id | b  | a  |
             | -: | -: | -: |
@@ -13402,8 +13402,8 @@ class Daf:
             The Markdown text.
 
         Examples:
-            >>> d = Daf(lol=[[1, 'a'], [2, 'b']], cols=['x', 'y'])
-            >>> print(d.md_daf_table_snippet(), end='')
+            >>> daf = Daf(lol=[[1, 'a'], [2, 'b']], cols=['x', 'y'])
+            >>> print(daf.md_daf_table_snippet(), end='')
             | x  | y  |
             | -: | -: |
             |  1 |  a |
@@ -13473,8 +13473,8 @@ class Daf:
             The Markdown text.
 
         Examples:
-            >>> d = Daf(lol=[[1, 'a'], [2, 'b']], cols=['id', 'v'])
-            >>> print(d.to_md())
+            >>> daf = Daf(lol=[[1, 'a'], [2, 'b']], cols=['id', 'v'])
+            >>> print(daf.to_md())
             | id | v  |
             | -: | -: |
             |  1 |  a |
@@ -13567,8 +13567,8 @@ class Daf:
             The Markdown text.
 
         Examples:
-            >>> d = Daf(lol=[[1, 'a'], [2, 'b']], cols=['x', 'y'])
-            >>> print(d.to_md_cols(), end='')
+            >>> daf = Daf(lol=[[1, 'a'], [2, 'b']], cols=['x', 'y'])
+            >>> print(daf.to_md_cols(), end='')
             | x  | 1  | 2  |
             | y  | a  | b  |
         """
@@ -13618,8 +13618,8 @@ class Daf:
             The rows, with a header row first if there are column names.
 
         Examples:
-            >>> d = Daf(lol=[[1, 'a'], [2, 'b']], cols=['x', 'y'])
-            >>> d.daf_to_lol_summary()
+            >>> daf = Daf(lol=[[1, 'a'], [2, 'b']], cols=['x', 'y'])
+            >>> daf.daf_to_lol_summary()
             [['x', 'y'], [1, 'a'], [2, 'b']]
             >>> big = Daf(lol=[[i, i] for i in range(20)], cols=['x', 'y'])
             >>> big.daf_to_lol_summary(max_rows=4)
@@ -13721,8 +13721,8 @@ class Daf:
             The new Daf.
 
         Examples:
-            >>> d = Daf(lol=[['a'], ['b'], ['a']], cols=['g'])
-            >>> d.value_counts_daf('g', sort=True)
+            >>> daf = Daf(lol=[['a'], ['b'], ['a']], cols=['g'])
+            >>> daf.value_counts_daf('g', sort=True)
             <BLANKLINE>
             | g  | counts |
             | -: | -----: |
