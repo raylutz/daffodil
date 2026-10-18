@@ -3849,6 +3849,15 @@ class Daf:
             %% daf rows=2; cols=2; keyfield=''; name=''
             <BLANKLINE>
             >>> daf = Daf.from_csv_buff('id,v\n1,a\n2\n')
+            >>> daf
+            <BLANKLINE>
+            | id | v  |
+            | -: | -: |
+            |  1 |  a |
+            |  2 |    |
+            <BLANKLINE>
+            %% daf rows=2; cols=2; keyfield=''; name=''
+            <BLANKLINE>
             >>> daf.is_rectangular()
             False
             >>> daf.force_rectangular()

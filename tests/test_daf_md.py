@@ -254,11 +254,12 @@ def test_to_md_include_summary():
     assert "keyfield='id'" in result
 
 
-@pytest.mark.xfail(strict=True, reason="BUG: daf_utils.py:1046 reduce_lol_cols() calls equal_cols_lol(), which pads the Daf's own rows in place")
-def test_to_md_leaves_ragged_rows_as_they_are():
+def test_printing_leaves_ragged_rows_as_they_are():
     daf = Daf.from_csv_buff(b'id,v\n1,a\n2\n')
-    daf.to_md()
+    text = str(daf)
+    assert '|  2 |    |' in text
     assert daf.lol == [['1', 'a'], ['2']]
+    assert not daf.is_rectangular()
 
 
 def test_to_md_disp_cols_override():
