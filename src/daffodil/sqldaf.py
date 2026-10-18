@@ -91,6 +91,7 @@ def is_value_sql(col: str, val: Any) -> Tuple[str, Tuple[Any, ...]]:
 
 #===================================
 # Python aggregates for groupby_aggregate()
+# Research, trials and timings: notes/engineering_notebook/2026-10-18_1428_sqldaf_group_reductions.md
 
 ARRAY_CHUNK: int = 100                  # the columns in one json_array() call. SQLite 3.37 allows 127 arguments.
 
