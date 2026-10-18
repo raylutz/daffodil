@@ -147,6 +147,28 @@ Tested in a scratch venv of Python 3.11.11, whose own sqlite3 has SQLite 3.37.2,
   - This narrows the Q219 exception. SQLite reads such PYON as it is, so pure JSON is not needed there.
 - Daffodil is pure Python. Either driver would be a compiled dependency, best kept optional.
 
+## Step 15 in SQL alone
+
+Tried on 2026-10-18, SF sheet1, SQLite 3.51.1. The box was busy, so these times run higher than the table above.
+
+- The contest votes that step 15 merges are already pure JSON. `split_contests()` writes them so.
+  So JSON5 changes nothing here. `json_each` read them on SQLite 3.37 too.
+- AuditEngine's sql_variants.py merges them in SQL, by `json_group_object()` over `json_each`.
+- The same in one query, with the order inside the call, which needs 3.44:
+  ```sql
+  SELECT ballot_id,
+         json_group_object(j.key, j.value ORDER BY cidx) AS concise_votes,
+         SUM(j.key GLOB 'c[0-9]*b') AS num_contests
+  FROM nonvariant_contests CROSS JOIN json_each(concise_votes) AS j
+  GROUP BY ballot_id
+  ```
+- Same text for all 3,795 ballots as `groupby_aggregate(update_da)`, key order included.
+  The GLOB count matches `num_contests_of()` on every ballot.
+- Times, 3 runs each: the query with the count 0.24 to 0.33 s. The aggregate with the num_contests
+  pass 0.55 to 0.65 s. The aggregate alone 0.37 to 0.42 s.
+- No SqlDaf method merges dicts by group in SQL. The only route is `sql()`, which returns a Daf
+  in memory. Q248.
+
 ## Moving to a newer SQLite
 
 Checked on 2026-10-18 against the SQLite change log and by running both versions.
