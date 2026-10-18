@@ -167,7 +167,9 @@ Tried on 2026-10-18, SF sheet1, SQLite 3.51.1. The box was busy, so these times 
 - Times, 3 runs each: the query with the count 0.24 to 0.33 s. The aggregate with the num_contests
   pass 0.55 to 0.65 s. The aggregate alone 0.37 to 0.42 s.
 - No SqlDaf method merges dicts by group in SQL. The only route is `sql()`, which returns a Daf
-  in memory. Q248.
+  in memory.
+- Decided, Q248: keep the aggregate. The saving is about 0.3 s, and the faster routes leave
+  SqlDaf's methods or need a new one.
 
 ## Moving to a newer SQLite
 
