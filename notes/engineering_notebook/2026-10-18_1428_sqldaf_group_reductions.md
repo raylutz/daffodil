@@ -136,6 +136,29 @@ Tested in a scratch venv of Python 3.11.11, whose own sqlite3 has SQLite 3.37.2,
   So JSON5 is a capability, not a speed gain.
 - Daffodil is pure Python. Either driver would be a compiled dependency, best kept optional.
 
+## Moving to a newer SQLite
+
+Checked on 2026-10-18 against the SQLite change log and by running both versions.
+
+- What we use, by the version that brings it: JSON5 input 3.42, ORDER BY inside an aggregate 3.44,
+  JSONB 3.45, 1000 function arguments 3.48. So 3.48 is the lowest version that covers all of it.
+- The file format did not change. Old and new versions read each other's files, unless JSONB is
+  stored or a new schema feature is used.
+- Float SUM totals differ: 3.53.1 gave 2.0 where 3.37.2 and Python gave 0.0, on
+  ten 0.1s, 1e16, 1.0 and -1e16. Integer totals are the same.
+- 3.53 writes a float as text with 17 digits by CAST, where 3.37 wrote 15.
+  `CAST(1.0/3 AS TEXT)` is '0.33333333333333332' on 3.53.1 and '0.333333333333333' on 3.37.2.
+  Python's str() gives '0.3333333333333333'. This touches `sort_by_colnames(as_str=True)` on a float column.
+- `json_array()` still writes 15 digits on 3.53.1.
+
+### Bug: floats lose digits in packed rows
+
+`packed_row_sql()` packs a row by `json_array()`, which writes a float with 15 digits on both versions.
+So `groupby_aggregate()` with several columns, and `groupby_reduce(by='row')`, reduce rounded floats.
+0.1 + 0.2 arrives as 0.3. The SF check did not show it, since those columns hold integers.
+`printf('%!.17g')` inside `json()` is exact on 3.53, but on 3.37 infinity gives 9e999, which its JSON rejects.
+Passing the cells as direct arguments, up to 127 of them, avoids JSON for the common case.
+
 ## Rejected or set aside
 
 - **Writers that turn dict cells into JSON.** Too slow, and seldom needed (Q240).
