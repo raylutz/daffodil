@@ -2685,8 +2685,7 @@ class SqlDaf(Daf):
         - With `by='sparse_row'`, the function gets the dict held in the cell of `indirect_col`.
           Its `cols` is `reduce_cols`, and the reduction starts as an empty dict.
 
-        For totals of columns that hold only numbers, `groupby_aggregate()` with `func='sum'` is
-        several times faster.
+        For totals of columns that hold only numbers, `groupsum_daf()` adds them in SQL, several times faster.
 
         The new table has a row for each value of the column, with the column as its keyfield.
         With `by='row'` it has the columns of this table. The columns not reduced are empty.
@@ -2766,7 +2765,7 @@ class SqlDaf(Daf):
     def groupby_aggregate(
             self,
             groupby_cols:   str | T_ls,                 # the column, or columns, to group by.
-            func:           Callable[..., Any] | str,   # reduces the rows of a group, as in Daf.reduce(). Or 'sum'.
+            func:           Callable[..., Any],         # reduces the rows of a group, as in Daf.reduce().
             reduce_cols:    str | T_ls,                 # the columns given to the function.
             result_cols:    T_ls | None = None,         # the columns of the result. reduce_cols if None.
             diagnose:       bool = False,               # if True, show the query and the first results.
@@ -2803,24 +2802,13 @@ class SqlDaf(Daf):
         With one grouping column, it is the keyfield. The table is a TEMP table, as `copy()` makes.
         Keep it with `save(name)`.
 
-        **Totals in SQL.** With `func='sum'`, each result column is the total of that column,
-        added by SQL's own `SUM()`, with no Python call.
-        It is for columns that hold only numbers and empty cells, and it is several times faster.
-        It gives the totals of `Daf.sum_da`, with three differences:
-
-        - A number stored as text, such as '3', is skipped, as `sum_da` skips text.
-          A table read from CSV may hold numbers as text. Convert such a column first.
-        - SQLite 3.43 and later add floats more exactly than Python does.
-          So a total of floats may differ from `sum_da` in its last digits.
-        - A total of integers over 2**63 raises an overflow error.
-
-        A group with no numbers has a total of 0.
+        For totals of columns that hold only numbers, `groupsum_daf()` adds them in SQL, several times faster.
 
         An error in the function is raised as itself, not as the short error SQLite reports.
 
         Args:
             groupby_cols: The column, or columns, to group by.
-            func: The reduction function, such as `Daf.sum_da`, or `sum` for totals in SQL.
+            func: The reduction function, such as `Daf.sum_da`.
             reduce_cols: The columns given to the function.
             result_cols: The columns of the result, filled from the reduction. `reduce_cols` if None.
             diagnose: If True, show the query and the first rows of the result.
@@ -2849,8 +2837,6 @@ class SqlDaf(Daf):
         for col in group_cols_ls + reduce_cols_ls:
             if col not in self.hd:
                 raise KeyError(col)
-        if func == 'sum':
-            return self._sum_groups(group_cols_ls, result_cols_ls, diagnose)
 
         # The aggregate, by the number of columns.
         agg_cls: Type[Any]
@@ -2874,48 +2860,6 @@ class SqlDaf(Daf):
             arg_sql = packed_row_sql(read_cols_ls)
         return self._aggregate_groups(group_cols_ls, agg_cls, arg_sql, result_cols_ls,
                                       group_cols_ls + result_cols_ls, 'groupby_aggregate', diagnose)
-
-
-    def _sum_groups(
-            self,
-            group_cols:     T_ls,                       # the columns to group by.
-            sum_cols:       T_ls,                       # the columns to total.
-            diagnose:       bool,                       # if True, show the query and the first results.
-            ) -> 'SqlDaf':
-        """
-        Make a new table of the totals of each group, added by SQL. Internal use.
-
-        Only integers and floats are added, so text and empty cells are skipped, as `Daf.sum_da` skips them.
-        A group with nothing to add has a total of 0.
-        """
-        col: str
-        for col in sum_cols:
-            if col not in self.hd:
-                raise KeyError(col)
-        self._resolve()
-        rows_sql, rows_params = self._rows_sql()
-        group_names_ls: T_ls = [f'daf_g{idx}' for idx in range(len(group_cols))]
-        groups_sql: str = ', '.join(f'{value_sql(col)} AS {name}' for col, name in zip(group_cols, group_names_ls))
-        names_sql: str = ', '.join(group_names_ls)
-        sums_sql: str = ', '.join(f"COALESCE(SUM(CASE WHEN typeof({quote_name(col)}) IN ('integer', 'real') "
-                                  f"THEN {quote_name(col)} END), 0)" for col in sum_cols)
-        out_cols_ls: T_ls = group_cols + sum_cols
-        selected_sql: str = f'{groups_sql}, {sums_sql}' if sum_cols else groups_sql
-        target: str = self._next_temp_name((self.parent_sdaf or self).name)
-        insert_sql: str = (f'INSERT INTO temp.{quote_name(target)} ({", ".join(quote_name(col) for col in out_cols_ls)}) '
-                           f'SELECT {selected_sql} FROM ({rows_sql}) GROUP BY {names_sql} ORDER BY {names_sql}')
-        if diagnose:
-            daf_utils.sts(f"groupby_aggregate({group_cols}, 'sum'): {insert_sql}", 3)
-
-        # The new table, filled by the one query.
-        with self.transaction():
-            self._execute(_create_table_sql(self.conn, target, out_cols_ls, 'temp'))
-            self._execute(insert_sql, rows_params)
-        keyfield: str = group_cols[0] if len(group_cols) == 1 else ''
-        result_sdaf: SqlDaf = self._new_on_conn(target, keyfield, None, is_temp=True)
-        if diagnose:
-            daf_utils.sts(f"groupby_aggregate({group_cols}, 'sum'): {len(result_sdaf)} groups. First:\n{result_sdaf.head(3)}", 3)
-        return result_sdaf
 
 
     def _aggregate_groups(

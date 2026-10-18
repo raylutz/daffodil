@@ -722,23 +722,25 @@ def precinct_sums_sdaf(
     The totals of sumcols_ls for each precinct, as nonvariant_precinct_sums_dodi.
 
     The rows are grouped by precinct and reduced inside SQLite, by groupby_aggregate().
-    The direct columns hold numbers, so SQL totals them, with func='sum'.
+    The direct columns hold numbers, so SQL totals them, by groupsum_daf().
     The other columns are keys of concise_votes, totaled from the dict in each row.
     A key that no row of a precinct has is None, as SQL SUM() gives it.
     """
-    # The two reductions, each one table with a row for each precinct.
-    direct_sdaf: SqlDaf = rows_sdaf.groupby_aggregate(precinct_col, 'sum', direct_cols_ls, diagnose=diagnose)
-    logs.stsloc(f"Precinct sums: {len(direct_sdaf)} precincts of direct sums", 3)
+    # The two reductions, each with a row for each precinct.
+    direct_daf: Daf = rows_sdaf.groupsum_daf(precinct_col, reduce_cols=direct_cols_ls)
+    logs.stsloc(f"Precinct sums: {len(direct_daf)} precincts of direct sums", 3)
     indirect_sdaf: SqlDaf = rows_sdaf.groupby_aggregate(precinct_col, Daf.sum_da, 'concise_votes', diagnose=diagnose)
     logs.stsloc(f"Precinct sums: {len(indirect_sdaf)} precincts of concise_votes sums", 3)
 
     # The totals of each precinct, in the form of reduce_nonvariants().
-    indirect_dodi: T_dodi = {row_da[precinct_col]: decoded_votes(row_da['concise_votes']) for row_da in indirect_sdaf.iter_dict()}
+    # The precincts come in sorted order, as the concise sums give them.
+    direct_doda: Dict[str, T_da] = {row_da[precinct_col]: row_da for row_da in direct_daf.iter_dict()}
     sums_dodi: T_dodi = {}
     row_da: T_da
-    for row_da in direct_sdaf.iter_dict():
-        precinct: str = row_da[precinct_col]
-        votes_di: T_di = indirect_dodi[precinct]
+    for votes_row_da in indirect_sdaf.iter_dict():
+        precinct: str = votes_row_da[precinct_col]
+        votes_di: T_di = decoded_votes(votes_row_da['concise_votes'])
+        row_da = direct_doda[precinct]
         sums_di: T_di = {}
         col: str
         for col in sumcols_ls:

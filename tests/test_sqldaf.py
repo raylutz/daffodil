@@ -1068,30 +1068,6 @@ def test_groupby_aggregate_of_a_selection():
     assert selected_sdaf.groupby_aggregate('g', Daf.sum_da, 'x').to_daf().lol == [['', 4], ['b1', 7], ['b2', 8]]
 
 
-SUM_DAF = Daf(lol=[['a', 'p', 1, 1.5], ['a', 'p', 2, ''], ['a', 'q', 4, '3'], ['b', 'p', 8, ''], ['', 'p', 16, 0.25]],
-              cols=['g', 'h', 'x', 'y'])
-
-
-def test_groupby_aggregate_sum_in_sql_matches_sum_da():
-    """ The totals of sum_da: text and empty cells are skipped, and a group with no numbers totals 0. """
-    rows_sdaf: SqlDaf = SqlDaf.from_daf(SUM_DAF, name='rows')
-    sql_sdaf: SqlDaf = rows_sdaf.groupby_aggregate('g', 'sum', ['x', 'y'])
-    assert sql_sdaf.columns() == ['g', 'x', 'y']
-    assert sql_sdaf.keyfield == 'g'
-    assert sql_sdaf.to_daf().lol == [['', 16, 0.25], ['a', 7, 1.5], ['b', 8, 0]]
-    assert sql_sdaf.to_daf().lol == rows_sdaf.groupby_aggregate('g', Daf.sum_da, ['x', 'y']).to_daf().lol
-
-
-def test_groupby_aggregate_sum_in_sql_by_two_columns_and_bad_names():
-    rows_sdaf: SqlDaf = SqlDaf.from_daf(SUM_DAF, name='rows')
-    assert rows_sdaf.groupby_aggregate(['g', 'h'], 'sum', 'x').to_daf().lol == [
-            ['', 'p', 16], ['a', 'p', 3], ['a', 'q', 4], ['b', 'p', 8]]
-    with pytest.raises(KeyError):
-        rows_sdaf.groupby_aggregate('g', 'sum', 'nope')
-    with pytest.raises(KeyError):
-        rows_sdaf.groupby_aggregate('g', 'sum', 'x', result_cols=['nope'])
-
-
 def test_groupby_cols_keys_are_tuples_and_bad_names_raise():
     bif_sdaf: SqlDaf = SqlDaf.from_daf(make_bif_daf(), name='bif')
     assert list(bif_sdaf.groupby_cols(['precinct']).keys()) == [('P1',), ('P2',), ('P3',)]
