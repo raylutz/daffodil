@@ -1033,6 +1033,20 @@ def profile_ls_to_lr(
     return result_lr
             
 
+def pad_ragged_lol(lol: T_lola) -> T_lola:
+    """
+    Pad the short rows of a lol to the longest, for display.
+
+    A short row is padded with '' as a copy. The rows of the lol are not changed.
+    A row that is already the longest is the same list, not a copy.
+    So a ragged Daf stays ragged when it is printed.
+    """
+    num_cols: int = max((len(row_la) for row_la in lol), default=0)
+    padded_lol: T_lola = [row_la if len(row_la) == num_cols else row_la + [''] * (num_cols - len(row_la))
+                          for row_la in lol]
+    return padded_lol
+
+
 def reduce_lol_cols(lol: T_lola, max_cols:int=10, divider_str: str='...') -> T_lola:
     """ if input lol is over max_cols, display only max_cols//2 first_cols, a divider col, then same number of last_cols 
     
@@ -1043,10 +1057,8 @@ def reduce_lol_cols(lol: T_lola, max_cols:int=10, divider_str: str='...') -> T_l
     if not max_cols or not lol:
         return lol
         
-    # A short row is padded as a copy, so a ragged Daf stays as it is when printed.
-    num_cols: int = max(len(row_la) for row_la in lol)
-    lol = [row_la if len(row_la) == num_cols else row_la + [''] * (num_cols - len(row_la))
-           for row_la in lol]
+    lol = pad_ragged_lol(lol)
+    num_cols: int = len(lol[0])
 
     if num_cols <= max_cols:
         return lol

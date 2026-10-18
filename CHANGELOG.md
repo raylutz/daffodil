@@ -14,6 +14,8 @@ all prior releases. Plans for future moved to ROADMAP.md.
 - Docstring examples name a Daf `daf`, not `d`, as CLAUDE.md asks. 425 names changed in the examples, and 2 in the text.
 - The docs build loads a hook, notes/scripts/mkdocs_hooks.py. It shows the `<BLANKLINE>` of a doctest as a blank line on the Guide pages, as mkdocstrings already does on the API pages.
 
+- `to_md()` with no limits shows a ragged Daf, with its short rows padded as copies. Before, it raised RuntimeError from `transpose_lol()`. The Daf is not changed. With `include_summary`, as in print, the summary line ends with `ragged rows detected`. `from_md()` skips that part, and reads the table back as rectangular. The padding is in `pad_ragged_lol()` in daf_utils.py, which printing also uses. Ray decided this on 2026-10-18, Q251.
+
 ### Fixed
 - Printing a ragged Daf no longer pads its short rows. `reduce_lol_cols()` said it did not alter the lol, but it called `equal_cols_lol()`, which pads in place. So printing made a ragged Daf rectangular. It now pads copies of the short rows only. The table looks the same. Ray decided this on 2026-10-18, Q250. The test is in tests/test_daf_md.py.
 

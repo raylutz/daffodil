@@ -3856,7 +3856,7 @@ class Daf:
             |  1 |  a |
             |  2 |    |
             <BLANKLINE>
-            %% daf rows=2; cols=2; keyfield=''; name=''
+            %% daf rows=2; cols=2; keyfield=''; name=''; ragged rows detected
             <BLANKLINE>
             >>> daf.is_rectangular()
             False
@@ -14880,6 +14880,11 @@ class Daf:
         right. With no column names, `A`, `B` and so on are used. With `include_summary`,
         the Markdown can be read back with `from_md()`, as text.
 
+        A ragged Daf, with rows of different lengths, is shown with its short rows padded
+        with blank cells. The Daf itself is not changed. With `include_summary`, the summary
+        line ends with `ragged rows detected`. `from_md()` reads such a table back as
+        rectangular.
+
         Use `max_rows` and `max_cols` together, or neither. With only `max_cols`, a row of
         `...` is added under the header by mistake.
 
@@ -14951,6 +14956,8 @@ class Daf:
             schema = self.attrs.get('schema')
             if schema:
                 parts.append(f"schema='{schema}'")
+            if not self.is_rectangular():
+                parts.append("ragged rows detected")
 
             mdstr += "\n%% daf " + "; ".join(parts) + "\n"
 
@@ -15092,9 +15099,9 @@ class Daf:
         if colnames_ls:
             result_lol = [colnames_ls] + result_lol
 
-        # no limits, return summary.
+        # no limits, return summary. A ragged Daf is shown with its short rows padded, as copies.
         if not max_rows and not max_cols:
-            return result_lol
+            return daf_utils.pad_ragged_lol(result_lol)
 
         num_rows    = self.num_rows()
         num_cols    = self.num_cols()
