@@ -262,6 +262,32 @@ def test_printing_leaves_ragged_rows_as_they_are():
     assert not daf.is_rectangular()
 
 
+def test_to_md_shows_a_ragged_daf_without_changing_it():
+    daf = Daf.from_csv_buff(b'id,v\n1,a\n2\n')
+    assert daf.to_md() == "| id | v  |\n| -: | -: |\n|  1 |  a |\n|  2 |    |\n"
+    assert daf.lol == [['1', 'a'], ['2']]
+
+
+def test_to_md_shows_a_row_longer_than_the_header():
+    daf = Daf(lol=[[1, 2, 3], [4]], cols=['a', 'b'])
+    assert daf.to_md() == "| a  | b  |    |\n| -: | -: | -: |\n|  1 |  2 |  3 |\n|  4 |    |    |\n"
+    assert daf.lol == [[1, 2, 3], [4]]
+
+
+def test_to_md_summary_says_ragged_rows_detected_only_when_ragged():
+    ragged_daf = Daf.from_csv_buff(b'id,v\n1,a\n2\n')
+    even_daf = Daf.from_csv_buff(b'id,v\n1,a\n2,b\n')
+    assert ragged_daf.to_md(include_summary=True).endswith("name=''; ragged rows detected\n")
+    assert 'ragged' not in even_daf.to_md(include_summary=True)
+
+
+def test_from_md_reads_a_ragged_table_back_as_rectangular():
+    daf = Daf.from_csv_buff(b'id,v\n1,a\n2\n', keyfield='id')
+    back = Daf.from_md(daf.to_md(include_summary=True))
+    assert back.lol == [['1', 'a'], ['2', '']]
+    assert back.keyfield == 'id'
+
+
 def test_to_md_disp_cols_override():
     daf = Daf(lol=[[1, 'a']], cols=['id', 'letter'])
     result = daf.to_md(disp_cols=['letter'])
