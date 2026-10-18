@@ -3,7 +3,7 @@
 
 import os
 import json
-import sqlite3
+from daffodil.lib.daf_sql import sqlite3
 import threading
 
 from typing import Any
@@ -49,6 +49,22 @@ def temp_tables(conn: sqlite3.Connection) -> T_ls:
 
 
 # the database file and the connection
+
+def test_sqldaf_and_daf_sql_share_one_driver():
+    """ One SQLite in the process: SqlDaf and daf_sql use the same module, the newer one when installed. """
+    import daffodil.sqldaf as sqldaf_module
+    import daffodil.lib.daf_sql as daf_sql_module
+    assert sqldaf_module.sqlite3 is daf_sql_module.sqlite3 is sqlite3
+    assert sqlite3.sqlite_version_info >= sqldaf_module.MIN_SQLITE_VERSION
+
+
+def test_an_old_sqlite_raises_at_connect(tmp_path, monkeypatch):
+    """ The version is checked when a connection opens, with how to get a newer SQLite. """
+    monkeypatch.setattr(sqlite3, 'sqlite_version_info', (3, 37, 2))
+    monkeypatch.setattr(sqlite3, 'sqlite_version', '3.37.2')
+    with pytest.raises(RuntimeError, match=r'needs SQLite 3\.48\.0 or later.*has SQLite 3\.37\.2.*pysqlite3-binary'):
+        SqlDaf('marks', ['a'], db_path=str(tmp_path / 'old.db'))
+
 
 def test_no_db_path_raises(monkeypatch):
     monkeypatch.setattr(SqlDaf, 'db_path', '')
@@ -1066,6 +1082,15 @@ def test_groupby_aggregate_of_a_selection():
     rows_sdaf: SqlDaf = SqlDaf.from_daf(GROUPBY_REDUCE_DAF, name='rows')
     selected_sdaf: SqlDaf = rows_sdaf.select_where(lambda row: row['x'] > 2, cols=['x'])
     assert selected_sdaf.groupby_aggregate('g', Daf.sum_da, 'x').to_daf().lol == [['', 4], ['b1', 7], ['b2', 8]]
+
+
+def test_groupby_aggregate_and_reduce_keep_every_digit_of_a_float():
+    """ Each cell reaches the function as itself, so floats are not rounded on the way. """
+    rows_sdaf: SqlDaf = SqlDaf.from_daf(Daf(lol=[['a', 0.1 + 0.2, 1], ['a', 1 / 3, 2]], cols=['g', 'f', 'n']), name='rows')
+    expected: float = (0.1 + 0.2) + 1 / 3
+    assert rows_sdaf.groupby_aggregate('g', Daf.sum_da, ['f', 'n']).to_daf().lol == [['a', expected, 3]]
+    assert rows_sdaf.groupby_reduce('g', Daf.sum_da, reduce_cols=['f']).to_daf().lol == [['a', expected, '']]
+    assert rows_sdaf.groupby_aggregate('g', Daf.sum_da, 'f').to_daf().lol == [['a', expected]]
 
 
 def test_groupby_cols_keys_are_tuples_and_bad_names_raise():

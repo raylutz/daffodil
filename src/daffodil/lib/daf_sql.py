@@ -6,8 +6,21 @@
 import re
 #import json
 #import time
-import sqlite3
 import functools
+from typing import TYPE_CHECKING
+
+# The SQLite driver, shared by daffodil and by code that opens the same files.
+# pysqlite3 is the sqlite3 module built with a current SQLite. It is used when it is installed,
+# since the sqlite3 of a system Python may have an old SQLite.
+# Two copies of SQLite in one process must not open the same file, or locks can be lost.
+# So other code should import sqlite3 from here.
+if TYPE_CHECKING:
+    import sqlite3
+else:
+    try:
+        import pysqlite3.dbapi2 as sqlite3
+    except ImportError:
+        import sqlite3
     
 # no longer need the following due to using pytest
 # sys.path.append(os.path.dirname(os.path.dirname(os.path.realpath(__file__))))

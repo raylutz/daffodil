@@ -19,6 +19,7 @@ Some features need another package, which is not installed with daffodil:
 | `from_csv()` of an `http` or `https` address | requests | `pip install requests` |
 | `from_csv()` and `to_csv_file()` with an `s3://` name | boto3 | `pip install boto3` |
 | `from_pdf()`, which is experimental | pdfplumber | `pip install daffodil[pdf]` |
+| `SqlDaf`, where the system SQLite is older than 3.48 | pysqlite3-binary | `pip install daffodil[sqlite]` |
 
 A method that needs a missing package raises ImportError, or a RuntimeError that names it.
 

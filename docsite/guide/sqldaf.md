@@ -10,6 +10,23 @@ Prefer an ordinary Daf when the table, and any copies you make of it, fit comfor
 memory. A Daf is faster. Use SqlDaf when memory becomes the limit.
 [Performance](#performance) gives timings.
 
+## SQLite version
+
+SqlDaf needs SQLite 3.48 or later. That is the SQLite of Python's own `sqlite3` module, which
+depends on how that Python was built. For example, the system Python 3.11 of Ubuntu 22.04 has
+SQLite 3.37.2. Check yours with `python -c "import sqlite3; print(sqlite3.sqlite_version)"`.
+
+Where it is older, install pysqlite3-binary, with `pip install daffodil[sqlite]`. It is the same
+`sqlite3` module, built with a current SQLite. SqlDaf uses it whenever it is installed. Its wheels
+are for Linux on x86-64. An older SQLite raises RuntimeError when SqlDaf first opens a file.
+
+SQLite must not be loaded twice in one process with the same file open in both, or file locks
+can be lost. Code that opens SqlDaf's files itself should import the module SqlDaf uses:
+
+```python
+from daffodil.lib.daf_sql import sqlite3
+```
+
 ## Making and opening a table
 
 Every SqlDaf opens the database file named by `SqlDaf.db_path`. Set it once, at the start.

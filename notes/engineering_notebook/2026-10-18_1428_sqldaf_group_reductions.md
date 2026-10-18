@@ -161,6 +161,39 @@ So `groupby_aggregate()` with several columns, and `groupby_reduce(by='row')`, r
 `printf('%!.17g')` inside `json()` is exact on 3.53, but on 3.37 infinity gives 9e999, which its JSON rejects.
 Passing the cells as direct arguments, up to 127 of them, avoids JSON for the common case.
 
+## Done: SQLite 3.48 required, cells as arguments
+
+Done on 2026-10-18, Q246 and Q247.
+
+- SqlDaf needs SQLite 3.48 or later. `_connect()` checks `sqlite_version_info` and raises RuntimeError
+  with how to get a newer one. Daffodil still imports on an old SQLite, which keeps Lambda working.
+- daf_sql.py picks the driver: `pysqlite3.dbapi2` when it is installed, else the standard `sqlite3`.
+  SqlDaf and the tests import it from there, so the process loads one SQLite.
+  The extra `daffodil[sqlite]` installs pysqlite3-binary, Linux x86-64 only. The dev group includes it.
+- Locally uv's Python 3.10 and 3.11 are the system builds, with SQLite 3.37.2.
+  With the dev group they run on pysqlite3, SQLite 3.51.1. All four Pythons pass.
+- The aggregates take each cell as its own argument, up to 1000. The JSON packing and ARRAY_CHUNK are gone.
+  This fixed the float bug above. A test sums 0.1 + 0.2 and 1/3 exactly.
+- The sorted subquery is replaced by ORDER BY inside the aggregate call. SQLite guarantees that order.
+  It did not formally guarantee that a GROUP BY reads a sorted subquery in order.
+- SF results are unchanged. Times now: step 15 0.38 s, precinct concise sums 1.20 s,
+  row sums of 3 plain columns 0.16 s, of all 13 columns 0.45 s, step 16 0.89 s.
+- The SQLite 3.37 limits above are history now. They stay here to explain the code that came before.
+
+## Table-valued functions: rows from a registered function
+
+Checked on 2026-10-18, since Ray heard APSW can return rows from a function.
+
+- SQLite itself has had table-valued functions since 3.9, through virtual tables. `json_each()` is one.
+- The standard `sqlite3` module has no virtual table API, in any version. So it is the driver, not the SQLite version.
+- APSW has it: `apsw.ext.make_virtual_module(conn, name, func)`. The function yields rows, and
+  `func.columns` names them. A literal call works: `SELECT * FROM concise_items(?)`.
+- A trap: in `FROM t, concise_items(t.concise_votes)` the planner first called the function with no
+  argument, and the result was empty, with no error. `FROM t CROSS JOIN concise_items(t.concise_votes)`
+  makes SQLite read t first, and gave the right totals, with True as 1.
+- Use for us: a Python function could unpack a concise dict into rows, so SQL could GROUP BY its keys.
+  But json_each already does that for concise votes on 3.42 and later, and it was slower than the aggregate.
+
 ## Rejected or set aside
 
 - **Writers that turn dict cells into JSON.** Too slow, and seldom needed (Q240).

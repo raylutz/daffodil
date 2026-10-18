@@ -29,6 +29,7 @@ numpy = ['numpy']
 pandas = ["pandas"]
 pdf = ["pdfplumber"]
 pyjson5 = ["pyjson5"]                   # reads dict and list cells of CSV files much faster
+sqlite = ["pysqlite3-binary; sys_platform == 'linux' and platform_machine == 'x86_64'"]     # a current SQLite for SqlDaf, where the system one is old
 
 [project.urls]
 Homepage = "https://github.com/raylutz/daffodil"
@@ -47,7 +48,7 @@ license-files = []
 [dependency-groups]
 dev = [
     "pytest>=8.0",
-    "daffodil[numpy,pandas,pdf,pyjson5]",
+    "daffodil[numpy,pandas,pdf,pyjson5,sqlite]",
     "objsize",
     "requests>=2.32.5",
     "xlsxwriter>=3.2.9",

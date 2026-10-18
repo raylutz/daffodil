@@ -7,7 +7,6 @@ import io
 import os
 import csv
 import json
-import sqlite3
 import threading
 import contextlib
 
@@ -20,6 +19,7 @@ from daffodil.keyedlist import KeyedList
 from daffodil.lib.daf_types import T_ls, T_la, T_lola, T_di, T_da, T_ds, T_ss, T_dtype_dict, T_copybits, T_buff
 import daffodil.lib.daf_utils as daf_utils
 import daffodil.lib.daf_sql as daf_sql
+from daffodil.lib.daf_sql import sqlite3
 
 
 RID_COL = 'daf_rid'                 # the INTEGER PRIMARY KEY of each table SqlDaf makes
@@ -35,6 +35,7 @@ SAVEPOINT = 'daf_sp'                # the name of a nested transaction. One name
 # dtypes that apply_dtypes() can store.
 # A list or a dict would need JSON text, which is not built.
 STORABLE_DTYPES = (int, float, bool, str)
+MIN_SQLITE_VERSION: Tuple[int, int, int] = (3, 48, 0)     # ORDER BY in aggregates, JSON5, and 1000 function arguments.
 
 # dtypes that the metadata can record, by name.
 DTYPE_BY_NAME: Dict[str, Type] = {'int': int, 'float': float, 'bool': bool, 'str': str, 'list': list, 'dict': dict}
@@ -92,9 +93,6 @@ def is_value_sql(col: str, val: Any) -> Tuple[str, Tuple[Any, ...]]:
 #===================================
 # Python aggregates for groupby_aggregate()
 # Research, trials and timings: notes/engineering_notebook/2026-10-18_1428_sqldaf_group_reductions.md
-
-ARRAY_CHUNK: int = 100                  # the columns in one json_array() call. SQLite 3.37 allows 127 arguments.
-
 
 def aggregate_cell_value(val: Any) -> Any:
     """
@@ -168,8 +166,8 @@ class RowReduction:
     The aggregate of several columns, for `groupby_aggregate()`. Internal use.
 
     A subclass sets func, read_cols, reduce_cols, result_cols and call_kwargs.
-    Each row comes as one JSON array of arrays, so no call passes more than ARRAY_CHUNK values.
-    It is unpacked into a dict of the columns, with each cell decoded.
+    Each cell of a row comes as one argument, so a float keeps every digit.
+    The row is a dict of the columns, with each cell decoded.
     The result is a JSON array of the result columns, in order.
     """
     func:           Callable[..., Any]
@@ -181,10 +179,8 @@ class RowReduction:
     def __init__(self) -> None:
         self.reduction_da: T_da = dict.fromkeys(self.reduce_cols, 0)       # as Daf.reduce() starts a row reduction.
 
-    def step(self, packed_text: str) -> None:
-        chunks_lol: T_lola = json.loads(packed_text)
-        values_la: T_la = [val for chunk_la in chunks_lol for val in chunk_la]
-        row_da: T_da = {col: aggregate_cell_value(val) for col, val in zip(self.read_cols, values_la)}
+    def step(self, *values_t: Any) -> None:
+        row_da: T_da = {col: aggregate_cell_value(val) for col, val in zip(self.read_cols, values_t)}
         self.reduction_da = self.func(row_da, self.reduction_da, cols=self.reduce_cols, **self.call_kwargs)
 
     def finalize(self) -> str:
@@ -198,7 +194,7 @@ class GroupReduction:
     The aggregate of `groupby_reduce()` by row. Internal use.
 
     A subclass sets func, read_cols, reduce_cols, result_cols and call_kwargs.
-    Each row comes packed, as for RowReduction.
+    Each cell of a row comes as one argument, as for RowReduction.
     The rows of the group are kept as they are stored, with SQL NULL as Python NULL.
     At the end they are one Daf, reduced by `Daf.reduce()`.
     So the function is called just as `Daf.groupby_reduce()` calls it.
@@ -213,9 +209,8 @@ class GroupReduction:
     def __init__(self) -> None:
         self.rows_lol: T_lola = []
 
-    def step(self, packed_text: str) -> None:
-        chunks_lol: T_lola = json.loads(packed_text)
-        self.rows_lol.append([NULL if val is None else val for chunk_la in chunks_lol for val in chunk_la])
+    def step(self, *values_t: Any) -> None:
+        self.rows_lol.append([NULL if val is None else val for val in values_t])
 
     def finalize(self) -> str:
         group_daf: Daf = Daf(lol=self.rows_lol, cols=self.read_cols)
@@ -225,17 +220,19 @@ class GroupReduction:
         return results_text
 
 
-def packed_row_sql(cols: T_ls) -> str:
+def _connect(path: str, **kwargs: Any) -> sqlite3.Connection:
     """
-    SQL for a row as one JSON array of arrays, for `RowReduction`. Internal use.
+    Open a connection to a database file, after checking the SQLite version. Internal use.
 
-    Each inner array holds at most ARRAY_CHUNK columns.
-    A call takes at most 127 arguments on SQLite 3.37.
+    SqlDaf needs SQLite MIN_SQLITE_VERSION or later.
+    An older one raises RuntimeError here, before any query, with how to get a newer one.
     """
-    chunks_ls: T_ls = [', '.join(quote_name(col) for col in cols[start:start + ARRAY_CHUNK])
-                       for start in range(0, len(cols), ARRAY_CHUNK)]
-    row_sql: str = 'json_array(' + ', '.join(f'json_array({chunk})' for chunk in chunks_ls) + ')'
-    return row_sql
+    if sqlite3.sqlite_version_info < MIN_SQLITE_VERSION:
+        raise RuntimeError(f"SqlDaf needs SQLite {'.'.join(map(str, MIN_SQLITE_VERSION))} or later. "
+                           f"This Python has SQLite {sqlite3.sqlite_version}. "
+                           f"Install pysqlite3-binary, as in pip install 'daffodil[sqlite]', and SqlDaf uses its newer SQLite.")
+    conn: sqlite3.Connection = sqlite3.connect(path, **kwargs)
+    return conn
 
 
 def _index_exists_on(conn: sqlite3.Connection, name: str) -> bool:
@@ -362,6 +359,7 @@ class SqlDaf(Daf):
     example once for each job, and every SqlDaf opens that file. A `db_path` given to the
     constructor overrides it for that table. With neither, the constructor raises ValueError.
     The class setting `engine` is 'sqlite', the only engine so far.
+    It needs SQLite 3.48 or later. See the guide page on SqlDaf for how to get it.
 
     Make a table with the constructor, as a Daf is made: give its name, its columns and its
     rows. Open a table that is already in the file by its name alone. Its keyfield and dtypes
@@ -558,7 +556,7 @@ class SqlDaf(Daf):
         """ The connection open on this file, and its shared state, opened first if there is none. Internal use. """
         key_t: Tuple[int, str] = cls._conn_key(path)
         if key_t not in SqlDaf._open_conns:
-            SqlDaf._open_conns[key_t] = (sqlite3.connect(path, isolation_level=None),
+            SqlDaf._open_conns[key_t] = (_connect(path, isolation_level=None),
                                          {'func_error': None, 'temp_count': 0, 'func_count': 0, 'no_gaps_ss': set()})
         return SqlDaf._open_conns[key_t]
 
@@ -753,7 +751,7 @@ class SqlDaf(Daf):
             raise ValueError("SqlDaf: no database. Set SqlDaf.db_path, or give db_path.")
         if not os.path.exists(path):
             return False
-        conn: sqlite3.Connection = sqlite3.connect(path)
+        conn: sqlite3.Connection = _connect(path)
         try:
             return _table_exists_on(conn, name, 'main')
         finally:
@@ -2752,7 +2750,7 @@ class SqlDaf(Daf):
                     'call_kwargs':  {'cols': reduce_cols, 'is_sparse': True, **func_kwargs},
                     'sparse':       True,
                     })
-            return self._aggregate_groups([colname], agg_cls, quote_name(indirect_col), [indirect_col],
+            return self._aggregate_groups([colname], agg_cls, [indirect_col], [indirect_col],
                                           [colname, indirect_col], 'groupby_reduce', diagnose)
 
         reduced_cols_ls: T_ls = group_cols_ls if reduce_cols is None else [col for col in group_cols_ls if col in reduce_cols]
@@ -2764,7 +2762,7 @@ class SqlDaf(Daf):
                 'result_cols':  result_cols_ls,
                 'call_kwargs':  func_kwargs,
                 })
-        return self._aggregate_groups([colname], agg_cls, packed_row_sql(group_cols_ls), result_cols_ls,
+        return self._aggregate_groups([colname], agg_cls, group_cols_ls, result_cols_ls,
                                       self.columns(), 'groupby_reduce', diagnose)
 
 
@@ -2846,14 +2844,14 @@ class SqlDaf(Daf):
 
         # The aggregate, by the number of columns.
         agg_cls: Type[Any]
-        arg_sql: str
+        arg_cols_ls: T_ls
         if len(reduce_cols_ls) == 1 and len(result_cols_ls) == 1:
             agg_cls = type('BoundCellReduction', (CellReduction,), {
                     'func':         staticmethod(func),
                     'col':          reduce_cols_ls[0],
                     'call_kwargs':  {'cols': None, 'is_sparse': True, **kwargs},
                     })
-            arg_sql = quote_name(reduce_cols_ls[0])
+            arg_cols_ls = [reduce_cols_ls[0]]
         else:
             read_cols_ls: T_ls = group_cols_ls + [col for col in reduce_cols_ls if col not in group_cols_ls]
             agg_cls = type('BoundRowReduction', (RowReduction,), {
@@ -2863,8 +2861,8 @@ class SqlDaf(Daf):
                     'result_cols':  result_cols_ls,
                     'call_kwargs':  kwargs,
                     })
-            arg_sql = packed_row_sql(read_cols_ls)
-        return self._aggregate_groups(group_cols_ls, agg_cls, arg_sql, result_cols_ls,
+            arg_cols_ls = read_cols_ls
+        return self._aggregate_groups(group_cols_ls, agg_cls, arg_cols_ls, result_cols_ls,
                                       group_cols_ls + result_cols_ls, 'groupby_aggregate', diagnose)
 
 
@@ -2872,7 +2870,7 @@ class SqlDaf(Daf):
             self,
             group_cols:     T_ls,                       # the columns to group by.
             agg_cls:        Type[Any],                  # a bound CellReduction or RowReduction.
-            arg_sql:        str,                        # the SQL of the one argument of the aggregate.
+            arg_cols:       T_ls,                       # the columns given to the aggregate, one argument each.
             result_cols:    T_ls,                       # the columns the aggregate fills.
             table_cols:     T_ls,                       # the columns of the new table, in order.
             label:          str,                        # the method named in diagnose output.
@@ -2887,16 +2885,16 @@ class SqlDaf(Daf):
         """
         self._resolve()
         rows_sql, rows_params = self._rows_sql()
-        agg_name: str = self._register_aggregate(agg_cls, 1)
+        agg_name: str = self._register_aggregate(agg_cls, len(arg_cols))
 
-        # The query. The rows are sorted first, so each group comes to the function in the order of the table.
-        # SQLite 3.37 has no ORDER BY inside an aggregate call, so a sorted subquery gives the order.
+        # The query. The ORDER BY inside the call gives each group to the function in the order of the table.
+        # Each cell is its own argument, so values keep their types and every digit.
         group_names_ls: T_ls = [f'daf_g{idx}' for idx in range(len(group_cols))]
         groups_sql: str = ', '.join(f'{value_sql(col)} AS {name}' for col, name in zip(group_cols, group_names_ls))
         names_sql: str = ', '.join(group_names_ls)
-        sorted_sql: str = (f'SELECT {groups_sql}, {arg_sql} AS daf_arg FROM ({rows_sql}) '
-                           f'ORDER BY {names_sql}, {ORD_COL}')
-        grouped_sql: str = f'SELECT {names_sql}, {agg_name}(daf_arg) AS daf_res FROM ({sorted_sql}) GROUP BY {names_sql}'
+        args_sql: str = ', '.join(quote_name(col) for col in arg_cols)
+        grouped_sql: str = (f'SELECT {groups_sql}, {agg_name}({args_sql} ORDER BY {ORD_COL}) AS daf_res '
+                            f'FROM ({rows_sql}) GROUP BY {names_sql}')
         if issubclass(agg_cls, CellReduction):
             results_sql: str = "NULLIF(daf_res, '')"
         else:

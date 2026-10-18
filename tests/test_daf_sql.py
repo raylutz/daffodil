@@ -3,7 +3,7 @@
 # Tests for daffodil/lib/daf_sql.py: SQL identifier escaping/unescaping and the small
 # sqlite helper functions (lod -> table, index creation, column sums, row selection).
 
-import sqlite3
+from daffodil.lib.daf_sql import sqlite3
 from unittest import mock
 
 import pytest
