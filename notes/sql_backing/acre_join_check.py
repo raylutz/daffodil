@@ -1,8 +1,10 @@
 # acre_join_check.py: ACRE's CVR and BIF join, by AuditEngine's function on Daf, and by a SqlDaf form.
 #
-# The BIF here is made from the CVR rows, with every 7th value of the overlap columns blanked
+# With a BIF file, the join uses its columns as they are, as ACRE's own input.
+# Without one, a BIF is made from the CVR rows, with every 7th value of the shared columns blanked
 # on one side and every 11th on the other, so each fallback is used.
-# Usage, with AuditEngine's venv python -I: python acre_join_check.py <cvr_votes csv> <scratch dir>
+# Usage, with AuditEngine's venv python -I:
+#   python acre_join_check.py <cvr_votes csv> <scratch dir> [<full_bif csv>]
 
 import os
 import sys
@@ -24,15 +26,23 @@ csv_path, out_dir = sys.argv[1], sys.argv[2]
 overlap_ls = ['is_bmd', 'batchid', 'precinct', 'hexstyle']
 
 cvr_daf = Daf.from_csv(csv_path, keyfield='ballot_id').select_cols(['ballot_id', 'batchid', 'precinct', 'hexstyle', 'is_bmd', 'concise_votes'])
-bif_daf = cvr_daf.select_cols(['ballot_id', 'batchid', 'is_bmd', 'hexstyle', 'precinct']).copy()
-for irow in range(len(cvr_daf)):
-    for icol, col in enumerate(overlap_ls):
-        if (irow + icol) % 7 == 0:
-            cvr_daf[irow, col] = ''
-        if (irow + icol) % 11 == 0:
-            bif_daf[irow, col] = ''
-bif_daf.insert_col('style_num', default='s1')
+if len(sys.argv) > 3:
+    bif_daf = Daf.from_csv(sys.argv[3], keyfield='ballot_id').select_cols(['ballot_id', 'batchid', 'is_bmd', 'hexstyle', 'style_num', 'precinct'])
+else:
+    bif_daf = cvr_daf.select_cols(['ballot_id', 'batchid', 'is_bmd', 'hexstyle', 'precinct']).copy()
+    for irow in range(len(cvr_daf)):
+        for icol, col in enumerate(overlap_ls):
+            if (irow + icol) % 7 == 0:
+                cvr_daf[irow, col] = ''
+            if (irow + icol) % 11 == 0:
+                bif_daf[irow, col] = ''
+    bif_daf.insert_col('style_num', default='s1')
 bif_daf.set_keyfield('ballot_id')
+for col in overlap_ls:
+    num_cvr_empty = sum(1 for val in cvr_daf.col(col) if val in ('', None))
+    num_bif_empty = sum(1 for val in bif_daf.col(col) if val in ('', None))
+    num_differ = sum(1 for row in cvr_daf if bif_daf.select_record(row['ballot_id']).get(col, '') != row[col])
+    print(f'{col}: empty in CVR {num_cvr_empty}, empty in BIF {num_bif_empty}, values that differ {num_differ}')
 
 start = time.perf_counter()
 ref_daf = acre_utils._join_cvr_votes_with_bif(cvr_daf, bif_daf)

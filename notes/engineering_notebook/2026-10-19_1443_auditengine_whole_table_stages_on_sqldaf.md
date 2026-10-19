@@ -24,7 +24,9 @@ The port is `notes/sql_backing/sdaf_variants.py`, with its check `sdaf_variants_
 the deliverable of AuditEngine's mail 2026-10-17_0019_find_variants_port_task.md, which is still open.
 
 - 2026-10-18: SF sheet1, on AuditEngine's cmpcvr.db of 2026-10-16. Every table, CSV file and stat matched.
-- 2026-10-19: SF pilot d05, on AuditEngine's cmpcvr.db rebuilt 2026-10-18 23:58. That build has
+  But sheet1 is not mapped and has no extraction, Ray, 2026-10-19. Its audit votes are not real, so
+  that run shows only that the port does what AuditEngine's code does. It is no test on real data.
+- 2026-10-19: SF pilot d05, on AuditEngine's cmpcvr.db rebuilt 2026-10-18 23:58. This is the real-data check. That build has
   the concise_extras column of AuditEngine's 898cdf628 and 4464e7444. Every table, CSV file and
   stat matched again. The port needs no change for concise_extras. Step 18 joins every votes
   column, and AuditEngine's own `create_contest_variant_record()` picks concise_extras up.
@@ -138,32 +140,40 @@ A sibling of the loader, `simple_recover_full_bif_sdaf()`, in AuditEngine:
 `acre_stratify()` makes the strata with `group_where()`, a group daf in which a ballot is in about
 one stratum per contest. `acre_select_from_strata()` walks the strata smallest first.
 
-SF sheet1's `cvr_votes!final.csv` has 1,603,908 ballots, 706 MB. It was not loaded whole, to spare
-the shared box. The checks use its first 100,000 rows, copied to the scratch folder.
+The checks use the SF pilot d05. Its BIF has 133,422 sheets. Its `cvr_votes!final.csv` is the CVR
+of the whole county, 1,603,908 rows, 704 MB. ACRE's inner join keeps the rows of the BIF's sheets,
+so the checks first keep those rows, by streaming the CVR. That keeps 133,422 rows, one for each sheet.
+ACRE needs only the CVR and the BIF, so the pilot is a valid test. SF sheet1 is not, see above.
 
-`notes/sql_backing/acre_strata_check.py` runs AuditEngine's own `acre_stratify()` and
-`acre_select_from_strata()` on the Daf, and the SqlDaf `group_where()` with the same `where()`,
-decoding the votes text there. The SqlDaf group daf goes into `acre_select_from_strata()` as it is.
+The ACRE input is the output of AuditEngine's own `_join_cvr_votes_with_bif()` on those rows and
+the pilot's BIF. `notes/sql_backing/acre_strata_check.py` runs AuditEngine's own `acre_stratify()`
+and `acre_select_from_strata()` on it as a Daf, and the SqlDaf `group_where()` with the same
+`where()`, decoding the votes text there. The SqlDaf group daf goes into `acre_select_from_strata()` as it is.
 
-| 100,000 ballots | Load | Stratify | Select | Peak memory |
-| :-------------- | ---: | -------: | -----: | ----------: |
-| Daf | 2.2 s | 3.3 s | 0.0 s | 510 MB |
-| SqlDaf | 2.0 s | 6.5 s | 3.3 s | 260 MB |
+| 133,422 sheets | Load | Stratify | Select | Peak memory |
+| :------------- | ---: | -------: | -----: | ----------: |
+| Daf | 5.2 s | 4.7 s | 0.3 s | 630 MB |
+| SqlDaf | 3.6 s | 11.5 s | 4.6 s | 284 MB |
 
-- The imports alone take 171 MB. So the Daf holds about 340 MB per 100,000 ballots, about 5.4 GB
-  for all of SF. The SqlDaf holds about 90 MB.
-- 2,920 strata and 301 ballots on both. The same strata keys, the same ballots in the same order,
+- The imports alone take 171 MB. So the Daf holds about 460 MB, and the SqlDaf about 113 MB.
+  At that rate the whole county, 1.6 million rows, would take about 5.5 GB as a Daf.
+- 791 strata and 119 ballots on both. The same strata keys, the same ballots in the same order,
   and the same reason for each.
-- Most of the SqlDaf's select time is the first `len()` of each of the 2,920 strata, as the walk
-  sorts them by size. Each first call resolves the selection: 3.4 s of the walk's 3.7 s, by cProfile.
-  Later calls are cached, 0.05 s for all 2,920. `group_where()` could keep the size of each group
-  while it builds them. Not proposed yet.
+- An earlier run on the first 100,000 rows of sheet1's CVR gave the same agreement, with 2,920
+  strata. There, the first `len()` of each stratum took 3.4 s of the walk's 3.7 s, by cProfile,
+  since it resolves the selection. `group_where()` could keep the size of each group while it
+  builds them. Not proposed yet.
 
 `notes/sql_backing/acre_join_check.py` checks the join. `_join_cvr_votes_with_bif()` uses
 `custom_translator_daf`, which SqlDaf's `join()` does not support. Renaming the BIF's shared
 columns first, a plain join, then filling each shared column by the side that wins, gave the
-same columns and the same 100,000 rows. Every 7th value of the CVR and every 11th of the BIF
-were blanked, so every fallback was used. Daf 2.3 s, SqlDaf 3.2 s.
+same columns and the same rows:
+
+- On the pilot's CVR rows and BIF: 133,422 rows. No shared value is empty there, but is_bmd differs
+  on 1,402 sheets and precinct on all of them, so the rule of which side wins is used. Daf 3.7 s,
+  SqlDaf 5.2 s.
+- On a BIF made from 100,000 CVR rows, with every 7th value of the CVR and every 11th of the BIF
+  blanked, so every fallback is used. Daf 2.3 s, SqlDaf 3.2 s.
 
 ## Decided
 
