@@ -1094,7 +1094,6 @@ def test_groupby_aggregate_and_reduce_keep_every_digit_of_a_float():
 
 
 
-@pytest.mark.xfail(strict=True, reason="BUG: sqldaf.py line 3048 calls head(), which SqlDaf does not have")
 def test_groupby_aggregate_and_reduce_with_diagnose_give_the_groups():
     """ With diagnose, the first groups are printed, and the result is the same. """
     rows_sdaf: SqlDaf = SqlDaf.from_daf(GROUPBY_REDUCE_DAF, name='rows')

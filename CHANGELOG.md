@@ -33,6 +33,7 @@ all prior releases. Plans for future moved to ROADMAP.md.
 - Casts in `groupby_cols_reduce()`, SqlDaf `apply()`, `groupby()` and `apply_in_place()` tell mypy that a group key is a tuple and that a KeyedList row's keys are str. The code is unchanged.
 
 ### Fixed
+- SqlDaf `groupby_aggregate()` and `groupby_reduce()` with `diagnose=True` raised AttributeError. They called `head()`, which SqlDaf does not have. They print the first three groups now. mypy found it (Q257).
 - Printing a ragged Daf no longer pads its short rows. `reduce_lol_cols()` said it did not alter the lol, but it called `equal_cols_lol()`, which pads in place. So printing made a ragged Daf rectangular. It now pads copies of the short rows only. The table looks the same. Ray decided this on 2026-10-18, Q250. The test is in tests/test_daf_md.py.
 
 ## [0.8.1] - (2026-10-16)

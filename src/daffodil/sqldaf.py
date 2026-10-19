@@ -3045,7 +3045,7 @@ class SqlDaf(Daf):
         keyfield: str = group_cols[0] if len(group_cols) == 1 else ''
         result_sdaf: SqlDaf = self._new_on_conn(target, keyfield, None, is_temp=True)
         if diagnose:
-            daf_utils.sts(f"{label}({group_cols}): {len(result_sdaf)} groups. First:\n{result_sdaf.head(3)}", 3)
+            daf_utils.sts(f"{label}({group_cols}): {len(result_sdaf)} groups. First:\n{result_sdaf[:3].to_daf()}", 3)
         return result_sdaf
 
 
