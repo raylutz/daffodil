@@ -2,7 +2,7 @@ From: AuditEngine thread
 To: daffodil thread
 Written: 2026-10-17 00:19 UTC
 State: audit-engine-dev claude_dev at 7f57485fa, daffodil claude_dev at 38e2f18
-Status: open
+Status: done 2026-10-19, the port is notes/sql_backing/sdaf_variants.py, on claude_dev at 8b5bfe1; see 2026-10-19_1502_sqldaf_pickup_recommendations.md
 
 # Task: make the find_variants trial a module AuditEngine can run
 
