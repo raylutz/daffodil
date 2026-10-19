@@ -105,7 +105,7 @@ import daffodil.lib.daf_ods      as daf_ods
 from daffodil.keyedlist import KeyedList
 
 import typing
-from typing import List, Dict, Any, Tuple, cast, Type, Callable, Generic, TypeVar, ClassVar  # noqa: F401
+from typing import List, Dict, Any, Tuple, cast, Type, Callable, Generic, TypeVar, ClassVar, Literal, overload  # noqa: F401
 from collections.abc import Iterable, Collection, Sequence, Iterator, Hashable    # noqa: F401
 
 
@@ -590,12 +590,16 @@ class Daf:
         else:
             raise ValueError("Invalid itermode")
 
-    def __iter__(self) -> Iterator[Dict[str, Any] | KeyedList]:
+    def __iter__(self) -> Iterator[T_da]:
         """
         Loop over the rows, as in `for row in daf`.
 
         Each row is a dict or a KeyedList, depending on itermode. For plain lists, use
         `iter_list()`.
+
+        The annotation gives a dict, as in the default itermode. A type checker cannot see
+        the itermode. Code that loops over KeyedLists can use `iter_klist()`, which is
+        typed for them.
 
         In the default itermode, each row is a new dict. Assigning a new value to it does not
         change the Daf. To change values in a loop, use `iter_klist()`, whose rows write
@@ -609,7 +613,7 @@ class Daf:
         Returns:
             Iterator: The rows, as dicts or KeyedList objects.
         """
-        return self._default_iterator()
+        return cast(Iterator[T_da], self._default_iterator())     # typed for the default itermode, as above.
 
 
     def _default_iterator(self) -> Iterator[T_ma]:
@@ -7733,6 +7737,15 @@ class Daf:
         return cast(T_da, self.iloc(irow, include_cols))
 
 
+    @overload
+    def iloc(self, irow: int=0, include_cols: T_ls | None = None, rtype: Literal['dict']='dict') -> T_da: ...
+    @overload
+    def iloc(self, irow: int=0, include_cols: T_ls | None = None, *, rtype: Literal['klist']) -> KeyedList: ...
+    @overload
+    def iloc(self, irow: int=0, include_cols: T_ls | None = None, *, rtype: Literal['list']) -> T_la: ...
+    @overload
+    def iloc(self, irow: int=0, include_cols: T_ls | None = None, rtype: str='dict') -> T_ma | T_la: ...
+
     def iloc(self, irow: int=0, include_cols: T_ls | None = None, rtype: str='dict') -> T_ma | T_la:
         """
         Get one row by position, as a dict, a KeyedList or a list.
@@ -12215,6 +12228,16 @@ class Daf:
 
         return cast(T_ma, self.reduce(func=Daf.sum_kl, by=by, cols=cols, indirect_col=indirect_col, **kwargs))
 
+
+    @overload
+    def reduce(self, func: Callable[..., Any], by: Literal['row', 'table', 'sparse_row'] = 'row', cols: T_cs | None = None, initial_da: T_ma | None = None,
+               indirect_col: str = '', silent_error: bool = False, **kwargs: Any) -> T_da: ...
+    @overload
+    def reduce(self, func: Callable[..., Any], *, by: Literal['col'], cols: T_cs | None = None, initial_da: T_ma | None = None,
+               indirect_col: str = '', silent_error: bool = False, **kwargs: Any) -> T_la: ...
+    @overload
+    def reduce(self, func: Callable[..., Any], by: str = 'row', cols: T_cs | None = None, initial_da: T_ma | None = None,
+               indirect_col: str = '', silent_error: bool = False, **kwargs: Any) -> T_ma | T_la: ...
 
     def reduce(
             self,

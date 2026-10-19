@@ -11,7 +11,7 @@ import threading
 import contextlib
 
 from pathlib import Path
-from typing import Any, Callable, ClassVar, Dict, Iterator, List, Tuple, Type, TypeAlias, cast      # noqa: F401
+from typing import Any, Callable, ClassVar, Dict, Iterator, List, Literal, Tuple, Type, TypeAlias, cast, overload      # noqa: F401
 from collections.abc import Iterable
 
 from daffodil.daf import Daf, NULL, ColumnNotFoundError, KeysDisabledError
@@ -1591,6 +1591,13 @@ class SqlDaf(Daf):
             raise ValueError(f"to_value() requires 1×1, got shape ({len(rows_lot) if len(rows_lot) < 2 else '2+'}, {len(self.hd)})")
         return NULL if rows_lot[0][0] is None else rows_lot[0][0]
 
+
+    @overload                                                               # type: ignore[override]
+    def iloc(self, irow: int = 0, include_cols: T_ls | None = None, rtype: Literal['dict'] = 'dict') -> T_da: ...
+    @overload
+    def iloc(self, irow: int = 0, include_cols: T_ls | None = None, *, rtype: Literal['list']) -> T_la: ...
+    @overload
+    def iloc(self, irow: int = 0, include_cols: T_ls | None = None, rtype: str = 'dict') -> T_da | T_la: ...
 
     def iloc(
             self,
