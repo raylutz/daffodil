@@ -16,7 +16,7 @@ from collections.abc import Iterable
 
 from daffodil.daf import Daf, NULL, ColumnNotFoundError, KeysDisabledError
 from daffodil.keyedlist import KeyedList
-from daffodil.lib.daf_types import T_ls, T_la, T_lola, T_di, T_da, T_ds, T_ss, T_dtype_dict, T_copybits, T_buff
+from daffodil.lib.daf_types import T_ls, T_la, T_lola, T_di, T_da, T_ds, T_ss, T_ta, T_dtype_dict, T_copybits, T_buff
 import daffodil.lib.daf_utils as daf_utils
 import daffodil.lib.daf_sql as daf_sql
 from daffodil.lib.daf_sql import sqlite3
@@ -1414,7 +1414,7 @@ class SqlDaf(Daf):
                             raise TypeError(f"apply: the function returned a {type(out_ma).__name__}. "
                                             "It must return a dict, a KeyedList, a list of them, or None.")
                         if result_sdaf is None:
-                            out_cols = list(out_ma.keys())
+                            out_cols = cast(T_ls, list(out_ma.keys()))
                             self._execute(_create_table_sql(self.conn, target, out_cols, 'temp'))
                             result_sdaf = self._new_on_conn(target, '', None, is_temp=True)
                         out_lol.append([out_ma.get(col, NULL) for col in out_cols])
@@ -2771,7 +2771,7 @@ class SqlDaf(Daf):
                 return self.groupby_cols(colnames, cols=cols)
             colname = colnames[0]
         groups_kl: KeyedList = self.groupby_cols([colname], cols=cols, omit_nulls=omit_nulls)
-        return KeyedList([key_t[0] for key_t in groups_kl.keys()], groups_kl.values())
+        return KeyedList([cast(T_ta, key_t)[0] for key_t in groups_kl.keys()], groups_kl.values())
 
 
     def groupby_reduce(                                                     # type: ignore[override]
@@ -4378,7 +4378,7 @@ class SqlDaf(Daf):
         if by == 'row_klist':
             row_kl: KeyedList = KeyedList(dict(zip(cols_ls, range(len(cols_ls)))), row_la)
             func(row_kl, **kwargs)
-            return dict(row_kl)
+            return cast(T_da, row_kl.to_dict())
         new_da: Any = func(dict(zip(cols_ls, row_la)), **kwargs)
         if new_da is None:
             raise ValueError("apply_in_place: func must return a row for by='row'. "

@@ -1093,6 +1093,15 @@ def test_groupby_aggregate_and_reduce_keep_every_digit_of_a_float():
     assert rows_sdaf.groupby_aggregate('g', Daf.sum_da, 'f').to_daf().lol == [['a', expected]]
 
 
+
+@pytest.mark.xfail(strict=True, reason="BUG: sqldaf.py line 3048 calls head(), which SqlDaf does not have")
+def test_groupby_aggregate_and_reduce_with_diagnose_give_the_groups():
+    """ With diagnose, the first groups are printed, and the result is the same. """
+    rows_sdaf: SqlDaf = SqlDaf.from_daf(GROUPBY_REDUCE_DAF, name='rows')
+    plain_lol: list = rows_sdaf.groupby_aggregate('g', Daf.sum_da, 'x').to_daf().lol
+    assert rows_sdaf.groupby_aggregate('g', Daf.sum_da, 'x', diagnose=True).to_daf().lol == plain_lol
+    assert rows_sdaf.groupby_reduce('g', Daf.sum_da, diagnose=True).to_daf().lol == rows_sdaf.groupby_reduce('g', Daf.sum_da).to_daf().lol
+
 def test_groupby_cols_keys_are_tuples_and_bad_names_raise():
     bif_sdaf: SqlDaf = SqlDaf.from_daf(make_bif_daf(), name='bif')
     assert list(bif_sdaf.groupby_cols(['precinct']).keys()) == [('P1',), ('P2',), ('P3',)]

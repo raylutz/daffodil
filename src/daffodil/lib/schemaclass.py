@@ -109,7 +109,7 @@ def schemaclass(cls: type[T]) -> type[T]:
     # has no way to know that, hence the ignores on each decorator.
 
     @classmethod  # type: ignore[misc]
-    def default_record(cls, **kwargs: Any) -> T_da:
+    def default_record(cls: type[Any], **kwargs: Any) -> T_da:
         """
         Return a new record dict initialized from schema defaults.
 
@@ -145,7 +145,7 @@ def schemaclass(cls: type[T]) -> type[T]:
 
 
     @classmethod  # type: ignore[misc]
-    def record_from(cls, src: T_da | KeyedList) -> T_da:
+    def record_from(cls: type[Any], src: T_da | KeyedList) -> T_da:
         """
         Create a schema-compatible record from a source mapping.
 
@@ -179,7 +179,7 @@ def schemaclass(cls: type[T]) -> type[T]:
 
         
     @classmethod  # type: ignore[misc]
-    def get_dtypes_dict(cls, *, use_origins: bool = False) -> Dict[str, type]:
+    def get_dtypes_dict(cls: type[Any], *, use_origins: bool = False) -> Dict[str, type]:
         """
         Return a dtypes dictionary mapping column names to intended types.
 
@@ -197,7 +197,7 @@ def schemaclass(cls: type[T]) -> type[T]:
    
     
     @classmethod  # type: ignore[misc]
-    def get_columns(cls) -> List[str]:
+    def get_columns(cls: type[Any]) -> List[str]:
         """
         Return a list of column names.
 
@@ -230,7 +230,7 @@ def schemaclass(cls: type[T]) -> type[T]:
 
 
     @classmethod  # type: ignore[misc]
-    def validate_keys_debug(cls, da: T_da) -> None:
+    def validate_keys_debug(cls: type[Any], da: T_da) -> None:
         if not __debug__:
             return
 

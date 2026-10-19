@@ -1,6 +1,6 @@
 # daf_types.py
 
-from typing import List, Dict, Any, Tuple, Type, Set, TYPE_CHECKING, Callable, cast    # noqa: F401
+from typing import List, Dict, Any, Tuple, Type, Set, TYPE_CHECKING, Callable, TypeAlias, cast    # noqa: F401
 from collections.abc  import KeysView, Iterable   # noqa: F401
 
 import datetime
@@ -9,11 +9,12 @@ from daffodil.keyedlist import KeyedList
 
 # pandas and numpy are optional, and importing pandas takes about a second.
 # So they are imported only for type checkers. At run time the aliases are Any.
+# pandas has no type stubs here, so T_df is declared a TypeAlias to be accepted as a type.
 if TYPE_CHECKING:
     import pandas as pd             # type: ignore
     import numpy  as np             # type: ignore
-    T_df  = pd.DataFrame
-    T_npa = np.ndarray
+    T_df:  TypeAlias = pd.DataFrame
+    T_npa: TypeAlias = np.ndarray
 else:
     T_df  = Any
     T_npa = Any

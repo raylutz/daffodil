@@ -1,4 +1,4 @@
-# Runs the tests and the docs build. It never deploys.
+# Runs the tests, mypy and the docs build. It never deploys.
 # A push to main runs nothing: run the same checks locally first, with notes/scripts/check_before_push.sh.
 # It runs on every pull request, when the full deploy calls it before publishing, and by hand:
 #   gh workflow run ci.yml
@@ -34,6 +34,17 @@ jobs:
           --ignore=src/daffodil/lib/daf_pdf.py --ignore=src/daffodil/lib/md_demo.py
       - name: Guide examples
         run: uv run pytest -q -p no:cacheprovider --doctest-glob='*.md' docsite/guide
+
+  types:
+    name: Type check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+      - name: Install
+        run: uv sync --python 3.12
+      - name: mypy
+        run: uv run mypy src/daffodil
 
   docs:
     name: Docs build
