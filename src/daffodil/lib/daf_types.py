@@ -59,7 +59,7 @@ T_dododf = Dict[str, T_dodf]
 # Shorthand type aliases for KeysView
 T_kvs = KeysView[str]                     # KeysView for string keys
 T_kvi = KeysView[int]                     # KeysView for integer keys
-T_kva = KeysView[str | int | tuple]  # KeysView for keys that can be str, int, or tuple
+T_kva = KeysView[Any]                     # KeysView for keys of any type
 
 # containers -- used when iteration and containment are needed but not appending.
 T_cs = T_ls | T_kvs | T_da        # container of str, may be T_dn.

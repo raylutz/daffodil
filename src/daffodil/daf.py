@@ -1663,6 +1663,13 @@ class Daf:
     #===========================
     # keyfield
 
+    @overload
+    def keys(self, *, silent_error: bool=True, astype: Literal['list']='list') -> T_la: ...
+    @overload
+    def keys(self, *, silent_error: bool=True, astype: Literal['view']) -> T_kva: ...
+    @overload
+    def keys(self, *, silent_error: bool=True, astype: str='list') -> T_la | T_kva: ...
+
     def keys(self, 
             *,
             silent_error: bool=True, 
@@ -5564,7 +5571,7 @@ class Daf:
         return self.select_krows(krows=keyval, inverse=True, silent_error=silent_error)
 
 
-    def remove_keylist(self, keylist: T_ls, silent_error: bool=False) -> 'Daf':
+    def remove_keylist(self, keylist: T_la, silent_error: bool=False) -> 'Daf':
         """
         Make a new Daf without the rows that have the given keys.
 
