@@ -32,6 +32,9 @@ all prior releases. Plans for future moved to ROADMAP.md.
 - The functions in daf_md.py, daf_pandas.py and schemaclass.py that are attached to a class annotate `cls` or `self`. mypy skipped their bodies before, and checking them found the two annotations above.
 - Casts in `groupby_cols_reduce()`, SqlDaf `apply()`, `groupby()` and `apply_in_place()` tell mypy that a group key is a tuple and that a KeyedList row's keys are str. The code is unchanged.
 - A row of `for row in daf` is typed as a dict, as in the default itermode. `iter_klist()` is typed for KeyedList rows. `iloc()` on Daf and SqlDaf and `reduce()` have overloads, so a type checker sees a dict, a KeyedList or a list by `rtype` or `by`. Annotations only (Q258).
+- KeyedList is generic in its key and value types, as in `KeyedList[str, int]`. A bare KeyedList is `KeyedList[Any, Any]`. `groupby()` and the other group methods are typed to return `KeyedList[Any, Daf]`, so a group key is Any and each group is a Daf. Making a KeyedList took the same time before and after, about 0.5 µs (Q259).
+- The value count methods on Daf and SqlDaf are typed to return dicts with keys of any type. The keys are cell values, which are often ints. They were typed as str. `daf_sum()` is typed to return a dict.
+
 ### Fixed
 - SqlDaf `groupby_aggregate()` and `groupby_reduce()` with `diagnose=True` raised AttributeError. They called `head()`, which SqlDaf does not have. They print the first three groups now. mypy found it (Q257).
 - Printing a ragged Daf no longer pads its short rows. `reduce_lol_cols()` said it did not alter the lol, but it called `equal_cols_lol()`, which pads in place. So printing made a ragged Daf rectangular. It now pads copies of the short rows only. The table looks the same. Ray decided this on 2026-10-18, Q250. The test is in tests/test_daf_md.py.

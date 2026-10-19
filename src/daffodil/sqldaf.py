@@ -2368,7 +2368,7 @@ class SqlDaf(Daf):
             sort:       bool = False,                   # if True, order by count.
             reverse:    bool = True,                    # with sort, True puts the most common first.
             omit_nulls: bool = False,                   # if True, leave out the count of Python NULL.
-            ) -> T_di:
+            ) -> Dict[Any, int]:
         """
         Count how often each value occurs in one column, as `Daf.valuecounts_for_colname()` does.
 
@@ -2418,7 +2418,7 @@ class SqlDaf(Daf):
             sort:           bool = False,
             reverse:        bool = True,
             omit_nulls:     bool = False,
-            ) -> Dict[str, T_di]:
+            ) -> Dict[str, Dict[Any, int]]:
         """
         Count how often each value occurs, in each of several columns, as `Daf.valuecounts_for_colnames_ls()` does.
 
@@ -2444,7 +2444,7 @@ class SqlDaf(Daf):
             selectedby_colvalue:    Any,                # only rows where that column has this value are counted.
             sort:                   bool = False,
             reverse:                bool = True,
-            ) -> T_di:
+            ) -> Dict[Any, int]:
         """
         Count the values of a column, in the rows where another column has a value, as the Daf method does.
 
@@ -2474,7 +2474,7 @@ class SqlDaf(Daf):
             selectedby_colvalue:    Any = '',           # only rows where that column has this value are counted.
             sort:                   bool = False,
             reverse:                bool = True,
-            ) -> Dict[str, T_di]:
+            ) -> Dict[str, Dict[Any, int]]:
         """
         Count the values of several columns, in the rows where another column has a value, as the Daf method does.
 
@@ -2499,7 +2499,7 @@ class SqlDaf(Daf):
             groupedby_colname2: str,                    # the column whose values form the groups.
             sort:               bool = False,
             reverse:            bool = True,
-            ) -> Dict[Any, T_di]:
+            ) -> Dict[Any, Dict[Any, int]]:
         """
         Count the values of one column, for each value of another, as the Daf method does.
 

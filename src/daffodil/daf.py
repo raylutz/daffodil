@@ -117,7 +117,7 @@ from collections.abc import Iterable, Collection, Sequence, Iterator, Hashable  
 # literally at each use site instead avoids the whole issue.
 
 T_dodaf = Dict[str, 'Daf']
-T_klodaf = KeyedList            # a KeyedList of Daf, one Daf for each group, as groupby() gives.
+T_klodaf = KeyedList[Any, 'Daf']   # a KeyedList of Daf, one Daf for each group, as groupby() gives.
 
 logs = daf_utils                # alias
 
@@ -10565,7 +10565,7 @@ class Daf:
 
             rowkey = my_rec_klist[my_keyfield]
 
-            other_rec = other_daf.select_record(rowkey)
+            other_rec = other_daf.select_record(rowkey)     # type: ignore[arg-type]  # a composite keyfield gives a list, which raises TypeError.
 
             for my_field, other_field in my_to_other_dict.items():
                 my_rec_klist[my_field] = other_rec[other_field]
@@ -12190,7 +12190,7 @@ class Daf:
             cols:           T_cs | None = None,
             indirect_col:   str = '',                       # indirect_col is required for lol array.
             **kwargs:       Any,
-            ) -> T_ma:
+            ) -> T_da:
 
         # for the default by='row' (the only mode used by any caller/test), reduce() always
         # returns a single record.
@@ -12226,7 +12226,7 @@ class Daf:
             {'g': '', 'x': '', 'y': 60}
         """
 
-        return cast(T_ma, self.reduce(func=Daf.sum_kl, by=by, cols=cols, indirect_col=indirect_col, **kwargs))
+        return cast(T_da, self.reduce(func=Daf.sum_kl, by=by, cols=cols, indirect_col=indirect_col, **kwargs))
 
 
     @overload
@@ -13751,7 +13751,7 @@ class Daf:
             sort:       bool=False,
             reverse:    bool=True,
             omit_nulls: bool=False,
-            ) -> T_di:
+            ) -> Dict[Any, int]:
         """
         Count how often each value occurs in one column.
 
@@ -13815,7 +13815,7 @@ class Daf:
             sort:           bool=False,
             reverse:        bool=True,
             omit_nulls:     bool=False,
-            ) -> T_dodi:
+            ) -> Dict[str, Dict[Any, int]]:
         """
         Count how often each value occurs, in each of several columns.
 
@@ -13864,7 +13864,7 @@ class Daf:
             selectedby_colvalue: str,
             sort: bool = False,
             reverse: bool = True,
-            ) -> T_di:
+            ) -> Dict[Any, int]:
         """
         Count the values of a column, in the rows where another column has a value.
 
@@ -13926,7 +13926,7 @@ class Daf:
             selectedby_colvalue: str = '',
             sort: bool = False,
             reverse: bool = True,
-            ) -> T_dodi:
+            ) -> Dict[str, Dict[Any, int]]:
 
         """
         Count the values of several columns, in the rows where another column has a value.
@@ -13986,7 +13986,7 @@ class Daf:
             groupedby_colname2: str,
             sort: bool = False,
             reverse: bool = True,
-            ) -> T_dodi:
+            ) -> Dict[Any, Dict[Any, int]]:
         """
         Count the values of one column, for each value of another.
 

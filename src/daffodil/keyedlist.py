@@ -1,17 +1,29 @@
 # keyedlist.py
 
 from typing import List, Dict, Any, \
-                    Callable, KeysView, Tuple
+                    Callable, KeysView, Tuple, Generic, TypeVar, TYPE_CHECKING, cast, overload
 
 from collections.abc import Hashable, Iterable, Iterator                    
 
 TKey = Hashable
 T_la = List[Any]
 
+# A KeyedList is generic in its key and value types, as in KeyedList[str, Daf].
+# A bare KeyedList is KeyedList[Any, Any].
+# The defaults of Any also apply where a call does not show the types, as in KeyedList().
+# typing_extensions comes with mypy, so the defaults need no package at run time.
+if TYPE_CHECKING:
+    from typing_extensions import TypeVar as TypeVarDefault
+    K = TypeVarDefault('K', bound=Hashable, default=Any)
+    V = TypeVarDefault('V', default=Any)
+else:
+    K = TypeVar('K', bound=Hashable)
+    V = TypeVar('V')
+
 import json
 
 
-def _build_hd(keys: List[TKey]) -> Dict[TKey, int]:
+def _build_hd(keys: List[K]) -> Dict[K, int]:
     """
     Build an hd, a dict of each key and its position. Internal.
 
@@ -24,7 +36,7 @@ def _build_hd(keys: List[TKey]) -> Dict[TKey, int]:
     return hd
 
 
-class KeyedList:
+class KeyedList(Generic[K, V]):
     """
     A row that reads like a dict but points at a list instead of copying its values.
 
@@ -230,8 +242,8 @@ class KeyedList:
     _hd_shared: bool = False
 
     def __init__(self, 
-            arg1: 'Dict[Any, Any] | List[Any] | KeyedList | None' = None, 
-            arg2: List[Any] | None = None,
+            arg1: 'Dict[K, Any] | List[K] | KeyedList[K, V] | None' = None,
+            arg2: 'List[V] | None' = None,
             default: int | str | float | None = None,
             ):
             
@@ -259,7 +271,7 @@ class KeyedList:
         if isinstance(arg1, list) and arg2 is None:
             # Case: from a list of keys and a default
             self.hd = _build_hd(arg1)
-            self._values = [default] * len(arg1)
+            self._values = cast(List[V], [default] * len(arg1))
             return
         if isinstance(arg1, type(self)) and arg2 is None:
             # Case: from another KeyedList. The values are shared and the hd is copied.
@@ -273,7 +285,12 @@ class KeyedList:
             return
         raise ValueError("Must provide either a dict, keys and values, hd and list, or KeyedList")
     
-    def __getitem__(self, key: TKey | List[TKey]) -> Any:
+    @overload
+    def __getitem__(self, key: List[K]) -> List[V]: ...
+    @overload
+    def __getitem__(self, key: K) -> V: ...
+
+    def __getitem__(self, key: K | List[K]) -> V | List[V]:
         """
         Get the value for a key, or a list of values for a list of keys.
 
@@ -312,7 +329,7 @@ class KeyedList:
         else:
             raise ValueError
     
-    def __setitem__(self, key: TKey, value: Any) -> None:
+    def __setitem__(self, key: K, value: V) -> None:
         """
         Set the value for a key, as `row[key] = value`.
 
@@ -347,7 +364,7 @@ class KeyedList:
             self._values[self.hd[key]] = value
 
     
-    def __delitem__(self, key: TKey) -> None:
+    def __delitem__(self, key: K) -> None:
         """
         Delete a key and its value, as `del row[key]`.
 
@@ -391,7 +408,7 @@ class KeyedList:
         """
         return len(self._values)
     
-    def __iter__(self) -> Iterator[TKey]:
+    def __iter__(self) -> Iterator[K]:
         """
         Loop over the keys, as a dict does.
 
@@ -422,7 +439,7 @@ class KeyedList:
         """
         return key in self.hd
 
-    def keys(self) -> KeysView[TKey]:
+    def keys(self) -> KeysView[K]:
         """
         Get the keys, in the order of their values.
 
@@ -439,7 +456,7 @@ class KeyedList:
         """
         return self.hd.keys()
 
-    def set_values(self, new_values: List[Any]) -> None:
+    def set_values(self, new_values: List[V]) -> None:
         """
         Point this KeyedList at a different list of values.
 
@@ -474,6 +491,11 @@ class KeyedList:
 
         self._values = new_values
 
+
+    @overload
+    def values(self, astype: None = None) -> List[V]: ...
+    @overload
+    def values(self, astype: Callable | str | type) -> List[Any]: ...
 
     def values(self, astype: Callable | str | type | None = None) -> List[Any]:
         """
@@ -521,7 +543,7 @@ class KeyedList:
         return _astype_la(self._values, astype)
 
 
-    def items(self) -> Iterator[Tuple[TKey, Any]]:
+    def items(self) -> Iterator[Tuple[K, V]]:
         """
         Loop over the (key, value) pairs, as `dict.items()` does.
 
@@ -541,7 +563,7 @@ class KeyedList:
         return zip(self.hd, self._values)
 
 
-    def get(self, key: TKey, default: Any = None) -> Any:
+    def get(self, key: K, default: Any = None) -> Any:
         """
         Get the value for a key, or a default if the key is not found.
 
@@ -589,7 +611,7 @@ class KeyedList:
         for key, value in other.items():
             self[key] = value
     
-    def to_dict(self) -> Dict[TKey, Any]:
+    def to_dict(self) -> Dict[K, V]:
         """
         Make a dict of the keys and values.
 
@@ -665,7 +687,7 @@ class KeyedList:
         return json.dumps({"__KeyedList__": True, "hd": dict(self.hd), "values": self._values})
 
     @classmethod
-    def from_json(cls, json_str: str) -> 'KeyedList':
+    def from_json(cls, json_str: str) -> 'KeyedList[Any, Any]':
         """
         Make a KeyedList from the text that `to_json()` writes.
 
