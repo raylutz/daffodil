@@ -171,6 +171,20 @@ Tried on 2026-10-18, SF sheet1, SQLite 3.51.1. The box was busy, so these times 
 - Decided, Q248: keep the aggregate. The saving is about 0.3 s, and the faster routes leave
   SqlDaf's methods or need a new one.
 
+## pysqlite3-binary keeps TEMP data in memory
+
+Found 2026-10-19, while timing the chunk combine. See 2026-10-19_1551_chunk_combine_into_sqldaf.md.
+
+- pysqlite3-binary 0.5.4.post2 is built with SQLITE_TEMP_STORE=3. Every TEMP table and every
+  sort is then in memory, and `PRAGMA temp_store` cannot change it.
+- The stdlib sqlite3 of uv's Python 3.12 and 3.13, SQLite 3.53.1, and APSW 3.54.0 are built with
+  TEMP_STORE=1. That is a file by default, and the pragma can change it.
+- `groupby_aggregate('precinct', ...)` on 1,603,908 CVR rows: a peak of 665 MB on pysqlite3, and 40 MB
+  on the stdlib driver, 24.0 s against 27.8 s. A reduce function that keeps nothing gave the same
+  665 MB, so the memory is SQLite's, not Python's.
+- So every SqlDaf TEMP table, such as a selection, `group_where()` groups or a sort, is in RAM
+  under pysqlite3-binary. That works against what SqlDaf is for. Q253.
+
 ## Moving to a newer SQLite
 
 Checked on 2026-10-18 against the SQLite change log and by running both versions.
