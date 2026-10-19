@@ -64,7 +64,7 @@ from .daf_utils import _MISSING
 # mistake mypy can see through.
 @classmethod  # type: ignore[misc]
 def _from_pandas_df(
-        cls,
+        cls: 'type[Daf]',
         df: T_df, 
         keyfield: str='', 
         name: str='', 
@@ -149,7 +149,7 @@ def _from_pandas_df(
         
 
 def _to_pandas_df(
-    self, 
+    self: 'Daf',
     cols: T_ls | None = None,
     *,
     use_csv: bool = False, 

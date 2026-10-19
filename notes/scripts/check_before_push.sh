@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Run the checks that CI runs, before a push to main. A push to main runs nothing on GitHub.
-# The tests, the doctests and the Guide examples on Python 3.10, 3.11, 3.12 and 3.13, then the strict docs build.
+# The tests, the doctests and the Guide examples on Python 3.10, 3.11, 3.12 and 3.13, then mypy and the strict docs build.
+# mypy checks for Python 3.10, as pyproject.toml sets, so it runs once.
 # Like CI, each Python gets an environment from `uv sync` with the lock file. The environments
 # are kept in ~/.cache/daffodil-check and reused. Stops at the first failure.
 # Usage, from anywhere:   bash notes/scripts/check_before_push.sh
@@ -34,6 +35,7 @@ for py in 3.10 3.11 3.12 3.13; do
 done
 unset UV_PROJECT_ENVIRONMENT
 
+run_step "mypy              " uv run mypy src/daffodil
 run_step "docs build, strict" uv run mkdocs build --strict -d "$SITE_DIR"
 
 # Warn when the copy of the common rules differs from the master.

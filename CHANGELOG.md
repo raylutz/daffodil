@@ -15,6 +15,14 @@ all prior releases. Plans for future moved to ROADMAP.md.
 - The docs build loads a hook, notes/scripts/mkdocs_hooks.py. It shows the `<BLANKLINE>` of a doctest as a blank line on the Guide pages, as mkdocstrings already does on the API pages.
 
 - `to_md()` with no limits shows a ragged Daf, with its short rows padded as copies. Before, it raised RuntimeError from `transpose_lol()`. The Daf is not changed. With `include_summary`, as in print, the summary line ends with `ragged rows detected`. `from_md()` skips that part, and reads the table back as rectangular. The padding is in `pad_ragged_lol()` in daf_utils.py, which printing also uses. Ray decided this on 2026-10-18, Q251.
+- mypy runs in CI, as its own job, and in notes/scripts/check_before_push.sh. Any error fails the check. Nothing ran it before, so its errors grew from 3 to 8 after it was added.
+- `multi_groupby()` is annotated and documented as returning a dict of KeyedLists of Daf, which it always returned. It said a dict of dicts.
+- `reduce_dodaf_to_daf()` is annotated to take a KeyedList of Daf too, which `multi_groupby_reduce()` passes it.
+- `to_csv_buff()` is annotated to return str, which it always returns. It said bytes or str.
+- `replace_in_columns()` is annotated to take a list of str, a list of int, or a mix, for `cols`.
+- `T_df` and `T_npa` in daf_types.py are declared as type aliases. mypy rejected `T_df` as a type, so `T_dodf`, `T_lodf` and `T_idodf` checked nothing.
+- The functions in daf_md.py, daf_pandas.py and schemaclass.py that are attached to a class annotate `cls` or `self`. mypy skipped their bodies before, and checking them found the two annotations above.
+- Casts in `groupby_cols_reduce()`, SqlDaf `apply()`, `groupby()` and `apply_in_place()` tell mypy that a group key is a tuple and that a KeyedList row's keys are str. The code is unchanged.
 
 ### Fixed
 - Printing a ragged Daf no longer pads its short rows. `reduce_lol_cols()` said it did not alter the lol, but it called `equal_cols_lol()`, which pads in place. So printing made a ragged Daf rectangular. It now pads copies of the short rows only. The table looks the same. Ray decided this on 2026-10-18, Q250. The test is in tests/test_daf_md.py.

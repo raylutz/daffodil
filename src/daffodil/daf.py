@@ -4061,7 +4061,7 @@ class Daf:
             self,
             line_terminator: str | None = None,
             include_header: bool=True,
-            ) -> T_buff:
+            ) -> str:
         r"""
         Make CSV text from the Daf.
 
@@ -9814,7 +9814,7 @@ class Daf:
 
     def replace_in_columns(
         self,
-        cols: T_lsi | None,
+        cols: T_ls | T_li | T_lsi | None,
         find_values: List[Any] | None = None,
         replacement: Any = _MISSING
     ) -> 'Daf':
@@ -11592,8 +11592,9 @@ class Daf:
             reduction_da = cast(T_ma, this_daf.reduce(func, by=by, cols=reduce_cols, **kwargs))
 
             # add back in the groupby cols
+            group_t: T_ta = cast(T_ta, coltup)
             for idx, groupcolname in enumerate(groupby_colnames):
-                reduction_da[groupcolname] = coltup[idx]
+                reduction_da[groupcolname] = group_t[idx]
 
             result_daf.append(reduction_da)
 
@@ -11732,12 +11733,12 @@ class Daf:
             groupby_colnames:   T_cs,
             colnames:           T_cs | None = None,
             omit_nulls:         bool=False,         # do not group to values in column that are null ('')
-            ) -> Dict[str, Dict[str, 'Daf']]:   # result_dododaf
+            ) -> Dict[str, T_klodaf]:
 
         """
         Group the rows by each of several columns, one column at a time.
 
-        The result is a dict of dicts. The first key is the column. The second key is a
+        The result is a dict of KeyedLists. The first key is the column. The second key is a
         value in that column. Each innermost value is a Daf of the rows that have it,
         with all columns, or only the columns in `colnames`.
         This is not a grouping by combinations. Use `groupby_cols()` for that.
@@ -11759,7 +11760,7 @@ class Daf:
             omit_nulls: If True, leave out rows that have an empty value.
 
         Returns:
-            A dict that maps each column to a dict of value and Daf.
+            A dict that maps each column to a KeyedList of value and Daf.
 
         Raises:
             KeyError: A group column, or a name in `colnames`, is not a column.
@@ -11826,7 +11827,7 @@ class Daf:
             # passed through to Daf.reduce() (row/reduction/cols/**kwargs) -- see the
             # manifest_reduce comment on Callable[...] above.
             func:           Callable[..., Any],
-            grouped_dodaf:  T_dodaf,
+            grouped_dodaf:  T_dodaf | T_klodaf,
             reduce_cols:    T_la | None = None,    # columns included in the reduce operation, None = all except for colname.
             diagnose:       bool=False,
             all_cols:       T_ls | None = None,    # the columns of the result, if the groups hold only some of them.
@@ -11842,7 +11843,7 @@ class Daf:
         Args:
             colname: The column that holds the value of each group.
             func: The reduction function. See `reduce()`.
-            grouped_dodaf: A dict that maps each value to a Daf.
+            grouped_dodaf: A dict or a KeyedList that maps each value to a Daf.
             reduce_cols: The columns to reduce. All columns except `colname` if None.
             diagnose: If True, print progress messages.
             all_cols: The columns of the result, in order. Use it when each group holds only

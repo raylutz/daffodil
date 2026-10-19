@@ -237,7 +237,7 @@ def dodaf_to_md(
 # called by Daf.dodaf_from_md() -- round-trip inverse of dodaf_to_md() above.
 # Same wired-on-later @classmethod pattern as dodaf_to_md() above.
 @classmethod  # type: ignore[misc]
-def _dodaf_from_md(cls, md_str: str, header_level: int = 2) -> Dict[str, Any]:   # -> T_dodaf
+def _dodaf_from_md(cls: type[Daf], md_str: str, header_level: int = 2) -> Dict[str, Any]:   # -> T_dodaf
     """
     Read a report made by `dodaf_to_md()` back into a dict of Daf instances.
 
@@ -464,7 +464,7 @@ def md_cols_lol_table(
 #== from_md parsing.
 # Same wired-on-later @classmethod pattern as dodaf_to_md() above.
 @classmethod  # type: ignore[misc]
-def _from_md(cls, md_str: str) -> 'Daf': # -> "Daf":
+def _from_md(cls: type[Daf], md_str: str) -> 'Daf': # -> "Daf":
     r"""
     Make a Daf from a Markdown table. This reads what `to_md()` writes.
 
