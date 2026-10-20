@@ -590,14 +590,15 @@ def check_variants_per_ballot(
 
 def cell_text(val: Any) -> Any:
     """
-    A dict, list or tuple cell as compact JSON text, for a table cell. Other values are kept.
+    A dict, list or tuple cell as PYON text, for a table cell. Other values are kept.
 
     SQLite cannot hold a dict.
-    True and False are written as 1 and 0, and None as NULLSTR, by normalize_val().
-    So the text holds no true or null, and AuditEngine's PYON reader reads it too.
+    PYON is the text that str() gives, which DB.save_data() writes for a dict cell.
+    So contest_variants.csv has the same text as the file of the 'sql' engine.
+    True, False and None are kept as they are.
     """
     if isinstance(val, (dict, list, tuple)):
-        text_a: Any = json.dumps(daf_utils.normalize_val(val), separators=(',', ':'), ensure_ascii=False)
+        text_a: Any = str(val)
     else:
         text_a = val
     return text_a

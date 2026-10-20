@@ -36,6 +36,10 @@ the deliverable of AuditEngine's mail 2026-10-17_0019_find_variants_port_task.md
   True, False and None as 1, 0 and ''. AuditEngine's file writes PYON. A grep of AuditEngine
   found no `is False` or `is None` test on agreed, note or flags. Only the readers can say if
   the change matters, so it goes to AuditEngine.
+- Q230, settled by Ray on 2026-10-20: PYON. `cell_text()` of the port writes a dict cell with
+  str(), as DB.save_data() does, and keeps True, False and None. The check compares every cell of
+  contest_variants.csv as text. On pilot d05 all 7152 rows match, dict cells too. Nothing else in
+  the check log changed.
 
 What AuditEngine needs before it can run the port:
 
@@ -182,7 +186,6 @@ same columns and the same rows:
 ## Open
 
 - Q252: merge sql_backing into claude_dev, so AuditEngine can run the port.
-- Q230: the JSON dict cells of contest_variants.csv.
 - The name for a group daf.
 - `group_where()` keeping the size of each group.
 

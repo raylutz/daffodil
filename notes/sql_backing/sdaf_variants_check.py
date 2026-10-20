@@ -29,7 +29,7 @@ from typing import Any, Dict, List, Tuple
 from daffodil.daf import Daf
 from daffodil.sqldaf import SqlDaf
 from daffodil.lib.daf_types import T_ls, T_da
-from daffodil.lib import daf_types, daf_sql, daf_utils
+from daffodil.lib import daf_types, daf_sql
 
 AE_ROOT: str = '/home/audit-engine-dev'
 
@@ -189,8 +189,7 @@ def check_contest_variants(work_db_path: str, out_dir: str, dict_cols_ls: T_ls) 
     Compare contest_variants.csv with the file DB.save_data() writes of the same records.
 
     The reference converts the rows of joined_contests as one Daf, and writes it with CRLF line ends.
-    A dict cell is compared by value, since the reference writes it with str() and the module as JSON.
-    Every other cell is compared as text.
+    Every cell is compared as text. A dict cell is PYON text in both.
     """
     with sqlite3.connect(f'file:{work_db_path}?mode=ro', uri=True) as conn:
         cursor = conn.execute('SELECT * FROM joined_contests ORDER BY daf_rid')
@@ -212,17 +211,16 @@ def check_contest_variants(work_db_path: str, out_dir: str, dict_cols_ls: T_ls) 
     first_diff: str = ''
     for ref_row_ls, ours_row_ls in zip(ref_ls[1:], ours_ls[1:]):
         for idx, (ref_cell, ours_cell) in enumerate(zip(ref_row_ls, ours_row_ls)):
+            same: bool = ref_cell == ours_cell
             if idx in dict_idx_ls:
-                same: bool = daf_utils.normalize_val(ast.literal_eval(ref_cell)) == json.loads(ours_cell)
                 num_dict_diff += not same
             else:
-                same = ref_cell == ours_cell
                 num_text_diff += not same
             if not same and not first_diff:
                 first_diff = f'{header_ls[idx]}: reference {ref_cell!r}, module {ours_cell!r}'
     print(f"\ncontest_variants.csv: {len(ours_ls) - 1} rows, reference {len(ref_ls) - 1}. "
           f"Same header: {ours_ls[0] == header_ls}. CRLF line ends: {crlf_ends}.")
-    print(f"    cells that differ as text: {num_text_diff}. dict cells that differ in value: {num_dict_diff}.")
+    print(f"    cells that differ as text: {num_text_diff}. dict cells that differ as text: {num_dict_diff}.")
     if first_diff:
         print(f"    first difference: {first_diff}")
     if len(ours_ls) > 1:
