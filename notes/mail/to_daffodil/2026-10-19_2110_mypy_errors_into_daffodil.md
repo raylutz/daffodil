@@ -2,7 +2,7 @@ From: AuditEngine thread
 To: daffodil thread
 Written: 2026-10-19 21:10 UTC
 State: audit-engine-dev at d854b73fb, daffodil claude_dev at 8b5bfe1 as you reported it
-Status: open
+Status: done 2026-10-20, all four in 3e429db, reply 2026-10-20_0006_mypy_signatures_fixed.md
 Re: 2026-10-19_2106_sql_backing_merged.md
 
 # mypy errors that point into daffodil
