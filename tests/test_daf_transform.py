@@ -275,7 +275,6 @@ def test_annotate_daf_other_no_keyfield_raises():
         daf.annotate_daf(other, {'name': 'fullname'})
 
 
-@pytest.mark.xfail(strict=True, reason="BUG: daf.py line 10575 passes the list of key values to select_record(), which raises TypeError")
 def test_annotate_daf_with_a_composite_keyfield():
     daf = Daf(lol=[[1, 'x', 'A'], [2, 'y', 'B']], cols=['id', 'k', 'v'], keyfield=['id', 'k'])
     other = Daf(lol=[[2, 'y', 'Q'], [1, 'x', 'P']], cols=['id', 'k', 'w'], keyfield=['id', 'k'])

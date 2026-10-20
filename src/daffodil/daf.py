@@ -1398,9 +1398,9 @@ class Daf:
     def calc_cols(self,
             include_cols: Iterable | None = None,
             exclude_cols: Iterable | None = None,
-            include_types: List[Type] | None = None,
-            exclude_types: List[Type] | None = None,
-           ) -> Iterable:
+            include_types: Type | List[Type] | None = None,
+            exclude_types: Type | List[Type] | None = None,
+           ) -> T_ls:
         """
         Work out a list of column names from rules.
 
@@ -10570,9 +10570,9 @@ class Daf:
 
         for my_rec_klist in self.iter_klist():
 
-            rowkey = my_rec_klist[my_keyfield]
+            rowkey = self._get_keyval(my_rec_klist)
 
-            other_rec = other_daf.select_record(rowkey)     # type: ignore[arg-type]  # a composite keyfield gives a list, which raises TypeError.
+            other_rec = other_daf.select_record(rowkey)
 
             for my_field, other_field in my_to_other_dict.items():
                 my_rec_klist[my_field] = other_rec[other_field]
