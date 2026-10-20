@@ -231,7 +231,7 @@ def _connect(path: str, **kwargs: Any) -> sqlite3.Connection:
     if sqlite3.sqlite_version_info < MIN_SQLITE_VERSION:
         raise RuntimeError(f"SqlDaf needs SQLite {'.'.join(map(str, MIN_SQLITE_VERSION))} or later. "
                            f"This Python has SQLite {sqlite3.sqlite_version}. "
-                           f"Install pysqlite3-binary, as in pip install 'daffodil[sqlite]', and SqlDaf uses its newer SQLite.")
+                           f"Use a Python built with a newer SQLite. Every Python that uv installs has one.")
     conn: sqlite3.Connection = sqlite3.connect(path, **kwargs)
     return conn
 

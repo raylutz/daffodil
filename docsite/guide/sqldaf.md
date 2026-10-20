@@ -12,16 +12,17 @@ memory. A Daf is faster. Use SqlDaf when memory becomes the limit.
 
 ## SQLite version
 
-SqlDaf needs SQLite 3.48 or later. That is the SQLite of Python's own `sqlite3` module, which
+SqlDaf needs SQLite 3.48 or later. It uses Python's own `sqlite3` module, and the SQLite in it
 depends on how that Python was built. For example, the system Python 3.11 of Ubuntu 22.04 has
-SQLite 3.37.2. Check yours with `python -c "import sqlite3; print(sqlite3.sqlite_version)"`.
+SQLite 3.37.2, and the Python 3.12 of Ubuntu 24.04 has 3.45. Check yours with
+`python -c "import sqlite3; print(sqlite3.sqlite_version)"`.
 
-Where it is older, install pysqlite3-binary, with `pip install daffodil[sqlite]`. It is the same
-`sqlite3` module, built with a current SQLite. SqlDaf uses it whenever it is installed. Its wheels
-are for Linux on x86-64. An older SQLite raises RuntimeError when SqlDaf first opens a file.
+An older SQLite raises RuntimeError when SqlDaf first opens a file. Then use a Python with a newer
+one. Every Python that uv installs has SQLite 3.53, from 3.10 to 3.13, as in `uv python install 3.12`.
 
 SQLite must not be loaded twice in one process with the same file open in both, or file locks
-can be lost. Code that opens SqlDaf's files itself should import the module SqlDaf uses:
+can be lost. So code that opens SqlDaf's files should use Python's own `sqlite3` too, not a
+second build such as pysqlite3. `daffodil.lib.daf_sql` gives the module SqlDaf uses:
 
 ```python
 from daffodil.lib.daf_sql import sqlite3

@@ -185,6 +185,23 @@ Found 2026-10-19, while timing the chunk combine. See 2026-10-19_1551_chunk_comb
 - So every SqlDaf TEMP table, such as a selection, `group_where()` groups or a sort, is in RAM
   under pysqlite3-binary. That works against what SqlDaf is for. Q253.
 
+### Q253, settled 2026-10-20: stdlib sqlite3 only
+
+Ray asked why pysqlite3 is used at all. It was there only for an old system SQLite.
+
+- uv's own builds have SQLite 3.53.1 with TEMP_STORE=1 for every version: 3.10.20, 3.11.15,
+  3.12.13 and 3.13.14. Installed on the box on 2026-10-20. The install also put python3.10 and
+  python3.11 links in ~/.local/bin, ahead of /usr/bin on PATH. They were removed, so a bare
+  python3.11 on the shared box is the system one again.
+- The system Pythons 3.10.12 and 3.11.11 of the box have 3.37.2. CI's 3.12 job used the runner's
+  /usr/bin/python3.12, Ubuntu's, with 3.45. Its 3.10, 3.11 and 3.13 jobs downloaded uv's builds.
+- Done: daf_sql.py imports only the stdlib sqlite3. The `sqlite` extra is gone from pyproject.toml.
+  `[tool.uv] python-preference = "only-managed"` makes uv, in CI and in the check script, use its
+  own builds. The check environments were rebuilt on them by uv itself. All four pass with no
+  pysqlite3.
+- AuditEngine's venv had no pysqlite3, and uses SqlDaf only in its draft sdaf_variants.py. It needs
+  uv's Python 3.12 to run SqlDaf, which it is moving to.
+
 ## Moving to a newer SQLite
 
 Checked on 2026-10-18 against the SQLite change log and by running both versions.

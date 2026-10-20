@@ -29,7 +29,6 @@ numpy = ['numpy']
 pandas = ["pandas"]
 pdf = ["pdfplumber"]
 pyjson5 = ["pyjson5"]                   # reads dict and list cells of CSV files much faster
-sqlite = ["pysqlite3-binary; sys_platform == 'linux' and platform_machine == 'x86_64'"]     # a current SQLite for SqlDaf, where the system one is old
 
 [project.urls]
 Homepage = "https://github.com/raylutz/daffodil"
@@ -48,7 +47,7 @@ license-files = []
 [dependency-groups]
 dev = [
     "pytest>=8.0",
-    "daffodil[numpy,pandas,pdf,pyjson5,sqlite]",
+    "daffodil[numpy,pandas,pdf,pyjson5]",
     "objsize",
     "requests>=2.32.5",
     "xlsxwriter>=3.2.9",
@@ -59,6 +58,11 @@ dev = [
     "ruff>=0.16.10",
     "mypy>=2.4.0",
 ]
+
+[tool.uv]
+# uv's own Python builds have SQLite 3.53 for every version, and SqlDaf needs 3.48.
+# A system Python may have an older SQLite, such as 3.37 or 3.45 on Ubuntu.
+python-preference = "only-managed"
 
 [tool.mypy]
 python_version = "3.10"

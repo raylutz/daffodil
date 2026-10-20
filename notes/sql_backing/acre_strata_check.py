@@ -15,9 +15,7 @@ import resource
 
 sys.path.insert(0, '/home/ubuntu/daffodil_sql/src')
 sys.path.insert(1, '/home/audit-engine-dev')
-# AuditEngine's venv needs pysqlite3-binary. Until it has it, PYSQLITE3_SITE names a site-packages that does.
-if os.environ.get('PYSQLITE3_SITE'):
-    sys.path.append(os.environ['PYSQLITE3_SITE'])
+# SqlDaf needs SQLite 3.48. Run it with a Python that has it, such as uv's Python 3.12.
 
 import pyjson5                                          # noqa: E402
 from daffodil.daf import Daf                            # noqa: E402

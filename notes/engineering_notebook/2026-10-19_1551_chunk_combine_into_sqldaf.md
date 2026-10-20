@@ -110,7 +110,6 @@ converted. Daf interface allows skipping applying types if not needed. File colu
 
 ## Open
 
-- Q253: which SQLite driver SqlDaf prefers, given TEMP_STORE=3 in pysqlite3-binary.
 - Where AuditEngine keeps the database files of a job, and when they are deleted.
 
 ## Pointers

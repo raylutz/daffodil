@@ -62,7 +62,7 @@ def test_an_old_sqlite_raises_at_connect(tmp_path, monkeypatch):
     """ The version is checked when a connection opens, with how to get a newer SQLite. """
     monkeypatch.setattr(sqlite3, 'sqlite_version_info', (3, 37, 2))
     monkeypatch.setattr(sqlite3, 'sqlite_version', '3.37.2')
-    with pytest.raises(RuntimeError, match=r'needs SQLite 3\.48\.0 or later.*has SQLite 3\.37\.2.*pysqlite3-binary'):
+    with pytest.raises(RuntimeError, match=r'needs SQLite 3\.48\.0 or later.*has SQLite 3\.37\.2.*Every Python that uv installs'):
         SqlDaf('marks', ['a'], db_path=str(tmp_path / 'old.db'))
 
 
