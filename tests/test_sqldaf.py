@@ -12,7 +12,7 @@ import pytest
 
 from daffodil.daf import Daf, NULL
 from daffodil.keyedlist import KeyedList
-from daffodil.lib.daf_types import T_ls
+from daffodil.lib.daf_types import T_ls, T_dtype_dict
 from daffodil.sqldaf import SqlDaf, BLOCKED_LS, SAFE_INHERITED_SET, KEEP_SET, RID_COL, META_TABLE, quote_name
 
 
@@ -300,6 +300,60 @@ def test_from_csv_keyfield_must_be_a_column(tmp_path):
     with pytest.raises(KeyError):
         SqlDaf.from_csv(csv_path, keyfield='c')
     assert not SqlDaf.table_exists('k')
+
+
+def test_from_csv_glob_loads_files_in_sorted_order_and_skips_empty_ones(tmp_path):
+    write_csv(str(tmp_path / 'votes_2.csv'), 'b,v\nb3,3\n')
+    write_csv(str(tmp_path / 'votes_0.csv'), 'b,v\nb1,1\nb2,2\n')
+    write_csv(str(tmp_path / 'votes_1.csv'), '')
+    write_csv(str(tmp_path / 'votes_3.csv'), 'b,v\n')
+    votes_sdaf: SqlDaf = SqlDaf.from_csv(str(tmp_path / 'votes_*.csv'), name='votes', keyfield='b')
+    assert votes_sdaf.to_daf().lol == [['b1', '1'], ['b2', '2'], ['b3', '3']]
+    assert votes_sdaf.keyfield == 'b'
+
+
+def test_from_csv_list_loads_files_in_list_order_and_names_table_after_first(tmp_path):
+    a_path: str = write_csv(str(tmp_path / 'a.csv'), 'k\na1\n')
+    b_path: str = write_csv(str(tmp_path / 'b.csv'), 'k\nb1\n')
+    ba_sdaf: SqlDaf = SqlDaf.from_csv([b_path, tmp_path / 'a.csv'])
+    assert ba_sdaf.name == 'b'
+    assert ba_sdaf.to_list() == ['b1', 'a1']
+    assert SqlDaf.from_csv(a_path).to_list() == ['a1']
+
+
+def test_from_csv_rejects_a_file_whose_column_names_differ(tmp_path):
+    write_csv(str(tmp_path / 'c_0.csv'), 'b,v\nb1,1\n')
+    write_csv(str(tmp_path / 'c_1.csv'), 'b,w\nb2,2\n')
+    with pytest.raises(ValueError, match='c_1.csv differ from those of .*c_0.csv'):
+        SqlDaf.from_csv(str(tmp_path / 'c_*.csv'), name='c')
+    assert not SqlDaf.table_exists('c')
+
+
+def test_from_csv_pattern_with_no_match_raises(tmp_path):
+    with pytest.raises(FileNotFoundError):
+        SqlDaf.from_csv(str(tmp_path / 'none_*.csv'))
+    with pytest.raises(FileNotFoundError):
+        SqlDaf.from_csv(str(tmp_path / 'none.csv'))
+
+
+def test_from_csv_dtypes_convert_as_apply_dtypes_does(tmp_path):
+    text: str = 'k,n,f,b\na,1,1.5,1\nb,,,\nc,abc,2,0\n'
+    write_csv(str(tmp_path / 'm.csv'), text)
+    write_csv(str(tmp_path / 't.csv'), text)
+    dtypes: T_dtype_dict = {'k': str, 'n': int, 'f': float, 'b': bool, 'gone': int}
+    m_sdaf: SqlDaf = SqlDaf.from_csv(str(tmp_path / 'm.csv'), dtypes=dtypes)
+    t_sdaf: SqlDaf = SqlDaf.from_csv(str(tmp_path / 't.csv')).apply_dtypes(dtypes=dtypes)
+    assert m_sdaf.to_daf().lol == t_sdaf.to_daf().lol == [['a', 1, 1.5, True], ['b', NULL, NULL, False], ['c', 'abc', 2.0, False]]
+    assert m_sdaf.sql('SELECT typeof(n) FROM m').to_list() == t_sdaf.sql('SELECT typeof(n) FROM t').to_list() == ['integer', 'null', 'text']
+    assert m_sdaf.dtypes == dtypes
+    assert SqlDaf('m').dtypes == dtypes
+
+
+def test_from_csv_dtype_that_cannot_be_stored_raises(tmp_path):
+    csv_path: str = write_csv(str(tmp_path / 'd.csv'), 'k\n{}\n')
+    with pytest.raises(NotImplementedError):
+        SqlDaf.from_csv(csv_path, dtypes={'k': dict})
+    assert not SqlDaf.table_exists('d')
 
 
 def test_from_csv_makes_repeated_names_unique(tmp_path):

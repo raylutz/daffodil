@@ -92,10 +92,25 @@ many files into one table, the header check, empty chunks skipped, and an option
 converted in the stream. AuditEngine's merge also realigns headers that differ only in the file
 path columns. That rule is AuditEngine's, so it would stay there. Q254.
 
+## Q254, settled 2026-10-20
+
+Ray: "Similar to dask. Sdaf.From_csv() only. Check headers. Convert dtypes bc sdaf needs them
+converted. Daf interface allows skipping applying types if not needed. File column. No."
+
+- dask's `read_csv()` takes one path, a glob or a list, and `dtype`. It has `include_path_column`
+  and `blocksize`. It takes the column names from the first file and checks no other header.
+- `SqlDaf.from_csv()` takes one file, a glob pattern or a list. A pattern is sorted, a list keeps
+  its order. There is no `from_csv_files()`, and no column for the file.
+- Every file must have the column names of the first file that has any, or ValueError names both
+  files. An empty file is skipped. A file with only the header adds no rows.
+- `dtypes` converts in the stream with the converters `apply_dtypes()` uses, so the values are the
+  same. A test compares the two. On 200,000 rows in 5 files with 5 int columns: 1.0 s, against
+  1.4 s for a text load and `apply_dtypes()`. `Daf.from_csv()` keeps `dtypes` deprecated.
+- The prototype and timing scripts were in the scratch folder of the thread, not kept.
+
 ## Open
 
 - Q253: which SQLite driver SqlDaf prefers, given TEMP_STORE=3 in pysqlite3-binary.
-- Q254: `SqlDaf.from_csv_files()`.
 - Where AuditEngine keeps the database files of a job, and when they are deleted.
 
 ## Pointers
