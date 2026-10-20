@@ -93,7 +93,7 @@ from pathlib import Path
 
 from daffodil.lib.daf_types import T_ls, T_lola, T_di, T_loda, T_da, T_li, T_dtype_dict, \
                             T_dola, T_dodi, T_la, T_lota, T_doda, T_buff, T_ds, T_lb, T_rli, \
-                            T_ta, T_lor, T_kva, T_donpa, T_npa, T_lsi, T_cs, T_ca, T_ma, T_copybits  # noqa: F401
+                            T_ta, T_lor, T_kva, T_donpa, T_npa, T_lsi, T_cs, T_ca, T_ma, T_rma, T_copybits  # noqa: F401
 
 import daffodil.lib.daf_utils    as daf_utils
 import daffodil.lib.daf_md       as md
@@ -10721,7 +10721,7 @@ class Daf:
 
 
     @staticmethod
-    def update_row(row: T_ma, da: T_da) -> T_ma:
+    def update_row(row: T_rma, da: T_da) -> T_rma:
         """
         Update a row with the items of a dict, and return the row.
 
@@ -12488,13 +12488,13 @@ class Daf:
 
     @staticmethod
     def sum_da( row_da:         T_ma,                       # the current row from the daf array.
-                reduction_da:   T_ma,                       # an accumulated result. Must be initialized for all columns in cols.
+                reduction_da:   T_rma,                      # an accumulated result. Must be initialized for all columns in cols.
                 *,
                 cols:           T_cs | None = None,    # defines the active columns. Can be a list, keys(), range, or slice
                 astype:         Type | None = None,        # a type like int, float, str to cast the value if it is not that type. Optional.
                 is_sparse:      bool=False,
                 diagnose:       bool=False
-                ) -> T_ma:  # result_ma -- same object (and type) as reduction_da, returned in place
+                ) -> T_rma: # result_ma -- same object (and type) as reduction_da, returned in place
         """
         Add the values of a row to a running total. Use it with `reduce()`.
 
@@ -12643,13 +12643,13 @@ class Daf:
 
     @staticmethod
     def sum_kl( row_kl:         Any,                        # the current row, a KeyedList.
-                reduction_da:   T_ma,                       # the running total.
+                reduction_da:   T_rma,                      # the running total.
                 *,
                 cols:           T_cs | None = None,         # the columns to add.
                 astype:         Type | None = None,         # a type to convert each value to first.
                 is_sparse:      bool=False,
                 diagnose:       bool=False
-                ) -> T_ma:
+                ) -> T_rma:
         """
         Add the values of a row to a running total. This is the standard sum for `reduce()`.
 

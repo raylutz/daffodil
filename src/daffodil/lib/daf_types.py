@@ -1,6 +1,6 @@
 # daf_types.py
 
-from typing import List, Dict, Any, Tuple, Type, Set, TYPE_CHECKING, Callable, TypeAlias, cast    # noqa: F401
+from typing import List, Dict, Any, Tuple, Type, Set, TYPE_CHECKING, Callable, TypeAlias, TypeVar, cast    # noqa: F401
 from collections.abc  import KeysView, Iterable   # noqa: F401
 
 import datetime
@@ -68,6 +68,10 @@ T_ca = T_la | T_kva | dict
 
 # general mapping
 T_ma = T_da | KeyedList
+
+# A mapping returned as the same type it was given, such as a running total.
+# A dict of int gives a dict of int, and a KeyedList gives a KeyedList.
+T_rma = TypeVar('T_rma', bound=T_ma)
 
 # do.. forms
 T_doda = Dict[str, T_da]
