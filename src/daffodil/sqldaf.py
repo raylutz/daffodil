@@ -12,7 +12,7 @@ import threading
 import contextlib
 
 from pathlib import Path
-from typing import Any, Callable, ClassVar, Dict, Iterator, List, Literal, Tuple, Type, TypeAlias, cast, overload      # noqa: F401
+from typing import Any, Callable, ClassVar, Dict, Generator, Iterator, List, Literal, Tuple, Type, TypeAlias, cast, overload      # noqa: F401
 from collections.abc import Iterable
 
 from daffodil.daf import Daf, NULL, ColumnNotFoundError, KeysDisabledError
@@ -141,6 +141,7 @@ class CellReduction:
     col:            str
     call_kwargs:    T_da
     sparse:         bool = False
+    select_cols:    T_ls | None = None              # with sparse, the keys kept at the end, in this order.
 
     def __init__(self) -> None:
         self.reduction_da: T_da = {}
@@ -159,6 +160,8 @@ class CellReduction:
 
     def finalize(self) -> Any:
         result_a: Any = self.reduction_da.get(self.col, NULL) if self.saw_value and not self.sparse else self.reduction_da
+        if self.sparse and self.select_cols is not None:
+            result_a = {col: self.reduction_da[col] for col in self.select_cols if col in self.reduction_da}
         return aggregate_result_cell(result_a)
 
 
@@ -1265,7 +1268,7 @@ class SqlDaf(Daf):
                    dtypes=dict(self.dtypes) if self.dtypes else None)
 
 
-    def _iter_row_batches(self, batch_size: int = 10000, cols: T_ls | None = None) -> Iterator[List[Tuple[Any, ...]]]:
+    def _iter_row_batches(self, batch_size: int = 10000, cols: T_ls | None = None) -> Generator[List[Tuple[Any, ...]], None, None]:
         """ Read every row in order, a batch at a time, as tuples with SQL NULL as None. Only `cols` if given. Internal use. """
         self._resolve()
         cols_ls: T_ls = list(self.hd) if cols is None else cols
@@ -1492,6 +1495,8 @@ class SqlDaf(Daf):
           values. Unlike in a Daf, writing to it does not change the table.
         - With `by='sparse_row'`, the function gets the dict held in `indirect_col`, JSON or
           PYON text decoded as in a Daf, and the result starts as `initial_da` or an empty dict.
+          A plain sum chooses its loop once, from the first 100 rows, as `Daf.reduce()` describes.
+          With `cols`, the result is in the order of `cols`.
         - With `by='table'`, the function gets this SqlDaf and `cols`.
 
         For a plain total of columns, `sum()` is faster: SQLite adds them, and no row comes
@@ -1542,6 +1547,14 @@ class SqlDaf(Daf):
             return {}
 
         hd: T_di = dict(self.hd)
+
+        # A plain sparse sum picks its loop once, before the first row, as in Daf.reduce().
+        if by == 'sparse_row' and Daf._is_plain_sum(func, initial_da, silent_error, kwargs):
+            sparse_idx: int = hd[indirect_col]
+            rows_iter: Iterator[Any] = (daf_utils.get_indirect_da({indirect_col: none_to_null(vals_t)[sparse_idx]}, indirect_col)
+                                        for batch_lot in self._iter_row_batches() for vals_t in batch_lot)
+            return Daf._sum_sparse(rows_iter, cols)
+
         cols_iter: Any = None
         reduction_ma: Any
         if by == 'row':
@@ -2857,6 +2870,7 @@ class SqlDaf(Daf):
         With `by='row'` it has the columns of this table. The columns not reduced are empty.
         With `by='sparse_row'` it has two: this column, and the column named by `indirect_col`.
         That cell holds the dict of the group, with only the keys found in the group, as compact JSON text.
+        With `reduce_cols` and a plain sum, each dict holds the columns its group has, in the order of `reduce_cols`.
         Results are in daffodil form, as `groupby_aggregate()` describes.
         The new table is a TEMP table, as `copy()` makes. Keep it with `save(name)`.
 
@@ -2916,11 +2930,29 @@ class SqlDaf(Daf):
         agg_cls: Type[Any]
         if by == 'sparse_row':
             indirect_col: str = kwargs['indirect_col']
+            sparse_func: Callable[..., Any] = func
+            call_kwargs: T_da = {'cols': reduce_cols, 'is_sparse': True, **func_kwargs}
+            select_ls: T_ls | None = None
+
+            # A plain sum picks its loop once, from the first rows, as Daf.reduce() does.
+            if Daf._is_plain_sum(func, None, False, func_kwargs):
+                batches_iter: Generator[List[Tuple[Any, ...]], None, None] = self._iter_row_batches(Daf._SPARSE_SAMPLE_ROWS, [indirect_col])
+                sample_lot: List[Tuple[Any, ...]] = next(batches_iter, [])
+                batches_iter.close()                    # the rest of the rows are not read.
+                sample_lodict: List[Any] = [daf_utils.get_indirect_da({indirect_col: none_to_null(vals_t)[0]}, indirect_col)
+                                            for vals_t in sample_lot]
+                loop_cols_t, select_ls = Daf._sparse_sum_plan(reduce_cols, sample_lodict)
+                if loop_cols_t is None:
+                    sparse_func, call_kwargs = Daf._sum_sparse_keys, {}
+                else:
+                    sparse_func, call_kwargs = Daf._sum_sparse_cols, {'cols': loop_cols_t}
+
             agg_cls = type('BoundCellReduction', (CellReduction,), {
-                    'func':         staticmethod(func),
+                    'func':         staticmethod(sparse_func),
                     'col':          indirect_col,
-                    'call_kwargs':  {'cols': reduce_cols, 'is_sparse': True, **func_kwargs},
+                    'call_kwargs':  call_kwargs,
                     'sparse':       True,
+                    'select_cols':  select_ls,
                     })
             return self._aggregate_groups([colname], agg_cls, [indirect_col], [indirect_col],
                                           [colname, indirect_col], 'groupby_reduce', diagnose)
@@ -3028,10 +3060,12 @@ class SqlDaf(Daf):
         agg_cls: Type[Any]
         arg_cols_ls: T_ls
         if len(reduce_cols_ls) == 1 and len(result_cols_ls) == 1:
+            # A plain sum adds every key, with no test, as Daf.reduce() does with no cols.
+            plain_sum: bool = Daf._is_plain_sum(func, None, False, kwargs)
             agg_cls = type('BoundCellReduction', (CellReduction,), {
-                    'func':         staticmethod(func),
+                    'func':         staticmethod(Daf._sum_sparse_keys if plain_sum else func),
                     'col':          reduce_cols_ls[0],
-                    'call_kwargs':  {'cols': None, 'is_sparse': True, **kwargs},
+                    'call_kwargs':  {} if plain_sum else {'cols': None, 'is_sparse': True, **kwargs},
                     })
             arg_cols_ls = [reduce_cols_ls[0]]
         else:

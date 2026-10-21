@@ -83,6 +83,7 @@ import re
 import json
 import time
 import functools
+import itertools
 import operator
 #import numpy as np         # moved to uses of numpy
 #from typing_extensions import deprecated       # can't get this to import correctly
@@ -93,7 +94,7 @@ from pathlib import Path
 
 from daffodil.lib.daf_types import T_ls, T_lola, T_di, T_loda, T_da, T_li, T_dtype_dict, \
                             T_dola, T_dodi, T_la, T_lota, T_doda, T_buff, T_ds, T_lb, T_rli, \
-                            T_ta, T_lor, T_kva, T_donpa, T_npa, T_lsi, T_cs, T_ca, T_ma, T_rma, T_copybits  # noqa: F401
+                            T_ta, T_ts, T_lor, T_kva, T_donpa, T_npa, T_lsi, T_cs, T_ca, T_ma, T_rma, T_copybits  # noqa: F401
 
 import daffodil.lib.daf_utils    as daf_utils
 import daffodil.lib.daf_md       as md
@@ -11691,7 +11692,9 @@ class Daf:
 
         With `by='sparse_row'`, the result stays concise. It has two columns: this column,
         and the column named by `indirect_col`. That cell holds the dict of the group, with
-        only the keys found in the group. Each group's dict may have other keys.
+        only the keys found in the group. Each group's dict may have other keys. With
+        `reduce_cols` and a plain sum, each dict holds the columns its group has, in the
+        order of `reduce_cols`, as `reduce()` describes.
 
         With `reduce_cols`, and `by` of `row` or `sparse_row`, each group holds only those
         columns, and the `indirect_col` if there is one. The other columns are never copied,
@@ -12291,6 +12294,18 @@ class Daf:
         returned as it is. With `by='sparse_row'`, rows are read from the dict in
         `indirect_col`, and the result starts as `initial_da` or an empty dict.
 
+        A plain sum of sparse rows, with `sum_da()` or `sum_kl()` and no other options,
+        chooses its loop once, from the first 100 rows. No key is tested inside the loop.
+
+        - With no `cols`, every key of each row is added.
+        - With `cols` no longer than the mean number of keys in a row, each column is
+          looked up in each row.
+        - With longer `cols`, every key is added, and the columns are picked at the end.
+
+        The totals are the same in each case. With `cols`, the result holds the columns
+        that some row has, in the order of `cols`. A column that no row has is left out,
+        not given as 0. To sum nearly every key, give no `cols` and pick the totals needed.
+
         An error in the function stops the reduction. With `silent_error=True` the
         row is skipped. The result may then be missing rows, with no sign of it. An
         empty Daf gives an empty dict for `by='row'`.
@@ -12327,6 +12342,23 @@ class Daf:
             <BLANKLINE>
             >>> daf.reduce(Daf.sum_da, cols=['x', 'y'])
             {'g': '', 'x': 6, 'y': 60}
+
+            A sparse sum, of the dict in each row:
+
+            >>> votes_daf = Daf(lol=[['b1', {'c1v': 1, 'c0b': 1}], ['b2', {'c0b': 1, 'c2v': 1}]], cols=['ballot_id', 'cv'])
+            >>> votes_daf
+            <BLANKLINE>
+            | ballot_id |          cv          |
+            | --------: | -------------------: |
+            |        b1 | {'c1v': 1, 'c0b': 1} |
+            |        b2 | {'c0b': 1, 'c2v': 1} |
+            <BLANKLINE>
+            %% daf rows=2; cols=2; keyfield=''; name=''
+            <BLANKLINE>
+            >>> votes_daf.reduce(Daf.sum_da, by='sparse_row', indirect_col='cv')
+            {'c1v': 1, 'c0b': 2, 'c2v': 1}
+            >>> votes_daf.reduce(Daf.sum_da, by='sparse_row', indirect_col='cv', cols=['c2v', 'c0b'])
+            {'c2v': 1, 'c0b': 2}
         """
         if by == 'table':
             reduction_ma = func(self, cols, **kwargs)
@@ -12404,6 +12436,10 @@ class Daf:
         elif by == 'sparse_row':
             if not indirect_col:
                 raise ValueError("indirect_col must be specified for 'sparse_row' reduction and lol array.")
+
+            # A plain sum picks its loop once, before the first row.
+            if Daf._is_plain_sum(func, initial_da, silent_error, kwargs):
+                return Daf._sum_sparse((daf_utils.get_indirect_da(row_ma, indirect_col) for row_ma in self), cols)
 
             reduction_ma = initial_da or {}
 
@@ -12639,6 +12675,116 @@ class Daf:
 
 
             return reduction_da
+
+
+    #===================================
+    # Sparse sums
+    #
+    # A plain sum of sparse rows picks its loop once, before the first row.
+    # The loop itself tests nothing.
+
+    _SPARSE_SAMPLE_ROWS: ClassVar[int] = 100         # the rows read to judge how many keys a row has.
+
+    @staticmethod
+    def _sum_sparse_keys(row_da: T_ma, reduction_da: T_rma, **kwargs: Any) -> T_rma:
+        """
+        Add every key of a sparse row to the totals, with no test of the key. Internal use.
+
+        A value that cannot be added is skipped, as `sum_da()` skips it.
+        Other keywords, such as `is_sparse`, are taken and not used.
+        """
+        for col, val in row_da.items():
+            try:
+                reduction_da[col] = reduction_da.get(col, 0) + val + 0     # type: ignore[index, call-overload]
+            except (ValueError, TypeError):
+                continue
+        return reduction_da
+
+
+    @staticmethod
+    def _sum_sparse_cols(row_da: T_ma, reduction_da: T_rma, *, cols: T_ts, **kwargs: Any) -> T_rma:
+        """
+        Add the columns in `cols` that a sparse row has, looking up each one. Internal use.
+
+        A column the row does not have is skipped, so it is never added as 0.
+        A value that cannot be added is skipped, as `sum_da()` skips it.
+        """
+        get = row_da.get
+        for col in cols:
+            val = get(col)
+            if val is None:
+                continue
+            try:
+                reduction_da[col] = reduction_da.get(col, 0) + val + 0     # type: ignore[index, call-overload]
+            except (ValueError, TypeError):
+                continue
+        return reduction_da
+
+
+    @staticmethod
+    def _sparse_sum_plan(cols: T_cs | str | None, sample_lodict: List[Any]) -> Tuple[T_ts | None, T_ls | None]:
+        """
+        Choose how a plain sum of sparse rows loops. Internal use.
+
+        Each row is a dict that holds only some keys. The choice is made once, before the loop.
+
+        - With no `cols`, every key of each row is added. No key is tested.
+        - With `cols` no longer than the mean number of keys in the sample rows, the
+          loop goes over `cols` and looks each one up in the row.
+        - With longer `cols`, every key of each row is added, and the columns are picked
+          from the totals at the end. Adding a key costs about what testing it would cost,
+          so this is faster than testing each key of each row.
+
+        Returns:
+            The columns to loop over, or None to add every key.
+            The columns to pick at the end, in their order, or None to keep every total.
+        """
+        if cols is None:
+            return None, None
+        select_ls: T_ls = [cols] if isinstance(cols, str) else list(dict.fromkeys(cols))
+        num_keys: int = sum(len(row_da) for row_da in sample_lodict)
+        if len(select_ls) * len(sample_lodict) <= num_keys:
+            return tuple(select_ls), select_ls
+        return None, select_ls
+
+
+    @staticmethod
+    def _sum_sparse(rows_iter: Iterator[Any], cols: T_cs | str | None) -> T_da:
+        """
+        Sum sparse rows, each a dict that holds only some keys, as `reduce()` does with `sum_da()`.
+
+        The loop is chosen once, by `_sparse_sum_plan()`, from the first rows.
+        The totals are the same as `sum_da()` gives, added in the same order.
+        With `cols`, the result holds the columns of `cols` that some row has, in the order of `cols`.
+        With no `cols`, it holds every key, in the order the rows first have them. Internal use.
+        """
+        sample_lodict: List[Any] = list(itertools.islice(rows_iter, Daf._SPARSE_SAMPLE_ROWS))
+        loop_cols_t, select_ls = Daf._sparse_sum_plan(cols, sample_lodict)
+
+        reduction_da: T_da = {}
+        row_da: Any
+        if loop_cols_t is None:
+            for row_da in itertools.chain(sample_lodict, rows_iter):
+                reduction_da = Daf._sum_sparse_keys(row_da, reduction_da)
+        else:
+            for row_da in itertools.chain(sample_lodict, rows_iter):
+                reduction_da = Daf._sum_sparse_cols(row_da, reduction_da, cols=loop_cols_t)
+
+        if select_ls is None:
+            return reduction_da
+        selected_da: T_da = {col: reduction_da[col] for col in select_ls if col in reduction_da}
+        return selected_da
+
+
+    @staticmethod
+    def _is_plain_sum(func: Callable[..., Any], initial_da: Any, silent_error: bool, kwargs: Dict[str, Any]) -> bool:
+        """
+        True if a reduction is a plain sum, with `sum_da()` or `sum_kl()` and no other options. Internal use.
+
+        `reduce()` then adds the rows by its own loop, which gives the same totals faster.
+        """
+        return (func in (Daf.sum_da, Daf.sum_kl) and initial_da is None and not silent_error
+                and kwargs.keys() <= {'astype', 'is_sparse', 'diagnose'} and not any(kwargs.values()))
 
 
     @staticmethod

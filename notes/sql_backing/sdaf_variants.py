@@ -49,7 +49,7 @@ from daffodil.sqldaf import SqlDaf, T_sdaf, T_losdaf
 import daffodil.lib.daf_utils as daf_utils
 
 from models.DB import DB
-from my_types import T_da, T_di, T_doda, T_kvs, T_la, T_ls, T_loda
+from my_types import T_da, T_di, T_doda, T_la, T_ls, T_loda
 from utilities import cmpcvr, generic_cvr, logs, reports, split_bmd, sql_utils, sql_variants, utils
 
 
@@ -780,14 +780,16 @@ def nonvariant_stats_sdaf(
     A key that no row has totals to 0, and to None in the sums of a precinct, as SQL SUM() gives them.
     """
     direct_cols_ls: T_ls = [col for col in sumcols_ls if col in nonvariants_sdaf.columns()]
-    # The columns to sum that are keys of the concise_votes dicts.
-    # A KeysView, since the sum tests each key of each row against it.
-    dict_sum_cols_kvs: T_kvs = dict.fromkeys(col for col in sumcols_ls if col not in direct_cols_ls).keys()
 
     def totals_da(rows_sdaf: SqlDaf, absent: Any) -> T_da:
-        """ The totals of sumcols_ls in these rows. """
+        """
+        The totals of sumcols_ls in these rows.
+
+        The other columns of sumcols_ls are keys of the concise_votes dicts, nearly all of the keys there are.
+        So every key is added, with no cols, and the totals of sumcols_ls are picked at the end.
+        """
         direct_da: T_da = rows_sdaf.sum(direct_cols_ls) if direct_cols_ls else {}
-        indirect_da: T_da = rows_sdaf.reduce(Daf.sum_da, by='sparse_row', indirect_col='concise_votes', cols=dict_sum_cols_kvs)
+        indirect_da: T_da = rows_sdaf.reduce(Daf.sum_da, by='sparse_row', indirect_col='concise_votes')
         return {col: int(direct_da[col]) if col in direct_da else indirect_da.get(col, absent) for col in sumcols_ls}
 
     # num_contests is written in place, so the other cells are not rewritten.

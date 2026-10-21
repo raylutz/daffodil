@@ -993,6 +993,8 @@ GROUPBY_REDUCE_DAF = Daf(lol=[['b2', 1, "{'c0b': 1, 'c0v': 1}"], ['b1', 2, "{'c0
     dict(func=Daf.sum_da),
     dict(func=Daf.sum_da, by='sparse_row', indirect_col='cv'),
     dict(func=_update_da, by='sparse_row', indirect_col='cv'),
+    dict(func=Daf.sum_da, by='sparse_row', indirect_col='cv', reduce_cols=['c2v', 'c0b']),
+    dict(func=Daf.sum_da, by='sparse_row', indirect_col='cv', reduce_cols=['c2v', 'c0b', 'c1v', 'c0v', 'zz']),
     ])
 def test_groupby_reduce_matches_mdaf(args, batch_size):
     """ The rows are those of Daf.groupby_reduce(), in key order, with a dict cell as JSON text. """

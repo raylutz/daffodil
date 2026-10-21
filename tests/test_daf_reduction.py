@@ -18,6 +18,8 @@ from decimal import Decimal
 from typing import Any
 import numpy as np
 from daffodil.daf import Daf, KeysDisabledError
+from daffodil.lib import daf_utils
+from daffodil.lib.daf_utils import NULL
 from daffodil.keyedlist import KeyedList
 from daffodil.lib.daf_types import T_da
 
@@ -63,6 +65,64 @@ def test_reduce_by_sparse_row():
     daf = Daf(lol=[[1, {'x': 10, 'y': 20}], [2, {'x': 5}]], cols=['id', 'meta'])
     result = daf.reduce(func=Daf.sum_da, by='sparse_row', indirect_col='meta')
     assert result == {'x': 15, 'y': 20}
+
+
+# The rows of a sparse sum. A key first appears in another order than the cols below.
+# Text, None and a float show that a value is skipped or added just as sum_da() does.
+SPARSE_SUM_DAF = Daf(lol=[['b1', "{'c1v': 1, 'c0b': 1, 'note': 'x'}"],
+                          ['b2', "{'c0b': 2, 'c0v': None, 'c2v': 0.1}"],
+                          ['b3', NULL],
+                          ['b4', "{'c2v': 0.2, 'c1v': 'y', 'c0v': 3}"]],
+                     cols=['ballot_id', 'cv'])
+
+
+def sparse_sum_by_sum_da(daf: Daf, cols) -> dict:
+    """ The sparse sum as sum_da() makes it, one row at a time, with each key tested against cols. """
+    reduction_da: dict = {}
+    for row_da in daf:
+        reduction_da = Daf.sum_da(daf_utils.get_indirect_da(row_da, 'cv'), reduction_da, cols=cols, is_sparse=True)
+    return reduction_da
+
+
+@pytest.mark.parametrize('cols', [
+    None,                                           # every key, with no test.
+    ['c2v', 'c0b'],                                 # fewer columns than a row has keys: a loop over the columns.
+    ['c2v', 'c0b', 'c1v', 'c0v', 'note', 'zz'],     # more: every key is added, and the columns are picked.
+    'c0b',                                          # one column, by name.
+    ])
+def test_reduce_sparse_row_plain_sum_matches_sum_da(cols):
+    """ The totals are those of sum_da(). With cols, they are in the order of cols, with only the keys found. """
+    result_da: dict = SPARSE_SUM_DAF.reduce(Daf.sum_da, by='sparse_row', indirect_col='cv', cols=cols)
+    expect_da: dict = sparse_sum_by_sum_da(SPARSE_SUM_DAF, [cols] if isinstance(cols, str) else cols)
+    assert result_da == expect_da
+    if cols is None:
+        assert list(result_da) == list(expect_da)
+    else:
+        assert list(result_da) == [col for col in ([cols] if isinstance(cols, str) else cols) if col in expect_da]
+
+
+def test_reduce_sparse_row_plain_sum_values():
+    """ Text and None are skipped. The floats are added in row order. """
+    assert SPARSE_SUM_DAF.reduce(Daf.sum_da, by='sparse_row', indirect_col='cv') == \
+        {'c1v': 1, 'c0b': 3, 'c2v': 0.1 + 0.2, 'c0v': 3}
+    assert SPARSE_SUM_DAF.reduce(Daf.sum_da, by='sparse_row', indirect_col='cv', cols=['c0v', 'c1v', 'zz']) == \
+        {'c0v': 3, 'c1v': 1}
+    assert Daf(cols=['ballot_id', 'cv']).reduce(Daf.sum_da, by='sparse_row', indirect_col='cv', cols=['c0b']) == {}
+
+
+def test_sparse_sum_plan_is_chosen_from_the_keys_per_row():
+    """ No cols adds every key. Cols no longer than the mean keys per row are looped over. Longer cols are picked at the end. """
+    sample_lodict: list = [{'a': 1, 'b': 1, 'c': 1}, {'a': 1}]                 # 2 keys per row.
+    assert Daf._sparse_sum_plan(None, sample_lodict) == (None, None)
+    assert Daf._sparse_sum_plan(['b', 'a'], sample_lodict) == (('b', 'a'), ['b', 'a'])
+    assert Daf._sparse_sum_plan(['c', 'b', 'a'], sample_lodict) == (None, ['c', 'b', 'a'])
+    assert Daf._sparse_sum_plan(['a', 'a'], sample_lodict) == (('a',), ['a'])  # a repeated name counts once.
+
+
+def test_reduce_sparse_row_other_options_keep_the_row_loop():
+    """ With initial_da, the totals start from it, and its other keys stay, as before. """
+    assert SPARSE_SUM_DAF.reduce(Daf.sum_da, by='sparse_row', indirect_col='cv', cols=['c0b'], initial_da={'k': 5, 'c0b': 10}) == \
+        {'k': 5, 'c0b': 13}
 
 
 def test_reduce_sparse_row_requires_indirect_col():
@@ -208,6 +268,13 @@ def test_groupby_reduce_sparse_row_keeps_each_group_concise():
     assert result.columns() == ['g', 'cv']
     assert result.keyfield == 'g'
     assert result.lol == [['p1', {'a': 4}], ['p2', {'a': 2, 'b': 5}]]
+
+
+def test_groupby_reduce_sparse_row_with_reduce_cols_is_in_their_order():
+    """ Each group's dict holds the reduce_cols it has, in their order. """
+    daf = Daf(lol=[['p1', "{'a': 1, 'c': 7}"], ['p2', "{'a': 2, 'b': 5}"], ['p1', "{'b': 3}"]], cols=['g', 'cv'])
+    result = daf.groupby_reduce('g', Daf.sum_da, by='sparse_row', indirect_col='cv', reduce_cols=['b', 'a'])
+    assert result.lol == [['p1', {'b': 3, 'a': 1}], ['p2', {'b': 5, 'a': 2}]]
 
 
 # =====================================================================
