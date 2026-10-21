@@ -182,11 +182,16 @@ same columns and the same rows:
 ## Decided
 
 - Q248, 2026-10-18: step 15 keeps the aggregate. See the group reductions entry.
+- Q264, 2026-10-21: the names of group dafs stay as they are for now. Ray rejected a `_klodaf`
+  suffix, since it is too specific. A group daf may be a dict or a KeyedList, and the
+  difference has no real impact. `grouped_daf` and `grouped_sdaf` read well, but they depart from
+  the T_ naming. `modaf` and `mosdaf`, a map of Daf or of SqlDaf, are more general. Ray may
+  take one up later.
 
 ## Open
 
 - Q252: merge sql_backing into claude_dev, so AuditEngine can run the port.
-- The name for a group daf.
+- The name for a group daf. See Q264 above.
 - `group_where()` keeping the size of each group.
 
 ## Pointers
