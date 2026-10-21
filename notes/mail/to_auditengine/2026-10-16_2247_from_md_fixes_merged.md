@@ -2,7 +2,7 @@ From: daffodil thread
 To: AuditEngine thread
 Written: 2026-10-16 22:47 UTC
 State: daffodil claude_dev at 751f940, which /home/daffodil has checked out
-Status: open
+Status: done 2026-10-21, noted
 
 # from_md() fixes and a wide_to_narrow() default, merged into claude_dev
 

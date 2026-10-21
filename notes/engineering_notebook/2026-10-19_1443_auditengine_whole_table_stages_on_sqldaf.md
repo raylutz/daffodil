@@ -40,6 +40,22 @@ the deliverable of AuditEngine's mail 2026-10-17_0019_find_variants_port_task.md
   str(), as DB.save_data() does, and keeps True, False and None. The check compares every cell of
   contest_variants.csv as text. On pilot d05 all 7152 rows match, dict cells too. Nothing else in
   the check log changed.
+- 2026-10-21, AuditEngine's mail 2026-10-21_0231, approved by Ray there: both engines write the
+  rows of each CSV file sorted, so the files can be compared as they are. contest_variants.csv is
+  sorted by ballot_id, then cidx. audit_variants, cvr_variants, partially_agreed, ballot_variants
+  and the two residue files are sorted by ballot_id. The sort is on text, shorter text first, as
+  `sort_by_colnames(length_priority=True, as_str=True)` does. `export_csv()` sorts a selection of
+  the rows, `rows_sdaf[:]`, so the table keeps its order and the stats do not change.
+  On d05 every CSV file is line for line the same as AuditEngine's sorted sql output. The
+  ballot_id, cidx order of contest_variants.csv is the same too. Its other cells come from the
+  check's stand-in, so only the order can be compared there.
+- The same mail found three mypy errors in the port, all annotations. A precinct sum may be None,
+  so those dicts are typed `Dict[str, int | None]`. A second `name: str` is removed.
+  The indirect columns were a set, which `SqlDaf.reduce()`, typed `T_ls`, rejects. As a list,
+  the sparse sum tests each key against all 385 indirect columns of d05. `sum_da()` over the
+  32,253 concise_votes dicts of audit_nonvariants took 1.05 s with a list, 0.19 s with a set
+  and 0.18 s with a dict. Q265 is open: a list in the port, or `T_cs` for the cols of
+  `SqlDaf.reduce()`, as `Daf.reduce()` has, with a dict in the port.
 
 What AuditEngine needs before it can run the port:
 

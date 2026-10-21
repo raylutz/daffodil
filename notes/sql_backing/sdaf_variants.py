@@ -49,7 +49,7 @@ from daffodil.sqldaf import SqlDaf, T_sdaf, T_losdaf
 import daffodil.lib.daf_utils as daf_utils
 
 from models.DB import DB
-from my_types import T_da, T_di, T_doda, T_dodi, T_la, T_ls, T_loda
+from my_types import T_da, T_di, T_doda, T_la, T_ls, T_loda
 from utilities import cmpcvr, generic_cvr, logs, reports, split_bmd, sql_utils, sql_variants, utils
 
 
@@ -58,6 +58,11 @@ REPORT_COLS_LS:     T_ls    = ['Step', 'Description', 'Audit recs', 'CVR Recs', 
 WORK_PREFIX:        str     = 'sdaf_'       # the TEMP work tables of a run.
 APPLY_BATCH_ROWS:   int     = 10000         # the rows held in memory at a time in step 18.
 CONTEST_VARIANTS_TABLE: str = 'contest_variants'    # the table of step 18, exported as contest_variants.csv.
+
+# The order of the rows in each exported file, as the 'sql' engine writes them.
+# Both engines sort on the text of each value, shorter text first, so '9' comes before '10'.
+CONTEST_VARIANTS_SORT_LS: T_ls = [KEYFIELD, 'cidx']
+BALLOT_SORT_LS: T_ls = [KEYFIELD]
 
 # Patterns of sql_variants.py.
 VARIANT_FLAG_PAT:       str         = r"'c\d+(w|ov|g)'"                             # step 4: a writein, overvote or gray contest.
@@ -273,10 +278,17 @@ def export_csv(
         rows_sdaf:      SqlDaf,         # the rows to write.
         dirname:        str,            # the AuditEngine dirname of the file.
         name:           str,            # the file name, such as partially_agreed.csv.
+        sort_cols_ls:   T_ls,           # the columns the rows are sorted by, main key first.
         ) -> str:                       # the S3 path.
-    """ Write the rows to a local CSV file and upload it, as export_sqlite_table_to_csv_stream() of sql_utils.py does. """
+    """
+    Write the rows to a local CSV file and upload it, as export_sqlite_table_to_csv_stream() of sql_utils.py does.
+
+    The rows are written sorted on the text of sort_cols_ls, shorter text first.
+    A selection of the rows is sorted, so rows_sdaf keeps its order.
+    """
     logs.stsloc(f"Writing '{name}' to s3 (+ mirror)", 3)
-    rows_sdaf.to_csv_file(DB.build_filepath(dirname=dirname, name=name, s3flag=False))
+    sorted_sdaf: SqlDaf = rows_sdaf[:].sort_by_colnames(sort_cols_ls, length_priority=True, as_str=True)
+    sorted_sdaf.to_csv_file(DB.build_filepath(dirname=dirname, name=name, s3flag=False))
     return DB.upload_file_dirname(dirname=dirname, filename=name, local_mirror=True)
 
 
@@ -703,7 +715,7 @@ def create_comparison_records_sdaf(
     # The save is not timed, as in create_comparison_records(), since it also uploads the file.
     # With no rows, the empty Daf is saved, as before.
     if contest_variants_sdaf is not None:
-        export_csv(contest_variants_sdaf, dirname, 'contest_variants.csv')
+        export_csv(contest_variants_sdaf, dirname, 'contest_variants.csv', CONTEST_VARIANTS_SORT_LS)
     else:
         DB.save_data(Daf(), dirname=dirname, name='contest_variants.csv', rtype='daf', local_mirror=True)
     return joined_sdaf, num_rows1, elapsed_secs1, num_rows2, elapsed_secs2
@@ -718,7 +730,7 @@ def precinct_sums_sdaf(
         direct_cols_ls:     T_ls,           # the columns of sumcols_ls that the table has.
         sumcols_ls:         T_ls,           # the columns to total, as reduce_nonvariants() makes the list.
         diagnose:           bool = False,   # if True, show each query and its first results.
-        ) -> T_dodi:                        # the totals of each precinct, by precinct.
+        ) -> Dict[str, Dict[str, int | None]]:  # the totals of each precinct, by precinct. None where no row has the key.
     """
     The totals of sumcols_ls for each precinct, as nonvariant_precinct_sums_dodi.
 
@@ -736,13 +748,13 @@ def precinct_sums_sdaf(
     # The totals of each precinct, in the form of reduce_nonvariants().
     # The precincts come in sorted order, as the concise sums give them.
     direct_doda: Dict[str, T_da] = {row_da[precinct_col]: row_da for row_da in direct_daf.iter_dict()}
-    sums_dodi: T_dodi = {}
+    sums_dodi: Dict[str, Dict[str, int | None]] = {}
     row_da: T_da
     for votes_row_da in indirect_sdaf.iter_dict():
         precinct: str = votes_row_da[precinct_col]
         votes_di: T_di = decoded_votes(votes_row_da['concise_votes'])
         row_da = direct_doda[precinct]
-        sums_di: T_di = {}
+        sums_di: Dict[str, int | None] = {}
         col: str
         for col in sumcols_ls:
             if col in direct_cols_ls:
@@ -768,12 +780,12 @@ def nonvariant_stats_sdaf(
     A key that no row has totals to 0, and to None in the sums of a precinct, as SQL SUM() gives them.
     """
     direct_cols_ls: T_ls = [col for col in sumcols_ls if col in nonvariants_sdaf.columns()]
-    indirect_cols_set: set = {col for col in sumcols_ls if col not in direct_cols_ls}     # a set: sum_da() tests each key in it.
+    indirect_cols_ls: T_ls = [col for col in sumcols_ls if col not in direct_cols_ls]
 
     def totals_da(rows_sdaf: SqlDaf, absent: Any) -> T_da:
         """ The totals of sumcols_ls in these rows. """
         direct_da: T_da = rows_sdaf.sum(direct_cols_ls) if direct_cols_ls else {}
-        indirect_da: T_da = rows_sdaf.reduce(Daf.sum_da, by='sparse_row', indirect_col='concise_votes', cols=indirect_cols_set)
+        indirect_da: T_da = rows_sdaf.reduce(Daf.sum_da, by='sparse_row', indirect_col='concise_votes', cols=indirect_cols_ls)
         return {col: int(direct_da[col]) if col in direct_da else indirect_da.get(col, absent) for col in sumcols_ls}
 
     # num_contests is written in place, so the other cells are not rewritten.
@@ -784,7 +796,7 @@ def nonvariant_stats_sdaf(
 
     valuecounts_dodi: T_da = combined_sdaf.valuecounts_for_colnames_ls(stored_cols(combined_sdaf, VALUECOUNTS_COLS_LS))
     precinct_col, style_col = stored_cols(counted_sdaf, ['precinct', 'style'])
-    precinct_sums_dodi: T_dodi = precinct_sums_sdaf(combined_sdaf, precinct_col, direct_cols_ls, sumcols_ls)
+    precinct_sums_dodi: Dict[str, Dict[str, int | None]] = precinct_sums_sdaf(combined_sdaf, precinct_col, direct_cols_ls, sumcols_ls)
     return {
         'nonvariant_sums_di':                           totals_da(combined_sdaf, 0),
         'nonvariant_valuecounts_dodi':                  {sql_utils.sql_unesc_str(col): vc_di for col, vc_di in valuecounts_dodi.items()},
@@ -856,7 +868,7 @@ def find_variants_sdaf(
             tables_dsdaf[residue_names_ls[i]] = ballots_da['residue_losdaf'][i]
             tables_dsdaf[variants_tables_ls[i]] = ballots_da['variants_losdaf'][i]
             tables_dsdaf[nonvariants_tables_ls[i]] = ballots_da['nonvariants_losdaf'][i]
-            export_csv(ballots_da['residue_losdaf'][i], dirname, f'{residue_names_ls[i]}.csv')
+            export_csv(ballots_da['residue_losdaf'][i], dirname, f'{residue_names_ls[i]}.csv', BALLOT_SORT_LS)
 
         # Steps 12 to 17, and partially_agreed.csv.
         tables_dsdaf |= locate_contest_variants_sdaf(
@@ -867,7 +879,7 @@ def find_variants_sdaf(
                 wins_sdaf       = SqlDaf(other_input_tables_ls[1], keyfield=KEYFIELD),
                 report_daf      = report_daf,
                 )
-        export_csv(tables_dsdaf['partial_nonvariants_wmetadata'], dirname, 'partially_agreed.csv')
+        export_csv(tables_dsdaf['partial_nonvariants_wmetadata'], dirname, 'partially_agreed.csv', BALLOT_SORT_LS)
 
         # Step 18, and contest_variants.csv.
         joined_sdaf, num_rows1, elapsed_secs1, num_rows2, elapsed_secs2 = create_comparison_records_sdaf(
@@ -889,6 +901,7 @@ def find_variants_sdaf(
         if blank_sheets_daf:
             ballot_variants_daf: Daf = cmpcvr.blank_sheets_to_ballot_variants_daf(blank_sheets_daf)
             logs.stsloc(f"{len(ballot_variants_daf)} blank sheets saved as ballot variants", 3)
+            ballot_variants_daf.sort_by_colnames(BALLOT_SORT_LS, length_priority=True, as_str=True)
             DB.save_data(ballot_variants_daf, dirname=dirname, name='ballot_variants.csv', rtype='daf', local_mirror=True)
 
         # The nonvariant stats. audit_nonvariants gets num_contests, as in reduce_nonvariants().
@@ -900,11 +913,11 @@ def find_variants_sdaf(
         tables_dsdaf['combined_nonvariants'] = stats_da.pop('combined_nonvariants')
 
         # The variants files, as save_sql_tables_to_s3() writes them.
+        name: str
         for name in variants_tables_ls:
-            export_csv(tables_dsdaf[name], dirname, f'{name}.csv')
+            export_csv(tables_dsdaf[name], dirname, f'{name}.csv', BALLOT_SORT_LS)
 
         # The result tables stay in the file, for diagnosis.
-        name: str
         rows_sdaf: SqlDaf
         for name, rows_sdaf in tables_dsdaf.items():
             keep_table(rows_sdaf, name, exclude_cols_ls=['contest_key'] if 'contest_key' in rows_sdaf.columns() else None)

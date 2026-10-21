@@ -163,14 +163,14 @@ def compare_tables(work_conn: sqlite3.Connection, ae_conn: sqlite3.Connection, n
 
 
 def compare_csv_files(out_dir: str, ae_dir: str, names_ls: T_ls) -> None:
-    """ Print, for each CSV file, the lines of each, and if the header and the set of rows are the same. """
-    print(f'\n{"csv file":32} {"sdaf":>7} {"sql":>7}  same header, same rows')
+    """ Print, for each CSV file, the lines of each, if the header and the set of rows are the same, and if the files are the same. """
+    print(f'\n{"csv file":32} {"sdaf":>7} {"sql":>7}  same header, same rows, same lines in order')
     for name in names_ls:
         with open(os.path.join(out_dir, name), newline='', encoding='utf-8') as ours_f, \
              open(os.path.join(ae_dir, name), newline='', encoding='utf-8') as ae_f:
             ours_ls: T_ls = ours_f.read().splitlines()
             ae_ls: T_ls = ae_f.read().splitlines()
-        print(f'{name:32} {len(ours_ls):7} {len(ae_ls):7}  {ours_ls[0] == ae_ls[0]}, {set(ours_ls[1:]) == set(ae_ls[1:])}')
+        print(f'{name:32} {len(ours_ls):7} {len(ae_ls):7}  {ours_ls[0] == ae_ls[0]}, {set(ours_ls[1:]) == set(ae_ls[1:])}, {ours_ls == ae_ls}')
 
 
 def compare_stats(stats_da: T_da, ae_dir: str) -> None:
@@ -184,11 +184,12 @@ def compare_stats(stats_da: T_da, ae_dir: str) -> None:
         print(f'{name:45} {len(ours_a):7} {len(ae_a):7}  {same}')
 
 
-def check_contest_variants(work_db_path: str, out_dir: str, dict_cols_ls: T_ls) -> None:
+def check_contest_variants(work_db_path: str, out_dir: str, dict_cols_ls: T_ls, sort_cols_ls: T_ls) -> None:
     """
     Compare contest_variants.csv with the file DB.save_data() writes of the same records.
 
-    The reference converts the rows of joined_contests as one Daf, and writes it with CRLF line ends.
+    The reference converts the rows of joined_contests as one Daf, sorts them as the module does,
+    and writes it with CRLF line ends.
     Every cell is compared as text. A dict cell is PYON text in both.
     """
     with sqlite3.connect(f'file:{work_db_path}?mode=ro', uri=True) as conn:
@@ -197,6 +198,7 @@ def check_contest_variants(work_db_path: str, out_dir: str, dict_cols_ls: T_ls) 
         rows_loda: List[T_da] = [{col: '' if val is None else val for col, val in zip(cols_ls, row) if col != 'daf_rid'}
                                  for row in cursor]
     ref_daf: Daf = Daf.from_lod(rows_loda).apply(func=stand_in_contest_variant_record)
+    ref_daf.sort_by_colnames(sort_cols_ls, length_priority=True, as_str=True)
     ref_ls: List[T_ls] = list(csv.reader(ref_daf.to_csv_buff(line_terminator='\r\n', include_header=True).splitlines()))
 
     with open(os.path.join(out_dir, 'contest_variants.csv'), newline='', encoding='utf-8') as ours_f:
@@ -285,6 +287,22 @@ def check_step_15(sdaf_variants: Any, work_db_path: str, ae_db_path: str) -> Non
           f'  {"":{len(str(first_key)) + 15}}sql  {ae_text_ds.get(first_key, "")[:70]}')
 
 
+def check_contest_variants_order(out_dir: str, ae_dir: str, sort_cols_ls: T_ls) -> None:
+    """
+    Compare the order of the rows of contest_variants.csv with AuditEngine's file, by the sort columns.
+
+    The stand-in for create_contest_variant_record() makes other cells, so only the sort columns are compared.
+    """
+    keys_dolt: Dict[str, List[tuple]] = {}
+    for label, dir_path in (('sdaf', out_dir), ('sql', ae_dir)):
+        with open(os.path.join(dir_path, 'contest_variants.csv'), newline='', encoding='utf-8') as csv_f:
+            rows_lol: List[T_ls] = list(csv.reader(csv_f))
+        idx_li: List[int] = [rows_lol[0].index(col) for col in sort_cols_ls]
+        keys_dolt[label] = [tuple(row[idx] for idx in idx_li) for row in rows_lol[1:]]
+    print(f"contest_variants.csv: the same {', '.join(sort_cols_ls)} in the same order as AE's file: "
+          f"{keys_dolt['sdaf'] == keys_dolt['sql']}")
+
+
 #===================================
 
 def main() -> None:
@@ -330,14 +348,16 @@ def main() -> None:
         ae_ballot_variants_lol: list = list(csv.reader(csv_f))
     blank_daf: Daf = record_da['saved_dafs']['ballot_variants.csv']
     print(f"\nballot_variants: {len(blank_daf)} blank sheets given, AE file has {len(ae_ballot_variants_lol) - 1} rows. "
-          f"group is a column: {'group' in blank_daf.columns()}")
+          f"group is a column: {'group' in blank_daf.columns()}. "
+          f"Same ballot_id order: {blank_daf.col('ballot_id') == [row[ae_ballot_variants_lol[0].index('ballot_id')] for row in ae_ballot_variants_lol[1:]]}")
     print(f"uploads: {record_da['uploads']}")
     tables_ls: T_ls = sorted(row[0] for row in work_conn.execute("SELECT name FROM sqlite_master WHERE type = 'table'"))
     print(f"tables left: {tables_ls}")
     work_conn.close()
     ae_conn.close()
 
-    check_contest_variants(work_db_path, out_dir, ['vote_diff_orig'])
+    check_contest_variants(work_db_path, out_dir, ['vote_diff_orig'], sdaf_variants.CONTEST_VARIANTS_SORT_LS)
+    check_contest_variants_order(out_dir, ae_dir, sdaf_variants.CONTEST_VARIANTS_SORT_LS)
     check_step_15(sdaf_variants, work_db_path, ae_db_path)
     check_combine_split_bmd(sdaf_variants, scratch_dir)
 

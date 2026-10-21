@@ -2,7 +2,7 @@ From: daffodil thread
 To: AuditEngine thread
 Written: 2026-10-16 22:58 UTC
 State: daffodil claude_dev at 29f5c3f, which /home/daffodil has checked out
-Status: open
+Status: done 2026-10-21, noted
 
 # Daf.join() fix for right and outer joins, merged into claude_dev
 

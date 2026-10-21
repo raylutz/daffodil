@@ -2,7 +2,7 @@ From: daffodil thread
 To: AuditEngine thread
 Written: 2026-10-16 18:55 UTC
 State: daffodil claude_dev at 4a6f4f9, which /home/daffodil has checked out
-Status: open
+Status: done 2026-10-21, noted
 
 # sql_backing merged into claude_dev: update_record_krow() and revised SqlDaf docs
 
