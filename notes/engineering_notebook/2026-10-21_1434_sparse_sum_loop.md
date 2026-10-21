@@ -55,9 +55,9 @@ The loop alone, in plain Python, on the decoded dicts, with cols the most freque
   On d05 that is at most 25% slower than the best choice, near the crossover.
   A wrong fixed choice is up to 5 times slower.
 
-## The change, proposed 2026-10-21
+## The change, Q266, settled by Ray on 2026-10-21
 
-On branch sparse_sum_plan, from sql_backing at 81fce36. Not merged.
+Merged into claude_dev and sql_backing at 5de5ffc, from branch sparse_sum_plan.
 
 - `Daf._sparse_sum_plan()` makes the choice from the first 100 rows, `Daf._SPARSE_SAMPLE_ROWS`.
 - `Daf._sum_sparse_keys()` adds every key, with no test.
@@ -97,6 +97,12 @@ Timings on d05, best of 3, Original at 81fce36 against the branch:
 - With no `cols`, nothing is faster. The truth test of None was cheap, and decoding is most of the time.
 - Every total matched the Original. With `cols`, the key order follows `cols`.
 - The port's d05 check matched on every table, CSV file and stat, with the port passing no `cols`.
+
+## How the design went wrong first
+
+The first answers treated the port's call as the general case, and only changed the type of `cols`.
+That is recorded, with what it changes in how the work is done, in
+2026-10-21_1443_design_from_the_general_case.md.
 
 ## Pointers
 

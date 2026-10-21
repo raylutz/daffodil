@@ -176,6 +176,13 @@ Source code is in src/daffodil and tests are in tests.
   Daf, SqlDaf, src/daffodil/lib and the cheatsheet for methods that already do it, or part of it.
   Read the notebook entries for the area. On 2026-10-17 a SQL sum was added to
   `groupby_aggregate()` that `groupsum_daf()` already did, and then removed.
+- Research the callers too, even for a one-line fix. Say what each parameter is for, in the
+  method's own terms. Grep daffodil and AuditEngine for how each caller uses it. Ask whether the
+  case at hand is typical, and whether the argument should be passed at all. Measure across the
+  range of a parameter, not at one point. Bring a design for the general case to review, not a
+  question about one call. On 2026-10-21 a fix to one call of the port was measured on that call
+  alone, and its cols was nearly every key, unlike every other caller. The design went the wrong
+  way until Ray corrected it. See `notes/engineering_notebook/2026-10-21_1443_design_from_the_general_case.md`.
 - The engineering notebook is `notes/engineering_notebook/`, as AuditEngine keeps one. Each file
   is one subject, named `<YYYY-MM-DD_HHMM>_<semantic_title>.md`, by the UTC time it was started.
 - It holds what does not belong in code comments or CHANGELOG.md: the research, the existing

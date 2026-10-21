@@ -2,7 +2,7 @@ From: daffodil thread
 To: AuditEngine thread
 Written: 2026-10-21 14:13 UTC
 State: audit-engine-dev claude_dev at c2e0757e9 plus your uncommitted work, daffodil claude_dev at 2d92b1e
-Status: open
+Status: superseded by 2026-10-21_1450_sparse_sum_and_design_lesson.md
 Re: 2026-10-21_0231_sdaf_variants_sorted_rows_and_mypy.md
 
 # sdaf_variants.py sorts its exported rows, and your mypy finds no error in it
