@@ -71,6 +71,11 @@ CONTEST_KEY_RE:         re.Pattern  = re.compile(r'^c(\d+)(b|ov|uv|g|w|o|v|r)') 
 BLANK_CONCISE_KEY_RE:   re.Pattern  = re.compile(r'^c\d+(b|uv)$')                  # move_blank_sheets_to_table().
 CONTEST_START_RE:       re.Pattern  = re.compile(r'^c\d+b')                       # the key that starts a contest, for num_contests.
 
+# Two nonvariant stats that no stage reads. Each is made only when its constant is True.
+# They stay in the code, so they can be turned on again with no new setting.
+MAKE_KEYS_LS:           bool    = False         # nonvariant_keys_ls
+MAKE_PRECINCT_SUMS:     bool    = False         # nonvariant_precinct_sums_dodi
+
 # Columns of reduce_nonvariants() in cmpcvr.py, by their decoded names.
 DIRECT_SUM_COLS_LS:     T_ls    = ['blank', 'v', 'is_bmd']
 VALUECOUNTS_COLS_LS:    T_ls    = ['batchid', 'style', 'precinct', 'group', 'party']
@@ -800,17 +805,21 @@ def nonvariant_stats_sdaf(
 
     valuecounts_dodi: T_da = combined_sdaf.valuecounts_for_colnames_ls(stored_cols(combined_sdaf, VALUECOUNTS_COLS_LS))
     precinct_col, style_col = stored_cols(counted_sdaf, ['precinct', 'style'])
-    precinct_sums_dodi: Dict[str, Dict[str, int | None]] = precinct_sums_sdaf(combined_sdaf, precinct_col, direct_cols_ls, sumcols_ls)
-    return {
+    stats_da: T_da = {
         'nonvariant_sums_di':                           totals_da(combined_sdaf, 0),
         'nonvariant_valuecounts_dodi':                  {sql_utils.sql_unesc_str(col): vc_di for col, vc_di in valuecounts_dodi.items()},
-        'nonvariant_precinct_sums_dodi':                precinct_sums_dodi,
         'nonvariant_precinct_styles_valuecounts_dodi':  counted_sdaf.valuecounts_for_colname1_groupedby_colname2(style_col, precinct_col),
-        'nonvariant_keys_ls':                           [str(key) for key in combined_sdaf.keys()],
         'nonvariant_sheets_contests_di':                {'sheets': len(counted_sdaf),
                                                          'contests': int(counted_sdaf.sum(['num_contests'])['num_contests'])},
         'combined_nonvariants':                         combined_sdaf,
         }
+
+    # The two stats no stage reads are left out of the result when they are off.
+    if MAKE_PRECINCT_SUMS:
+        stats_da['nonvariant_precinct_sums_dodi'] = precinct_sums_sdaf(combined_sdaf, precinct_col, direct_cols_ls, sumcols_ls)
+    if MAKE_KEYS_LS:
+        stats_da['nonvariant_keys_ls'] = [str(key) for key in combined_sdaf.keys()]
+    return stats_da
 
 
 def nonvariant_sumcols_ls(votes_cols_ls: T_ls, use_concise: bool) -> T_ls:
