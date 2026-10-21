@@ -55,6 +55,9 @@ Before changing or tuning a method, even for a one-line fix:
 7. **Bring a design to review, not a question.** It should cover the general case and every
    caller, with measured results and tests. Present options only after that work is done.
 
+These rules are provisional. Ray, 2026-10-21: keep them local to daffodil for now, not in the common rules.
+He is still thinking them over, and is not sure they capture the issues well. Expect them to be revised.
+
 The research-first rule in CLAUDE.md points here.
 The research-first rule exists because of a sum that `groupsum_daf()` already did, 2026-10-17.
 This entry adds the other half: research the callers and the general case, not only the existing methods.
