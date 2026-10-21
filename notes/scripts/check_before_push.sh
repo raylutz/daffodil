@@ -38,10 +38,10 @@ unset UV_PROJECT_ENVIRONMENT
 run_step "mypy              " uv run mypy src/daffodil
 run_step "docs build, strict" uv run mkdocs build --strict -d "$SITE_DIR"
 
-# Warn when the copy of the common rules differs from the master.
-# The master is in the repo common. Where that repo is not on this machine, skip the check.
+# Warn when a link to the common rules is missing or wrong.
+# The masters are in the repo common. Where that repo is not on this machine, skip the check.
 COMMON_DIR="${COMMON_DIR:-$HOME/common}"
-if [ -f "$COMMON_DIR/copy_rules.sh" ]; then
-    bash "$COMMON_DIR/copy_rules.sh" --check . || echo "== WARNING: run bash $COMMON_DIR/copy_rules.sh . and commit the copy."
+if [ -f "$COMMON_DIR/link_rules.sh" ]; then
+    bash "$COMMON_DIR/link_rules.sh" --check || echo "== WARNING: run bash $COMMON_DIR/link_rules.sh to make the links."
 fi
 echo "All checks passed."

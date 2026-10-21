@@ -2,10 +2,11 @@
 
 This file holds the rules for daffodil only.
 
-The rules shared by all of the owner's projects are in .claude/rules/common.md. The coding
-standards are in .claude/rules/coding_standards.md. Claude Code loads both with this file.
-They are copies of the master in the repo common, at /home/ubuntu/common on the EC2 box.
-Never edit them here. The top of common.md explains how a change is made.
+The rules shared by all of the owner's projects load from /home/ubuntu/.claude/rules, the
+user-level rules folder on the EC2 box. It holds symlinks to common.md and coding_standards.md,
+whose masters are in the repo common, at /home/ubuntu/common/rules. It also links the cheatsheet.
+Never copy them into this repo. The top of common.md explains how a change is made.
+If a symlink is broken or the rules are missing from context, tell Ray.
 
 # Daffodil
 
