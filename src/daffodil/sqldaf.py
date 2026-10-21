@@ -3830,7 +3830,9 @@ class SqlDaf(Daf):
         """
         Add the rows of another Daf or SqlDaf to the end of this one, as `Daf.concat()` does.
 
-        The other must have the same columns, in the same order, as in a Daf. A SqlDaf of the
+        The other must have the same columns, in the same order, as in a Daf. An other with no
+        rows adds nothing, whatever its columns, as in a Daf. So the empty result of `apply()`,
+        which has no columns, can be added with no error. A SqlDaf of the
         same database file is copied in SQL, in its row order, so no row comes into Python. An in-memory
         Daf is written row by row. All of it is one transaction.
 
@@ -3850,12 +3852,15 @@ class SqlDaf(Daf):
             This SqlDaf.
 
         Raises:
-            KeyError: The columns differ.
+            KeyError: The columns differ, and the other has rows.
             ValueError: A key added is a Python NULL. Nothing is added.
             sqlite3.IntegrityError: A key would be repeated. Nothing is added.
             NotImplementedError: The other is a SqlDaf this connection cannot read.
         """
+        # Rows are counted only when the columns differ, so a normal concat costs nothing more.
         if other_instance.columns() != self.columns():
+            if not other_instance:
+                return self
             raise KeyError(f"concat: columns mismatch: this one has {self.columns()}, the other {other_instance.columns()}.")
         if isinstance(other_instance, SqlDaf):
             self._check_same_db(other_instance, 'concat')

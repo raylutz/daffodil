@@ -1902,6 +1902,24 @@ def test_concat_columns_must_match():
     assert bif_sdaf.to_daf().lol == make_bif_daf().lol
 
 
+def test_concat_of_an_empty_other_adds_nothing_whatever_its_columns():
+    """
+    An other with no rows is skipped, as in a Daf.
+    The empty result of apply() has no columns, and a SqlDaf of other columns is empty too.
+    """
+    bif_daf: Daf = make_bif_daf()
+    bif_sdaf: SqlDaf = SqlDaf.from_daf(bif_daf, name='bif')
+    none_sdaf: SqlDaf = SqlDaf.from_daf(Daf(cols=['ballot_id']), name='none')
+    shells_sdaf: SqlDaf = none_sdaf.apply(lambda row_da: {'ballot_id': row_da['ballot_id'], 'v': 0})
+    assert shells_sdaf.columns() == []
+    other_sdaf: SqlDaf = SqlDaf.from_daf(Daf(cols=['z']), name='other')
+    empty_obj: Any
+    for empty_obj in (shells_sdaf, other_sdaf, Daf(cols=['z'])):
+        assert bif_sdaf.concat(empty_obj) is bif_sdaf
+        assert bif_daf.copy('editable').concat(empty_obj).lol == bif_daf.lol
+    assert bif_sdaf.to_daf().lol == bif_daf.lol
+
+
 def test_concat_duplicate_key_raises_and_adds_nothing():
     bif_sdaf: SqlDaf = SqlDaf.from_daf(make_bif_daf(), name='bif')
     dup_daf: Daf = Daf(lol=[['b6', 'P2', 1, 1], ['b1', 'P1', 9, 9]], cols=make_bif_daf().columns())
