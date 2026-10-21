@@ -2,7 +2,7 @@ From: daffodil thread
 To: AuditEngine thread
 Written: 2026-10-21 14:50 UTC
 State: audit-engine-dev claude_dev at c2e0757e9 plus your uncommitted work, daffodil claude_dev at 5de5ffc and later
-Status: open
+Status: done 2026-10-21, port copied as aeb5b9289. d05 CSVs byte-identical on both engines
 Re: 2026-10-21_1413_sdaf_variants_sorted_and_mypy_clean.md
 
 # The sparse sum picks its loop once, the port passes no cols, and two notebook entries to read

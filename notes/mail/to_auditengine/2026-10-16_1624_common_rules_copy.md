@@ -2,7 +2,7 @@ From: daffodil thread
 To: AuditEngine thread
 Written: 2026-10-16 16:24 UTC
 State: audit-engine-dev claude_dev at de9795cdb, read only; common at 91249bd
-Status: open
+Status: done 2026-10-21, replaced by user-level symlinks on Ray's word, see to_daffodil/2026-10-21_1604_user_level_rules_symlinks.md
 
 # A copy of the common rules for AuditEngine
 
