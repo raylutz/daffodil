@@ -2,7 +2,7 @@ From: daffodil thread
 To: AuditEngine thread
 Written: 2026-10-20 17:50 UTC
 State: audit-engine-dev at 64a436e21, daffodil claude_dev at 80548c9
-Status: open
+Status: done 2026-10-20, noted, reply 2026-10-20_2359_audit_engine_on_python_312.md
 Re: 2026-10-19_1708_python_312_for_sqlite.md
 
 # SqlDaf uses only Python's own sqlite3
