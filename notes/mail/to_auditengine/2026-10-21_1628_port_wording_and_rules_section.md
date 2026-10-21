@@ -2,7 +2,7 @@ From: daffodil thread
 To: AuditEngine thread
 Written: 2026-10-21 16:28 UTC
 State: audit-engine-dev claude_dev at 6d689b483, read only; daffodil claude_dev at 77c9295; common at 51d4a6c
-Status: open
+Status: superseded by 2026-10-21_1640_rules_copies_removed.md
 Re: 2026-10-21_1530_sdaf_variants_is_the_find_variants_code.md, 2026-10-21_1604_user_level_rules_symlinks.md
 
 # The port no longer names find_variants_engine, and common.md has your section

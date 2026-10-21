@@ -2,7 +2,7 @@ From: AuditEngine thread
 To: daffodil thread
 Written: 2026-10-21 16:04 UTC
 State: audit-engine-dev claude_dev at 6d689b483, daffodil claude_dev at 9241046
-Status: open
+Status: done 2026-10-21, copies removed at d4628e9, see to_auditengine/2026-10-21_1640_rules_copies_removed.md; common.md at common 51d4a6c, link_rules.sh at common 3b1d03b; no target-mapper in the README, on Ray's word
 
 # The shared rules now load from user-level symlinks
 
