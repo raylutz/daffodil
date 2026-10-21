@@ -17,7 +17,7 @@ from collections.abc import Iterable
 
 from daffodil.daf import Daf, NULL, ColumnNotFoundError, KeysDisabledError
 from daffodil.keyedlist import KeyedList
-from daffodil.lib.daf_types import T_ls, T_la, T_lola, T_di, T_da, T_ds, T_ss, T_ta, T_dtype_dict, T_copybits, T_buff
+from daffodil.lib.daf_types import T_ls, T_la, T_lola, T_di, T_da, T_ds, T_ss, T_cs, T_ta, T_dtype_dict, T_copybits, T_buff
 import daffodil.lib.daf_utils as daf_utils
 import daffodil.lib.daf_sql as daf_sql
 from daffodil.lib.daf_sql import sqlite3
@@ -1474,7 +1474,7 @@ class SqlDaf(Daf):
             self,
             func:           Callable[..., Any],         # combines a row with the result so far.
             by:             str = 'row',                # 'row', 'sparse_row' or 'table'.
-            cols:           T_ls | None = None,         # the columns included. All if None.
+            cols:           T_cs | None = None,         # the columns included. All if None.
             initial_da:     T_da | None = None,         # the result to start from.
             indirect_col:   str = '',                   # the column that holds a dict, for 'sparse_row'.
             silent_error:   bool = False,               # if True, skip rows where func raises.
@@ -1500,7 +1500,7 @@ class SqlDaf(Daf):
         Args:
             func: The reduction function, such as `Daf.sum_da`.
             by: `row`, `sparse_row` or `table`.
-            cols: The columns included in the reduction. All columns if None.
+            cols: The columns included in the reduction. All columns if None. With many columns, a KeysView or a dict is faster than a list.
             initial_da: The result to start from, instead of zeros.
             indirect_col: A column that holds a dict. Required for `sparse_row`.
             silent_error: If True, a row for which the function raises is skipped.

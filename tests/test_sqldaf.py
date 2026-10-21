@@ -562,6 +562,11 @@ REDUCE_ARGS = [
     ('count values', dict(func=Daf.count_values_da, cols=['v'])),
     ('sparse row', dict(func=Daf.sum_da, by='sparse_row', indirect_col='concise_votes')),
     ('sparse row, some keys', dict(func=Daf.sum_da, by='sparse_row', indirect_col='concise_votes', cols=['c0b'])),
+    ('some as a KeysView', dict(func=Daf.sum_da, cols=dict.fromkeys(['v', 'f']).keys())),
+    ('sparse row, keys as a KeysView', dict(func=Daf.sum_da, by='sparse_row', indirect_col='concise_votes',
+                                            cols=dict.fromkeys(['c0b', 'c1b']).keys())),
+    ('sparse row, keys as a dict', dict(func=Daf.sum_da, by='sparse_row', indirect_col='concise_votes',
+                                        cols=dict.fromkeys(['c0b']))),
     ]
 
 

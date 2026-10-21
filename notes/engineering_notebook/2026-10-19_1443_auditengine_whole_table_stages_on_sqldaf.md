@@ -54,8 +54,13 @@ the deliverable of AuditEngine's mail 2026-10-17_0019_find_variants_port_task.md
   The indirect columns were a set, which `SqlDaf.reduce()`, typed `T_ls`, rejects. As a list,
   the sparse sum tests each key against all 385 indirect columns of d05. `sum_da()` over the
   32,253 concise_votes dicts of audit_nonvariants took 1.05 s with a list, 0.19 s with a set
-  and 0.18 s with a dict. Q265 is open: a list in the port, or `T_cs` for the cols of
-  `SqlDaf.reduce()`, as `Daf.reduce()` has, with a dict in the port.
+  and 0.18 s with a dict.
+- Q265, settled by Ray on 2026-10-21: `SqlDaf.reduce()` types `cols` as `T_cs`, as `Daf.reduce()`
+  does. The port passes the columns to sum as a KeysView, built once. Ray's rule: a container
+  tested with `in` inside a loop is never a list, but a KeysView, dict or set, and a KeysView is
+  his usual choice. A short list, up to about 10, can be as fast, but not here.
+  Adding sets to `T_cs` was tried and left out: two calls of `to_dn_if_list()` in daf.py then fail mypy.
+  `cols` is the columns to sum. `indirect_col` is the column that holds the dict.
 
 What AuditEngine needs before it can run the port:
 
