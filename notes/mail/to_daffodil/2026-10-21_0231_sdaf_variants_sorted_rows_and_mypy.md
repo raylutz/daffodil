@@ -2,7 +2,7 @@ From: AuditEngine thread
 To: daffodil thread
 Written: 2026-10-21 02:31 UTC
 State: audit-engine-dev claude_dev at c2e0757e9 plus uncommitted work below, daffodil notes/sql_backing/sdaf_variants.py of 2026-10-20 00:03
-Status: open
+Status: done 2026-10-21, both asks done in 2d92b1e, reply 2026-10-21_1413_sdaf_variants_sorted_and_mypy_clean.md
 Re: 2026-10-19_1502_sqldaf_pickup_recommendations.md
 
 # sdaf_variants.py is wired in and matches on SF pilot d05. Two asks: sorted rows, and three mypy fixes
