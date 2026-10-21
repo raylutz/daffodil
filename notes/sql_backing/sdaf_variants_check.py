@@ -320,9 +320,12 @@ def main() -> None:
     import sdaf_variants
 
     # The inputs as they were before step 3.
+    # A residue table written by the port also has a daf_rid column, so only the input's columns are copied.
     with sqlite3.connect(work_db_path) as conn:
-        conn.execute('INSERT INTO votes SELECT * FROM votes_residue')
-        conn.execute('INSERT INTO "cvr_votes!original" SELECT * FROM cvr_residue')
+        for input_table, residue_table in (('votes', 'votes_residue'), ('cvr_votes!original', 'cvr_residue')):
+            cols_ls: T_ls = [row[1] for row in conn.execute(f'PRAGMA table_info("{input_table}")')]
+            cols_sql: str = ', '.join(f'"{col}"' for col in cols_ls)
+            conn.execute(f'INSERT INTO "{input_table}" ({cols_sql}) SELECT {cols_sql} FROM {residue_table}')
 
     argsdict: T_da = {'use_concise_votes': True, 'combine_split_bmd_cvrs': False}
     stats_da: T_da = sdaf_variants.find_variants_sdaf(

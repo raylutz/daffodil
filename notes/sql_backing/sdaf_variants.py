@@ -3,7 +3,7 @@
 """
 Find the variant ballots with SqlDaf, as find_variants_using_sql() of cmpcvr.py does.
 
-find_variants runs this when the setting find_variants_engine is 'sdaf'.
+This is the find_variants code of cmpcvr.py for a job with a CVR and concise votes.
 It takes over after the input tables are imported into cmpcvr.db.
 From there it does all that find_variants_using_sql() does:
 
@@ -838,14 +838,14 @@ def find_variants_sdaf(
     See the module docstring for what it covers.
     """
     if len(input_tables_ls) not in (2, 3):
-        raise ValueError(f"find_variants_engine 'sdaf' needs a CVR, but the inputs are {input_tables_ls}. Use 'sql'.")
+        raise ValueError(f"The SqlDaf find_variants code needs a CVR, but the inputs are {input_tables_ls}.")
     if variants_tables_ls != ['audit_variants', 'cvr_variants'] or nonvariants_tables_ls != ['audit_nonvariants', 'cvr_nonvariants']:
-        raise ValueError(f"find_variants_engine 'sdaf' uses the table names of sql_variants.py, "
+        raise ValueError(f"The SqlDaf find_variants code uses the table names of sql_variants.py, "
                          f"not {variants_tables_ls} and {nonvariants_tables_ls}.")
 
     use_concise: bool = argsdict['use_concise_votes']
     if not use_concise:
-        raise ValueError("find_variants_engine 'sdaf' handles concise votes only. Set use_concise_votes, or use 'sql'.")
+        raise ValueError("The SqlDaf find_variants code handles concise votes only. Set use_concise_votes.")
 
     report_daf: Daf = Daf(cols=REPORT_COLS_LS)
     prior_db_path: str = SqlDaf.db_path
@@ -895,7 +895,7 @@ def find_variants_sdaf(
         report_daf.append({'Step': 18, 'Description': step_descr + ' Daf Apply', 'Audit recs': num_rows2, 'CVR Recs': '',
                            'Audit(s)': elapsed_secs2, 'CVR(s)': ''})
 
-        md_report: str = (f"# Find Variants Report:\n\nfind_variants_engine: sdaf\n\n"
+        md_report: str = (f"# Find Variants Report:\n\nfind_variants code: SqlDaf (sdaf_variants.py)\n\n"
                           f"{report_daf.to_md(smart_fmt=True, shorten_text=False)}")
         logs.stsloc(md_report, 3)
         reports.save_md_and_html(argsdict, md_report, rootname='Find_Variants_Report')
