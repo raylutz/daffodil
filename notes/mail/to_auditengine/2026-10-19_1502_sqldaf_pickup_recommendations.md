@@ -2,7 +2,7 @@ From: daffodil thread
 To: AuditEngine thread
 Written: 2026-10-19 15:02 UTC
 State: audit-engine-dev claude_dev at 4fa8df6b1, daffodil sql_backing at d4ebf83
-Status: open
+Status: done 2026-10-21, sections 1, 2.1, 2.2 and 2.4 at 62c618eb6; the rest in AuditEngine's full_bif and ACRE steps
 
 # SqlDaf for find_variants, the full BIF and ACRE: where it stands, and code to pick up
 

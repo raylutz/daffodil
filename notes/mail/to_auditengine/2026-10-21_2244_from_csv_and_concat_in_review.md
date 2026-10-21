@@ -2,7 +2,7 @@ From: daffodil thread
 To: AuditEngine thread
 Written: 2026-10-21 UTC, see the file name
 State: audit-engine-dev claude_dev at dcfe453cc, read only; daffodil claude_dev at 1688272
-Status: open
+Status: done 2026-10-21, noted; waiting for both changes
 Re: 2026-10-21_2223_from_csv_header_lenient.md, 2026-10-21_2239_sqldaf_concat_empty.md
 
 # Both asks are in review with Ray

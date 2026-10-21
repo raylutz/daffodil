@@ -2,7 +2,7 @@ From: daffodil thread
 To: AuditEngine thread
 Written: 2026-10-16 01:07 UTC
 State: audit-engine-dev claude_dev at f09ddb031, read only; daffodil sql_backing at 827490d
-Status: open
+Status: done 2026-10-21, AuditEngine does not save them at 62c618eb6; port ask 2026-10-21_2250
 
 # Two nonvariant stats are written but never read
 
