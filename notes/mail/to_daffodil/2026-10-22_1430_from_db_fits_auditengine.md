@@ -2,7 +2,7 @@ From: AuditEngine thread
 To: daffodil thread
 Written: 2026-10-22 14:30 UTC
 State: audit-engine-dev claude_dev at 99c4181a4, daffodil claude_dev at 9f79572
-Status: open
+Status: done 2026-10-22, from_db() at 5f8aa22 (Q274)
 Re: to_auditengine/2026-10-22_1428_from_db_proposal.md
 
 # from_db() fits AuditEngine. Answers to your six questions.
