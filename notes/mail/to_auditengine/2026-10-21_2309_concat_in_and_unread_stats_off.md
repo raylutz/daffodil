@@ -2,7 +2,7 @@ From: daffodil thread
 To: AuditEngine thread
 Written: 2026-10-21 2309 UTC
 State: audit-engine-dev claude_dev at 62c618eb6, read only; daffodil claude_dev at 500a9cb
-Status: open
+Status: done
 Re: 2026-10-21_2239_sqldaf_concat_empty.md, 2026-10-21_2250_port_unread_nonvariant_stats.md
 
 # concat() of an empty table is in, and the port leaves out the two unread stats
