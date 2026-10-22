@@ -282,7 +282,8 @@ group. That Daf is small only when the groups are few.
 
 ## Joins
 
-`join()` joins two tables of the same file on their keyfields, in SQL. The columns and the
+`join()` joins two tables of the same file on their keyfields, in SQL. A table kept in another
+file is copied in first, with `from_db()`, as [Tables in other files](#tables-in-other-files) shows. The columns and the
 rows come as `Daf.join()` gives them. A cell with no match is Python NULL.
 
 ```pycon
@@ -324,6 +325,34 @@ the old table first, as in `SqlDaf('items').delete()`, then save the copy under 
 
 `SqlDaf.close()` closes the file for every SqlDaf on it. Permanent tables keep every committed
 change. A SqlDaf made before the close can no longer be used. Open the table again by name.
+
+## Tables in other files
+
+A job may keep each large table in a file of its own. That makes it plain which tables are
+built, and a table is dropped by deleting its file. `from_db()` copies such a table into the
+working file, `SqlDaf.db_path`, as `from_csv()` loads a CSV file. Its rows keep their order, and
+its keyfield and dtypes come with it. From there, joins and keys work across tables as within
+any one file.
+
+The other file is only read. It is attached for the copy alone, which is one SQL statement, and
+then detached. So any number of files can be copied in, and a change to the copy never reaches
+the file it came from.
+
+To keep a result in a file of its own, give `save()` that file. The table is written there,
+and the SqlDaf then refers to it there.
+
+```pycon
+>>> job_dir = os.path.dirname(SqlDaf.db_path)
+>>> _ = SqlDaf('items_by_qty').save('items', db_path=job_dir + '/items.db')
+>>> SqlDaf('items', db_path=job_dir + '/items.db').col('id')
+['a2', 'a4', 'a1', 'a3']
+>>> back_sdaf = SqlDaf.from_db(job_dir + '/items.db', 'items', new_name='items_back')
+>>> back_sdaf.db_path == SqlDaf.db_path, back_sdaf.col('id')
+(True, ['a2', 'a4', 'a1', 'a3'])
+```
+
+Neither works inside a transaction. SQLite cannot detach a file used in an open transaction,
+so both raise ValueError there, and nothing is attached.
 
 ## Missing values
 

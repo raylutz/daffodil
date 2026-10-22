@@ -213,6 +213,8 @@ NULL, a missing value, is `''`, the empty string. dtypes describe the columns, a
 | `sdaf.sql('SELECT g, SUM(qty) AS n FROM items GROUP BY g')` | any SQL. The whole result comes back as a Daf            |
 | `sdaf.copy(name='items_copy').save()`                       | an independent copy, kept in the file                    |
 | `sdaf.sort_by_colname('qty')`                               | sort. The SqlDaf now refers to a sorted TEMP table       |
+| `sdaf.copy(name='by_qty').save(db_path='by_qty.db')`        | keep a table in a file of its own                        |
+| `in_sdaf = SqlDaf.from_db('by_qty.db', 'by_qty')`           | copy a table in from another file, which is only read    |
 | `SqlDaf.close()`                                            | close the file. Every SqlDaf on it can no longer be used |
 
 The lines run in order. They start from the Daf `daf`, with the columns id, item, g and qty and the keyfield id, and from the file data.csv, with the columns id and qty.
@@ -228,6 +230,8 @@ Setting a value through a selection changes the parent's row. `append()`, `conca
 `to_daf()`, `col()`, `keys()`, `to_lod()` and `sql()` bring their whole result into memory. Select the rows first.
 
 `copy()` and a sort make TEMP tables, which `close()` removes. `save()` keeps one in the file, under a name not in use.
+
+`from_db()` copies a table in from its own file, so tables kept in separate files can be joined. `save(db_path=)` writes a result back out. Nothing else changes the other file.
 
 Daf methods not written for SQL raise NotImplementedError. A Daf is faster for a table that fits in memory.
 

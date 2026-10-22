@@ -14,6 +14,7 @@ from daffodil.daf import Daf, NULL
 from daffodil.keyedlist import KeyedList
 from daffodil.lib.daf_types import T_ls, T_dtype_dict
 from daffodil.sqldaf import SqlDaf, BLOCKED_LS, SAFE_INHERITED_SET, KEEP_SET, RID_COL, META_TABLE, quote_name
+import daffodil.sqldaf as sqldaf_module
 
 
 @pytest.fixture(autouse=True)
@@ -1624,6 +1625,156 @@ def test_save_a_join_under_its_name():
     cvr_sdaf: SqlDaf = SqlDaf.from_daf(cvr_daf, name='cvr')
     audit_sdaf.join(cvr_sdaf, name='both').save()
     assert SqlDaf('both').to_daf().lol == audit_daf.join(cvr_daf).lol
+
+
+# tables copied in from other files, and results written out to them
+
+def file_tables(db_path: str) -> T_ls:
+    """ The tables in a database file, read on a connection of its own. """
+    conn: sqlite3.Connection = sqlite3.connect(db_path)
+    names_ls: T_ls = [row_t[0] for row_t in conn.execute("SELECT name FROM sqlite_master WHERE type = 'table' ORDER BY name")]
+    conn.close()
+    return names_ls
+
+
+def file_bytes(db_path: str) -> bytes:
+    with open(db_path, 'rb') as db_f:
+        return db_f.read()
+
+
+def schemas_of(conn: sqlite3.Connection) -> T_ls:
+    return [row_t[1] for row_t in conn.execute('PRAGMA database_list')]
+
+
+def test_from_db_copies_a_table_in_order_with_its_keyfield_and_dtypes(tmp_path, job_db):
+    """
+    The rows come in their order, with Python NULL kept, and are numbered again from 1.
+    The source file is only read, so its bytes do not change, and nothing stays attached.
+    """
+    source_path: str = str(tmp_path / 'bif.db')
+    bif_daf: Daf = make_bif_daf()
+    bif_daf.dtypes = {'ballot_id': str, 'precinct': str, 'style_num': int, 'is_bmd': int}
+    source_sdaf: SqlDaf = SqlDaf.from_daf(bif_daf, name='bif', db_path=source_path)
+    source_sdaf.delete_records(['b2'], inplace=True)
+    SqlDaf.close(source_path)
+    before_b: bytes = file_bytes(source_path)
+
+    work_sdaf: SqlDaf = SqlDaf.from_db(source_path, 'bif')
+    assert work_sdaf.db_path == job_db
+    assert work_sdaf.to_daf().lol == bif_daf.select_records_daf(['b2'], inverse=True).lol
+    assert work_sdaf.keyfield == 'ballot_id'
+    assert work_sdaf.dtypes == bif_daf.dtypes
+    assert work_sdaf[2].to_daf().lol == [['b4', 'P3', 1, 1]]            # a position, so daf_rid has no gap.
+    assert schemas_of(work_sdaf.conn) == ['main', 'temp']
+
+    work_sdaf.update_record_krow('b1', {'precinct': 'P9'})
+    assert file_bytes(source_path) == before_b
+    assert SqlDaf('bif', db_path=source_path).select_record('b1')['precinct'] == 'P1'
+
+
+def test_from_db_copies_only_the_named_table_and_its_own_metadata(tmp_path, job_db):
+    source_path: str = str(tmp_path / 'votes.db')
+    SqlDaf.from_daf(make_bif_daf(), name='cvr_votes!final', db_path=source_path)
+    SqlDaf.from_daf(Daf(lol=[['cvr_votes!final', 'abc']], cols=['table_name', 'chunks_hash'], keyfield='table_name'),
+                    name='table_sources', db_path=source_path)
+
+    votes_sdaf: SqlDaf = SqlDaf.from_db(source_path, 'cvr_votes!final')
+    assert votes_sdaf.name == 'cvr_votes!final'
+    assert file_tables(job_db) == ['cvr_votes!final', 'daf_tables']
+    assert SqlDaf('daf_tables').col('name') == ['cvr_votes!final']
+
+
+def test_from_db_under_a_new_name_and_within_the_working_file(tmp_path, job_db):
+    source_path: str = str(tmp_path / 'bif.db')
+    SqlDaf.from_daf(make_bif_daf(), name='bif', db_path=source_path)
+    assert SqlDaf.from_db(source_path, 'bif', new_name='bif_in').name == 'bif_in'
+
+    again_sdaf: SqlDaf = SqlDaf.from_db(job_db, 'bif_in', new_name='bif_again')
+    assert again_sdaf.to_daf().lol == make_bif_daf().lol
+    with pytest.raises(ValueError, match='already exists'):
+        SqlDaf.from_db(job_db, 'bif_in')
+
+
+def test_from_db_attaches_the_source_read_only(tmp_path, job_db):
+    """ SQLite refuses a write to the source. A path with a space, # or ? is still the plain file. """
+    source_path: str = str(tmp_path / 'odd name #1?.db')
+    SqlDaf.from_daf(make_bif_daf(), name='bif', db_path=source_path)
+    work_sdaf: SqlDaf = SqlDaf.from_db(source_path, 'bif')
+    assert work_sdaf.keys() == make_bif_daf().keys()
+    with sqldaf_module._file_schema(work_sdaf.conn, job_db, source_path, read_only=True) as schema:
+        with pytest.raises(sqlite3.OperationalError, match='readonly'):
+            work_sdaf.conn.execute(f'DELETE FROM {schema}.bif')
+    assert len(SqlDaf('bif', db_path=source_path)) == 5
+
+
+def test_from_db_of_a_table_made_by_other_code(tmp_path, job_db):
+    """ A table with no daf_rid comes in rowid order, and with no record it has no keyfield. """
+    source_path: str = str(tmp_path / 'plain.db')
+    make_plain_table(source_path, [('x', 1), ('y', None)])
+    plain_sdaf: SqlDaf = SqlDaf.from_db(source_path, 'plain')
+    assert plain_sdaf.to_daf().lol == [['x', 1], ['y', NULL]]
+    assert plain_sdaf.keyfield == ''
+
+
+def test_from_db_errors_leave_nothing_attached(tmp_path, job_db):
+    """ A transaction would keep the file attached, since SQLite cannot detach a file it has used in one. """
+    source_path: str = str(tmp_path / 'bif.db')
+    SqlDaf.from_daf(make_bif_daf(), name='bif', db_path=source_path)
+    work_sdaf: SqlDaf = SqlDaf.from_daf(make_bif_daf(), name='bif')
+
+    with pytest.raises(FileNotFoundError):
+        SqlDaf.from_db(str(tmp_path / 'missing.db'), 'bif', new_name='other')
+    assert not os.path.exists(tmp_path / 'missing.db')
+    with pytest.raises(KeyError):
+        SqlDaf.from_db(source_path, 'nothing')
+    with pytest.raises(ValueError, match='already exists'):
+        SqlDaf.from_db(source_path, 'bif')
+    with pytest.raises(ValueError, match='transaction'):
+        with work_sdaf.transaction():
+            SqlDaf.from_db(source_path, 'bif', new_name='bif_in')
+    assert schemas_of(work_sdaf.conn) == ['main', 'temp']
+    assert file_tables(job_db) == ['bif', 'daf_tables']
+
+
+def test_join_of_tables_from_two_files_saved_into_a_third(tmp_path, job_db):
+    """ The join reads both copies in the working file. The result moves into its own file, with its record. """
+    audit_daf, cvr_daf = make_join_pair()
+    SqlDaf.from_daf(audit_daf, name='audit', db_path=str(tmp_path / 'audit.db'))
+    SqlDaf.from_daf(cvr_daf, name='cvr', db_path=str(tmp_path / 'cvr.db'))
+    full_path: str = str(tmp_path / 'full' / 'full.db')
+    os.makedirs(os.path.dirname(full_path))
+
+    audit_sdaf: SqlDaf = SqlDaf.from_db(str(tmp_path / 'audit.db'), 'audit')
+    cvr_sdaf: SqlDaf = SqlDaf.from_db(str(tmp_path / 'cvr.db'), 'cvr')
+    join_sdaf: SqlDaf = audit_sdaf.join(cvr_sdaf, how='left')
+    temp_name: str = join_sdaf.name
+    assert join_sdaf.save('full', db_path=full_path) is join_sdaf
+
+    assert join_sdaf.db_path == full_path
+    assert join_sdaf.name == 'full' and join_sdaf.is_temp is False
+    assert join_sdaf.to_daf().lol == audit_daf.join(cvr_daf, how='left').lol
+    assert temp_name not in temp_tables(audit_sdaf.conn)
+    assert schemas_of(audit_sdaf.conn) == ['main', 'temp']
+    assert file_tables(full_path) == ['daf_tables', 'full']
+    assert file_tables(job_db) == ['audit', 'cvr', 'daf_tables']
+    SqlDaf.close(full_path)
+    assert SqlDaf('full', db_path=full_path).keyfield == 'id'
+    assert audit_sdaf.select_records_daf(cvr_sdaf, inverse=True, silent_error=True).keys() == ['k1']
+
+
+def test_save_a_permanent_table_into_another_file_copies_it(tmp_path, job_db):
+    bif_sdaf: SqlDaf = SqlDaf.from_daf(make_bif_daf(), name='bif')
+    out_path: str = str(tmp_path / 'out.db')
+    bif_sdaf.save(db_path=out_path)
+    assert bif_sdaf.db_path == out_path and bif_sdaf.name == 'bif'
+    assert SqlDaf('bif').to_daf().lol == SqlDaf('bif', db_path=out_path).to_daf().lol == make_bif_daf().lol
+    with pytest.raises(ValueError, match='already exists'):
+        SqlDaf('bif').save(db_path=out_path)
+    with pytest.raises(ValueError, match='transaction'):
+        with SqlDaf('bif').transaction():
+            SqlDaf('bif').save('bif2', db_path=out_path)
+    assert schemas_of(SqlDaf('bif').conn) == ['main', 'temp']
+    assert file_tables(out_path) == ['bif', 'daf_tables']
 
 
 # references that survive VACUUM

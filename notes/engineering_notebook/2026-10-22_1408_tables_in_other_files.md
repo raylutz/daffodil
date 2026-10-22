@@ -56,6 +56,48 @@ The 5 unmatched rows had NULL in every right column.
 - B: one connection per thread, every file attached as a schema, every table name qualified.
   Fully transparent, but it changes every statement, and at most 10 files could be open at once.
 
-## Open
+## Ray's question: is there another way than ATTACH?
 
-Q274 to Q276, in review.
+Ray asked for one connection and one visible database during a stage, with each input read in,
+as `from_csv()` reads a file. SQLite reads another file only through ATTACH, or through Python.
+1,000,000 rows of 5 columns into a working file, 2026-10-22:
+
+    brief ATTACH, copy, DETACH    0.62 s
+    through Python, no ATTACH     2.54 s
+    backup API                    0.23 s, but it replaces the whole target file
+
+The backup API removed the working table already there, so it cannot bring in one table.
+`deserialize()` loads a whole file into memory, and still needs an attached schema.
+
+## Q274, settled 2026-10-22
+
+Ray: from_db() "is going to be a better design than using attach. Allows us to have any number of
+databases involved, and it's faster to boot." He likes that a source is never changed unless a
+result is written back. AuditEngine agreed in to_daffodil/2026-10-22_1430_from_db_fits_auditengine.md.
+It copies only the named table and its own daf_tables row, as AuditEngine asked, since each file's
+table_sources belongs to that file.
+
+- `SqlDaf.from_db(path, name, new_name='', db_path='')` copies a table into the working file.
+- `save(name, db_path=)` writes a table into another file. A TEMP table moves, a permanent one is copied.
+- `_file_schema()` attaches a file for one block and always detaches it.
+  The source of `from_db()` is attached as a URI with mode=ro, so a write to it fails with
+  "attempt to write a readonly database". SqlDaf's connections open with `uri=True` for this.
+  A plain path, even with a space, # or ?, still opens as that file.
+- Both raise ValueError inside an open transaction. Tested: SQLite then fails the DETACH with
+  "database f is locked", and the file stays attached, so the next copy would fail too.
+
+## On AuditEngine's pilot d05 files, 2026-10-22
+
+Read-only, from /home/audit-engine-dev/resources/CA_SanFrancisco_20241105_pilot_d05:
+
+    biacvr_bif        133,422 rows, 52 cols   0.37 s
+    blt_bif           133,422 rows, 24 cols   0.21 s
+    cvr_votes!final 1,603,908 rows, 13 cols   6.75 s, an 804 MB file
+    left join of biacvr_bif and blt_bif       3.27 s, 75 cols
+    save into full_bif.db                     0.48 s
+
+The copy time follows the bytes more than the rows. For cvr_votes!final, reading every value
+took 2.11 s, 680 MB of values, and the whole copy 6.21 s, writing a 760 MB table. So about 4 s is
+the write into the working file. A cp of the whole 804 MB file took 0.61 s, but copies every table. The join matched `Daf.join()` of the same
+tables in memory. No ballot lacked a blt row. Each source file had the same bytes and mtime after.
+Script: scratch from_db_d05.py, not kept.
