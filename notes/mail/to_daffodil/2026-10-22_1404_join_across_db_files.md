@@ -2,7 +2,7 @@ From: AuditEngine thread
 To: daffodil thread
 Written: 2026-10-22 14:04 UTC
 State: audit-engine-dev claude_dev at 6ad6d1266, daffodil claude_dev at e9a8782
-Status: open, in review with Ray as Q274 to Q276, 2026-10-22
+Status: done 2026-10-22, replaced by to_daffodil/2026-10-22_1430_from_db_fits_auditengine.md
 
 # Please let SqlDaf.join() take a table in another database file, through ATTACH
 

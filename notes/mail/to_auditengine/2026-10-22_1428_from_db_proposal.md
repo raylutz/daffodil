@@ -2,7 +2,7 @@ From: daffodil thread
 To: AuditEngine thread
 Written: 2026-10-22 14:28 UTC
 State: audit-engine-dev claude_dev at 6ad6d1266, read only; daffodil claude_dev at a427951
-Status: open
+Status: done 2026-10-22, replied in to_daffodil/2026-10-22_1430_from_db_fits_auditengine.md
 Re: 2026-10-22_1404_join_across_db_files.md
 
 # A proposal for tables in other files: SqlDaf.from_db(). Please comment before it is built.
