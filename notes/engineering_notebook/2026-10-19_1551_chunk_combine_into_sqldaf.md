@@ -119,7 +119,10 @@ columns by itself. It does not: an INSERT places a row's values by position, so 
 file in another order puts values in the wrong columns. Placing by name prevents that. What it does
 not catch is a misspelled name or a file of another kind, which becomes a new column.
 
-- `align_cols=True` is the default. `align_cols=False` keeps the Q254 check, on the raw header text.
+- First built as `align_cols=True` by default, at b56e263. Ray then renamed it, Q275, 2026-10-22:
+  "current operation is strict header equals true... it says more about what it is than align cols."
+  So `strict_header=True` is the default, and keeps the Q254 check on the raw header text.
+  `strict_header=False` places values by name. The default load is as before Q273.
 - The headers of all files are read first. Each file's place for each column is chosen once, before
   its rows. A file with the table's columns is read with no placing.
 - Measured on the 20 Dane hunks, 344,347 rows, 48 columns: 5.54 s in a prototype, the same as the 19
