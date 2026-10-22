@@ -130,6 +130,33 @@ The dtypes are kept with the table, so they come back when it is opened again. A
 does not convert, such as 'abc' in an int column, stays as it is. So a converted column can
 still hold some text.
 
+### Many files into one table
+
+`from_csv()` also takes a glob pattern, such as `chunks/votes_*.csv`, or a list of files, and
+loads them all into one table. Each value goes into the column of its name in the file's
+header. So files whose columns come in another order, or that lack a column, load safely. A
+missing column is Python NULL. A name that only a later file has becomes a new column, after
+the first file's.
+
+```pycon
+>>> chunk_dir = os.path.dirname(SqlDaf.db_path)
+>>> _ = open(chunk_dir + '/v_0.csv', 'w').write('ballot_id,n\nb1,3\n')
+>>> _ = open(chunk_dir + '/v_1.csv', 'w').write('n,ballot_id,note\n12,b2,late\n')
+>>> SqlDaf.from_csv(chunk_dir + '/v_*.csv', name='chunked').to_daf()
+<BLANKLINE>
+| ballot_id | n  | note |
+| --------: | -: | ---: |
+|        b1 |  3 |      |
+|        b2 | 12 | late |
+<BLANKLINE>
+%% daf rows=2; cols=3; keyfield=''; name='chunked'
+<BLANKLINE>
+```
+
+Placing by name never puts a value in the wrong column. But a misspelled name, or a file of
+another kind, becomes a new column, with no error. With `align_cols=False`, every file must
+have the first file's names in the same order, or ValueError names both files.
+
 ## Selections
 
 Indexing and the select methods give a selection. It refers to rows of its parent table.

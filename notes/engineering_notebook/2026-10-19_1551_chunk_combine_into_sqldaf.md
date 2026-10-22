@@ -108,6 +108,24 @@ converted. Daf interface allows skipping applying types if not needed. File colu
   1.4 s for a text load and `apply_dtypes()`. `Daf.from_csv()` keeps `dtypes` deprecated.
 - The prototype and timing scripts were in the scratch folder of the thread, not kept.
 
+## Q273, settled 2026-10-22
+
+AuditEngine asked on 2026-10-21 that `from_csv()` load files whose headers differ, by column name.
+Two real cases: a WI_Dane biacvr_bif hunk in another column order, and old chunks with file_paths
+beside new ones with file_path and file_path2. This reverses the header check of Q254 as the default.
+
+Ray: "Default is matching is on so that it is safe." He asked whether reading into SQL aligns
+columns by itself. It does not: an INSERT places a row's values by position, so a blind load of a
+file in another order puts values in the wrong columns. Placing by name prevents that. What it does
+not catch is a misspelled name or a file of another kind, which becomes a new column.
+
+- `align_cols=True` is the default. `align_cols=False` keeps the Q254 check, on the raw header text.
+- The headers of all files are read first. Each file's place for each column is chosen once, before
+  its rows. A file with the table's columns is read with no placing.
+- Measured on the 20 Dane hunks, 344,347 rows, 48 columns: 5.54 s in a prototype, the same as the 19
+  matching hunks alone, and 5.76 s with the library code. Placing all 19 by name cost 6.25 s, about 13% more.
+- A missing int column is NULL, as `apply_dtypes()` leaves NULL.
+
 ## Open
 
 - Where AuditEngine keeps the database files of a job, and when they are deleted.

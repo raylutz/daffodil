@@ -322,10 +322,42 @@ def test_from_csv_list_loads_files_in_list_order_and_names_table_after_first(tmp
     assert SqlDaf.from_csv(a_path).to_list() == ['a1']
 
 
-def test_from_csv_rejects_a_file_whose_column_names_differ(tmp_path):
+def test_from_csv_without_align_cols_rejects_a_file_whose_column_names_differ(tmp_path):
     write_csv(str(tmp_path / 'c_0.csv'), 'b,v\nb1,1\n')
-    write_csv(str(tmp_path / 'c_1.csv'), 'b,w\nb2,2\n')
+    write_csv(str(tmp_path / 'c_1.csv'), 'v,b\n2,b2\n')
     with pytest.raises(ValueError, match='c_1.csv differ from those of .*c_0.csv'):
+        SqlDaf.from_csv(str(tmp_path / 'c_*.csv'), name='c', align_cols=False)
+    assert not SqlDaf.table_exists('c')
+
+
+def test_from_csv_places_values_by_column_name(tmp_path):
+    """
+    A file in another order loads by name, not by position.
+    New names follow the first file's, in the order first seen, and a missing column is NULL.
+    """
+    write_csv(str(tmp_path / 'c_0.csv'), 'b,v\nb1,1\n')
+    write_csv(str(tmp_path / 'c_1.csv'), 'v,b\n2,b2\n')
+    write_csv(str(tmp_path / 'c_2.csv'), '')
+    write_csv(str(tmp_path / 'c_3.csv'), 'b,w,v\nb3,x,3\n')
+    write_csv(str(tmp_path / 'c_4.csv'), 'u,b\ny,b4\n')
+    c_sdaf: SqlDaf = SqlDaf.from_csv(str(tmp_path / 'c_*.csv'), name='c', keyfield='b', dtypes={'v': int})
+    assert c_sdaf.to_daf().lol == [['b1', 1, NULL, NULL], ['b2', 2, NULL, NULL], ['b3', 3, 'x', NULL], ['b4', NULL, NULL, 'y']]
+    assert c_sdaf.columns() == ['b', 'v', 'w', 'u']
+
+
+def test_from_csv_old_and_new_path_columns_load_into_one_table(tmp_path):
+    """ Old chunks have file_paths, and new ones file_path and file_path2. Each keeps its own columns. """
+    write_csv(str(tmp_path / 'old.csv'), 'ballot_id,file_paths,v\nb1,"[\'a\', \'b\']",5\n')
+    write_csv(str(tmp_path / 'new.csv'), 'ballot_id,file_path,file_path2,v\nb2,c,d,6\n')
+    bif_sdaf: SqlDaf = SqlDaf.from_csv([str(tmp_path / 'old.csv'), str(tmp_path / 'new.csv')], name='bif')
+    assert bif_sdaf.columns() == ['ballot_id', 'file_paths', 'v', 'file_path', 'file_path2']
+    assert bif_sdaf.to_daf().lol == [['b1', "['a', 'b']", '5', NULL, NULL], ['b2', NULL, '6', 'c', 'd']]
+
+
+def test_from_csv_a_long_row_raises_against_its_own_header(tmp_path):
+    write_csv(str(tmp_path / 'c_0.csv'), 'b,v,w\nb1,1,2\n')
+    write_csv(str(tmp_path / 'c_1.csv'), 'b,v\nb2,2,9\n')
+    with pytest.raises(ValueError, match='c_1.csv has 3 values, more than the 2 columns'):
         SqlDaf.from_csv(str(tmp_path / 'c_*.csv'), name='c')
     assert not SqlDaf.table_exists('c')
 
