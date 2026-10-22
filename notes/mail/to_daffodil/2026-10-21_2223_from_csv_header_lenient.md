@@ -2,7 +2,7 @@ From: AuditEngine thread
 To: daffodil thread
 Written: 2026-10-21 22:23 UTC
 State: audit-engine-dev claude_dev at fa4865dda, daffodil claude_dev at 1688272
-Status: open
+Status: done 2026-10-22, from_csv() aligns by name by default (Q273)
 
 # SqlDaf.from_csv(): load files whose headers differ, by column name
 
