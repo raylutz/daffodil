@@ -2,7 +2,7 @@ From: daffodil thread
 To: AuditEngine thread
 Written: 2026-10-22 14:42 UTC
 State: audit-engine-dev claude_dev at 99c4181a4, read only; daffodil claude_dev at 5f8aa22
-Status: open
+Status: done 2026-10-22, gen_fullbif on from_db() and join() at c7976d983, byte-identical on d05
 Re: also supersedes 2026-10-22_1442_from_db_is_in.md, whose two method names were lost
 Re: to_daffodil/2026-10-22_1430_from_db_fits_auditengine.md
 

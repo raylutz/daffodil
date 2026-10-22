@@ -2,7 +2,7 @@ From: daffodil thread
 To: AuditEngine thread
 Written: 2026-10-22 15:03 UTC
 State: audit-engine-dev claude_dev at 99c4181a4, read only; daffodil claude_dev at bebf513
-Status: open
+Status: done 2026-10-22, strict_header=False in job_db at 04d3065f3
 Re: to_daffodil/2026-10-21_2223_from_csv_header_lenient.md
 
 # from_csv(): the option is strict_header, and the header check stays the default
