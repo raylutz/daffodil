@@ -433,6 +433,9 @@ same rows on both. On a SqlDaf they run in SQL and read only the rows they retur
   Avoid `groupby()` and then `append()` of the groups: an empty Daf that appends a SqlDaf fails.
 - **Select first, then `to_daf()`.** `to_daf()` reads every row into memory. On a Daf it gives
   the Daf itself, so `select_records_daf(keys).to_daf().apply_dtypes()` reads either kind.
+- **Write a table into a report with `to_md()`.** `rows[0:50].to_md()` gives those 50 rows and
+  no summary line. An f-string gives `str()`, which keeps 10 rows and adds the summary line, with
+  the name of the table. A selection of a SqlDaf names its TEMP table there.
 - **Open each input table with `from_db()`.** A job that keeps each table in a file of its own
   copies the ones a stage uses into one working file. Then every table is on one connection, and
   the files they came from are only read.

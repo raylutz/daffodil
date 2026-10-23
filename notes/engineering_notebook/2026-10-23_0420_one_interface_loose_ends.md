@@ -108,3 +108,15 @@ So only the rows shown come into Python.
 - `md_max_rows` and `md_max_cols` are class settings of SqlDaf, 10 each, since `Daf.__init__()` never runs.
 - `repr()` keeps its one line. That is Q280.
 - The test that str() equals repr() was changed: it held the old behavior.
+
+## Q281, settled 2026-10-23
+
+Ray: "Q281 stay with original." A SqlDaf selection keeps its TEMP name, in its summary line and in `to_daf()`.
+Instead, the docs recommend `to_md()` in code, rather than an f-string of a table, because
+"the summary line is suppressed by default" and "the number of rows can be explicitly set, and it
+defaults to all, so my_daf[0:50].to_md() will work the way most people want it to work."
+
+Checked: `daf[0:50].to_md()` gives 50 rows, every column, no summary line, the same text on a Daf
+and a SqlDaf. An f-string of the same selection gives 10 rows and the summary line.
+Added to the `to_md()` docstring, the Guide's patterns for both classes, and the cheatsheet.
+This also reads as keeping the `to_md()` default of every row on a SqlDaf, Q278.

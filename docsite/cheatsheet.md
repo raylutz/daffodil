@@ -186,13 +186,14 @@ NULL, a missing value, is `''`, the empty string. dtypes describe the columns, a
 
 ## Joins and export
 
-|             Code              |            What it does             |
-| :---------------------------- | :---------------------------------- |
-| `daf.join(other, how='left')` | by key: inner, left, right or outer |
-| `daf.to_lod()`                | a list of dicts                     |
-| `daf.to_md(max_rows=10)`      | Markdown text                       |
-| `daf.to_csv_file('out.csv')`  | a CSV file                          |
-| `daf.to_pandas_df()`          | a pandas DataFrame                  |
+|             Code              |                                      What it does                                      |
+| :---------------------------- | :------------------------------------------------------------------------------------- |
+| `daf.join(other, how='left')` | by key: inner, left, right or outer                                                    |
+| `daf.to_lod()`                | a list of dicts                                                                        |
+| `daf.to_md(max_rows=10)`      | Markdown text                                                                          |
+| `daf[0:3].to_md()`            | these rows as Markdown, every row, no summary line. Use it in reports, not an f-string |
+| `daf.to_csv_file('out.csv')`  | a CSV file                                                                             |
+| `daf.to_pandas_df()`          | a pandas DataFrame                                                                     |
 
 ## Tables larger than memory
 

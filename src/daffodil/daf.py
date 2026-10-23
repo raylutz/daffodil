@@ -15163,6 +15163,11 @@ class Daf:
         """
         Make a Markdown table of the Daf.
 
+        Use it to put a table into a report or a log, as in `daf[0:50].to_md()`. An f-string of a
+        Daf gives `str()`, which keeps only 10 rows and 10 columns and adds a summary line. `to_md()`
+        writes every row and column, and leaves the summary line out, unless asked. So it gives the
+        rows selected, as most code wants. A SqlDaf gives the same text, reading only those rows.
+
         Without limits the whole table is written. With `max_rows` or `max_cols`, the
         first and last are kept, and the middle is replaced by `...`. Text longer
         than `max_text_len` is shortened by cutting out its middle. `just` has one
