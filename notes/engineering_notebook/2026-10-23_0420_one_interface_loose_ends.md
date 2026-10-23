@@ -95,3 +95,16 @@ Built, with the library code on the d05 copies:
   TEXT keyfield, with no daf_rid, gets ref TEXT.
 - `_ensure_ref_index()` runs in `_key_source_sql()`, so only a selection used as keys pays for it.
 - Option B, copying the keys to an indexed TEMP table, was not needed. A join not read yet was fast as keys.
+
+## Q279, settled 2026-10-23
+
+Ray: yes, and "the sql table should not do a lot of conversion, but rather look directly at the sql table."
+He pointed to AuditEngine's sql_utils.sqltable_to_md_summary(), which counts the rows and reads the
+first and last with LIMIT and OFFSET. `SqlDaf.daf_to_lol_summary()` already does the same: a COUNT,
+the first rows with LIMIT, and the last with ORDER BY DESC LIMIT, which does not step over the middle.
+So only the rows shown come into Python.
+
+- `md_daf_table_snippet()`, `__str__()` and `__format__()` are SqlDaf methods that call Daf's code.
+- `md_max_rows` and `md_max_cols` are class settings of SqlDaf, 10 each, since `Daf.__init__()` never runs.
+- `repr()` keeps its one line. That is Q280.
+- The test that str() equals repr() was changed: it held the old behavior.

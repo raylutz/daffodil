@@ -459,7 +459,27 @@ def test_isinstance_daf_and_repr():
     marks_sdaf: SqlDaf = SqlDaf.from_daf(make_marks_daf(), name='marks')
     assert isinstance(marks_sdaf, Daf)
     assert repr(marks_sdaf) == "<SqlDaf table name='marks' rows=3 cols=3 keyfield='ballot_id'>"
-    assert str(marks_sdaf) == repr(marks_sdaf)
+
+
+def test_str_and_format_give_the_text_of_a_daf():
+    """ The same text as a Daf of the same rows, byte for byte, with only the rows shown read. """
+    cols_ls: T_ls = ['ballot_id'] + [f'c{idx}' for idx in range(14)]
+    rows_lol: list = [[f'b{row}'] + [('x' * (90 if (row + idx) % 7 == 0 else 3)) if idx % 3 == 0 else row * idx
+                                     for idx in range(14)] for row in range(60)]
+    wide_daf: Daf = Daf(cols=cols_ls, lol=rows_lol, keyfield='ballot_id', name='wide')
+    wide_sdaf: SqlDaf = SqlDaf.from_daf(wide_daf, name='wide')
+    assert str(wide_sdaf) == str(wide_daf)
+    assert f'{wide_sdaf}' == str(wide_daf)
+    assert f"{wide_sdaf['b7', 'c1']:.2f}" == '7.00'
+    with pytest.raises(ValueError):
+        f'{wide_sdaf:.2f}'
+
+    marks_sdaf: SqlDaf = SqlDaf.from_daf(make_marks_daf(), name='marks')
+    marks_daf: Daf = make_marks_daf()
+    marks_daf.name = 'marks'
+    assert str(marks_sdaf) == str(marks_daf)
+    marks_sdaf.md_max_rows = 2
+    assert '...' in str(marks_sdaf)
 
 
 def test_name_is_read_only():
