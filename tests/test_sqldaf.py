@@ -1250,6 +1250,19 @@ def test_groupby_repeated_cols_makes_an_index_only_when_a_key_repeats():
     assert any('crc_p1' in name for name in sqldaf_module._indexes_of(images_sdaf.conn, 'images'))
 
 
+def test_one_line_reads_rows_from_a_daf_or_a_sqldaf():
+    """ The same chain ends in the same in-memory Daf, typed, from a table of either kind. """
+    text_daf: Daf = Daf(cols=['ballot_id', 'style_num'], lol=[['b1', '3'], ['b2', '5'], ['b3', '7']],
+                        keyfield='ballot_id', dtypes={'ballot_id': str, 'style_num': int})
+    typed_daf: Daf = text_daf.copy('editable').apply_dtypes()
+    table_sdaf: SqlDaf = SqlDaf.from_daf(typed_daf, name='bif')
+    table_obj: Any
+    for table_obj in (text_daf, table_sdaf):
+        rows_daf: Daf = table_obj.select_records_daf(['b3', 'b9', 'b1'], silent_error=True).to_daf().apply_dtypes()
+        assert type(rows_daf) is Daf
+        assert rows_daf.lol == [['b3', 7], ['b1', 3]]
+
+
 def test_groupby_cols_keys_are_tuples_and_bad_names_raise():
     bif_sdaf: SqlDaf = SqlDaf.from_daf(make_bif_daf(), name='bif')
     assert list(bif_sdaf.groupby_cols(['precinct']).keys()) == [('P1',), ('P2',), ('P3',)]

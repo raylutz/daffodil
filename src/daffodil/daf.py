@@ -3131,6 +3131,39 @@ class Daf:
 
 
 
+    def to_daf(self) -> 'Daf':
+        """
+        Give this Daf itself, so code can end the same way on a Daf or a SqlDaf.
+
+        `SqlDaf.to_daf()` reads the rows of a table into memory. A Daf is in memory already, so
+        nothing is copied. That lets one line read a table of either kind, as in
+        `table.select_records_daf(keys).to_daf().apply_dtypes()`.
+
+        This Daf is returned, not a copy. A change to the result changes this Daf. A SqlDaf gives
+        rows of their own instead. Use `copy('editable')` for rows of your own.
+
+        Returns:
+            This Daf.
+
+        Examples:
+            >>> daf = Daf(cols=['id', 'v'], lol=[['a1', 1], ['b2', 2]], keyfield='id')
+            >>> daf
+            <BLANKLINE>
+            | id | v  |
+            | -: | -: |
+            | a1 |  1 |
+            | b2 |  2 |
+            <BLANKLINE>
+            %% daf rows=2; cols=2; keyfield='id'; name=''
+            <BLANKLINE>
+            >>> daf.select_records_daf(['b2']).to_daf().lol
+            [['b2', 2]]
+            >>> daf.to_daf() is daf
+            True
+        """
+        return self
+
+
     def to_lod(self) -> T_loda:
         """
         Make a list of dicts, one dict for each row.

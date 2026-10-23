@@ -6,6 +6,8 @@ Creating a Daf from other data and files, and converting it back out.
 
 ::: daffodil.daf.Daf.from_lod
 
+::: daffodil.daf.Daf.to_daf
+
 ::: daffodil.daf.Daf.to_lod
 
 ::: daffodil.daf.Daf.from_lot

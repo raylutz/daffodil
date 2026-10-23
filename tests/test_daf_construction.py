@@ -72,6 +72,13 @@ def test_copy_deep_creates_independent_lol():
     assert daf.lol[0][0] == 1
 
 
+def test_to_daf_gives_the_daf_itself():
+    """ Nothing is copied, so code can end with to_daf() on a Daf or a SqlDaf. """
+    daf = Daf(cols=['id', 'v'], lol=[['a1', 1], ['b2', 2]], keyfield='id')
+    assert daf.to_daf() is daf
+    assert daf.to_daf().lol[0] is daf.lol[0]
+
+
 def test_copy_for_sorting_independent_lol_reference():
     daf = Daf(lol=[[1, 'a']], cols=['id', 'name'])
     copied = daf.copy(for_sorting=True)
