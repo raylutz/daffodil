@@ -4969,6 +4969,78 @@ class SqlDaf(Daf):
         return self.assign_col(colname, col_la or [], default)
 
 
+
+    def insert_idx_col(self, colname: str = 'idx', icol: int = 0, startat: int = 0) -> 'SqlDaf':   # type: ignore[override]
+        """
+        Insert a column of row numbers, as `Daf.insert_idx_col()` does.
+
+        The rows are numbered from `startat`, in their order here, so a selection is numbered from
+        its own first row. The column goes at `icol`. A negative `icol`, or one past the last column,
+        puts it at the end. If the name is a column already, its values are replaced.
+
+        SQLite adds a column only at the end, so this makes a TEMP copy with the column in place,
+        numbered in SQL, and this SqlDaf then refers to it, as a sort does. The table it came from is
+        not changed. That copies every row, so number a selection rather than a whole large table.
+
+        Args:
+            colname: The name of the new column. An empty name does nothing.
+            icol: The column position.
+            startat: The number of the first row.
+
+        Returns:
+            This SqlDaf, which now refers to the TEMP copy.
+
+        Examples:
+            >>> import tempfile
+            >>> SqlDaf.db_path = tempfile.mkdtemp() + '/job.db'
+            >>> marks_sdaf = SqlDaf('marks', cols=['ballot_id', 'v'], lol=[['b1', 1], ['b2', 0], ['b3', 1]], keyfield='ballot_id')
+            >>> marks_sdaf.to_daf()
+            <BLANKLINE>
+            | ballot_id | v  |
+            | --------: | -: |
+            |        b1 |  1 |
+            |        b2 |  0 |
+            |        b3 |  1 |
+            <BLANKLINE>
+            %% daf rows=3; cols=2; keyfield='ballot_id'; name='marks'
+            <BLANKLINE>
+            >>> marks_sdaf.select_by_dict({'v': 1}).insert_idx_col(startat=1).to_daf().lol
+            [[1, 'b1', 1], [2, 'b3', 1]]
+            >>> marks_sdaf.columns()
+            ['ballot_id', 'v']
+        """
+        if not colname:
+            return self
+        cols_ls: T_ls = list(self.hd)
+        number_sql: str = f'ROW_NUMBER() OVER (ORDER BY {ORD_COL}) - 1 + ?'
+
+        # ---- the columns of the copy, and the SQL that gives each, in order
+        exprs_ls: T_ls
+        if colname in self.hd:
+            exprs_ls = [number_sql if col == colname else quote_name(col) for col in cols_ls]
+        else:
+            place: int = len(cols_ls) if icol < 0 or icol >= len(cols_ls) else icol
+            cols_ls.insert(place, colname)
+            exprs_ls = [number_sql if col == colname else quote_name(col) for col in cols_ls]
+        cols_sql: str = ', '.join(quote_name(col) for col in cols_ls)
+
+        target: str = self._next_temp_name(self._root().name)
+        rows_sql, rows_params = self._rows_sql()
+        with self.transaction():
+            self._execute(_create_table_sql(self.conn, target, cols_ls, 'temp'))
+            self._execute(f'INSERT INTO {quote_name(target)} ({cols_sql}) '
+                          f'SELECT {", ".join(exprs_ls)} FROM ({rows_sql}) ORDER BY {ORD_COL}',
+                          (startat,) + tuple(rows_params))
+        self._name          = target
+        self.hd             = {col: idx for idx, col in enumerate(cols_ls)}
+        self.has_rid        = True
+        self.is_temp        = True
+        self.parent_sdaf    = None
+        self.is_resolved    = True
+        self.pending_sql    = ''
+        self.pending_params = ()
+        return self
+
     def drop_cols(self, exclude_cols: T_ls | None = None) -> 'SqlDaf':     # type: ignore[override]
         """
         Remove columns from the table, in place, as `Daf.drop_cols()` does.

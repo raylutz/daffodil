@@ -161,3 +161,11 @@ the Guide's Selections section.
 With the fix, the port ran all 18 steps on a copy of AuditEngine's current d05 cmpcvr.db.
 cvr_residue.csv had no rows, where AuditEngine's file of 2026-10-21 has 7: its inputs now have
 34,534 rows in both tables. Scratch check copy: rp/sdaf_variants_check.py, not kept.
+
+## Q284, settled 2026-10-23
+
+Ray chose A. `SqlDaf.insert_idx_col()` makes a TEMP copy with the column at `icol`, numbered by
+ROW_NUMBER() OVER (ORDER BY daf_ord) - 1 + startat, and the SqlDaf refers to it, as after a sort.
+It follows Daf's rules, checked by running them: a negative `icol`, or one at or past the number of
+columns, puts the column at the end. An existing name has its values replaced. An empty name does
+nothing. A parametrized test compares eight cases with a Daf.

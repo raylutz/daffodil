@@ -38,6 +38,8 @@ Adding rows, changing values, and changing the columns.
 
 ::: daffodil.sqldaf.SqlDaf.insert_col
 
+::: daffodil.sqldaf.SqlDaf.insert_idx_col
+
 ::: daffodil.sqldaf.SqlDaf.drop_cols
 
 ::: daffodil.sqldaf.SqlDaf.rename_cols

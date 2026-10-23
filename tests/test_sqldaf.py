@@ -2244,6 +2244,31 @@ def test_delete_records_with_another_sqldaf():
     assert list(rest_sdaf.keys()) == ['b2', 'b4']
 
 
+@pytest.mark.parametrize('colname, icol, startat', [
+    ('idx', 0, 0), ('idx', 2, 1), ('idx', 4, 0), ('idx', 9, 5), ('idx', -1, 0), ('idx', -2, 0),
+    ('style_num', 0, 10), ('', 0, 0),
+])
+def test_insert_idx_col_matches_mdaf(colname, icol, startat):
+    """ The same columns and numbers as a Daf, on a TEMP copy. The table it came from is not changed. """
+    bif_daf: Daf = make_bif_daf()
+    bif_sdaf: SqlDaf = SqlDaf.from_daf(bif_daf, name='bif')
+    numbered_sdaf: SqlDaf = bif_sdaf.select_by_dict({'precinct': 'P1'}).insert_idx_col(colname, icol, startat)
+    expect_daf: Daf = bif_daf.select_by_dict({'precinct': 'P1'}).copy('editable').insert_idx_col(colname, icol, startat)
+    assert numbered_sdaf.columns() == expect_daf.columns()
+    assert numbered_sdaf.to_daf().lol == expect_daf.lol
+    assert numbered_sdaf.keyfield == 'ballot_id'
+    assert SqlDaf('bif').to_daf().lol == bif_daf.lol
+
+
+def test_insert_idx_col_on_a_table_refers_to_a_temp_copy():
+    bif_sdaf: SqlDaf = SqlDaf.from_daf(make_bif_daf(), name='bif')
+    assert bif_sdaf.insert_idx_col() is bif_sdaf
+    assert bif_sdaf.is_temp and bif_sdaf.name != 'bif'
+    assert bif_sdaf.col('idx') == [0, 1, 2, 3, 4]
+    assert bif_sdaf.select_record('b3')['idx'] == 2
+    assert SqlDaf('bif').columns() == make_bif_daf().columns()
+
+
 def test_concat_matches_mdaf_and_returns_self():
     bif_daf: Daf = make_bif_daf()
     add_daf: Daf = Daf(lol=[['b6', 'P2', 1, 1], ['b7', 'P1', 2, NULL]], cols=bif_daf.columns(), keyfield='ballot_id')
