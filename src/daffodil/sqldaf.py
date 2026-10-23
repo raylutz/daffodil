@@ -18,7 +18,7 @@ from collections.abc import Iterable
 
 from daffodil.daf import Daf, NULL, ColumnNotFoundError, KeysDisabledError
 from daffodil.keyedlist import KeyedList
-from daffodil.lib.daf_types import T_ls, T_la, T_lola, T_di, T_da, T_ds, T_ss, T_cs, T_ta, T_dtype_dict, T_copybits, T_buff
+from daffodil.lib.daf_types import T_ls, T_la, T_lola, T_di, T_da, T_ds, T_ss, T_cs, T_ta, T_kva, T_dtype_dict, T_copybits, T_buff
 import daffodil.lib.daf_utils as daf_utils
 import daffodil.lib.daf_sql as daf_sql
 from daffodil.lib.daf_sql import sqlite3
@@ -3758,23 +3758,79 @@ class SqlDaf(Daf):
 
     # ---- keys: selecting, deleting ----
 
-    def keys(self) -> T_la:                                                 # type: ignore[override]
-        """
-        Get the keys, as a list of the keyfield's values in row order, as `Daf.keys()` does.
+    @overload
+    def keys(self, *, silent_error: bool = True, astype: Literal['list'] = 'list') -> T_la: ...
+    @overload
+    def keys(self, *, silent_error: bool = True, astype: Literal['view']) -> T_kva: ...
+    @overload
+    def keys(self, *, silent_error: bool = True, astype: str = 'list') -> T_la | T_kva: ...
 
-        Every key is read into memory. To pass many keys to `select_records_daf()` or
-        `delete_records()` without reading them, give the SqlDaf itself: its keys are then used
-        in SQL. Without a keyfield, as in a Daf, the answer is an empty list.
+    def keys(                                                               # type: ignore[override]
+            self,
+            *,
+            silent_error:   bool = True,                # if False, raise when there is no keyfield.
+            astype:         str = 'list',               # 'list' for a list, 'view' for a KeysView.
+            ) -> T_la | T_kva:
+        """
+        Get the keys, the keyfield's values in row order, as `Daf.keys()` does.
+
+        Every key is read into memory. This takes the arguments of `Daf.keys()`, so code written
+        for a Daf runs on a SqlDaf. With `astype='view'` it gives a KeysView of a dict made from
+        the keys, in row order, with a repeated key once. A Daf gives a view of its key index,
+        which costs nothing. Here the dict is built, so it holds every key.
+
+        It exists for that compatibility. On a large table there are better ways, which read no
+        key into Python and run the same on a Daf:
+
+        - To compare two tables, select the rows: `a.select_records_daf(b, inverse=True, silent_error=True)`.
+        - To pass the keys to another method, give the SqlDaf itself, as in `b.select_records_daf(a)`.
+        - To test one key, use `key in table`, or `table.select_record(key)` for its row.
+        - To sample, take the first rows: `table[0:3].keys()`.
+        - To count, use `len()` of the selection.
+
+        Args:
+            silent_error: If False, raise an error when there is no keyfield.
+            astype: `list` for a new list, or `view` for a KeysView.
 
         Returns:
-            The keys, or an empty list if there is no keyfield.
+            The keys. Without a keyfield, an empty list, as in a Daf.
+
+        Raises:
+            KeysDisabledError: There is no keyfield, and `silent_error` is False.
+            ValueError: `astype` is neither `list` nor `view`.
+
+        Examples:
+            >>> import tempfile
+            >>> SqlDaf.db_path = tempfile.mkdtemp() + '/job.db'
+            >>> marks_sdaf = SqlDaf('marks', cols=['ballot_id', 'v'], lol=[['b1', 1], ['b2', 0], ['b3', 1]], keyfield='ballot_id')
+            >>> marks_sdaf.to_daf()
+            <BLANKLINE>
+            | ballot_id | v  |
+            | --------: | -: |
+            |        b1 |  1 |
+            |        b2 |  0 |
+            |        b3 |  1 |
+            <BLANKLINE>
+            %% daf rows=3; cols=2; keyfield='ballot_id'; name='marks'
+            <BLANKLINE>
+            >>> marks_sdaf.keys(astype='view')
+            dict_keys(['b1', 'b2', 'b3'])
+            >>> 'b2' in marks_sdaf, marks_sdaf[0:2].keys(), len(marks_sdaf.select_by_dict({'v': 1}))
+            (True, ['b1', 'b2'], 2)
         """
+        if astype not in ('list', 'view'):
+            raise ValueError(f"keys: astype must be 'list' or 'view', not {astype!r}.")
         if not self.keyfield:
+            if not silent_error:
+                raise KeysDisabledError("keys: this SqlDaf has no keyfield.")
             return []
         rows_sql, rows_params = self._rows_sql()
         cursor: sqlite3.Cursor = self._execute(
                 f'SELECT {quote_name(self.keyfield)} FROM ({rows_sql}) ORDER BY {ORD_COL}', rows_params)
-        return [NULL if row_t[0] is None else row_t[0] for row_t in self._fetch(cursor)]
+        keys_la: T_la = [NULL if row_t[0] is None else row_t[0] for row_t in self._fetch(cursor)]
+        if astype == 'view':
+            return dict.fromkeys(keys_la).keys()
+        return keys_la
 
 
     def _key_source_sql(self, keys_ls: Any) -> Tuple[str, Tuple[Any, ...]]:

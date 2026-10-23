@@ -10,7 +10,7 @@ from typing import Any
 
 import pytest
 
-from daffodil.daf import Daf, NULL
+from daffodil.daf import Daf, NULL, KeysDisabledError
 from daffodil.keyedlist import KeyedList
 from daffodil.lib.daf_types import T_ls, T_dtype_dict
 from daffodil.sqldaf import SqlDaf, BLOCKED_LS, SAFE_INHERITED_SET, KEEP_SET, RID_COL, META_TABLE, quote_name
@@ -2055,6 +2055,29 @@ def test_select_records_daf_needs_keyfields():
         nokey_sdaf.select_records_daf(['b1'])
     with pytest.raises(ValueError):
         bif_sdaf.select_records_daf(nokey_sdaf)
+
+
+def test_keys_takes_the_arguments_of_mdaf():
+    """ astype and silent_error work as on a Daf, so code written for a Daf runs unchanged. """
+    bif_daf: Daf = make_bif_daf()
+    bif_sdaf: SqlDaf = SqlDaf.from_daf(bif_daf, name='bif')
+    assert bif_sdaf.keys(astype='list') == bif_daf.keys(astype='list')
+    view_kva = bif_sdaf.keys(astype='view')
+    assert type(view_kva) is type(bif_daf.keys(astype='view'))
+    assert list(view_kva) == list(bif_daf.keys(astype='view'))
+    assert 'b3' in view_kva
+    with pytest.raises(ValueError):
+        bif_sdaf.keys(astype='set')
+    with pytest.raises(ValueError):
+        bif_daf.keys(astype='set')
+
+    nokey_daf: Daf = Daf(lol=[['b1']], cols=['ballot_id'])
+    nokey_sdaf: SqlDaf = SqlDaf.from_daf(nokey_daf, name='nokey')
+    assert nokey_sdaf.keys() == nokey_daf.keys() == []
+    with pytest.raises(KeysDisabledError):
+        nokey_sdaf.keys(silent_error=False)
+    with pytest.raises(KeysDisabledError):
+        nokey_daf.keys(silent_error=False)
 
 
 def test_keys_is_a_list_in_order_as_in_mdaf():

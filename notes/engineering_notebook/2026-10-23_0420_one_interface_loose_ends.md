@@ -126,3 +126,11 @@ This also reads as keeping the `to_md()` default of every row on a SqlDaf, Q278.
 Ray: repr "should NOT give the one line internal reference but rather the referenced object, so it
 matches mdaf." `repr()` is a newline and then `md_daf_table_snippet()`, as `Daf.__repr__()` is.
 Two tests that held the one line were changed. `is_child` and `is_temp` tell the kind of SqlDaf.
+
+## Q282, settled 2026-10-23
+
+Ray: yes, "but also add in the docs that although this exists for compatibility, that there are
+better ways to handle this, and give the examples." `SqlDaf.keys(silent_error=True, astype='list')`.
+'view' is `dict.fromkeys(keys).keys()`. The docstring lists the better ways, with a doctest, and the
+Guide's patterns for both classes have a bullet on it. A parity test checks list, view, a bad
+astype and no keyfield against a Daf.

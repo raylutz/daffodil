@@ -426,6 +426,11 @@ same rows on both. On a SqlDaf they run in SQL and read only the rows they retur
   rows of this table whose keys the other lacks. On a SqlDaf it is a join, so no key comes into
   Python. Pass `silent_error=True`, or a key of the other table that this one lacks raises
   KeyError, on both. Avoid making key lists of both and comparing them.
+- **Use `keys()` only where a list of keys is the result you want.** It reads every key into
+  memory. It takes `astype='view'` and `silent_error`, as a Daf's does, so Daf code runs
+  unchanged, but on a SqlDaf the view is built from all the keys. Better ways read no key:
+  give the table itself as the keys, as in `b.select_records_daf(a)`; test one key with
+  `key in table`; read one row with `table.select_record(key)`.
 - **Sample from the first rows.** `daf[0:3].keys()` reads 3 rows. `daf.keys()[0:3]` reads every key first.
 - **Count with `len()` of a selection.** Avoid a list made only to take its length.
 - **Split a table with `select_by_dict()` and `inverse=True`.** No row is copied, and the rows
