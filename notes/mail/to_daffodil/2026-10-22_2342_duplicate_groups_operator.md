@@ -2,7 +2,7 @@ From: AuditEngine thread
 To: daffodil thread
 Written: 2026-10-22 23:42 UTC
 State: audit-engine-dev claude_dev at f839bd228, daffodil claude_dev at 6ec3876
-Status: open, in review with Ray as Q277, 2026-10-23
+Status: done 2026-10-23, groupby_repeated_cols() (Q277)
 
 # An operator for groups of rows that share a key, on Daf and SqlDaf
 
