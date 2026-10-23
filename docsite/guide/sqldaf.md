@@ -438,6 +438,13 @@ same rows on both. On a SqlDaf they run in SQL and read only the rows they retur
   Avoid `groupby()` and then `append()` of the groups: an empty Daf that appends a SqlDaf fails.
 - **Select first, then `to_daf()`.** `to_daf()` reads every row into memory. On a Daf it gives
   the Daf itself, so `select_records_daf(keys).to_daf().apply_dtypes()` reads either kind.
+- **Summarize each group with grouped counts, not a loop over the groups.**
+  `valuecounts_for_colname1_groupedby_colname2('is_bmd', 'batchid')` counts the values of one
+  column in every group at once. A group's size is the sum of its counts, and its distinct
+  values are the keys. A loop over `groupby()` reads each group: on a SqlDaf that is a query per
+  group. On AuditEngine's pilot d05, 133,422 rows in 11,157 batches, the loop took 565 s on a
+  SqlDaf and the grouped counts 1.64 s. On a Daf both took about 0.7 s. Both classes give the
+  groups and their values in the order first seen.
 - **Write a table into a report with `to_md()`.** `rows[0:50].to_md()` gives those 50 rows and
   no summary line. An f-string gives `str()`, which keeps 10 rows and adds the summary line, with
   the name of the table. A selection of a SqlDaf names its TEMP table there.
@@ -473,6 +480,9 @@ same rows on both. On a SqlDaf they run in SQL and read only the rows they retur
 <BLANKLINE>
 >>> votes_sdaf = SqlDaf.from_daf(votes_daf, name='votes_cb')
 >>> images_sdaf = SqlDaf.from_daf(images_daf, name='images_cb')
+>>> votes_daf.valuecounts_for_colname1_groupedby_colname2('ballot_id', 'corrupted') == \
+...     votes_sdaf.valuecounts_for_colname1_groupedby_colname2('ballot_id', 'corrupted')
+True
 >>> for votes, images in [(votes_daf, images_daf), (votes_sdaf, images_sdaf)]:
 ...     votes_only = votes.select_records_daf(images, inverse=True, silent_error=True)
 ...     images_only = images.select_records_daf(votes, inverse=True, silent_error=True)
