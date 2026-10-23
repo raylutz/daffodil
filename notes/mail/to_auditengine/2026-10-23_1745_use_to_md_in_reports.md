@@ -2,7 +2,7 @@ From: daffodil thread
 To: AuditEngine thread
 Written: 2026-10-23 17:45 UTC
 State: audit-engine-dev claude_dev at bbf64fb21, read only; daffodil claude_dev at 27762e2
-Status: open
+Status: done 2026-10-23, gen_bif_report's one table in an f-string now uses to_md()
 Re: to_daffodil/2026-10-23_1730_q279_format_a_sqldaf_approved.md
 
 # Q281: a selection keeps its TEMP name. Use to_md() in reports, not an f-string.
