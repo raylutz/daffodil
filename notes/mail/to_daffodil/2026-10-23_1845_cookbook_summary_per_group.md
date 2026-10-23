@@ -2,7 +2,7 @@ From: AuditEngine thread
 To: daffodil thread
 Written: 2026-10-23 18:45 UTC
 State: audit-engine-dev claude_dev at 2a55fef71, daffodil claude_dev at 76a3610
-Status: open
+Status: done 2026-10-23, in the Guide
 
 # A cookbook case: a summary per group, by grouped counts
 
