@@ -116,6 +116,7 @@ SECTIONS = [
         ("daf.reduce(Daf.sum_da, cols=['qty'])", 'column sums, as a dict'),
         ("daf.groupby('g')", 'a KeyedList of Dafs, one for each value'),
         ("daf.groupby_cols_reduce(['g'], Daf.sum_da, reduce_cols=['qty'])", 'sums for each group'),
+        ("daf.groupby_repeated_cols(['g'])", 'only the keys that repeat, each with its rows'),
         ("daf.valuecounts_for_colname('g')", "counts: `{'x': 2, 'y': 2}`"),
     ], []),
 

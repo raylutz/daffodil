@@ -44,6 +44,8 @@ Running functions over rows and columns, and grouping.
 
 ::: daffodil.daf.Daf.groupby_cols
 
+::: daffodil.daf.Daf.groupby_repeated_cols
+
 ::: daffodil.daf.Daf.group_where
 
 ::: daffodil.daf.Daf.groupby_cols_reduce

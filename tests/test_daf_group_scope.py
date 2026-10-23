@@ -286,3 +286,49 @@ def test_group_where_true_and_false_with_get() -> None:
     assert groups.get(True).lol == [[2], [3]] and groups.get(False).lol == [[1]]
     groups = daf.group_where(lambda row: row['n'] > 9)
     assert groups.get(True) is None and len(groups.get(False)) == 3
+
+
+# groupby_repeated_cols
+
+def make_images_daf() -> Daf:
+    """ Rows that share a crc or a hash, with 0 and blank values that must never match. """
+    return Daf(
+        cols=['ballot_id', 'crc_p1', 'crc_p2', 'hash_p1', 'hash_p2'],
+        lol=[['b1', 7,    1, 'h1', NULL],
+             ['b2', 0,    1, NULL, NULL],
+             ['b3', 7,    1, 'h1', NULL],
+             ['b4', 0,    1, NULL, NULL],
+             ['b5', NULL, 1, 'h2', 'x'],
+             ['b6', NULL, 1, 'h2', 'y'],
+             ['b7', 7,    2, 'h1', NULL]],
+    )
+
+
+def test_groupby_repeated_cols_keeps_only_repeated_keys_in_table_order():
+    """ A blank in a later key column is a value, so b1, b3 and b7 match on the hashes. """
+    images_daf: Daf = make_images_daf()
+    repeats_klodaf = images_daf.groupby_repeated_cols(['hash_p1', 'hash_p2'], exclude={'hash_p1': [NULL]})
+    assert list(repeats_klodaf.keys()) == [('h1', NULL)]
+    assert repeats_klodaf[('h1', NULL)].col('ballot_id') == ['b1', 'b3', 'b7']
+    assert repeats_klodaf[('h1', NULL)].lol[0] is images_daf.lol[0]
+
+
+def test_groupby_repeated_cols_exclude_leaves_out_rows_that_must_never_match():
+    images_daf: Daf = make_images_daf()
+    every_klodaf = images_daf.groupby_repeated_cols(['crc_p1', 'crc_p2'])
+    assert list(every_klodaf.keys()) == [(7, 1), (0, 1), (NULL, 1)]
+    repeats_klodaf = images_daf.groupby_repeated_cols(['crc_p1', 'crc_p2'], exclude={'crc_p1': [0, NULL]})
+    assert list(repeats_klodaf.keys()) == [(7, 1)]
+    assert repeats_klodaf[(7, 1)].col('ballot_id') == ['b1', 'b3']
+
+
+def test_groupby_repeated_cols_no_repeat_gives_an_empty_result():
+    assert len(make_images_daf().groupby_repeated_cols(['ballot_id'])) == 0
+    assert not make_images_daf().groupby_repeated_cols(['ballot_id'])
+
+
+def test_groupby_repeated_cols_unknown_name_raises():
+    with pytest.raises(KeyError):
+        make_images_daf().groupby_repeated_cols(['nothing'])
+    with pytest.raises(KeyError):
+        make_images_daf().groupby_repeated_cols(['crc_p1'], exclude={'nothing': [0]})

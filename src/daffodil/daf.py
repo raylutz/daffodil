@@ -11439,6 +11439,75 @@ class Daf:
 
 
 
+    def groupby_repeated_cols(
+            self,
+            colnames:   T_ls,                                   # the columns that make the key of a row.
+            exclude:    Dict[str, T_la] | None = None,          # values of a column that make a row never match.
+            ) -> T_klodaf:
+        """
+        Group the rows whose key repeats, and leave out every key that appears only once.
+
+        Use it to find rows that share a key of one or more columns, such as two images with the
+        same hash. Each group holds every row with its key, in table order, so its first row is
+        the earliest. The groups come in the order of their first rows. An empty result means no
+        key repeats. `groupby_cols()` gives every key, but here a key seen once makes no group.
+
+        Each key is a tuple of the values, even for one column. Python NULL is a value like any
+        other, so two rows with a blank in the same key column match. To keep a row from matching
+        at all, as when its first key column is 0 or blank, name those values in `exclude`. A row
+        is left out if any column named there holds one of its values. The values must match the
+        stored type. A Daf read from a CSV file holds text, such as '0', until `apply_dtypes()`.
+
+        The groups share their rows with this Daf, as in `groupby_cols()`. `SqlDaf` has the same
+        method, which finds the keys in SQL and gives each group as a selection.
+
+        Args:
+            colnames: The columns that make the key of a row.
+            exclude: For each column named, the values that keep a row out of every group.
+
+        Returns:
+            A KeyedList that maps each repeated key, a tuple of values, to a Daf of its rows.
+
+        Raises:
+            KeyError: A name in `colnames` or `exclude` is not a column.
+
+        Examples:
+            >>> daf = Daf(cols=['ballot_id', 'crc', 'size'],
+            ...           lol=[['b1', 7, 10], ['b2', 0, 10], ['b3', 7, 10], ['b4', 0, 10], ['b5', 8, 10]])
+            >>> daf
+            <BLANKLINE>
+            | ballot_id | crc | size |
+            | --------: | --: | ---: |
+            |        b1 |   7 |   10 |
+            |        b2 |   0 |   10 |
+            |        b3 |   7 |   10 |
+            |        b4 |   0 |   10 |
+            |        b5 |   8 |   10 |
+            <BLANKLINE>
+            %% daf rows=5; cols=3; keyfield=''; name=''
+            <BLANKLINE>
+            >>> repeats_klodaf = daf.groupby_repeated_cols(['crc', 'size'], exclude={'crc': [0, '']})
+            >>> list(repeats_klodaf.keys())
+            [(7, 10)]
+            >>> repeats_klodaf[(7, 10)].col('ballot_id')
+            ['b1', 'b3']
+        """
+        key_idx_li: T_li = [self.hd[col] for col in colnames]
+        exclude_lot: List[Tuple[int, set]] = [(self.hd[col], set(vals_la)) for col, vals_la in (exclude or {}).items()]
+
+        # ---- every row by its key, in table order. A dict keeps the keys in the order first seen.
+        groups_dolola: Dict[Tuple[Any, ...], T_lola] = {}
+        row_la: T_la
+        for row_la in self.lol:
+            if exclude_lot and any(row_la[idx] in vals_set for idx, vals_set in exclude_lot):
+                continue
+            key_t: Tuple[Any, ...] = tuple([row_la[idx] for idx in key_idx_li])
+            groups_dolola.setdefault(key_t, []).append(row_la)
+
+        repeated_dolola: Dict[Tuple[Any, ...], T_lola] = {key_t: rows_lol for key_t, rows_lol in groups_dolola.items() if len(rows_lol) > 1}
+        return self._new_group_dafs(repeated_dolola, list(self.hd), all_cols=True)
+
+
     def groupby_cols_reduce(
             self,
             groupby_colnames: T_ls,

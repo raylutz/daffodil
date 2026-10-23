@@ -14,6 +14,8 @@ Functions over rows, groups and counts, and joins.
 
 ::: daffodil.sqldaf.SqlDaf.groupby_cols
 
+::: daffodil.sqldaf.SqlDaf.groupby_repeated_cols
+
 ::: daffodil.sqldaf.SqlDaf.group_where
 
 ::: daffodil.sqldaf.SqlDaf.groupsum_daf

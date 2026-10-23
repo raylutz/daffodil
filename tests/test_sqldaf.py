@@ -1195,6 +1195,61 @@ def test_groupby_aggregate_and_reduce_with_diagnose_give_the_groups():
     assert rows_sdaf.groupby_aggregate('g', Daf.sum_da, 'x', diagnose=True).to_daf().lol == plain_lol
     assert rows_sdaf.groupby_reduce('g', Daf.sum_da, diagnose=True).to_daf().lol == rows_sdaf.groupby_reduce('g', Daf.sum_da).to_daf().lol
 
+def make_images_daf() -> Daf:
+    """ Rows that share a crc or a hash, with 0 and blank values that must never match. """
+    return Daf(
+        cols=['ballot_id', 'crc_p1', 'crc_p2', 'hash_p1', 'hash_p2'],
+        lol=[['b1', 7,    1, 'h1', NULL],
+             ['b2', 0,    1, NULL, NULL],
+             ['b3', 7,    1, 'h1', NULL],
+             ['b4', 0,    1, NULL, NULL],
+             ['b5', NULL, 1, 'h2', 'x'],
+             ['b6', NULL, 1, 'h2', 'y'],
+             ['b7', 7,    2, 'h1', NULL]],
+    )
+
+
+@pytest.mark.parametrize('colnames, exclude', [
+    (['hash_p1', 'hash_p2'], {'hash_p1': [NULL]}),
+    (['hash_p1', 'hash_p2'], None),
+    (['crc_p1', 'crc_p2'], None),
+    (['crc_p1', 'crc_p2'], {'crc_p1': [0, NULL]}),
+    (['crc_p1', 'crc_p2'], {'crc_p1': [0]}),
+    (['crc_p1'], {'crc_p2': [2]}),
+    (['ballot_id'], None),
+])
+def test_groupby_repeated_cols_matches_mdaf(colnames, exclude):
+    """ The same keys, in the same order, with the same rows in each group, as a Daf gives. """
+    images_daf: Daf = make_images_daf()
+    images_sdaf: SqlDaf = SqlDaf.from_daf(images_daf, name='images')
+    expect_klodaf = images_daf.groupby_repeated_cols(colnames, exclude=exclude)
+    repeats_klosdaf = images_sdaf.groupby_repeated_cols(colnames, exclude=exclude)
+    assert list(repeats_klosdaf.keys()) == list(expect_klodaf.keys())
+    key_t: tuple
+    for key_t in expect_klodaf.keys():
+        assert isinstance(repeats_klosdaf[key_t], SqlDaf)
+        assert repeats_klosdaf[key_t].to_daf().lol == expect_klodaf[key_t].lol
+
+
+def test_groupby_repeated_cols_reads_blank_text_as_python_null(job_db):
+    """ A table written by other code may hold the text '' where SqlDaf writes SQL NULL. Both are one value. """
+    make_plain_table(job_db, [('b1', 'h1', ''), ('b2', 'h1', None), ('b3', 'h2', '')], 'ballot_id TEXT, hash_p1 TEXT, hash_p2 TEXT')
+    plain_sdaf: SqlDaf = SqlDaf('plain', keyfield='ballot_id')
+    repeats_klosdaf = plain_sdaf.groupby_repeated_cols(['hash_p1', 'hash_p2'])
+    assert list(repeats_klosdaf.keys()) == [('h1', NULL)]
+    assert repeats_klosdaf[('h1', NULL)].keys() == ['b1', 'b2']
+
+
+def test_groupby_repeated_cols_makes_an_index_only_when_a_key_repeats():
+    images_sdaf: SqlDaf = SqlDaf.from_daf(make_images_daf(), name='images')
+    assert not images_sdaf.groupby_repeated_cols(['ballot_id'])
+    assert key_indexes(images_sdaf.conn) == []
+    with pytest.raises(KeyError):
+        images_sdaf.groupby_repeated_cols(['crc_p1'], exclude={'nothing': [0]})
+    images_sdaf.groupby_repeated_cols(['crc_p1', 'crc_p2'])
+    assert any('crc_p1' in name for name in sqldaf_module._indexes_of(images_sdaf.conn, 'images'))
+
+
 def test_groupby_cols_keys_are_tuples_and_bad_names_raise():
     bif_sdaf: SqlDaf = SqlDaf.from_daf(make_bif_daf(), name='bif')
     assert list(bif_sdaf.groupby_cols(['precinct']).keys()) == [('P1',), ('P2',), ('P3',)]
