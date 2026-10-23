@@ -2246,6 +2246,26 @@ def test_concat_of_an_empty_other_adds_nothing_whatever_its_columns():
     assert bif_sdaf.to_daf().lol == bif_daf.lol
 
 
+def test_a_daf_appends_or_concats_a_sqldaf_by_reading_it():
+    """ A Daf reads the SqlDaf's rows with to_daf(), so the result is a Daf in memory, as if it were given a Daf. """
+    bif_daf: Daf = make_bif_daf()
+    bif_sdaf: SqlDaf = SqlDaf.from_daf(bif_daf, name='bif')
+    p1_sdaf: SqlDaf = bif_sdaf.select_by_dict({'precinct': 'P1'})
+    p1_daf: Daf = bif_daf.select_by_dict({'precinct': 'P1'})
+
+    empty_daf: Daf = Daf().append(p1_sdaf)
+    assert type(empty_daf) is Daf
+    assert empty_daf.lol == Daf().append(p1_daf).lol
+    assert empty_daf.keyfield == 'ballot_id'
+
+    rest_daf: Daf = bif_daf.select_by_dict({'precinct': 'P1'}, inverse=True).copy('editable')
+    assert rest_daf.concat(p1_sdaf).lol == bif_daf.select_by_dict({'precinct': 'P1'}, inverse=True).copy('editable').concat(p1_daf).lol
+    upsert_daf: Daf = bif_daf.copy('editable')
+    changed_sdaf: SqlDaf = SqlDaf.from_daf(Daf(lol=[['b1', 'P9', 9, 1]], cols=bif_daf.columns(), keyfield='ballot_id'), name='changed')
+    assert upsert_daf.concat(changed_sdaf, respect_kd=True).select_record('b1')['precinct'] == 'P9'
+    assert bif_sdaf.select_record('b1')['precinct'] == 'P1'
+
+
 def test_concat_duplicate_key_raises_and_adds_nothing():
     bif_sdaf: SqlDaf = SqlDaf.from_daf(make_bif_daf(), name='bif')
     dup_daf: Daf = Daf(lol=[['b6', 'P2', 1, 1], ['b1', 'P1', 9, 9]], cols=make_bif_daf().columns())

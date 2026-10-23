@@ -134,3 +134,10 @@ better ways to handle this, and give the examples." `SqlDaf.keys(silent_error=Tr
 'view' is `dict.fromkeys(keys).keys()`. The docstring lists the better ways, with a doctest, and the
 Guide's patterns for both classes have a bullet on it. A parity test checks list, view, a bad
 astype and no keyfield against a Daf.
+
+## Q283, settled 2026-10-23
+
+Ray chose A, with no size guard. `Daf.concat()` calls `other_instance.to_daf()` first: free on a Daf,
+a read into memory on a SqlDaf. Rows read from a SqlDaf are adopted as they are, since they are new,
+so a large group is not copied twice. A Daf's rows are deep-copied as before. `append()` of a Daf goes
+through `concat()`, so `Daf().append(sdaf)` works. AuditEngine moved off the pattern anyway.

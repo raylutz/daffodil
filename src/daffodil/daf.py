@@ -5060,7 +5060,7 @@ class Daf:
         `respect_kd=True` to get an upsert instead.
 
         Args:
-            other_instance: Daf whose rows are added. It is not changed.
+            other_instance: Daf whose rows are added. It is not changed. A SqlDaf is read into memory first.
             respect_kd: If False, the default, append every row without looking at the keys. If True,
                 replace the row that has the same key and append the rows with new keys.
 
@@ -5078,6 +5078,7 @@ class Daf:
             keyfield, the rows are simply appended.
             A key repeated in the other Daf replaces the earlier row, so the last one wins.
             If the other Daf is empty, nothing happens.
+            A SqlDaf is read with `to_daf()`, so all its rows come into memory. Select the rows first.
 
         Examples:
             >>> a = Daf(lol=[[1, 'a1'], [2, 'a2']], cols=['id', 'v'], keyfield='id')
@@ -5136,38 +5137,43 @@ class Daf:
         if not other_instance:
             return self
 
+        # A SqlDaf reads its rows into memory here, as new rows, which are adopted as they are.
+        # A Daf gives itself, and its rows are copied.
+        other_daf: 'Daf' = other_instance.to_daf()
+        own_rows: bool = other_daf is not other_instance
+
         if not self.lol and not self.hd:
-            self.hd = copy.deepcopy(other_instance.hd)
-            self.lol = copy.deepcopy(other_instance.lol)
-            self.keyfield = other_instance.keyfield
+            self.hd = copy.deepcopy(other_daf.hd)
+            self.lol = other_daf.lol if own_rows else copy.deepcopy(other_daf.lol)
+            self.keyfield = other_daf.keyfield
             self._invalidate_kd()    # use lazy kd rebuilding
 
             return self
 
         # Fields must match exactly!
-        if self.hd != other_instance.hd:
+        if self.hd != other_daf.hd:
             _, missing_list, extra_list, _ = daf_utils.compare_lists(
                 work_list=self.hd,
-                ref_list=other_instance.hd,
+                ref_list=other_daf.hd,
                 req_list=None,
             )
 
             error_str = (f"columns mismatch: this_instance ({self.name}):\n({list(self.hd.keys())}) \n"
-                  f"other_instance:\n({list(other_instance.hd.keys())})\n"
+                  f"other_instance:\n({list(other_daf.hd.keys())})\n"
                   f"missing_list:\n{missing_list}\n"
                   f"extra_list:\n{extra_list}\n")
             raise KeyError(error_str)
 
         if respect_kd and self.keyfield:
-            if other_instance.keyfield and other_instance.keyfield != self.keyfield:
-                raise ValueError(f"concat: keyfield mismatch: {self.keyfield!r} versus {other_instance.keyfield!r}")
+            if other_daf.keyfield and other_daf.keyfield != self.keyfield:
+                raise ValueError(f"concat: keyfield mismatch: {self.keyfield!r} versus {other_daf.keyfield!r}")
 
             self._rebuild_kd_if_invalidated()
             kd = self._kd
             lol = self.lol
             if isinstance(self.keyfield, (str, int)):
                 key_idx = self.hd[cast(str, self.keyfield)]
-                for rec_la in other_instance.lol:
+                for rec_la in other_daf.lol:
                     rec_la = copy.deepcopy(rec_la)
                     keyval = rec_la[key_idx]
                     if keyval in kd:
@@ -5177,7 +5183,7 @@ class Daf:
                         lol.append(rec_la)
             else:
                 key_idxs = [self.hd[cast(str, key)] for key in self.keyfield]
-                for rec_la in other_instance.lol:
+                for rec_la in other_daf.lol:
                     rec_la = copy.deepcopy(rec_la)
                     keyval = tuple(rec_la[i] for i in key_idxs)
                     if keyval in kd:
@@ -5187,9 +5193,12 @@ class Daf:
                         lol.append(rec_la)
             return self
 
-        # Append deep-copied rows to avoid referencing issues
-        for rec_la in other_instance.lol:
-            self.lol.append(copy.deepcopy(rec_la))
+        # Append deep-copied rows to avoid referencing issues. Rows read from a SqlDaf are new already.
+        if own_rows:
+            self.lol.extend(other_daf.lol)
+        else:
+            for rec_la in other_daf.lol:
+                self.lol.append(copy.deepcopy(rec_la))
 
         self._invalidate_kd()    # use lazy kd rebuilding
 
