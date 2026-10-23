@@ -158,7 +158,9 @@ SECTIONS = [
         "`to_daf()`, `col()`, `keys()`, `to_lod()` and `sql()` bring their whole result into memory. Select the rows first.",
         "`copy()` and a sort make TEMP tables, which `close()` removes. `save()` keeps one in the file, under a name not in use.",
         "`from_db()` copies a table in from its own file, so tables kept in separate files can be joined. `save(db_path=)` writes a result back out. Nothing else changes the other file.",
-        "Daf methods not written for SQL raise NotImplementedError. A Daf is faster for a table that fits in memory."]),
+        "Daf methods not written for SQL raise NotImplementedError. A Daf is faster for a table that fits in memory.",
+        "For code that runs on a Daf or a SqlDaf, compare two tables with `select_records_daf(other, inverse=True, silent_error=True)`, not with key lists.",
+        "Split a table with `select_by_dict()` and inverse=True. Avoid grouping and then appending the groups. The Guide page on SqlDaf lists more patterns."]),
 
     (PANDAS_TITLE, [
         ("df['qty']", "daf[:, 'qty']  or  daf.col('qty')"),

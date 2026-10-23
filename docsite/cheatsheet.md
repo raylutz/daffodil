@@ -236,6 +236,10 @@ Setting a value through a selection changes the parent's row. `append()`, `conca
 
 Daf methods not written for SQL raise NotImplementedError. A Daf is faster for a table that fits in memory.
 
+For code that runs on a Daf or a SqlDaf, compare two tables with `select_records_daf(other, inverse=True, silent_error=True)`, not with key lists.
+
+Split a table with `select_by_dict()` and inverse=True. Avoid grouping and then appending the groups. The Guide page on SqlDaf lists more patterns.
+
 ## From pandas
 
 |         pandas          |                    Daffodil                    |

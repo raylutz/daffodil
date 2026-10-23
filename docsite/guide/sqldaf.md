@@ -416,6 +416,64 @@ Daf, so select only what you need.
 A change to a table's columns made with `sql()` is not seen by a SqlDaf already open on it.
 Use `insert_col()`, `drop_cols()` and `rename_cols()` for that.
 
+## Code that runs on a Daf or a SqlDaf
+
+A SqlDaf is a Daf, so code written for a Daf calls the SqlDaf methods when given one. Some ways
+of writing it are fast on both, and some fill memory or fail on a SqlDaf. These patterns give the
+same rows on both. On a SqlDaf they run in SQL and read only the rows they return.
+
+- **Compare two tables by selecting rows.** `select_records_daf(other, inverse=True)` gives the
+  rows of this table whose keys the other lacks. On a SqlDaf it is a join, so no key comes into
+  Python. Pass `silent_error=True`, or a key of the other table that this one lacks raises
+  KeyError, on both. Avoid making key lists of both and comparing them.
+- **Sample from the first rows.** `daf[0:3].keys()` reads 3 rows. `daf.keys()[0:3]` reads every key first.
+- **Count with `len()` of a selection.** Avoid a list made only to take its length.
+- **Split a table with `select_by_dict()` and `inverse=True`.** No row is copied, and the rows
+  stay in table order. A row with Python NULL in the column falls on the inverse side.
+  Avoid `groupby()` and then `append()` of the groups: an empty Daf that appends a SqlDaf fails.
+- **Select first, then `to_daf()`.** `to_daf()` reads every row into memory. On a Daf it gives
+  the Daf itself, so `select_records_daf(keys).to_daf().apply_dtypes()` reads either kind.
+- **Open each input table with `from_db()`.** A job that keeps each table in a file of its own
+  copies the ones a stage uses into one working file. Then every table is on one connection, and
+  the files they came from are only read.
+
+```pycon
+>>> votes_daf = Daf(cols=['ballot_id', 'corrupted'], keyfield='ballot_id',
+...                 lol=[['b1', 0], ['b2', 1], ['b3', ''], ['b4', 0]])
+>>> votes_daf
+<BLANKLINE>
+| ballot_id | corrupted |
+| --------: | --------: |
+|        b1 |         0 |
+|        b2 |         1 |
+|        b3 |           |
+|        b4 |         0 |
+<BLANKLINE>
+%% daf rows=4; cols=2; keyfield='ballot_id'; name=''
+<BLANKLINE>
+>>> images_daf = Daf(cols=['ballot_id', 'pages'], keyfield='ballot_id',
+...                  lol=[['b2', 2], ['b4', 1], ['b9', 2]])
+>>> images_daf
+<BLANKLINE>
+| ballot_id | pages |
+| --------: | ----: |
+|        b2 |     2 |
+|        b4 |     1 |
+|        b9 |     2 |
+<BLANKLINE>
+%% daf rows=3; cols=2; keyfield='ballot_id'; name=''
+<BLANKLINE>
+>>> votes_sdaf = SqlDaf.from_daf(votes_daf, name='votes_cb')
+>>> images_sdaf = SqlDaf.from_daf(images_daf, name='images_cb')
+>>> for votes, images in [(votes_daf, images_daf), (votes_sdaf, images_sdaf)]:
+...     votes_only = votes.select_records_daf(images, inverse=True, silent_error=True)
+...     images_only = images.select_records_daf(votes, inverse=True, silent_error=True)
+...     print(votes_only.keys(), images_only.keys(), len(votes) - len(votes_only),
+...           votes[0:2].keys(), votes.select_by_dict({'corrupted': 1}, inverse=True).keys())
+['b1', 'b3'] ['b9'] 2 ['b1', 'b2'] ['b1', 'b3', 'b4']
+['b1', 'b3'] ['b9'] 2 ['b1', 'b2'] ['b1', 'b3', 'b4']
+```
+
 ## Differences from Daf
 
 - **Types.** A column holds what SQLite stores, such as int, float, text or SQL NULL. A bool
