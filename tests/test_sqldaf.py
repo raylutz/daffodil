@@ -458,7 +458,8 @@ def test_len_bool_columns_num_cols():
 def test_isinstance_daf_and_repr():
     marks_sdaf: SqlDaf = SqlDaf.from_daf(make_marks_daf(), name='marks')
     assert isinstance(marks_sdaf, Daf)
-    assert repr(marks_sdaf) == "<SqlDaf table name='marks' rows=3 cols=3 keyfield='ballot_id'>"
+    assert repr(marks_sdaf) == '\n' + str(marks_sdaf)
+    assert repr(marks_sdaf) == repr(SqlDaf('marks').to_daf())
 
 
 def test_str_and_format_give_the_text_of_a_daf():
@@ -1488,7 +1489,7 @@ def test_selection_keeps_keyfield_dtypes_and_columns():
     assert sel_sdaf.columns() == bif_sdaf.columns()
     assert sel_sdaf.keyfield == 'ballot_id'
     assert sel_sdaf.name.startswith('daf_tmp_bif_v')
-    assert repr(sel_sdaf).startswith("<SqlDaf child name='daf_tmp_bif_v")
+    assert sel_sdaf.is_child
 
 
 # indexing

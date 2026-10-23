@@ -120,3 +120,9 @@ Checked: `daf[0:50].to_md()` gives 50 rows, every column, no summary line, the s
 and a SqlDaf. An f-string of the same selection gives 10 rows and the summary line.
 Added to the `to_md()` docstring, the Guide's patterns for both classes, and the cheatsheet.
 This also reads as keeping the `to_md()` default of every row on a SqlDaf, Q278.
+
+## Q280, settled 2026-10-23
+
+Ray: repr "should NOT give the one line internal reference but rather the referenced object, so it
+matches mdaf." `repr()` is a newline and then `md_daf_table_snippet()`, as `Daf.__repr__()` is.
+Two tests that held the one line were changed. `is_child` and `is_temp` tell the kind of SqlDaf.

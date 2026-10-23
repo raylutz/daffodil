@@ -999,8 +999,16 @@ class SqlDaf(Daf):
 
 
     def __repr__(self) -> str:
-        kind: str = 'child' if self.parent_sdaf is not None else ('TEMP table' if self.is_temp else 'table')
-        return f"<SqlDaf {kind} name='{self.name}' rows={len(self)} cols={len(self.hd)} keyfield='{self.keyfield}'>"
+        """
+        Show the rows as a Markdown table, for the Python prompt, as `repr()` of a Daf shows them.
+
+        This is the same text as `str()`, with a newline in front, so the table starts at the left
+        margin when it is echoed. `is_child` and `is_temp` tell what kind of SqlDaf it is.
+
+        Returns:
+            The Markdown text.
+        """
+        return '\n' + self.md_daf_table_snippet()
 
 
     # ---- text, as a Daf shows it ----
@@ -1027,7 +1035,7 @@ class SqlDaf(Daf):
         Show the rows as a Markdown table, as `str()` of a Daf shows them.
 
         At most `md_max_rows` rows and `md_max_cols` columns, 10 by default, then the summary line.
-        `print()` and an f-string give the same. `repr()` gives one line, with the kind of SqlDaf.
+        `print()`, an f-string and `repr()` give the same, as for a Daf.
 
         Returns:
             The Markdown text.

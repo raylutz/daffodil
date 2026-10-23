@@ -496,7 +496,7 @@ same rows on both. On a SqlDaf they run in SQL and read only the rows they retur
   the keys are unique, and does not check.
 - **Positions after a delete.** A table that has had rows deleted cannot be read by position.
 - **Printing.** `str()`, `print()` and an f-string show the same Markdown table as a Daf of the
-  same rows, reading only the rows shown. `repr()` gives one line, with the kind of SqlDaf.
+  same rows, reading only the rows shown. So does `repr()`, at the prompt.
 - **Methods.** Methods not written for SQL raise NotImplementedError.
 
 ## Performance
