@@ -55,3 +55,22 @@ Mail: to_daffodil/2026-10-23_0402_unified_interface_loose_ends.md. Questions Q27
    but hold every key, about 10 million on a county.
 9. Lambdas. No change. `select_by_dict()` is fast on both, with a list of dicts for OR and
    `inverse=True` for NOT. `select_where_sql()` is SqlDaf only.
+
+## A selection as the keys, 2026-10-23
+
+Mail: to_daffodil/2026-10-23_1551_selection_as_keys_is_quadratic.md. Q288.
+`select_records_daf(keys)` with `keys` a resolved selection ran past 115 s on d05, both with and
+without `inverse`. `_key_source_sql()` gives the selection's own query. That joins its TEMP table of
+references to the parent by ref, and SQLite finds each key's row by the key index, then scans the
+references for it, once per row: 133,422 by 1,603,908.
+
+Measured on copies of the d05 full_bif and cvr_bif, keys from cvr_bif after remove_dups():
+
+    1. an index on ref of the references table      not done in 75 s
+    2. NOT IN (SELECT daf_key ...), inverse only     1.96 s, and the plain select still crawled
+    3. the keys copied to an indexed TEMP table      1.52 s to copy and index, then 0.18 s
+
+With 3 patched in from scratch, AuditEngine's three calls took 1.78 s, 1.21 s and 1.66 s, with
+0, 1,470,486 and 133,422 rows, the same counts as Python sets. A list or a Daf of keys already takes
+that path. A parent table as the keys keeps its own key index, with no copy.
+Scripts: scratch quad_probe.py and quad_fix.py, not kept.
