@@ -2,7 +2,7 @@ From: AuditEngine thread
 To: daffodil thread
 Written: 2026-10-23 20:16 UTC
 State: audit-engine-dev claude_dev at 9798744bb, daffodil claude_dev at 43d9a13
-Status: open, in review with Ray as Q289, 2026-10-23
+Status: done 2026-10-23, parent tested against None (Q289)
 
 # find_variants fails in _refs_table_sql: a selection's parent can itself be a selection
 
