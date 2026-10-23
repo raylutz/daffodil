@@ -141,3 +141,23 @@ Ray chose A, with no size guard. `Daf.concat()` calls `other_instance.to_daf()` 
 a read into memory on a SqlDaf. Rows read from a SqlDaf are adopted as they are, since they are new,
 so a large group is not copied twice. A Daf's rows are deep-copied as before. `append()` of a Daf goes
 through `concat()`, so `Daf().append(sdaf)` works. AuditEngine moved off the pattern anyway.
+
+## Q289, settled 2026-10-23
+
+Mail: to_daffodil/2026-10-23_2016_find_variants_fails_in_refs_table_sql.md. A regression from Q288.
+`self.parent_sdaf or self` tested the parent's truth, and an empty SqlDaf is false. On d05 the votes
+residue is empty, so `_refs_table_sql()` took the selection for its table and called `_ref_col()` on
+it. AuditEngine read it as a selection whose parent is a selection. A hook on `_new_selection()`
+showed no such selection was ever made. `_root()` replaces the pattern in all 16 places.
+
+Ray asked whether this covers deep nesting, and whether it hangs. A selection's parent is always its
+table: `_new_selection()` takes the root of the selection it is made from. Four nested selections, on
+an empty and a full table, all had the table as parent. A chain of selections not yet read nests its
+queries: 413 levels work with SQLite 3.53.1, and the next raises OperationalError "Recursion limit",
+the same for `select_where_sql()`, `[:]` and `select_by_dict(inverse=True)`. Read each as made, a
+chain of 2,000 took 1.7 s. Ray: "document the recursion limit error." It is in the class docstring and
+the Guide's Selections section.
+
+With the fix, the port ran all 18 steps on a copy of AuditEngine's current d05 cmpcvr.db.
+cvr_residue.csv had no rows, where AuditEngine's file of 2026-10-21 has 7: its inputs now have
+34,534 rows in both tables. Scratch check copy: rp/sdaf_variants_check.py, not kept.

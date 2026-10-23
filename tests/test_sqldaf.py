@@ -2042,6 +2042,41 @@ def test_a_selection_of_a_table_keyed_by_text_refers_by_the_key(job_db):
     assert plain_sdaf.select_records_daf(v1_sdaf, inverse=True).keys() == ['b2']
 
 
+def test_a_selection_of_an_empty_table_resolves_sorts_and_gives_keys():
+    """
+    An empty SqlDaf is false, so the parent of a selection is tested against None, not for truth.
+    A residue table with no rows is a real case, in the find_variants port.
+    """
+    empty_sdaf: SqlDaf = SqlDaf.from_daf(Daf(cols=make_bif_daf().columns(), keyfield='ballot_id'), name='empty')
+    assert not empty_sdaf
+    all_sdaf: SqlDaf = empty_sdaf[:]
+    assert all_sdaf.parent_sdaf is empty_sdaf
+    assert len(all_sdaf.sort_by_colnames(['ballot_id'], length_priority=True, as_str=True)) == 0
+    assert empty_sdaf[:][:].parent_sdaf is empty_sdaf
+    bif_sdaf: SqlDaf = SqlDaf.from_daf(make_bif_daf(), name='bif')
+    assert bif_sdaf.select_records_daf(empty_sdaf[:], inverse=True, silent_error=True).keys() == make_bif_daf().keys()
+    assert len(empty_sdaf[:].copy()) == 0
+
+
+def test_a_deep_chain_of_selections_raises_unless_read_on_the_way():
+    """
+    A selection of a selection not read yet nests its query. SQLite stops at about 400 levels, at once.
+    A selection that has been read starts a fresh query, so a chain read on the way has no limit.
+    """
+    bif_sdaf: SqlDaf = SqlDaf.from_daf(make_bif_daf(), name='bif')
+    sel_sdaf: SqlDaf = bif_sdaf
+    with pytest.raises(sqlite3.OperationalError, match='Recursion limit'):
+        for _ in range(1000):
+            sel_sdaf = sel_sdaf.select_where_sql('style_num >= ?', [0])
+        len(sel_sdaf)
+    sel_sdaf = bif_sdaf
+    for _ in range(500):
+        sel_sdaf = sel_sdaf.select_where_sql('style_num >= ?', [0])
+        len(sel_sdaf)
+    assert sel_sdaf.parent_sdaf is bif_sdaf
+    assert sel_sdaf.keys() == make_bif_daf().keys()
+
+
 def test_select_records_daf_with_a_selection_as_keys():
     bif_sdaf: SqlDaf = SqlDaf.from_daf(make_bif_daf(), name='bif')
     p1_sdaf: SqlDaf = bif_sdaf.select_by_dict({'precinct': 'P1'})

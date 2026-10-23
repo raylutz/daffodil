@@ -182,6 +182,11 @@ stands, each time. A negative position in `iloc()` is the exception, since it co
 Here a1 joined the selection, since its value changed before the first read. When it changed
 again after the read, a1 stayed in, with its new value.
 
+A selection made from a selection not read yet carries that one's query inside its own. A loop
+that selects from its own last result, with no read in between, nests one query per step.
+SQLite stops at about 400 levels with OperationalError "Recursion limit". It raises at once.
+Read the selection every so often, as with `len()`, and the next one starts a fresh query.
+
 `select_where_sql()` is the fastest way to select, since SQLite does all the work.
 `select_where()` takes a Python function of a row, as on a Daf, and calls it for every row.
 

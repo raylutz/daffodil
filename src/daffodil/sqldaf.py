@@ -419,6 +419,13 @@ class SqlDaf(Daf):
     negative position, which needs `len()`. A change to the values in those
     rows shows in it, since it refers to them. `copy(inplace=True)` gives it rows of its own.
 
+    A child made from a child not read yet carries that child's query inside its own. So a chain
+    of selections, each made from the last before any is read, nests one query per step. SQLite
+    stops at about 400 levels, 413 with SQLite 3.53, with OperationalError "Recursion limit". It
+    raises at once, and does not hang. A child that has been read starts a fresh query, so read
+    one, as with `len()`, every so often in a loop that selects from its own last result. A chain
+    of 2,000 selections, each read as it was made, ran in 1.7 s.
+
     Every SqlDaf on one file shares one connection, which it holds in its attributes. So any two
     of them can be joined, and a child of one can be used with another. They also share its
     transactions: see `transaction()`. `SqlDaf.close()` closes the file, for every SqlDaf on it.
@@ -665,7 +672,7 @@ class SqlDaf(Daf):
             keyfield:       str | None = None,          # the keyfield of the selection. The parent's if None.
             ) -> 'SqlDaf':
         """ Make a child, its rows not found yet. Internal use. """
-        root_sdaf: SqlDaf = parent_sdaf.parent_sdaf or parent_sdaf
+        root_sdaf: SqlDaf = parent_sdaf._root()
         root_sdaf._resolve()                            # a join not read yet becomes a table first.
         root_sdaf._ref_col()                            # raises if the parent has no reference that survives VACUUM.
         sel_sdaf: SqlDaf = cls.__new__(cls)
@@ -992,6 +999,16 @@ class SqlDaf(Daf):
         return self._name
 
 
+    def _root(self) -> 'SqlDaf':
+        """
+        The table this SqlDaf reads its rows from: its parent if it is a child, or itself. Internal use.
+
+        It tests the parent against None. `parent or self` would test whether the parent has
+        rows, so an empty parent table gave the child itself.
+        """
+        return self.parent_sdaf if self.parent_sdaf is not None else self
+
+
     @property
     def is_child(self) -> bool:
         """ True for a child, a selection that refers to rows of its parent. False for a parent, which holds its own rows. """
@@ -1295,7 +1312,7 @@ class SqlDaf(Daf):
         ref is declared with the type of the parent column it refers by, INTEGER for daf_rid.
         With no type, SQLite cannot use an index on ref to look up a parent row.
         """
-        root_sdaf: SqlDaf = self.parent_sdaf or self
+        root_sdaf: SqlDaf = self._root()
         ref_col: str = root_sdaf._ref_col()
         ref_type: str = 'INTEGER' if ref_col == RID_COL else next(
                 (info_t[2] for info_t in self.conn.execute(f'PRAGMA table_info({quote_name(root_sdaf.name)})') if info_t[1] == ref_col), '')
@@ -1331,7 +1348,7 @@ class SqlDaf(Daf):
 
     def _resolve_parent(self) -> None:
         """ Resolve a join not read yet, this one or the parent of this child, before selecting from it. Internal use. """
-        parent_sdaf: SqlDaf = self.parent_sdaf or self
+        parent_sdaf: SqlDaf = self._root()
         parent_sdaf._resolve()
 
 
@@ -1694,7 +1711,7 @@ class SqlDaf(Daf):
             raise NotImplementedError("apply(keylist=) is not supported on a SqlDaf. Select the rows first.")
 
         cols: T_ls = self.columns()
-        target: str = self._next_temp_name((self.parent_sdaf or self).name)
+        target: str = self._next_temp_name(self._root().name)
         result_sdaf: SqlDaf | None = None
         out_cols: T_ls = []
         with self.transaction():
@@ -1981,7 +1998,7 @@ class SqlDaf(Daf):
         """
         if not self.keyfield:
             raise ValueError(f"SqlDaf.select_record: '{self.name}' has no keyfield.")
-        (self.parent_sdaf or self).ensure_key_index()
+        self._root().ensure_key_index()
         rows_lot: List[Tuple[Any, ...]] = self._select_rows(f'{quote_name(self.keyfield)} IS ?', (key,), limit=1)
         if not rows_lot:
             if silent_error:
@@ -3368,7 +3385,7 @@ class SqlDaf(Daf):
             results_sql = ', '.join(f"NULLIF(json_extract(daf_res, '$[{idx}]'), '')" for idx in range(len(result_cols)))
         out_cols_ls: T_ls = group_cols + result_cols
         selected_sql: str = f'{names_sql}, {results_sql}' if result_cols else names_sql
-        target: str = self._next_temp_name((self.parent_sdaf or self).name)
+        target: str = self._next_temp_name(self._root().name)
         insert_sql: str = (f'INSERT INTO temp.{quote_name(target)} ({", ".join(quote_name(col) for col in out_cols_ls)}) '
                            f'SELECT {selected_sql} FROM ({grouped_sql}) ORDER BY {names_sql}')
         if diagnose:
@@ -3503,7 +3520,7 @@ class SqlDaf(Daf):
 
         Each group is a selection by its value, so without an index each group reads the whole table.
         """
-        root_sdaf: SqlDaf = self.parent_sdaf or self
+        root_sdaf: SqlDaf = self._root()
         if any(index_cols[:len(colnames)] == colnames for index_cols in _indexes_of(self.conn, root_sdaf.name).values()):
             return
         index_name: str = f'{GROUP_INDEX_PREFIX}{root_sdaf.name}_' + '_'.join(colnames)
@@ -3584,7 +3601,7 @@ class SqlDaf(Daf):
         func_hd: T_di = {col: idx for idx, col in enumerate(func_cols)}
         self._resolve_parent()
         rows_sql, rows_params = self._rows_sql()
-        labels: str = self._next_temp_name((self.parent_sdaf or self).name + '_groups')
+        labels: str = self._next_temp_name(self._root().name + '_groups')
         key_ids_da: Dict[Any, int] = {}                     # each key and its number in the TEMP table, in the order first seen.
 
         with self.transaction():
@@ -3876,7 +3893,7 @@ class SqlDaf(Daf):
         """ The keyfield, with the parent's index made, or ValueError if there is none. Internal use. """
         if not self.keyfield:
             raise ValueError(f"SqlDaf.{method}: '{self.name}' has no keyfield.")
-        parent_sdaf: SqlDaf = self.parent_sdaf or self
+        parent_sdaf: SqlDaf = self._root()
         if parent_sdaf.keyfield == self.keyfield:
             parent_sdaf.ensure_key_index()
         return self.keyfield
@@ -4501,7 +4518,7 @@ class SqlDaf(Daf):
 
     def _after_key_change(self, cols: Iterable[str], method: str) -> None:
         """ Check the keys of the table that was written, if a write reached the keyfield. Internal use. """
-        root_sdaf: SqlDaf = self.parent_sdaf or self
+        root_sdaf: SqlDaf = self._root()
         if root_sdaf.keyfield and root_sdaf.keyfield in cols:
             root_sdaf._check_no_null_key(method)
 
@@ -5219,7 +5236,7 @@ class SqlDaf(Daf):
         cols_ls: T_ls = list(self.hd) if not cols else ([cols] if isinstance(cols, str) else list(cols))
         if cols_ls != list(self.hd) and (len(set(cols_ls)) != len(cols_ls) or NULL in cols_ls):
             cols_ls = daf_utils._sanitize_cols(cols=cols_ls)
-        root_sdaf: SqlDaf = self.parent_sdaf or self
+        root_sdaf: SqlDaf = self._root()
         target: str = name or self._next_temp_name(root_sdaf.name)
         table_sql: str = _create_table_sql(self.conn, target, cols_ls, 'temp')
         with self.transaction():
@@ -5338,7 +5355,7 @@ class SqlDaf(Daf):
             order_ls.append(f'{val_sql}{direction}')
         order_ls.append(ORD_COL)
 
-        root_sdaf: SqlDaf = self.parent_sdaf or self
+        root_sdaf: SqlDaf = self._root()
         target: str = self._next_temp_name(root_sdaf.name)
         table_sql: str = _create_table_sql(self.conn, target, list(self.hd), 'temp')
         rows_sql, rows_params = self._rows_sql()
@@ -5445,8 +5462,8 @@ class SqlDaf(Daf):
         if not self.keyfield or not other_daf.keyfield:
             raise ValueError("join: both tables need a keyfield.")
 
-        a_name: str = (self.parent_sdaf or self).name
-        b_name: str = (other_daf.parent_sdaf or other_daf).name
+        a_name: str = self._root().name
+        b_name: str = other_daf._root().name
         if a_name == b_name:
             a_name, b_name = 'daf1', 'daf2'
         translator_daf: Daf = Daf.derive_join_translator_daf(
@@ -5576,7 +5593,7 @@ class SqlDaf(Daf):
 
         rows_sql, rows_params = self._rows_sql()
         cols_sql: str = ''.join(f', {quote_name(col)}' for col in new_cols)
-        root_name: str = (self.parent_sdaf or self).name
+        root_name: str = self._root().name
         cols_sdaf: SqlDaf = SqlDaf.__new__(SqlDaf)
         cols_sdaf.conn           = self.conn
         cols_sdaf._conn_da       = self._conn_da
@@ -5664,7 +5681,7 @@ class SqlDaf(Daf):
             if inplace and not bits & Daf.COPY_ROWS:
                 raise ValueError(f"copy(inplace=True): level {level!r} does not copy the rows. Use 'editable' or 'deep'.")
 
-        root_sdaf: SqlDaf = self.parent_sdaf or self
+        root_sdaf: SqlDaf = self._root()
         target: str = name or self._next_temp_name(root_sdaf.name)
         table_sql: str = _create_table_sql(self.conn, target, list(self.hd), 'temp')
         rows_sql, rows_params = self._rows_sql()
