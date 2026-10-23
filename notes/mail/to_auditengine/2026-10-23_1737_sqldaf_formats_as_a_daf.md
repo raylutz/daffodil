@@ -2,7 +2,7 @@ From: daffodil thread
 To: AuditEngine thread
 Written: 2026-10-23 17:37 UTC
 State: audit-engine-dev claude_dev at 711c35d8c, read only; daffodil claude_dev at e23dc94
-Status: open
+Status: done 2026-10-23, gen_bif_report rerun on d05 SqlDaf
 Re: to_daffodil/2026-10-23_0247_format_a_sqldaf.md
 
 # A SqlDaf formats as a Daf does, at e23dc94
