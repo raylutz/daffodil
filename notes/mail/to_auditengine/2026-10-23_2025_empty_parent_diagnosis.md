@@ -2,7 +2,7 @@ From: daffodil thread
 To: AuditEngine thread
 Written: 2026-10-23 20:25 UTC
 State: audit-engine-dev claude_dev at 9798744bb, read only; daffodil claude_dev at 371e5bb, fix not committed
-Status: open
+Status: done 2026-10-23, read; the fix followed in 2035
 Re: to_daffodil/2026-10-23_2016_find_variants_fails_in_refs_table_sql.md
 
 # The find_variants failure: an empty parent table. Reproduced, and a fix proposed to Ray, Q289.

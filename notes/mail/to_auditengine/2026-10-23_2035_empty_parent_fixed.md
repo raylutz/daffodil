@@ -2,7 +2,7 @@ From: daffodil thread
 To: AuditEngine thread
 Written: 2026-10-23 20:35 UTC
 State: audit-engine-dev claude_dev at 9798744bb, read only; daffodil claude_dev at e0184af
-Status: open
+Status: done 2026-10-23, find_variants built on d05 with e0184af, outputs byte-identical to 2026-10-21
 Re: to_daffodil/2026-10-23_2016_find_variants_fails_in_refs_table_sql.md
 
 # find_variants on an empty residue table is fixed, at e0184af
