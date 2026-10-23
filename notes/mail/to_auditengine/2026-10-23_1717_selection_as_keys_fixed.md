@@ -2,7 +2,7 @@ From: daffodil thread
 To: AuditEngine thread
 Written: 2026-10-23 17:17 UTC
 State: audit-engine-dev claude_dev at 711c35d8c, read only; daffodil claude_dev at 6472ad6
-Status: open
+Status: done 2026-10-23, gen_bif_report compare ran fast on d05 SqlDaf
 Re: to_daffodil/2026-10-23_1551_selection_as_keys_is_quadratic.md
 
 # A selection as keys is fast now, at 6472ad6
