@@ -1,0 +1,57 @@
+# One interface for Daf and SqlDaf: the loose ends
+
+Started 2026-10-23. AuditEngine converts a stage by handing it a SqlDaf where it loaded a Daf, and
+keeping the stage's calls. gen_bif_report on pilot d05 found nine places where a call does not work
+the same on both. Ray asked for a proposal for each, with its tradeoffs, and decides each one.
+Mail: to_daffodil/2026-10-23_0402_unified_interface_loose_ends.md. Questions Q279 to Q287.
+
+## Facts checked, 2026-10-23
+
+- SqlDaf's `str()` is its one-line `repr()`. An f-string raises NotImplementedError, as does
+  `md_daf_table_snippet()`. `md_max_rows` is set in `Daf.__init__()`, which a SqlDaf never runs.
+- `to_md(max_rows=10, max_cols=10, include_summary=True)` on a SqlDaf gives the same text as the
+  Daf of the same rows. On cvr_votes!final, 1,603,908 rows, it took 0.64 s. On 50 rows, 0.001 s.
+- A Daf selection has the name ''. A SqlDaf selection's `to_daf()` has its TEMP name, such as daf_tmp_t_v1.
+- `Daf.keys()` takes `silent_error` and `astype`, 'list' or 'view', a view of the key index.
+  `SqlDaf.keys()` takes neither.
+- `Daf.concat()` reads `other_instance.lol`, which a SqlDaf does not have.
+- `Daf.insert_idx_col()` puts the column first by default. `SqlDaf.insert_col()` adds only at the end.
+- A connection opened with mode=ro makes TEMP tables and TEMP indexes. SQLite refuses UPDATE, ALTER
+  and CREATE INDEX on the file: "attempt to write a readonly database". It also refuses a TEMP index
+  on a table of the file: "cannot create a TEMP index on non-TEMP table".
+  So on a read-only file, the key and group indexes SqlDaf makes when first needed cannot be made.
+- On d05 full_bif, the first 3 ballot_ids of each of 440 styles came in one window query,
+  ROW_NUMBER() OVER (PARTITION BY style_num ORDER BY daf_rid), in 0.19 s. AuditEngine measured
+  1.7 s for one query per group.
+- full_bif against cvr_bif on d05, the second attached read-only, with IN and NOT IN subqueries:
+  not in cvr_bif 0 rows in 1.72 s, cvr_bif not in full_bif 1,470,486 in 1.33 s, in both 133,422 in 1.70 s.
+  Both key lists read into Python and compared as sets: all three in 1.70 s, holding 1.6M keys.
+  A first try with NOT EXISTS and no index on cvr_bif.ballot_id ran past 10 minutes and was stopped.
+- Neither saved file has an index on ballot_id. Each has only the indexes of daf_tables and table_sources.
+
+## The proposals
+
+1. keys(astype). `SqlDaf.keys(silent_error=True, astype='list')`. 'list' as now. 'view' gives the
+   KeysView of a dict built from the keys, in row order, a repeated key once, as a Daf's view of its
+   key index. On a Daf the view is free. On a SqlDaf it builds a dict of every key.
+2. A Daf appending a SqlDaf. `Daf.concat()` calls `other_instance.to_daf()` first, which is free on a Daf.
+   The result is a Daf in memory. A large SqlDaf then fills memory. The other choice is a TypeError.
+3. insert_idx_col(). On a SqlDaf it makes a TEMP copy with the column at `icol`, numbered from
+   `startat` in row order, and the SqlDaf then refers to it, as a sort does. The saved table is not
+   changed. It copies the rows. The other choice is to show daf_rid, the place in the whole table.
+4. Formatting, Q279. `str()` and an f-string give `md_daf_table_snippet()`, 10 rows and 10 columns.
+5. The name of `to_daf()`. A generated TEMP name gives '', as a Daf selection has. Q281.
+6. Writes to a saved table. `read_only=True` opens the file's connection with mode=ro, so SQLite
+   refuses any write to the file. Selections, copies, sorts and joins still work, in TEMP.
+   The connection is shared by every SqlDaf on the file, so the mode is the file's.
+   The key and group indexes must then be in the file already, made when the table is built.
+   The other choice, every saved table read-only by default, would break code that updates tables.
+7. The first rows of each group. A method on both that gives the first n rows of each group, in
+   one window query on a SqlDaf, as a KeyedList of Daf in memory. The distinct values of another
+   column per group are the keys of `valuecounts_for_colname1_groupedby_colname2()` already.
+8. Keys of a table in another file. `select_records_daf(other)` with `other` a table in another file
+   attaches that file read-only for the one statement, resolves the selection, and detaches.
+   No copy, and no keys in memory. The other choice is no change: Python sets are as fast on d05,
+   but hold every key, about 10 million on a county.
+9. Lambdas. No change. `select_by_dict()` is fast on both, with a list of dicts for OR and
+   `inverse=True` for NOT. `select_where_sql()` is SqlDaf only.
