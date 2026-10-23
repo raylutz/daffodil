@@ -1990,6 +1990,37 @@ def test_select_records_daf_with_another_sqldaf_and_its_keys():
         bif_sdaf.select_records_daf(other_sdaf)
 
 
+def test_a_selection_as_keys_is_found_in_by_an_index_on_its_references():
+    """
+    A selection's references are declared INTEGER, as daf_rid is, and indexed when first used as keys.
+    Then SQLite looks a key up in the selection, instead of scanning every reference for each row.
+    """
+    bif_sdaf: SqlDaf = SqlDaf.from_daf(make_bif_daf(), name='bif')
+    p1_sdaf: SqlDaf = bif_sdaf.select_by_dict({'precinct': 'P1'})
+    len(p1_sdaf)
+    ref_info_t = next(info_t for info_t in bif_sdaf.conn.execute(f'PRAGMA table_info({quote_name(p1_sdaf.name)})') if info_t[1] == 'ref')
+    assert ref_info_t[2] == 'INTEGER'
+    assert not any(row_t[1] == p1_sdaf.name + '_ref' for row_t in bif_sdaf.conn.execute('PRAGMA temp.index_list(' + quote_name(p1_sdaf.name) + ')'))
+
+    other_sdaf: SqlDaf = bif_sdaf.select_by_dict({'precinct': 'P2'})
+    rest_sdaf: SqlDaf = other_sdaf.select_records_daf(p1_sdaf, inverse=True, silent_error=True)
+    plan_ls: T_ls = [row_t[3] for row_t in bif_sdaf.conn.execute('EXPLAIN QUERY PLAN ' + rest_sdaf.pending_sql, rest_sdaf.pending_params)]
+    assert any(p1_sdaf.name + '_ref' in step for step in plan_ls)
+    assert rest_sdaf.keys() == ['b2']
+    assert bif_sdaf.select_records_daf(p1_sdaf).keys() == ['b1', 'b3', 'b5']
+
+
+def test_a_selection_of_a_table_keyed_by_text_refers_by_the_key(job_db):
+    """ A table made by other code has no daf_rid, so its selections refer to rows by key, with the key's type. """
+    make_plain_table(job_db, [('b1', 1), ('b2', 2), ('b3', 1)], 'ballot_id TEXT, v INTEGER')
+    plain_sdaf: SqlDaf = SqlDaf('plain', keyfield='ballot_id')
+    v1_sdaf: SqlDaf = plain_sdaf.select_where_sql('v = 1')
+    len(v1_sdaf)
+    ref_info_t = next(info_t for info_t in plain_sdaf.conn.execute(f'PRAGMA table_info({quote_name(v1_sdaf.name)})') if info_t[1] == 'ref')
+    assert ref_info_t[2] == 'TEXT'
+    assert plain_sdaf.select_records_daf(v1_sdaf, inverse=True).keys() == ['b2']
+
+
 def test_select_records_daf_with_a_selection_as_keys():
     bif_sdaf: SqlDaf = SqlDaf.from_daf(make_bif_daf(), name='bif')
     p1_sdaf: SqlDaf = bif_sdaf.select_by_dict({'precinct': 'P1'})

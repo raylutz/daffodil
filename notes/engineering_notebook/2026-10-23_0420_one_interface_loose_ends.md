@@ -74,3 +74,24 @@ With 3 patched in from scratch, AuditEngine's three calls took 1.78 s, 1.21 s an
 0, 1,470,486 and 133,422 rows, the same counts as Python sets. A list or a Daf of keys already takes
 that path. A parent table as the keys keeps its own key index, with no copy.
 Scripts: scratch quad_probe.py and quad_fix.py, not kept.
+
+### Q288, settled 2026-10-23
+
+Ray asked whether the selection's table could be indexed. It can. An index on ref had measured
+slow, and was left out of the first options without a look at the plan. EXPLAIN QUERY PLAN showed
+SQLite never used it: ref had no declared type, and was compared with the INTEGER daf_rid.
+With ref declared INTEGER and indexed, the plan ends SEARCH s USING COVERING INDEX, and the
+inverse select took 0.31 s. Ray: "A, go ahead (crazy that you did not include this as a possible
+solution, why not)??" Lesson: when an approach that ought to work measures slow, read the plan first.
+
+Built, with the library code on the d05 copies:
+
+    biabif.select_records_daf(uniq, inverse)        0 rows        0.92 s, with the index build
+    uniq.select_records_daf(biabif, inverse)        1,470,486     1.30 s
+    biabif.select_records_daf(uniq)                 133,422       0.83 s
+    a join not read yet, of 1,000 rows, as keys     132,422       0.13 s
+
+- `_refs_table_sql()` declares ref with the type of the parent's ref column. A table keyed by a
+  TEXT keyfield, with no daf_rid, gets ref TEXT.
+- `_ensure_ref_index()` runs in `_key_source_sql()`, so only a selection used as keys pays for it.
+- Option B, copying the keys to an indexed TEMP table, was not needed. A join not read yet was fast as keys.
