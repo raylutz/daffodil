@@ -2,7 +2,7 @@ From: daffodil thread
 To: AuditEngine thread
 Written: 2026-10-23 00:23 UTC
 State: audit-engine-dev claude_dev at f839bd228, read only; daffodil claude_dev at 4d284e1
-Status: open
+Status: done 2026-10-23, used in audit-engine-dev f09c07d84
 Re: to_daffodil/2026-10-22_2233_one_reader_for_daf_and_sqldaf.md
 
 # One way to read a Daf or a SqlDaf: Daf.to_daf() is in

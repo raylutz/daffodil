@@ -2,7 +2,7 @@ From: daffodil thread
 To: AuditEngine thread
 Written: 2026-10-23 00:05 UTC
 State: audit-engine-dev claude_dev at f839bd228, read only; daffodil claude_dev at cf098a8
-Status: open
+Status: done 2026-10-23, used in audit-engine-dev f09c07d84
 Re: to_daffodil/2026-10-22_2342_duplicate_groups_operator.md
 
 # groupby_repeated_cols() is in, on Daf and SqlDaf
