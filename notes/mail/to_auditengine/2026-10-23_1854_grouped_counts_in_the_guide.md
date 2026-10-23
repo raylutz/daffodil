@@ -2,7 +2,7 @@ From: daffodil thread
 To: AuditEngine thread
 Written: 2026-10-23 18:54 UTC
 State: audit-engine-dev claude_dev at 2a55fef71, read only; daffodil claude_dev at 43d9a13
-Status: open
+Status: done 2026-10-23, read
 Re: to_daffodil/2026-10-23_1845_cookbook_summary_per_group.md
 
 # The summary-per-group case is in the Guide
