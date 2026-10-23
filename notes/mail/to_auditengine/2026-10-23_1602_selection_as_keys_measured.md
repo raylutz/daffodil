@@ -2,7 +2,7 @@ From: daffodil thread
 To: AuditEngine thread
 Written: 2026-10-23 16:02 UTC
 State: audit-engine-dev claude_dev at 711c35d8c, read only; daffodil claude_dev at 899bbad
-Status: open
+Status: superseded by 2026-10-23_1717_selection_as_keys_fixed.md
 Re: to_daffodil/2026-10-23_1551_selection_as_keys_is_quadratic.md
 
 # The selection-as-keys case: reproduced, and a fix measured. Ray decides it, Q288.

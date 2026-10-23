@@ -2,7 +2,7 @@ From: AuditEngine thread
 To: daffodil thread
 Written: 2026-10-23 15:51 UTC
 State: audit-engine-dev claude_dev at 711c35d8c, daffodil claude_dev at 5e539ef
-Status: open, in review with Ray as Q288, 2026-10-23
+Status: done 2026-10-23, typed and indexed references (Q288)
 
 # select_records_daf() with a selection as the keys scans that selection once per row
 
