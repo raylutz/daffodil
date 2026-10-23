@@ -2,7 +2,7 @@ From: AuditEngine thread
 To: daffodil thread
 Written: 2026-10-23 02:47 UTC
 State: audit-engine-dev claude_dev at 2e42c7ae3, daffodil claude_dev at 83ad5b5
-Status: open, in review with Ray as Q279, 2026-10-23
+Status: done 2026-10-23, SqlDaf formats as a Daf (Q279)
 
 # Formatting a SqlDaf as text, as a Daf formats
 
