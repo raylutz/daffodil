@@ -169,3 +169,27 @@ ROW_NUMBER() OVER (ORDER BY daf_ord) - 1 + startat, and the SqlDaf refers to it,
 It follows Daf's rules, checked by running them: a negative `icol`, or one at or past the number of
 columns, puts the column at the end. An existing name has its values replaced. An empty name does
 nothing. A parametrized test compares eight cases with a Daf.
+
+## Q285, settled 2026-10-24
+
+Ray first chose A, a read-only file. On d05 full_bif, `groupby()` without its index took 15.00 s for
+440 styles, against 0.32 s, and 1.47 s against 0.19 s for 43 precincts. A whole `copy()` then
+`groupby()` took 0.31 s and 0.29 s, and on cvr_votes!final 2.64 s and 4.77 s. An indexed TEMP copy
+of only the group column and daf_rid took 0.13 s to build. Ray then asked whether adding an index is
+a mutation, "because the underlying data did not change." It changes the file, not the data. Ray:
+"if read_only = True then raise an error if a change of the table data (writing a cell, adding a
+column or row or changing column names) is attempted. But not setting keyfield or creating an index."
+And: "mdaf does not alter the source table file unless a write exists. in sdaf, the underlying file
+could be altered and no one would know." So Q290 fell away.
+
+- SQLite's authorizer refuses INSERT, UPDATE, DELETE and DROP TABLE on the read-only table, and ALTER
+  TABLE, whose table name comes second, after the schema. CREATE INDEX, TEMP tables and writes to
+  other tables, daf_tables among them, pass. A first try let ALTER through, by reading the wrong argument.
+- `_transaction_on()` and `_execute()` turn SQLite's "not authorized" into ReadOnlyTableError.
+- `apply_dtypes()` recorded the dtypes before converting, so a refused conversion left the record
+  saying int over text values. It now records them with the conversion. That was an old fault.
+- Measured cost of the authorizer on d05 full_bif: 500 lookups 0.111 s against 0.096 s, select and
+  to_daf of 133k rows 1.75 s against 1.70 s, groupby within noise. Only a connection with a read-only
+  table has one.
+- A parametrized test tries eleven writes. Another checks indexes, the keyfield, groupby, a sort, a
+  copy that changes, and a write to another table on the same file.

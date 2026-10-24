@@ -197,27 +197,28 @@ NULL, a missing value, is `''`, the empty string. dtypes describe the columns, a
 
 ## Tables larger than memory
 
-|                            Code                             |                       What it does                       |
-| :---------------------------------------------------------- | :------------------------------------------------------- |
-| `from daffodil.sqldaf import SqlDaf`                        | SqlDaf keeps the rows in a SQLite table                  |
-| `SqlDaf.db_path = 'job.db'`                                 | the database file, set once                              |
-| `sdaf = SqlDaf.from_daf(daf, name='items')`                 | a new table, items, from the Daf, with its keyfield      |
-| `sdaf = SqlDaf('items')`                                    | open the table again by its name                         |
-| `csv_sdaf = SqlDaf.from_csv('data.csv', keyfield='id')`     | a new table, data, from a CSV file. Every cell is text   |
-| `csv_sdaf.apply_dtypes(dtypes={'qty': int}, cols='qty')`    | convert numbers before any numeric work                  |
-| `sdaf.select_record('a1')`                                  | one row by key, as a dict                                |
-| `sdaf.iloc(0)`                                              | one row by position, as a dict                           |
-| `sdaf['a1', 'qty'].to_value()`                              | one value. Brackets give a SqlDaf                        |
-| `sdaf.update_record_krow('a1', {'qty': 4})`                 | change some cells of the row with this key               |
-| `sdaf.select_where_sql('qty > ?', [5])`                     | a selection by a SQL condition                           |
-| `sdaf.select_by_dict({'g': 'x'}).to_daf()`                  | a selection, read into memory as a Daf                   |
-| `sdaf.groupby('g')`                                         | a KeyedList of selections, with an index on g            |
-| `sdaf.sql('SELECT g, SUM(qty) AS n FROM items GROUP BY g')` | any SQL. The whole result comes back as a Daf            |
-| `sdaf.copy(name='items_copy').save()`                       | an independent copy, kept in the file                    |
-| `sdaf.sort_by_colname('qty')`                               | sort. The SqlDaf now refers to a sorted TEMP table       |
-| `sdaf.copy(name='by_qty').save(db_path='by_qty.db')`        | keep a table in a file of its own                        |
-| `in_sdaf = SqlDaf.from_db('by_qty.db', 'by_qty')`           | copy a table in from another file, which is only read    |
-| `SqlDaf.close()`                                            | close the file. Every SqlDaf on it can no longer be used |
+|                            Code                             |                           What it does                           |
+| :---------------------------------------------------------- | :--------------------------------------------------------------- |
+| `from daffodil.sqldaf import SqlDaf`                        | SqlDaf keeps the rows in a SQLite table                          |
+| `SqlDaf.db_path = 'job.db'`                                 | the database file, set once                                      |
+| `sdaf = SqlDaf.from_daf(daf, name='items')`                 | a new table, items, from the Daf, with its keyfield              |
+| `sdaf = SqlDaf('items')`                                    | open the table again by its name                                 |
+| `csv_sdaf = SqlDaf.from_csv('data.csv', keyfield='id')`     | a new table, data, from a CSV file. Every cell is text           |
+| `csv_sdaf.apply_dtypes(dtypes={'qty': int}, cols='qty')`    | convert numbers before any numeric work                          |
+| `sdaf.select_record('a1')`                                  | one row by key, as a dict                                        |
+| `sdaf.iloc(0)`                                              | one row by position, as a dict                                   |
+| `sdaf['a1', 'qty'].to_value()`                              | one value. Brackets give a SqlDaf                                |
+| `sdaf.update_record_krow('a1', {'qty': 4})`                 | change some cells of the row with this key                       |
+| `sdaf.select_where_sql('qty > ?', [5])`                     | a selection by a SQL condition                                   |
+| `sdaf.select_by_dict({'g': 'x'}).to_daf()`                  | a selection, read into memory as a Daf                           |
+| `sdaf.groupby('g')`                                         | a KeyedList of selections, with an index on g                    |
+| `sdaf.sql('SELECT g, SUM(qty) AS n FROM items GROUP BY g')` | any SQL. The whole result comes back as a Daf                    |
+| `sdaf.copy(name='items_copy').save()`                       | an independent copy, kept in the file                            |
+| `sdaf.sort_by_colname('qty')`                               | sort. The SqlDaf now refers to a sorted TEMP table               |
+| `ro_sdaf = SqlDaf('items', read_only=True)`                 | open it read-only: a change to its data raises. Work on a copy() |
+| `sdaf.copy(name='by_qty').save(db_path='by_qty.db')`        | keep a table in a file of its own                                |
+| `in_sdaf = SqlDaf.from_db('by_qty.db', 'by_qty')`           | copy a table in from another file, which is only read            |
+| `SqlDaf.close()`                                            | close the file. Every SqlDaf on it can no longer be used         |
 
 The lines run in order. They start from the Daf `daf`, with the columns id, item, g and qty and the keyfield id, and from the file data.csv, with the columns id and qty.
 

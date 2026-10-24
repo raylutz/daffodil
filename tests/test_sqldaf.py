@@ -13,7 +13,7 @@ import pytest
 from daffodil.daf import Daf, NULL, KeysDisabledError
 from daffodil.keyedlist import KeyedList
 from daffodil.lib.daf_types import T_ls, T_dtype_dict
-from daffodil.sqldaf import SqlDaf, BLOCKED_LS, SAFE_INHERITED_SET, KEEP_SET, RID_COL, META_TABLE, quote_name
+from daffodil.sqldaf import SqlDaf, BLOCKED_LS, SAFE_INHERITED_SET, KEEP_SET, RID_COL, META_TABLE, quote_name, ReadOnlyTableError
 import daffodil.sqldaf as sqldaf_module
 
 
@@ -453,6 +453,52 @@ def test_len_bool_columns_num_cols():
     assert bool(empty_sdaf) is False
     assert marks_sdaf.columns() == ['ballot_id', 'contest', 'num_votes']
     assert marks_sdaf.num_cols() == 3
+
+
+@pytest.mark.parametrize('label, write', [
+    ('cell by key',         lambda sdaf: sdaf.__setitem__(('b1', 'style_num'), 9)),
+    ('update_record_krow',  lambda sdaf: sdaf.update_record_krow('b1', {'style_num': 9})),
+    ('column',              lambda sdaf: sdaf.__setitem__((slice(None), 'style_num'), 0)),
+    ('insert_col',          lambda sdaf: sdaf.insert_col('w', [1, 2, 3, 4, 5])),
+    ('append',              lambda sdaf: sdaf.append({'ballot_id': 'b9', 'precinct': 'P9', 'style_num': 1, 'is_bmd': 0})),
+    ('delete_records',      lambda sdaf: sdaf.delete_records(['b2'], inplace=True)),
+    ('rename_cols',         lambda sdaf: sdaf.rename_cols({'style_num': 'style'})),
+    ('apply_in_place',      lambda sdaf: sdaf.apply_in_place(lambda row_da: {'style_num': 0})),
+    ('apply_dtypes',        lambda sdaf: sdaf.apply_dtypes(dtypes={'precinct': int}, cols='precinct')),
+    ('delete',              lambda sdaf: sdaf.delete()),
+    ('through a selection', lambda sdaf: sdaf.select_by_dict({'precinct': 'P1'}).update_record_krow('b1', {'style_num': 7})),
+])
+def test_read_only_refuses_any_change_to_the_data(label, write):
+    """ A change to a read-only table's data raises, and leaves the data, its record and the SqlDaf as they were. """
+    SqlDaf.from_daf(make_bif_daf(), name='bif')
+    SqlDaf.close()
+    bif_sdaf: SqlDaf = SqlDaf('bif', read_only=True)
+    with pytest.raises(ReadOnlyTableError):
+        write(bif_sdaf)
+    SqlDaf.close()
+    again_sdaf: SqlDaf = SqlDaf('bif')
+    assert again_sdaf.to_daf().lol == make_bif_daf().lol
+    assert again_sdaf.columns() == make_bif_daf().columns()
+    assert again_sdaf.dtypes == {}
+
+
+def test_read_only_allows_indexes_the_keyfield_and_work_on_copies():
+    """ An index or a keyfield leaves the data as it is. Selections, sorts, joins and copies are TEMP tables. """
+    SqlDaf.from_daf(make_bif_daf(), name='bif')
+    SqlDaf.close()
+    bif_sdaf: SqlDaf = SqlDaf('bif', read_only=True)
+    bif_sdaf.ensure_key_index()
+    bif_sdaf.set_keyfield('ballot_id')
+    assert len(bif_sdaf.groupby('precinct')) == 3
+    assert bif_sdaf.select_by_dict({'precinct': 'P1'}).keys() == ['b1', 'b3', 'b5']
+    assert bif_sdaf[:].sort_by_colname('style_num', reverse=True).col('ballot_id')[0] == 'b3'
+    copy_sdaf: SqlDaf = bif_sdaf.copy()
+    copy_sdaf.update_record_krow('b1', {'style_num': 9})
+    assert copy_sdaf.select_record('b1')['style_num'] == 9
+    assert bif_sdaf.select_record('b1')['style_num'] == 1
+    other_sdaf: SqlDaf = SqlDaf('other', cols=['k', 'a'], lol=[['k1', 1]], keyfield='k')
+    other_sdaf.update_record_krow('k1', {'a': 2})
+    assert other_sdaf.col('a') == [2]
 
 
 def test_isinstance_daf_and_repr():

@@ -18,7 +18,7 @@ from collections.abc import Iterable
 
 from daffodil.daf import Daf, NULL, ColumnNotFoundError, KeysDisabledError
 from daffodil.keyedlist import KeyedList
-from daffodil.lib.daf_types import T_ls, T_la, T_lola, T_di, T_da, T_ds, T_ss, T_cs, T_ta, T_kva, T_dtype_dict, T_copybits, T_buff
+from daffodil.lib.daf_types import T_ls, T_la, T_lola, T_di, T_da, T_ds, T_ss, T_sa, T_cs, T_ta, T_kva, T_dtype_dict, T_copybits, T_buff
 import daffodil.lib.daf_utils as daf_utils
 import daffodil.lib.daf_sql as daf_sql
 from daffodil.lib.daf_sql import sqlite3
@@ -276,6 +276,43 @@ def _create_table_sql(conn: sqlite3.Connection, name: str, cols: T_ls, schema: s
     return f'CREATE TABLE {schema}.{quote_name(name)} ({", ".join(coldefs_ls)})'
 
 
+class ReadOnlyTableError(sqlite3.DatabaseError):
+    """
+    A change to the data of a table opened with `read_only=True`.
+
+    Writing a cell, adding or removing rows or columns, renaming a column and dropping the table
+    raise it. Making an index or setting the keyfield do not, since the data stays the same.
+    `copy()` the table, and change the copy.
+    """
+
+
+# What SQLite would do to the rows or columns of a table. The authorizer refuses these on a read-only table.
+_DATA_WRITE_ACTIONS: T_sa = {sqlite3.SQLITE_INSERT, sqlite3.SQLITE_UPDATE, sqlite3.SQLITE_DELETE, sqlite3.SQLITE_DROP_TABLE}
+_READ_ONLY_MESSAGE: str = "A table opened with read_only=True cannot have its data changed. copy() it, and change the copy."
+
+
+def _read_only_authorizer(read_only_ss: T_ss) -> Callable[..., int]:
+    """
+    An authorizer for a connection that refuses any change to the data of the tables in `read_only_ss`. Internal use.
+
+    SQLite calls it as each statement is compiled. An index, a TEMP table or a write to another table passes.
+    For an ALTER TABLE, SQLite gives the schema first and the table second.
+    """
+    def authorize(action: int, arg1: str | None, arg2: str | None, db_name: str | None, source: str | None) -> int:
+        if action == sqlite3.SQLITE_ALTER_TABLE:
+            return sqlite3.SQLITE_DENY if arg1 == 'main' and arg2 in read_only_ss else sqlite3.SQLITE_OK
+        if action in _DATA_WRITE_ACTIONS and db_name == 'main' and arg1 in read_only_ss:
+            return sqlite3.SQLITE_DENY
+        return sqlite3.SQLITE_OK
+    return authorize
+
+
+def _is_refused(exc_info: BaseException) -> bool:
+    """ Say whether an error is SQLite refusing a statement, as the read-only authorizer does. Internal use. """
+    return isinstance(exc_info, sqlite3.DatabaseError) and not isinstance(exc_info, ReadOnlyTableError) \
+        and str(exc_info) == 'not authorized'
+
+
 @contextlib.contextmanager
 def _transaction_on(conn: sqlite3.Connection) -> Iterator[None]:
     """ A transaction on the connection, or a savepoint inside one already open. See `SqlDaf.transaction()`. Internal use. """
@@ -283,17 +320,21 @@ def _transaction_on(conn: sqlite3.Connection) -> Iterator[None]:
         conn.execute('BEGIN')
         try:
             yield
-        except BaseException:
+        except BaseException as exc_info:
             conn.execute('ROLLBACK')
+            if _is_refused(exc_info):
+                raise ReadOnlyTableError(_READ_ONLY_MESSAGE) from exc_info
             raise
         conn.execute('COMMIT')
     else:
         conn.execute(f'SAVEPOINT {SAVEPOINT}')
         try:
             yield
-        except BaseException:
+        except BaseException as exc_info:
             conn.execute(f'ROLLBACK TO {SAVEPOINT}')
             conn.execute(f'RELEASE {SAVEPOINT}')
+            if _is_refused(exc_info):
+                raise ReadOnlyTableError(_READ_ONLY_MESSAGE) from exc_info
             raise
         conn.execute(f'RELEASE {SAVEPOINT}')
 
@@ -541,6 +582,7 @@ class SqlDaf(Daf):
             keyfield:   str = '',                               # the column that holds the key of each row.
             dtypes:     T_dtype_dict | None = None,             # the types of the columns, for apply_dtypes().
             db_path:    str = '',                               # the database file. SqlDaf.db_path if empty.
+            read_only:  bool = False,                           # if True, a change to the table's data raises ReadOnlyTableError.
             ) -> None:
         """
         Make a new table, or open one that is in the database file.
@@ -559,6 +601,13 @@ class SqlDaf(Daf):
         The keyfield is only recorded. Its unique index is made when a key is first used, as a
         Daf builds its key index.
 
+        With `read_only=True`, the table's data cannot be changed: writing a cell, adding or
+        removing rows or columns, renaming a column and dropping the table raise ReadOnlyTableError.
+        Selections, copies, sorts, joins, indexes and the keyfield still work, since they leave the
+        data as it is. To change it, `copy()` the table and change the copy. A Daf changes only
+        memory until it is written out. A SqlDaf writes to its file at once, and nothing in the
+        file shows it later. SQLite enforces this for every SqlDaf on the file, until `close()`.
+
         Args:
             name: The name of the table.
             cols: The column names of a new table, in order. None to open a table that is there.
@@ -566,6 +615,7 @@ class SqlDaf(Daf):
             keyfield: The column that holds the key of each row. For a table that is opened, the recorded one if empty.
             dtypes: The types of the columns, kept for `apply_dtypes()`. Nothing is converted.
             db_path: The database file. The class setting `SqlDaf.db_path` if empty.
+            read_only: If True, a change to the table's data raises ReadOnlyTableError.
 
         Raises:
             ValueError: There is no database path, a new table's name is taken, a column is named daf_rid, or `lol` has no `cols`.
@@ -593,6 +643,11 @@ class SqlDaf(Daf):
                        (null_to_none(row_la) for row_la in (lol if lol is not None else [])))
         self._open_on(conn, conn_da, path, name, keyfield, dtypes, is_temp=False, use_meta=cols is None)
 
+        # SQLite refuses a change to the data of a read-only table, for every SqlDaf on this file.
+        if read_only:
+            conn_da['read_only_ss'].add(name)
+            conn.set_authorizer(_read_only_authorizer(conn_da['read_only_ss']))
+
 
     @classmethod
     def _conn_key(cls, path: str) -> Tuple[int, str]:
@@ -607,7 +662,7 @@ class SqlDaf(Daf):
         if key_t not in SqlDaf._open_conns:
             # URI filenames let from_db() attach a source read-only. A plain path opens as before.
             SqlDaf._open_conns[key_t] = (_connect(path, isolation_level=None, uri=True),
-                                         {'func_error': None, 'temp_count': 0, 'func_count': 0, 'no_gaps_ss': set()})
+                                         {'func_error': None, 'temp_count': 0, 'func_count': 0, 'no_gaps_ss': set(), 'read_only_ss': set()})
         return SqlDaf._open_conns[key_t]
 
 
@@ -1257,6 +1312,10 @@ class SqlDaf(Daf):
         except sqlite3.OperationalError as exc_info:
             if self._conn_da['func_error'] is not None:
                 raise self._conn_da['func_error'] from exc_info
+            raise
+        except sqlite3.DatabaseError as exc_info:
+            if _is_refused(exc_info):
+                raise ReadOnlyTableError(_READ_ONLY_MESSAGE) from exc_info
             raise
 
 
@@ -6086,14 +6145,12 @@ class SqlDaf(Daf):
             ValueError: A column to convert has no dtype, and `silent_error` is False.
             NotImplementedError: A dtype is not int, float, bool or str.
         """
-        if dtypes:
-            self.dtypes = {**self.dtypes, **dtypes}
-        source_dtypes: T_dtype_dict = dtypes or self.dtypes
+        # The dtypes are recorded with the conversion, in one transaction, so a refused or failed
+        # conversion leaves the record and this SqlDaf as they were.
+        merged_dtypes: T_dtype_dict = {**self.dtypes, **dtypes} if dtypes else self.dtypes
+        source_dtypes: T_dtype_dict = dtypes or merged_dtypes
         if not source_dtypes:
             return self
-        if dtypes:
-            with self.transaction():
-                self._meta_update()
 
         cols_ls: T_ls = list(self.hd) if cols is None else ([cols] if isinstance(cols, str) else list(cols))
         col: str
@@ -6112,6 +6169,10 @@ class SqlDaf(Daf):
             raise NotImplementedError(f"apply_dtypes() cannot store {[convert_dtypes[col] for col in unstorable_ls]} "
                                        f"for the columns {unstorable_ls} yet. Only int, float, bool and str.")
         if not convert_dtypes:
+            if dtypes:
+                self.dtypes = merged_dtypes
+                with self.transaction():
+                    self._meta_update()
             return self
 
         if self.parent_sdaf is not None:
@@ -6126,6 +6187,7 @@ class SqlDaf(Daf):
 
         with self.transaction():
             self.conn.execute(f'UPDATE {quote_name(self.name)} SET {", ".join(set_ls)}')
+            self.dtypes = merged_dtypes
             self._meta_update()
         return self
 

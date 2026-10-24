@@ -358,6 +358,40 @@ the old table first, as in `SqlDaf('items').delete()`, then save the copy under 
 `SqlDaf.close()` closes the file for every SqlDaf on it. Permanent tables keep every committed
 change. A SqlDaf made before the close can no longer be used. Open the table again by name.
 
+## Read-only tables
+
+A Daf changes only memory. Its file changes only when the Daf is written out. A SqlDaf writes
+to its file at once, and nothing in the file shows later that it changed. So a table that other
+work depends on can be opened read-only:
+
+```pycon
+>>> _ = SqlDaf('items_ro', cols=['id', 'qty'], lol=[['a1', 3], ['a2', 12]], keyfield='id')
+>>> ro_sdaf = SqlDaf('items_ro', read_only=True)
+>>> ro_sdaf.to_daf()
+<BLANKLINE>
+| id | qty |
+| -: | --: |
+| a1 |   3 |
+| a2 |  12 |
+<BLANKLINE>
+%% daf rows=2; cols=2; keyfield='id'; name='items_ro'
+<BLANKLINE>
+>>> ro_sdaf.update_record_krow('a1', {'qty': 4})
+Traceback (most recent call last):
+...
+daffodil.sqldaf.ReadOnlyTableError: A table opened with read_only=True cannot have its data changed. copy() it, and change the copy.
+>>> work_sdaf = ro_sdaf.copy()
+>>> work_sdaf.update_record_krow('a1', {'qty': 4}).col('qty')
+[4, 12]
+```
+
+Writing a cell, adding or removing rows or columns, renaming a column, converting with
+`apply_dtypes()` and dropping the table raise ReadOnlyTableError. Nothing is changed.
+Selections, sorts, joins, `groupby()`, an index and the keyfield work, since they leave the data
+as it is. An index does change the file, but not its rows. SQLite itself refuses the change, so
+no method can slip past it. The table stays read-only for every SqlDaf on the file, until
+`SqlDaf.close()`.
+
 ## Tables in other files
 
 A job may keep each large table in a file of its own. That makes it plain which tables are

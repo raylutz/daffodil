@@ -146,6 +146,7 @@ SECTIONS = [
         ("sdaf.sql('SELECT g, SUM(qty) AS n FROM items GROUP BY g')", 'any SQL. The whole result comes back as a Daf'),
         ("sdaf.copy(name='items_copy').save()", 'an independent copy, kept in the file'),
         ("sdaf.sort_by_colname('qty')", 'sort. The SqlDaf now refers to a sorted TEMP table'),
+        ("ro_sdaf = SqlDaf('items', read_only=True)", 'open it read-only: a change to its data raises. Work on a copy()'),
         ("sdaf.copy(name='by_qty').save(db_path='by_qty.db')", 'keep a table in a file of its own'),
         ("in_sdaf = SqlDaf.from_db('by_qty.db', 'by_qty')", 'copy a table in from another file, which is only read'),
         ("SqlDaf.close()", 'close the file. Every SqlDaf on it can no longer be used'),
