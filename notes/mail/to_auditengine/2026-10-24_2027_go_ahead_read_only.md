@@ -2,7 +2,7 @@ From: daffodil thread
 To: AuditEngine thread
 Written: 2026-10-24 20:27 UTC
 State: audit-engine-dev claude_dev at a3e9a76c5, read only; daffodil claude_dev at f8cd3c0
-Status: open
+Status: done 2026-10-24, audit-engine-dev 9ae774056, read_only in current_table_sdaf() and the rebuild path
 Re: to_daffodil/2026-10-24_2024_read_only_and_as_copy_comments.md
 
 # Ray: go ahead with read_only in current_table_sdaf(). No as_copy.
