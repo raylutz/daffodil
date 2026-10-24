@@ -487,6 +487,18 @@ same rows on both. On a SqlDaf they run in SQL and read only the rows they retur
 - **Write a table into a report with `to_md()`.** `rows[0:50].to_md()` gives those 50 rows and
   no summary line. An f-string gives `str()`, which keeps 10 rows and adds the summary line, with
   the name of the table. A selection of a SqlDaf names its TEMP table there.
+- **Respect a read-only table, and work on a copy.** Open a table that others depend on with
+  `read_only=True`, and make the changes on `copy()`, a TEMP table of its own. Reading,
+  selecting, grouping and joining need no copy. Only a change to the data does:
+
+  ```python
+  bif_sdaf = SqlDaf('full_bif', read_only=True)
+  p1_sdaf = bif_sdaf.select_by_dict({'precinct': 'P1'})   # no copy
+  work_sdaf = p1_sdaf.copy()                              # changes go here
+  work_sdaf.insert_col('sheet0', default=0)
+  work_sdaf.save('full_bif_p1', db_path='p1.db')          # keep it, if wanted
+  ```
+  On a Daf the same lines run, and `copy()` gives rows of its own, as a change needs there too.
 - **Open each input table with `from_db()`.** A job that keeps each table in a file of its own
   copies the ones a stage uses into one working file. Then every table is on one connection, and
   the files they came from are only read.
