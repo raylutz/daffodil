@@ -193,3 +193,19 @@ could be altered and no one would know." So Q290 fell away.
   table has one.
 - A parametrized test tries eleven writes. Another checks indexes, the keyfield, groupby, a sort, a
   copy that changes, and a write to another table on the same file.
+
+## Q291, settled 2026-10-24
+
+A one-call working copy, `SqlDaf(name, as_copy=True)`, was proposed. AuditEngine, mail
+to_daffodil/2026-10-24_2024_read_only_and_as_copy_comments.md, would not use it: every copy it makes
+must land in a stage's working file, to be joined there, and `from_db()` does that. A TEMP copy on the
+saved table's own connection could not be joined with the stage's tables. Ray: "Q291 original."
+`copy(inplace=True)` gives the same copy in two calls.
+
+Ray approved AuditEngine passing `read_only=True` in its `current_table_sdaf()`. Its 14 callers only read.
+
+## For later
+
+AuditEngine's planned corrections log has append-only tables: rows added, never changed or deleted.
+`read_only` refuses the appends too. An append-only mode could allow INSERT and refuse UPDATE, DELETE,
+ALTER and DROP, by the same authorizer. Not asked for yet.
