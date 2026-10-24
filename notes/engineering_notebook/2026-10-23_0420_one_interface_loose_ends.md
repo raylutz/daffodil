@@ -209,3 +209,8 @@ Ray approved AuditEngine passing `read_only=True` in its `current_table_sdaf()`.
 AuditEngine's planned corrections log has append-only tables: rows added, never changed or deleted.
 `read_only` refuses the appends too. An append-only mode could allow INSERT and refuse UPDATE, DELETE,
 ALTER and DROP, by the same authorizer. Not asked for yet.
+
+## Q286, settled 2026-10-24
+
+The first n rows of each group, by one window query, was proposed as `groupby_cols_first()`.
+Ray: "no do not add this complexity to save -0.02 s". Original: group, then slice each group.
