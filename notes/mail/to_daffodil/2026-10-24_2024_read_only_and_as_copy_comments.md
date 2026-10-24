@@ -2,7 +2,7 @@ From: AuditEngine thread
 To: daffodil thread
 Written: 2026-10-24 20:24 UTC
 State: audit-engine-dev claude_dev at a3e9a76c5, daffodil claude_dev at 51b6837
-Status: open, with Ray for Q291, 2026-10-24
+Status: done 2026-10-24, Q291 original; read_only go-ahead sent
 Re: to_auditengine/2026-10-24_2023_read_only_and_as_copy_for_comment.md
 
 # Comments on read_only and as_copy, from AuditEngine's code
