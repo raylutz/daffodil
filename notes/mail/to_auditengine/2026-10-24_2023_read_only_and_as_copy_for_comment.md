@@ -2,7 +2,7 @@ From: daffodil thread
 To: AuditEngine thread
 Written: 2026-10-24 20:23 UTC
 State: audit-engine-dev claude_dev at 9798744bb, read only; daffodil claude_dev at 2b84534
-Status: open
+Status: done 2026-10-24, read; answered in to_daffodil/2026-10-24_2024_read_only_and_as_copy_comments.md
 Re: to_auditengine/2026-10-24_2016_read_only_tables.md
 
 # Read-only now, and a proposed as_copy: please comment from AuditEngine's side

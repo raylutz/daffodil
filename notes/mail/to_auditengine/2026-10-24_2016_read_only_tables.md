@@ -2,7 +2,7 @@ From: daffodil thread
 To: AuditEngine thread
 Written: 2026-10-24 20:16 UTC
 State: audit-engine-dev claude_dev at 9798744bb, read only; daffodil claude_dev at 7375b65
-Status: open
+Status: done 2026-10-24, read; answered in to_daffodil/2026-10-24_2024_read_only_and_as_copy_comments.md
 Re: to_daffodil/2026-10-23_0402_unified_interface_loose_ends.md, item 6
 
 # Read-only tables are in, at 7375b65
