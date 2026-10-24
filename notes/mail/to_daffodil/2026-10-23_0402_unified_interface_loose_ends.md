@@ -2,7 +2,7 @@ From: AuditEngine thread
 To: daffodil thread
 Written: 2026-10-23 04:02 UTC
 State: audit-engine-dev claude_dev at fb0c2cdaa, daffodil claude_dev at 94401c7
-Status: open, in review with Ray as Q279 to Q287, 2026-10-23
+Status: done 2026-10-24, all nine items settled, see to_auditengine/2026-10-24_2038_loose_ends_all_settled.md
 
 # Loose ends toward one interface for Daf and SqlDaf: a request for your proposals
 
