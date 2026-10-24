@@ -217,8 +217,8 @@ class Daf:
         {'id': 2, 'v': 'b'}
         >>> daf.shape()
         (2, 2)
-        >>> e = Daf(lol=[[[1, 2], {'k': 1}]], cols=['a', 'b'], dtypes={'a': int, 'b': str})
-        >>> e
+        >>> e_daf = Daf(lol=[[[1, 2], {'k': 1}]], cols=['a', 'b'], dtypes={'a': int, 'b': str})
+        >>> e_daf
         <BLANKLINE>
         |   a    |    b     |
         | -----: | -------: |
@@ -226,7 +226,7 @@ class Daf:
         <BLANKLINE>
         %% daf rows=1; cols=2; keyfield=''; name=''
         <BLANKLINE>
-        >>> e.iloc(0)
+        >>> e_daf.iloc(0)
         {'a': [1, 2], 'b': {'k': 1}}
     """
 
@@ -849,8 +849,8 @@ class Daf:
             True if equal.
 
         Examples:
-            >>> a = Daf(lol=[[1]], cols=['x'])
-            >>> a
+            >>> a_daf = Daf(lol=[[1]], cols=['x'])
+            >>> a_daf
             <BLANKLINE>
             | x  |
             | -: |
@@ -858,9 +858,9 @@ class Daf:
             <BLANKLINE>
             %% daf rows=1; cols=1; keyfield=''; name=''
             <BLANKLINE>
-            >>> a == Daf(lol=[[1]], cols=['x'])
+            >>> a_daf == Daf(lol=[[1]], cols=['x'])
             True
-            >>> a == Daf(lol=[[1]], cols=['x'], keyfield='x')
+            >>> a_daf == Daf(lol=[[1]], cols=['x'], keyfield='x')
             False
         """
         if not isinstance(other, Daf):
@@ -1531,8 +1531,8 @@ class Daf:
             <BLANKLINE>
             >>> daf.rename_cols({'b': 'c'}).columns()
             ['a', 'c']
-            >>> k = Daf(lol=[[1, 'x']], cols=['id', 'v'], keyfield='id')
-            >>> k
+            >>> k_daf = Daf(lol=[[1, 'x']], cols=['id', 'v'], keyfield='id')
+            >>> k_daf
             <BLANKLINE>
             | id | v  |
             | -: | -: |
@@ -1540,7 +1540,7 @@ class Daf:
             <BLANKLINE>
             %% daf rows=1; cols=2; keyfield='id'; name=''
             <BLANKLINE>
-            >>> k.rename_cols({'id': 'ident'}).keyfield
+            >>> k_daf.rename_cols({'id': 'ident'}).keyfield
             'ident'
         """
 
@@ -1802,10 +1802,15 @@ class Daf:
             [1, 2]
             >>> daf.set_keyfield(['id', 'v']).keys()
             [(1, 'a'), (2, 'b')]
-            >>> e = Daf(cols=['id', 'v']).set_keyfield('id')
-            >>> e.keyfield
+            >>> empty_daf = Daf(cols=['id', 'v']).set_keyfield('id')
+            >>> empty_daf
+            <BLANKLINE>
+            <BLANKLINE>
+            %% daf rows=0; cols=0; keyfield='id'; name=''
+            <BLANKLINE>
+            >>> empty_daf.keyfield
             'id'
-            >>> e.append({'id': 7, 'v': 'x'}).keys()
+            >>> empty_daf.append({'id': 7, 'v': 'x'}).keys()
             [7]
         """
         """ set the indexing keyfield to a new column
@@ -2308,8 +2313,8 @@ class Daf:
 
             A `bool` column, and text that does not convert:
 
-            >>> b = Daf(cols=['ok', 'n'], lol=[['', '1'], ['0', 'x'], ['True', '3'], ['maybe', '']])
-            >>> b
+            >>> b_daf = Daf(cols=['ok', 'n'], lol=[['', '1'], ['0', 'x'], ['True', '3'], ['maybe', '']])
+            >>> b_daf
             <BLANKLINE>
             |  ok   | n  |
             | ----: | -: |
@@ -2320,8 +2325,8 @@ class Daf:
             <BLANKLINE>
             %% daf rows=4; cols=2; keyfield=''; name=''
             <BLANKLINE>
-            >>> _ = b.apply_dtypes(dtypes={'ok': bool, 'n': int})
-            >>> b.lol
+            >>> _ = b_daf.apply_dtypes(dtypes={'ok': bool, 'n': int})
+            >>> b_daf.lol
             [[0, 1], [0, 'x'], [1, 3], ['maybe', '']]
 
             Your own conversion, here one that records the values that fail:
@@ -4896,8 +4901,8 @@ class Daf:
             <BLANKLINE>
             %% daf rows=5; cols=2; keyfield='id'; name=''
             <BLANKLINE>
-            >>> e = Daf(lol=[[1, 'a']], cols=['id', 'v'])
-            >>> e
+            >>> e_daf = Daf(lol=[[1, 'a']], cols=['id', 'v'])
+            >>> e_daf
             <BLANKLINE>
             | id | v  |
             | -: | -: |
@@ -4905,7 +4910,7 @@ class Daf:
             <BLANKLINE>
             %% daf rows=1; cols=2; keyfield=''; name=''
             <BLANKLINE>
-            >>> e.append(None).append({}).append([])
+            >>> e_daf.append(None).append({}).append([])
             <BLANKLINE>
             | id | v  |
             | -: | -: |
@@ -5081,8 +5086,8 @@ class Daf:
             A SqlDaf is read with `to_daf()`, so all its rows come into memory. Select the rows first.
 
         Examples:
-            >>> a = Daf(lol=[[1, 'a1'], [2, 'a2']], cols=['id', 'v'], keyfield='id')
-            >>> a
+            >>> a_daf = Daf(lol=[[1, 'a1'], [2, 'a2']], cols=['id', 'v'], keyfield='id')
+            >>> a_daf
             <BLANKLINE>
             | id | v  |
             | -: | -: |
@@ -5091,8 +5096,8 @@ class Daf:
             <BLANKLINE>
             %% daf rows=2; cols=2; keyfield='id'; name=''
             <BLANKLINE>
-            >>> b = Daf(lol=[[2, 'b2'], [3, 'b3']], cols=['id', 'v'])
-            >>> b
+            >>> b_daf = Daf(lol=[[2, 'b2'], [3, 'b3']], cols=['id', 'v'])
+            >>> b_daf
             <BLANKLINE>
             | id | v  |
             | -: | -: |
@@ -5101,7 +5106,7 @@ class Daf:
             <BLANKLINE>
             %% daf rows=2; cols=2; keyfield=''; name=''
             <BLANKLINE>
-            >>> a.concat(b)
+            >>> a_daf.concat(b_daf)
             <BLANKLINE>
             | id | v  |
             | -: | -: |
@@ -5112,8 +5117,8 @@ class Daf:
             <BLANKLINE>
             %% daf rows=4; cols=2; keyfield='id'; name=''
             <BLANKLINE>
-            >>> a = Daf(lol=[[1, 'a1'], [2, 'a2']], cols=['id', 'v'], keyfield='id')
-            >>> a
+            >>> a_daf = Daf(lol=[[1, 'a1'], [2, 'a2']], cols=['id', 'v'], keyfield='id')
+            >>> a_daf
             <BLANKLINE>
             | id | v  |
             | -: | -: |
@@ -5122,7 +5127,7 @@ class Daf:
             <BLANKLINE>
             %% daf rows=2; cols=2; keyfield='id'; name=''
             <BLANKLINE>
-            >>> a.concat(b, respect_kd=True)
+            >>> a_daf.concat(b_daf, respect_kd=True)
             <BLANKLINE>
             | id | v  |
             | -: | -: |
@@ -5582,8 +5587,8 @@ class Daf:
             <BLANKLINE>
             >>> daf.num_rows()
             2
-            >>> c = Daf(lol=[['a', 1], ['a', 2]], cols=['g', 'n'], keyfield=('g', 'n'))
-            >>> c
+            >>> c_daf = Daf(lol=[['a', 1], ['a', 2]], cols=['g', 'n'], keyfield=('g', 'n'))
+            >>> c_daf
             <BLANKLINE>
             | g  | n  |
             | -: | -: |
@@ -5592,7 +5597,7 @@ class Daf:
             <BLANKLINE>
             %% daf rows=2; cols=2; keyfield='('g', 'n')'; name=''
             <BLANKLINE>
-            >>> c.remove_key(('a', 1))
+            >>> c_daf.remove_key(('a', 1))
             <BLANKLINE>
             | g  | n  |
             | -: | -: |
@@ -5942,8 +5947,8 @@ class Daf:
 
             A key changed after the index is built is found only after `set_keyfield()`:
 
-            >>> k = Daf(cols=['id', 'q'], lol=[['a', 1], ['b', 2]], keyfield='id')
-            >>> k
+            >>> k_daf = Daf(cols=['id', 'q'], lol=[['a', 1], ['b', 2]], keyfield='id')
+            >>> k_daf
             <BLANKLINE>
             | id | q  |
             | -: | -: |
@@ -5952,13 +5957,13 @@ class Daf:
             <BLANKLINE>
             %% daf rows=2; cols=2; keyfield='id'; name=''
             <BLANKLINE>
-            >>> k.select_record('a')
+            >>> k_daf.select_record('a')
             {'id': 'a', 'q': 1}
-            >>> k[0, 'id'] = 'z'
-            >>> k.select_record('z')
+            >>> k_daf[0, 'id'] = 'z'
+            >>> k_daf.select_record('z')
             {}
-            >>> _ = k.set_keyfield(k.keyfield)
-            >>> k.select_record('z')
+            >>> _ = k_daf.set_keyfield(k_daf.keyfield)
+            >>> k_daf.select_record('z')
             {'id': 'z', 'q': 1}
         """
         # One cell and a plain value: write it into lol directly.
@@ -10249,12 +10254,12 @@ class Daf:
             <BLANKLINE>
             %% daf rows=4; cols=3; keyfield=''; name=''
             <BLANKLINE>
-            >>> f = Daf(cols=['A', 'B', 'C'], lol=[
+            >>> f_daf = Daf(cols=['A', 'B', 'C'], lol=[
             ...     ['', '', 'sum($d[$r,:$c])'],
             ...     ['', '', 'sum($d[$r,:$c])'],
             ...     ['', '', 'sum($d[$r,:$c])'],
             ...     ['sum($d[:$r,$c])', 'sum($d[:$r,$c])', 'sum($d[:$r,$c])']])
-            >>> f
+            >>> f_daf
             <BLANKLINE>
             |        A        |        B        |        C        |
             | --------------: | --------------: | --------------: |
@@ -10265,7 +10270,7 @@ class Daf:
             <BLANKLINE>
             %% daf rows=4; cols=3; keyfield=''; name=''
             <BLANKLINE>
-            >>> _ = daf.apply_formulas(f)
+            >>> _ = daf.apply_formulas(f_daf)
             >>> daf
             <BLANKLINE>
             | A  | B  | C  |
@@ -10563,8 +10568,8 @@ class Daf:
             KeyError: A keyfield is not set, or a key is not found in `other_daf`.
 
         Examples:
-            >>> a = Daf(lol=[[1, 'x'], [2, 'y']], cols=['id', 'v'], keyfield='id')
-            >>> a
+            >>> a_daf = Daf(lol=[[1, 'x'], [2, 'y']], cols=['id', 'v'], keyfield='id')
+            >>> a_daf
             <BLANKLINE>
             | id | v  |
             | -: | -: |
@@ -10573,8 +10578,8 @@ class Daf:
             <BLANKLINE>
             %% daf rows=2; cols=2; keyfield='id'; name=''
             <BLANKLINE>
-            >>> o = Daf(lol=[[1, 'P'], [2, 'Q']], cols=['id', 'w'], keyfield='id')
-            >>> o
+            >>> o_daf = Daf(lol=[[1, 'P'], [2, 'Q']], cols=['id', 'w'], keyfield='id')
+            >>> o_daf
             <BLANKLINE>
             | id | w  |
             | -: | -: |
@@ -10583,7 +10588,7 @@ class Daf:
             <BLANKLINE>
             %% daf rows=2; cols=2; keyfield='id'; name=''
             <BLANKLINE>
-            >>> a.annotate_daf(o, {'v': 'w'})
+            >>> a_daf.annotate_daf(o_daf, {'v': 'w'})
             <BLANKLINE>
             | id | v  |
             | -: | -: |
@@ -14475,8 +14480,8 @@ class Daf:
             The translator Daf. Its keyfield is `resolved_colname`.
 
         Examples:
-            >>> a = Daf(lol=[[1, 'x']], cols=['id', 'name'], keyfield='id')
-            >>> a
+            >>> a_daf = Daf(lol=[[1, 'x']], cols=['id', 'name'], keyfield='id')
+            >>> a_daf
             <BLANKLINE>
             | id | name |
             | -: | ---: |
@@ -14484,8 +14489,8 @@ class Daf:
             <BLANKLINE>
             %% daf rows=1; cols=2; keyfield='id'; name=''
             <BLANKLINE>
-            >>> b = Daf(lol=[[1, 'y']], cols=['id', 'name'], keyfield='id')
-            >>> b
+            >>> b_daf = Daf(lol=[[1, 'y']], cols=['id', 'name'], keyfield='id')
+            >>> b_daf
             <BLANKLINE>
             | id | name |
             | -: | ---: |
@@ -14493,7 +14498,7 @@ class Daf:
             <BLANKLINE>
             %% daf rows=1; cols=2; keyfield='id'; name=''
             <BLANKLINE>
-            >>> a.derive_join_translator(b).col('resolved_colname')
+            >>> a_daf.derive_join_translator(b_daf).col('resolved_colname')
             ['id', 'name_daf1', 'name_daf2']
         """
         assert isinstance(self.keyfield, str)
@@ -14699,8 +14704,8 @@ class Daf:
             KeyError: A keyfield is a tuple.
 
         Examples:
-            >>> a = Daf(lol=[[1, 'Alice'], [2, 'Bob']], cols=['id', 'name'], keyfield='id')
-            >>> a
+            >>> a_daf = Daf(lol=[[1, 'Alice'], [2, 'Bob']], cols=['id', 'name'], keyfield='id')
+            >>> a_daf
             <BLANKLINE>
             | id | name  |
             | -: | ----: |
@@ -14709,8 +14714,8 @@ class Daf:
             <BLANKLINE>
             %% daf rows=2; cols=2; keyfield='id'; name=''
             <BLANKLINE>
-            >>> b = Daf(lol=[[1, 50], [3, 70]], cols=['id', 'salary'], keyfield='id')
-            >>> b
+            >>> b_daf = Daf(lol=[[1, 50], [3, 70]], cols=['id', 'salary'], keyfield='id')
+            >>> b_daf
             <BLANKLINE>
             | id | salary |
             | -: | -----: |
@@ -14719,7 +14724,7 @@ class Daf:
             <BLANKLINE>
             %% daf rows=2; cols=2; keyfield='id'; name=''
             <BLANKLINE>
-            >>> a.join(b)
+            >>> a_daf.join(b_daf)
             <BLANKLINE>
             | id | name  | salary |
             | -: | ----: | -----: |
@@ -14727,7 +14732,7 @@ class Daf:
             <BLANKLINE>
             %% daf rows=1; cols=3; keyfield='id'; name=''
             <BLANKLINE>
-            >>> a.join(b, how='left')
+            >>> a_daf.join(b_daf, how='left')
             <BLANKLINE>
             | id | name  | salary |
             | -: | ----: | -----: |
@@ -14736,7 +14741,7 @@ class Daf:
             <BLANKLINE>
             %% daf rows=2; cols=3; keyfield='id'; name=''
             <BLANKLINE>
-            >>> a.join(b, how='left', fill=None)
+            >>> a_daf.join(b_daf, how='left', fill=None)
             <BLANKLINE>
             | id | name  | salary |
             | -: | ----: | -----: |

@@ -63,8 +63,8 @@ followed by its position. A repeated name gets an underscore and its position.
 With `noheader=True`, the first line is data, and the Daf has no names until you set them:
 
 ```pycon
->>> n = Daf.from_csv_buff('1,2\n3,4\n', noheader=True)
->>> n
+>>> n_daf = Daf.from_csv_buff('1,2\n3,4\n', noheader=True)
+>>> n_daf
 <BLANKLINE>
 | A  | B  |
 | -: | -: |
@@ -73,7 +73,7 @@ With `noheader=True`, the first line is data, and the Daf has no names until you
 <BLANKLINE>
 %% daf rows=2; cols=2; keyfield=''; name=''
 <BLANKLINE>
->>> n.columns(), n.lol
+>>> n_daf.columns(), n_daf.lol
 ([], [['1', '2'], ['3', '4']])
 ```
 
@@ -194,10 +194,15 @@ as a class with type annotations, decorated with `@schemaclass`:
 ...     ballot_id: str = ''
 ...     contest: str = ''
 ...     page: int = 0
->>> b = Daf(schema=Ballot)
->>> b.columns(), b.keyfield
+>>> ballot_daf = Daf(schema=Ballot)
+>>> ballot_daf
+<BLANKLINE>
+<BLANKLINE>
+%% daf rows=0; cols=0; keyfield='ballot_id'; name=''
+<BLANKLINE>
+>>> ballot_daf.columns(), ballot_daf.keyfield
 (['ballot_id', 'contest', 'page'], 'ballot_id')
->>> b.dtypes
+>>> ballot_daf.dtypes
 {'ballot_id': <class 'str'>, 'contest': <class 'str'>, 'page': <class 'int'>}
 ```
 
@@ -207,7 +212,7 @@ keyfield. It does not check or convert the cells.
 `default_record()` makes a new record with the defaults, for the Daf's own columns:
 
 ```pycon
->>> b.default_record()
+>>> ballot_daf.default_record()
 {'ballot_id': '', 'contest': '', 'page': 0}
 >>> Daf(cols=['page', 'ballot_id'], schema=Ballot).default_record()
 {'page': 0, 'ballot_id': ''}

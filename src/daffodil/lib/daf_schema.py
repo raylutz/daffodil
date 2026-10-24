@@ -71,6 +71,11 @@ def _apply_schema(
         ...     name: str = ''
         ...     age: int = 0
         >>> daf = Daf(schema=Person)
+        >>> daf
+        <BLANKLINE>
+        <BLANKLINE>
+        %% daf rows=0; cols=0; keyfield=''; name=''
+        <BLANKLINE>
         >>> daf.columns()
         ['name', 'age']
 
@@ -321,6 +326,11 @@ def _default_record(self: 'Daf', astype: type = dict) -> Any:
         >>> Daf(cols=['age', 'city'], schema=Person).default_record()
         {'age': 0, 'city': ''}
         >>> daf = Daf(schema=Person)
+        >>> daf
+        <BLANKLINE>
+        <BLANKLINE>
+        %% daf rows=0; cols=0; keyfield=''; name=''
+        <BLANKLINE>
         >>> row = daf.default_record(astype=KeyedList)
         >>> row['age'] = 41
         >>> row.hd is daf.hd, row.to_dict()

@@ -52,8 +52,8 @@ A CSV file gives text. `apply_dtypes()` converts the columns in place, and retur
   the columns you use.
 
 ```pycon
->>> e = Daf.from_csv_buff('id,qty,note\na1,3,x\n')
->>> e
+>>> e_daf = Daf.from_csv_buff('id,qty,note\na1,3,x\n')
+>>> e_daf
 <BLANKLINE>
 | id | qty | note |
 | -: | --: | ---: |
@@ -61,8 +61,8 @@ A CSV file gives text. `apply_dtypes()` converts the columns in place, and retur
 <BLANKLINE>
 %% daf rows=1; cols=3; keyfield=''; name=''
 <BLANKLINE>
->>> _ = e.apply_dtypes(dtypes={'id': str, 'qty': int, 'note': str}, cols=['qty'])
->>> e.lol
+>>> _ = e_daf.apply_dtypes(dtypes={'id': str, 'qty': int, 'note': str}, cols=['qty'])
+>>> e_daf.lol
 [['a1', 3, 'x']]
 ```
 
@@ -158,8 +158,8 @@ set or tuple in a cell is written as PYON, the Python form of the value, and is 
 `apply_dtypes()`:
 
 ```pycon
->>> f = Daf(cols=['id', 'tags'], lol=[['a', [1, 2]], ['b', {'k': (1, 2)}]])
->>> f
+>>> f_daf = Daf(cols=['id', 'tags'], lol=[['a', [1, 2]], ['b', {'k': (1, 2)}]])
+>>> f_daf
 <BLANKLINE>
 | id |     tags      |
 | -: | ------------: |
@@ -168,7 +168,7 @@ set or tuple in a cell is written as PYON, the Python form of the value, and is 
 <BLANKLINE>
 %% daf rows=2; cols=2; keyfield=''; name=''
 <BLANKLINE>
->>> print(f.to_csv_buff())
+>>> print(f_daf.to_csv_buff())
 id,tags
 a,"[1, 2]"
 b,"{'k': (1, 2)}"
