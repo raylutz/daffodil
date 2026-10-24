@@ -214,3 +214,12 @@ ALTER and DROP, by the same authorizer. Not asked for yet.
 
 The first n rows of each group, by one window query, was proposed as `groupby_cols_first()`.
 Ray: "no do not add this complexity to save -0.02 s". Original: group, then slice each group.
+
+## Q287, settled 2026-10-24
+
+Comparing the keys of a table in another file, by attaching it read-only for one statement, was proposed.
+Ray: "Q287 original." `from_db()` brings both tables into one working file, and `select_records_daf()`
+compares them there. It keeps to Q274, which chose copies over attaching. AuditEngine no longer needs it.
+
+All nine loose ends are settled: Q279, Q281, Q282, Q283, Q284 and Q285 built, Q286 and Q287 Original,
+and item 9, lambdas, no change. Q280, Q288, Q289 and Q291 came out of them.
