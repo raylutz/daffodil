@@ -223,3 +223,30 @@ compares them there. It keeps to Q274, which chose copies over attaching. AuditE
 
 All nine loose ends are settled: Q279, Q281, Q282, Q283, Q284 and Q285 built, Q286 and Q287 Original,
 and item 9, lambdas, no change. Q280, Q288, Q289 and Q291 came out of them.
+
+## Q292, settled 2026-10-24
+
+Ray asked of the Q288 summary, "for any selection? how many keys??" A sweep found 10,000 rows against
+10,000 keys took 2.84 s. The plan: SCAN b per row. The d05 runs had passed only because both tables'
+key indexes had been made by hand first. `_key_source_sql()` built a table's key index when the table
+itself was the keys, but not when a selection of it was. Ray: "not sure if we want an automatic index",
+then chose the revised fix, the table's own lazy key index, and: "other places that should build the
+index need to be checked."
+
+Built: `_key_source_sql()` calls `_need_keyfield()` for every SqlDaf key source, which builds the
+table's key index when the keyfields match. The sweep, first call and second:
+
+    10,000 x 10,000          0.04 s   0.01 s
+    100,000 x 100,000        0.23 s   0.08 s
+    133,422 x 1,603,908      1.55 s   0.12 s
+    1,000,000 x 1,000,000    2.21 s   0.89 s
+
+The audit of lookups by key:
+- `_need_keyfield()`, the rule, is used by select_krows, select_records_daf, delete_records,
+  assign_record, update_by_keylist, update_record_krow, `__setitem__` and get_existing_keys.
+- `select_record()` called the table's `ensure_key_index()` always, and raised ValueError for a
+  selection keyed by another column of a table with no keyfield. It uses `_need_keyfield()` now.
+  `sdaf[key]` and `in` go through it.
+- `concat(respect_kd=True)` and `_ref_col()` build it themselves. `join()` needs none: SQLite makes an
+  automatic index, 0.53 s against 0.46 s for 200,000 by 200,000.
+- A selection keyed by another column than its table's gets no index. Each lookup then scans.

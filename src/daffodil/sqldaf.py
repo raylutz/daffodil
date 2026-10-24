@@ -2055,10 +2055,8 @@ class SqlDaf(Daf):
             KeyError: The key is missing, and `silent_error` is False.
             ValueError: There is no keyfield.
         """
-        if not self.keyfield:
-            raise ValueError(f"SqlDaf.select_record: '{self.name}' has no keyfield.")
-        self._root().ensure_key_index()
-        rows_lot: List[Tuple[Any, ...]] = self._select_rows(f'{quote_name(self.keyfield)} IS ?', (key,), limit=1)
+        key_col: str = self._need_keyfield('select_record')
+        rows_lot: List[Tuple[Any, ...]] = self._select_rows(f'{quote_name(key_col)} IS ?', (key,), limit=1)
         if not rows_lot:
             if silent_error:
                 return {}
@@ -3924,12 +3922,12 @@ class SqlDaf(Daf):
             self._check_same_db(keys_ls, 'The keys')
             if not keys_ls.keyfield:
                 raise ValueError(f"The keys are the SqlDaf '{keys_ls.name}', which has no keyfield.")
-            if keys_ls.parent_sdaf is None and keys_ls.keyfield:
-                keys_ls.ensure_key_index()
+            # A selection of keys is found in by its references, so they need an index.
             if keys_ls.parent_sdaf is not None:
-                # A selection of keys is found in by its references, so they need an index.
                 keys_ls._resolve()
                 keys_ls._ensure_ref_index()
+            # Its table finds each key by the key index, built lazily as for any lookup by key.
+            keys_ls._need_keyfield('The keys')
             rows_sql, rows_params = keys_ls._rows_sql()
             return f'SELECT {quote_name(keys_ls.keyfield)} AS daf_key, {ORD_COL} FROM ({rows_sql})', rows_params
 

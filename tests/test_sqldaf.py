@@ -2077,6 +2077,28 @@ def test_a_selection_as_keys_is_found_in_by_an_index_on_its_references():
     assert bif_sdaf.select_records_daf(p1_sdaf).keys() == ['b1', 'b3', 'b5']
 
 
+def test_a_selection_as_keys_builds_the_key_index_of_its_table():
+    """
+    Each key is looked up in the selection's table. Without its key index, every row scanned that table.
+    The key index is built lazily, as for any lookup by key.
+    """
+    rows_sdaf: SqlDaf = SqlDaf.from_daf(make_bif_daf(), name='rows')
+    keys_sdaf: SqlDaf = SqlDaf.from_daf(make_bif_daf(), name='keys')
+    keys_sel_sdaf: SqlDaf = keys_sdaf.select_by_dict({'precinct': 'P1'})
+    assert keys_sdaf.key_index_name() not in key_indexes(keys_sdaf.conn)
+    assert rows_sdaf.select_records_daf(keys_sel_sdaf, inverse=True).keys() == ['b2', 'b4']
+    assert keys_sdaf.key_index_name() in key_indexes(keys_sdaf.conn)
+
+
+def test_select_record_on_a_selection_keyed_by_another_column():
+    """ A selection keyed by a column that is not its table's keyfield needs no key index of the table. """
+    plain_sdaf: SqlDaf = SqlDaf.from_daf(Daf(cols=['k', 'g', 'v'], lol=[['a', 'x', 1], ['b', 'y', 2], ['c', 'x', 3]]), name='plain')
+    unique_sdaf, _dups_sdaf = plain_sdaf.remove_dups(keyfield='g')
+    assert unique_sdaf.select_record('y') == {'k': 'b', 'g': 'y', 'v': 2}
+    assert 'x' in unique_sdaf
+    assert unique_sdaf['y'].to_daf().lol == [['b', 'y', 2]]
+
+
 def test_a_selection_of_a_table_keyed_by_text_refers_by_the_key(job_db):
     """ A table made by other code has no daf_rid, so its selections refer to rows by key, with the key's type. """
     make_plain_table(job_db, [('b1', 1), ('b2', 2), ('b3', 1)], 'ballot_id TEXT, v INTEGER')
