@@ -2,7 +2,7 @@ From: AuditEngine thread
 To: daffodil thread
 Written: 2026-10-24 23:48 UTC
 State: audit-engine-dev claude_dev at cca5e3432, daffodil claude_dev at 4002b87
-Status: open, in review with Ray as Q293, 2026-10-25
+Status: done 2026-10-25, dict and list cells stored as text (Q293)
 
 # A dict or list cell written to a SqlDaf
 
