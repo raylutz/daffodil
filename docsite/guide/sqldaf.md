@@ -420,6 +420,136 @@ and the SqlDaf then refers to it there.
 Neither works inside a transaction. SQLite cannot detach a file used in an open transaction,
 so both raise ValueError there, and nothing is attached.
 
+## How cells are stored
+
+A SqlDaf stores each cell as SQLite holds it: an int as an integer, a float as a real, and a str
+as text. A bool is stored as 0 or 1, as daffodil writes bools. A missing value, NULL, is stored as
+SQL NULL, and reads and prints as NULL again. A dict or a list is stored as its text, the
+`str()` that `to_csv_file()` writes for it.
+
+```pycon
+>>> kinds_daf = Daf(cols=['id', 'n', 'x', 'ok', 'p', 'cv', 'ls'], keyfield='id', lol=[
+...     ['b1', 3, 2.5, 1, 'P1', {'c0': 1, 'c1': ''}, [1, 'two']],
+...     ['b2', '', '', 0, '', {}, []]])
+>>> kinds_daf
+<BLANKLINE>
+| id | n  |  x  | ok | p  |         cv          |     ls     |
+| -: | -: | --: | -: | -: | ------------------: | ---------: |
+| b1 |  3 | 2.5 |  1 | P1 | {'c0': 1, 'c1': ''} | [1, 'two'] |
+| b2 |    |     |  0 |    |                  {} |         [] |
+<BLANKLINE>
+%% daf rows=2; cols=7; keyfield='id'; name=''
+>>> kinds_sdaf = SqlDaf.from_daf(kinds_daf, name='kinds')
+>>> kinds_sdaf
+<BLANKLINE>
+| id | n  |  x  | ok | p  |         cv          |     ls     |
+| -: | -: | --: | -: | -: | ------------------: | ---------: |
+| b1 |  3 | 2.5 |  1 | P1 | {'c0': 1, 'c1': ''} | [1, 'two'] |
+| b2 |    |     |  0 |    |                  {} |         [] |
+<BLANKLINE>
+%% daf rows=2; cols=7; keyfield='id'; name='kinds'
+>>> kinds_sdaf.sql('SELECT id, typeof(n), typeof(x), typeof(ok), typeof(p), typeof(cv), typeof(ls) FROM kinds')
+<BLANKLINE>
+| id | typeof(n) | typeof(x) | typeof(ok) | typeof(p) | typeof(cv) | typeof(ls) |
+| -: | --------: | --------: | ---------: | --------: | ---------: | ---------: |
+| b1 |   integer |      real |    integer |      text |       text |       text |
+| b2 |      null |      null |    integer |      null |       text |       text |
+<BLANKLINE>
+%% daf rows=2; cols=7; keyfield=''; name=''
+```
+
+The table prints the same as the Daf. `typeof()` shows what SQLite holds. A NULL is SQL NULL, and
+the dict and list are text. Reading a row gives that text back:
+
+```pycon
+>>> kinds_sdaf.select_record('b1')
+{'id': 'b1', 'n': 3, 'x': 2.5, 'ok': 1, 'p': 'P1', 'cv': "{'c0': 1, 'c1': ''}", 'ls': "[1, 'two']"}
+```
+
+With NULL stored as SQL NULL, SQL's own sums and counts skip it, as the Daf methods do:
+
+```pycon
+>>> kinds_sdaf.sql('SELECT SUM(n) AS sum_n, COUNT(n) AS count_n, AVG(x) AS avg_x FROM kinds')
+<BLANKLINE>
+| sum_n | count_n | avg_x |
+| ----: | ------: | ----: |
+|     3 |       1 |   2.5 |
+<BLANKLINE>
+%% daf rows=1; cols=3; keyfield=''; name=''
+```
+
+The text of a dict or list is daffodil's own form, with bools as 0 and 1 and missing values as
+''. SQLite's JSON functions read it, so a condition or a query can look inside it. A Python
+function in `select_where()` or `apply()` gets it as text, and decodes it if it needs to:
+
+```pycon
+>>> kinds_sdaf.select_where_sql("json_extract(cv, '$.c0') = ?", [1]).keys()
+['b1']
+>>> kinds_sdaf.sql("SELECT id, json_extract(cv, '$.c0') AS c0, json_extract(ls, '$[1]') AS ls1 FROM kinds")
+<BLANKLINE>
+| id | c0 | ls1 |
+| -: | -: | --: |
+| b1 |  1 | two |
+| b2 |    |     |
+<BLANKLINE>
+%% daf rows=2; cols=3; keyfield=''; name=''
+```
+
+A table loaded from a CSV file starts as text, as a Daf read with `from_csv()` does. An empty
+field is stored as SQL NULL. `apply_dtypes()` then converts the columns once, in SQL. A dict or
+list dtype is recorded and converts nothing, since the text is the value. After it, the table
+holds exactly what the direct write stored:
+
+```pycon
+>>> csv_path = os.path.join(os.path.dirname(SqlDaf.db_path), 'kinds.csv')
+>>> _ = kinds_daf.to_csv_file(csv_path)
+>>> print(open(csv_path).read())
+id,n,x,ok,p,cv,ls
+b1,3,2.5,1,P1,"{'c0': 1, 'c1': ''}","[1, 'two']"
+b2,,,0,,{},[]
+>>> loaded_sdaf = SqlDaf.from_csv(csv_path, name='kinds_csv', keyfield='id')
+>>> loaded_sdaf.sql('SELECT id, typeof(n), typeof(x), typeof(ok), typeof(p), typeof(cv), typeof(ls) FROM kinds_csv')
+<BLANKLINE>
+| id | typeof(n) | typeof(x) | typeof(ok) | typeof(p) | typeof(cv) | typeof(ls) |
+| -: | --------: | --------: | ---------: | --------: | ---------: | ---------: |
+| b1 |      text |      text |       text |      text |       text |       text |
+| b2 |      null |      null |       text |      null |       text |       text |
+<BLANKLINE>
+%% daf rows=2; cols=7; keyfield=''; name=''
+>>> _ = loaded_sdaf.apply_dtypes(dtypes={'n': int, 'x': float, 'ok': bool, 'cv': dict, 'ls': list}, cols=['n', 'x', 'ok', 'cv', 'ls'])
+>>> loaded_sdaf.sql('SELECT id, typeof(n), typeof(x), typeof(ok), typeof(p), typeof(cv), typeof(ls) FROM kinds_csv')
+<BLANKLINE>
+| id | typeof(n) | typeof(x) | typeof(ok) | typeof(p) | typeof(cv) | typeof(ls) |
+| -: | --------: | --------: | ---------: | --------: | ---------: | ---------: |
+| b1 |   integer |      real |    integer |      text |       text |       text |
+| b2 |      null |      null |    integer |      null |       text |       text |
+<BLANKLINE>
+%% daf rows=2; cols=7; keyfield=''; name=''
+>>> loaded_sdaf.to_daf().lol == kinds_sdaf.to_daf().lol
+True
+```
+
+In memory, a Daf decodes the dict and list text. `to_daf()` carries the dtypes, and the Daf's
+`apply_dtypes()` turns the text back into a dict and a list, so the round trip gives back the
+Daf it started from:
+
+```pycon
+>>> back_daf = loaded_sdaf.to_daf().apply_dtypes(cols=['cv', 'ls'])
+>>> back_daf.select_record('b1')
+{'id': 'b1', 'n': 3, 'x': 2.5, 'ok': 1, 'p': 'P1', 'cv': {'c0': 1, 'c1': ''}, 'ls': [1, 'two']}
+>>> back_daf.lol == kinds_daf.lol
+True
+```
+
+Writing a dict or list cell from Python, as with `append()` or `update_record_krow()`, stores its
+text too. Only a dict or a list itself is turned into text. A tuple, or a subclass of dict such as
+OrderedDict, is refused by SQLite, with sqlite3.ProgrammingError or InterfaceError:
+
+```pycon
+>>> kinds_sdaf.append({'id': 'b3', 'n': 4, 'x': 0.5, 'ok': 1, 'p': 'P2', 'cv': {'c2': 2}, 'ls': ['q']}).select_record('b3')
+{'id': 'b3', 'n': 4, 'x': 0.5, 'ok': 1, 'p': 'P2', 'cv': "{'c2': 2}", 'ls': "['q']"}
+```
+
 ## Missing values
 
 There are two kinds of NULL. Python NULL is daffodil's missing value: the empty string '',
