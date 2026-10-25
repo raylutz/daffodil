@@ -52,16 +52,22 @@ One decorator registers a class of methods under a name, for Daf, SqlDaf or both
 
     daf.hist.update_with_history(new_daf)
 
-- The name becomes a descriptor on the class. Reading `daf.hist` makes one HistNamespace for that
-  Daf and keeps it on the Daf, so later reads cost a dict lookup.
+- The name becomes a descriptor on the class. Reading `daf.hist` makes a new HistNamespace for that
+  Daf each time, which took 0.31 µs. It is not cached on the Daf: a Daf copies its attributes to a
+  selection, daf.py:1315, so a cached object would follow the selection, still bound to the parent.
+  A prototype found that: `daf[0:1].hist` counted the parent's 2 rows, not its own 1.
 - The namespace sits on the class, so every Daf has it, a selection or a copy included. The 183
   `Daf(...)` calls need no change. That is why a namespace serves here and a subclass does not.
 
 ### The points to settle, with a proposal for each
 
-1. **One hook for both classes.** `register_namespace(name, classes=(Daf,))`. An add-on written
-   for a Daf works on rows in memory, which a SqlDaf does not hold. So it is on SqlDaf only when
-   `classes` names SqlDaf. A namespace on Daf alone is blocked on SqlDaf, as SqlDaf blocks a Daf method.
+1. **Registered separately for each class.** `register_namespace(name, cls=Daf)`, and again with
+   `cls=SqlDaf` for a SqlDaf version, which may use the same name. Tried in a prototype on the real
+   classes, 2026-10-25:
+   - With Daf only, `daf.hist` and a Daf selection's work, and `sdaf.hist` raises NotImplementedError,
+     since a Daf add-on reads rows in memory, which a SqlDaf does not hold.
+   - With both, a Daf gets the Daf version, and a SqlDaf and its selections get the SqlDaf version,
+     since a class attribute of SqlDaf takes precedence over one it inherits from Daf.
 2. **A name in use raises.** If the name is a method or an attribute of the class, or a namespace
    already registered, `register_namespace()` raises ValueError. A silent override would change
    what a core method does. Registering the same class again under the same name is allowed, so a
