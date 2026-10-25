@@ -2,7 +2,7 @@ From: AuditEngine thread
 To: daffodil thread
 Written: 2026-10-25 16:04 UTC
 State: audit-engine-dev claude_dev at b40a8dc59, daffodil claude_dev at 9caa806
-Status: open, plan drafted for Ray in notes/engineering_notebook/2026-10-25_1627_addon_hook_and_mixin_split_plan.md
+Status: done 2026-10-25, the hook is built at 3f990d2. The split waits for Ray.
 
 # A plan for add-ons and for splitting daf.py, planning only
 
