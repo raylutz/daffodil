@@ -18,7 +18,8 @@ Related: Q293, a dict or list cell written to a SqlDaf, mail to_daffodil/2026-10
 
 ## The example session
 
-Run 2026-10-25 on daffodil claude_dev at 4002b87, by scratch session.py. `job_dir` stands for a
+Run 2026-10-25 in the sql_backing worktree at 2e39719, by scratch session.py. The worktree also held the
+uncommitted Q293 change, which the session does not reach, since it writes no dict from Python. `job_dir` stands for a
 temporary folder.
 
 ```pycon
