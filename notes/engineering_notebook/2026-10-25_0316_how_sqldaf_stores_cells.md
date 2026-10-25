@@ -119,4 +119,5 @@ True
 
 - Q293: how a write from Python stores a dict or list cell, a test of each cell or a retry when SQLite refuses.
 - Whether writes should keep turning NULLSTR into SQL NULL cell by cell.
-- Whether `apply_dtypes()` and `from_csv()` on a SqlDaf take dtype dict and list, as Ray says they should.
+- Decided, not built: `apply_dtypes()` and `from_csv()` on a SqlDaf take dtype dict and list. They record the
+  dtype and convert nothing, since the stored text is the value. Ray: it "should return str(dict)".
