@@ -383,9 +383,9 @@ def test_from_csv_dtypes_convert_as_apply_dtypes_does(tmp_path):
 
 
 def test_from_csv_dtype_that_cannot_be_stored_raises(tmp_path):
-    csv_path: str = write_csv(str(tmp_path / 'd.csv'), 'k\n{}\n')
+    csv_path: str = write_csv(str(tmp_path / 'd.csv'), 'k\n(1,)\n')
     with pytest.raises(NotImplementedError):
-        SqlDaf.from_csv(csv_path, dtypes={'k': dict})
+        SqlDaf.from_csv(csv_path, dtypes={'k': tuple})
     assert not SqlDaf.table_exists('d')
 
 
@@ -970,10 +970,10 @@ def test_apply_dtypes_unknown_col_raises_keyerror():
         t_sdaf.apply_dtypes(dtypes={'a': int}, cols=['z'])
 
 
-def test_apply_dtypes_list_is_not_supported_yet():
-    t_sdaf: SqlDaf = SqlDaf.from_daf(Daf(lol=[['[1]']], cols=['a']), name='t')
+def test_apply_dtypes_tuple_is_not_supported_yet():
+    t_sdaf: SqlDaf = SqlDaf.from_daf(Daf(lol=[['(1,)']], cols=['a']), name='t')
     with pytest.raises(NotImplementedError):
-        t_sdaf.apply_dtypes(dtypes={'a': list})
+        t_sdaf.apply_dtypes(dtypes={'a': tuple})
 
 
 def test_apply_dtypes_uses_stored_dtypes():
