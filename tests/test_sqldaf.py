@@ -550,6 +550,24 @@ def test_a_direct_write_stores_what_a_csv_round_trip_stores(tmp_path):
     assert decoded_daf.apply_dtypes().lol == cells_daf.lol
 
 
+def test_dict_and_list_dtypes_are_recorded_and_keep_the_text(tmp_path):
+    """ On a SqlDaf a dict or list dtype means the cell's text. apply_dtypes() and from_csv() record it and convert nothing. """
+    cells_daf: Daf = make_cells_daf()
+    csv_path: str = str(tmp_path / 'cells.csv')
+    cells_daf.to_csv_file(csv_path)
+    loaded_sdaf: SqlDaf = SqlDaf.from_csv(csv_path, name='loaded', keyfield='id', dtypes={'cv': dict, 'ls': list})
+    assert loaded_sdaf.select_record('a1') == {'id': 'a1', 'cv': "{'x': 1, 'n': None}", 'ls': "[1, 'two']"}
+    assert SqlDaf('loaded').dtypes == {'cv': dict, 'ls': list}
+
+    text_sdaf: SqlDaf = SqlDaf.from_csv(csv_path, name='text', keyfield='id')
+    assert text_sdaf.apply_dtypes(dtypes={'cv': dict, 'ls': list}, cols=['cv', 'ls']) is text_sdaf
+    assert text_sdaf.select_record('a1') == loaded_sdaf.select_record('a1')
+    assert SqlDaf('text').dtypes == {'cv': dict, 'ls': list}
+    decoded_daf: Daf = text_sdaf.to_daf()
+    assert decoded_daf.dtypes == {'cv': dict, 'ls': list}
+    assert decoded_daf.apply_dtypes(cols=['cv', 'ls']).lol == cells_daf.lol
+
+
 def test_a_subclass_of_dict_or_a_tuple_cell_is_refused_by_sqlite():
     """ Only dict and list themselves are turned into text, so the test of each cell stays cheap. """
     import collections

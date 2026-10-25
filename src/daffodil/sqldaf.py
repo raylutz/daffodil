@@ -35,9 +35,10 @@ META_TABLE = 'daf_tables'           # the table of metadata, one row per table S
 SAVEPOINT = 'daf_sp'                # the name of a nested transaction. One name can be nested.
 FILE_SCHEMA = 'daf_file'            # the schema of another database file, attached only to copy a table in or out
 
-# dtypes that apply_dtypes() can store.
-# A list or a dict would need JSON text, which is not built.
-STORABLE_DTYPES = (int, float, bool, str)
+# dtypes that apply_dtypes() and from_csv() take.
+# A str, a dict and a list are stored as their text, so nothing is converted. A Daf decodes a dict or list after to_daf().
+STORABLE_DTYPES = (int, float, bool, str, dict, list)
+TEXT_DTYPES = (str, dict, list)
 MIN_SQLITE_VERSION: Tuple[int, int, int] = (3, 48, 0)     # ORDER BY in aggregates, JSON5, and 1000 function arguments.
 
 # dtypes that the metadata can record, by name.
@@ -801,7 +802,8 @@ class SqlDaf(Daf):
         columns are converted as the rows are loaded, as `apply_dtypes()` would convert them.
         That saves a second pass over the table. On 200,000 rows with five int columns, the load
         took 1.0 s with `dtypes`, against 1.4 s for a text load and then `apply_dtypes()`.
-        A dtype may name a column that is not there. The dtypes are kept for the table.
+        A dtype may name a column that is not there. The dtypes are kept for the table. A dict or
+        list dtype keeps the text, which a Daf decodes after `to_daf()`.
 
         An empty cell is stored as SQL NULL, and comes back as NULL. A row shorter than the
         header is padded with Python NULL, and a longer one raises ValueError. As with the
@@ -824,7 +826,7 @@ class SqlDaf(Daf):
             ValueError: A table of that name exists, a column is named daf_rid, a row is longer than its header,
                 or the column names of a file differ from those of the first file, unless `strict_header=False`.
             KeyError: The keyfield is not one of the columns.
-            NotImplementedError: A dtype is not int, float, bool or str.
+            NotImplementedError: A dtype is not int, float, bool, str, dict or list.
         """
         paths_ls: T_ls = _csv_paths(path)
         name = name or os.path.splitext(os.path.basename(paths_ls[0]))[0]
@@ -832,7 +834,7 @@ class SqlDaf(Daf):
         unstorable_ls: T_ls = [col for col, dtype in dtypes_d.items() if dtype not in STORABLE_DTYPES]
         if unstorable_ls:
             raise NotImplementedError(f"SqlDaf.from_csv cannot store {[dtypes_d[col] for col in unstorable_ls]} "
-                                      f"for the columns {unstorable_ls} yet. Only int, float, bool and str.")
+                                      f"for the columns {unstorable_ls} yet. Only int, float, bool, str, dict and list.")
 
         # ---- the columns of each file, read before any row, so the table has every column
         # Empty and repeated names are made unique, as in Daf. An empty file has none.
@@ -863,7 +865,7 @@ class SqlDaf(Daf):
 
         # ---- a converter for each column, as apply_dtypes() uses. None keeps the text.
         converters_l: List[Callable[[Any], Any] | None] = [
-                daf_utils.get_converter(dtypes_d[col]) if col in dtypes_d and dtypes_d[col] is not str else None
+                daf_utils.get_converter(dtypes_d[col]) if col in dtypes_d and dtypes_d[col] not in TEXT_DTYPES else None
                 for col in cols]
 
         def rows() -> Iterator[T_la]:
@@ -6135,8 +6137,10 @@ class SqlDaf(Daf):
         All the columns are converted in one pass over the table, in one transaction.
         On 1,000,000 rows, two int columns took 1.8 s.
 
-        Only int, float, bool and str can be converted yet. A list or a dict column stays as the text
-        of the file, as Python writes it. `reduce(by='sparse_row')` reads that text as it goes.
+        int, float and bool are converted. str, dict and list are recorded, and nothing is converted: the
+        stored text is the value. A dict or list cell is the text a Daf's `to_csv_file()` writes. On the
+        SqlDaf it stays text. `reduce(by='sparse_row')` reads it as it goes, and after `to_daf()` a Daf's
+        `apply_dtypes()` decodes it.
 
         On a selection, the rows are first copied into a TEMP table of its own, as
         `copy(inplace=True)` does, and the copy is converted. The parent is not changed. A Daf
@@ -6154,7 +6158,7 @@ class SqlDaf(Daf):
         Raises:
             KeyError: A name in `cols` is not a column.
             ValueError: A column to convert has no dtype, and `silent_error` is False.
-            NotImplementedError: A dtype is not int, float, bool or str.
+            NotImplementedError: A dtype is not int, float, bool, str, dict or list.
         """
         # The dtypes are recorded with the conversion, in one transaction, so a refused or failed
         # conversion leaves the record and this SqlDaf as they were.
@@ -6174,11 +6178,11 @@ class SqlDaf(Daf):
                              f"Add them to dtypes, or pass silent_error=True to leave them as they are.")
 
         convert_dtypes: Dict[str, Any] = {col: source_dtypes[col] for col in cols_ls
-                                          if col in source_dtypes and source_dtypes[col] is not str}
+                                          if col in source_dtypes and source_dtypes[col] not in TEXT_DTYPES}
         unstorable_ls: T_ls = [col for col, dtype in convert_dtypes.items() if dtype not in STORABLE_DTYPES]
         if unstorable_ls:
             raise NotImplementedError(f"apply_dtypes() cannot store {[convert_dtypes[col] for col in unstorable_ls]} "
-                                       f"for the columns {unstorable_ls} yet. Only int, float, bool and str.")
+                                       f"for the columns {unstorable_ls} yet. Only int, float, bool, str, dict and list.")
         if not convert_dtypes:
             if dtypes:
                 self.dtypes = merged_dtypes

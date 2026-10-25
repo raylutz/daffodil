@@ -121,6 +121,7 @@ True
   writing a Daf to SQL by way of CSV. Measured on 1,000,000 rows, that stored the same, in 6.38 to 7.58 s
   against 2.48 s for the direct write. Ray: "keep the direct write, add the CSV round-trip test". The retry
   when SQLite refuses was not measured, and is not used.
-- Whether writes should keep turning NULLSTR into SQL NULL cell by cell.
-- Decided, not built: `apply_dtypes()` and `from_csv()` on a SqlDaf take dtype dict and list. They record the
-  dtype and convert nothing, since the stored text is the value. Ray: it "should return str(dict)".
+- Q296, settled 2026-10-25: writes keep turning NULLSTR into SQL NULL, cell by cell. Ray: "keep".
+- Q295, built 2026-10-25: `apply_dtypes()` and `from_csv()` on a SqlDaf take dtype dict and list. They record
+  the dtype and convert nothing, since the stored text is the value. Ray: it "should return str(dict)".
+  `STORABLE_DTYPES` includes dict and list, so AuditEngine's `storable_dtypes()` now passes them through.
