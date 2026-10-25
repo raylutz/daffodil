@@ -2250,3 +2250,75 @@ def test_to_md_output_of_one_character_columns_is_read_back_by_from_md():
     daf = Daf(lol=[[1, 'x'], [2, 'y']], cols=['a', 'b'])
     back = Daf.from_md(daf.to_md())
     assert back.columns() == ['a', 'b'] and back.lol == [['1', 'x'], ['2', 'y']]
+
+
+# ---- add-on namespaces: register_daf_namespace() ----
+
+from daffodil.daf import register_daf_namespace
+
+
+class _Totals:
+    """ An add-on that sums a column of the Daf it is read from. """
+    def __init__(self, daf):
+        self._daf = daf
+    def of(self, col):
+        return sum(self._daf.col(col))
+
+
+@pytest.fixture
+def totals_addon():
+    """ Registers the add-on as totals, and removes it after the test, so vars(Daf) stays clean. """
+    register_daf_namespace('totals')(_Totals)
+    yield
+    del Daf.totals
+
+
+def make_qty_daf() -> Daf:
+    return Daf(cols=['id', 'qty'], lol=[['a1', 3], ['b2', 10], ['c3', 7]], keyfield='id')
+
+
+def test_register_daf_namespace_is_bound_to_each_daf_its_selections_and_copies(totals_addon):
+    daf = make_qty_daf()
+    assert daf.totals.of('qty') == 20
+    assert daf[0:2].totals.of('qty') == 13
+    assert daf[['c3']].totals.of('qty') == 7
+    assert daf.copy('editable').totals.of('qty') == 20
+    assert daf.select_where(lambda row: row['qty'] > 5).totals.of('qty') == 17
+
+
+def test_register_daf_namespace_makes_a_new_object_each_read(totals_addon):
+    daf = make_qty_daf()
+    assert daf.totals is not daf.totals
+    assert 'totals' not in vars(daf)
+    assert Daf.totals is _Totals
+
+
+def test_register_daf_namespace_returns_the_class_unchanged():
+    assert register_daf_namespace('totals')(_Totals) is _Totals
+    del Daf.totals
+
+
+def test_register_daf_namespace_again_with_the_same_class_is_allowed(totals_addon):
+    register_daf_namespace('totals')(_Totals)
+    assert make_qty_daf().totals.of('qty') == 20
+
+
+def test_register_daf_namespace_raises_for_a_second_class_under_the_same_name(totals_addon):
+    class Other:
+        def __init__(self, daf):
+            pass
+    with pytest.raises(ValueError, match='already registered'):
+        register_daf_namespace('totals')(Other)
+    assert Daf.totals is _Totals
+
+
+@pytest.mark.parametrize('name', ['select_where', 'lol', 'retmode', 'keyfield', 'hd', '__len__'])
+def test_register_daf_namespace_raises_for_a_name_in_use(name):
+    with pytest.raises(ValueError):
+        register_daf_namespace(name)(_Totals)
+
+
+@pytest.mark.parametrize('name', ['_hidden', 'not-a-name', '', '2x'])
+def test_register_daf_namespace_raises_for_a_name_that_is_not_a_public_identifier(name):
+    with pytest.raises(ValueError, match='public identifier'):
+        register_daf_namespace(name)

@@ -45,3 +45,9 @@
 ::: daffodil.sqldaf.SqlDaf.ensure_key_index
 
 ::: daffodil.sqldaf.SqlDaf.apply_dtypes
+
+## Add-ons
+
+See the Guide page [Add-ons](../../guide/addons.md).
+
+::: daffodil.sqldaf.register_sqldaf_namespace

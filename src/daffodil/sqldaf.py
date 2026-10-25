@@ -21,6 +21,7 @@ from daffodil.keyedlist import KeyedList
 from daffodil.lib.daf_types import T_ls, T_la, T_lola, T_di, T_da, T_ds, T_ss, T_sa, T_cs, T_ta, T_kva, T_dtype_dict, T_copybits, T_buff
 import daffodil.lib.daf_utils as daf_utils
 import daffodil.lib.daf_sql as daf_sql
+import daffodil.lib.daf_namespace as daf_namespace
 from daffodil.lib.daf_sql import sqlite3
 
 
@@ -1101,6 +1102,9 @@ class SqlDaf(Daf):
     # ---- text, as a Daf shows it ----
 
     md_max_rows: int = 10                   # the rows that str() shows, the first and the last.
+
+    # The rows are in SQLite, not in memory. An add-on registered for Daf alone is refused here.
+    _rows_in_memory: ClassVar[bool] = False
     md_max_cols: int = 10                   # the columns that str() shows, the first and the last.
 
     def md_daf_table_snippet(self) -> str:                                 # type: ignore[override]
@@ -6281,6 +6285,61 @@ def _none_safe(converter: Callable[[Any], Any]) -> Callable[[Any], Any]:
         result: Any = converter(NULL if val is None else val)
         return None if result is NULL else result
     return convert
+
+
+# The names every SqlDaf sets on itself. An add-on may not take one.
+_SQLDAF_INSTANCE_ATTRS: Tuple[str, ...] = (
+    'conn', '_conn_da', 'db_path', '_name', 'keyfield', 'has_rid', 'hd', 'dtypes',
+    'is_temp', 'parent_sdaf', 'pending_sql', 'pending_params', 'is_resolved',
+)
+
+
+def register_sqldaf_namespace(name: str) -> Callable[[type], type]:
+    """
+    Add a class of methods to every SqlDaf, under one name, as `register_daf_namespace()` does for a Daf.
+
+    A SqlDaf holds its rows in SQLite, so an add-on written for a Daf, which reads rows in memory,
+    does not work on it. An add-on registers a SqlDaf version here, under the same name as its Daf
+    version or another. Then `sdaf.<name>` is an object of that class for that SqlDaf, a selection
+    included. Without one, `sdaf.<name>` of a Daf add-on raises NotImplementedError.
+
+    A name already in use raises ValueError: a method or attribute of SqlDaf, or another SqlDaf add-on.
+    The name of a Daf add-on is free here, for its SqlDaf version.
+
+    Args:
+        name: The attribute name, such as `hist`. It must be a public identifier.
+
+    Returns:
+        A decorator that registers the class and returns it unchanged.
+
+    Raises:
+        ValueError: The name is not a public identifier, or it is already in use on SqlDaf.
+
+    Examples:
+        >>> import tempfile
+        >>> SqlDaf.db_path = tempfile.mkdtemp() + '/job.db'
+        >>> @register_sqldaf_namespace('totals')
+        ... class SqlTotals:
+        ...     def __init__(self, sdaf):
+        ...         self._sdaf = sdaf
+        ...     def of(self, col):
+        ...         return self._sdaf.sum([col])[col]
+        >>> sdaf = SqlDaf('items', cols=['id', 'qty'], lol=[['a1', 3], ['b2', 10]], keyfield='id',
+        ...               dtypes={'id': str, 'qty': int})
+        >>> sdaf
+        <BLANKLINE>
+        | id | qty |
+        | -: | --: |
+        | a1 |   3 |
+        | b2 |  10 |
+        <BLANKLINE>
+        %% daf rows=2; cols=2; keyfield='id'; name='items'
+        <BLANKLINE>
+        >>> sdaf.totals.of('qty'), sdaf[0:1].totals.of('qty')
+        (13, 3)
+        >>> del SqlDaf.totals
+    """
+    return daf_namespace.register_namespace(name, SqlDaf, _SQLDAF_INSTANCE_ATTRS)
 
 
 # ---- block every Daf method that SqlDaf does not define ----

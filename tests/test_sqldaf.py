@@ -3355,3 +3355,83 @@ def test_sort_errors_and_mixed_types():
     with pytest.raises(KeyError):
         sort_sdaf.sort_by_colname('nothing')
     assert sort_sdaf.sort_by_colname('n').col('n') == [1, 2, 'x']
+
+
+# ---- add-on namespaces: register_sqldaf_namespace() ----
+
+from daffodil.daf import register_daf_namespace
+from daffodil.sqldaf import register_sqldaf_namespace
+
+
+class _DafTotals:
+    """ A Daf add-on, which reads the rows in memory. """
+    def __init__(self, daf):
+        self._daf = daf
+    def of(self, col):
+        return sum(self._daf.col(col))
+
+
+class _SqlTotals:
+    """ The SqlDaf version of the same add-on, which sums in SQLite. """
+    def __init__(self, sdaf):
+        self._sdaf = sdaf
+    def of(self, col):
+        return self._sdaf.sum([col])[col]
+
+
+@pytest.fixture
+def daf_totals():
+    register_daf_namespace('totals')(_DafTotals)
+    yield
+    del Daf.totals
+
+
+@pytest.fixture
+def sql_totals():
+    register_sqldaf_namespace('totals')(_SqlTotals)
+    yield
+    del SqlDaf.totals
+
+
+def make_qty_sdaf() -> SqlDaf:
+    return SqlDaf('items', cols=['id', 'qty'], lol=[['a1', 3], ['b2', 10], ['c3', 7]],
+                  keyfield='id', dtypes={'id': str, 'qty': int})
+
+
+def test_daf_addon_raises_not_implemented_on_a_sqldaf(daf_totals):
+    sdaf = make_qty_sdaf()
+    with pytest.raises(NotImplementedError, match="registered for Daf, not for SqlDaf"):
+        sdaf.totals
+    assert Daf(cols=['qty'], lol=[[3]]).totals.of('qty') == 3
+
+
+def test_sqldaf_addon_is_bound_to_each_sqldaf_and_its_selections(sql_totals):
+    sdaf = make_qty_sdaf()
+    assert type(sdaf.totals) is _SqlTotals
+    assert sdaf.totals.of('qty') == 20
+    assert sdaf[0:2].totals.of('qty') == 13
+    assert sdaf.select_where_sql('qty > ?', [5]).totals.of('qty') == 17
+    assert 'totals' not in vars(sdaf)
+
+
+def test_sqldaf_addon_is_not_seen_on_a_daf(sql_totals):
+    assert not hasattr(Daf(cols=['qty'], lol=[[3]]), 'totals')
+
+
+def test_daf_and_sqldaf_versions_under_one_name_each_reach_their_own_class(daf_totals, sql_totals):
+    daf = Daf(cols=['id', 'qty'], lol=[['a1', 3], ['b2', 10]], keyfield='id')
+    sdaf = make_qty_sdaf()
+    assert type(daf.totals) is _DafTotals and type(daf[0:1].totals) is _DafTotals
+    assert type(sdaf.totals) is _SqlTotals and type(sdaf[0:1].totals) is _SqlTotals
+    assert (daf.totals.of('qty'), sdaf.totals.of('qty')) == (13, 20)
+
+
+def test_register_sqldaf_namespace_raises_for_a_second_class_under_the_same_name(sql_totals):
+    with pytest.raises(ValueError, match='already registered'):
+        register_sqldaf_namespace('totals')(_DafTotals)
+
+
+@pytest.mark.parametrize('name', ['select_where_sql', 'conn', 'pending_sql', 'is_resolved', 'db_path', 'to_daf'])
+def test_register_sqldaf_namespace_raises_for_a_name_in_use(name):
+    with pytest.raises(ValueError):
+        register_sqldaf_namespace(name)(_SqlTotals)

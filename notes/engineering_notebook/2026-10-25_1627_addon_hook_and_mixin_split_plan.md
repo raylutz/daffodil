@@ -156,3 +156,29 @@ to 1,200 lines each. A docs page stays one page per class and topic, as now.
 - The hook: are the five proposals right?
 - The split: way A or way B, after the trial?
 - Whether the split waits until after a release, so 0.9.0 ships with daf.py as it is.
+
+## Decided and built: the hook
+
+Ray decided the five points of the hook on 2026-10-25, as proposed:
+
+1. Separate registration for each class. Built as two functions, `register_daf_namespace()` in
+   daf.py and `register_sqldaf_namespace()` in sqldaf.py, rather than one with `cls=`.
+2. A name in use raises ValueError.
+3. Import only, no entry points.
+4. Type checkers use the add-on class directly. Checked: mypy reports `"Daf" has no attribute "stats"`
+   for `daf.stats`, and checks `Stats(daf).share(...)` fully.
+5. Selections keep their namespaces.
+
+The split waits. Ray: "wait on code org split."
+
+What was built:
+
+- src/daffodil/lib/daf_namespace.py holds the descriptor Namespace and `register_namespace()`, shared by both.
+- The class flag `_rows_in_memory`, True on Daf and False on SqlDaf, tells the descriptor to refuse a Daf
+  add-on on a SqlDaf. A SqlDaf add-on is on SqlDaf only, so a Daf never sees it.
+- The names a table sets on itself count as in use. For a Daf they come from `vars(Daf())`. For a SqlDaf
+  they are listed in `_SQLDAF_INSTANCE_ATTRS`, since a SqlDaf needs a file to make. A SqlDaf has no `lol`,
+  so `lol` is free for a SqlDaf add-on.
+- The Guide page docsite/guide/addons.md, and an entry on each API index page.
+- Tests in tests/test_daf_misc.py and tests/test_sqldaf.py remove each add-on after the test. The docs
+  coverage test and the blocker test walk `vars(Daf)`, so a leftover add-on would fail them.

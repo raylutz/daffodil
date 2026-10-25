@@ -69,3 +69,9 @@ pass. For example, `to_value()` with no `default` raises for an empty selection,
 
 ::: daffodil.daf.Daf.TYPE_MAP
 
+
+## Add-ons
+
+See the Guide page [Add-ons](../../guide/addons.md).
+
+::: daffodil.daf.register_daf_namespace

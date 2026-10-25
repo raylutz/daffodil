@@ -102,6 +102,7 @@ import daffodil.lib.daf_pandas   as daf_pandas
 import daffodil.lib.daf_pdf      as daf_pdf
 import daffodil.lib.daf_schema   as daf_schema
 import daffodil.lib.daf_ods      as daf_ods
+import daffodil.lib.daf_namespace as daf_namespace
 
 from daffodil.keyedlist import KeyedList
 
@@ -254,6 +255,9 @@ class Daf:
     }
 
     copy_level_default: ClassVar[str | int] = 'sortable'     # what copy() does when no level is given. See copy().
+
+    # The rows are in memory. An add-on registered for Daf alone is refused on a class without them.
+    _rows_in_memory: ClassVar[bool] = True
 
 
     def __init__(self,
@@ -15635,6 +15639,60 @@ class _IndirectRowView:
             return self.row.items()
 
         return ((key, self[key]) for key in self.keys())
+
+
+def register_daf_namespace(name: str) -> Callable[[type], type]:
+    """
+    Add a class of methods to every Daf, under one name, from a package outside daffodil.
+
+    This is how an add-on gives Daf new methods without a change to daffodil. Decorate a class
+    whose constructor takes the Daf. Then `daf.<name>` is an object of that class for that Daf, and
+    its methods work on it. Every Daf has it, a selection or a copy included, since it is on the class.
+    pandas, xarray and polars add methods the same way.
+
+    An add-on is active once its package is imported. Nothing loads add-ons by itself.
+
+    A name already in use raises ValueError: a method or attribute of Daf, or another add-on.
+    Registering the same class again, as when its module is reloaded, is allowed.
+
+    An add-on for Daf is refused on a SqlDaf, whose rows are in SQLite, not in memory.
+    `register_sqldaf_namespace()` in daffodil.sqldaf adds a SqlDaf version, under the same name or another.
+
+    Type checkers and editors do not see a name added at run time. For checked code, an add-on can
+    be used through its class, as `HistNamespace(daf).update_with_history(new_daf)`.
+
+    Args:
+        name: The attribute name, such as `hist`. It must be a public identifier.
+
+    Returns:
+        A decorator that registers the class and returns it unchanged.
+
+    Raises:
+        ValueError: The name is not a public identifier, or it is already in use on Daf.
+
+    Examples:
+        >>> @register_daf_namespace('totals')
+        ... class Totals:
+        ...     def __init__(self, daf):
+        ...         self._daf = daf
+        ...     def of(self, col):
+        ...         return sum(self._daf.col(col))
+        >>> daf = Daf(cols=['id', 'qty'], lol=[['a1', 3], ['b2', 10]], keyfield='id')
+        >>> daf
+        <BLANKLINE>
+        | id | qty |
+        | -: | --: |
+        | a1 |   3 |
+        | b2 |  10 |
+        <BLANKLINE>
+        %% daf rows=2; cols=2; keyfield='id'; name=''
+        <BLANKLINE>
+        >>> daf.totals.of('qty'), daf[0:1].totals.of('qty')
+        (13, 3)
+        >>> del Daf.totals
+    """
+    instance_attrs: T_ls = list(vars(Daf()))
+    return daf_namespace.register_namespace(name, Daf, instance_attrs)
 
 
 # Profiling mode: with the environment variable DAFFODIL_PROFILE=1, count how Daf is used.

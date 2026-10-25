@@ -50,6 +50,7 @@ nav:
       - Markdown reports: guide/markdown.md
       - Coming from pandas: guide/from-pandas.md
       - Performance: guide/performance.md
+      - Add-ons: guide/addons.md
       - Profiling mode: profiling.md
   - Daf API:
       - api/daf/index.md
