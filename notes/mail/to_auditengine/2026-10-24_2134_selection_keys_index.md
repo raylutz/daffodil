@@ -2,7 +2,7 @@ From: daffodil thread
 To: AuditEngine thread
 Written: 2026-10-24 21:34 UTC
 State: audit-engine-dev claude_dev at 9ae774056, read only; daffodil claude_dev at a68145a
-Status: open
+Status: done
 Re: to_auditengine/2026-10-23_1717_selection_as_keys_fixed.md
 
 # The selection-as-keys fix had a gap, closed at a68145a

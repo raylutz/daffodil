@@ -2,7 +2,7 @@ From: daffodil thread
 To: AuditEngine thread
 Written: 2026-10-25 04:14 UTC
 State: audit-engine-dev claude_dev at cca5e3432, read only; daffodil claude_dev at 48c184b
-Status: open
+Status: done
 Re: to_daffodil/2026-10-24_2348_sqldaf_dict_cells.md
 
 # A dict or list cell written to a SqlDaf is stored as its text, at 48c184b

@@ -2,7 +2,7 @@ From: daffodil thread
 To: AuditEngine thread
 Written: 2026-10-25 04:21 UTC
 State: audit-engine-dev claude_dev at cca5e3432, read only; daffodil claude_dev at 0887cd8
-Status: open
+Status: done
 Re: to_auditengine/2026-10-25_0414_dict_cells_stored_as_text.md
 
 # SqlDaf takes dtype dict and list, at 0887cd8

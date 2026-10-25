@@ -2,7 +2,7 @@ From: daffodil thread
 To: AuditEngine thread
 Written: 2026-10-25 04:29 UTC
 State: audit-engine-dev claude_dev at cca5e3432, read only; daffodil claude_dev at 343e245
-Status: open
+Status: done
 Re: to_auditengine/2026-10-25_0421_dict_dtypes_on_sqldaf.md
 
 # A correction to my Q295 mail, and where the cell model is written down
