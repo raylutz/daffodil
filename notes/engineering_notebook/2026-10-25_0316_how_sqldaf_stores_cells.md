@@ -40,6 +40,60 @@ id,n,x,ok,p,cv
 b1,3,2.5,1,P1,"{'c0': 1, 'c1': ''}"
 b2,,,0,,{}
 >>> sdaf = SqlDaf.from_csv('job_dir/t.csv', name='t', keyfield='id')
+>>> sdaf
+
+| id | n  |  x  | ok | p  |         cv          |
+| -: | -: | --: | -: | -: | ------------------: |
+| b1 |  3 | 2.5 |  1 | P1 | {'c0': 1, 'c1': ''} |
+| b2 |    |     |  0 |    |                  {} |
+
+%% daf rows=2; cols=6; keyfield='id'; name='t'
+>>> sdaf.sql('SELECT id, typeof(n), typeof(x), typeof(ok), typeof(p), typeof(cv) FROM t')
+
+| id | typeof(n) | typeof(x) | typeof(ok) | typeof(p) | typeof(cv) |
+| -: | --------: | --------: | ---------: | --------: | ---------: |
+| b1 |      text |      text |       text |      text |       text |
+| b2 |      null |      null |       text |      null |       text |
+
+%% daf rows=2; cols=6; keyfield=''; name=''
+>>> _ = sdaf.apply_dtypes(dtypes={'n': int, 'x': float, 'ok': bool}, cols=['n', 'x', 'ok'])
+>>> sdaf
+
+| id | n  |  x  | ok | p  |         cv          |
+| -: | -: | --: | -: | -: | ------------------: |
+| b1 |  3 | 2.5 |  1 | P1 | {'c0': 1, 'c1': ''} |
+| b2 |    |     |  0 |    |                  {} |
+
+%% daf rows=2; cols=6; keyfield='id'; name='t'
+>>> sdaf.sql('SELECT id, typeof(n), typeof(x), typeof(ok), typeof(p), typeof(cv) FROM t')
+
+| id | typeof(n) | typeof(x) | typeof(ok) | typeof(p) | typeof(cv) |
+| -: | --------: | --------: | ---------: | --------: | ---------: |
+| b1 |   integer |      real |    integer |      text |       text |
+| b2 |      null |      null |    integer |      null |       text |
+
+%% daf rows=2; cols=6; keyfield=''; name=''
+>>> sdaf.sql('SELECT SUM(n), COUNT(n), AVG(x) FROM t')
+
+| SUM(n) | COUNT(n) | AVG(x) |
+| -----: | -------: | -----: |
+|      3 |        1 |    2.5 |
+
+%% daf rows=1; cols=3; keyfield=''; name=''
+>>> back_daf = sdaf.to_daf()
+>>> back_daf.dtypes = dtypes
+>>> back_daf.apply_dtypes(cols=['cv'])
+
+| id | n  |  x  | ok | p  |         cv          |
+| -: | -: | --: | -: | -: | ------------------: |
+| b1 |  3 | 2.5 |  1 | P1 | {'c0': 1, 'c1': ''} |
+| b2 |    |     |  0 |    |                  {} |
+
+%% daf rows=2; cols=6; keyfield='id'; name='t'
+>>> back_daf['b1', 'cv'].to_value(), type(back_daf['b1', 'cv'].to_value())
+({'c0': 1, 'c1': ''}, <class 'dict'>)
+>>> back_daf.lol == daf.lol
+True
 ```
 
 ## What it shows
