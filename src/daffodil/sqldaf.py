@@ -64,9 +64,20 @@ def placeholders(count: int) -> str:
     return ', '.join(['?'] * count)
 
 
+# A cell of these classes is stored as its text, as `Daf.to_csv_file()` writes it. SQLite has no such type.
+_TEXT_CELL_CLASSES: T_sa = {dict, list}
+
+
 def null_to_none(row_la: Iterable[Any]) -> Tuple[Any, ...]:
-    """ A row on its way into SQL: Python NULL becomes None, which SQLite stores as SQL NULL. """
-    return tuple(None if val is NULL else val for val in row_la)
+    """
+    A row on its way into SQL. Internal use.
+
+    Python NULL becomes None, which SQLite stores as SQL NULL.
+    A dict or a list becomes its text, as `Daf.to_csv_file()` writes it.
+    A subclass of either, or a tuple, is passed as it is, and SQLite refuses it.
+    """
+    return tuple(None if val is NULL else str(val) if val.__class__ in _TEXT_CELL_CLASSES else val
+                 for val in row_la)
 
 
 def none_to_null(row_t: Tuple[Any, ...]) -> T_la:
@@ -592,8 +603,10 @@ class SqlDaf(Daf):
         in one transaction: if any row fails, nothing is made. A Python NULL cell is stored
         as SQL NULL. The table gets a hidden first column, daf_rid, an INTEGER PRIMARY KEY, which
         numbers the rows in order. It is not one of the `columns()`. The columns are declared
-        with no SQL type, so an int stays an int, and text stays text. A cell that holds a list
-        or a dict cannot be stored yet.
+        with no SQL type, so an int stays an int, and text stays text. A cell that holds a dict
+        or a list is stored as its text, as `Daf.to_csv_file()` writes it, and is read back as
+        that text. `to_daf().apply_dtypes()` decodes it, with the column's dtype dict or list, as
+        for a table loaded from a CSV file.
 
         Without `cols`, the table of that name is opened. Its keyfield and dtypes are those
         recorded when it was made, unless they are given here. Nothing is read yet.

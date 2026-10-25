@@ -413,9 +413,9 @@ def test_from_daf_keeps_value_types_without_dtypes():
     assert mixed_sdaf.to_daf().dtypes == {'n': int}
 
 
-def test_from_daf_list_cell_raises():
-    with pytest.raises(sqlite3.Error):
-        SqlDaf.from_daf(Daf(lol=[['a', [1, 2]]], cols=['k', 'x']), name='lists')
+def test_from_daf_list_cell_is_stored_as_text():
+    lists_sdaf: SqlDaf = SqlDaf.from_daf(Daf(lol=[['a', [1, 2]]], cols=['k', 'x']), name='lists')
+    assert lists_sdaf.to_daf().lol == [['a', '[1, 2]']]
 
 
 def test_from_daf_round_trips_with_keyfield():
@@ -499,6 +499,65 @@ def test_read_only_allows_indexes_the_keyfield_and_work_on_copies():
     other_sdaf: SqlDaf = SqlDaf('other', cols=['k', 'a'], lol=[['k1', 1]], keyfield='k')
     other_sdaf.update_record_krow('k1', {'a': 2})
     assert other_sdaf.col('a') == [2]
+
+
+def make_cells_daf() -> Daf:
+    return Daf(cols=['id', 'cv', 'ls'], lol=[['a1', {'x': 1, 'n': None}, [1, 'two']]], keyfield='id',
+               dtypes={'id': str, 'cv': dict, 'ls': list})
+
+
+def test_dict_and_list_cells_are_stored_as_their_csv_text():
+    """ Every write stores a dict or list as the text to_csv_file() writes. to_daf().apply_dtypes() decodes it. """
+    cells_daf: Daf = make_cells_daf()
+    cells_sdaf: SqlDaf = SqlDaf.from_daf(cells_daf, name='cells')
+    assert cells_sdaf.select_record('a1') == {'id': 'a1', 'cv': "{'x': 1, 'n': None}", 'ls': "[1, 'two']"}
+    assert cells_daf.to_csv_buff().splitlines()[1] == 'a1,"{\'x\': 1, \'n\': None}","[1, \'two\']"'
+    cells_sdaf.update_record_krow('a1', {'cv': {'x': 2}})
+    cells_sdaf.append({'id': 'b2', 'cv': {'y': 1}, 'ls': []})
+    cells_sdaf.extend([{'id': 'c3', 'cv': {'b': True}, 'ls': ['q']}])
+    cells_sdaf['b2', 'cv'] = {'y': 9}
+    cells_sdaf.concat(Daf(cols=['id', 'cv', 'ls'], lol=[['d4', {'w': 1}, [0]]]))
+    assert cells_sdaf.to_daf().apply_dtypes().lol == [
+            ['a1', {'x': 2}, [1, 'two']], ['b2', {'y': 9}, []], ['c3', {'b': True}, ['q']], ['d4', {'w': 1}, [0]]]
+    assert cells_sdaf.reduce(Daf.sum_da, by='sparse_row', indirect_col='cv') == \
+           cells_sdaf.to_daf().apply_dtypes().reduce(Daf.sum_da, by='sparse_row', indirect_col='cv')
+
+
+def test_a_direct_write_stores_what_a_csv_round_trip_stores(tmp_path):
+    """
+    from_daf() writes the cells directly. It must store the same as writing the Daf as CSV, loading
+    that with from_csv() and converting its number columns: the same types, and the same values.
+    A dict or list becomes its text, and a missing value SQL NULL, either way.
+    """
+    dtypes: T_dtype_dict = {'id': str, 'n': int, 'x': float, 'ok': bool, 'p': str, 'cv': dict, 'ls': list}
+    cells_daf: Daf = Daf(cols=list(dtypes), keyfield='id', dtypes=dtypes, lol=[
+        ['b1', 3, 2.5, 1, 'P1', {'c0': 1, 'c1': ''}, [1, 'two']],
+        ['b2', NULL, NULL, 0, NULL, {}, []],
+        ['b3', -7, 0.1 + 0.2, 1, "it's", {'a': {'b': [1, '']}}, ['']],
+    ])
+    direct_sdaf: SqlDaf = SqlDaf.from_daf(cells_daf, name='direct')
+    csv_path: str = str(tmp_path / 'cells.csv')
+    cells_daf.to_csv_file(csv_path)
+    via_sdaf: SqlDaf = SqlDaf.from_csv(csv_path, name='via', keyfield='id', dtypes={'n': int, 'x': float, 'ok': bool})
+
+    def stored(sdaf: SqlDaf) -> list:
+        return sdaf.conn.execute(f'SELECT {", ".join(f"typeof({quote_name(col)}), {quote_name(col)}" for col in dtypes)} '
+                                 f'FROM {quote_name(sdaf.name)} ORDER BY daf_rid').fetchall()
+    assert stored(direct_sdaf) == stored(via_sdaf)
+    assert direct_sdaf.to_daf().lol == via_sdaf.to_daf().lol
+    decoded_daf: Daf = direct_sdaf.to_daf()
+    decoded_daf.dtypes = dict(dtypes)
+    assert decoded_daf.apply_dtypes().lol == cells_daf.lol
+
+
+def test_a_subclass_of_dict_or_a_tuple_cell_is_refused_by_sqlite():
+    """ Only dict and list themselves are turned into text, so the test of each cell stays cheap. """
+    import collections
+    cells_sdaf: SqlDaf = SqlDaf.from_daf(make_cells_daf(), name='cells')
+    with pytest.raises(sqlite3.Error):
+        cells_sdaf.append({'id': 'e5', 'cv': collections.OrderedDict(a=1), 'ls': []})
+    with pytest.raises(sqlite3.Error):
+        cells_sdaf.append({'id': 'e6', 'cv': {}, 'ls': (1, 2)})
 
 
 def test_isinstance_daf_and_repr():
@@ -786,7 +845,7 @@ def test_constructor_takes_an_iterator_of_rows_with_null():
 
 def test_constructor_with_a_bad_row_makes_nothing():
     with pytest.raises(sqlite3.Error):
-        SqlDaf('marks', ['ballot_id', 'v'], lol=[['b1', 1], ['b2', [2]]])
+        SqlDaf('marks', ['ballot_id', 'v'], lol=[['b1', 1], ['b2', (2,)]])
     assert not SqlDaf.table_exists('marks')
 
 
