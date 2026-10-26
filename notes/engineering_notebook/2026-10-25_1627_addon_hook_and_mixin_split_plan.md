@@ -189,3 +189,29 @@ On 2026-10-26 Ray asked that `update_with_history()` go into the file the plan w
 It went into src/daffodil/daf_join.py, by way A, as the first method there. Join keeps a module of
 its own, rather than sharing daf_report.py with report and types. The other methods do not move
 until Ray decides the split. See 2026-10-26_1409_update_with_history.md.
+
+## Way A, with refinements (2026-10-26)
+
+Ray, 2026-10-26, assuming way A, refined the plan:
+
+1. Join, report and types stay in separate modules. A combined daf_report.py would be a miscellaneous
+   module. daf_join.py is the model.
+2. Core state stays together in daf.py where practical: construction, the row-sharing rules, the
+   copying of metadata, and the invalidation of the key index. Other modules must respect these.
+3. Each method is assigned in the class body by name, as `join = daf_join._join`. Nothing attaches a
+   module's functions by a loop. The list of assignments documents the class.
+4. Move code first. Signatures and behavior stay the same during the split. Better algorithms and a
+   policy for result types come in later changes.
+5. Verify the tooling after each group: the docs, mypy, the profiler, doctest discovery, and that every
+   moved method is implemented on SqlDaf, safely inherited, or blocked.
+
+On result types: replacing `Daf(...)` with `type(self)(...)` is not the fix by itself. A subclass may
+need other constructor arguments or state, as SqlDaf does. If keeping the concrete type becomes a goal,
+a deliberate method that builds a result is safer than a blanket replacement.
+
+Checked on daf_join.py, the one module built by way A so far: the docs render `update_with_history`
+under its Daf name, the strict build passes, mypy passes, its doctest runs in the doctest pass, the
+profiler wraps it and restores it on stop, and the SqlDaf blocker raises NotImplementedError for it.
+
+The modules, by the docs pages: daf_select.py, daf_modify.py, daf_apply.py, daf_convert.py,
+daf_structure.py, daf_report.py, daf_join.py and daf_types.py, with daf.py keeping the core.
