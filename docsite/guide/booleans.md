@@ -86,15 +86,22 @@ NULL. Use it on a dict or list before it goes into a cell:
 
 ## What daffodil does not do
 
-Daffodil does not check what you store. A True put in a cell stays True until the column is
-converted. `to_csv_file()` then writes it as the word:
+Daffodil does not check what you store. A dtype only describes a column, and converts nothing.
+A True put in a cell stays True until the column is converted, and `to_csv_file()` writes it as
+the word. `apply_dtypes()` with dtype `bool` makes it 1:
 
 ```pycon
 >>> raw = Daf(cols=['id', 'ok'], lol=[['a1', True]])
 >>> print(raw.to_csv_buff())
 id,ok
 a1,True
+>>> print(raw.apply_dtypes(dtypes={'id': str, 'ok': bool}).to_csv_buff())
+id,ok
+a1,1
 ```
+
+A dict or list cell is not changed by `apply_dtypes()`, so a True inside it stays True. Pass the
+value through `normalize_val()` before it goes into the cell.
 
 Checking every cell would slow down every table, so daffodil leaves it to the code that builds
 the rows. Store 0 and 1.

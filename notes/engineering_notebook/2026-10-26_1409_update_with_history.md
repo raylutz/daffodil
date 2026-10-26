@@ -59,6 +59,8 @@ Decided by Ray on 2026-10-26: option A. A bool is the int 0 or 1 in daffodil, an
 is '0' or '1'. The rule is in CLAUDE.md under "Booleans are 0 and 1". `_convert_str()` now gives
 str(int(val)) for a bool. A Daf and a SqlDaf then agree, since SQLite stores a bool as 1.
 
-Found while checking: the writers do not apply the rule. `to_csv_file()` writes a stored True as
-True, with or without dtype bool, and a dict cell keeps True and None in its PYON text. Brought to
-Ray as Q300.
+Found while checking: `to_csv_file()` writes a stored True as True until the column is converted.
+After `apply_dtypes()` with dtype bool it writes 1. A first check declared dtype bool without
+calling `apply_dtypes()`, and wrongly reported that the writer ignores the dtype. Ray caught it.
+What holds: a dict cell keeps True and None in its PYON text, even after `apply_dtypes()` with
+dtype dict, since a dict passes through unchanged. Q300 is that narrower point.
