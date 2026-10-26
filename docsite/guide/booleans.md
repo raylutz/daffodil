@@ -55,14 +55,36 @@ So there is no gain in storing True and False, as long as the code treats the co
 
 ## Converting
 
-`apply_dtypes()` with dtype `bool` reads the usual words, in lower case, capitalized or upper
-case, and gives 0 or 1. See [Types and conversion](types.md#bool-columns) for the full list.
+`apply_dtypes()` with dtype `bool` reads the usual spellings from other systems and gives 0 or 1:
+
+| Gives | Text read |
+| :---- | :-------- |
+| 0 | empty, `0`, `0.0`, `false`, `no`, `n`, `f`, `off` |
+| 1 | `1`, `1.0`, `true`, `yes`, `y`, `t`, `on` |
+
+- Each word is read in lower case, capitalized or upper case, as `no`, `No` and `NO`.
+- Other text stays as it is, with no error. That includes mixed case such as `tRuE`, a word with
+  a space around it, and other numbers such as `'2'`.
+- A value that is not text goes by its truth, so 2 gives 1. None gives 0.
+- An empty cell gives 0, unlike in an `int` column, where it stays NULL.
 
 ```pycon
->>> flags = Daf(cols=['ok'], lol=[['True'], ['false'], ['1'], ['NO']])
+>>> flags = Daf(cols=['ok'], lol=[['True'], ['false'], ['1'], ['NO'], ['Off'], ['y'], [''], ['tRuE'], ['2'], [None], [2]])
 >>> _ = flags.apply_dtypes(dtypes={'ok': bool})
 >>> flags.col('ok')
-[1, 0, 1, 0]
+[1, 0, 1, 0, 0, 1, 0, 'tRuE', '2', 0, 1]
+```
+
+Text that stays as it is can be found with `check_schema()`. See below.
+
+To turn a word into the text `'0'` or `'1'`, convert to `bool` first, then to `str`:
+
+```pycon
+>>> words = Daf(cols=['ok'], lol=[['YES'], ['off']])
+>>> _ = words.apply_dtypes(dtypes={'ok': bool})
+>>> _ = words.apply_dtypes(dtypes={'ok': str}, from_str=False)
+>>> words.col('ok')
+['1', '0']
 ```
 
 Converted to `str`, as with `from_str=False`, a bool becomes `'0'` or `'1'`. So it matches the text
