@@ -42,6 +42,13 @@ Source code is in src/daffodil and tests are in tests.
 - A moved method's `__name__` is the function's name, as `_select_where`. Code that needs the Daf
   name uses the attribute name.
 - The doctests of these modules see daf.py's globals, through conftest.py, as the examples did there.
+- sqldaf.py is split the same way, by its docs pages: sqldaf_read.py, sqldaf_select.py, sqldaf_modify.py
+  and sqldaf_apply.py. Its core keeps the class, the connection, the files, the keys, size, iteration
+  and the shared helpers. The names list is `_NAMES_FROM_SQLDAF`. Ray, 2026-10-26, Q304.
+- The sqldaf_* modules have no `from __future__ import annotations`, as sqldaf.py has none. With it,
+  a doctest that defines a `@schemaclass` gets string annotations, and SqlDaf rejects them as dtypes.
+- A SqlDaf method whose signature differs from Daf's needs `# type: ignore[assignment]` on its
+  class assignment. notes/scripts/add_assignment_ignores.py adds them from mypy's report.
 - src/daffodil/keyedlist.py holds KeyedList.
 - src/daffodil/lib holds helper modules. Some Daf methods are defined there and attached to
   the class. This avoids circular imports and is deliberate.

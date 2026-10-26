@@ -270,4 +270,36 @@ Found along the way:
 Checked after the split: the 4,542 tests and 241 doctests on Python 3.10 to 3.13, mypy, the strict
 docs build, the docs coverage test, the SqlDaf blocker test, the profiler, and pickling.
 
-Still open: the same split for sqldaf.py.
+
+## Done: the split of sqldaf.py (2026-10-26)
+
+Ray approved it on 2026-10-26, Q304, after a size estimate. Commits on sql_backing, one group each:
+
+| Commit | Group | Module | Lines |
+| :- | :- | :- | -: |
+| 4719b3c | read | sqldaf_read.py | 644 |
+| 844eafa | select | sqldaf_select.py | 526 |
+| 0f4d93f | modify | sqldaf_modify.py | 1,217 |
+| b402f74 | apply | sqldaf_apply.py | 1,391 |
+
+sqldaf.py went from 6,397 lines to 2,844. The estimate of 2,300 for the core did not count size,
+iteration and keys, which stay in the core to match daf.py.
+
+How: notes/scripts/move_group.py, a general form of the Daf script. It copies the source module's
+own imports that each new module uses, and writes `_NAMES_FROM_SQLDAF` and the loop in sqldaf.py
+directly, with no run-time imports. 13 private helpers used by one group moved with it. 33 shared ones
+stay in the core.
+
+Found along the way:
+
+- A SqlDaf method that overrode Daf with another signature had `# type: ignore[override]`. Its class
+  assignment needs `# type: ignore[assignment]`, on 18 lines. notes/scripts/add_assignment_ignores.py
+  adds them from mypy's report. The stale comments on the moved defs were removed.
+- `from __future__ import annotations` in a new module broke the doctest of `attach_schema()`, which
+  defines a `@schemaclass`: its annotations became strings, and SqlDaf refused them as dtypes. sqldaf.py
+  has no such import, so the sqldaf_* modules have none.
+- 11 SqlDaf members were missing from its API pages. They were added, with a docs coverage test for
+  SqlDaf, at c02ed4b, before the split.
+- Seven imports of sqldaf.py were used only by moved code, and were removed. No test or AuditEngine
+  code reached them through sqldaf.
+- 7 section headers in the class had nothing left under them, and were removed.
