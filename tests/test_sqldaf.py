@@ -501,6 +501,72 @@ def test_read_only_allows_indexes_the_keyfield_and_work_on_copies():
     assert other_sdaf.col('a') == [2]
 
 
+def test_read_only_holds_only_for_the_sqldaf_that_asked_for_it():
+    """ A writer on the same table changes it while a reader is open. The reader reads the change. """
+    SqlDaf.from_daf(make_bif_daf(), name='bif')
+    SqlDaf.close()
+    reader_sdaf: SqlDaf = SqlDaf('bif', read_only=True)
+    writer_sdaf: SqlDaf = SqlDaf('bif')
+    assert (reader_sdaf.read_only, writer_sdaf.read_only) == (True, False)
+    writer_sdaf.update_record_krow('b1', {'style_num': 9})
+    with pytest.raises(ReadOnlyTableError):
+        reader_sdaf.update_record_krow('b1', {'style_num': 8})
+    writer_sdaf.update_record_krow('b2', {'style_num': 7})
+    assert reader_sdaf.select_record('b1')['style_num'] == 9
+    assert reader_sdaf.select_record('b2')['style_num'] == 7
+
+
+def test_read_only_refuses_a_statement_the_writer_prepared_first():
+    """ SQLite checks a statement when it prepares it, and sqlite3 reuses prepared ones. The reader's same UPDATE is still refused. """
+    SqlDaf.from_daf(make_bif_daf(), name='bif')
+    SqlDaf.close()
+    reader_sdaf: SqlDaf = SqlDaf('bif', read_only=True)
+    writer_sdaf: SqlDaf = SqlDaf('bif')
+    for value in (5, 6):
+        writer_sdaf.update_record_krow('b1', {'style_num': value})
+        with pytest.raises(ReadOnlyTableError):
+            reader_sdaf.update_record_krow('b1', {'style_num': value + 10})
+    assert writer_sdaf.select_record('b1')['style_num'] == 6
+
+
+def test_read_only_selections_follow_their_parent():
+    """ A selection of the reader is read-only. A selection of the writer is not. """
+    SqlDaf.from_daf(make_bif_daf(), name='bif')
+    SqlDaf.close()
+    reader_sdaf: SqlDaf = SqlDaf('bif', read_only=True)
+    writer_sdaf: SqlDaf = SqlDaf('bif')
+    reader_sel: SqlDaf = reader_sdaf.select_by_dict({'precinct': 'P1'})
+    writer_sel: SqlDaf = writer_sdaf.select_by_dict({'precinct': 'P1'})
+    assert (reader_sel.read_only, writer_sel.read_only) == (True, False)
+    with pytest.raises(ReadOnlyTableError):
+        reader_sel.update_record_krow('b1', {'style_num': 3})
+    writer_sel.update_record_krow('b1', {'style_num': 4})
+    assert reader_sdaf.select_record('b1')['style_num'] == 4
+
+
+def test_read_only_sql_raises_read_only_table_error():
+    """ sql() raises ReadOnlyTableError for a refused change, as every other method does. """
+    SqlDaf.from_daf(make_bif_daf(), name='bif')
+    SqlDaf.close()
+    reader_sdaf: SqlDaf = SqlDaf('bif', read_only=True)
+    writer_sdaf: SqlDaf = SqlDaf('bif')
+    with pytest.raises(ReadOnlyTableError):
+        reader_sdaf.sql("UPDATE bif SET style_num = 0")
+    writer_sdaf.sql("UPDATE bif SET style_num = 0")
+    assert set(reader_sdaf.col('style_num')) == {0}
+
+
+def test_read_only_writer_and_reader_compare_on_one_connection():
+    """ The compare pattern runs with a reader and a writer on one connection. """
+    SqlDaf.from_daf(make_bif_daf(), name='bif')
+    SqlDaf.close()
+    reader_sdaf: SqlDaf = SqlDaf('bif', read_only=True)
+    writer_sdaf: SqlDaf = SqlDaf('bif')
+    writer_sdaf.delete_records(['b2'], inplace=True)
+    assert reader_sdaf.select_records_daf(writer_sdaf, inverse=True, silent_error=True).keys() == []
+    assert len(writer_sdaf) == len(make_bif_daf()) - 1
+
+
 def make_cells_daf() -> Daf:
     return Daf(cols=['id', 'cv', 'ls'], lol=[['a1', {'x': 1, 'n': None}, [1, 'two']]], keyfield='id',
                dtypes={'id': str, 'cv': dict, 'ls': list})

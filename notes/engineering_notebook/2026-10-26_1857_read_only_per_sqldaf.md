@@ -60,3 +60,20 @@ roughly 5 to 15 us per switch, for SQLite to prepare statements again. A `select
 
 - `sql()` raises the bare `DatabaseError: not authorized` for a refused write, where other methods raise
   ReadOnlyTableError. This is so in the original too.
+
+## Decided and built
+
+Ray chose the prototype's way, with `sql()` raising ReadOnlyTableError too, on 2026-10-26, Q305.
+
+Built as prototyped, with one change found by the check on Python 3.10: before Python 3.11,
+`set_authorizer(None)` does not remove the authorizer, and every statement was refused. A writer
+gets `_allow_all`, an authorizer that allows every statement, in its place.
+
+- `read_only` is a class attribute, False, set True on a SqlDaf opened with it. A selection copies its parent's.
+- `conn` is a property over `_conn`. The connection's shared state holds `has_read_only` and `guard`, the
+  table the authorizer now protects, or None.
+- `_read_only_authorizer()` takes the one guarded table. `read_only_ss` is gone.
+- Five new tests: a writer and a reader on one table, a statement the writer prepared first, selections
+  of each, `sql()`, and the compare pattern. The 14 earlier read-only tests pass unchanged.
+- The Guide's SqlDaf page shows a reader and a writer on one table.
+- SqlDaf calls with no read-only SqlDaf timed the same as before, within noise.

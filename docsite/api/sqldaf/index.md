@@ -36,6 +36,10 @@
 
 ::: daffodil.sqldaf.SqlDaf.engine
 
+::: daffodil.sqldaf.SqlDaf.conn
+
+::: daffodil.sqldaf.SqlDaf.read_only
+
 ::: daffodil.sqldaf.SqlDaf.close
 
 ::: daffodil.sqldaf.SqlDaf.transaction

@@ -389,8 +389,27 @@ Writing a cell, adding or removing rows or columns, renaming a column, convertin
 `apply_dtypes()` and dropping the table raise ReadOnlyTableError. Nothing is changed.
 Selections, sorts, joins, `groupby()`, an index and the keyfield work, since they leave the data
 as it is. An index does change the file, but not its rows. SQLite itself refuses the change, so
-no method can slip past it. The table stays read-only for every SqlDaf on the file, until
-`SqlDaf.close()`.
+no method can slip past it, `sql()` included.
+
+Read-only holds for the SqlDaf that asked for it, and for its selections. Another SqlDaf opened
+on the same table without `read_only` can change it. The read-only one then reads the change:
+
+```pycon
+>>> rw_sdaf = SqlDaf('items_ro')
+>>> rw_sdaf.read_only, ro_sdaf.read_only
+(False, True)
+>>> rw_sdaf.update_record_krow('a2', {'qty': 13}).col('qty')
+[3, 13]
+>>> ro_sdaf.col('qty')
+[3, 13]
+>>> ro_sdaf.sql("UPDATE items_ro SET qty = 0")
+Traceback (most recent call last):
+...
+daffodil.sqldaf.ReadOnlyTableError: A table opened with read_only=True cannot have its data changed. copy() it, and change the copy.
+```
+
+So a stage that only reads opens a shared table read-only, and a stage that must change the
+table in its own file opens it without `read_only`. Neither has to close the file first.
 
 ## Tables in other files
 

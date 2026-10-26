@@ -308,7 +308,9 @@ _READ_ONLY_MESSAGE: str = "A table opened with read_only=True cannot have its da
 
 def _read_only_authorizer(read_only_ss: T_ss) -> Callable[..., int]:
     """
-    An authorizer for a connection that refuses any change to the data of the tables in `read_only_ss`. Internal use.
+    An authorizer that refuses any change to the data of the tables in `read_only_ss`. Internal use.
+
+    It is set on the connection while a read-only SqlDaf uses it. See the property `SqlDaf.conn`.
 
     SQLite calls it as each statement is compiled. An index, a TEMP table or a write to another table passes.
     For an ALTER TABLE, SQLite gives the schema first and the table second.
@@ -320,6 +322,16 @@ def _read_only_authorizer(read_only_ss: T_ss) -> Callable[..., int]:
             return sqlite3.SQLITE_DENY
         return sqlite3.SQLITE_OK
     return authorize
+
+
+def _allow_all(action: int, arg1: str | None, arg2: str | None, db_name: str | None, source: str | None) -> int:
+    """
+    An authorizer that allows every statement, for a SqlDaf that is not read-only. Internal use.
+
+    Setting it, not None, removes a read-only guard. Before Python 3.11, `set_authorizer(None)`
+    does not remove the authorizer, and every statement is refused.
+    """
+    return sqlite3.SQLITE_OK
 
 
 def _is_refused(exc_info: BaseException) -> bool:
@@ -626,7 +638,10 @@ class SqlDaf(Daf):
         Selections, copies, sorts, joins, indexes and the keyfield still work, since they leave the
         data as it is. To change it, `copy()` the table and change the copy. A Daf changes only
         memory until it is written out. A SqlDaf writes to its file at once, and nothing in the
-        file shows it later. SQLite enforces this for every SqlDaf on the file, until `close()`.
+        file shows it later. SQLite enforces it, so no method can slip past it, `sql()` included.
+
+        Read-only holds for this SqlDaf and its selections only. Another SqlDaf opened on the same
+        table without `read_only` can change it, and this one then reads the changed rows.
 
         Args:
             name: The name of the table.
@@ -663,10 +678,10 @@ class SqlDaf(Daf):
                        (null_to_none(row_la) for row_la in (lol if lol is not None else [])))
         self._open_on(conn, conn_da, path, name, keyfield, dtypes, is_temp=False, use_meta=cols is None)
 
-        # SQLite refuses a change to the data of a read-only table, for every SqlDaf on this file.
+        # Read-only holds for this SqlDaf and its selections. See the property conn.
         if read_only:
-            conn_da['read_only_ss'].add(name)
-            conn.set_authorizer(_read_only_authorizer(conn_da['read_only_ss']))
+            self.read_only = True
+            conn_da['has_read_only'] = True
 
 
     @classmethod
@@ -682,7 +697,7 @@ class SqlDaf(Daf):
         if key_t not in SqlDaf._open_conns:
             # URI filenames let from_db() attach a source read-only. A plain path opens as before.
             SqlDaf._open_conns[key_t] = (_connect(path, isolation_level=None, uri=True),
-                                         {'func_error': None, 'temp_count': 0, 'func_count': 0, 'no_gaps_ss': set(), 'read_only_ss': set()})
+                                         {'func_error': None, 'temp_count': 0, 'func_count': 0, 'no_gaps_ss': set(), 'has_read_only': False, 'guard': None})
         return SqlDaf._open_conns[key_t]
 
 
@@ -712,7 +727,7 @@ class SqlDaf(Daf):
         if keyfield and keyfield not in cols:
             raise KeyError(keyfield)
 
-        self.conn:      sqlite3.Connection  = conn
+        self.conn                           = conn
         self._conn_da:  T_da            = conn_da       # the state shared by every SqlDaf on this connection.
         self.db_path:   str             = path          # type: ignore[misc]
         self._name:     str             = name
@@ -764,6 +779,7 @@ class SqlDaf(Daf):
         sel_sdaf.pending_sql    = pending_sql
         sel_sdaf.pending_params = pending_params
         sel_sdaf.is_resolved    = False
+        sel_sdaf.read_only      = parent_sdaf.read_only
         return sel_sdaf
 
 
@@ -1074,6 +1090,35 @@ class SqlDaf(Daf):
         """ The name of the table in the database. `copy(name=)` and `save(name)` give a new one. """
         return self._name
 
+
+    read_only: bool = False
+    """ True if this SqlDaf was opened with `read_only=True`, or is a selection of one. """
+
+    @property
+    def conn(self) -> sqlite3.Connection:
+        """
+        The connection to the database file, which every SqlDaf on the file shares.
+
+        Every statement a SqlDaf runs reads this first. So while a read-only SqlDaf is open on the
+        file, it sets the authorizer for the SqlDaf that runs the statement. A read-only one gets
+        one that refuses a change to its own table. Any other gets one that allows every statement.
+
+        The authorizer is set again only when that changes, as between a reader and a writer.
+        Setting it makes SQLite prepare its statements again under it. That matters, because SQLite
+        checks a statement only when it prepares it, and Python's sqlite3 reuses prepared statements.
+        A switch costs about 5 to 15 us.
+        """
+        conn_da: T_da = self._conn_da
+        if conn_da['has_read_only']:
+            guard: str | None = self._root()._name if self.read_only else None
+            if conn_da['guard'] != guard:
+                self._conn.set_authorizer(_read_only_authorizer({guard}) if guard else _allow_all)
+                conn_da['guard'] = guard
+        return self._conn
+
+    @conn.setter
+    def conn(self, conn: sqlite3.Connection) -> None:
+        self._conn = conn
 
     def _root(self) -> 'SqlDaf':
         """
@@ -2674,7 +2719,12 @@ class SqlDaf(Daf):
             A Daf of the rows the statement returns.
         """
         changes_before: int = self.conn.total_changes
-        cursor: sqlite3.Cursor = self.conn.execute(stmt, null_to_none(params))
+        try:
+            cursor: sqlite3.Cursor = self.conn.execute(stmt, null_to_none(params))
+        except sqlite3.DatabaseError as exc_info:
+            if _is_refused(exc_info):
+                raise ReadOnlyTableError(_READ_ONLY_MESSAGE) from exc_info
+            raise
         result_daf: Daf = Daf()
         if cursor.description is not None:
             cols: T_ls = [desc_t[0] for desc_t in cursor.description]
@@ -2722,7 +2772,7 @@ def _none_safe(converter: Callable[[Any], Any]) -> Callable[[Any], Any]:
 
 # The names every SqlDaf sets on itself. An add-on may not take one.
 _SQLDAF_INSTANCE_ATTRS: Tuple[str, ...] = (
-    'conn', '_conn_da', 'db_path', '_name', 'keyfield', 'has_rid', 'hd', 'dtypes',
+    '_conn', '_conn_da', 'db_path', '_name', 'keyfield', 'has_rid', 'hd', 'dtypes',
     'is_temp', 'parent_sdaf', 'pending_sql', 'pending_params', 'is_resolved',
 )
 
