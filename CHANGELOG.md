@@ -9,6 +9,9 @@ all prior releases. Plans for future moved to ROADMAP.md.
 
 ## [Unreleased]
 
+### Changed
+- daf.py is split by topic, with no change to what any method does. daf.py keeps the Daf class and its core: construction, copying, the key index, shape, iteration and the dunders, in 3,400 lines where it had 15,600. The other methods are functions in daf_dtypes.py, daf_apply.py, daf_select.py, daf_modify.py, daf_convert.py, daf_structure.py, daf_report.py and daf_join.py, one for each API docs page, assigned in the class by name. Imports, pickling and the docs are unchanged. One difference shows: a moved method's `__name__` is its function's name, as `_select_where`. Calls take the same time: construction, `append()`, `select_record()`, `col()`, `groupby()` and `sum()` timed the same before and after, within noise. Ray chose way A of the plan with refinements on 2026-10-26, Q302 and Q303. The plan is in `notes/engineering_notebook/2026-10-25_1627_addon_hook_and_mixin_split_plan.md`.
+
 ## [0.9.0] - (2026-10-26)
 
 This release has three breaking changes, marked **Breaking** under Changed. SqlDaf needs SQLite 3.48 or later. `groupby_reduce(by='sparse_row')` keeps each group's result as one concise dict. A bool converted to str is `'1'` or `'0'`, where it was the int 1 or 0. It adds `update_with_history()`, add-on namespaces for Daf and SqlDaf, read-only SqlDaf tables, `SqlDaf.from_db()` for tables kept in other files, and Guide pages on add-ons and booleans.

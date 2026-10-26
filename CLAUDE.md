@@ -25,7 +25,23 @@ Source code is in src/daffodil and tests are in tests.
 
 ## Layout
 
-- src/daffodil/daf.py holds the Daf class, which is most of the code.
+- src/daffodil/daf.py holds the Daf class and its core: construction, copying, the key index,
+  shape, iteration and the dunders. Ray, 2026-10-26, Q302 and Q303.
+- Most Daf methods live in modules by topic, one for each API docs page: daf_dtypes.py,
+  daf_apply.py, daf_select.py, daf_modify.py, daf_convert.py, daf_structure.py, daf_report.py and
+  daf_join.py. Each method is a function named with a leading underscore, as `_select_where(self, ...)`.
+  The class assigns it by name, as `select_where = daf_select._select_where`. Wrap a staticmethod
+  or classmethod there: `sum_da = staticmethod(daf_apply._sum_da)`. Never attach functions by a loop.
+- A new method goes into the module for its docs page, with its assignment in the class. Its docs
+  entry names the function with a heading, as `::: daffodil.daf_select._select_where` with
+  `heading: "select_where"`. docsite/griffe_bound_methods.py drops the self from the signature.
+- A module cannot import Daf at its top, since daf.py imports it first. Names of daf.py that its
+  functions use when they run go in its `_NAMES_FROM_DAF`. daf.py sets them at the end of its import.
+  Under TYPE_CHECKING the module imports them for mypy. A run-time import inside a function costs
+  0.2 us a call, so do not use one.
+- A moved method's `__name__` is the function's name, as `_select_where`. Code that needs the Daf
+  name uses the attribute name.
+- The doctests of these modules see daf.py's globals, through conftest.py, as the examples did there.
 - src/daffodil/keyedlist.py holds KeyedList.
 - src/daffodil/lib holds helper modules. Some Daf methods are defined there and attached to
   the class. This avoids circular imports and is deliberate.

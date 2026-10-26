@@ -215,3 +215,59 @@ profiler wraps it and restores it on stop, and the SqlDaf blocker raises NotImpl
 
 The modules, by the docs pages: daf_select.py, daf_modify.py, daf_apply.py, daf_convert.py,
 daf_structure.py, daf_report.py, daf_join.py and daf_types.py, with daf.py keeping the core.
+
+## Done: the split of daf.py (2026-10-26)
+
+Ray approved way A with the refinements above, Q302, and the names, Q303: a leading underscore on
+each function, and daf_dtypes.py for the types group, since lib/daf_types.py holds the T_ aliases.
+
+Commits on sql_backing, one group each, with the full checks passing before each:
+
+| Commit | Group | Module | Lines |
+| :- | :- | :- | -: |
+| eda60a5 | types | daf_dtypes.py | 593 |
+| 32ed3e7 | apply | daf_apply.py | 3,337 |
+| 789c6d9 | select | daf_select.py | 2,379 |
+| 154c6b8 | modify | daf_modify.py | 2,541 |
+| 6f33ea7 | convert | daf_convert.py | 2,117 |
+| b24c40d | structure | daf_structure.py | 323 |
+| 91169ef | report | daf_report.py | 822 |
+| 945795d | join | daf_join.py | 763 |
+| 52bd909 | names from daf.py, cleanup | | |
+
+daf.py went from 15,643 lines to about 3,400.
+
+What stays in daf.py: every dunder, the properties retmode and itermode, `__init__`, `copy()`,
+`clone_empty()`, `set_lol()`, the key index (`keys()`, `set_keyfield()`, `get_existing_keys()`, and the
+private helpers that build and invalidate it), the shape methods, the iterators, and private helpers
+used by the dunders or by more than one group. A private helper used by one group moved with it.
+
+How it was done: notes/scripts/move_daf_group.py, run once per group. It turns each method into a
+module function, keeps `@overload`, wraps a staticmethod or classmethod in the class assignment, keeps
+the text of multi-line strings exactly, rewrites the docs entries and cross-references, and writes
+one block of assignments into the class.
+
+Found along the way:
+
+- The docs showed `self` in the signature of a method assigned from a module, as `apply_schema()` did
+  already. docsite/griffe_bound_methods.py, a griffe extension for the docs build only, drops a
+  leading self or cls from a module function whose name starts with an underscore. A first version
+  without the underscore rule dropped the real `cls` parameter of `daf_profile.start()`.
+- The doctests of the moved functions used daf.py's globals, as Daf and NULL. conftest.py gives the
+  doctests of daffodil.daf_* modules daf.py's globals, with the module's own names first.
+- A run-time `from daffodil.daf import Daf` inside each function cost 0.23 us a call against 0.05 us
+  for a global, and `append()` measured 0.3 us slower. Each module now lists the daf.py names it uses
+  in `_NAMES_FROM_DAF`, and daf.py sets them at the end of its import. After that, construction,
+  `append()`, `select_record()`, `col()`, `groupby()` and `sum()` timed the same as before, within noise.
+- A moved method's `__name__` is the function's name. One test built a message from `__name__`, and
+  now uses the attribute name.
+- mypy refuses a new attribute set on self in a module function. `_col_names()` caches on the Daf, so
+  that line has a type ignore.
+- Ten imports of daf.py were used only by moved code, and were removed. `import typing` was unused
+  before the split, and stays.
+- 15 section headers in the class had nothing left under them, and were removed.
+
+Checked after the split: the 4,542 tests and 241 doctests on Python 3.10 to 3.13, mypy, the strict
+docs build, the docs coverage test, the SqlDaf blocker test, the profiler, and pickling.
+
+Still open: the same split for sqldaf.py.
