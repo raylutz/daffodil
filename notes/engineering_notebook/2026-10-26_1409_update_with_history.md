@@ -64,3 +64,8 @@ After `apply_dtypes()` with dtype bool it writes 1. A first check declared dtype
 calling `apply_dtypes()`, and wrongly reported that the writer ignores the dtype. Ray caught it.
 What holds: a dict cell keeps True and None in its PYON text, even after `apply_dtypes()` with
 dtype dict, since a dict passes through unchanged. Q300 is that narrower point.
+
+Q300 decided by Ray on 2026-10-26: Original. Values are normalized once, when the row is built, and
+never again. No pass in `apply_dtypes()` or in the writers. Checked: a normalized dict cell reads
+back as PYON, through SQLite's json_extract, and through a CSV round trip, unchanged. The rule is in
+CLAUDE.md, the Booleans page and the cheatsheet.

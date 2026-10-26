@@ -158,6 +158,11 @@ This rule holds for all of daffodil. Ray, 2026-10-26, Q299.
   turns the bools in a value into 0 and 1, at any depth.
 - Never write a test, an example or a doc that shows a bool cell as True or False, unless it shows
   the conversion away from it.
+- Values are put into daffodil's form once, when the row is built: bools as 0 and 1, and None as
+  NULL. `normalize_val()` does both inside a dict or list. A cell in this form is PYON and JSON at
+  once, so it is never normalized again. Daffodil does not re-normalize on a write or in
+  `apply_dtypes()`, since that would cost a pass over every dict and list cell each time.
+  Ray, 2026-10-26, Q300.
 - The Guide page docsite/guide/booleans.md is the public statement of this standard. It also states
   the accepted risk: a type checker sees an int, which may hold a value other than 0 or 1.
 

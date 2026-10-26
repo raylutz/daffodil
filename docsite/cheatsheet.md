@@ -281,6 +281,7 @@ Each line is the same task, not the same expression. `daf[x]` selects rows, wher
 - `append()`, `apply_dtypes()` and most changing methods return the Daf itself, changed in place.
 - A missing value is NULL, the empty string `''`, not None or NaN.
 - A boolean is the int 0 or 1, never True or False. Converted to str it is `'0'` or `'1'`.
+- Build rows in this form once: bools as 0 and 1, None as NULL. `normalize_val()` does it inside a dict or list. Daffodil never re-normalizes later.
 - The keyfield column stays in the table. Key lookups are dict lookups, built when first needed.
 - Rows are cheap and columns cost more. Name the columns you need, as with `cols=`, rather than dropping the others.
 

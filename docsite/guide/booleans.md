@@ -106,6 +106,35 @@ NULL. Use it on a dict or list before it goes into a cell:
 {'ok': 1, 'votes': [0, 1], 'note': ''}
 ```
 
+## Normalize once, when the row is built
+
+Put each value into daffodil's form once, when the row is built. Then keep it that form in
+every table. Daffodil's form is:
+
+- a boolean is 0 or 1;
+- a missing value, None included, is NULL, the empty string.
+
+`normalize_val()` does both, at any depth in a dict, list or tuple. Call it on a dict or list
+before it goes into a cell. A cell in this form is already PYON and JSON at once, so it is never
+converted again. Python reads its text, SQLite's JSON functions read it, and a CSV file holds it
+as it is:
+
+```pycon
+>>> cell = normalize_val({'ok': True, 'votes': [False, True], 'note': None})
+>>> cell
+{'ok': 1, 'votes': [0, 1], 'note': ''}
+>>> text = str(cell)
+>>> conn.execute("SELECT json_extract(?, '$.ok'), json_extract(?, '$.note')", (text, text)).fetchone()
+(1, '')
+>>> cells = Daf(cols=['id', 'cv'], lol=[['a1', cell]])
+>>> back = Daf.from_csv_buff(cells.to_csv_buff()).apply_dtypes(dtypes={'id': str, 'cv': dict})
+>>> back.lol
+[['a1', {'ok': 1, 'votes': [0, 1], 'note': ''}]]
+```
+
+Daffodil does not normalize again later, as on each write or each `apply_dtypes()`. That would cost
+a pass over every dict and list cell, every time. Done once, up front, it costs nothing more.
+
 ## What daffodil does not do
 
 Daffodil does not check what you store. A dtype only describes a column, and converts nothing.
@@ -122,8 +151,8 @@ id,ok
 a1,1
 ```
 
-A dict or list cell is not changed by `apply_dtypes()`, so a True inside it stays True. Pass the
-value through `normalize_val()` before it goes into the cell.
+A dict or list cell is not changed by `apply_dtypes()`, so a True or None inside it stays as it
+is. Normalize it when the row is built, as above.
 
 Checking every cell would slow down every table, so daffodil leaves it to the code that builds
 the rows. Store 0 and 1.
