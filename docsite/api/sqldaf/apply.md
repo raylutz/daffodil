@@ -4,44 +4,80 @@ Functions over rows, groups and counts, and joins.
 
 ## Functions over rows
 
-::: daffodil.sqldaf.SqlDaf.apply
+::: daffodil.sqldaf_apply._apply
+    options:
+      heading: "apply"
 
-::: daffodil.sqldaf.SqlDaf.reduce
+::: daffodil.sqldaf_apply._reduce
+    options:
+      heading: "reduce"
 
 ## Groups
 
-::: daffodil.sqldaf.SqlDaf.groupby
+::: daffodil.sqldaf_apply._groupby
+    options:
+      heading: "groupby"
 
-::: daffodil.sqldaf.SqlDaf.groupby_cols
+::: daffodil.sqldaf_apply._groupby_cols
+    options:
+      heading: "groupby_cols"
 
-::: daffodil.sqldaf.SqlDaf.groupby_repeated_cols
+::: daffodil.sqldaf_apply._groupby_repeated_cols
+    options:
+      heading: "groupby_repeated_cols"
 
-::: daffodil.sqldaf.SqlDaf.group_where
+::: daffodil.sqldaf_apply._group_where
+    options:
+      heading: "group_where"
 
-::: daffodil.sqldaf.SqlDaf.groupby_reduce
+::: daffodil.sqldaf_apply._groupby_reduce
+    options:
+      heading: "groupby_reduce"
 
-::: daffodil.sqldaf.SqlDaf.groupby_aggregate
+::: daffodil.sqldaf_apply._groupby_aggregate
+    options:
+      heading: "groupby_aggregate"
 
-::: daffodil.sqldaf.SqlDaf.groupsum_daf
+::: daffodil.sqldaf_apply._groupsum_daf
+    options:
+      heading: "groupsum_daf"
 
-::: daffodil.sqldaf.SqlDaf.sum
+::: daffodil.sqldaf_apply._sum
+    options:
+      heading: "sum"
 
 ## Counts
 
-::: daffodil.sqldaf.SqlDaf.valuecounts_for_colname
+::: daffodil.sqldaf_apply._valuecounts_for_colname
+    options:
+      heading: "valuecounts_for_colname"
 
-::: daffodil.sqldaf.SqlDaf.valuecounts_for_colnames_ls
+::: daffodil.sqldaf_apply._valuecounts_for_colnames_ls
+    options:
+      heading: "valuecounts_for_colnames_ls"
 
-::: daffodil.sqldaf.SqlDaf.valuecounts_for_colname_selectedby_colname
+::: daffodil.sqldaf_apply._valuecounts_for_colname_selectedby_colname
+    options:
+      heading: "valuecounts_for_colname_selectedby_colname"
 
-::: daffodil.sqldaf.SqlDaf.valuecounts_for_colnames_ls_selectedby_colname
+::: daffodil.sqldaf_apply._valuecounts_for_colnames_ls_selectedby_colname
+    options:
+      heading: "valuecounts_for_colnames_ls_selectedby_colname"
 
-::: daffodil.sqldaf.SqlDaf.valuecounts_for_colname1_groupedby_colname2
+::: daffodil.sqldaf_apply._valuecounts_for_colname1_groupedby_colname2
+    options:
+      heading: "valuecounts_for_colname1_groupedby_colname2"
 
-::: daffodil.sqldaf.SqlDaf.value_counts_daf
+::: daffodil.sqldaf_apply._value_counts_daf
+    options:
+      heading: "value_counts_daf"
 
-::: daffodil.sqldaf.SqlDaf.daf_valuecount
+::: daffodil.sqldaf_apply._daf_valuecount
+    options:
+      heading: "daf_valuecount"
 
 ## Joins
 
-::: daffodil.sqldaf.SqlDaf.join
+::: daffodil.sqldaf_apply._join
+    options:
+      heading: "join"
