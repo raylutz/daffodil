@@ -54,3 +54,11 @@ Ray asked the same day to add it as a core method. He also asked for a `from_str
 - `to_csv_file()` writes True as 'True', and a dict cell holding True keeps True in its text.
 - So a typed rerun with a bool never equals its CSV text. AuditEngine stores flags as 0 and 1, so
   it is not affected. Ray to decide.
+
+Decided by Ray on 2026-10-26: option A. A bool is the int 0 or 1 in daffodil, and converted to str it
+is '0' or '1'. The rule is in CLAUDE.md under "Booleans are 0 and 1". `_convert_str()` now gives
+str(int(val)) for a bool. A Daf and a SqlDaf then agree, since SQLite stores a bool as 1.
+
+Found while checking: the writers do not apply the rule. `to_csv_file()` writes a stored True as
+True, with or without dtype bool, and a dict cell keeps True and None in its PYON text. Brought to
+Ray as Q300.

@@ -572,14 +572,18 @@ def _convert_float(val: Any) -> Any:
         return val                              # not a number. Keep the text.
 
 
-def _convert_str(val: Any) -> Any:
-    """ convert one value to str. See convert_type_value(). """
+def _convert_str(val: Any) -> str:
+    """ Convert one value to str. See convert_type_value().
+
+        A bool is written as its int, so True becomes '1' and False becomes '0'.
+        Daffodil keeps a bool as the int 0 or 1, never as the words True or False.
+    """
     if val in ('', None) or val != val:
         return ''
     if isinstance(val, str):
         return val
     if isinstance(val, bool):
-        return int(val)
+        return str(int(val))
     return f"{val}"
 
 

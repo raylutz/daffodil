@@ -138,6 +138,29 @@ Source code is in src/daffodil and tests are in tests.
   Always say which one you mean. SqlDaf writes Python NULL as SQL NULL, but a table written by
   other code may hold the text '', and that is Python NULL too. Ray, 2026-10-15, Q162.
 
+## Booleans are 0 and 1
+
+This rule holds for all of daffodil. Ray, 2026-10-26, Q299.
+
+- A boolean in a daffodil table is the int 0 or 1. It is never the word True or False.
+- The words differ from one system to the next. JSON writes true and false. Python writes True
+  and False. SQLite, Excel and others use TRUE and FALSE. Any of them makes the data hard to
+  work with, and asks for conversions back and forth.
+- 0 and 1 mean the same in all of them. A dict or list cell, written as PYON, is then also valid
+  JSON for its bools, so SQLite's JSON functions can read it.
+- Converting to bool gives 0 or 1. `apply_dtypes()` with dtype bool reads the words, in any case,
+  and gives the int.
+- Converting to str gives '0' or '1'. A Python True or False is made an int first, then text.
+  The text 'True' or 'False' is never produced.
+- So a table written out and read back compares equal to its source as text, with no special case
+  for bools.
+- Code that builds rows puts 0 and 1 in them, not True and False. `normalize_val()` in daf_utils.py
+  turns the bools in a value into 0 and 1, at any depth.
+- Never write a test, an example or a doc that shows a bool cell as True or False, unless it shows
+  the conversion away from it.
+- The Guide page docsite/guide/booleans.md is the public statement of this standard. It also states
+  the accepted risk: a type checker sees an int, which may hold a value other than 0 or 1.
+
 ## Performance over guard rails
 
 - Daffodil is for people who want speed. Don't add checks to the normal path to protect

@@ -44,6 +44,7 @@ nav:
       - Selecting and indexing: guide/selecting.md
       - Columns, keys and schemas: guide/columns-keys-schemas.md
       - Types and conversion: guide/types.md
+      - Booleans: guide/booleans.md
       - Apply, reduce and formulas: guide/apply-reduce-formulas.md
       - Joins: guide/joins.md
       - Tables larger than memory: guide/sqldaf.md

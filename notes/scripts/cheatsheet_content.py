@@ -252,6 +252,7 @@ RULES = [
     "`sort_by_colname()` sorts the Daf itself. `transpose()` returns a new Daf.",
     "`append()`, `apply_dtypes()` and most changing methods return the Daf itself, changed in place.",
     "A missing value is NULL, the empty string `''`, not None or NaN.",
+    "A boolean is the int 0 or 1, never True or False. Converted to str it is `'0'` or `'1'`.",
     "The keyfield column stays in the table. Key lookups are dict lookups, built when first needed.",
     "Rows are cheap and columns cost more. Name the columns you need, as with `cols=`, rather than dropping the others.",
 ]

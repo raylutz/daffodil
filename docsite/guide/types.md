@@ -71,6 +71,9 @@ Load the file as text, then call `apply_dtypes()` for the columns you need. `fro
 
 ## bool columns
 
+In daffodil a boolean is the int 0 or 1, never the word True or False. The page
+[Booleans](booleans.md) gives the standard and the reasons for it.
+
 A `bool` column gets 0 or 1. The usual words for true and false are read in lower case,
 capitalized or upper case. An empty cell becomes 0, unlike in an `int` or `float` column.
 Other text stays as it is. Note that `'False'` gives 0, where Python's `bool('False')` is True.
@@ -98,6 +101,19 @@ Other text stays as it is. Note that `'False'` gives 0, where Python's `bool('Fa
 
 The words for 0 are `0`, `false`, `no`, `n`, `f` and `off`. The words for 1 are `1`, `true`,
 `yes`, `y`, `t` and `on`.
+
+Converted to `str`, a bool becomes `'0'` or `'1'`, so it matches the text of a file that holds 0
+and 1:
+
+```pycon
+>>> typed = Daf(cols=['ok', 'n'], lol=[[True, 3], [False, 4]])
+>>> _ = typed.apply_dtypes(dtypes={'ok': str, 'n': str}, from_str=False)
+>>> typed.lol
+[['1', '3'], ['0', '4']]
+```
+
+Daffodil does not change a True or False stored in a cell until it is converted. `to_csv_file()`
+writes such a cell as `True` or `False`, so store 0 and 1.
 
 ## Missing values
 

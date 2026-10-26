@@ -223,7 +223,8 @@ def test_convert_type_value_to_str_from_int():
 
 
 def test_convert_type_value_to_str_from_bool():
-    assert utils.convert_type_value(True, str) == 1
+    assert utils.convert_type_value(True, str) == '1'
+    assert utils.convert_type_value(False, str) == '0'
 
 
 def test_convert_type_value_list_passthrough_no_conversion():
