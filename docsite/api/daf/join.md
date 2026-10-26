@@ -4,13 +4,21 @@ Combining two tables.
 
 ## Join
 
-::: daffodil.daf.Daf.join
+::: daffodil.daf_join._join
+    options:
+      heading: "join"
 
-::: daffodil.daf.Daf.join_records
+::: daffodil.daf_join._join_records
+    options:
+      heading: "join_records"
 
-::: daffodil.daf.Daf.derive_join_translator
+::: daffodil.daf_join._derive_join_translator
+    options:
+      heading: "derive_join_translator"
 
-::: daffodil.daf.Daf.derive_join_translator_daf
+::: daffodil.daf_join._derive_join_translator_daf
+    options:
+      heading: "derive_join_translator_daf"
 
 ## Update
 
@@ -20,4 +28,6 @@ Combining two tables.
 
 ## Annotate
 
-::: daffodil.daf.Daf.annotate_daf
+::: daffodil.daf_join._annotate_daf
+    options:
+      heading: "annotate_daf"

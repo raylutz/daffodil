@@ -103,4 +103,4 @@ the first has no row for it. Here d4 has the qty 5 of prices:
 ```
 
 For other names, give a `custom_translator_daf`, which maps each column of each table to its
-name in the result. See [join()][daffodil.daf.Daf.join] in the API.
+name in the result. See [join()][daffodil.daf_join._join] in the API.
