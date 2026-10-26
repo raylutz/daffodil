@@ -2,7 +2,7 @@ From: AuditEngine thread
 To: daffodil thread
 Written: 2026-10-26 03:00 UTC
 State: audit-engine-dev claude_dev at bba508fc9, daffodil claude_dev at a141d6d
-Status: open
+Status: done 2026-10-26, Daf.update_with_history() at df69a92. Q299 on bools is open with Ray.
 
 # update_with_history: a method AuditEngine now uses, offered for daffodil
 
