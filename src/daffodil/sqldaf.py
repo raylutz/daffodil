@@ -580,8 +580,11 @@ class SqlDaf(Daf):
         'ballot_id'
     """
 
-    engine:     str = 'sqlite'          # the database engine. Only SQLite so far.
-    db_path:    str = ''                # the database file every SqlDaf opens, unless the constructor names another.
+    engine: str = 'sqlite'
+    """ The database engine. Only SQLite so far. """
+
+    db_path: str = ''
+    """ The database file every SqlDaf opens, unless its constructor names another. Set it once, at the start. """
 
     # The connection open on each file, with its shared state, by thread and real path.
     # Every SqlDaf on a file shares it. `close()` closes it.
@@ -1101,11 +1104,14 @@ class SqlDaf(Daf):
 
     # ---- text, as a Daf shows it ----
 
-    md_max_rows: int = 10                   # the rows that str() shows, the first and the last.
+    md_max_rows: int = 10
+    """ The number of rows that `str()` shows, half from the start and half from the end. """
+
+    md_max_cols: int = 10
+    """ The number of columns that `str()` shows, half from the start and half from the end. """
 
     # The rows are in SQLite, not in memory. An add-on registered for Daf alone is refused here.
     _rows_in_memory: ClassVar[bool] = False
-    md_max_cols: int = 10                   # the columns that str() shows, the first and the last.
 
     def md_daf_table_snippet(self) -> str:                                 # type: ignore[override]
         """

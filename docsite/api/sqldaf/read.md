@@ -64,11 +64,23 @@ Size, looping, single rows and columns, and moving rows into memory.
 
 ## Display and files
 
+::: daffodil.sqldaf.SqlDaf.__str__
+
+::: daffodil.sqldaf.SqlDaf.__repr__
+
+::: daffodil.sqldaf.SqlDaf.__format__
+
+::: daffodil.sqldaf.SqlDaf.md_max_rows
+
+::: daffodil.sqldaf.SqlDaf.md_max_cols
+
 ::: daffodil.sqldaf.SqlDaf.to_md
 
 ::: daffodil.sqldaf.SqlDaf.to_md_cols
 
 ::: daffodil.sqldaf.SqlDaf.daf_to_lol_summary
+
+::: daffodil.sqldaf.SqlDaf.md_daf_table_snippet
 
 ::: daffodil.sqldaf.SqlDaf.to_csv_buff
 

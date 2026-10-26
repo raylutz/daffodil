@@ -18,6 +18,10 @@ Functions over rows, groups and counts, and joins.
 
 ::: daffodil.sqldaf.SqlDaf.group_where
 
+::: daffodil.sqldaf.SqlDaf.groupby_reduce
+
+::: daffodil.sqldaf.SqlDaf.groupby_aggregate
+
 ::: daffodil.sqldaf.SqlDaf.groupsum_daf
 
 ::: daffodil.sqldaf.SqlDaf.sum

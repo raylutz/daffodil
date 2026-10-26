@@ -14,6 +14,8 @@
 
 ::: daffodil.sqldaf.SqlDaf.from_daf
 
+::: daffodil.sqldaf.SqlDaf.from_db
+
 ::: daffodil.sqldaf.SqlDaf.table_exists
 
 ## Tables
@@ -29,6 +31,10 @@
 ::: daffodil.sqldaf.SqlDaf.delete
 
 ## The database
+
+::: daffodil.sqldaf.SqlDaf.db_path
+
+::: daffodil.sqldaf.SqlDaf.engine
 
 ::: daffodil.sqldaf.SqlDaf.close
 
