@@ -7,7 +7,8 @@ Each function here takes the Daf as its first argument, or the class for a class
 It is assigned in the Daf class body under its Daf name, without the underscore.
 The docs show it under that name.
 
-A function that needs a name defined in daf.py, such as Daf, imports it when it runs.
+Some functions use names defined in daf.py, such as Daf, when they run.
+daf.py sets those names here, as listed in _NAMES_FROM_DAF, once they exist.
 An import at the top would be circular, since daf.py imports this module.
 """
 
@@ -19,7 +20,7 @@ import daffodil.lib.daf_utils    as daf_utils
 from typing import List, Type, TYPE_CHECKING
 from collections.abc import Iterable
 
-if TYPE_CHECKING:       # for the annotations only. A real import would be circular.
+if TYPE_CHECKING:       # for mypy. daf.py sets the names below when the program runs.
     from daffodil.daf import Daf
 
 

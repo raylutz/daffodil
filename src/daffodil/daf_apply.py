@@ -7,7 +7,8 @@ Each function here takes the Daf as its first argument, or the class for a class
 It is assigned in the Daf class body under its Daf name, without the underscore.
 The docs show it under that name.
 
-A function that needs a name defined in daf.py, such as Daf, imports it when it runs.
+Some functions use names defined in daf.py, such as Daf, when they run.
+daf.py sets those names here, as listed in _NAMES_FROM_DAF, once they exist.
 An import at the top would be circular, since daf.py imports this module.
 """
 
@@ -26,8 +27,12 @@ from daffodil.keyedlist import KeyedList
 from typing import List, Dict, Any, Tuple, cast, Type, Callable, Literal, overload, TYPE_CHECKING
 from collections.abc import Iterable, Iterator
 
-if TYPE_CHECKING:       # for the annotations only. A real import would be circular.
-    from daffodil.daf import Daf, T_dodaf, T_klodaf
+if TYPE_CHECKING:       # for mypy. daf.py sets the names below when the program runs.
+    from daffodil.daf import Daf, T_dodaf, T_klodaf, _IndirectRowView, _uncountable_message, logs
+
+# The names of daf.py that the functions here use when they run.
+# daf.py sets each one here once it exists. An import at the top would be circular.
+_NAMES_FROM_DAF: Tuple[str, ...] = ('Daf', 'T_dodaf', '_IndirectRowView', '_uncountable_message', 'logs')
 
 
 def _safe_tofloat(val: Any) -> float:
@@ -513,7 +518,6 @@ def _apply(
         %% daf rows=2; cols=2; keyfield=''; name=''
         <BLANKLINE>
     """
-    from daffodil.daf import Daf
     if by == 'table':
         # by contract (see docstring) func returns a 'Daf' when by='table', though this
         # is a pure passthrough and isn't actually enforced (a test exercises it with a
@@ -752,7 +756,6 @@ def _manifest_apply(
         >>> saved
         [[{'n': 2}, {'n': 4}], [{'n': 20}]]
     """
-    from daffodil.daf import Daf
 
     result_manifest_daf = Daf()
 
@@ -882,7 +885,6 @@ def _manifest_process(
         %% daf rows=2; cols=2; keyfield=''; name=''
         <BLANKLINE>
     """
-    from daffodil.daf import Daf
 
     result_daf = Daf()
 
@@ -1170,7 +1172,6 @@ def _group_where(
         >>> {key: len(group) for key, group in groups.items()}
         {'a': 2, 'all': 3, 'b': 1}
     """
-    from daffodil.daf import Daf, _IndirectRowView
 
     # --- helpers ---
 
@@ -1361,7 +1362,6 @@ def _groupby_cols_reduce(
         %% daf rows=2; cols=2; keyfield=''; name=''
         <BLANKLINE>
     """
-    from daffodil.daf import Daf
     # unit test exists.
     """
             
@@ -1508,7 +1508,6 @@ def _groupby_cols_sum(self: 'Daf', groupby_colnames: T_ls, sum_cols: T_ls) -> 'D
     Returns:
         The Daf with one row for each group.
     """
-    from daffodil.daf import Daf
     hd          = self.hd
     group_idxs  = [hd[col] for col in groupby_colnames]
     sum_idxs    = [hd[col] for col in sum_cols]
@@ -1598,7 +1597,6 @@ def _groupby_reduce(
         %% daf rows=2; cols=3; keyfield='g'; name=''
         <BLANKLINE>
     """
-    from daffodil.daf import Daf, T_dodaf, logs
 
     if diagnose:
         logs.sts(f"{logs.prog_loc()} starting groupby '{colname}' operation", 3)
@@ -1757,7 +1755,6 @@ def _reduce_dodaf_to_daf(
         %% daf rows=2; cols=2; keyfield='g'; name=''
         <BLANKLINE>
     """
-    from daffodil.daf import Daf, logs
 
     if diagnose:
         logs.sts(f"{logs.prog_loc()} Grouped into {len(grouped_dodaf)} groups.", 3)
@@ -1873,7 +1870,6 @@ def _multi_groupby_reduce(
         %% daf rows=2; cols=3; keyfield='g'; name=''
         <BLANKLINE>
     """
-    from daffodil.daf import Daf, logs
 
     if diagnose:
         logs.stsloc(f"starting multi-groupby '{colnames}' operation", 3)
@@ -2007,7 +2003,6 @@ def _daf_sum(
         >>> daf.daf_sum(cols=['y'])
         {'g': '', 'x': '', 'y': 60}
     """
-    from daffodil.daf import Daf
 
     return cast(T_da, self.reduce(func=Daf.sum_kl, by=by, cols=cols, indirect_col=indirect_col, **kwargs))
 
@@ -2133,7 +2128,6 @@ def _reduce(
         >>> votes_daf.reduce(Daf.sum_da, by='sparse_row', indirect_col='cv', cols=['c2v', 'c0b'])
         {'c2v': 1, 'c0b': 2}
     """
-    from daffodil.daf import Daf
     if by == 'table':
         reduction_ma = func(self, cols, **kwargs)
         return reduction_ma
@@ -2519,7 +2513,6 @@ def _sum_sparse(rows_iter: Iterator[Any], cols: T_cs | str | None) -> T_da:
     With `cols`, the result holds the columns of `cols` that some row has, in the order of `cols`.
     With no `cols`, it holds every key, in the order the rows first have them. Internal use.
     """
-    from daffodil.daf import Daf
     sample_lodict: List[Any] = list(itertools.islice(rows_iter, Daf._SPARSE_SAMPLE_ROWS))
     loop_cols_t, select_ls = Daf._sparse_sum_plan(cols, sample_lodict)
 
@@ -2544,7 +2537,6 @@ def _is_plain_sum(func: Callable[..., Any], initial_da: Any, silent_error: bool,
 
     `reduce()` then adds the rows by its own loop, which gives the same totals faster.
     """
-    from daffodil.daf import Daf
     return (func in (Daf.sum_da, Daf.sum_kl) and initial_da is None and not silent_error
             and kwargs.keys() <= {'astype', 'is_sparse', 'diagnose'} and not any(kwargs.values()))
 
@@ -2590,7 +2582,6 @@ def _sum_kl( row_kl:         Any,                        # the current row, a Ke
         >>> Daf.sum_kl(KeyedList(['x', 'y'], [1, 'abc']), {'x': 10, 'y': 0}, cols=['x', 'y'])
         {'x': 11, 'y': 0}
     """
-    from daffodil.daf import Daf
     if row_kl.__class__ is not KeyedList or cols is None or astype is not None or is_sparse:
         return Daf.sum_da(row_kl, reduction_da, cols=cols, astype=astype, is_sparse=is_sparse)
 
@@ -2884,7 +2875,6 @@ def _alter_daf_per_setting(
         >>> daf.alter_daf_per_setting({'fix': [spec]}, 'fix', {'spec_name': 'a.zip'}).col('ballot_id')
         ['14_1', '05_2']
     """
-    from daffodil.daf import Daf
 
     if silent_error:
         setting_lod = settingsdict.get(setting_name)
@@ -3071,7 +3061,6 @@ def _count_values_da(
         >>> Daf.count_values_da({'g': 'a'}, {}, ['g'])
         {'g': {'a': 1}}
     """
-    from daffodil.daf import Daf, _uncountable_message
 
     # if cols is None:
         # cols_dict = {}
@@ -3151,7 +3140,6 @@ def _count_values_kl(
         >>> Daf.count_values_kl(KeyedList(['g'], ['a']), {'g': {'a': 2}}, ['g'])
         {'g': {'a': 3}}
     """
-    from daffodil.daf import Daf, _uncountable_message
     if row_kl.__class__ is not KeyedList:
         return Daf.count_values_da(row_kl, reduction_da, cols, omit_nulls=omit_nulls)
 
@@ -3200,7 +3188,6 @@ def _sum_dodis(this_dodi: T_dodi, accum_dodi: T_dodi) -> None:
         >>> total
         {'c': {'x': 3, 'y': 1}}
     """
-    from daffodil.daf import Daf
 
     for key, this_di in this_dodi.items():
         if key in accum_dodi:
@@ -3256,7 +3243,6 @@ def _sum(
         >>> mixed.sum(['n']), mixed.reduce(Daf.sum_da, cols=['n'])
         ({'n': 6.5}, {'n': 4.5})
     """
-    from daffodil.daf import Daf
 
 
     if colnames_ls is None:

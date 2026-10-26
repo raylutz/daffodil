@@ -1,6 +1,10 @@
 """
 Move the Daf methods of one docs page into a module of their own, by way A of the split plan.
 See notes/engineering_notebook/2026-10-25_1627_addon_hook_and_mixin_split_plan.md.
+It was used once, on 2026-10-26, to split daf.py, one group per commit.
+It writes a run-time import of each daf.py name into the functions that use it.
+Those imports cost 0.2 us a call, so they were then replaced by _NAMES_FROM_DAF,
+which daf.py fills at the end of its import. See the notebook entry above.
 Run it on Python 3.10 or 3.11, where an f-string is one token:
     uv run --no-project --python 3.10 python notes/scripts/move_daf_group.py ...
 

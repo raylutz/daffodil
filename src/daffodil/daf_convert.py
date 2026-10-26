@@ -7,7 +7,8 @@ Each function here takes the Daf as its first argument, or the class for a class
 It is assigned in the Daf class body under its Daf name, without the underscore.
 The docs show it under that name.
 
-A function that needs a name defined in daf.py, such as Daf, imports it when it runs.
+Some functions use names defined in daf.py, such as Daf, when they run.
+daf.py sets those names here, as listed in _NAMES_FROM_DAF, once they exist.
 An import at the top would be circular, since daf.py imports this module.
 """
 
@@ -27,8 +28,12 @@ from daffodil.keyedlist import KeyedList
 from typing import List, Dict, Any, Tuple, cast, Callable, TYPE_CHECKING
 from collections.abc import Iterable, Iterator
 
-if TYPE_CHECKING:       # for the annotations only. A real import would be circular.
-    from daffodil.daf import Daf
+if TYPE_CHECKING:       # for mypy. daf.py sets the names below when the program runs.
+    from daffodil.daf import Daf, KeysDisabledError, _keys_mismatch, _short_list
+
+# The names of daf.py that the functions here use when they run.
+# daf.py sets each one here once it exists. An import at the top would be circular.
+_NAMES_FROM_DAF: Tuple[str, ...] = ('Daf', 'KeysDisabledError', '_keys_mismatch', '_short_list')
 
 
 # ==== Python lod (list of dictionaries)
@@ -120,7 +125,6 @@ def _from_lod(
         %% daf rows=1; cols=2; keyfield=''; name=''
         <BLANKLINE>
     """
-    from daffodil.daf import _keys_mismatch, _short_list
 
     """ Create Daf instance from loda type, adopting dict keys as column names
             Generally, all dicts in records_lod should be the same OR the first one must have all keys
@@ -355,7 +359,6 @@ def _to_lod(self: 'Daf') -> T_loda:
         >>> daf.iloc(1)
         {'id': 2, 'v': ['x', 'y']}
     """
-    from daffodil.daf import KeysDisabledError
     # test exists in test_daf.py
 
     if not self:
@@ -498,7 +501,6 @@ def _to_dod(
         >>> daf.to_dod(remove_keyfield=False)
         {1: {'id': 1, 'v': 'a'}}
     """
-    from daffodil.daf import KeysDisabledError
 
     """ a dict of dict structure is very similar to a Daf table, but there is a slight difference.
             a Daf table always has the keys of the outer dict as items in each table.
@@ -1177,7 +1179,6 @@ def _from_csv_file(
         %% daf rows=1; cols=2; keyfield=''; name=''
         <BLANKLINE>
     """
-    from daffodil.daf import Daf
     """ Read a csv file directly into a daf array in memory, per arguments.
 
             Args:

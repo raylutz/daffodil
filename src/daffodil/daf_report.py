@@ -7,7 +7,8 @@ Each function here takes the Daf as its first argument, or the class for a class
 It is assigned in the Daf class body under its Daf name, without the underscore.
 The docs show it under that name.
 
-A function that needs a name defined in daf.py, such as Daf, imports it when it runs.
+Some functions use names defined in daf.py, such as Daf, when they run.
+daf.py sets those names here, as listed in _NAMES_FROM_DAF, once they exist.
 An import at the top would be circular, since daf.py imports this module.
 """
 
@@ -17,10 +18,14 @@ from daffodil.lib.daf_types import T_cs, T_da, T_di, T_doda, T_dodi, T_lola, T_l
 import daffodil.lib.daf_utils    as daf_utils
 import daffodil.lib.daf_md       as md
 
-from typing import Dict, Any, cast, TYPE_CHECKING
+from typing import Tuple, Dict, Any, cast, TYPE_CHECKING
 
-if TYPE_CHECKING:       # for the annotations only. A real import would be circular.
+if TYPE_CHECKING:       # for mypy. daf.py sets the names below when the program runs.
     from daffodil.daf import Daf
+
+# The names of daf.py that the functions here use when they run.
+# daf.py sets each one here once it exists. An import at the top would be circular.
+_NAMES_FROM_DAF: Tuple[str, ...] = ('Daf',)
 
 
 def _daf_valuecount(
@@ -755,7 +760,6 @@ def _dict_to_md(da: T_da, cols: T_ls | None = None, just: str='<<') -> str:
         | b   | two   |
         <BLANKLINE>
     """
-    from daffodil.daf import Daf
     if not cols:
         cols = ['key', 'value']
 
@@ -807,7 +811,6 @@ def _value_counts_daf(self: 'Daf',
         %% daf rows=2; cols=2; keyfield=''; name=''
         <BLANKLINE>
     """
-    from daffodil.daf import Daf
 
     value_counts_di   = self.valuecounts_for_colname(colname=colname, sort=sort, reverse=reverse)
 

@@ -7,7 +7,8 @@ Each function here takes the Daf as its first argument, or the class for a class
 It is assigned in the Daf class body under its Daf name, without the underscore.
 The docs show it under that name.
 
-A function that needs a name defined in daf.py, such as Daf, imports it when it runs.
+Some functions use names defined in daf.py, such as Daf, when they run.
+daf.py sets those names here, as listed in _NAMES_FROM_DAF, once they exist.
 An import at the top would be circular, since daf.py imports this module.
 """
 
@@ -21,8 +22,12 @@ from daffodil.keyedlist import KeyedList
 from typing import Dict, Any, Tuple, cast, Callable, Literal, overload, TYPE_CHECKING
 from collections.abc import Iterable, Sequence
 
-if TYPE_CHECKING:       # for the annotations only. A real import would be circular.
-    from daffodil.daf import Daf
+if TYPE_CHECKING:       # for mypy. daf.py sets the names below when the program runs.
+    from daffodil.daf import Daf, ColumnNotFoundError, KeysDisabledError, _IndirectRowView, logs
+
+# The names of daf.py that the functions here use when they run.
+# daf.py sets each one here once it exists. An import at the top would be circular.
+_NAMES_FROM_DAF: Tuple[str, ...] = ('Daf', 'ColumnNotFoundError', 'KeysDisabledError', '_IndirectRowView', 'logs')
 
 
 def _set_irows_icols(self: 'Daf',
@@ -285,7 +290,6 @@ def _krows_to_irows(self: 'Daf',
             ...
         KeyError: 'zz'
     """
-    from daffodil.daf import KeysDisabledError
     """
         If the keyfield is set, then the rows can be selected by providing a
         krows parameter that will index the rows by using values in the keyfield column.
@@ -439,7 +443,6 @@ def _gkeys_to_idxs(
         >>> Daf.gkeys_to_idxs({'a': 0, 'b': 1, 'c': 2}, ('a', 'b'))
         slice(0, 2, 1)
     """
-    from daffodil.daf import KeysDisabledError
     """
         If keydict is defined, then the idxs can be selected by providing a
         gkeys parameter that will index the keydict, and return either a
@@ -703,7 +706,6 @@ def _select_kcols(self: 'Daf',
         %% daf rows=1; cols=3; keyfield=''; name=''
         <BLANKLINE>
     """
-    from daffodil.daf import KeysDisabledError
     if not self.hd:
         raise KeysDisabledError("select_kcols requires hd.")
 
@@ -934,7 +936,6 @@ def _select_icols(self: 'Daf', icols: slice | int | T_li | range | T_lor | None,
         %% daf rows=2; cols=3; keyfield=''; name=''
         <BLANKLINE>
     """
-    from daffodil.daf import Daf, logs
 
     """ select cols from daf and return a new instance.
             This is not an efficient operation and can normally be avoided except when:
@@ -1141,7 +1142,6 @@ def _basic_get_record(self: 'Daf', irow: int, include_cols: T_ls | None = None) 
     Returns:
         Dict: Row data.
     """
-    from daffodil.daf import KeysDisabledError
 
     """ return a record at irow as dict
             include only "include_cols" if it is defined
@@ -1238,7 +1238,6 @@ def _select_records_daf(self: 'Daf', keys_ls: 'T_ls | Iterable | Daf', inverse:b
         >>> daf.select_records_daf(other, silent_error=True).to_lod()
         [{'id': 'r3', 'v': 'a', 'n': 30}]
     """
-    from daffodil.daf import Daf
 
     """ Select multiple records from daf using the keys and return as a single daf.
             If inverse is true, select records that are not included in the keys.
@@ -1388,7 +1387,6 @@ def _iloc(self: 'Daf', irow: int=0, include_cols: T_ls | None = None, rtype: str
         >>> daf.iloc(-1)
         {'id': 3, 'v': 'c', 'n': 30}
     """
-    from daffodil.daf import KeysDisabledError
     """ Select one record from daf using the idx and return as a single T_da dict
             test exists in test_daf.py
 
@@ -1609,7 +1607,6 @@ def _select_by_dict(
         %% daf rows=1; cols=3; keyfield='id'; name=''
         <BLANKLINE>
     """
-    from daffodil.daf import Daf, KeysDisabledError
 
     """ Selects rows in daf which match the fields specified in selector_da
             and return new daf, with keyfield set according to 'keyfield' argument.
@@ -1843,7 +1840,6 @@ def _select_where(self: 'Daf', where: Callable, indirect_col: str | None = None)
         %% daf rows=3; cols=3; keyfield=''; name=''
         <BLANKLINE>
     """
-    from daffodil.daf import Daf, _IndirectRowView
     """
         Select rows in Daf based on the provided where condition
         
@@ -1984,7 +1980,6 @@ def _split_where(
         %% daf rows=1; cols=3; keyfield='id'; name=''
         <BLANKLINE>
     """
-    from daffodil.daf import Daf, _IndirectRowView
     """
         Select rows in Daf based on the provided where condition,
         and split into two Daf objects, for True and False.
@@ -2151,7 +2146,6 @@ def _col_to_la(self: 'Daf',
         >>> daf.col_to_la('zz', silent_error=True)
         []
     """
-    from daffodil.daf import ColumnNotFoundError
 
     if not colname:
         raise RuntimeError("colname is required.")
@@ -2332,7 +2326,6 @@ def _select_cols(self: 'Daf',
         >>> daf.select_cols(exclude_cols=['v']).columns()
         ['id', 'n']
     """
-    from daffodil.daf import Daf
 
     if not self.hd:
         return Daf(lol=[[] for _ in self.lol])

@@ -7,7 +7,8 @@ Each function here takes the Daf as its first argument, or the class for a class
 It is assigned in the Daf class body under its Daf name, without the underscore.
 The docs show it under that name.
 
-A function that needs a name defined in daf.py, such as Daf, imports it when it runs.
+Some functions use names defined in daf.py, such as Daf, when they run.
+daf.py sets those names here, as listed in _NAMES_FROM_DAF, once they exist.
 An import at the top would be circular, since daf.py imports this module.
 """
 
@@ -25,8 +26,12 @@ from daffodil.keyedlist import KeyedList
 from collections.abc import Iterable
 from typing import List, Dict, Any, Tuple, cast, TYPE_CHECKING
 
-if TYPE_CHECKING:       # for the annotations only. A real import would be circular.
-    from daffodil.daf import Daf
+if TYPE_CHECKING:       # for mypy. daf.py sets the names below when the program runs.
+    from daffodil.daf import Daf, KeysDisabledError, _keys_mismatch, _short_list, logs
+
+# The names of daf.py that the functions here use when they run.
+# daf.py sets each one here once it exists. An import at the top would be circular.
+_NAMES_FROM_DAF: Tuple[str, ...] = ('Daf', 'KeysDisabledError', '_keys_mismatch', '_short_list', 'logs')
 
 
 def _append(self: 'Daf',
@@ -177,7 +182,6 @@ def _append(self: 'Daf',
         %% daf rows=1; cols=2; keyfield=''; name=''
         <BLANKLINE>
     """
-    from daffodil.daf import Daf, _keys_mismatch, logs
 
     """ general append method can handle appending one record as T_da or T_la, many records as T_loda or T_daf
             if the data item is None or empty, do not append.
@@ -729,7 +733,6 @@ def _check_first_fast_row(self: 'Daf', row: Any) -> None:
     Raises:
         ValueError: The row does not match the columns.
     """
-    from daffodil.daf import _keys_mismatch, _short_list
     num_cols = len(self.hd)
     if isinstance(row, dict):
         if list(row) != self._col_names():
@@ -744,7 +747,6 @@ def _check_first_fast_row(self: 'Daf', row: Any) -> None:
 
 def _raise_fast_length(self: 'Daf', row: Any) -> None:
     """ With fast=True, raise for a dict or list row with the wrong number of values. Internal. """
-    from daffodil.daf import _keys_mismatch
     num_cols = len(self.hd)
     if isinstance(row, dict):
         raise ValueError(
@@ -969,7 +971,6 @@ def _delete_records(
         >>> daf.to_lod()
         [{'id': 'r1', 'v': 'a'}, {'id': 'r3', 'v': 'c'}]
     """
-    from daffodil.daf import Daf
     if not inplace:
         return self.select_records_daf(keys_ls, inverse=True, silent_error=silent_error)
 
@@ -1040,7 +1041,6 @@ def _remove_dups(self: 'Daf', keyfield: str | T_ta | T_la='') -> Tuple['Daf', 'D
         %% daf rows=1; cols=2; keyfield='id'; name=''
         <BLANKLINE>
     """
-    from daffodil.daf import KeysDisabledError
     """
         If it is known that duplicates may exist in the array with respect to keyfield,
         remove records that have the same keyfield and return two daf arrays,
@@ -1182,7 +1182,6 @@ def _assign_record(self: 'Daf', record: T_da) -> 'Daf':
         %% daf rows=3; cols=3; keyfield='id'; name=''
         <BLANKLINE>
     """
-    from daffodil.daf import KeysDisabledError
 
     if not self.keyfield:
         raise KeysDisabledError("assign_record(): the Daf needs a keyfield to read the key from the record.")
@@ -2346,7 +2345,6 @@ def _transpose(self: 'Daf', new_keyfield:str='', new_cols:T_la | None = None, in
         >>> daf.transpose(include_header=True).columns()
         ['key', 'A', 'B']
     """
-    from daffodil.daf import Daf
 
     if not self.is_rectangular():
         raise ValueError("transpose(): some rows are not as long as the columns. "
@@ -2428,7 +2426,6 @@ def _wide_to_narrow(self: 'Daf',
         >>> daf.wide_to_narrow(['id']).narrow_to_wide(['id']).lol
         [['x', 1, 2], ['y', 3, 4]]
     """
-    from daffodil.daf import Daf
     if not isinstance(id_cols, list):
         raise TypeError("id_cols must be a list")
 
@@ -2512,7 +2509,6 @@ def _narrow_to_wide(self: 'Daf',
         %% daf rows=2; cols=3; keyfield=''; name=''
         <BLANKLINE>
     """
-    from daffodil.daf import Daf
     if not self.lol:
         return Daf()
 

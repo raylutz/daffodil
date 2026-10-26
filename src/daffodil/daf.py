@@ -76,18 +76,9 @@ r"""
 
 # import os
 # import sys
-import io
-import csv
 import copy
-import re
-import json
-import time
-import functools
-import itertools
-import operator
 #import numpy as np         # moved to uses of numpy
 #from typing_extensions import deprecated       # can't get this to import correctly
-from pathlib import Path
 
 # no longer need the following due to using pytest
 # sys.path.append(os.path.dirname(os.path.dirname(os.path.realpath(__file__))))
@@ -101,7 +92,6 @@ import daffodil.lib.daf_md       as md
 import daffodil.lib.daf_pandas   as daf_pandas
 import daffodil.lib.daf_pdf      as daf_pdf
 import daffodil.lib.daf_schema   as daf_schema
-import daffodil.lib.daf_ods      as daf_ods
 import daffodil.lib.daf_namespace as daf_namespace
 import daffodil.daf_join          as daf_join
 import daffodil.daf_report        as daf_report
@@ -1794,9 +1784,6 @@ class Daf:
     check_schema = daf_schema._check_schema
 
 
-    #===========================
-    # dtypes
-
     #==== types and conversion: functions in daf_dtypes.py
 
     set_dtypes            = daf_dtypes._set_dtypes
@@ -1926,10 +1913,6 @@ class Daf:
     sum_dodis                             = staticmethod(daf_apply._sum_dodis)
     sum                                   = daf_apply._sum
     sum_np                                = daf_apply._sum_np
-
-    #===========================
-    # schema support: apply_schema, default_record and attach_schema are assigned above, near the keyfield methods.
-
 
     #===========================
     # initializers
@@ -2064,9 +2047,6 @@ class Daf:
 
 
 
-    #===========================
-    # convert from / to other data or files.
-
     #==== import and export: functions in daf_convert.py
 
     from_lod         = classmethod(daf_convert._from_lod)
@@ -2101,12 +2081,6 @@ class Daf:
     to_dict          = daf_convert._to_dict
     to_klist         = daf_convert._to_klist
 
-    #==== Excel
-
-    #==== CSV
-
-    #==== Directory capture
-
     #==== md
 
     from_md = md._from_md
@@ -2126,11 +2100,6 @@ class Daf:
     to_pandas_df = daf_pandas._to_pandas_df
     to_pandas_df = to_pandas_df                     # fool linter.
 
-
-    #==== Numpy
-
-
-    #==== Googlesheets
 
     #===========================
     # JSON compatible representation.
@@ -2163,9 +2132,6 @@ class Daf:
             # DEPRECATED
         # """
         # return (list(self.hd.keys()), self.lol)
-
-    #===========================
-    # append
 
     #==== modifying: functions in daf_modify.py
 
@@ -2209,9 +2175,6 @@ class Daf:
     transpose                   = daf_modify._transpose
     wide_to_narrow              = daf_modify._wide_to_narrow
     narrow_to_wide              = daf_modify._narrow_to_wide
-
-    #=========================
-    # remove records per keyfield; drop cols
 
     #===========================
     # indexing
@@ -2774,19 +2737,10 @@ class Daf:
 
 
     #=========================
-    # find/replace
-
-    #=========================
-    # split and grouping
-
-    #=========================
     #   sort
 
     #=========================
     #   apply formulas
-
-    #===============================
-    # annotate and join
 
     #==== joins and annotation: functions in daf_join.py
 
@@ -3245,12 +3199,6 @@ class Daf:
 
 
 
-    #===============================================
-    # functions not following apply or reduce pattern
-
-    #===============================
-    # wide to narrow and narrow to wide conversion
-
     #===============================
     # reporting
 
@@ -3426,6 +3374,15 @@ def register_daf_namespace(name: str) -> Callable[[type], type]:
     instance_attrs: T_ls = list(vars(Daf()))
     return daf_namespace.register_namespace(name, Daf, instance_attrs)
 
+
+
+# The group modules hold most of the Daf methods, by topic.
+# Some of their functions use names defined here, such as Daf, when they run.
+# Each module lists those names in _NAMES_FROM_DAF, and they are set in it here, once they all exist.
+# A module cannot import them at its top, since this module imports it first.
+for _group_module in (daf_dtypes, daf_apply, daf_select, daf_modify, daf_convert, daf_structure, daf_report, daf_join):
+    for _name in getattr(_group_module, '_NAMES_FROM_DAF', ()):
+        setattr(_group_module, _name, globals()[_name])
 
 # Profiling mode: with the environment variable DAFFODIL_PROFILE=1, count how Daf is used.
 # See daffodil/lib/daf_profile.py. Nothing is wrapped unless it is set.

@@ -7,7 +7,8 @@ Each function here takes the Daf as its first argument, or the class for a class
 It is assigned in the Daf class body under its Daf name, without the underscore.
 The docs show it under that name.
 
-A function that needs a name defined in daf.py, such as Daf, imports it when it runs.
+Some functions use names defined in daf.py, such as Daf, when they run.
+daf.py sets those names here, as listed in _NAMES_FROM_DAF, once they exist.
 An import at the top would be circular, since daf.py imports this module.
 """
 
@@ -19,8 +20,12 @@ from daffodil.lib.daf_utils import NULL
 
 from typing import List, Any, Tuple, cast, TYPE_CHECKING
 
-if TYPE_CHECKING:       # for the annotations only. A real import would be circular.
-    from daffodil.daf import Daf, T_klodaf
+if TYPE_CHECKING:       # for mypy. daf.py sets the names below when the program runs.
+    from daffodil.daf import Daf, KeysDisabledError, T_klodaf, logs
+
+# The names of daf.py that the functions here use when they run.
+# daf.py sets each one here once it exists. An import at the top would be circular.
+_NAMES_FROM_DAF: Tuple[str, ...] = ('Daf', 'KeysDisabledError', 'logs')
 
 
 def _update_with_history(
@@ -113,7 +118,6 @@ def _update_with_history(
         %% daf rows=3; cols=3; keyfield=''; name=''
         <BLANKLINE>
     """
-    from daffodil.daf import Daf
 
     keyfield_a: Any = self.keyfield
     by = by or (keyfield_a if isinstance(keyfield_a, str) else '')
@@ -319,7 +323,6 @@ def _derive_join_translator(
         >>> a_daf.derive_join_translator(b_daf).col('resolved_colname')
         ['id', 'name_daf1', 'name_daf2']
     """
-    from daffodil.daf import Daf
     assert isinstance(self.keyfield, str)
     assert isinstance(other_daf.keyfield, str)
 
@@ -392,7 +395,6 @@ def _derive_join_translator_daf(
         >>> omitted.col('resolved_colname')
         ['id', 'v', 'w']
     """
-    from daffodil.daf import Daf
 
     shared_fields   = list(shared_fields or [])     # a copy, so the caller's list is not changed.
     omit_other_cols = omit_other_cols or []
@@ -570,7 +572,6 @@ def _join(
         %% daf rows=2; cols=3; keyfield='id'; name=''
         <BLANKLINE>
     """
-    from daffodil.daf import Daf, KeysDisabledError, logs
     if how not in ("inner", "left", "right", "outer"):
         raise ValueError(f"Unsupported join type: {how}")
 
