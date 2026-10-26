@@ -194,6 +194,9 @@ def main() -> None:
         out_blocks.append('\n'.join(block))
         for n in nodes:
             used_all |= {s.id for s in ast.walk(n) if isinstance(s, ast.Name)}
+            # names inside a quoted annotation, as 'T_ls | Iterable | Daf'
+            used_all |= {w for s in ast.walk(n) if isinstance(s, ast.Constant) and isinstance(s.value, str) and len(s.value) < 120
+                         for w in re.findall(r'[A-Za-z_]\w*', s.value)}
             used_all |= {s.value.id for s in ast.walk(n) if isinstance(s, ast.Attribute) and isinstance(s.value, ast.Name)}
         target = f'{module}.{fname}'
         assigns.append((name, {'method': target, 'static': f'staticmethod({target})', 'class': f'classmethod({target})'}[kind]))
