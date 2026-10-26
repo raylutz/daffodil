@@ -103,6 +103,7 @@ import daffodil.lib.daf_pdf      as daf_pdf
 import daffodil.lib.daf_schema   as daf_schema
 import daffodil.lib.daf_ods      as daf_ods
 import daffodil.lib.daf_namespace as daf_namespace
+import daffodil.daf_join          as daf_join
 
 from daffodil.keyedlist import KeyedList
 
@@ -14643,6 +14644,8 @@ class Daf:
         translator_daf.set_keyfield("resolved_colname")
         return translator_daf
 
+
+    update_with_history = daf_join._update_with_history
 
     def join(
         self,

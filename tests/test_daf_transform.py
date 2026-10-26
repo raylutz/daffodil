@@ -557,3 +557,115 @@ def test_inner_and_left_join_are_unchanged_by_other_only_rows():
     a_daf, b_daf = make_pair('id')
     assert a_daf.join(b_daf, how='inner', shared_fields=['name']).lol == [['k3', 'A3', 1, 7]]
     assert a_daf.join(b_daf, how='left', shared_fields=['name']).lol == [['k3', 'A3', 1, 7], ['k1', 'A1', 2, '']]
+
+
+# ---- update_with_history ----
+#
+# A rerun of some records is merged into a table read from its CSV file, every cell text.
+# A changed record takes the rerun's rows, and its prior rows go to history.
+# A changed key with no prior rows gets a history row with only its key.
+
+UWH_COLS = ['bid', 'opt', 'v']
+
+
+def prior_marks() -> Daf:
+    """ A table as read from its file. Record a has two rows. """
+    return Daf(cols=UWH_COLS, lol=[['a', '1', '0'], ['a', '2', '1'], ['b', '1', '1'], ['c', '1', '0']])
+
+
+def rerun_marks() -> Daf:
+    """ A typed rerun of a, c and d. a differs, c is the same, d is new to the table. """
+    return Daf(cols=UWH_COLS, lol=[['a', 1, 1], ['a', 2, 0], ['c', 1, 0], ['d', 1, 1]])
+
+
+def test_update_with_history_walks_the_key_order():
+    updated, history = prior_marks().update_with_history(rerun_marks(), by='bid', key_order=['a', 'b', 'd', 'c'])
+    assert updated.lol == [['a', '1', '1'], ['a', '2', '0'], ['b', '1', '1'], ['d', '1', '1'], ['c', '1', '0']]
+    assert history.lol == [['a', '1', '0'], ['a', '2', '1'], ['d', '', '']]
+
+
+def test_update_with_history_without_a_key_order_keeps_the_prior_order_with_new_keys_last():
+    updated, _history = prior_marks().update_with_history(rerun_marks(), by='bid')
+    assert updated.col('bid') == ['a', 'a', 'b', 'c', 'd']
+
+
+def test_update_with_history_key_order_may_be_a_daf_of_keys():
+    tasks_daf = Daf(cols=['bid', 'file'], lol=[['d', 'x'], ['c', 'y'], ['b', 'z'], ['a', 'w']], keyfield='bid')
+    updated, _history = prior_marks().update_with_history(rerun_marks(), by='bid', key_order=tasks_daf)
+    assert updated.col('bid') == ['d', 'c', 'b', 'a', 'a']
+
+
+def test_update_with_history_raises_for_a_key_of_either_table_not_in_key_order():
+    with pytest.raises(ValueError, match='not in key_order'):
+        prior_marks().update_with_history(rerun_marks(), by='bid', key_order=['a', 'b', 'c'])
+    with pytest.raises(ValueError, match='not in key_order'):
+        prior_marks().update_with_history(rerun_marks(), by='bid', key_order=['a', 'c', 'd'])
+
+
+def test_update_with_history_key_in_key_order_but_in_neither_table_adds_nothing():
+    rerun_daf = Daf(cols=UWH_COLS, lol=[['c', 1, 0]])
+    updated, history = prior_marks().update_with_history(rerun_daf, by='bid', key_order=['a', 'x', 'b', 'c'])
+    assert updated.lol == prior_marks().lol
+    assert len(history) == 0
+
+
+def test_update_with_history_record_with_fewer_rows_replaces_all_its_prior_rows():
+    rerun_daf = Daf(cols=UWH_COLS, lol=[['a', 1, 1]])
+    updated, history = prior_marks().update_with_history(rerun_daf, by='bid')
+    assert updated.lol == [['a', '1', '1'], ['b', '1', '1'], ['c', '1', '0']]
+    assert history.lol == [['a', '1', '0'], ['a', '2', '1']]
+
+
+def test_update_with_history_keyed_rows_changed_unchanged_and_added():
+    prior_daf = Daf(cols=['bid', 'v'], lol=[['a', '0'], ['b', '1'], ['c', '2']], keyfield='bid')
+    rerun_daf = Daf(cols=['bid', 'v'], lol=[['b', 5], ['c', 2], ['e', 7]], keyfield='bid')
+    updated, history = prior_daf.update_with_history(rerun_daf)
+    assert updated.lol == [['a', '0'], ['b', '5'], ['c', '2'], ['e', '7']]
+    assert history.lol == [['b', '1'], ['e', '']]
+    assert updated.keyfield == 'bid' and history.keyfield == ''
+    assert updated.select_record('b')['v'] == '5'
+
+
+def test_update_with_history_typed_rerun_equal_to_the_text_is_no_change():
+    cols = ['bid', 'n', 'f', 'cv', 'flag', 'e']
+    prior_daf = Daf(cols=cols, lol=[['a', '3', '1.5', "{'c0': 1}", '1', '']])
+    rerun_daf = Daf(cols=cols, lol=[['a', 3, 1.5, {'c0': 1}, 1, None]])
+    updated, history = prior_daf.update_with_history(rerun_daf, by='bid')
+    assert len(history) == 0
+    assert updated.lol == prior_daf.lol
+
+
+def test_update_with_history_rerun_with_no_rows_changes_nothing():
+    for rerun_daf in (Daf(), Daf(cols=UWH_COLS), Daf(cols=['other'])):
+        updated, history = prior_marks().update_with_history(rerun_daf, by='bid')
+        assert updated.lol == prior_marks().lol and updated.columns() == UWH_COLS
+        assert len(history) == 0 and history.columns() == UWH_COLS
+
+
+def test_update_with_history_raises_for_other_columns():
+    rerun_daf = Daf(cols=['bid', 'opt', 'v', 'g'], lol=[['a', 1, 1, 0]])
+    with pytest.raises(ValueError, match="Only in the rerun: \\['g'\\]"):
+        prior_marks().update_with_history(rerun_daf, by='bid')
+
+
+def test_update_with_history_lines_up_the_same_columns_in_another_order():
+    rerun_daf = Daf(cols=['v', 'bid', 'opt'], lol=[[1, 'b', 1]])
+    updated, history = prior_marks().update_with_history(rerun_daf, by='bid')
+    assert updated.columns() == UWH_COLS
+    assert updated.lol == prior_marks().lol
+    assert len(history) == 0
+
+
+def test_update_with_history_changes_neither_input_and_shares_no_rows():
+    prior_daf, rerun_daf = prior_marks(), rerun_marks()
+    updated, history = prior_daf.update_with_history(rerun_daf, by='bid')
+    assert prior_daf.lol == prior_marks().lol
+    assert rerun_daf.lol == rerun_marks().lol
+    updated[1, 'v'] = 'changed'
+    history[0, 'v'] = 'changed'
+    assert prior_daf.lol == prior_marks().lol
+
+
+def test_update_with_history_raises_with_no_by_and_no_keyfield():
+    with pytest.raises(ValueError, match='needs a by column'):
+        prior_marks().update_with_history(rerun_marks())

@@ -12,6 +12,12 @@ Combining two tables.
 
 ::: daffodil.daf.Daf.derive_join_translator_daf
 
+## Update
+
+::: daffodil.daf_join._update_with_history
+    options:
+      heading: "update_with_history"
+
 ## Annotate
 
 ::: daffodil.daf.Daf.annotate_daf

@@ -982,6 +982,22 @@ def test_apply_dtypes_uses_stored_dtypes():
     assert t_sdaf.to_daf().lol == [[1]]
 
 
+def test_apply_dtypes_str_leaves_numbers_by_default_and_converts_them_with_from_str_false(job_db):
+    typed_daf: Daf = Daf(cols=['id', 'n', 'f', 'cv', 'e'], lol=[['a', 3, 1.5, {'c0': 1}, NULL], ['b', 10**15, 1e-7, [1, 2.0], 'x']])
+    t_sdaf: SqlDaf = SqlDaf.from_daf(typed_daf, name='t')
+    str_dtypes: T_dtype_dict = {col: str for col in typed_daf.columns()}
+    t_sdaf.apply_dtypes(dtypes=str_dtypes)
+    assert t_sdaf.to_daf().lol == [['a', 3, 1.5, "{'c0': 1}", ''], ['b', 10**15, 1e-7, '[1, 2.0]', 'x']]
+    t_sdaf.apply_dtypes(dtypes=str_dtypes, from_str=False)
+    assert t_sdaf.to_daf().lol == [['a', '3', '1.5', "{'c0': 1}", ''], ['b', '1000000000000000', '1e-07', '[1, 2.0]', 'x']]
+    assert t_sdaf.sql('SELECT typeof(n), typeof(f), typeof(e) FROM t').lol == [['text', 'text', 'null'], ['text', 'text', 'text']]
+
+    # The table then holds what from_csv() of the same rows holds.
+    csv_path: str = os.path.join(os.path.dirname(job_db), 'typed.csv')
+    typed_daf.to_csv_file(csv_path)
+    assert SqlDaf.from_csv(csv_path).to_daf().lol == t_sdaf.to_daf().lol
+
+
 # SqlDaf.transaction
 
 def test_transaction_commits_together():

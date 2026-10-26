@@ -182,3 +182,10 @@ What was built:
 - The Guide page docsite/guide/addons.md, and an entry on each API index page.
 - Tests in tests/test_daf_misc.py and tests/test_sqldaf.py remove each add-on after the test. The docs
   coverage test and the blocker test walk `vars(Daf)`, so a leftover add-on would fail them.
+
+## The first module: daf_join.py
+
+On 2026-10-26 Ray asked that `update_with_history()` go into the file the plan would give it.
+It went into src/daffodil/daf_join.py, by way A, as the first method there. Join keeps a module of
+its own, rather than sharing daf_report.py with report and types. The other methods do not move
+until Ray decides the split. See 2026-10-26_1409_update_with_history.md.

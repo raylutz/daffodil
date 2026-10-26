@@ -6118,6 +6118,7 @@ class SqlDaf(Daf):
             *,
             dtypes:         T_dtype_dict | None = None,     # the types to convert to. This SqlDaf's dtypes if None.
             cols:           str | T_ls | None = None,       # convert only these columns.
+            from_str:       bool = True,                    # if True, the cells are text, so str columns are not converted.
             silent_error:   bool = False,                   # if True, a column with no dtype stays as it is.
             ) -> 'SqlDaf':
         """
@@ -6132,7 +6133,12 @@ class SqlDaf(Daf):
         - '12' becomes 12, and '2.5' with dtype int becomes 2.
         - A value that does not convert, such as 'abc', stays as it is.
         - Python NULL stays Python NULL, except in a bool column, where it becomes 0, as in a Daf.
-        - A str column is not touched.
+        - A str column is not touched, unless `from_str` is False.
+
+        By default the cells are taken to be text already, as from a CSV file, so a str column is
+        skipped. Pass `from_str=False` when a str column may hold numbers, as from `from_daf()` of a
+        typed Daf. Then each number becomes its text, as `Daf.apply_dtypes()` gives, so 3 becomes '3'
+        and 1.5 becomes '1.5'. The table then holds what `from_csv()` of the same rows holds.
 
         Conversion does not check that every value got the requested type. A converted column
         can still hold some text. `silent_error` does not change that. It is about a column that
@@ -6154,6 +6160,7 @@ class SqlDaf(Daf):
         Args:
             dtypes: The types to convert to, by column. It may name columns that are not there. This SqlDaf's dtypes if None.
             cols: Convert only these columns, or this one column. All the columns of the dtypes if None.
+            from_str: If True, the cells are text, so str columns are not converted.
             silent_error: If False, a column to convert that has no dtype raises ValueError. If True, it is left as it is.
 
         Returns:
@@ -6181,8 +6188,10 @@ class SqlDaf(Daf):
             raise ValueError(f"SqlDaf.apply_dtypes: no dtype for the columns {missing_ls}. "
                              f"Add them to dtypes, or pass silent_error=True to leave them as they are.")
 
+        # A dict or list cell is always stored as text. A str column may hold numbers unless from_str.
         convert_dtypes: Dict[str, Any] = {col: source_dtypes[col] for col in cols_ls
-                                          if col in source_dtypes and source_dtypes[col] not in TEXT_DTYPES}
+                                          if col in source_dtypes
+                                          and (source_dtypes[col] not in TEXT_DTYPES or source_dtypes[col] is str and not from_str)}
         unstorable_ls: T_ls = [col for col, dtype in convert_dtypes.items() if dtype not in STORABLE_DTYPES]
         if unstorable_ls:
             raise NotImplementedError(f"apply_dtypes() cannot store {[convert_dtypes[col] for col in unstorable_ls]} "
