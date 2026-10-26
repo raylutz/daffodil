@@ -523,10 +523,10 @@ def test_count_values_of_list_cells_raises(func: Any) -> None:
     assert daf.reduce(func, cols=['g']) == {'k': '', 'v': '', 'g': {'x': 2, 'y': 1}}
 
 
-@pytest.mark.parametrize('func', [Daf.count_values_da, Daf.count_values_kl], ids=['count_values_da', 'count_values_kl'])
-def test_count_values_called_directly_names_itself(func: Any) -> None:
-    with pytest.raises(TypeError, match=func.__name__ + r"\(\): column 'v'"):
-        func(KeyedList(['v'], [[1]]), {}, ['v'])
+@pytest.mark.parametrize('name', ['count_values_da', 'count_values_kl'])
+def test_count_values_called_directly_names_itself(name: str) -> None:
+    with pytest.raises(TypeError, match=name + r"\(\): column 'v'"):
+        getattr(Daf, name)(KeyedList(['v'], [[1]]), {}, ['v'])
 
 
 def test_daf_sum_and_daf_valuecount() -> None:

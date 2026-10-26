@@ -279,6 +279,8 @@ def main() -> None:
         return f'::: daffodil.{module}._{name}\n    options:\n      heading: "{name}"\n'
     new_page = re.sub(r'^::: daffodil\.daf\.Daf\.(\w+)\n((?:    .*\n)*)', entry, page_text, flags=re.M)
     xref_files = list((ROOT / 'docsite').rglob('*.md')) + list((ROOT / 'src/daffodil').rglob('*.py')) + [ROOT / 'README.md']
+    if mod_path not in xref_files:
+        xref_files.append(mod_path)                 # a new module is not on disk yet.
     xref_new = {}
     for f in xref_files:
         t = new_daf if f == DAF_PY else (new_mod if f == mod_path else (new_page if f == page_path else f.read_text()))
