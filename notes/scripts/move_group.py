@@ -224,8 +224,11 @@ def main() -> None:
               'The docs show it under that name.', '',
               f'Some functions use names defined in {source}.py, such as {cls_name}, when they run.',
               f'{source}.py sets those names here, as listed in {names_var}, once they exist.',
-              f'An import at the top would be circular, since {source}.py imports this module.', '"""', '',
-              'from __future__ import annotations', '']
+              f'An import at the top would be circular, since {source}.py imports this module.', '"""', '']
+    # The future import only if the source has it. With it, a doctest that defines a @schemaclass
+    # gets string annotations, so a SqlDaf example would read its dtypes as text.
+    if 'from __future__ import annotations' in src:
+        header += ['from __future__ import annotations', '']
     header += import_lines
     header += ['', f'if TYPE_CHECKING:       # for mypy. {source}.py sets the names below when the program runs.',
                f"    from daffodil.{source} import {', '.join(ann_from_source)}", '']

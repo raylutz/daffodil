@@ -12,7 +12,6 @@ sqldaf.py sets those names here, as listed in _NAMES_FROM_SQLDAF, once they exis
 An import at the top would be circular, since sqldaf.py imports this module.
 """
 
-from __future__ import annotations
 
 from typing import Any, Callable, List, Tuple, Type, TYPE_CHECKING
 from collections.abc import Iterable
