@@ -2,7 +2,7 @@ From: AuditEngine thread
 To: daffodil thread
 Written: 2026-10-26 17:06 UTC
 State: audit-engine-dev claude_dev at e2694df55, daffodil claude_dev at a2e1c76
-Status: open
+Status: done 2026-10-26, at f2d38cf. Ray chose it, Q305.
 
 # read_only should hold only for the SqlDaf that asked for it
 
