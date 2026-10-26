@@ -28,39 +28,69 @@ Size, looping, single rows and columns, and moving rows into memory.
 
 ## One row
 
-::: daffodil.sqldaf.SqlDaf.select_record
+::: daffodil.sqldaf_read._select_record
+    options:
+      heading: "select_record"
 
-::: daffodil.sqldaf.SqlDaf.iloc
+::: daffodil.sqldaf_read._iloc
+    options:
+      heading: "iloc"
 
-::: daffodil.sqldaf.SqlDaf.iloc_exists
+::: daffodil.sqldaf_read._iloc_exists
+    options:
+      heading: "iloc_exists"
 
 ## Columns
 
-::: daffodil.sqldaf.SqlDaf.col
+::: daffodil.sqldaf_read._col
+    options:
+      heading: "col"
 
-::: daffodil.sqldaf.SqlDaf.col_to_la
+::: daffodil.sqldaf_read._col_to_la
+    options:
+      heading: "col_to_la"
 
-::: daffodil.sqldaf.SqlDaf.icol
+::: daffodil.sqldaf_read._icol
+    options:
+      heading: "icol"
 
-::: daffodil.sqldaf.SqlDaf.icol_to_la
+::: daffodil.sqldaf_read._icol_to_la
+    options:
+      heading: "icol_to_la"
 
-::: daffodil.sqldaf.SqlDaf.cols_to_dol
+::: daffodil.sqldaf_read._cols_to_dol
+    options:
+      heading: "cols_to_dol"
 
 ## Into memory
 
-::: daffodil.sqldaf.SqlDaf.to_daf
+::: daffodil.sqldaf_read._to_daf
+    options:
+      heading: "to_daf"
 
-::: daffodil.sqldaf.SqlDaf.to_dict
+::: daffodil.sqldaf_read._to_dict
+    options:
+      heading: "to_dict"
 
-::: daffodil.sqldaf.SqlDaf.to_list
+::: daffodil.sqldaf_read._to_list
+    options:
+      heading: "to_list"
 
-::: daffodil.sqldaf.SqlDaf.to_value
+::: daffodil.sqldaf_read._to_value
+    options:
+      heading: "to_value"
 
-::: daffodil.sqldaf.SqlDaf.to_lod
+::: daffodil.sqldaf_read._to_lod
+    options:
+      heading: "to_lod"
 
-::: daffodil.sqldaf.SqlDaf.to_dod
+::: daffodil.sqldaf_read._to_dod
+    options:
+      heading: "to_dod"
 
-::: daffodil.sqldaf.SqlDaf.to_json
+::: daffodil.sqldaf_read._to_json
+    options:
+      heading: "to_json"
 
 ## Display and files
 
@@ -74,14 +104,26 @@ Size, looping, single rows and columns, and moving rows into memory.
 
 ::: daffodil.sqldaf.SqlDaf.md_max_cols
 
-::: daffodil.sqldaf.SqlDaf.to_md
+::: daffodil.sqldaf_read._to_md
+    options:
+      heading: "to_md"
 
-::: daffodil.sqldaf.SqlDaf.to_md_cols
+::: daffodil.sqldaf_read._to_md_cols
+    options:
+      heading: "to_md_cols"
 
-::: daffodil.sqldaf.SqlDaf.daf_to_lol_summary
+::: daffodil.sqldaf_read._daf_to_lol_summary
+    options:
+      heading: "daf_to_lol_summary"
 
-::: daffodil.sqldaf.SqlDaf.md_daf_table_snippet
+::: daffodil.sqldaf_read._md_daf_table_snippet
+    options:
+      heading: "md_daf_table_snippet"
 
-::: daffodil.sqldaf.SqlDaf.to_csv_buff
+::: daffodil.sqldaf_read._to_csv_buff
+    options:
+      heading: "to_csv_buff"
 
-::: daffodil.sqldaf.SqlDaf.to_csv_file
+::: daffodil.sqldaf_read._to_csv_file
+    options:
+      heading: "to_csv_file"

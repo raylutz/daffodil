@@ -7,11 +7,13 @@
 # - Whitespace is normalized, as print(daf.to_md()) ends with a blank line.
 # The docstrings keep exact matching.
 #
-# Some Daf methods live in modules of their own, as src/daffodil/daf_select.py, and are assigned
-# in the Daf class. Their examples were written for daf.py, where Daf, NULL and the rest are globals.
-# So the doctests of those modules also see daf.py's globals. A module's own names come first.
+# Most Daf and SqlDaf methods live in modules by topic, as src/daffodil/daf_select.py, and are
+# assigned in the class. Their examples were written for daf.py or sqldaf.py, where Daf, NULL and
+# the rest are globals. So the doctests of daf_* modules see daf.py's globals, and those of
+# sqldaf_* modules see sqldaf.py's. A module's own names come first.
 
 import doctest
+import importlib
 import re
 
 import pytest
@@ -21,10 +23,11 @@ _FENCE_AT_END = re.compile(r'(?:^|\n)[ \t]*```[^\n]*\n?\Z')
 
 def pytest_collection_modifyitems(items: list) -> None:
     for item in items:
-        if isinstance(item, pytest.DoctestItem) and item.dtest.name.startswith('daffodil.daf_'):
-            import daffodil.daf
-            for name, value in vars(daffodil.daf).items():
-                item.dtest.globs.setdefault(name, value)
+        if isinstance(item, pytest.DoctestItem):
+            for prefix, source in (('daffodil.daf_', 'daffodil.daf'), ('daffodil.sqldaf_', 'daffodil.sqldaf')):
+                if item.dtest.name.startswith(prefix):
+                    for name, value in vars(importlib.import_module(source)).items():
+                        item.dtest.globs.setdefault(name, value)
         if isinstance(item, pytest.DoctestItem) and str(item.fspath).endswith('.md'):
             for example in item.dtest.examples:
                 example.want = _strip_fence(example.want)

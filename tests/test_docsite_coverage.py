@@ -56,7 +56,10 @@ SQLDAF_PAGES = Path(__file__).resolve().parent.parent / 'docsite' / 'api' / 'sql
 def _sqldaf_documented() -> Counter:
     found: Counter = Counter()
     for page in SQLDAF_PAGES.glob('*.md'):
-        found.update(re.findall(r'^::: daffodil\.sqldaf\.SqlDaf\.(\w+)', page.read_text(), re.M))
+        text = page.read_text()
+        found.update(re.findall(r'^::: daffodil\.sqldaf\.SqlDaf\.(\w+)', text, re.M))
+        # Methods defined in topic modules, shown under their SqlDaf name.
+        found.update(re.findall(r'^\s+heading: "(\w+)"', text, re.M))
     return found
 
 
