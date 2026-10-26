@@ -88,6 +88,8 @@ plugins:
         python:
           paths: [src]
           options:
+            extensions:
+              - docsite/griffe_bound_methods.py:BoundMethodSignatures
             show_signature: true
             separate_signature: true
             show_source: false

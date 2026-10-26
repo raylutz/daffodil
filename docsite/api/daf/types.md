@@ -4,13 +4,21 @@ Column dtypes and schema support.
 
 ## Dtypes
 
-::: daffodil.daf.Daf.set_dtypes
+::: daffodil.daf_dtypes._set_dtypes
+    options:
+      heading: "set_dtypes"
 
-::: daffodil.daf.Daf.apply_dtypes
+::: daffodil.daf_dtypes._apply_dtypes
+    options:
+      heading: "apply_dtypes"
 
-::: daffodil.daf.Daf.flatten
+::: daffodil.daf_dtypes._flatten
+    options:
+      heading: "flatten"
 
-::: daffodil.daf.Daf.strip
+::: daffodil.daf_dtypes._strip
+    options:
+      heading: "strip"
 
 ## Schema
 
