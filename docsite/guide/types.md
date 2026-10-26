@@ -125,6 +125,42 @@ column. But it does not turn other values into NULL. A None that you store
 stays None, and `from_pandas_df()` keeps NaN as NaN. Neither is NULL, so `is NULL` is False
 for both. Replace them yourself if you want NULL.
 
+A None prints as `None`, unlike NULL. `to_csv_file()` writes it as an empty field, so the file
+holds NULL. In memory it stays None until its column is converted:
+
+```pycon
+>>> from daffodil.daf import NULL
+>>> nones = Daf(cols=['id', 'n', 's', 'ok', 'cv'],
+...             lol=[['a1', None, None, None, {'x': None}], ['b2', 3, 'x', 1, {'x': 1}]])
+>>> nones
+<BLANKLINE>
+| id |  n   |  s   |  ok  |     cv      |
+| -: | ---: | ---: | ---: | ----------: |
+| a1 | None | None | None | {'x': None} |
+| b2 |    3 |    x |    1 |    {'x': 1} |
+<BLANKLINE>
+%% daf rows=2; cols=5; keyfield=''; name=''
+<BLANKLINE>
+>>> nones.iloc(0)['n'] is NULL
+False
+>>> print(nones.to_csv_buff())
+id,n,s,ok,cv
+a1,,,,{'x': None}
+b2,3,x,1,{'x': 1}
+```
+
+`apply_dtypes()` makes None NULL in an `int` or `float` column, and 0 in a `bool` column. A `str`
+column is skipped by default, so None stays there. Pass `from_str=False` to make it NULL too. A
+None inside a dict or list cell stays None. `normalize_val()` in `daffodil.lib.daf_utils` makes it NULL.
+
+```pycon
+>>> nones_dtypes = {'id': str, 'n': int, 's': str, 'ok': bool, 'cv': dict}
+>>> nones.apply_dtypes(dtypes=nones_dtypes).iloc(0)
+{'id': 'a1', 'n': '', 's': None, 'ok': 0, 'cv': {'x': None}}
+>>> nones.apply_dtypes(dtypes=nones_dtypes, from_str=False).iloc(0)
+{'id': 'a1', 'n': '', 's': '', 'ok': 0, 'cv': {'x': None}}
+```
+
 - The sum methods skip it.
 - The value counts include it, as a count for `''`, unless you pass `omit_nulls=True`.
 - `to_pandas_df()` keeps it as `''`, so a number column with NULL becomes an object column.
