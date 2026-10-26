@@ -14,9 +14,13 @@ The shape of a Daf, its column names, its keyfield, copying, and iteration.
 
 ::: daffodil.daf.Daf.shape
 
-::: daffodil.daf.Daf.is_rectangular
+::: daffodil.daf_structure._is_rectangular
+    options:
+      heading: "is_rectangular"
 
-::: daffodil.daf.Daf.force_rectangular
+::: daffodil.daf_structure._force_rectangular
+    options:
+      heading: "force_rectangular"
 
 ::: daffodil.daf.Daf.__bool__
 
@@ -24,11 +28,17 @@ The shape of a Daf, its column names, its keyfield, copying, and iteration.
 
 ::: daffodil.daf.Daf.columns
 
-::: daffodil.daf.Daf.calc_cols
+::: daffodil.daf_structure._calc_cols
+    options:
+      heading: "calc_cols"
 
-::: daffodil.daf.Daf.rename_cols
+::: daffodil.daf_structure._rename_cols
+    options:
+      heading: "rename_cols"
 
-::: daffodil.daf.Daf.set_cols
+::: daffodil.daf_structure._set_cols
+    options:
+      heading: "set_cols"
 
 ## Keyfield
 
