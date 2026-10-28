@@ -2246,64 +2246,165 @@ class Daf:
             TypeError: A selector is None, or has a type that is not accepted.
 
         Examples:
-            >>> daf = Daf(lol=[[1, 'a', 10], [2, 'b', 20], [3, 'c', 30]], cols=['id', 'v', 'n'], keyfield='id')
-            >>> daf
-            <BLANKLINE>
-            | id | v  | n  |
-            | -: | -: | -: |
-            |  1 |  a | 10 |
-            |  2 |  b | 20 |
-            |  3 |  c | 30 |
-            <BLANKLINE>
-            %% daf rows=3; cols=3; keyfield='id'; name=''
-            <BLANKLINE>
+            The table used in the examples, with text keys in `id`:
+
+            >>> daf = Daf(cols=['id', 'item', 'qty'], keyfield='id', lol=[
+            ...     ['a1', 'pen', 3], ['b2', 'ink', 10], ['c3', 'pad', 7], ['d4', 'cap', 1]])
+
+            **Rows by position.** A number is a position from 0, and a negative one counts from the end:
+
             >>> daf[1]
             <BLANKLINE>
-            | id | v  | n  |
-            | -: | -: | -: |
-            |  2 |  b | 20 |
+            | id | item | qty |
+            | -: | ---: | --: |
+            | b2 |  ink |  10 |
             <BLANKLINE>
             %% daf rows=1; cols=3; keyfield='id'; name=''
             <BLANKLINE>
-            >>> daf[1:]
+            >>> daf[-1]
             <BLANKLINE>
-            | id | v  | n  |
-            | -: | -: | -: |
-            |  2 |  b | 20 |
-            |  3 |  c | 30 |
+            | id | item | qty |
+            | -: | ---: | --: |
+            | d4 |  cap |   1 |
+            <BLANKLINE>
+            %% daf rows=1; cols=3; keyfield='id'; name=''
+            <BLANKLINE>
+
+            A slice, a list of positions in the order given, or a range:
+
+            >>> daf[1:3]
+            <BLANKLINE>
+            | id | item | qty |
+            | -: | ---: | --: |
+            | b2 |  ink |  10 |
+            | c3 |  pad |   7 |
             <BLANKLINE>
             %% daf rows=2; cols=3; keyfield='id'; name=''
             <BLANKLINE>
-            >>> daf[:, 'v']
+            >>> daf[[3, 0]]
             <BLANKLINE>
-            | v  |
-            | -: |
-            |  a |
-            |  b |
-            |  c |
+            | id | item | qty |
+            | -: | ---: | --: |
+            | d4 |  cap |   1 |
+            | a1 |  pen |   3 |
             <BLANKLINE>
-            %% daf rows=3; cols=1; keyfield=''; name=''
+            %% daf rows=2; cols=3; keyfield='id'; name=''
             <BLANKLINE>
-            >>> daf[[2, 0], ['n', 'id']]
+            >>> daf[range(0, 4, 2)]
             <BLANKLINE>
-            | n  | id |
-            | -: | -: |
-            | 30 |  3 |
-            | 10 |  1 |
+            | id | item | qty |
+            | -: | ---: | --: |
+            | a1 |  pen |   3 |
+            | c3 |  pad |   7 |
+            <BLANKLINE>
+            %% daf rows=2; cols=3; keyfield='id'; name=''
+            <BLANKLINE>
+
+            **Rows by key.** A string is a key, and a list of strings gives several keys, in that order:
+
+            >>> daf['c3']
+            <BLANKLINE>
+            | id | item | qty |
+            | -: | ---: | --: |
+            | c3 |  pad |   7 |
+            <BLANKLINE>
+            %% daf rows=1; cols=3; keyfield='id'; name=''
+            <BLANKLINE>
+            >>> daf[['d4', 'a1']]
+            <BLANKLINE>
+            | id | item | qty |
+            | -: | ---: | --: |
+            | d4 |  cap |   1 |
+            | a1 |  pen |   3 |
+            <BLANKLINE>
+            %% daf rows=2; cols=3; keyfield='id'; name=''
+            <BLANKLINE>
+
+            A tuple of two keys is an inclusive range, in the order of the table. It needs the column part,
+            `:`, so it is not read as `[rows, cols]`. None as an end means the start or the end:
+
+            >>> daf[('b2', 'c3'), :]
+            <BLANKLINE>
+            | id | item | qty |
+            | -: | ---: | --: |
+            | b2 |  ink |  10 |
+            | c3 |  pad |   7 |
+            <BLANKLINE>
+            %% daf rows=2; cols=3; keyfield='id'; name=''
+            <BLANKLINE>
+            >>> daf[('c3', None), :]
+            <BLANKLINE>
+            | id | item | qty |
+            | -: | ---: | --: |
+            | c3 |  pad |   7 |
+            | d4 |  cap |   1 |
+            <BLANKLINE>
+            %% daf rows=2; cols=3; keyfield='id'; name=''
+            <BLANKLINE>
+
+            **Columns.** The second part selects columns, by name, by a list of names, or by position:
+
+            >>> daf[:, 'qty']
+            <BLANKLINE>
+            | qty |
+            | --: |
+            |   3 |
+            |  10 |
+            |   7 |
+            |   1 |
+            <BLANKLINE>
+            %% daf rows=4; cols=1; keyfield=''; name=''
+            <BLANKLINE>
+            >>> daf[:, ['qty', 'id']]
+            <BLANKLINE>
+            | qty | id |
+            | --: | -: |
+            |   3 | a1 |
+            |  10 | b2 |
+            |   7 | c3 |
+            |   1 | d4 |
+            <BLANKLINE>
+            %% daf rows=4; cols=2; keyfield='id'; name=''
+            <BLANKLINE>
+            >>> daf[:, 1:]
+            <BLANKLINE>
+            | item | qty |
+            | ---: | --: |
+            |  pen |   3 |
+            |  ink |  10 |
+            |  pad |   7 |
+            |  cap |   1 |
+            <BLANKLINE>
+            %% daf rows=4; cols=2; keyfield=''; name=''
+            <BLANKLINE>
+
+            **Rows and columns together,** and one cell, read as a value:
+
+            >>> daf[['a1', 'c3'], ['id', 'qty']]
+            <BLANKLINE>
+            | id | qty |
+            | -: | --: |
+            | a1 |   3 |
+            | c3 |   7 |
             <BLANKLINE>
             %% daf rows=2; cols=2; keyfield='id'; name=''
             <BLANKLINE>
-            >>> daf[1, 'n'].to_value()
-            20
-            >>> daf[(1, 2), :]
-            <BLANKLINE>
-            | id | v  | n  |
-            | -: | -: | -: |
-            |  1 |  a | 10 |
-            |  2 |  b | 20 |
-            <BLANKLINE>
-            %% daf rows=2; cols=3; keyfield='id'; name=''
-            <BLANKLINE>
+            >>> daf['b2', 'qty'].to_value()
+            10
+
+            **Selections share their rows.** A change through a selection of rows shows in the table:
+
+            >>> some = daf[0:2]
+            >>> some['a1', 'qty'] = 30
+            >>> daf['a1', 'qty'].to_value()
+            30
+
+            A key or name that is not there raises KeyError:
+
+            >>> daf['z9']
+            Traceback (most recent call last):
+            ...
+            KeyError: 'z9'
         """
         if self._retmode == self.RETMODE_VAL and self.lol:
             # One row or one cell in val mode: read it from lol and build no Daf.
@@ -2425,61 +2526,80 @@ class Daf:
             KeysDisabledError: A row is selected by key, and the Daf has no keyfield.
 
         Examples:
-            >>> daf = Daf(lol=[[1, 'a', 10], [2, 'b', 20], [3, 'c', 30]], cols=['id', 'v', 'n'], keyfield='id')
+            The table used in the examples, with text keys in `id`:
+
+            >>> daf = Daf(cols=['id', 'item', 'qty'], keyfield='id', lol=[
+            ...     ['a1', 'pen', 3], ['b2', 'ink', 10], ['c3', 'pad', 7]])
+
+            **One cell,** by key and column name, or by positions:
+
+            >>> daf['b2', 'qty'] = 12
+            >>> daf[0, 'item'] = 'pens'
             >>> daf
             <BLANKLINE>
-            | id | v  | n  |
-            | -: | -: | -: |
-            |  1 |  a | 10 |
-            |  2 |  b | 20 |
-            |  3 |  c | 30 |
+            | id | item | qty |
+            | -: | ---: | --: |
+            | a1 | pens |   3 |
+            | b2 |  ink |  12 |
+            | c3 |  pad |   7 |
             <BLANKLINE>
             %% daf rows=3; cols=3; keyfield='id'; name=''
             <BLANKLINE>
-            >>> daf[1, 'v'] = 'z'
-            >>> daf[:, 'n'] = [1, 2, 3]
+
+            **A column,** from a list with one value for each row, or from one value for every row. A
+            string is one value, not a list of characters:
+
+            >>> daf[:, 'qty'] = [4, 5, 6]
+            >>> daf[:, 'item'] = 'misc'
             >>> daf
             <BLANKLINE>
-            | id | v  | n  |
-            | -: | -: | -: |
-            |  1 |  a |  1 |
-            |  2 |  z |  2 |
-            |  3 |  c |  3 |
+            | id | item | qty |
+            | -: | ---: | --: |
+            | a1 | misc |   4 |
+            | b2 | misc |   5 |
+            | c3 | misc |   6 |
             <BLANKLINE>
             %% daf rows=3; cols=3; keyfield='id'; name=''
             <BLANKLINE>
-            >>> daf[0] = {'v': 'q'}
-            >>> daf.iloc(0)
-            {'id': '', 'v': 'q', 'n': ''}
 
-            A key changed after the index is built is found only after `set_keyfield()`:
+            **A row,** from a list in column order, or from a dict by column name. A dict sets the columns
+            it lacks to NULL, the empty string:
 
-            >>> k_daf = Daf(cols=['id', 'q'], lol=[['a', 1], ['b', 2]], keyfield='id')
-            >>> k_daf
+            >>> daf['c3'] = ['c3', 'pad', 7]
+            >>> daf['a1'] = {'id': 'a1', 'qty': 1}
+            >>> daf
             <BLANKLINE>
-            | id | q  |
-            | -: | -: |
-            |  a |  1 |
-            |  b |  2 |
+            | id | item | qty |
+            | -: | ---: | --: |
+            | a1 |      |   1 |
+            | b2 | misc |   5 |
+            | c3 |  pad |   7 |
             <BLANKLINE>
-            %% daf rows=2; cols=2; keyfield='id'; name=''
+            %% daf rows=3; cols=3; keyfield='id'; name=''
             <BLANKLINE>
-            >>> k_daf.select_record('a')
-            {'id': 'a', 'q': 1}
-            >>> k_daf[0, 'id'] = 'z'
-            >>> k_daf.select_record('z')
+
+            **Several rows and columns,** from one value:
+
+            >>> daf[['a1', 'b2'], ['item']] = 'pen'
+            >>> daf
+            <BLANKLINE>
+            | id | item | qty |
+            | -: | ---: | --: |
+            | a1 |  pen |   1 |
+            | b2 |  pen |   5 |
+            | c3 |  pad |   7 |
+            <BLANKLINE>
+            %% daf rows=3; cols=3; keyfield='id'; name=''
+            <BLANKLINE>
+
+            **Keys.** A write does not update the index of keys. After changing a key, call
+            `set_keyfield()` before looking the row up by its new key:
+
+            >>> daf['c3', 'id'] = 'c9'
+            >>> daf.select_record('c9')
             {}
-            >>> k_daf.set_keyfield(k_daf.keyfield)
-            <BLANKLINE>
-            | id | q  |
-            | -: | -: |
-            |  z |  1 |
-            |  b |  2 |
-            <BLANKLINE>
-            %% daf rows=2; cols=2; keyfield='id'; name=''
-            <BLANKLINE>
-            >>> k_daf.select_record('z')
-            {'id': 'z', 'q': 1}
+            >>> daf.set_keyfield(daf.keyfield).select_record('c9')
+            {'id': 'c9', 'item': 'pad', 'qty': 7}
         """
         # One cell and a plain value: write it into lol directly.
         # The general path below does the same for this case, after parsing the selectors.

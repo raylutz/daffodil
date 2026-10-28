@@ -375,6 +375,11 @@ def _kcols_to_icols(self: 'Daf',
         Traceback (most recent call last):
             ...
         KeyError: 'zz'
+
+        A name that is not a column raises KeyError, or is left out with `silent_error=True`:
+
+        >>> daf.kcols_to_icols(['v', 'color'], silent_error=True)
+        [1]
     """
     """
         If cols are defined is set, then the cols can be selected by providing a
@@ -426,8 +431,8 @@ def _gkeys_to_idxs(
         gkeys: The keys.
         inverse: If True, return the positions that are not selected.
         silent_error: If True, keys that are not found are ignored.
-        axis: A label for error messages.
-        name: A label for error messages.
+        axis: The name of the index, for the error raised when it is empty.
+        name: Not used.
 
     Returns:
         The positions, as a list or a slice.
@@ -442,6 +447,22 @@ def _gkeys_to_idxs(
         [2, 0]
         >>> Daf.gkeys_to_idxs({'a': 0, 'b': 1, 'c': 2}, ('a', 'b'))
         slice(0, 2, 1)
+
+        With `inverse=True`, the positions that are not selected. With `silent_error=True`, a key that
+        is not found is left out:
+
+        >>> positions = {'a': 0, 'b': 1, 'c': 2}
+        >>> Daf.gkeys_to_idxs(positions, ['b'], inverse=True)
+        [0, 2]
+        >>> Daf.gkeys_to_idxs(positions, ['b', 'z'], silent_error=True)
+        [1]
+
+        `axis` names the index in the error for an empty one:
+
+        >>> Daf.gkeys_to_idxs({}, ['a'], axis='rowkeys')
+        Traceback (most recent call last):
+        ...
+        daffodil.daf.KeysDisabledError: gkeys_to_idxs(): the rowkeys index is empty, so there is nothing to look up. A Daf with no rows has no keys.
     """
     """
         If keydict is defined, then the idxs can be selected by providing a
@@ -705,6 +726,11 @@ def _select_kcols(self: 'Daf',
         <BLANKLINE>
         %% daf rows=1; cols=3; keyfield=''; name=''
         <BLANKLINE>
+
+        A name that is not a column raises KeyError, or is left out with `silent_error=True`:
+
+        >>> daf.select_kcols(['id', 'color'], silent_error=True).columns()
+        ['id']
     """
     if not self.hd:
         raise KeysDisabledError("select_kcols requires hd.")
@@ -1103,6 +1129,16 @@ def _select_record(self: 'Daf', key: str | int | T_ta, silent_error: bool=True) 
         {'id': 2, 'v': 'b', 'n': 20}
         >>> daf.select_record(9)
         {}
+
+        A key that is not found gives an empty dict, quietly. Pass `silent_error=False` to raise instead:
+
+        >>> stock = Daf(cols=['id', 'qty'], lol=[['a1', 3], ['b2', 10]], keyfield='id')
+        >>> stock.select_record('z9')
+        {}
+        >>> stock.select_record('z9', silent_error=False)
+        Traceback (most recent call last):
+        ...
+        KeyError: 'z9'
     """
     """ Select one record from daf using the key and return as a single T_da dict.
 
@@ -1396,6 +1432,18 @@ def _iloc(self: 'Daf', irow: int=0, include_cols: T_ls | None = None, rtype: str
         [2, 'b', 20]
         >>> daf.iloc(-1)
         {'id': 3, 'v': 'c', 'n': 30}
+
+        Only some columns, in a dict:
+
+        >>> daf.iloc(1, include_cols=['id', 'n'])
+        {'id': 2, 'n': 20}
+
+        A KeyedList shares the row with the Daf, so a change to it changes the table:
+
+        >>> row = daf.iloc(1, rtype='klist')
+        >>> row['n'] = 25
+        >>> daf.iloc(1)
+        {'id': 2, 'v': 'b', 'n': 25}
     """
     """ Select one record from daf using the idx and return as a single T_da dict
             test exists in test_daf.py
@@ -1616,6 +1664,22 @@ def _select_by_dict(
         <BLANKLINE>
         %% daf rows=1; cols=3; keyfield='id'; name=''
         <BLANKLINE>
+
+        Give the new Daf another keyfield:
+
+        >>> ballots = Daf(cols=['id', 'party', 'precinct'], keyfield='id', lol=[
+        ...     ['b1', 'D', 'P1'], ['b2', 'R', 'P1'], ['b3', 'D', 'P2']])
+        >>> ballots.select_by_dict({'party': 'D'}, keyfield='precinct').keys()
+        ['P1', 'P2']
+
+        Check how many rows match, with `expectmax`. More than that raises LookupError:
+
+        >>> ballots.select_by_dict({'party': 'R'}, expectmax=1).keys()
+        ['b2']
+        >>> ballots.select_by_dict({'party': 'D'}, expectmax=1)
+        Traceback (most recent call last):
+        ...
+        LookupError: select_by_dict(): 2 rows match, more than expectmax=1.
     """
 
     """ Selects rows in daf which match the fields specified in selector_da
@@ -1690,6 +1754,12 @@ def _select_first_row_by_dict(self: 'Daf', selector_da: T_da, inverse:bool=False
         {'id': 2, 'v': 'b', 'n': 20}
         >>> daf.select_first_row_by_dict({'v': 'zz'})
         {}
+
+        With `inverse=True`, the first row that does not match:
+
+        >>> ballots = Daf(cols=['id', 'party'], lol=[['b1', 'D'], ['b2', 'R'], ['b3', 'D']])
+        >>> ballots.select_first_row_by_dict({'party': 'D'}, inverse=True)
+        {'id': 'b2', 'party': 'R'}
     """
 
     """ Selects the first row in daf which matches the fields specified in selector_da
@@ -1849,6 +1919,15 @@ def _select_where(self: 'Daf', where: Callable, indirect_col: str | None = None)
         <BLANKLINE>
         %% daf rows=3; cols=3; keyfield=''; name=''
         <BLANKLINE>
+
+        For sparse data, where each row holds a dict in one column, `indirect_col` names that column.
+        Then the function can read the dict's keys as if they were columns. A row that lacks a key
+        gets NULL:
+
+        >>> ballots = Daf(cols=['id', 'votes'], keyfield='id', lol=[
+        ...     ['b1', {'mayor': 1}], ['b2', {'mayor': 1, 'council': 2}], ['b3', {'council': 1}]])
+        >>> ballots.select_where(lambda row: row['mayor'] == 1, indirect_col='votes').keys()
+        ['b1', 'b2']
     """
     """
         Select rows in Daf based on the provided where condition
@@ -1989,6 +2068,14 @@ def _split_where(
         <BLANKLINE>
         %% daf rows=1; cols=3; keyfield='id'; name=''
         <BLANKLINE>
+
+        With `indirect_col`, the function can read the keys of the dict in that column as columns:
+
+        >>> ballots = Daf(cols=['id', 'votes'], keyfield='id', lol=[
+        ...     ['b1', {'mayor': 1}], ['b2', {'mayor': 1, 'council': 2}], ['b3', {'council': 1}]])
+        >>> voted, not_voted = ballots.split_where(lambda row: row['council'] != '', indirect_col='votes')
+        >>> voted.keys(), not_voted.keys()
+        (['b2', 'b3'], ['b1'])
     """
     """
         Select rows in Daf based on the provided where condition,
@@ -2043,10 +2130,19 @@ def _col(self: 'Daf',
     """
     Get one column as a list, by name.
 
-    This does not make a Daf first, as `my_daf[:, 'v'].to_list()` does.
+    This reads the column directly, without making a Daf first, as `daf[:, 'v'].to_list()` does.
+    So it is the fast way to get the values of one column.
 
-    With `indirect_col`, a name that is not a column is read from the dict held in
-    that column, row by row. A row that lacks it gets `default`.
+    The options leave values out or change them:
+
+    - `unique=True` keeps the first of each value, in order.
+    - `omit_nulls=True` leaves out NULL, the empty string.
+    - `astype` converts each value with a type or a function.
+    - `silent_error=True` gives an empty list for a column that does not exist, where it would raise.
+
+    `indirect_col` is for sparse data, where each row holds a dict in one column, with only the
+    keys it has. Then `colname` is a key of those dicts, and a row that lacks it gets `default`. A
+    name that is a real column is still read from the column.
 
     Args:
         colname: The column name.
@@ -2062,25 +2158,49 @@ def _col(self: 'Daf',
 
     Raises:
         ColumnNotFoundError: The column is not found and `silent_error` is False. This is a
-            `KeyError`, and also a `RuntimeError`, which this method raised in earlier versions.
+            `KeyError`, and also a `RuntimeError`, so a handler for either catches it.
         RuntimeError: The name is empty.
 
     Examples:
-        >>> daf = Daf(lol=[[1, 'a', 10], [2, 'b', 20], [3, 'c', 30]], cols=['id', 'v', 'n'], keyfield='id')
-        >>> daf
-        <BLANKLINE>
-        | id | v  | n  |
-        | -: | -: | -: |
-        |  1 |  a | 10 |
-        |  2 |  b | 20 |
-        |  3 |  c | 30 |
-        <BLANKLINE>
-        %% daf rows=3; cols=3; keyfield='id'; name=''
-        <BLANKLINE>
-        >>> daf.col('v')
-        ['a', 'b', 'c']
-        >>> daf.col('n', astype=str)
-        ['10', '20', '30']
+        The table used in the examples, of ballots, with a dict of votes for each:
+
+        >>> daf = Daf(cols=['id', 'party', 'votes'], keyfield='id', lol=[
+        ...     ['b1', 'D', {'mayor': 1}],
+        ...     ['b2', 'R', {'mayor': 1, 'council': 2}],
+        ...     ['b3', '',  {}],
+        ...     ['b4', 'D', {'council': 1}]])
+        >>> daf.col('party')
+        ['D', 'R', '', 'D']
+
+        Each value once, and without the empty ones:
+
+        >>> daf.col('party', unique=True)
+        ['D', 'R', '']
+        >>> daf.col('party', omit_nulls=True)
+        ['D', 'R', 'D']
+        >>> daf.col('party', unique=True, omit_nulls=True)
+        ['D', 'R']
+
+        Convert each value, here with a function:
+
+        >>> daf.col('id', astype=str.upper)
+        ['B1', 'B2', 'B3', 'B4']
+
+        A column that does not exist raises, or gives an empty list:
+
+        >>> daf.col('color')
+        Traceback (most recent call last):
+        ...
+        daffodil.daf.ColumnNotFoundError: 'color'
+        >>> daf.col('color', silent_error=True)
+        []
+
+        Read a key from the dict in the votes column. A row without it gets NULL, or `default`:
+
+        >>> daf.col('mayor', indirect_col='votes')
+        [1, 1, '', '']
+        >>> daf.col('council', indirect_col='votes', default=0)
+        [0, 2, 0, 1]
     """
 
     """ alias for col_to_la()
@@ -2129,32 +2249,16 @@ def _col_to_la(self: 'Daf',
 
     Raises:
         ColumnNotFoundError: The column is not found and `silent_error` is False. This is a
-            `KeyError`, and also a `RuntimeError`, which this method raised in earlier versions.
+            `KeyError`, and also a `RuntimeError`, so a handler for either catches it.
         RuntimeError: The name is empty.
 
     Examples:
-        >>> daf = Daf(lol=[['r1', 'a', 10], ['r2', 'b', ''], ['r3', 'a', 30]], cols=['id', 'v', 'n'], keyfield='id')
-        >>> daf
-        <BLANKLINE>
-        | id | v  | n  |
-        | -: | -: | -: |
-        | r1 |  a | 10 |
-        | r2 |  b |    |
-        | r3 |  a | 30 |
-        <BLANKLINE>
-        %% daf rows=3; cols=3; keyfield='id'; name=''
-        <BLANKLINE>
+        `col_to_la()` is the same method as [col()][daffodil.daf_select._col], which has an example
+    of each option:
 
-        >>> daf.col_to_la('v')
-        ['a', 'b', 'a']
-        >>> daf.col_to_la('v', unique=True)
-        ['a', 'b']
-        >>> daf.col_to_la('n', omit_nulls=True)
-        [10, 30]
-        >>> daf.col_to_la('n', astype=str)
-        ['10', '', '30']
-        >>> daf.col_to_la('zz', silent_error=True)
-        []
+        >>> daf = Daf(cols=['id', 'party'], lol=[['b1', 'D'], ['b2', 'R'], ['b3', 'D']])
+        >>> daf.col_to_la('party', unique=True) == daf.col('party', unique=True)
+        True
     """
 
     if not colname:
@@ -2270,6 +2374,14 @@ def _icol_to_la(self: 'Daf', icol: int, unique: bool=False, omit_nulls: bool=Fal
         Traceback (most recent call last):
             ...
         IndexError: icol: column position 5 is out of range for 3 columns.
+
+        Leave out the empty values, and the repeats:
+
+        >>> parties = Daf(cols=['id', 'party'], lol=[['b1', 'D'], ['b2', 'R'], ['b3', ''], ['b4', 'D']])
+        >>> parties.icol_to_la(1, omit_nulls=True)
+        ['D', 'R', 'D']
+        >>> parties.icol_to_la(1, unique=True, omit_nulls=True)
+        ['D', 'R']
     """
 
     if not self:

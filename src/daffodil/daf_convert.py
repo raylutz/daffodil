@@ -1147,9 +1147,8 @@ def _from_csv_file(
     r"""
     Read a CSV file into a Daf. Deprecated, use `from_csv()`.
 
-    This now calls `from_csv()`, so it reads the file as UTF-8, and a file that cannot be
-    read raises `RuntimeError`. It used to print a message and return None, and to read
-    the file with the encoding of the machine.
+    It calls `from_csv()`, so it reads the file as UTF-8, and a file that cannot be read
+    raises `RuntimeError`.
 
     Args:
         filepath: Path of the file.
