@@ -31,6 +31,15 @@ a few together. The examples show behavior. Catching errors is the unit tests' j
    `indirect_col`, so it raises. Only `groupby_reduce()` handles it. Their `by` entries now say to
    leave it as `row`. xfail tests in test_daf_reduction.py.
 
+6. A SqlDaf's `sum(numeric_only=True)` gives 0.0 for the columns it skips, as the Daf gives `'0.0'`.
+7. Unsupported on a SqlDaf, each raising NotImplementedError, and documented as such:
+   `indirect_col` in `select_where()`, `split_where()` and `group_where()`, `apply(keylist=)`,
+   `groupby(cols=)`, `insert_col()` at a position other than the end, `join(fill=)` other than NULL.
+   Not bugs, but gaps a user meets.
+8. A SqlDaf's sort of a column of numbers mixed with text follows SQLite's order, with no error,
+   where a Daf raises TypeError. Documented.
+9. `buff_to_file(fmt=)` is not used. Its Args entry now says so.
+
 ## Done so far
 
 - Quick start and Getting started rewritten. The Quick start runs as a doctest, locally and in CI.
@@ -42,3 +51,9 @@ a few together. The examples show behavior. Catching errors is the unit tests' j
 - daf_select.py and the brackets: an example per kind of selector, `col()` rewritten.
 - daf_modify.py: `append()` rewritten, the options of the rest.
 - daf_apply.py: `apply()`, `reduce()` and the grouping, sum and count options.
+- daf_convert.py, daf_structure.py, daf_dtypes.py, daf_join.py and the core: every option, with an
+  .ods file made in memory for `from_ods()`, which had no example.
+- The SqlDaf modules: every option, and each place where a SqlDaf differs from a Daf.
+- A second audit leaves only options that are deprecated, not used, not supported on a SqlDaf,
+  shown on a linked method, or waiting on Ray (`numeric_only`). `diagnose` prints timestamps, so it
+  is described in words, not shown.

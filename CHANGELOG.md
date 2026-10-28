@@ -9,6 +9,9 @@ all prior releases. Plans for future moved to ROADMAP.md.
 
 ## [Unreleased]
 
+### Changed
+- The docs examples show the real output of each call, with no `_ =`, and give an example for each parameter of a method, or a few together. The Quick start and Getting started pages are rewritten, and the Quick start runs as a doctest. A moved method's signature in the API pages shows its method name, not the function's. `to_md()`, `col()`, `append()`, the brackets and many more are reworked. Where a docstring said something the code does not do, it now says what the code does, and the bugs found are listed in `notes/engineering_notebook/`. Tests were added for the cases shown, and four xfail tests record two of the bugs. Ray asked for this on 2026-10-28, Q306.
+
 ## [0.9.1] - (2026-10-26)
 
 This release splits daf.py and sqldaf.py into modules by topic, with no change to what any method does. Every import works as before. A method's `__name__` is now its function's name, as `_select_where`. `read_only=True` holds only for the SqlDaf that asked for it, where it held for every SqlDaf on the file, and `sql()` raises ReadOnlyTableError for a refused change. The SqlDaf API pages list 11 members they lacked.

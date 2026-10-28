@@ -1374,6 +1374,24 @@ def _join(
         <BLANKLINE>
         >>> a_sdaf.join(b_sdaf, how='left').to_daf().lol
         [[1, 'Alice', 50], [2, 'Bob', '']]
+
+        `shared_fields`, `tag_other` and `name` work as for a Daf. `fill` other than NULL is not
+        supported on a SqlDaf, and raises NotImplementedError:
+
+        >>> stock_sdaf = SqlDaf.from_daf(Daf(cols=['id', 'item', 'qty'], keyfield='id', lol=[['a1', 'pen', 3]]), name='join_stock')
+        >>> price_sdaf = SqlDaf.from_daf(Daf(cols=['id', 'item', 'price'], keyfield='id', lol=[['a1', 'pen', 1.5]]), name='join_price')
+        >>> stock_sdaf.join(price_sdaf).columns()
+        ['id', 'item_join_stock', 'qty', 'item_join_price', 'price']
+        >>> stock_sdaf.join(price_sdaf, shared_fields=['item'], name='join_result').to_daf()
+        <BLANKLINE>
+        | id | item | qty | price |
+        | -: | ---: | --: | ----: |
+        | a1 |  pen |   3 |   1.5 |
+        <BLANKLINE>
+        %% daf rows=1; cols=4; keyfield='id'; name='join_result'
+        <BLANKLINE>
+        >>> stock_sdaf.join(price_sdaf, tag_other=True).columns()
+        ['id', 'item_join_stock', 'qty', 'item_join_price', 'price_join_price']
     """
     if how not in ('inner', 'left', 'right', 'outer'):
         raise ValueError(f"join: how='{how}' is not inner, left, right or outer.")

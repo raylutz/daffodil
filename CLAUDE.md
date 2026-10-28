@@ -103,7 +103,17 @@ Source code is in src/daffodil and tests are in tests.
 - Check every claim by running the code. Don't describe what you have not seen happen.
 - Name the behavior a caller could trip over. For example, say if a result is a copy or a
   view, and if the original is changed.
-- Add a short example when it helps. Write it in the doctest style, with `>>>`, and run it.
+- Add examples, in the doctest style, with `>>>`, and run them. A method gets an example for each
+  parameter, or for a few together, so a reader sees what each does. One example is not enough for
+  a method with many options. Ray, 2026-10-28, Q306.
+- Show the real output of each call. Never write `_ =`; real code does not use it. Keep the output
+  short by construction: chain a call that returns the Daf to a narrow read, as
+  `daf.append(row).select_record('a1')`, keep tables to a few rows, and put a loop in a small
+  function. Use text keys, so a key is not taken for a position.
+- The examples show behavior. Catching errors is the unit tests' job. A case the docs show with no
+  unit test is a gap in the tests.
+- Watch for a tuple that reads the same object before and after a change, as
+  `x.lol, x.apply_dtypes().lol`. Both show the changed value. Put them on two lines.
 - The heading must be `Examples:`, in the plural. The singular `Example:` is shown as a
   note box, and the code is not highlighted.
 - Put names that contain an underscore in backticks, such as `iter_dict()`. Otherwise the

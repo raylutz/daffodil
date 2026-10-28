@@ -511,6 +511,15 @@ def _check_schema(self: 'Daf', max_report: int = 10) -> 'Daf':
         ValueError: check_schema(): 2 cells do not fit the schema:
           row 1, column 'id': required, but empty
           row 1, column 'n': 'x' is not int
+
+        `max_report` limits how many bad cells the message lists. The count covers them all:
+
+        >>> bad = Daf(cols=['id', 'qty'], lol=[['a', 'x'], ['b', 'y'], ['c', 'z']], dtypes={'id': str, 'qty': int})
+        >>> bad.check_schema(max_report=1)
+        Traceback (most recent call last):
+        ...
+        ValueError: check_schema(): 3 cells do not fit the schema. The first 1:
+          row 0, column 'qty': 'x' is not int
     """
     from daffodil.lib.daf_utils import test_strbool, NULL
 

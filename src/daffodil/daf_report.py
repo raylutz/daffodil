@@ -819,6 +819,13 @@ def _to_md_cols(
         | Price | 1.5          | 4.0 | 2.2          |
         | Note  | blue,..e tip |     | lined..paper |
         <BLANKLINE>
+
+        `shorten_text=False` writes long text in full, whatever `max_text_len` is:
+
+        >>> notes = Daf(cols=['n'], lol=[['a very long note text']])
+        >>> print(notes.to_md_cols(max_text_len=10, shorten_text=False))
+        | n  | a very long note text |
+        <BLANKLINE>
     """
 
     daf_lol = self.daf_to_lol_summary(max_rows=max_rows, max_cols=max_cols, disp_cols=disp_cols)

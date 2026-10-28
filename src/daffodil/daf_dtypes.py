@@ -362,6 +362,13 @@ def _apply_dtypes(self: 'Daf', *,
         >>> part = Daf(cols=['id', 'qty'], lol=[['a1', '3']])
         >>> part.apply_dtypes(dtypes={'qty': int}, silent_error=True).lol, part.dtypes
         ([['a1', 3]], {'qty': <class 'int'>, 'id': <class 'str'>})
+
+        With `silent_error=True` and `default_type`, a column with no dtype gets that type. Here the id
+        column gets str, and with `from_str=False` it is made text:
+
+        >>> numbered = Daf(cols=['id', 'qty'], lol=[[1, '3']])
+        >>> numbered.apply_dtypes(dtypes={'qty': int}, silent_error=True, default_type=str, from_str=False).lol
+        [['1', 3]]
     """
 
     """ convert columns of daf array to the datatypes specified in self.dtypes or in passed parameter.

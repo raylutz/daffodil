@@ -1530,7 +1530,7 @@ def _buff_to_file(buff: T_buff, file_path: str | Path, fmt:str='.csv') -> str:
     Args:
         buff: The text or bytes to write.
         file_path: Where to write.
-        fmt: The file format, such as `.csv`.
+        fmt: Not used.
 
     Returns:
         The path that was written.
@@ -1606,6 +1606,17 @@ def _from_directory(
         ['a.csv', 'c.csv']
         >>> sorted(Daf.from_directory(folder, include_dirs=True).col('basename'))
         ['a.csv', 'b.txt', 'c.csv', 'sub']
+
+        A `@schemaclass` that names only some of the columns keeps only those:
+
+        >>> from daffodil.lib.schemaclass import schemaclass
+        >>> @schemaclass
+        ... class FileRow:
+        ...     basename: str = ''
+        ...     size: int = 0
+        >>> listed = Daf.from_directory(folder, schema=FileRow)
+        >>> listed.columns()
+        ['basename', 'size']
     """
 
     import os
