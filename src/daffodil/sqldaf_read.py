@@ -24,11 +24,11 @@ import daffodil.lib.daf_sql as daf_sql
 from daffodil.lib.daf_sql import sqlite3
 
 if TYPE_CHECKING:       # for mypy. sqldaf.py sets the names below when the program runs.
-    from daffodil.sqldaf import SqlDaf, ORD_COL, none_to_null, quote_name
+    from daffodil.sqldaf import SqlDaf, ORD_COL, TEMP_PREFIX, none_to_null, quote_name
 
 # The names of sqldaf.py that the functions here use when they run.
 # sqldaf.py sets each one here once it exists. An import at the top would be circular.
-_NAMES_FROM_SQLDAF: Tuple[str, ...] = ('ORD_COL', 'none_to_null', 'quote_name')
+_NAMES_FROM_SQLDAF: Tuple[str, ...] = ('ORD_COL', 'TEMP_PREFIX', 'none_to_null', 'quote_name')
 
 
 def _md_daf_table_snippet(self: 'SqlDaf') -> str:
@@ -90,12 +90,12 @@ def _to_daf(self: 'SqlDaf', name: str | None = None) -> Daf:
     ties it to the table afterwards: a change to one does not show in the other. A child has
     its rows found first.
 
-    The Daf of a permanent table has the table's name. The Daf of a selection, or of a TEMP
-    table such as a copy or a join, has no name, as a Daf selection has none. Give `name` to
-    set one.
+    The Daf has the table's name, if it was given one. A name that SqlDaf made up, as for a
+    selection or an unnamed copy or join, is left out, so that Daf has no name, as a Daf selection
+    has none. Give `name` to set one.
 
     Args:
-        name: The name of the new Daf. If None, the table's name, or none for a selection or TEMP table.
+        name: The name of the new Daf. If None, the table's name, or none for a name SqlDaf made up.
 
     Returns:
         A Daf of every row.
@@ -141,7 +141,7 @@ def _to_daf(self: 'SqlDaf', name: str | None = None) -> Daf:
     self._resolve()
     lol: T_lola = [none_to_null(row_t) for row_t in self._select_rows()]
     if name is None:
-        name = '' if self.is_child or self.is_temp else self.name
+        name = '' if self.name.startswith(TEMP_PREFIX) else self.name
     return Daf(lol=lol, cols=self.columns(), keyfield=self.keyfield, name=name,
                dtypes=dict(self.dtypes) if self.dtypes else None)
 
