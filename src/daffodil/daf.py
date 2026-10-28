@@ -615,6 +615,25 @@ class Daf:
 
         Returns:
             Iterator: The rows, as dicts or KeyedList objects.
+
+        Examples:
+            >>> daf = Daf(cols=['id', 'qty'], keyfield='id', lol=[['a1', 3], ['b2', 10]])
+            >>> [row['qty'] for row in daf]
+            [3, 10]
+
+            Each row is a new dict, so assigning to it leaves the Daf as it was:
+
+            >>> for row in daf:
+            ...     row['qty'] = 0
+            >>> daf.col('qty')
+            [3, 10]
+
+            `iter_klist()` gives rows that write through:
+
+            >>> for row in daf.iter_klist():
+            ...     row['qty'] = 0
+            >>> daf.col('qty')
+            [0, 0]
         """
         return cast(Iterator[T_da], self._default_iterator())     # typed for the default itermode, as above.
 
@@ -882,6 +901,41 @@ class Daf:
 
         Returns:
             The Markdown text.
+
+        Examples:
+            >>> daf = Daf(cols=['id', 'n'], lol=[[f'r{i}', i] for i in range(12)])
+            >>> print(daf)
+            | id  |  n  |
+            | --: | --: |
+            |  r0 |   0 |
+            |  r1 |   1 |
+            |  r2 |   2 |
+            |  r3 |   3 |
+            |  r4 |   4 |
+            | ... | ... |
+            |  r7 |   7 |
+            |  r8 |   8 |
+            |  r9 |   9 |
+            | r10 |  10 |
+            | r11 |  11 |
+            <BLANKLINE>
+            %% daf rows=12; cols=2; keyfield=''; name=''
+            <BLANKLINE>
+
+            The limits are attributes of the Daf:
+
+            >>> daf.md_max_rows = 4
+            >>> print(daf)
+            | id  |  n  |
+            | --: | --: |
+            |  r0 |   0 |
+            |  r1 |   1 |
+            | ... | ... |
+            | r10 |  10 |
+            | r11 |  11 |
+            <BLANKLINE>
+            %% daf rows=12; cols=2; keyfield=''; name=''
+            <BLANKLINE>
         """
         return self.md_daf_table_snippet()
 
@@ -895,6 +949,18 @@ class Daf:
 
         Returns:
             The Markdown text.
+
+        Examples:
+            >>> daf = Daf(cols=['id', 'qty'], keyfield='id', lol=[['a1', 3], ['b2', 10]])
+            >>> daf
+            <BLANKLINE>
+            | id | qty |
+            | -: | --: |
+            | a1 |   3 |
+            | b2 |  10 |
+            <BLANKLINE>
+            %% daf rows=2; cols=2; keyfield='id'; name=''
+            <BLANKLINE>
         """
         return "\n"+self.md_daf_table_snippet()
 
@@ -974,10 +1040,15 @@ class Daf:
 
     def __len__(self) -> int:
         """
-        Return the number of rows, so `len(d)` works.
+        Return the number of rows, so `len(daf)` works.
 
         Returns:
             The number of rows.
+
+        Examples:
+            >>> daf = Daf(cols=['id', 'qty'], keyfield='id', lol=[['a1', 3], ['b2', 10], ['c3', 7]])
+            >>> len(daf), len(daf[1:]), len(Daf())
+            (3, 2, 0)
         """
         return self.num_rows()
 

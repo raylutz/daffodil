@@ -1209,6 +1209,15 @@ class SqlDaf(Daf):
 
         Raises:
             ValueError: There is no database path.
+
+        Examples:
+            >>> import tempfile
+            >>> SqlDaf.db_path = tempfile.mkdtemp() + '/job.db'
+            >>> SqlDaf.table_exists('items')
+            False
+            >>> items_sdaf = SqlDaf.from_daf(Daf(cols=['id', 'qty'], lol=[['a1', 3]]), name='items')
+            >>> SqlDaf.table_exists('items'), SqlDaf.table_exists('items', db_path=tempfile.mkdtemp() + '/other.db')
+            (True, False)
         """
         path: str = db_path or cls.db_path
         if not path:
@@ -1224,7 +1233,18 @@ class SqlDaf(Daf):
 
     @property
     def name(self) -> str:              # type: ignore[override]
-        """ The name of the table in the database. `copy(name=)` and `save(name)` give a new one. """
+        """
+        The name of the table in the database. `copy(name=)` and `save(name)` give a new one.
+
+        Examples:
+            >>> import tempfile
+            >>> SqlDaf.db_path = tempfile.mkdtemp() + '/job.db'
+            >>> items_sdaf = SqlDaf.from_daf(Daf(cols=['id', 'qty'], keyfield='id', lol=[['a1', 3], ['b2', 10]]), name='items')
+            >>> items_sdaf.name
+            'items'
+            >>> items_sdaf.copy(name='items_copy').name
+            'items_copy'
+        """
         return self._name
 
 
@@ -1273,7 +1293,16 @@ class SqlDaf(Daf):
 
     @property
     def is_child(self) -> bool:
-        """ True for a child, a selection that refers to rows of its parent. False for a parent, which holds its own rows. """
+        """
+        True for a child, a selection that refers to rows of its parent. False for a parent, which holds its own rows.
+
+        Examples:
+            >>> import tempfile
+            >>> SqlDaf.db_path = tempfile.mkdtemp() + '/job.db'
+            >>> items_sdaf = SqlDaf.from_daf(Daf(cols=['id', 'qty'], keyfield='id', lol=[['a1', 3], ['b2', 10]]), name='items')
+            >>> items_sdaf.is_child, items_sdaf.select_krows(['b2']).is_child
+            (False, True)
+        """
         return self.parent_sdaf is not None
 
 
@@ -1286,6 +1315,20 @@ class SqlDaf(Daf):
 
         Returns:
             The Markdown text.
+
+        Examples:
+            >>> import tempfile
+            >>> SqlDaf.db_path = tempfile.mkdtemp() + '/job.db'
+            >>> items_sdaf = SqlDaf.from_daf(Daf(cols=['id', 'qty'], keyfield='id', lol=[['a1', 3], ['b2', 10]]), name='items')
+            >>> items_sdaf
+            <BLANKLINE>
+            | id | qty |
+            | -: | --: |
+            | a1 |   3 |
+            | b2 |  10 |
+            <BLANKLINE>
+            %% daf rows=2; cols=2; keyfield='id'; name='items'
+            <BLANKLINE>
         """
         return '\n' + self.md_daf_table_snippet()
 
@@ -1337,6 +1380,23 @@ class SqlDaf(Daf):
 
         Returns:
             The Markdown text.
+
+        Examples:
+            >>> import tempfile
+            >>> SqlDaf.db_path = tempfile.mkdtemp() + '/job.db'
+            >>> nums_sdaf = SqlDaf.from_daf(Daf(cols=['id', 'n'], lol=[[f'r{i}', i] for i in range(12)]), name='nums')
+            >>> nums_sdaf.md_max_rows = 4
+            >>> print(nums_sdaf)
+            | id  |  n  |
+            | --: | --: |
+            |  r0 |   0 |
+            |  r1 |   1 |
+            | ... | ... |
+            | r10 |  10 |
+            | r11 |  11 |
+            <BLANKLINE>
+            %% daf rows=12; cols=2; keyfield=''; name='nums'
+            <BLANKLINE>
         """
         return self.md_daf_table_snippet()
 
@@ -1355,6 +1415,16 @@ class SqlDaf(Daf):
 
         Raises:
             ValueError: A spec is given and there is not exactly one cell.
+
+        Examples:
+            >>> import tempfile
+            >>> SqlDaf.db_path = tempfile.mkdtemp() + '/job.db'
+            >>> items_sdaf = SqlDaf.from_daf(Daf(cols=['id', 'price'], keyfield='id', lol=[['a1', 1.5], ['b2', 4.0]]), name='items')
+            >>> f"price: {items_sdaf['b2', 'price']:.2f}"
+            'price: 4.00'
+            >>> f"{items_sdaf[:, 'price']:.2f}"
+            Traceback (most recent call last):
+            ValueError: to_value() requires 1×1, got shape (2+, 1)
         """
         return Daf.__format__(self, format_spec)
 
@@ -1385,6 +1455,21 @@ class SqlDaf(Daf):
 
         Raises:
             ValueError: There is no database path.
+
+        Examples:
+            >>> import tempfile
+            >>> SqlDaf.db_path = tempfile.mkdtemp() + '/job.db'
+            >>> items_sdaf = SqlDaf.from_daf(Daf(cols=['id', 'qty'], keyfield='id', lol=[['a1', 3], ['b2', 10]]), name='items')
+            >>> copy_sdaf = items_sdaf.copy()
+            >>> SqlDaf.close()
+
+            The permanent table opens again. The TEMP copy is gone with the connection:
+
+            >>> SqlDaf('items').col('qty')
+            [3, 10]
+            >>> copy_sdaf.col('qty')
+            Traceback (most recent call last):
+            sqlite3.ProgrammingError: Cannot operate on a closed database.
         """
         path: str = db_path or cls.db_path
         if not path:
@@ -1405,6 +1490,17 @@ class SqlDaf(Daf):
 
         Raises:
             ValueError: This is a child.
+
+        Examples:
+            >>> import tempfile
+            >>> SqlDaf.db_path = tempfile.mkdtemp() + '/job.db'
+            >>> items_sdaf = SqlDaf.from_daf(Daf(cols=['id', 'qty'], keyfield='id', lol=[['a1', 3], ['b2', 10]]), name='items')
+            >>> items_sdaf.select_krows(['a1']).delete()
+            Traceback (most recent call last):
+            ValueError: SqlDaf.delete: '...' is a child, with no table of its own. Delete its parent instead.
+            >>> items_sdaf.delete()
+            >>> SqlDaf.table_exists('items')
+            False
         """
         if self.parent_sdaf is not None:
             raise ValueError(f"SqlDaf.delete: '{self.name}' is a child, with no table of its own. Delete its parent instead.")
@@ -2396,6 +2492,13 @@ class SqlDaf(Daf):
 
         Raises:
             ValueError: There is no keyfield, and there are rows.
+
+        Examples:
+            >>> import tempfile
+            >>> SqlDaf.db_path = tempfile.mkdtemp() + '/job.db'
+            >>> items_sdaf = SqlDaf.from_daf(Daf(cols=['id', 'qty'], keyfield='id', lol=[['a1', 3], ['b2', 10]]), name='items')
+            >>> 'b2' in items_sdaf, 'z9' in items_sdaf
+            (True, False)
         """
         if not self.keyfield and not self:
             return False
@@ -2413,6 +2516,13 @@ class SqlDaf(Daf):
 
         Returns:
             The keys from the list that have a row.
+
+        Examples:
+            >>> import tempfile
+            >>> SqlDaf.db_path = tempfile.mkdtemp() + '/job.db'
+            >>> items_sdaf = SqlDaf.from_daf(Daf(cols=['id', 'qty'], keyfield='id', lol=[['a1', 3], ['b2', 10], ['c3', 7]]), name='items')
+            >>> items_sdaf.get_existing_keys(['c3', 'z9', 'a1'])
+            ['c3', 'a1']
         """
         if not self.keyfield:
             return []
@@ -2922,6 +3032,20 @@ class SqlDaf(Daf):
 
         Raises:
             KeyError: The keyfield is not a column.
+
+        Examples:
+            >>> import tempfile
+            >>> SqlDaf.db_path = tempfile.mkdtemp() + '/job.db'
+            >>> items_sdaf = SqlDaf.from_daf(Daf(cols=['id', 'item', 'qty'], lol=[['a1', 'pen', 3], ['b2', 'ink', 10]]), name='items')
+            >>> items_sdaf.set_keyfield('item').select_record('ink')
+            {'id': 'b2', 'item': 'ink', 'qty': 10}
+
+            The keyfield is recorded, so the table opens with it next time:
+
+            >>> SqlDaf('items').keyfield
+            'item'
+            >>> items_sdaf.set_keyfield('').keyfield
+            ''
         """
         if keyfield and keyfield not in self.hd:
             raise KeyError(keyfield)
@@ -2938,7 +3062,16 @@ class SqlDaf(Daf):
 
 
     def key_index_name(self) -> str:
-        """ The name of the unique index on the keyfield, as in daf_ix_marks_ballot_id. """
+        """
+        The name of the unique index on the keyfield, as in daf_ix_marks_ballot_id.
+
+        Examples:
+            >>> import tempfile
+            >>> SqlDaf.db_path = tempfile.mkdtemp() + '/job.db'
+            >>> marks_sdaf = SqlDaf.from_daf(Daf(cols=['ballot_id', 'v'], keyfield='ballot_id', lol=[['b1', 1]]), name='marks')
+            >>> marks_sdaf.key_index_name()
+            'daf_ix_marks_ballot_id'
+        """
         return f'{INDEX_PREFIX}{self.name}_{self.keyfield}'
 
 
@@ -2965,6 +3098,20 @@ class SqlDaf(Daf):
         Raises:
             ValueError: There is no keyfield, this is a selection, or a key is a Python NULL. Nothing is made.
             sqlite3.IntegrityError: A key is repeated. Nothing is made.
+
+        Examples:
+            >>> import tempfile
+            >>> SqlDaf.db_path = tempfile.mkdtemp() + '/job.db'
+            >>> items_sdaf = SqlDaf.from_daf(Daf(cols=['id', 'qty'], keyfield='id', lol=[['a1', 3], ['b2', 10]]), name='items')
+            >>> items_sdaf.ensure_key_index().sql("SELECT name FROM sqlite_master WHERE type = 'index' AND tbl_name = ?", ['items']).col('name')
+            ['daf_ix_items_id']
+
+            A repeated key, or a Python NULL key, raises, and no index is made:
+
+            >>> dups_sdaf = SqlDaf.from_daf(Daf(cols=['id', 'qty'], lol=[['a1', 3], ['a1', 4]]), name='dups', keyfield='id')
+            >>> dups_sdaf.ensure_key_index()
+            Traceback (most recent call last):
+            sqlite3.IntegrityError: UNIQUE constraint failed: dups.id
         """
         if self.parent_sdaf is not None:
             raise ValueError(f"SqlDaf.ensure_key_index: '{self.name}' is a child. Its parent has the index.")

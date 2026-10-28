@@ -41,6 +41,28 @@ def _md_daf_table_snippet(self: 'SqlDaf') -> str:
 
     Returns:
         The Markdown text.
+
+    Examples:
+        >>> import tempfile
+        >>> SqlDaf.db_path = tempfile.mkdtemp() + '/job.db'
+        >>> nums_sdaf = SqlDaf.from_daf(Daf(cols=['id', 'n'], lol=[[f'r{i}', i] for i in range(30)]), name='nums')
+        >>> print(nums_sdaf.md_daf_table_snippet())
+        | id  |  n  |
+        | --: | --: |
+        |  r0 |   0 |
+        |  r1 |   1 |
+        |  r2 |   2 |
+        |  r3 |   3 |
+        |  r4 |   4 |
+        | ... | ... |
+        | r25 |  25 |
+        | r26 |  26 |
+        | r27 |  27 |
+        | r28 |  28 |
+        | r29 |  29 |
+        <BLANKLINE>
+        %% daf rows=30; cols=2; keyfield=''; name='nums'
+        <BLANKLINE>
     """
     return Daf.md_daf_table_snippet(self)
 
