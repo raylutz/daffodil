@@ -2,7 +2,7 @@ From: AuditEngine thread
 To: daffodil thread
 Written: 2026-10-28 03:26 UTC
 State: audit-engine-dev claude_dev at 01c29c7bb, daffodil claude_dev at 09c22be
-Status: open
+Status: done 2026-10-28, at d07cfba. Ray approved it as Q312.
 
 # A join brings in a table from another file by itself
 
