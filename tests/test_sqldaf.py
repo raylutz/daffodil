@@ -3625,3 +3625,7 @@ def test_sqldaf_indirect_col_alone_means_sparse_rows():
     want = [['P1', '{"mayor":1,"council":1}'], ['P2', '{"mayor":1,"council":1}']]
     assert ballots_sdaf.groupby_reduce('precinct', Daf.sum_da, indirect_col='votes').to_daf().lol == want
     assert ballots_sdaf.groupsum_daf('precinct', indirect_col='votes').lol == want
+    with pytest.raises(ValueError, match='needs indirect_col'):
+        ballots_sdaf.groupsum_daf('precinct', by='sparse_row')
+    with pytest.raises(NotImplementedError):
+        ballots_sdaf.groupsum_daf('precinct', by='table')

@@ -554,6 +554,7 @@ def _flatten(self: 'Daf', convert_bool_to_int: bool=True, use_pyon: bool = True)
 
     Raises:
         ValueError: `use_pyon` is False.
+        RuntimeError: The Daf has rows and dtypes, but no column names.
 
     Examples:
         >>> daf = Daf(lol=[[[1, 2], True]], cols=['a', 'b'], dtypes={'a': list, 'b': bool})

@@ -209,7 +209,7 @@ def is_counted(ok: int) -> bool:
 ```
 
 An `int` annotation also allows 2 or -1, which are not flags. mypy cannot tell a flag from a
-count. Daffodil accepts this small risk for now, in return for data that every system reads the
+count. Daffodil accepts this small risk, in return for data that every system reads the
 same way.
 
 To check a table, give the flag columns dtype `bool` and call `check_schema()`. It raises for a

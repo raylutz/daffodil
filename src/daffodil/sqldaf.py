@@ -3321,6 +3321,9 @@ class SqlDaf(Daf):
         Returns:
             A Daf of the rows the statement returns.
 
+        Raises:
+            ReadOnlyTableError: The statement changes the data of a table opened with `read_only=True`.
+
         Examples:
             >>> import tempfile
             >>> SqlDaf.db_path = tempfile.mkdtemp() + '/job.db'

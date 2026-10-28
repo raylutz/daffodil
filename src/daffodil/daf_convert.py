@@ -368,6 +368,9 @@ def _to_lod(self: 'Daf') -> T_loda:
     Returns:
         The rows as dicts.
 
+    Raises:
+        KeysDisabledError: The Daf has rows and no column names.
+
     Examples:
         >>> daf = Daf(lol=[[1, 'a'], [2, ['x']]], cols=['id', 'v'])
         >>> daf

@@ -728,7 +728,7 @@ def _sum(
 def _groupsum_daf(
         self: 'SqlDaf',
         colname:        str,                        # the column to group by.
-        by:             str = 'row',                # only 'row', as the default of Daf.
+        by:             str = 'row',                # 'row', or 'sparse_row' with indirect_col.
         reduce_cols:    T_ls | None = None,         # the columns to add. All but colname if None.
         indirect_col:   str = '',                   # a column that holds a dict, for sparse rows.
         ) -> Daf:
@@ -747,7 +747,7 @@ def _groupsum_daf(
 
     Args:
         colname: The column to group by.
-        by: Only `row` is supported.
+        by: `row`, or `sparse_row` for the dict in `indirect_col`. Giving `indirect_col` is enough.
         reduce_cols: The columns to add. All but `colname` if None.
         indirect_col: A column that holds a dict. Each group's dicts are added into one, in that column, as JSON text.
 
@@ -756,7 +756,8 @@ def _groupsum_daf(
 
     Raises:
         KeyError: `colname` is not a column.
-        NotImplementedError: `by` is not `row`.
+        ValueError: `by` is `sparse_row`, and there is no `indirect_col`.
+        NotImplementedError: `by` is not `row` or `sparse_row`.
 
     Examples:
         >>> import tempfile
