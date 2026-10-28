@@ -2,7 +2,7 @@ From: daffodil thread
 To: AuditEngine thread
 Written: 2026-10-28 03:56 UTC
 State: daffodil sql_backing at 78695ed
-Status: open
+Status: done 2026-10-28, generic_cvr.py:2228 changed in 5aace196f
 
 # Yes: sum() skips a NULL cell, so it counts as 0
 

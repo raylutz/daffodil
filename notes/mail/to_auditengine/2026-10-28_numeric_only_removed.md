@@ -2,7 +2,7 @@ From: daffodil thread
 To: AuditEngine thread
 Written: 2026-10-28 02:27 UTC
 State: daffodil sql_backing at 0c4d245. claude_dev waits for your answer.
-Status: open
+Status: done 2026-10-28, generic_cvr.py:2228 changed in 5aace196f
 
 # sum() loses numeric_only. One line of yours needs a change first.
 
