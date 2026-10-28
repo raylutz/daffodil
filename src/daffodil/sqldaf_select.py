@@ -295,6 +295,17 @@ def _select_first_row_by_dict(self: 'SqlDaf', selector_da: T_da, inverse: bool =
 
     Returns:
         The row as a dict, or an empty dict if none matches.
+
+    Examples:
+        >>> import tempfile
+        >>> SqlDaf.db_path = tempfile.mkdtemp() + '/job.db'
+        >>> items_sdaf = SqlDaf.from_daf(Daf(cols=['id', 'g', 'qty'], keyfield='id', lol=[['a1', 'x', 3], ['b2', 'y', 10], ['c3', 'x', 7]]), name='items')
+        >>> items_sdaf.select_first_row_by_dict({'g': 'x'})
+        {'id': 'a1', 'g': 'x', 'qty': 3}
+        >>> items_sdaf.select_first_row_by_dict({'g': 'x'}, inverse=True)
+        {'id': 'b2', 'g': 'y', 'qty': 10}
+        >>> items_sdaf.select_first_row_by_dict({'g': 'z'})
+        {}
     """
     found_sdaf: SqlDaf = self.select_by_dict(selector_da, inverse=inverse)
     return found_sdaf.iloc(0) if found_sdaf.iloc_exists(0) else {}       # type: ignore[return-value]
@@ -332,6 +343,29 @@ def _select_krows(
         NotImplementedError: `krows` is a slice.
         TypeError: `krows` is None, or a tuple that is empty or longer than two.
         ValueError: There is no keyfield.
+
+    Examples:
+        >>> import tempfile
+        >>> SqlDaf.db_path = tempfile.mkdtemp() + '/job.db'
+        >>> items_sdaf = SqlDaf.from_daf(Daf(cols=['id', 'qty'], keyfield='id', lol=[['a1', 3], ['b2', 10], ['c3', 7], ['d4', 1]]), name='items')
+
+        A list of keys, in the order given, or a range of keys, in row order:
+
+        >>> items_sdaf.select_krows(['c3', 'a1']).keys()
+        ['c3', 'a1']
+        >>> items_sdaf.select_krows(('b2', 'c3')).keys()
+        ['b2', 'c3']
+        >>> items_sdaf.select_krows(('c3',)).keys()
+        ['c3', 'd4']
+        >>> items_sdaf.select_krows((None, 'b2')).keys()
+        ['a1', 'b2']
+
+        The rows not selected, and keys not found ignored:
+
+        >>> items_sdaf.select_krows(['a1', 'b2'], inverse=True).keys()
+        ['c3', 'd4']
+        >>> items_sdaf.select_krows(['a1', 'z9'], silent_error=True).keys()
+        ['a1']
     """
     if krows is None:
         raise TypeError("None is not a valid key selector.")
@@ -464,6 +498,18 @@ def _calc_cols(
 
     Returns:
         The chosen column names, in column order.
+
+    Examples:
+        >>> import tempfile
+        >>> SqlDaf.db_path = tempfile.mkdtemp() + '/job.db'
+        >>> items_sdaf = SqlDaf.from_daf(Daf(cols=['id', 'item', 'qty', 'price'], keyfield='id', dtypes={'id': str, 'item': str, 'qty': int, 'price': float},
+        ...     lol=[['a1', 'pen', 3, 1.5]]), name='items')
+        >>> items_sdaf.calc_cols(include_types=[int, float])
+        ['qty', 'price']
+        >>> items_sdaf.calc_cols(exclude_types=[str])
+        ['qty', 'price']
+        >>> items_sdaf.calc_cols(include_cols=['id', 'qty', 'price'], exclude_cols=['price'])
+        ['id', 'qty']
     """
     return Daf.calc_cols(self, include_cols=include_cols, exclude_cols=exclude_cols,          # type: ignore[return-value]
                          include_types=include_types, exclude_types=exclude_types)

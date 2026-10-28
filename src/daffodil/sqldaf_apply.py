@@ -399,6 +399,16 @@ def _valuecounts_for_colnames_ls(
 
     Returns:
         A dict that maps each column to a dict of value and count.
+
+    Examples:
+        >>> import tempfile
+        >>> SqlDaf.db_path = tempfile.mkdtemp() + '/job.db'
+        >>> sales_sdaf = SqlDaf.from_daf(Daf(cols=['id', 'g', 'color', 'size'], keyfield='id', lol=[
+        ...     ['a1', 'x', 'red', 'S'], ['b2', 'y', 'blue', 'M'], ['c3', 'x', 'red', 'M'], ['d4', 'x', 'blue', 'S'], ['e5', 'x', 'red', '']]), name='sales')
+        >>> sales_sdaf.valuecounts_for_colnames_ls(['g', 'size'])
+        {'g': {'x': 4, 'y': 1}, 'size': {'S': 2, 'M': 2, '': 1}}
+        >>> sales_sdaf.valuecounts_for_colnames_ls(['g', 'size'], sort=True, reverse=False, omit_nulls=True)
+        {'g': {'y': 1, 'x': 4}, 'size': {'S': 2, 'M': 2}}
     """
     return {colname: self.valuecounts_for_colname(colname, sort=sort, reverse=reverse, omit_nulls=omit_nulls)
             for colname in (colnames_ls or self.columns())}
@@ -413,7 +423,7 @@ def _valuecounts_for_colname_selectedby_colname(
         reverse:                bool = True,
         ) -> Dict[Any, int]:
     """
-    Count the values of a column, in the rows where another column has a value, as the Daf method does.
+    Count the values of a column, in the rows where another column has a value, as [`Daf.valuecounts_for_colname_selectedby_colname()`][daffodil.daf_report._valuecounts_for_colname_selectedby_colname] does.
 
     Args:
         colname: The column to count.
@@ -424,6 +434,28 @@ def _valuecounts_for_colname_selectedby_colname(
 
     Returns:
         A dict that maps each value to its count. It is empty if a column does not exist.
+
+    Examples:
+        >>> import tempfile
+        >>> SqlDaf.db_path = tempfile.mkdtemp() + '/job.db'
+        >>> sales_sdaf = SqlDaf.from_daf(Daf(cols=['id', 'g', 'color', 'size'], keyfield='id', lol=[
+        ...     ['a1', 'x', 'red', 'S'], ['b2', 'y', 'blue', 'M'], ['c3', 'x', 'red', 'M'], ['d4', 'x', 'blue', 'S'], ['e5', 'x', 'red', '']]), name='sales')
+        >>> sales_sdaf.to_daf()
+        <BLANKLINE>
+        | id | g  | color | size |
+        | -: | -: | ----: | ---: |
+        | a1 |  x |   red |    S |
+        | b2 |  y |  blue |    M |
+        | c3 |  x |   red |    M |
+        | d4 |  x |  blue |    S |
+        | e5 |  x |   red |      |
+        <BLANKLINE>
+        %% daf rows=5; cols=4; keyfield='id'; name='sales'
+        <BLANKLINE>
+        >>> sales_sdaf.valuecounts_for_colname_selectedby_colname('color', 'g', 'x')
+        {'red': 3, 'blue': 1}
+        >>> sales_sdaf.valuecounts_for_colname_selectedby_colname('color', 'g', 'x', sort=True, reverse=False)
+        {'blue': 1, 'red': 3}
     """
     if colname not in self.hd or selectedby_colname not in self.hd:
         return {}
@@ -443,7 +475,7 @@ def _valuecounts_for_colnames_ls_selectedby_colname(
         reverse:                bool = True,
         ) -> Dict[str, Dict[Any, int]]:
     """
-    Count the values of several columns, in the rows where another column has a value, as the Daf method does.
+    Count the values of several columns, in the rows where another column has a value, as [`Daf.valuecounts_for_colnames_ls_selectedby_colname()`][daffodil.daf_report._valuecounts_for_colnames_ls_selectedby_colname] does.
 
     Args:
         colnames_ls: The columns to count. All if None.
@@ -454,6 +486,16 @@ def _valuecounts_for_colnames_ls_selectedby_colname(
 
     Returns:
         A dict that maps each column to a dict of value and count.
+
+    Examples:
+        >>> import tempfile
+        >>> SqlDaf.db_path = tempfile.mkdtemp() + '/job.db'
+        >>> sales_sdaf = SqlDaf.from_daf(Daf(cols=['id', 'g', 'color', 'size'], keyfield='id', lol=[
+        ...     ['a1', 'x', 'red', 'S'], ['b2', 'y', 'blue', 'M'], ['c3', 'x', 'red', 'M'], ['d4', 'x', 'blue', 'S'], ['e5', 'x', 'red', '']]), name='sales')
+        >>> sales_sdaf.valuecounts_for_colnames_ls_selectedby_colname(['color', 'size'], 'g', 'x')
+        {'color': {'red': 3, 'blue': 1}, 'size': {'S': 2, 'M': 1, '': 1}}
+        >>> sales_sdaf.valuecounts_for_colnames_ls_selectedby_colname(['color', 'size'], 'g', 'x', sort=True, reverse=False)
+        {'color': {'blue': 1, 'red': 3}, 'size': {'M': 1, '': 1, 'S': 2}}
     """
     return {colname: self.valuecounts_for_colname_selectedby_colname(
                 colname, selectedby_colname, selectedby_colvalue, sort=sort, reverse=reverse)
@@ -533,6 +575,32 @@ def _value_counts_daf(
 
     Returns:
         A Daf in memory, with a row for each value.
+
+    Examples:
+        >>> import tempfile
+        >>> SqlDaf.db_path = tempfile.mkdtemp() + '/job.db'
+        >>> sales_sdaf = SqlDaf.from_daf(Daf(cols=['id', 'g', 'color', 'size'], keyfield='id', lol=[
+        ...     ['a1', 'x', 'red', 'S'], ['b2', 'y', 'blue', 'M'], ['c3', 'x', 'red', 'M'], ['d4', 'x', 'blue', 'S'], ['e5', 'x', 'red', '']]), name='sales')
+        >>> sales_sdaf.value_counts_daf('size')
+        <BLANKLINE>
+        | size | counts |
+        | ---: | -----: |
+        |    S |      2 |
+        |    M |      2 |
+        |      |      1 |
+        <BLANKLINE>
+        %% daf rows=3; cols=2; keyfield=''; name=''
+        <BLANKLINE>
+        >>> sales_sdaf.value_counts_daf('size', sort=True, include_total=True, omit_nulls=True)
+        <BLANKLINE>
+        |   size    | counts |
+        | --------: | -----: |
+        |         S |      2 |
+        |         M |      2 |
+        | **Total** |      4 |
+        <BLANKLINE>
+        %% daf rows=3; cols=2; keyfield=''; name=''
+        <BLANKLINE>
     """
     value_counts_daf: Daf = Daf.from_lod_to_cols(
             [self.valuecounts_for_colname(colname, sort=sort, reverse=reverse, omit_nulls=omit_nulls)],
@@ -562,6 +630,14 @@ def _daf_valuecount(
 
     Raises:
         NotImplementedError: `by` is not `row`.
+
+    Examples:
+        >>> import tempfile
+        >>> SqlDaf.db_path = tempfile.mkdtemp() + '/job.db'
+        >>> sales_sdaf = SqlDaf.from_daf(Daf(cols=['id', 'g', 'color'], keyfield='id', lol=[
+        ...     ['a1', 'x', 'red'], ['b2', 'y', 'blue'], ['c3', 'x', 'red']]), name='sales')
+        >>> sales_sdaf.daf_valuecount(cols=['g', 'color'])
+        {'id': '', 'g': {'x': 2, 'y': 1}, 'color': {'red': 2, 'blue': 1}}
     """
     if by != 'row':
         raise NotImplementedError(f"daf_valuecount(by={by!r}) is not supported on a SqlDaf.")
@@ -1110,6 +1186,20 @@ def _groupby_cols(
     Raises:
         KeyError: A name in `colnames` is not a column.
         NotImplementedError: `cols` is given.
+
+    Examples:
+        >>> import tempfile
+        >>> SqlDaf.db_path = tempfile.mkdtemp() + '/job.db'
+        >>> sales_sdaf = SqlDaf.from_daf(Daf(cols=['id', 'g', 'color', 'size'], keyfield='id', lol=[
+        ...     ['a1', 'x', 'red', 'S'], ['b2', 'y', 'blue', 'M'], ['c3', 'x', 'red', 'M'], ['d4', 'x', 'blue', 'S'], ['e5', 'x', 'red', '']]), name='sales')
+        >>> groups_klist = sales_sdaf.groupby_cols(['g', 'color'])
+        >>> {key: group_sdaf.keys() for key, group_sdaf in groups_klist.items()}
+        {('x', 'red'): ['a1', 'c3', 'e5'], ('y', 'blue'): ['b2'], ('x', 'blue'): ['d4']}
+
+        With `omit_nulls=True`, a row with Python NULL in any of the columns is left out:
+
+        >>> {key: group_sdaf.keys() for key, group_sdaf in sales_sdaf.groupby_cols(['size'], omit_nulls=True).items()}
+        {('S',): ['a1', 'd4'], ('M',): ['b2', 'c3']}
     """
     if cols is not None:
         raise NotImplementedError("groupby(cols=) is not supported on a SqlDaf yet. Group, then read the columns you need.")
@@ -1159,6 +1249,34 @@ def _groupby_repeated_cols(
 
     Raises:
         KeyError: A name in `colnames` or `exclude` is not a column.
+
+    Examples:
+        >>> import tempfile
+        >>> SqlDaf.db_path = tempfile.mkdtemp() + '/job.db'
+        >>> cards_sdaf = SqlDaf.from_daf(Daf(cols=['id', 'batch', 'seq', 'status'], keyfield='id', lol=[
+        ...     ['r1', 'B1', 1, 'ok'], ['r2', 'B1', 2, 'ok'], ['r3', 'B1', 1, 'void'], ['r4', 'B2', 1, 'ok'], ['r5', 'B1', 2, 'ok']]), name='cards')
+        >>> cards_sdaf.to_daf()
+        <BLANKLINE>
+        | id | batch | seq | status |
+        | -: | ----: | --: | -----: |
+        | r1 |    B1 |   1 |     ok |
+        | r2 |    B1 |   2 |     ok |
+        | r3 |    B1 |   1 |   void |
+        | r4 |    B2 |   1 |     ok |
+        | r5 |    B1 |   2 |     ok |
+        <BLANKLINE>
+        %% daf rows=5; cols=4; keyfield='id'; name='cards'
+        <BLANKLINE>
+
+        Only the keys seen more than once make a group:
+
+        >>> {key: group_sdaf.keys() for key, group_sdaf in cards_sdaf.groupby_repeated_cols(['batch', 'seq']).items()}
+        {('B1', 1): ['r1', 'r3'], ('B1', 2): ['r2', 'r5']}
+
+        With `exclude`, a row with one of these values is left out first, so its key may no longer repeat:
+
+        >>> {key: group_sdaf.keys() for key, group_sdaf in cards_sdaf.groupby_repeated_cols(['batch', 'seq'], exclude={'status': ['void']}).items()}
+        {('B1', 2): ['r2', 'r5']}
     """
     col: str
     for col in list(colnames) + list(exclude or {}):

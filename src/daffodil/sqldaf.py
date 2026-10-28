@@ -635,7 +635,7 @@ class SqlDaf(Daf):
             db_path:    str = '',                               # the database file. SqlDaf.db_path if empty.
             read_only:  bool = False,                           # if True, a change to the table's data raises ReadOnlyTableError.
             ) -> None:
-        """
+        r"""
         Make a new table, or open one that is in the database file.
 
         With `cols`, a new table is made in the file, with the rows of `lol`, read one at a
@@ -678,6 +678,47 @@ class SqlDaf(Daf):
             KeyError: There is no table of that name to open, or the keyfield is not a column.
             FileNotFoundError: A table is to be opened, and the database file is not there.
             NotImplementedError: The class setting `engine` is not 'sqlite'.
+
+        Examples:
+            >>> import tempfile
+            >>> SqlDaf.db_path = tempfile.mkdtemp() + '/job.db'
+
+            A new table, with `cols`. The rows may come from any iterable, read one at a time:
+
+            >>> items_sdaf = SqlDaf('items', cols=['id', 'item', 'qty'], lol=(['a1', 'pen', 3], ['b2', 'ink', 10]),
+            ...                     keyfield='id', dtypes={'id': str, 'item': str, 'qty': int})
+            >>> items_sdaf.to_daf()
+            <BLANKLINE>
+            | id | item | qty |
+            | -: | ---: | --: |
+            | a1 |  pen |   3 |
+            | b2 |  ink |  10 |
+            <BLANKLINE>
+            %% daf rows=2; cols=3; keyfield='id'; name='items'
+            <BLANKLINE>
+
+            Without `cols`, the table of that name is opened. Its keyfield and dtypes are those recorded:
+
+            >>> again_sdaf = SqlDaf('items')
+            >>> again_sdaf.keyfield, again_sdaf.dtypes
+            ('id', {'id': <class 'str'>, 'item': <class 'str'>, 'qty': <class 'int'>})
+
+            `db_path` names another file for this table only:
+
+            >>> other_path = tempfile.mkdtemp() + '/other.db'
+            >>> SqlDaf('notes', cols=['id', 'text'], lol=[['n1', 'hello']], db_path=other_path).to_lod()
+            [{'id': 'n1', 'text': 'hello'}]
+
+            With `read_only=True`, the data cannot be changed, but it can be read and copied:
+
+            >>> ro_sdaf = SqlDaf('items', read_only=True)
+            >>> ro_sdaf['a1', 'qty'] = 0
+            Traceback (most recent call last):
+            daffodil.sqldaf.ReadOnlyTableError: ...
+            >>> ro_sdaf.copy().update_record_krow('a1', {'qty': 0}).col('qty')
+            [0, 10]
+            >>> items_sdaf.col('qty')
+            [3, 10]
         """
         path: str = db_path or type(self).db_path
         if not path:
@@ -816,7 +857,7 @@ class SqlDaf(Daf):
             dtypes:     T_dtype_dict | None = None,     # the types to convert the columns to, as they are loaded.
             strict_header: bool = True,                 # True needs the first file's header in every file. False places values by name.
             ) -> 'SqlDaf':
-        """
+        r"""
         Load one or more CSV files into a new table, without building it in memory.
 
         Give one file, a glob pattern such as `chunks/votes_*.csv`, or a list of files. The
@@ -871,6 +912,48 @@ class SqlDaf(Daf):
                 or the column names of a file differ from those of the first file, unless `strict_header=False`.
             KeyError: The keyfield is not one of the columns.
             NotImplementedError: A dtype is not int, float, bool, str, dict or list.
+
+        Examples:
+            >>> import os, tempfile
+            >>> csv_dir = tempfile.mkdtemp()
+            >>> SqlDaf.db_path = os.path.join(csv_dir, 'job.db')
+            >>> for part, text in (('a', 'id,qty\na1,3\nb2,\n'), ('b', 'id,qty\nc3,7\n')):
+            ...     with open(os.path.join(csv_dir, f'votes_{part}.csv'), 'w') as csv_f:
+            ...         n = csv_f.write(text)
+
+            One file. The name of the table is the file's name. Every value is text, and an empty cell is NULL:
+
+            >>> SqlDaf.from_csv(os.path.join(csv_dir, 'votes_a.csv')).to_lod()
+            [{'id': 'a1', 'qty': '3'}, {'id': 'b2', 'qty': ''}]
+
+            A glob pattern loads its files in sorted order, into one table. `dtypes` converts as the rows load:
+
+            >>> votes_sdaf = SqlDaf.from_csv(os.path.join(csv_dir, 'votes_*.csv'), name='votes', keyfield='id', dtypes={'qty': int})
+            >>> votes_sdaf.to_lod()
+            [{'id': 'a1', 'qty': 3}, {'id': 'b2', 'qty': ''}, {'id': 'c3', 'qty': 7}]
+
+            A list of files, in its own order, with another delimiter:
+
+            >>> with open(os.path.join(csv_dir, 'semi.csv'), 'w') as csv_f:
+            ...     n = csv_f.write('id;qty\nd4;1\n')
+            >>> SqlDaf.from_csv([os.path.join(csv_dir, 'semi.csv')], name='semi', delimiter=';').to_lod()
+            [{'id': 'd4', 'qty': '1'}]
+
+            Files whose columns differ raise, unless `strict_header=False` places each value by its column name:
+
+            >>> with open(os.path.join(csv_dir, 'more.csv'), 'w') as csv_f:
+            ...     n = csv_f.write('qty,id,note\n5,e5,late\n')
+            >>> mixed_paths = [os.path.join(csv_dir, 'votes_b.csv'), os.path.join(csv_dir, 'more.csv')]
+            >>> SqlDaf.from_csv(mixed_paths, name='mixed')
+            Traceback (most recent call last):
+            ValueError: ...
+            >>> SqlDaf.from_csv(mixed_paths, name='mixed', strict_header=False).to_lod()
+            [{'id': 'c3', 'qty': '7', 'note': ''}, {'id': 'e5', 'qty': '5', 'note': 'late'}]
+
+            `db_path` puts the table in another file:
+
+            >>> SqlDaf.from_csv(os.path.join(csv_dir, 'votes_b.csv'), name='b_only', db_path=os.path.join(csv_dir, 'b.db')).len()
+            1
         """
         paths_ls: T_ls = _csv_paths(path)
         name = name or os.path.splitext(os.path.basename(paths_ls[0]))[0]
@@ -978,6 +1061,27 @@ class SqlDaf(Daf):
         Raises:
             ValueError: A table of that name exists, or a column is named daf_rid.
             KeyError: The keyfield is not one of the columns.
+
+        Examples:
+            >>> import tempfile
+            >>> SqlDaf.db_path = tempfile.mkdtemp() + '/job.db'
+            >>> items_daf = Daf(cols=['id', 'item', 'qty'], keyfield='id', lol=[['a1', 'pen', 3], ['b2', 'ink', '']])
+            >>> items_sdaf = SqlDaf.from_daf(items_daf, name='items')
+            >>> items_sdaf.to_daf()
+            <BLANKLINE>
+            | id | item | qty |
+            | -: | ---: | --: |
+            | a1 |  pen |   3 |
+            | b2 |  ink |     |
+            <BLANKLINE>
+            %% daf rows=2; cols=3; keyfield='id'; name='items'
+            <BLANKLINE>
+
+            Another keyfield, and another file:
+
+            >>> by_item_sdaf = SqlDaf.from_daf(items_daf, name='by_item', keyfield='item', db_path=tempfile.mkdtemp() + '/by_item.db')
+            >>> by_item_sdaf.select_record('ink')
+            {'id': 'b2', 'item': 'ink', 'qty': ''}
         """
         keyfield = keyfield or (data_daf.keyfield if isinstance(data_daf.keyfield, str) else '')
         dtypes: T_dtype_dict | None = data_daf.dtypes if isinstance(data_daf.dtypes, dict) and data_daf.dtypes else None
@@ -2396,6 +2500,36 @@ class SqlDaf(Daf):
             NotImplementedError: Any other form, such as an int row or several columns.
             ValueError: The change gives a Python NULL key. Nothing changes.
             sqlite3.IntegrityError: The change gives a repeated key. Nothing changes.
+
+        Examples:
+            >>> import tempfile
+            >>> SqlDaf.db_path = tempfile.mkdtemp() + '/job.db'
+            >>> items_sdaf = SqlDaf.from_daf(Daf(cols=['id', 'item', 'qty'], keyfield='id', lol=[['a1', 'pen', 3], ['b2', 'ink', 10], ['c3', 'pad', 7]]), name='items')
+
+            One cell, by key and column name:
+
+            >>> items_sdaf['b2', 'qty'] = 0
+            >>> items_sdaf.select_record('b2')
+            {'id': 'b2', 'item': 'ink', 'qty': 0}
+
+            A whole row, by key. Columns the dict lacks become Python NULL:
+
+            >>> items_sdaf['c3'] = {'id': 'c3', 'item': 'cap'}
+            >>> items_sdaf.select_record('c3')
+            {'id': 'c3', 'item': 'cap', 'qty': ''}
+
+            A column. A single value sets every row. A short list leaves the rows past its end as they were:
+
+            >>> items_sdaf[:, 'qty'] = 1
+            >>> items_sdaf[:, 'qty'] = [5, 6]
+            >>> items_sdaf.col('qty')
+            [5, 6, 1]
+
+            An int row is a position in a Daf, so it raises here:
+
+            >>> items_sdaf[0, 'qty'] = 9
+            Traceback (most recent call last):
+            NotImplementedError: sdaf[(0, 'qty')] = ...: an int row is a position, as in a Daf, and a SqlDaf does not assign by position. ...
         """
         rows_sel: Any = slice_spec[0] if isinstance(slice_spec, tuple) and len(slice_spec) == 2 else slice_spec
         cols_sel: Any = slice_spec[1] if isinstance(slice_spec, tuple) and len(slice_spec) == 2 else slice(None)
@@ -2862,7 +2996,7 @@ class SqlDaf(Daf):
             from_str:       bool = True,                    # if True, the cells are text, so str columns are not converted.
             silent_error:   bool = False,                   # if True, a column with no dtype stays as it is.
             ) -> 'SqlDaf':
-        """
+        r"""
         Convert the columns to their dtypes, in place, in the database.
 
         New dtypes given here are kept in the metadata record of the table, if it has one.
@@ -2900,7 +3034,7 @@ class SqlDaf(Daf):
 
         Args:
             dtypes: The types to convert to, by column. It may name columns that are not there. This SqlDaf's dtypes if None.
-            cols: Convert only these columns, or this one column. All the columns of the dtypes if None.
+            cols: Convert only these columns, or this one column. Every column if None, and each needs a dtype.
             from_str: If True, the cells are text, so str columns are not converted.
             silent_error: If False, a column to convert that has no dtype raises ValueError. If True, it is left as it is.
 
@@ -2911,6 +3045,41 @@ class SqlDaf(Daf):
             KeyError: A name in `cols` is not a column.
             ValueError: A column to convert has no dtype, and `silent_error` is False.
             NotImplementedError: A dtype is not int, float, bool, str, dict or list.
+
+        Examples:
+            >>> import os, tempfile
+            >>> csv_dir = tempfile.mkdtemp()
+            >>> SqlDaf.db_path = os.path.join(csv_dir, 'job.db')
+            >>> with open(os.path.join(csv_dir, 'items.csv'), 'w') as csv_f:
+            ...     n = csv_f.write('id,qty,price,ok\na1,3,1.5,1\nb2,abc,,0\nc3,7,2.0,\n')
+            >>> items_sdaf = SqlDaf.from_csv(os.path.join(csv_dir, 'items.csv'), keyfield='id')
+            >>> items_sdaf.to_lod()
+            [{'id': 'a1', 'qty': '3', 'price': '1.5', 'ok': '1'}, {'id': 'b2', 'qty': 'abc', 'price': '', 'ok': '0'}, {'id': 'c3', 'qty': '7', 'price': '2.0', 'ok': ''}]
+
+            Convert only some columns. A value that does not convert, such as 'abc', stays as it is:
+
+            >>> items_sdaf.apply_dtypes(dtypes={'qty': int}, cols='qty').col('qty')
+            [3, 'abc', 7]
+
+            Several columns. Python NULL in a bool column becomes 0:
+
+            >>> items_sdaf.apply_dtypes(dtypes={'price': float, 'ok': bool}, cols=['price', 'ok']).to_lod()
+            [{'id': 'a1', 'qty': 3, 'price': 1.5, 'ok': 1}, {'id': 'b2', 'qty': 'abc', 'price': '', 'ok': 0}, {'id': 'c3', 'qty': 7, 'price': 2.0, 'ok': 0}]
+
+            Without `cols`, every column is converted, so each needs a dtype. A column without one
+            raises, unless `silent_error=True` leaves it as it is:
+
+            >>> items_sdaf.apply_dtypes(dtypes={'qty': int})
+            Traceback (most recent call last):
+            ValueError: SqlDaf.apply_dtypes: no dtype for the columns ['id', 'price', 'ok']. ...
+            >>> items_sdaf.apply_dtypes(dtypes={'qty': int}, silent_error=True).col('qty')
+            [3, 'abc', 7]
+
+            With `from_str=False`, a str column that holds numbers becomes text:
+
+            >>> nums_sdaf = SqlDaf.from_daf(Daf(cols=['id', 'code'], lol=[['a1', 3], ['b2', 1.5]]), name='nums')
+            >>> nums_sdaf.apply_dtypes(dtypes={'id': str, 'code': str}, from_str=False).col('code')
+            ['3', '1.5']
         """
         # The dtypes are recorded with the conversion, in one transaction, so a refused or failed
         # conversion leaves the record and this SqlDaf as they were.
@@ -2989,6 +3158,30 @@ class SqlDaf(Daf):
 
         Returns:
             A Daf of the rows the statement returns.
+
+        Examples:
+            >>> import tempfile
+            >>> SqlDaf.db_path = tempfile.mkdtemp() + '/job.db'
+            >>> items_sdaf = SqlDaf.from_daf(Daf(cols=['id', 'g', 'qty'], keyfield='id', lol=[['a1', 'x', 3], ['b2', 'y', 10], ['c3', 'x', 7]]), name='items')
+
+            A SELECT gives a Daf. Pass values as `params`, with `?` in the statement:
+
+            >>> items_sdaf.sql(f'SELECT g, SUM(qty) AS total FROM {items_sdaf.name} WHERE qty > ? GROUP BY g', [1])
+            <BLANKLINE>
+            | g  | total |
+            | -: | ----: |
+            |  x |    10 |
+            |  y |    10 |
+            <BLANKLINE>
+            %% daf rows=2; cols=2; keyfield=''; name=''
+            <BLANKLINE>
+
+            A statement that returns no rows gives an empty Daf, and is committed:
+
+            >>> len(items_sdaf.sql(f'UPDATE {items_sdaf.name} SET qty = 0 WHERE g = ?', ['y']))
+            0
+            >>> items_sdaf.col('qty')
+            [3, 0, 7]
         """
         changes_before: int = self.conn.total_changes
         try:

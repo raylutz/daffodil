@@ -74,6 +74,31 @@ def _delete_records(
     Raises:
         KeyError: A key is not found, and `silent_error` is False. Nothing is removed.
         ValueError: This SqlDaf, or a SqlDaf given as the keys, has no keyfield.
+
+    Examples:
+        >>> import tempfile
+        >>> SqlDaf.db_path = tempfile.mkdtemp() + '/job.db'
+        >>> items_sdaf = SqlDaf.from_daf(Daf(cols=['id', 'qty'], keyfield='id', lol=[['a1', 3], ['b2', 10], ['c3', 7]]), name='items')
+
+        By default, a selection without the rows is returned, and the table keeps them:
+
+        >>> items_sdaf.delete_records(['b2']).keys()
+        ['a1', 'c3']
+        >>> items_sdaf.keys()
+        ['a1', 'b2', 'c3']
+
+        A key that is not found raises, unless `silent_error=True`:
+
+        >>> items_sdaf.delete_records(['z9'])
+        Traceback (most recent call last):
+        KeyError: 'z9'
+        >>> items_sdaf.delete_records(['z9', 'c3'], silent_error=True).keys()
+        ['a1', 'b2']
+
+        With `inplace=True`, the rows are deleted from the table:
+
+        >>> items_sdaf.delete_records(['b2'], inplace=True).keys()
+        ['a1', 'c3']
     """
     if not inplace:
         return self.select_records_daf(keys_ls, inverse=True, silent_error=silent_error)
@@ -205,6 +230,26 @@ def _concat(self: 'SqlDaf', other_instance: Daf, respect_kd: bool = False) -> 'S
         ValueError: A key added is a Python NULL. Nothing is added.
         sqlite3.IntegrityError: A key would be repeated. Nothing is added.
         NotImplementedError: The other is a selection or TEMP table of another thread's connection.
+
+    Examples:
+        >>> import tempfile
+        >>> SqlDaf.db_path = tempfile.mkdtemp() + '/job.db'
+        >>> items_sdaf = SqlDaf.from_daf(Daf(cols=['id', 'qty'], keyfield='id', lol=[['a1', 3], ['b2', 10]]), name='items')
+        >>> more_sdaf = SqlDaf.from_daf(Daf(cols=['id', 'qty'], keyfield='id', lol=[['b2', 0], ['c3', 7]]), name='more')
+        >>> items_sdaf.concat(more_sdaf)
+        Traceback (most recent call last):
+        sqlite3.IntegrityError: UNIQUE constraint failed: items.id
+
+        With `respect_kd=True`, a row whose key is there replaces that row, in its place:
+
+        >>> items_sdaf.concat(more_sdaf, respect_kd=True).to_lod()
+        [{'id': 'a1', 'qty': 3}, {'id': 'b2', 'qty': 0}, {'id': 'c3', 'qty': 7}]
+
+        The columns must match, in name and order:
+
+        >>> items_sdaf.concat(Daf(cols=['id', 'price'], lol=[['d4', 1.5]]))
+        Traceback (most recent call last):
+        KeyError: "concat() into 'items': the columns differ. Only in this table: ['qty']. Only in the other: ['price']."
     """
     # Rows are counted only when the columns differ, so a normal concat costs nothing more.
     if other_instance.columns() != self.columns():
@@ -318,6 +363,52 @@ def _append(
         TypeError: More than one of `data_item`, `lol` and `la`, or a row of an unknown type.
         ValueError: A row has more values than there are columns, or a key is a Python NULL.
         sqlite3.IntegrityError: A key would be repeated. Nothing is added.
+
+    Examples:
+        >>> import tempfile
+        >>> SqlDaf.db_path = tempfile.mkdtemp() + '/job.db'
+        >>> items_sdaf = SqlDaf.from_daf(Daf(cols=['id', 'item', 'qty'], keyfield='id', lol=[['a1', 'pen', 3], ['b2', 'ink', 10]]), name='items')
+        >>> items_sdaf.to_daf()
+        <BLANKLINE>
+        | id | item | qty |
+        | -: | ---: | --: |
+        | a1 |  pen |   3 |
+        | b2 |  ink |  10 |
+        <BLANKLINE>
+        %% daf rows=2; cols=3; keyfield='id'; name='items'
+        <BLANKLINE>
+
+        One row as a dict, placed by name, or as a list in column order. A short list is padded:
+
+        >>> items_sdaf.append({'qty': 7, 'id': 'c3', 'item': 'pad'}).select_record('c3')
+        {'id': 'c3', 'item': 'pad', 'qty': 7}
+        >>> items_sdaf.append(['d4', 'cap']).select_record('d4')
+        {'id': 'd4', 'item': 'cap', 'qty': ''}
+
+        Several rows, as lists, or one row with `la=`:
+
+        >>> items_sdaf.append(lol=[['e5', 'tag', 2], ['f6', 'clip', 5]]).keys()
+        ['a1', 'b2', 'c3', 'd4', 'e5', 'f6']
+        >>> items_sdaf.append(la=['g7', 'tape', 1]).len()
+        7
+
+        A key that is there raises, and nothing is added. With `respect_kd=True` the row is replaced, in its place:
+
+        >>> items_sdaf.append({'id': 'a1', 'item': 'pen', 'qty': 0})
+        Traceback (most recent call last):
+        sqlite3.IntegrityError: UNIQUE constraint failed: items.id
+        >>> items_sdaf.append({'id': 'a1', 'item': 'pen', 'qty': 0}, respect_kd=True).iloc(0)
+        {'id': 'a1', 'item': 'pen', 'qty': 0}
+
+        The rows of a Daf, with the same columns:
+
+        >>> items_sdaf.append(Daf(cols=['id', 'item', 'qty'], lol=[['h8', 'pin', 9]])).iloc(-1)
+        {'id': 'h8', 'item': 'pin', 'qty': 9}
+
+        `fast=True` is accepted, so code written for a Daf runs. Every row is checked anyway:
+
+        >>> items_sdaf.append(['i9', 'tack', 4], fast=True).len()
+        9
     """
     if sum(item is not None for item in (data_item, lol, la)) > 1:
         raise TypeError("append(): give only one of data_item, lol and la.")
@@ -356,6 +447,21 @@ def _record_append(self: 'SqlDaf', record: T_da | KeyedList, respect_kd: bool = 
         TypeError: The record is not a dict or a KeyedList.
         ValueError: The key is a Python NULL.
         sqlite3.IntegrityError: The key is there, and `respect_kd` is False. Nothing is added.
+
+    Examples:
+        >>> import tempfile
+        >>> SqlDaf.db_path = tempfile.mkdtemp() + '/job.db'
+        >>> items_sdaf = SqlDaf.from_daf(Daf(cols=['id', 'item', 'qty'], keyfield='id', lol=[['a1', 'pen', 3], ['b2', 'ink', 10]]), name='items')
+
+        A new key adds a row. A key that is there replaces its row, by default:
+
+        >>> items_sdaf.record_append({'id': 'c3', 'item': 'pad', 'qty': 7}).len()
+        3
+        >>> items_sdaf.record_append({'id': 'a1', 'item': 'pen', 'qty': 0}).to_lod()
+        [{'id': 'a1', 'item': 'pen', 'qty': 0}, {'id': 'b2', 'item': 'ink', 'qty': 10}, {'id': 'c3', 'item': 'pad', 'qty': 7}]
+        >>> items_sdaf.record_append({'id': 'a1', 'item': 'pen', 'qty': 1}, respect_kd=False)
+        Traceback (most recent call last):
+        sqlite3.IntegrityError: UNIQUE constraint failed: items.id
     """
     if not isinstance(record, (dict, KeyedList)):
         raise TypeError(f"record_append(): the record must be a dict or a KeyedList, not {type(record).__name__}.")
@@ -389,6 +495,23 @@ def _extend(
         TypeError: Both `records_lod` and `lol` are given, or a row of `lol` is not a list.
         ValueError: A row has more values than there are columns, or a key is a Python NULL.
         sqlite3.IntegrityError: A key would be repeated. Nothing is added.
+
+    Examples:
+        >>> import tempfile
+        >>> SqlDaf.db_path = tempfile.mkdtemp() + '/job.db'
+        >>> items_sdaf = SqlDaf.from_daf(Daf(cols=['id', 'qty'], keyfield='id', lol=[['a1', 3]]), name='items')
+        >>> items_sdaf.extend([{'id': 'b2', 'qty': 10}, {'qty': 7, 'id': 'c3'}]).to_lod()
+        [{'id': 'a1', 'qty': 3}, {'id': 'b2', 'qty': 10}, {'id': 'c3', 'qty': 7}]
+        >>> items_sdaf.extend(lol=[['d4', 1], ['a1', 0]], respect_kd=True).to_lod()
+        [{'id': 'a1', 'qty': 0}, {'id': 'b2', 'qty': 10}, {'id': 'c3', 'qty': 7}, {'id': 'd4', 'qty': 1}]
+
+        If one row fails, none is added:
+
+        >>> items_sdaf.extend(lol=[['e5', 2], ['b2', 0]])
+        Traceback (most recent call last):
+        sqlite3.IntegrityError: UNIQUE constraint failed: items.id
+        >>> items_sdaf.keys()
+        ['a1', 'b2', 'c3', 'd4']
     """
     if records_lod is not None and lol is not None:
         raise TypeError("extend(): give records_lod or lol, not both.")
@@ -420,6 +543,18 @@ def _assign_record(self: 'SqlDaf', record: T_da) -> 'SqlDaf':
     Raises:
         KeyError: The record lacks the keyfield.
         ValueError: There is no keyfield, or the key is a Python NULL.
+
+    Examples:
+        >>> import tempfile
+        >>> SqlDaf.db_path = tempfile.mkdtemp() + '/job.db'
+        >>> items_sdaf = SqlDaf.from_daf(Daf(cols=['id', 'item', 'qty'], keyfield='id', lol=[['a1', 'pen', 3], ['b2', 'ink', 10]]), name='items')
+
+        The whole row is replaced. Columns the dict lacks become Python NULL. A new key is added at the end:
+
+        >>> items_sdaf.assign_record({'id': 'a1', 'qty': 4}).to_lod()
+        [{'id': 'a1', 'item': '', 'qty': 4}, {'id': 'b2', 'item': 'ink', 'qty': 10}]
+        >>> items_sdaf.assign_record({'id': 'c3', 'item': 'pad', 'qty': 7}).keys()
+        ['a1', 'b2', 'c3']
     """
     key_col: str = self._need_keyfield('assign_record')
     if key_col not in record:
@@ -445,6 +580,13 @@ def _update_by_keylist(self: 'SqlDaf', keylist: T_la | None = None, record: T_da
     Raises:
         ValueError: The change gives a Python NULL key. Nothing changes.
         sqlite3.IntegrityError: The change gives a repeated key. Nothing changes.
+
+    Examples:
+        >>> import tempfile
+        >>> SqlDaf.db_path = tempfile.mkdtemp() + '/job.db'
+        >>> items_sdaf = SqlDaf.from_daf(Daf(cols=['id', 'g', 'qty'], keyfield='id', lol=[['a1', 'x', 3], ['b2', 'y', 10], ['c3', 'x', 7]]), name='items')
+        >>> items_sdaf.update_by_keylist(['a1', 'c3', 'z9'], {'g': 'z', 'note': 'ignored'}).to_lod()
+        [{'id': 'a1', 'g': 'z', 'qty': 3}, {'id': 'b2', 'g': 'y', 'qty': 10}, {'id': 'c3', 'g': 'z', 'qty': 7}]
     """
     cols_ls: T_ls = [col for col in (record or {}) if col in self.hd]
     if not self.keyfield or not keylist or not cols_ls:
@@ -546,6 +688,20 @@ def _assign_col(self: 'SqlDaf', colname: str, la: T_la | None = None, default: A
         NotImplementedError: The column is new, and this is a selection.
         ValueError: The change gives a Python NULL key. Nothing changes.
         sqlite3.IntegrityError: The change gives a repeated key. Nothing changes.
+
+    Examples:
+        >>> import tempfile
+        >>> SqlDaf.db_path = tempfile.mkdtemp() + '/job.db'
+        >>> items_sdaf = SqlDaf.from_daf(Daf(cols=['id', 'qty'], keyfield='id', lol=[['a1', 3], ['b2', 10], ['c3', 7]]), name='items')
+        >>> items_sdaf.assign_col('qty', [1, 2, 3]).col('qty')
+        [1, 2, 3]
+
+        A short list is filled out with `default`. A new column is added at the end:
+
+        >>> items_sdaf.assign_col('qty', [5], default=0).col('qty')
+        [5, 0, 0]
+        >>> items_sdaf.assign_col('note', default='new').to_lod()
+        [{'id': 'a1', 'qty': 5, 'note': 'new'}, {'id': 'b2', 'qty': 0, 'note': 'new'}, {'id': 'c3', 'qty': 0, 'note': 'new'}]
     """
     if colname not in self.hd:
         if self.parent_sdaf is not None:
@@ -580,6 +736,23 @@ def _apply_to_col(self: 'SqlDaf', col: str, func: Callable, **kwargs: Any) -> 'S
         ColumnNotFoundError: The name is not a column.
         ValueError: The change gives a Python NULL key. Nothing changes.
         sqlite3.IntegrityError: The change gives a repeated key. Nothing changes.
+
+    Examples:
+        >>> import tempfile
+        >>> SqlDaf.db_path = tempfile.mkdtemp() + '/job.db'
+        >>> items_sdaf = SqlDaf.from_daf(Daf(cols=['id', 'qty'], keyfield='id', lol=[['a1', 3], ['b2', ''], ['c3', 7]]), name='items')
+        >>> def scale(val, factor=1):
+        ...     return val * factor if val != '' else 0
+        >>> items_sdaf.apply_to_col('qty', scale, factor=10).col('qty')
+        [30, 0, 70]
+
+        If the function raises, nothing changes:
+
+        >>> items_sdaf.apply_to_col('qty', lambda val: 100 // (val - 30))
+        Traceback (most recent call last):
+        ZeroDivisionError: integer division or modulo by zero
+        >>> items_sdaf.col('qty')
+        [30, 0, 70]
     """
     if col not in self.hd:
         raise ColumnNotFoundError(col)
@@ -629,6 +802,30 @@ def _apply_in_place(
         NotImplementedError: `by` is not 'row' or 'row_klist'.
         ValueError: With `by='row'` the function returned None, or a key became a Python NULL.
         sqlite3.IntegrityError: A key became repeated. Nothing changes.
+
+    Examples:
+        >>> import tempfile
+        >>> SqlDaf.db_path = tempfile.mkdtemp() + '/job.db'
+        >>> items_sdaf = SqlDaf.from_daf(Daf(cols=['id', 'price', 'qty', 'total'], keyfield='id', lol=[['a1', 1.5, 2, ''], ['b2', 4.0, 3, ''], ['c3', 2.0, 5, '']]), name='items')
+
+        With `by='row'`, the function returns the cells to change, by name:
+
+        >>> def add_total(row, tax=0.0):
+        ...     return {'total': row['price'] * row['qty'] * (1 + tax)}
+        >>> items_sdaf.apply_in_place(add_total).col('total')
+        [3.0, 12.0, 10.0]
+
+        Only some rows, with `rowkeys`. Other keywords go to the function:
+
+        >>> items_sdaf.apply_in_place(add_total, rowkeys=['b2'], tax=0.5).col('total')
+        [3.0, 18.0, 10.0]
+
+        With `by='row_klist'`, the function changes a KeyedList and returns nothing:
+
+        >>> def zero_qty(row):
+        ...     row['qty'] = 0
+        >>> items_sdaf.apply_in_place(zero_qty, by='row_klist').col('qty')
+        [0, 0, 0]
     """
     if by not in ('row', 'row_klist'):
         raise NotImplementedError(f"apply_in_place(by={by!r}) is not supported on a SqlDaf.")
