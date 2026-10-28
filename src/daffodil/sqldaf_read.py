@@ -24,11 +24,11 @@ import daffodil.lib.daf_sql as daf_sql
 from daffodil.lib.daf_sql import sqlite3
 
 if TYPE_CHECKING:       # for mypy. sqldaf.py sets the names below when the program runs.
-    from daffodil.sqldaf import SqlDaf, ORD_COL, TEMP_PREFIX, none_to_null, quote_name
+    from daffodil.sqldaf import SqlDaf, ORD_COL, none_to_null, quote_name
 
 # The names of sqldaf.py that the functions here use when they run.
 # sqldaf.py sets each one here once it exists. An import at the top would be circular.
-_NAMES_FROM_SQLDAF: Tuple[str, ...] = ('ORD_COL', 'TEMP_PREFIX', 'none_to_null', 'quote_name')
+_NAMES_FROM_SQLDAF: Tuple[str, ...] = ('ORD_COL', 'none_to_null', 'quote_name')
 
 
 def _md_daf_table_snippet(self: 'SqlDaf') -> str:
@@ -90,12 +90,11 @@ def _to_daf(self: 'SqlDaf', name: str | None = None) -> Daf:
     ties it to the table afterwards: a change to one does not show in the other. A child has
     its rows found first.
 
-    The Daf has the table's name, if it was given one. A name that SqlDaf made up, as for a
-    selection or an unnamed copy or join, is left out, so that Daf has no name, as a Daf selection
-    has none. Give `name` to set one.
+    The Daf has the table's name. A selection, or a copy or join made without a name, has a name
+    that SqlDaf made up, as `daf_tmp_items_v1`. Give `name` to set another.
 
     Args:
-        name: The name of the new Daf. If None, the table's name, or none for a name SqlDaf made up.
+        name: The name of the new Daf. If None, the table's name.
 
     Returns:
         A Daf of every row.
@@ -130,19 +129,17 @@ def _to_daf(self: 'SqlDaf', name: str | None = None) -> Daf:
         | -: | ---: | --: |
         | c3 |  pad |   7 |
         <BLANKLINE>
-        %% daf rows=1; cols=3; keyfield='id'; name=''
+        %% daf rows=1; cols=3; keyfield='id'; name='daf_tmp_items_v1'
         <BLANKLINE>
 
-        A selection has no name, as in a Daf. Give one with `name`:
+        A selection has a name that SqlDaf made up. Give another with `name`:
 
         >>> items_sdaf.select_where_sql('qty > ?', [5]).to_daf(name='big_items').name
         'big_items'
     """
     self._resolve()
     lol: T_lola = [none_to_null(row_t) for row_t in self._select_rows()]
-    if name is None:
-        name = '' if self.name.startswith(TEMP_PREFIX) else self.name
-    return Daf(lol=lol, cols=self.columns(), keyfield=self.keyfield, name=name,
+    return Daf(lol=lol, cols=self.columns(), keyfield=self.keyfield, name=self.name if name is None else name,
                dtypes=dict(self.dtypes) if self.dtypes else None)
 
 

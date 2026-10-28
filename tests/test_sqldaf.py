@@ -2976,19 +2976,17 @@ def test_select_first_row_by_dict_matches_mdaf():
             dict(read_daf.select_first_row_by_dict(selector_da, inverse=inverse))
 
 
-def test_to_daf_name_is_the_table_name_or_none():
-    """ A table gives its name. A name SqlDaf made up, for a selection, copy or join, is left out. A name given is used. """
+def test_to_daf_name_is_the_table_name_unless_given():
+    """ The Daf has the table's name, made up or not. A name given is used. """
     read_daf: Daf = make_read_daf()
     read_sdaf: SqlDaf = SqlDaf.from_daf(read_daf, name='t')
     assert read_sdaf.to_daf().name == 't'
-    assert read_sdaf.select_krows(['b1']).to_daf().name == ''
-    assert read_sdaf.copy().to_daf().name == ''
-    assert read_sdaf.join(read_sdaf.copy()).to_daf().name == ''
+    picked_sdaf: SqlDaf = read_sdaf.select_krows(['b1'])
+    assert picked_sdaf.to_daf().name == picked_sdaf.name
     assert read_sdaf.copy(name='kept').to_daf().name == 'kept'
     assert read_sdaf.select_krows(['b1']).to_daf(name='picked').name == 'picked'
     assert read_sdaf.to_daf(name='').name == ''
     assert read_daf.to_daf(name='mine') is read_daf and read_daf.name == 'mine'
-
 
 def test_exports_match_mdaf():
     read_daf: Daf = make_read_daf()
