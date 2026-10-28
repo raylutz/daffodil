@@ -124,6 +124,27 @@ def _from_lod(
         <BLANKLINE>
         %% daf rows=1; cols=2; keyfield=''; name=''
         <BLANKLINE>
+
+        Give the keyfield and a name. The values stay as they are, so text stays text:
+
+        >>> stock = Daf.from_lod([{'id': 'a1', 'qty': '3'}, {'id': 'b2', 'qty': '10'}], keyfield='id', name='stock')
+        >>> stock.name, stock.select_record('b2')
+        ('stock', {'id': 'b2', 'qty': '10'})
+
+        `dtypes` records the types, and selects the columns. It does not convert. Call `apply_dtypes()`
+        for that:
+
+        >>> typed = Daf.from_lod([{'id': 'a1', 'qty': '3'}], dtypes={'id': str, 'qty': int})
+        >>> typed.lol
+        [['a1', '3']]
+        >>> typed.apply_dtypes().lol
+        [['a1', 3]]
+
+        With `fast=True`, each dict's values become the row as they are. Every dict must have the keys
+        in the same order. Only the first is checked fully:
+
+        >>> Daf.from_lod([{'id': 'a1', 'qty': 3}, {'id': 'b2', 'qty': 10}], fast=True).lol
+        [['a1', 3], ['b2', 10]]
     """
 
     """ Create Daf instance from loda type, adopting dict keys as column names
@@ -261,6 +282,12 @@ def _from_lot(
         []
         >>> Daf.from_lot([(1, 'a')]).set_cols().columns()
         ['A', 'B']
+
+        Give the keyfield, the types and a name:
+
+        >>> stock = Daf.from_lot([('a1', 3), ('b2', 10)], cols=['id', 'qty'], keyfield='id', dtypes={'id': str, 'qty': int}, name='stock')
+        >>> stock.keyfield, stock.name, stock.select_record('b2')
+        ('id', 'stock', {'id': 'b2', 'qty': 10})
     """
     """
         Create Daf instance from LOT (list of tuples), adopting given column names or generating default ones.
@@ -432,6 +459,19 @@ def _from_dod(
         <BLANKLINE>
         %% daf rows=2; cols=2; keyfield='rowkey'; name=''
         <BLANKLINE>
+
+        The outer keys go into a column named by `keyfield`, which becomes the keyfield:
+
+        >>> stock = Daf.from_dod({'a1': {'qty': 3}, 'b2': {'qty': 10}}, keyfield='id')
+        >>> stock
+        <BLANKLINE>
+        | id | qty |
+        | -: | --: |
+        | a1 |   3 |
+        | b2 |  10 |
+        <BLANKLINE>
+        %% daf rows=2; cols=2; keyfield='id'; name=''
+        <BLANKLINE>
     """
 
     """ a dict of dict (dod) structure is very similar to a Daf table, but there is a slight difference.
@@ -567,6 +607,12 @@ def _from_cols_dol(
         <BLANKLINE>
         %% daf rows=3; cols=2; keyfield=''; name=''
         <BLANKLINE>
+
+        Give the keyfield and the types:
+
+        >>> stock = Daf.from_cols_dol({'id': ['a1', 'b2'], 'qty': [3, 10]}, keyfield='id', dtypes={'id': str, 'qty': int})
+        >>> stock.select_record('b2'), stock.dtypes
+        ({'id': 'b2', 'qty': 10}, {'id': <class 'str'>, 'qty': <class 'int'>})
     """
     """ Create Daf instance from cols_dol type, adopting dict keys as column names
             and creating columns from each value (list)
@@ -687,6 +733,21 @@ def _from_lod_to_cols(
         <BLANKLINE>
         %% daf rows=2; cols=3; keyfield=''; name=''
         <BLANKLINE>
+
+        Name the columns, and make the column of keys the keyfield:
+
+        >>> rows = Daf.from_lod_to_cols([{'a': 1, 'b': 2}, {'a': 3, 'b': 4}], cols=['field', 'r1', 'r2'], keyfield='field')
+        >>> rows
+        <BLANKLINE>
+        | field | r1 | r2 |
+        | ----: | -: | -: |
+        |     a |  1 |  3 |
+        |     b |  2 |  4 |
+        <BLANKLINE>
+        %% daf rows=2; cols=3; keyfield='field'; name=''
+        <BLANKLINE>
+        >>> rows.select_record('b')
+        {'field': 'b', 'r1': 2, 'r2': 4}
     """
     r""" Create Daf instance from a list of dictionaries to be placed in columns
             where each column shares the same keys in the first column of the array.
@@ -806,6 +867,24 @@ def _from_excel_buff(
         <BLANKLINE>
         %% daf rows=2; cols=2; keyfield=''; name=''
         <BLANKLINE>
+
+        With `noheader=True`, the first row is data, and the Daf has no column names:
+
+        >>> Daf.from_excel_buff(excel_bytes([['a1', 3], ['b2', 10]]), noheader=True).lol
+        [['a1', '3'], ['b2', '10']]
+
+        With `user_format=True`, comment lines, which start with `#`, and blank lines are skipped:
+
+        >>> Daf.from_excel_buff(excel_bytes([['# stock count'], ['id', 'qty'], [], ['a1', 3]]), user_format=True).lol
+        [['a1', '3']]
+
+        A list or dict column is read from its text, for its dtype. With `unflatten=False` it stays text:
+
+        >>> tags = excel_bytes([['id', 'tags'], ['a1', '[1, 2]']])
+        >>> Daf.from_excel_buff(tags, dtypes={'id': str, 'tags': list}).lol
+        [['a1', [1, 2]]]
+        >>> Daf.from_excel_buff(tags, dtypes={'id': str, 'tags': list}, unflatten=False).lol
+        [['a1', '[1, 2]']]
     """
 
     # from utilities import xlsx_utils
@@ -867,6 +946,50 @@ def _from_ods(
     Raises:
         IndexError: There is no sheet at that position.
         KeyError: There is no sheet with that name.
+
+    Examples:
+        A small .ods file, made here for the example. A real one comes from a file or a download:
+
+        >>> import io, zipfile
+        >>> def ods_bytes(sheets):
+        ...     ns = ('xmlns:office="urn:oasis:names:tc:opendocument:xmlns:office:1.0" '
+        ...           'xmlns:table="urn:oasis:names:tc:opendocument:xmlns:table:1.0" '
+        ...           'xmlns:text="urn:oasis:names:tc:opendocument:xmlns:text:1.0"')
+        ...     body = ''
+        ...     for name, rows in sheets.items():
+        ...         body += f'<table:table table:name="{name}">'
+        ...         for row in rows:
+        ...             cells = ''.join(f'<table:table-cell><text:p>{v}</text:p></table:table-cell>' for v in row)
+        ...             body += f'<table:table-row>{cells}</table:table-row>'
+        ...         body += '</table:table>'
+        ...     content = (f'<office:document-content {ns}><office:body><office:spreadsheet>'
+        ...                f'{body}</office:spreadsheet></office:body></office:document-content>')
+        ...     buff = io.BytesIO()
+        ...     with zipfile.ZipFile(buff, 'w') as odsfile:
+        ...         odsfile.writestr('mimetype', 'application/vnd.oasis.opendocument.spreadsheet')
+        ...         odsfile.writestr('content.xml', content)
+        ...     return buff.getvalue()
+        >>> ods = ods_bytes({'stock': [['id', 'qty'], ['a1', '3'], ['b2', '10']], 'notes': [['a1', 'new']]})
+
+        The first sheet, with a keyfield and a name. The cells are read as text:
+
+        >>> stock = Daf.from_ods(ods, keyfield='id', name='stock')
+        >>> stock
+        <BLANKLINE>
+        | id | qty |
+        | -: | --: |
+        | a1 |   3 |
+        | b2 |  10 |
+        <BLANKLINE>
+        %% daf rows=2; cols=2; keyfield='id'; name='stock'
+        <BLANKLINE>
+
+        Another sheet, by name or by position, whose first row is data:
+
+        >>> Daf.from_ods(ods, sheet='notes', noheader=True).lol
+        [['a1', 'new']]
+        >>> Daf.from_ods(ods, sheet=1, noheader=True).lol
+        [['a1', 'new']]
     """
     data_lol = daf_ods.ods_to_lol(source, sheet=sheet)
     cols: T_ls = []
@@ -1076,6 +1199,35 @@ def _from_csv_buff(
         <BLANKLINE>
         %% daf rows=2; cols=2; keyfield=''; name=''
         <BLANKLINE>
+
+        With `user_format=True`, comment lines, which start with `#`, and blank lines are skipped:
+
+        >>> Daf.from_csv_buff('# stock count\nid,qty\n\na1,3\nb2,10\n', user_format=True).lol
+        [['a1', '3'], ['b2', '10']]
+
+        Another separator, and no header line:
+
+        >>> Daf.from_csv_buff('a1;3\nb2;10\n', sep=';', noheader=True).lol
+        [['a1', '3'], ['b2', '10']]
+
+        Keep only some columns, in a new order, with a keyfield and a name:
+
+        >>> picked = Daf.from_csv_buff('id,qty,note\na1,3,x\n', include_cols=['qty', 'id'], keyfield='id', name='picked')
+        >>> picked
+        <BLANKLINE>
+        | qty | id |
+        | --: | -: |
+        |   3 | a1 |
+        <BLANKLINE>
+        %% daf rows=1; cols=2; keyfield='id'; name='picked'
+        <BLANKLINE>
+
+        A list column is read from its text, for its dtype. With `unflatten=False` it stays text:
+
+        >>> Daf.from_csv_buff('id,tags\na1,"[1, 2]"\n', dtypes={'id': str, 'tags': list}).lol
+        [['a1', [1, 2]]]
+        >>> Daf.from_csv_buff('id,tags\na1,"[1, 2]"\n', dtypes={'id': str, 'tags': list}, unflatten=False).lol
+        [['a1', '[1, 2]']]
     """
 
     """
@@ -1181,6 +1333,23 @@ def _from_csv_file(
         <BLANKLINE>
         %% daf rows=1; cols=2; keyfield=''; name=''
         <BLANKLINE>
+
+        The options are those of `from_csv_buff()`, which has an example of each. Here a file with a
+        comment line, read with a keyfield, one column and a name:
+
+        >>> import os, tempfile
+        >>> path = os.path.join(tempfile.mkdtemp(), 'stock.csv')
+        >>> with open(path, 'w') as csv_file:
+        ...     n = csv_file.write('# stock count\nid;qty;note\na1;3;x\nb2;10;y\n')
+        >>> Daf.from_csv_file(path, sep=';', user_format=True, keyfield='id', include_cols=['id', 'qty'], name='stock')
+        <BLANKLINE>
+        | id | qty |
+        | -: | --: |
+        | a1 |   3 |
+        | b2 |  10 |
+        <BLANKLINE>
+        %% daf rows=2; cols=2; keyfield='id'; name='stock'
+        <BLANKLINE>
     """
     """ Read a csv file directly into a daf array in memory, per arguments.
 
@@ -1249,6 +1418,16 @@ def _to_csv_file(
         <BLANKLINE>
         >>> daf.to_csv_file(path) == path
         True
+
+        Without the header line, and with another line ending:
+
+        >>> import os, tempfile
+        >>> path = os.path.join(tempfile.mkdtemp(), 'stock.csv')
+        >>> stock = Daf(cols=['id', 'qty'], lol=[['a1', 3], ['b2', 10]])
+        >>> stock.to_csv_file(path, line_terminator='\n', include_header=False) == path
+        True
+        >>> open(path).read()
+        'a1,3\nb2,10\n'
     """
     if isinstance(file_path, Path):  # Convert Path object to string
         file_path = str(file_path)
@@ -1304,6 +1483,14 @@ def _to_csv_buff(
         'id,v\n1,a\n'
         >>> Daf(lol=[[{1: 'a'}]], cols=['x']).to_csv_buff(line_terminator='\n')
         "x\n{1: 'a'}\n"
+
+        Without the header line, and with another line ending:
+
+        >>> stock = Daf(cols=['id', 'qty'], lol=[['a1', 3], ['b2', 10]])
+        >>> stock.to_csv_buff(include_header=False)
+        'a1,3\r\nb2,10\r\n'
+        >>> stock.to_csv_buff(line_terminator='\n')
+        'id,qty\na1,3\nb2,10\n'
     """
     """ this function writes the daf array to a csv buffer, including the header if include_header==True.
             The buffer can be saved to a local file or uploaded to a storage service like s3.
@@ -1577,6 +1764,13 @@ def _from_numpy(cls: 'type[Daf]', npa: Any, keyfield:str='', cols:T_la | None = 
         <BLANKLINE>
         %% daf rows=2; cols=2; keyfield=''; name=''
         <BLANKLINE>
+
+        Give the keyfield and a name:
+
+        >>> import numpy as np
+        >>> table = Daf.from_numpy(np.array([[1, 2], [3, 4]]), cols=['a', 'b'], keyfield='a', name='grid')
+        >>> table.name, table.select_record(3)
+        ('grid', {'a': 3, 'b': 4})
     """
     """
         Convert a Numpy dataframe to daf object
@@ -1797,6 +1991,11 @@ def _to_json(self: 'Daf', concise: bool=True) -> str:
     Examples:
         >>> Daf(lol=[[1]], cols=['a']).to_json()
         '{"lol": [[1]], "hd": {"a": 0}}'
+
+        With `concise=False`, the empty parts are written too:
+
+        >>> Daf(cols=['a'], lol=[[1]]).to_json(concise=False)
+        '{"name": "", "lol": [[1]], "hd": {"a": 0}, "dtypes": {}, "keyfield": "", "attrs": {}, "disp_cols": []}'
     """
     # Convert data types to string representations, rather than type objects.
     #   isinstance(v, type) -- Checks if the value is a Python type object (int, float, str, etc.).
@@ -1903,6 +2102,16 @@ def _to_value(self: 'Daf',
         <BLANKLINE>
         >>> daf[1, 'n'].to_value()
         20
+
+        Convert the value with `astype`, here from text:
+
+        >>> Daf(cols=['qty'], lol=[['3']]).to_value(astype=int)
+        3
+
+        A Daf that is not one cell raises, unless `default` is given. The default may be None:
+
+        >>> print(Daf(cols=['qty'], lol=[[1], [2]]).to_value(default=None))
+        None
     """
 
     num_rows, num_cols = self.shape()
@@ -1962,6 +2171,25 @@ def _to_list(self: 'Daf',
         ['a', 'b', 'c']
         >>> daf[1].to_list()
         [2, 'b', 20]
+
+        The options, on a column whose cells hold lists, with one empty cell:
+
+        >>> tags = Daf(cols=['tags'], lol=[[['a', 'b']], [''], [['b', 'c']]])
+        >>> tags.to_list()
+        [['a', 'b'], '', ['b', 'c']]
+        >>> tags.to_list(flatten=True)
+        ['a', 'b', '', 'b', 'c']
+        >>> tags.to_list(flatten=True, unique=True)
+        ['a', 'b', '', 'c']
+        >>> tags.to_list(omit_nulls=True)
+        [['a', 'b'], ['b', 'c']]
+        >>> tags.to_list(default=None)
+        [['a', 'b'], None, ['b', 'c']]
+
+        Convert each value with `astype`:
+
+        >>> Daf(cols=['n'], lol=[['1'], ['2']]).to_list(astype=int)
+        [1, 2]
     """
     """ return data from a daf array as a list
             defaults to the most obvious list if irow and icol not specified.

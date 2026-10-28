@@ -140,6 +140,17 @@ def _calc_cols(self: 'Daf',
         <BLANKLINE>
         >>> daf.calc_cols(exclude_cols='b')
         ['a', 'c']
+
+        By dtype, with `include_types` or `exclude_types`. Names that are not columns are ignored:
+
+        >>> typed = Daf(cols=['id', 'qty', 'price', 'note'], lol=[['a1', 3, 1.5, 'x']],
+        ...             dtypes={'id': str, 'qty': int, 'price': float, 'note': str})
+        >>> typed.calc_cols(include_types=[int, float])
+        ['qty', 'price']
+        >>> typed.calc_cols(exclude_types=[str])
+        ['qty', 'price']
+        >>> typed.calc_cols(include_cols=['id', 'qty', 'color'])
+        ['id', 'qty']
     """
 
     """ this method helps to calculate the columns to be specified for a apply or reduce operation.
@@ -297,6 +308,14 @@ def _set_cols(self: 'Daf', new_cols: T_ls | None = None, sanitize_cols: bool=Tru
         <BLANKLINE>
         >>> daf.keyfield
         'id'
+
+        With `sanitize_cols=True`, an empty name gets one made from `unnamed_prefix`, and a repeated
+        name gets a number:
+
+        >>> Daf(lol=[[1, 2, 3]]).set_cols(['a', '', 'a'], sanitize_cols=True).columns()
+        ['a', 'col1', 'a_2']
+        >>> Daf(lol=[[1, 2, 3]]).set_cols(['a', '', ''], sanitize_cols=True, unnamed_prefix='unnamed').columns()
+        ['a', 'unnamed1', 'unnamed2']
     """
 
     num_cols = self.num_cols() or len(self.hd)

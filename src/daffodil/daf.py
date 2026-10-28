@@ -1460,6 +1460,21 @@ class Daf:
             <BLANKLINE>
             >>> dup.keys(), dup.select_record('a')
             (['a', 'b'], {'id': 'a', 'q': 3})
+
+            With no keyfield, the answer is an empty list, or an error with `silent_error=False`:
+
+            >>> plain = Daf(cols=['id'], lol=[['a']])
+            >>> plain.keys()
+            []
+            >>> plain.keys(silent_error=False)
+            Traceback (most recent call last):
+            ...
+            daffodil.daf.KeysDisabledError: keys(): key lookups are disabled, as the keyfield is not set and there is no key index (kd).
+
+            With `astype='view'`, a view of the key index, with no copy:
+
+            >>> dup.keys(astype='view')
+            dict_keys(['a', 'b'])
         """
 
         # test exists in test_daf.py
@@ -1541,6 +1556,23 @@ class Daf:
             'id'
             >>> empty_daf.append({'id': 7, 'v': 'x'}).keys()
             [7]
+
+            A name that is not a column raises KeyError. With `silent_error=True` it is stored anyway, and
+            key lookups find nothing until the column exists:
+
+            >>> stock = Daf(cols=['id', 'qty'], lol=[['a1', 3]])
+            >>> stock.set_keyfield('code')
+            Traceback (most recent call last):
+            ...
+            KeyError: "set_keyfield(): the keyfield 'code' is not a column. The columns are ['id', 'qty']."
+            >>> stock.set_keyfield('code', silent_error=True).keyfield
+            'code'
+
+            The key index is built when a key is first used. `force_kd_rebuild=True` builds it now, as
+            before timing the lookups that follow:
+
+            >>> stock.set_keyfield('id', force_kd_rebuild=True).keys(astype='view')
+            dict_keys(['a1'])
         """
         """ set the indexing keyfield to a new column
             if keyfield == '', then reset the keyfield.
@@ -2006,6 +2038,20 @@ class Daf:
             >>> c = daf.clone_empty()
             >>> c.columns(), c.keyfield, c.num_rows()
             (['id', 'v'], 'id', 0)
+
+            With rows of its own, other column names, or a name:
+
+            >>> stock = Daf(cols=['id', 'qty'], keyfield='id', lol=[['a1', 3]])
+            >>> stock.clone_empty(lol=[['z9', 1]], name='new')
+            <BLANKLINE>
+            | id | qty |
+            | -: | --: |
+            | z9 |   1 |
+            <BLANKLINE>
+            %% daf rows=1; cols=2; keyfield='id'; name='new'
+            <BLANKLINE>
+            >>> stock.clone_empty(cols=['k', 'v']).columns()
+            ['k', 'v']
         """
         if self is None:
             return Daf()

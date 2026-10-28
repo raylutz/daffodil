@@ -117,6 +117,11 @@ def _update_with_history(
         <BLANKLINE>
         %% daf rows=3; cols=3; keyfield=''; name=''
         <BLANKLINE>
+
+        With `key_order`, the keys come in that order. It must hold every key of both tables:
+
+        >>> prior_daf.update_with_history(new_daf, by='bid', key_order=['d', 'c', 'b', 'a'])[0].col('bid')
+        ['d', 'c', 'b', 'a', 'a']
     """
 
     keyfield_a: Any = self.keyfield
@@ -322,6 +327,35 @@ def _derive_join_translator(
         <BLANKLINE>
         >>> a_daf.derive_join_translator(b_daf).col('resolved_colname')
         ['id', 'name_daf1', 'name_daf2']
+
+        The tables used below. Both have `item`:
+
+        >>> stock = Daf(cols=['id', 'item', 'qty'], keyfield='id', lol=[['a1', 'pen', 3]])
+        >>> price = Daf(cols=['id', 'item', 'price'], keyfield='id', lol=[['a1', 'pen', 1.5]])
+
+        With `shared_fields`, the shared column comes from this Daf only:
+
+        >>> stock.derive_join_translator(price, shared_fields=['item'])
+        <BLANKLINE>
+        | resolved_colname | source_name | source_colname | is_keyfield |
+        | ---------------: | ----------: | -------------: | ----------: |
+        |               id |        daf1 |             id |        True |
+        |             item |        daf1 |           item |       False |
+        |              qty |        daf1 |            qty |       False |
+        |            price |        daf2 |          price |       False |
+        <BLANKLINE>
+        %% daf rows=4; cols=4; keyfield='resolved_colname'; name=''
+        <BLANKLINE>
+
+        `omit_other_cols` leaves columns of the other Daf out:
+
+        >>> stock.derive_join_translator(price, omit_other_cols=['item']).col('resolved_colname')
+        ['id', 'item', 'qty', 'price']
+
+        `tag_other=True` gives every column of the other Daf a suffix:
+
+        >>> stock.derive_join_translator(price, tag_other=True).col('resolved_colname')
+        ['id', 'item_daf1', 'qty', 'item_daf2', 'price_daf2']
     """
     assert isinstance(self.keyfield, str)
     assert isinstance(other_daf.keyfield, str)
@@ -571,6 +605,46 @@ def _join(
         <BLANKLINE>
         %% daf rows=2; cols=3; keyfield='id'; name=''
         <BLANKLINE>
+
+        The tables used below. Both have `item`:
+
+        >>> stock = Daf(cols=['id', 'item', 'qty'], keyfield='id', lol=[['a1', 'pen', 3], ['b2', 'ink', 10], ['c3', 'pad', 7]])
+        >>> price = Daf(cols=['id', 'item', 'price'], keyfield='id', lol=[['a1', 'pen', 1.5], ['b2', 'ink', 4.0], ['d4', 'cap', 0.5]])
+
+        A column that both have gets a suffix for each source:
+
+        >>> stock.join(price).columns()
+        ['id', 'item_daf1', 'qty', 'item_daf2', 'price']
+
+        `shared_fields` names columns that hold the same values in both, so they appear once:
+
+        >>> stock.join(price, shared_fields=['item'])
+        <BLANKLINE>
+        | id | item | qty | price |
+        | -: | ---: | --: | ----: |
+        | a1 |  pen |   3 |   1.5 |
+        | b2 |  ink |  10 |   4.0 |
+        <BLANKLINE>
+        %% daf rows=2; cols=4; keyfield='id'; name=''
+        <BLANKLINE>
+
+        `tag_other=True` gives every column of the other Daf a suffix, even one only it has:
+
+        >>> stock.join(price, tag_other=True).columns()
+        ['id', 'item_daf1', 'qty', 'item_daf2', 'price_daf2']
+
+        Name the result:
+
+        >>> stock.join(price, how='left', shared_fields=['item'], name='stock_prices').name
+        'stock_prices'
+
+        For other names, edit the translator from `derive_join_translator()` and pass it in. Here the
+        price column is renamed:
+
+        >>> translator = stock.derive_join_translator(price, shared_fields=['item'])
+        >>> translator[3, 'resolved_colname'] = 'unit_price'
+        >>> stock.join(price, custom_translator_daf=translator).columns()
+        ['id', 'item', 'qty', 'unit_price']
     """
     if how not in ("inner", "left", "right", "outer"):
         raise ValueError(f"Unsupported join type: {how}")

@@ -342,6 +342,26 @@ def _apply_dtypes(self: 'Daf', *,
         <BLANKLINE>
         >>> bad
         ['x']
+
+        **The other options.** A list column stays text with `unflatten=False`:
+
+        >>> tags = Daf(cols=['id', 'tags'], lol=[['a1', '[1, 2]']])
+        >>> tags.apply_dtypes(dtypes={'id': str, 'tags': list}, unflatten=False).lol
+        [['a1', '[1, 2]']]
+
+        A str column is skipped by default, since the cells are taken to be text. With `from_str=False`
+        each cell is made text:
+
+        >>> mixed = Daf(cols=['id', 'qty'], lol=[[1, '3']])
+        >>> mixed.apply_dtypes(dtypes={'id': str, 'qty': int}, from_str=False).lol
+        [['1', 3]]
+
+        A column with no dtype raises ValueError, unless `silent_error=True`. Then it gets
+        `default_type`, str by default, and is not converted:
+
+        >>> part = Daf(cols=['id', 'qty'], lol=[['a1', '3']])
+        >>> part.apply_dtypes(dtypes={'qty': int}, silent_error=True).lol, part.dtypes
+        ([['a1', 3]], {'qty': <class 'int'>, 'id': <class 'str'>})
     """
 
     """ convert columns of daf array to the datatypes specified in self.dtypes or in passed parameter.
@@ -514,6 +534,9 @@ def _flatten(self: 'Daf', convert_bool_to_int: bool=True, use_pyon: bool = True)
     Only the columns whose dtype is `list` or `dict` are changed. Each cell
     becomes its `str()` text. A column of dtype `bool` becomes 0 and 1. Without
     dtypes nothing happens.
+
+    Leave `convert_bool_to_int` True. In daffodil a boolean is 0 or 1, never True or False. See
+    [Booleans](../../guide/booleans.md).
 
     Args:
         convert_bool_to_int: If True, write bool columns as 0 and 1.
