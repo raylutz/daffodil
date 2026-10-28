@@ -70,7 +70,7 @@ def _select_where_sql(self: 'SqlDaf', where_sql: str, params: Iterable[Any] = ()
 def _select_where(
         self: 'SqlDaf',
         where:          Callable[[Any], Any],       # a function of a row that is true for the rows to keep.
-        indirect_col:   str | None = None,          # not supported yet.
+        indirect_col:   str | None = None,          # not supported on a SqlDaf.
         cols:           T_ls | None = None,         # the columns the function reads. All if None.
         ) -> 'SqlDaf':
     """
@@ -230,7 +230,7 @@ def _split_where(
         self: 'SqlDaf',
         where:          Callable[[Any], Any],       # a function of a row that is true for the first side.
         *,
-        indirect_col:   str | None = None,          # not supported yet.
+        indirect_col:   str | None = None,          # not supported on a SqlDaf.
         cols:           T_ls | None = None,         # the columns the function reads. All if None.
         ) -> Tuple['SqlDaf', 'SqlDaf']:
     """

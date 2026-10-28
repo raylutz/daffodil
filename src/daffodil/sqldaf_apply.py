@@ -540,6 +540,11 @@ def _valuecounts_for_colname1_groupedby_colname2(
 
         >>> ballots_sdaf.valuecounts_for_colname1_groupedby_colname2('party', 'precinct', sort=True)
         {'P1': {'D': 2, 'R': 1}, 'P2': {'D': 1}}
+
+        With `reverse=False`, the least common comes first:
+
+        >>> ballots_sdaf.valuecounts_for_colname1_groupedby_colname2('party', 'precinct', sort=True, reverse=False)
+        {'P1': {'R': 1, 'D': 2}, 'P2': {'D': 1}}
     """
     if colname1 not in self.hd or groupedby_colname2 not in self.hd:
         return {}
@@ -600,6 +605,18 @@ def _value_counts_daf(
         | **Total** |      4 |
         <BLANKLINE>
         %% daf rows=3; cols=2; keyfield=''; name=''
+        <BLANKLINE>
+
+        With `reverse=False`, the least common comes first:
+
+        >>> sales_sdaf.value_counts_daf('g', sort=True, reverse=False)
+        <BLANKLINE>
+        | g  | counts |
+        | -: | -----: |
+        |  y |      1 |
+        |  x |      4 |
+        <BLANKLINE>
+        %% daf rows=2; cols=2; keyfield=''; name=''
         <BLANKLINE>
     """
     value_counts_daf: Daf = Daf.from_lod_to_cols(
@@ -757,6 +774,13 @@ def _groupsum_daf(
         <BLANKLINE>
         >>> nums_sdaf.groupsum_daf('g', reduce_cols=['y']).lol
         [['a', '', 40], ['b', '', 20]]
+
+        With `indirect_col`, each row holds a dict, and each group's dicts are added into one:
+
+        >>> votes_sdaf = SqlDaf.from_daf(Daf(cols=['id', 'precinct', 'votes'], lol=[
+        ...     ['b1', 'P1', {'mayor': 1}], ['b2', 'P1', {'mayor': 1, 'council': 1}], ['b3', 'P2', {'council': 1}]]), name='votes')
+        >>> votes_sdaf.groupsum_daf('precinct', indirect_col='votes').lol
+        [['P1', '{"mayor":2,"council":1}'], ['P2', '{"council":1}']]
     """
     # Sparse rows are summed by groupby_reduce(), which keeps each group's dict in one cell.
     if indirect_col or by == 'sparse_row':
@@ -790,7 +814,7 @@ def _groupby(
         colname:        str = '',                   # the column to group by.
         colnames:       T_ls | None = None,         # several columns to group by, as groupby_cols().
         omit_nulls:     bool = False,               # if True, leave out rows with Python NULL in the column.
-        cols:           T_ls | None = None,         # not supported on a SqlDaf yet.
+        cols:           T_ls | None = None,         # not supported on a SqlDaf.
         ) -> KeyedList:
     """
     Group the rows by the values of a column, as [`Daf.groupby()`][daffodil.daf_apply._groupby] does.
@@ -810,7 +834,7 @@ def _groupby(
         colname: The column to group by.
         colnames: Several columns to group by. See `groupby_cols()`.
         omit_nulls: If True, leave out the rows with Python NULL in the column.
-        cols: Not supported on a SqlDaf yet.
+        cols: Not supported on a SqlDaf. It raises NotImplementedError.
 
     Returns:
         A KeyedList that maps each value to a selection.
@@ -1166,7 +1190,7 @@ def _aggregate_groups(
 def _groupby_cols(
         self: 'SqlDaf',
         colnames:       T_ls,                       # the columns to group by.
-        cols:           T_ls | None = None,         # not supported on a SqlDaf yet.
+        cols:           T_ls | None = None,         # not supported on a SqlDaf.
         omit_nulls:     bool = False,               # if True, leave out rows with Python NULL in any of the columns.
         ) -> KeyedList:
     """
@@ -1177,7 +1201,7 @@ def _groupby_cols(
 
     Args:
         colnames: The columns to group by.
-        cols: Not supported on a SqlDaf yet.
+        cols: Not supported on a SqlDaf. It raises NotImplementedError.
         omit_nulls: If True, leave out the rows with Python NULL in any of the columns.
 
     Returns:
@@ -1336,7 +1360,7 @@ def _group_where(
         self: 'SqlDaf',
         where:          Callable[[Any], Any],       # a function of a row: a key, a list of keys, or None.
         *,
-        indirect_col:   str | None = None,          # not supported yet.
+        indirect_col:   str | None = None,          # not supported on a SqlDaf.
         cols:           T_ls | None = None,         # the columns the function reads. All if None.
         ) -> KeyedList:
     """
@@ -1433,7 +1457,7 @@ def _join(
         how:                    str = 'inner',      # 'inner', 'left', 'right' or 'outer'.
         shared_fields:          T_ls | None = None, # columns that both have and that appear only once.
         tag_other:              bool = False,       # if True, every column of the other gets a suffix.
-        custom_translator_daf:  Daf | None = None,  # not supported yet.
+        custom_translator_daf:  Daf | None = None,  # not supported on a SqlDaf.
         diagnose:               bool = False,       # not used.
         name:                   str = '',           # the name of the result. Generated if empty.
         fill:                   Any = NULL,         # only Python NULL is supported.
@@ -1466,11 +1490,11 @@ def _join(
     Guide page on SqlDaf, Tables in other files.
 
     Args:
-        other_daf: The SqlDaf to join with, in the same database file.
+        other_daf: The SqlDaf to join with. It may be in another database file.
         how: `inner`, `left`, `right` or `outer`.
         shared_fields: Columns that both have and that appear only once.
         tag_other: If True, every column of the other, except shared ones, gets a suffix.
-        custom_translator_daf: Not supported on a SqlDaf yet.
+        custom_translator_daf: Not supported on a SqlDaf. It raises NotImplementedError.
         diagnose: Not used.
         name: The name of the result table. Generated if empty.
         fill: The value for cells that have no match. Only Python NULL is supported.

@@ -1160,6 +1160,12 @@ class SqlDaf(Daf):
             >>> brought_sdaf = SqlDaf.from_db(source_path, 'parts', new_name='fromdb_brought')
             >>> brought_sdaf.name, len(brought_sdaf)
             ('fromdb_brought', 2)
+
+            `db_path` names the working file to copy into, in place of the class setting:
+
+            >>> work_path = os.path.join(tempfile.mkdtemp(), 'work.db')
+            >>> SqlDaf.from_db(source_path, 'parts', db_path=work_path).to_lod()
+            [{'id': 'a1', 'qty': 3}, {'id': 'b2', 'qty': 4}]
         """
         working: str = db_path or cls.db_path
         if not working:
@@ -1470,6 +1476,15 @@ class SqlDaf(Daf):
             >>> copy_sdaf.col('qty')
             Traceback (most recent call last):
             sqlite3.ProgrammingError: Cannot operate on a closed database.
+
+            `db_path` closes another file. A file that is not open is left as it is:
+
+            >>> other_path = tempfile.mkdtemp() + '/other.db'
+            >>> notes_sdaf = SqlDaf('notes', cols=['id'], lol=[['n1']], db_path=other_path)
+            >>> SqlDaf.close(db_path=other_path)
+            >>> SqlDaf.close(db_path=other_path)
+            >>> SqlDaf('notes', db_path=other_path).col('id')
+            ['n1']
         """
         path: str = db_path or cls.db_path
         if not path:
