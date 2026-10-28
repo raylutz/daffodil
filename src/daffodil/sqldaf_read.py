@@ -127,6 +127,14 @@ def _to_csv_file(
         >>> path = marks_sdaf.to_csv_file(os.path.dirname(SqlDaf.db_path) + '/marks.csv')
         >>> open(path, newline='').read()
         'ballot_id,v\r\nb1,1\r\nb2,\r\n'
+
+        Without the header line, and with another line ending:
+
+        >>> import os, tempfile
+        >>> csv_sdaf = SqlDaf.from_daf(Daf(cols=['id', 'qty'], lol=[['a1', 3], ['b2', 10]]), name='csv_out')
+        >>> csv_path = csv_sdaf.to_csv_file(os.path.join(tempfile.mkdtemp(), 'out.csv'), line_terminator='\n', include_header=False)
+        >>> open(csv_path).read()
+        'a1,3\nb2,10\n'
     """
     file_path = str(file_path)
     if file_path.startswith('s3'):

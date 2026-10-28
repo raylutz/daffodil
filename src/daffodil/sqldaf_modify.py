@@ -733,6 +733,13 @@ def _insert_col(
         <BLANKLINE>
         >>> marks_sdaf.insert_col('w', ['x']).to_daf().lol
         [['b1', 1, 'x'], ['b2', 0, '']]
+
+        A list shorter than the rows is filled out with `default`. The column goes at the end. Another
+        position raises NotImplementedError:
+
+        >>> stock_sdaf = SqlDaf.from_daf(Daf(cols=['id', 'qty'], lol=[['a1', 3], ['b2', 10]]), name='ins_stock')
+        >>> stock_sdaf.insert_col('color', ['red'], default='none').to_daf().lol
+        [['a1', 3, 'red'], ['b2', 10, 'none']]
     """
     if not colname:
         return self
@@ -780,6 +787,12 @@ def _insert_idx_col(self: 'SqlDaf', colname: str = 'idx', icol: int = 0, startat
         [[1, 'b1', 1], [2, 'b3', 1]]
         >>> marks_sdaf.columns()
         ['ballot_id', 'v']
+
+        Another name, in another place:
+
+        >>> stock_sdaf = SqlDaf.from_daf(Daf(cols=['id', 'qty'], lol=[['a1', 3], ['b2', 10]]), name='idx_stock')
+        >>> stock_sdaf.insert_idx_col('n', icol=1).to_daf().lol
+        [['a1', 0, 3], ['b2', 1, 10]]
     """
     if not colname:
         return self
@@ -988,6 +1001,16 @@ def _set_cols(
         >>> SqlDaf.db_path = tempfile.mkdtemp() + '/job.db'
         >>> SqlDaf('t', cols=['a', 'b', 'c'], lol=[[1, 2, 3]]).set_cols(['x', 'x', '']).columns()
         ['x', 'x_1', 'col2']
+
+        With `sanitize_cols=True`, an empty name gets one made from `unnamed_prefix`, and a repeated
+        name gets a number:
+
+        >>> grid_sdaf = SqlDaf.from_daf(Daf(cols=['a', 'b', 'c'], lol=[[1, 2, 3]]), name='setcols_grid')
+        >>> grid_sdaf.set_cols(['a', '', 'a'], sanitize_cols=True).columns()
+        ['a', 'col1', 'a_2']
+        >>> grid2_sdaf = SqlDaf.from_daf(Daf(cols=['a', 'b', 'c'], lol=[[1, 2, 3]]), name='setcols_grid2')
+        >>> grid2_sdaf.set_cols(['k', '', 'q'], sanitize_cols=True, unnamed_prefix='unnamed').columns()
+        ['k', 'unnamed1', 'q']
     """
     self._check_layout_change('set_cols')
     if new_cols is None:
@@ -1069,6 +1092,21 @@ def _sort_by_colname(
         >>> SqlDaf.db_path = tempfile.mkdtemp() + '/job.db'
         >>> SqlDaf('t', cols=['a'], lol=[['10'], ['99'], ['8']]).sort_by_colname('a', length_priority=True).col('a')
         ['8', '10', '99']
+
+        From high to low:
+
+        >>> stock_sdaf = SqlDaf.from_daf(Daf(cols=['id', 'qty'], lol=[['a1', 3], ['b2', 1], ['c3', 2]]), name='sort1_stock')
+        >>> stock_sdaf.sort_by_colname('qty', reverse=True).col('id')
+        ['a1', 'c3', 'b2']
+
+        A column of numbers mixed with text sorts in SQLite's order, numbers first, with no error. With
+        `as_str=True` it sorts by text, where `'10'` comes before `'9'`:
+
+        >>> mixed_sdaf = SqlDaf.from_daf(Daf(cols=['id', 'v'], lol=[['a', 10], ['b', 9], ['c', 'x']]), name='sort1_mixed')
+        >>> mixed_sdaf.sort_by_colname('v').col('v')
+        [9, 10, 'x']
+        >>> mixed_sdaf.sort_by_colname('v', as_str=True).col('v')
+        [10, 9, 'x']
     """
     return self.sort_by_colnames([colname], reverse=reverse, length_priority=length_priority, as_str=as_str)
 
@@ -1123,6 +1161,20 @@ def _sort_by_colnames(
         >>> SqlDaf.db_path = tempfile.mkdtemp() + '/job.db'
         >>> SqlDaf('t', cols=['p', 'q'], lol=[[2, 'b'], [1, 'z'], [1, 'a']]).sort_by_colnames(['p', 'q']).to_daf().lol
         [[1, 'a'], [1, 'z'], [2, 'b']]
+
+        From high to low, and shorter values first with `length_priority=True`:
+
+        >>> names_sdaf = SqlDaf.from_daf(Daf(cols=['id', 'name'], lol=[['a', 'bb'], ['b', 'a'], ['c', 'ccc']]), name='sort2_names')
+        >>> names_sdaf.sort_by_colnames(['name'], reverse=True).col('name')
+        ['ccc', 'bb', 'a']
+        >>> names_sdaf.sort_by_colnames(['name'], length_priority=True).col('name')
+        ['a', 'bb', 'ccc']
+
+        With `as_str=True`, by text:
+
+        >>> mixed_sdaf = SqlDaf.from_daf(Daf(cols=['id', 'v'], lol=[['a', 10], ['b', 9], ['c', 'x']]), name='sort2_mixed')
+        >>> mixed_sdaf.sort_by_colnames(['v'], as_str=True).col('v')
+        [10, 9, 'x']
     """
     col: str
     for col in colnames:

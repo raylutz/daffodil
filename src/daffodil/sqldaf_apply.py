@@ -129,6 +129,12 @@ def _apply(
         ...     return [{'ballot_id': row['ballot_id'], 'contest': c} for c in row['contests'].split(',') if c]
         >>> votes_sdaf.apply(split).to_daf().lol
         [['b1', 'c0'], ['b1', 'c1']]
+
+        With `by='table'`, the function gets the whole SqlDaf, and its result is returned as it is:
+
+        >>> stock_sdaf = SqlDaf.from_daf(Daf(cols=['id', 'qty'], lol=[['a1', 3], ['b2', 10]]), name='apply_stock')
+        >>> stock_sdaf.apply(lambda table: len(table), by='table')
+        2
     """
     if by == 'table':
         return func(self, **kwargs)
@@ -231,6 +237,18 @@ def _reduce(
         {'ballot_id': '', 'v': 3, 'concise_votes': ''}
         >>> votes_sdaf.reduce(Daf.sum_da, by='sparse_row', indirect_col='concise_votes')
         {'c0b': 2, 'c0v': 1, 'c1b': 1}
+
+        Start from a result other than zeros, with `initial_da`. A function of your own that fails on a
+        row stops the reduction, unless `silent_error=True`, which skips that row:
+
+        >>> mixed_sdaf = SqlDaf.from_daf(Daf(cols=['id', 'qty'], lol=[['a', 3], ['b', 'x'], ['c', 7]]), name='reduce_mixed')
+        >>> mixed_sdaf.reduce(Daf.sum_da, cols=['qty'], initial_da={'id': '', 'qty': 100})
+        {'id': '', 'qty': 110}
+        >>> def add_qty(row, result, cols=None):
+        ...     result['qty'] = result['qty'] + row['qty']
+        ...     return result
+        >>> mixed_sdaf.reduce(add_qty, cols=['qty'], silent_error=True)
+        {'id': '', 'qty': 10}
     """
     if by == 'table':
         return func(self, cols, **kwargs)
@@ -337,6 +355,15 @@ def _valuecounts_for_colname(
         <BLANKLINE>
         >>> bif_sdaf.valuecounts_for_colname('precinct', sort=True)
         {'P1': 2, 'P2': 1}
+
+        Least common first, and without the empty cells:
+
+        >>> parties_sdaf = SqlDaf.from_daf(Daf(cols=['id', 'party'], lol=[
+        ...     ['b1', 'R'], ['b2', 'D'], ['b3', 'D'], ['b4', '']]), name='vc_parties')
+        >>> parties_sdaf.valuecounts_for_colname('party', sort=True, reverse=False)
+        {'R': 1, '': 1, 'D': 2}
+        >>> parties_sdaf.valuecounts_for_colname('party', omit_nulls=True)
+        {'R': 1, 'D': 2}
     """
     if colname not in self.hd:
         return {}
@@ -451,6 +478,22 @@ def _valuecounts_for_colname1_groupedby_colname2(
 
     Returns:
         A dict that maps each value of the second column to a dict of value and count.
+
+    Examples:
+        >>> import tempfile
+        >>> SqlDaf.db_path = tempfile.mkdtemp() + '/job.db'
+        >>> ballots_sdaf = SqlDaf.from_daf(Daf(cols=['precinct', 'party'], lol=[
+        ...     ['P1', 'R'], ['P1', 'D'], ['P2', 'D'], ['P1', 'D']]), name='vc12_ballots')
+
+        The parties counted in each precinct, as a Daf counts them:
+
+        >>> ballots_sdaf.valuecounts_for_colname1_groupedby_colname2('party', 'precinct')
+        {'P1': {'R': 1, 'D': 2}, 'P2': {'D': 1}}
+
+        With each count sorted, the most common first:
+
+        >>> ballots_sdaf.valuecounts_for_colname1_groupedby_colname2('party', 'precinct', sort=True)
+        {'P1': {'D': 2, 'R': 1}, 'P2': {'D': 1}}
     """
     if colname1 not in self.hd or groupedby_colname2 not in self.hd:
         return {}
@@ -553,6 +596,13 @@ def _sum(
         >>> SqlDaf.db_path = tempfile.mkdtemp() + '/job.db'
         >>> SqlDaf.from_daf(Daf(lol=[[1, 10], [2, 20]], cols=['x', 'y']), name='nums').sum()
         {'x': 3.0, 'y': 30.0}
+
+        Only some columns:
+
+        >>> stock_sdaf = SqlDaf.from_daf(Daf(cols=['id', 'qty', 'n'], lol=[['a1', 3, 1], ['b2', 10, 2]],
+        ...                                  dtypes={'id': str, 'qty': int, 'n': int}), name='sum_stock')
+        >>> stock_sdaf.sum(['qty'])
+        {'qty': 13}
     """
     sum_cols_ls: T_ls
     if colnames_ls is None:
@@ -704,6 +754,16 @@ def _groupby(
         >>> groups = bif_sdaf.groupby('precinct')
         >>> {key: group.to_daf().lol for key, group in groups.items()}
         {'P1': [['b1', 'P1'], ['b3', 'P1']], 'P2': [['b2', 'P2']]}
+
+        Group by two columns together, as tuples, and leave out empty values with `omit_nulls`.
+        `cols` is not supported on a SqlDaf. Group, then read the columns you need:
+
+        >>> ballots_sdaf = SqlDaf.from_daf(Daf(cols=['id', 'precinct', 'party'], keyfield='id', lol=[
+        ...     ['b1', 'P1', 'D'], ['b2', 'P1', 'R'], ['b3', '', 'D']]), name='gb_ballots')
+        >>> list(ballots_sdaf.groupby(colnames=['precinct', 'party']).keys())
+        [('P1', 'D'), ('P1', 'R'), ('', 'D')]
+        >>> list(ballots_sdaf.groupby('precinct', omit_nulls=True).keys())
+        ['P1']
     """
     if isinstance(colname, list) and not colnames:
         return self.groupby_cols(colname, cols=cols)
@@ -792,6 +852,13 @@ def _groupby_reduce(
         >>> sums_sdaf = votes_sdaf.groupby_reduce('precinct', Daf.sum_da, by='sparse_row', indirect_col='concise_votes')
         >>> sums_sdaf.to_daf().lol
         [['P1', '{"c0v":1,"c1v":1}'], ['P2', '{"c0v":1,"c1v":1}']]
+
+        Reduce only some columns, with `reduce_cols`. The groups come in sorted order:
+
+        >>> stock_sdaf = SqlDaf.from_daf(Daf(cols=['id', 'g', 'qty'], lol=[
+        ...     ['a1', 'x', 3], ['b2', 'y', 10], ['c3', 'x', 7]], dtypes={'id': str, 'g': str, 'qty': int}), name='gr_stock')
+        >>> stock_sdaf.groupby_reduce('g', Daf.sum_da, reduce_cols=['qty']).to_daf().lol
+        [['', 'x', 10], ['', 'y', 10]]
     """
     if colname not in self.hd:
         raise KeyError(colname)
@@ -1163,7 +1230,7 @@ def _group_where(
 
     Args:
         where: A function of a row: a key, a list of keys, or None.
-        indirect_col: Not supported on a SqlDaf yet.
+        indirect_col: Not supported on a SqlDaf. It raises NotImplementedError.
         cols: The columns the function reads. All if None.
 
     Returns:

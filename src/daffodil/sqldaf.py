@@ -1023,6 +1023,17 @@ class SqlDaf(Daf):
             >>> work_sdaf = SqlDaf.from_db(job_dir + '/bif.db', 'bif')
             >>> work_sdaf.db_path == SqlDaf.db_path, work_sdaf.keyfield, len(work_sdaf)
             (True, 'ballot_id', 2)
+
+            Give the copy another name with `new_name`, and read from a file other than the working one:
+
+            >>> import os, tempfile
+            >>> source_path = os.path.join(tempfile.mkdtemp(), 'source.db')
+            >>> parts_sdaf = SqlDaf.from_daf(Daf(cols=['id', 'qty'], lol=[['a1', 3], ['b2', 4]]), name='fromdb_parts')
+            >>> parts_sdaf.copy().save('parts', db_path=source_path).name
+            'parts'
+            >>> brought_sdaf = SqlDaf.from_db(source_path, 'parts', new_name='fromdb_brought')
+            >>> brought_sdaf.name, len(brought_sdaf)
+            ('fromdb_brought', 2)
         """
         working: str = db_path or cls.db_path
         if not working:
@@ -1802,7 +1813,7 @@ class SqlDaf(Daf):
         - An int is always a position, from 0, even when the keyfield holds ints. Negative counts
           from the end. A position past the end raises IndexError, as in a Daf. For an int key,
           use `select_record()`, or `select_records_daf()` for several.
-        - A slice of positions, as in `sdaf[10:20]`. A step is not supported yet. A slice past
+        - A slice of positions, as in `sdaf[10:20]`. A step is not supported. A slice past
           the end is empty, as in a Daf.
         - A str is a key. The keyfield's unique index is made first. A missing key raises
           KeyError, as in a Daf.
@@ -1969,6 +1980,16 @@ class SqlDaf(Daf):
             dict_keys(['b1', 'b2', 'b3'])
             >>> 'b2' in marks_sdaf, marks_sdaf[0:2].keys(), len(marks_sdaf.select_by_dict({'v': 1}))
             (True, ['b1', 'b2'], 2)
+
+            With no keyfield, the answer is an empty list, or an error with `silent_error=False`:
+
+            >>> plain_sdaf = SqlDaf.from_daf(Daf(cols=['id'], lol=[['a']]), name='keys_plain')
+            >>> plain_sdaf.keys()
+            []
+            >>> plain_sdaf.keys(silent_error=False)
+            Traceback (most recent call last):
+            ...
+            daffodil.daf.KeysDisabledError: keys: this SqlDaf has no keyfield.
         """
         if astype not in ('list', 'view'):
             raise ValueError(f"keys: astype must be 'list' or 'view', not {astype!r}.")
@@ -2283,6 +2304,16 @@ class SqlDaf(Daf):
             >>> empty_sdaf = marks_sdaf.clone_empty()
             >>> empty_sdaf.columns(), empty_sdaf.keyfield, len(empty_sdaf)
             (['ballot_id', 'v'], 'ballot_id', 0)
+
+            With rows of its own, other column names, or a name:
+
+            >>> stock_sdaf = SqlDaf.from_daf(Daf(cols=['id', 'qty'], keyfield='id', lol=[['a1', 3]]), name='clone_stock')
+            >>> stock_sdaf.clone_empty(lol=[['z9', 1]]).to_daf().lol
+            [['z9', 1]]
+            >>> stock_sdaf.clone_empty(cols=['k', 'v']).columns()
+            ['k', 'v']
+            >>> stock_sdaf.clone_empty(name='clone_blank').name
+            'clone_blank'
         """
         cols_ls: T_ls = list(self.hd) if not cols else ([cols] if isinstance(cols, str) else list(cols))
         if cols_ls != list(self.hd) and (len(set(cols_ls)) != len(cols_ls) or NULL in cols_ls):
@@ -2363,6 +2394,14 @@ class SqlDaf(Daf):
             <BLANKLINE>
             >>> sel_sdaf.to_daf().lol
             [['b1', 1]]
+
+            Give the copy a name, or a level. A level that copies the rows gives a TEMP table of its own:
+
+            >>> sizes_sdaf = SqlDaf.from_daf(Daf(cols=['id', 'qty'], lol=[['a1', 3]]), name='copy_sizes')
+            >>> sizes_sdaf.copy(name='copy_sizes_2').name
+            'copy_sizes_2'
+            >>> sizes_sdaf.copy(level='editable').to_daf().lol
+            [['a1', 3]]
         """
         if isinstance(level, bool):                     # an old call, copy(True), meant deep.
             deep, level = deep or level, None
@@ -2449,6 +2488,16 @@ class SqlDaf(Daf):
             >>> agreed_sdaf = marks_sdaf.select_where_sql('v = 1').copy(name='agreed').save()
             >>> SqlDaf('agreed').keyfield, len(SqlDaf('agreed'))
             ('ballot_id', 1)
+
+            Save under a name, or into another database file, with `db_path`:
+
+            >>> import os, tempfile
+            >>> report_sdaf = SqlDaf.from_daf(Daf(cols=['id', 'qty'], lol=[['a1', 3]]), name='save_report')
+            >>> report_sdaf.copy().save('save_kept').name
+            'save_kept'
+            >>> other_path = os.path.join(tempfile.mkdtemp(), 'other.db')
+            >>> report_sdaf.copy().save('save_elsewhere', db_path=other_path).name, os.path.exists(other_path)
+            ('save_elsewhere', True)
         """
         if self.parent_sdaf is not None:
             raise ValueError(f"SqlDaf.save: '{self.name}' is a child, with no rows of its own. "
@@ -2704,7 +2753,7 @@ class SqlDaf(Daf):
         """
         Run a SQL statement of your own, and return its result as a Daf.
 
-        This is the fallback for anything SqlDaf does not do yet. The statement runs on this
+        This is the way to do anything that SqlDaf has no method for. The statement runs on this
         SqlDaf's connection, so it can use every table in the file, and the TEMP tables of the
         connection. Refer to this table by `sdaf.name`.
 

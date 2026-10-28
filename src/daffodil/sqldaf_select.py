@@ -87,7 +87,7 @@ def _select_where(
 
     Args:
         where: A function of a row, true for the rows to keep.
-        indirect_col: Not supported on a SqlDaf yet.
+        indirect_col: Not supported on a SqlDaf. It raises NotImplementedError.
         cols: The columns the function reads. All if None.
 
     Returns:
@@ -178,6 +178,19 @@ def _select_by_dict(
         <BLANKLINE>
         >>> marks_sdaf.select_by_dict({'v': ''}).to_list()
         ['b2', '']
+
+        The rows that do not match, a new keyfield, and a check of how many match:
+
+        >>> ballots_sdaf = SqlDaf.from_daf(Daf(cols=['id', 'party', 'precinct'], keyfield='id', lol=[
+        ...     ['b1', 'D', 'P1'], ['b2', 'R', 'P1'], ['b3', 'D', 'P2']]), name='sbd_ballots')
+        >>> ballots_sdaf.select_by_dict({'party': 'D'}, inverse=True).keys()
+        ['b2']
+        >>> ballots_sdaf.select_by_dict({'party': 'D'}, keyfield='precinct').keys()
+        ['P1', 'P2']
+        >>> ballots_sdaf.select_by_dict({'party': 'D'}, expectmax=1)
+        Traceback (most recent call last):
+        ...
+        LookupError: select_by_dict: more than 1 rows match {'party': 'D'}.
     """
     dicts_lda: List[T_da]
     if isinstance(selector_da, dict):
@@ -238,7 +251,7 @@ def _split_where(
 
     Args:
         where: A function of a row, true for the rows of the first side.
-        indirect_col: Not supported on a SqlDaf yet.
+        indirect_col: Not supported on a SqlDaf. It raises NotImplementedError.
         cols: The columns the function reads. All if None.
 
     Returns:
@@ -401,6 +414,15 @@ def _select_records_daf(
         >>> marks_sdaf = SqlDaf.from_daf(marks_daf, name='marks')
         >>> marks_sdaf.select_records_daf(['b3', 'b1']).to_daf().to_lod()
         [{'ballot_id': 'b3', 'v': 1}, {'ballot_id': 'b1', 'v': 1}]
+
+        The rows whose keys are not listed, with `inverse=True`. A key that is not found raises
+        KeyError, or is left out with `silent_error=True`:
+
+        >>> stock_sdaf = SqlDaf.from_daf(Daf(cols=['id', 'qty'], keyfield='id', lol=[['a1', 3], ['b2', 10], ['c3', 7]]), name='srd_stock')
+        >>> stock_sdaf.select_records_daf(['a1'], inverse=True).keys()
+        ['b2', 'c3']
+        >>> stock_sdaf.select_records_daf(['a1', 'z9'], silent_error=True).keys()
+        ['a1']
     """
     self._resolve_parent()
     key_col: str = self._need_keyfield('select_records_daf')
