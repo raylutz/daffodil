@@ -40,6 +40,14 @@ a few together. The examples show behavior. Catching errors is the unit tests' j
    where a Daf raises TypeError. Documented.
 9. `buff_to_file(fmt=)` is not used. Its Args entry now says so.
 
+Tests for the bugs, as xfail with a reason that starts with BUG:
+
+- Bug 1: tests/test_daf_md.py, assuming a dict maps column names to display names. Ray to confirm.
+- Bug 3: tests/test_daf.py `test_sum_numeric_only` expected `'0.0'`, which locked the bug in. It now
+  expects the skipped column left out, as `sum(cols, numeric_only=True)` does, and is xfail.
+- Bugs 4 and 5: tests/test_daf_reduction.py.
+- Bug 2 is the wording of a message, so its test waits for Ray's wording.
+
 ## Done so far
 
 - Quick start and Getting started rewritten. The Quick start runs as a doctest, locally and in CI.

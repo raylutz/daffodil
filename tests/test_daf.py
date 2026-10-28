@@ -2728,13 +2728,14 @@ class TestDaf(unittest.TestCase):
         expected_sum = {'col1': 12, 'col3': 18}
         self.assertEqual(result_sum, expected_sum)
 
+    @pytest.mark.xfail(strict=True, reason="BUG: src/daffodil/daf_apply.py, sum(numeric_only=True) with no cols gives '0.0' for a skipped column, where with cols it leaves it out")
     def test_sum_numeric_only(self):
         cols = ['col1', 'col2', 'col3']
         lol = [['a', 2, 3], ['b', 5, 6], ['c', 8, 9]]
         daf = Daf(cols=cols, lol=lol, keyfield='col1', dtypes={'col1': str, 'col2': int, 'col3': int})
 
         result_sum = daf.sum(numeric_only=True)
-        expected_sum = {'col1': '0.0', 'col2': 15, 'col3': 18}
+        expected_sum = {'col2': 15, 'col3': 18}
         self.assertEqual(result_sum, expected_sum)
 
     def test_sum_empty_daf(self):
