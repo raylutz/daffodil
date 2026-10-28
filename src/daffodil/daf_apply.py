@@ -1427,7 +1427,7 @@ def _groupby_cols_reduce(
     Args:
         groupby_colnames: The columns that identify a group.
         func: The reduction function. See `reduce()`.
-        by: Leave it as `row`. Only `row` gives a correct result here. For sparse rows, use `groupby_reduce()`.
+        by: `row`, or `sparse_row` for the dict in `indirect_col`. Giving `indirect_col` is enough.
         reduce_cols: The columns to reduce.
         diagnose: If True, print the progress with a timestamp: the grouping, the number of groups, and the first groups.
         **kwargs: Keyword arguments passed on to the function.
@@ -1556,6 +1556,19 @@ def _groupby_cols_reduce(
 
     if diagnose:  # pragma: no cover
         daf_utils.sts(f"Total of {len(grouped_tdodaf):,} groups. Reduction starting.", 3)
+
+    # A sparse reduction stays concise, as in groupby_reduce(): the group columns, and the column
+    # named for the indirect column, which holds the dict of each group. indirect_col alone means
+    # sparse rows, as in reduce().
+    indirect_col: str = kwargs.get('indirect_col') or ''
+    if by == 'sparse_row' or indirect_col:
+        sparse_daf = Daf(cols=list(groupby_colnames) + [indirect_col])
+        for coltup, this_daf in grouped_tdodaf.items():
+            if not this_daf:
+                continue
+            sparse_da: T_ma = cast(T_ma, this_daf.reduce(func, by='sparse_row', cols=reduce_cols, **kwargs))
+            sparse_daf.append(list(cast(T_ta, coltup)) + [sparse_da])
+        return sparse_daf
 
     result_daf = Daf(cols=groupby_colnames + (reduce_cols or []))
 
@@ -1692,11 +1705,11 @@ def _groupby_reduce(
         %% daf rows=2; cols=3; keyfield='g'; name=''
         <BLANKLINE>
 
-        For sparse rows, with `by='sparse_row'`, each group's dicts are added into one dict:
+        For sparse rows, give `indirect_col`. Each group's dicts are added into one dict, in one cell:
 
         >>> ballots = Daf(cols=['id', 'precinct', 'votes'], lol=[
         ...     ['b1', 'P1', {'mayor': 1}], ['b2', 'P1', {'council': 1}], ['b3', 'P2', {'mayor': 1, 'council': 1}]])
-        >>> ballots.groupby_reduce('precinct', Daf.sum_da, by='sparse_row', indirect_col='votes')
+        >>> ballots.groupby_reduce('precinct', Daf.sum_da, indirect_col='votes')
         <BLANKLINE>
         | precinct |           votes            |
         | -------: | -------------------------: |
@@ -1932,7 +1945,8 @@ def _reduce_dodaf_to_daf(
 
         # A sparse reduction stays concise. The dict of each group is one cell, in the column
         # named for the indirect column, and holds only the keys found in the group.
-        if kwargs.get('by') == 'sparse_row':
+        # indirect_col alone means sparse rows, as in reduce().
+        if kwargs.get('by') == 'sparse_row' or kwargs.get('indirect_col'):
             sparse_record_da: T_da = {colname: colval, kwargs['indirect_col']: reduction_da}
             result_daf.append(sparse_record_da)
             continue
@@ -1981,7 +1995,7 @@ def _multi_groupby_reduce(
     Args:
         colnames: The columns to group by, one at a time.
         func: The reduction function. See `reduce()`.
-        by: Leave it as `row`. Only `row` gives a correct result here. For sparse rows, use `groupby_reduce()`.
+        by: `row`, or `sparse_row` for the dict in `indirect_col`. Giving `indirect_col` is enough.
         reduce_cols: The columns to reduce.
         diagnose: If True, print the progress with a timestamp: the grouping, the number of groups, and the first groups.
         **kwargs: Keyword arguments passed on to the function.
@@ -2028,6 +2042,7 @@ def _multi_groupby_reduce(
             colname         = colname,
             grouped_dodaf   = grouped_dodaf,
             reduce_cols     = reduce_cols_la,
+            by              = by,
             diagnose        = diagnose,
             all_cols        = result_cols,
             **kwargs,
@@ -2207,8 +2222,9 @@ def _reduce(
 
     With `by='col'` the function gets each column as a list and the result so far
     as a list. With `by='table'` it gets this Daf and `cols`, and its result is
-    returned as it is. With `by='sparse_row'`, rows are read from the dict in
-    `indirect_col`, and the result starts as `initial_da` or an empty dict.
+    returned as it is. With `indirect_col`, rows are read from the dict in that
+    column, and the result starts as `initial_da` or an empty dict. `by='sparse_row'` says the
+    same, and is not needed.
 
     A plain sum of sparse rows, with `sum_da()` or `sum_kl()` and no other options,
     chooses its loop once, from the first 100 rows. No key is tested inside the loop.
@@ -2233,7 +2249,7 @@ def _reduce(
         by: `row`, `col`, `table` or `sparse_row`.
         cols: The columns included in the reduction. All columns if None.
         initial_da: The result to start from, instead of zeros.
-        indirect_col: A column that holds a dict. Required for `sparse_row`.
+        indirect_col: A column that holds a dict. Its dicts are the rows, as with `by='sparse_row'`.
         silent_error: If True, a row for which the function raises is skipped.
         **kwargs: Keyword arguments passed on to the function.
 
@@ -2311,6 +2327,10 @@ def _reduce(
         >>> daf.reduce(lambda table, cols: {'rows': len(table)}, by='table')
         {'rows': 3}
     """
+    # indirect_col names the column that holds each row's dict, so it means sparse rows, as in col().
+    if indirect_col and by == 'row':
+        by = 'sparse_row'
+
     if by == 'table':
         reduction_ma = func(self, cols, **kwargs)
         return reduction_ma
@@ -2805,6 +2825,7 @@ def _groupsum_daf(
         colname:        str,
         by:             str='row',                      # determines how the func is applied.
         reduce_cols:    T_cs | None = None,             # columns included in the reduce operation.
+        indirect_col:   str = '',                       # a column that holds a dict, for sparse rows.
         # keyfield: str=colname,                        # provide this for when no keyfield is desired?
                                                         # current operation sets keyfield to colname.
         ) -> 'Daf':
@@ -2816,8 +2837,9 @@ def _groupsum_daf(
 
     Args:
         colname: The column to group by.
-        by: Leave it as `row`. Only `row` gives a correct result here. For sparse rows, use `groupby_reduce()`.
+        by: `row`, or `sparse_row` for the dict in `indirect_col`. Giving `indirect_col` is enough.
         reduce_cols: The columns to add.
+        indirect_col: A column that holds a dict. Each group's dicts are added into one, in that column.
 
     Returns:
         The Daf with one row for each group.
@@ -2845,7 +2867,8 @@ def _groupsum_daf(
         <BLANKLINE>
     """
 
-    result_daf = self.groupby_reduce(colname=colname, func=self.__class__.sum_da, by=by, reduce_cols=reduce_cols)
+    sparse_kwargs: T_da = {'indirect_col': indirect_col} if indirect_col else {}
+    result_daf = self.groupby_reduce(colname=colname, func=self.__class__.sum_da, by=by, reduce_cols=reduce_cols, **sparse_kwargs)
 
     return result_daf
 
@@ -2855,6 +2878,7 @@ def _multi_groupsum(
         colnames:       T_cs | None = None,             # colnames to group over individually
         by:             str         ='row',             # determines how the func is applied.
         reduce_cols:    T_cs | None = None,             # columns included in the reduce operation.
+        indirect_col:   str = '',                       # a column that holds a dict, for sparse rows.
         # keyfield: str=colname,                        # provide this for when no keyfield is desired?
                                                         # current operation sets keyfield to colname.
         ) -> Dict[str, 'Daf']:
@@ -2866,8 +2890,9 @@ def _multi_groupsum(
 
     Args:
         colnames: The columns to group by. These are required.
-        by: Leave it as `row`. Only `row` gives a correct result here. For sparse rows, use `groupby_reduce()`.
+        by: `row`, or `sparse_row` for the dict in `indirect_col`. Giving `indirect_col` is enough.
         reduce_cols: The columns to add.
+        indirect_col: A column that holds a dict. Each group's dicts are added into one, in that column.
 
     Returns:
         A dict that maps each column to a Daf with one row for each value.
@@ -2915,7 +2940,8 @@ def _multi_groupsum(
     if colnames is None:
         raise ValueError("multi_groupsum: colnames is required")
 
-    result_dodaf = self.multi_groupby_reduce(colnames=colnames, func=self.__class__.sum_da, by=by, reduce_cols=reduce_cols)
+    sparse_kwargs: T_da = {'indirect_col': indirect_col} if indirect_col else {}
+    result_dodaf = self.multi_groupby_reduce(colnames=colnames, func=self.__class__.sum_da, by=by, reduce_cols=reduce_cols, **sparse_kwargs)
 
     return result_dodaf
 

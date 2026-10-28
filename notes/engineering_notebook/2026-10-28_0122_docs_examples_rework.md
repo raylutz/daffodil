@@ -48,6 +48,14 @@ Tests for the bugs, as xfail with a reason that starts with BUG:
 - Bugs 4 and 5: tests/test_daf_reduction.py.
 - Bug 2 is the wording of a message, so its test waits for Ray's wording.
 
+## Decided and fixed, 2026-10-28
+
+- Bug 3: Ray chose to remove `numeric_only`, Q310. `sum()` takes the columns to total instead.
+- Bug 5: Ray chose that `indirect_col` alone means sparse rows, Q311, in `reduce()` and every grouping
+  reducer. Each grouping reducer keeps the concise form of `groupby_reduce()`. The two xfail tests
+  pass, and their markers are gone.
+- Still open: bugs 1, 2 and 4.
+
 ## Done so far
 
 - Quick start and Getting started rewritten. The Quick start runs as a doctest, locally and in CI.

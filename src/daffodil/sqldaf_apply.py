@@ -194,7 +194,7 @@ def _reduce(
 
     - With `by='row'`, each row is a [KeyedList][daffodil.keyedlist.KeyedList] of its
       values. Unlike in a Daf, writing to it does not change the table.
-    - With `by='sparse_row'`, the function gets the dict held in `indirect_col`, JSON or
+    - With `indirect_col`, or `by='sparse_row'`, the function gets the dict held in `indirect_col`, JSON or
       PYON text decoded as in a Daf, and the result starts as `initial_da` or an empty dict.
       A plain sum chooses its loop once, from the first 100 rows, as `Daf.reduce()` describes.
       With `cols`, the result is in the order of `cols`.
@@ -208,7 +208,7 @@ def _reduce(
         by: `row`, `sparse_row` or `table`.
         cols: The columns included in the reduction. All columns if None. With many columns, a KeysView or a dict is faster than a list.
         initial_da: The result to start from, instead of zeros.
-        indirect_col: A column that holds a dict. Required for `sparse_row`.
+        indirect_col: A column that holds a dict. Its dicts are the rows, as with `by='sparse_row'`.
         silent_error: If True, a row for which the function raises is skipped.
         **kwargs: Keyword arguments passed on to the function.
 
@@ -250,6 +250,10 @@ def _reduce(
         >>> mixed_sdaf.reduce(add_qty, cols=['qty'], silent_error=True)
         {'id': '', 'qty': 10}
     """
+    # indirect_col names the column that holds each row's dict, so it means sparse rows, as in Daf.reduce().
+    if indirect_col and by == 'row':
+        by = 'sparse_row'
+
     if by == 'table':
         return func(self, cols, **kwargs)
     if by not in ('row', 'sparse_row'):
@@ -633,6 +637,7 @@ def _groupsum_daf(
         colname:        str,                        # the column to group by.
         by:             str = 'row',                # only 'row', as the default of Daf.
         reduce_cols:    T_ls | None = None,         # the columns to add. All but colname if None.
+        indirect_col:   str = '',                   # a column that holds a dict, for sparse rows.
         ) -> Daf:
     """
     Group by a column and add up the other columns of each group, as `Daf.groupsum_daf()` does.
@@ -651,6 +656,7 @@ def _groupsum_daf(
         colname: The column to group by.
         by: Only `row` is supported.
         reduce_cols: The columns to add. All but `colname` if None.
+        indirect_col: A column that holds a dict. Each group's dicts are added into one, in that column, as JSON text.
 
     Returns:
         A Daf in memory, with one row for each group.
@@ -676,6 +682,11 @@ def _groupsum_daf(
         >>> nums_sdaf.groupsum_daf('g', reduce_cols=['y']).lol
         [['a', '', 40], ['b', '', 20]]
     """
+    # Sparse rows are summed by groupby_reduce(), which keeps each group's dict in one cell.
+    if indirect_col or by == 'sparse_row':
+        if not indirect_col:
+            raise ValueError("groupsum_daf(by='sparse_row') needs indirect_col.")
+        return self.groupby_reduce(colname, Daf.sum_da, reduce_cols=reduce_cols, indirect_col=indirect_col).to_daf()
     if by != 'row':
         raise NotImplementedError(f"groupsum_daf(by={by!r}) is not supported on a SqlDaf.")
     if colname not in self.hd:
@@ -857,6 +868,9 @@ def _groupby_reduce(
     """
     if colname not in self.hd:
         raise KeyError(colname)
+    # indirect_col names the column that holds each row's dict, so it means sparse rows, as in reduce().
+    if kwargs.get('indirect_col') and by == 'row':
+        by = 'sparse_row'
     if by not in ('row', 'sparse_row'):
         raise NotImplementedError(f"groupby_reduce(by={by!r}) is not supported on a SqlDaf. Use 'row' or 'sparse_row'.")
 

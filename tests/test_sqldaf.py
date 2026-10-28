@@ -3516,3 +3516,13 @@ def test_register_sqldaf_namespace_raises_for_a_second_class_under_the_same_name
 def test_register_sqldaf_namespace_raises_for_a_name_in_use(name):
     with pytest.raises(ValueError):
         register_sqldaf_namespace(name)(_SqlTotals)
+
+
+def test_sqldaf_indirect_col_alone_means_sparse_rows():
+    ballots_daf = Daf(cols=['id', 'precinct', 'votes'], lol=[
+        ['b1', 'P1', {'mayor': 1}], ['b2', 'P1', {'council': 1}], ['b3', 'P2', {'mayor': 1, 'council': 1}]])
+    ballots_sdaf = SqlDaf.from_daf(ballots_daf, name='ballots')
+    assert ballots_sdaf.reduce(Daf.sum_da, indirect_col='votes') == {'mayor': 2, 'council': 2}
+    want = [['P1', '{"mayor":1,"council":1}'], ['P2', '{"mayor":1,"council":1}']]
+    assert ballots_sdaf.groupby_reduce('precinct', Daf.sum_da, indirect_col='votes').to_daf().lol == want
+    assert ballots_sdaf.groupsum_daf('precinct', indirect_col='votes').lol == want
