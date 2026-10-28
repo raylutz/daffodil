@@ -2508,7 +2508,7 @@ def test_concat_matches_mdaf_and_returns_self():
 
 def test_concat_columns_must_match():
     bif_sdaf: SqlDaf = SqlDaf.from_daf(make_bif_daf(), name='bif')
-    with pytest.raises(KeyError):
+    with pytest.raises(KeyError, match=r"concat\(\) into 'bif': the columns differ\. Only in this table: \[.*\]\. Only in the other: \[\]\."):
         bif_sdaf.concat(Daf(lol=[['b9', 'P1']], cols=['ballot_id', 'precinct']))
     bif_sdaf.concat(make_bif_daf(), respect_kd=True)                   # every key is there, so every row is replaced
     assert bif_sdaf.to_daf().lol == make_bif_daf().lol
@@ -2996,6 +2996,17 @@ def test_to_md_with_limits_matches_mdaf(max_rows, max_cols):
     assert read_sdaf.to_md(max_rows=max_rows, max_cols=max_cols) == read_daf.to_md(max_rows=max_rows, max_cols=max_cols)
     assert read_sdaf.to_md_cols(max_rows=max_rows, max_cols=max_cols) == read_daf.to_md_cols(max_rows=max_rows, max_cols=max_cols)
 
+
+
+def test_to_md_disp_cols_dict_matches_mdaf():
+    """ A dict renames only the columns it names, as on a Daf. Limits keep it matched. """
+    read_daf: Daf = make_read_daf()
+    read_sdaf: SqlDaf = SqlDaf.from_daf(read_daf, name='t')
+    rename_da: dict = {'v': 'Value'}
+    assert read_sdaf.to_md(disp_cols=rename_da) == read_daf.to_md(disp_cols=rename_da)
+    assert read_sdaf.to_md(disp_cols=rename_da, max_cols=2) == read_daf.to_md(disp_cols=rename_da, max_cols=2)
+    assert read_sdaf.to_md_cols(disp_cols=rename_da) == read_daf.to_md_cols(disp_cols=rename_da)
+    assert 'Value' in read_sdaf.to_md(disp_cols=rename_da).splitlines()[0]
 
 def test_reading_by_key_and_name_works_after_a_delete():
     read_daf: Daf = make_read_daf()

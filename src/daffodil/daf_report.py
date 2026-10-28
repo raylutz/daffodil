@@ -567,7 +567,8 @@ def _to_md(
       above 0.01 three, and above 0.001 four. Only the text is changed, not the Daf.
     - `include_summary=True` adds the summary line that `str()` shows, starting with `%%`. With it,
       `from_md()` can read the table back, as text.
-    - `disp_cols` names the columns differently in the header. The Daf keeps its own names.
+    - `disp_cols` names the columns differently in the header. A dict renames the columns it
+      names, and the others keep their names. A list names every column. The Daf keeps its own names.
       `header` replaces the header row as it is shown, so it must match the columns shown. With
       `max_cols`, use `disp_cols`, which stays matched to the columns it names.
 
@@ -583,7 +584,7 @@ def _to_md(
         max_text_len: The longest text to show in full.
         smart_fmt: If True, show floats with fewer digits.
         include_summary: If True, add a line with the size, keyfield and name.
-        disp_cols: Names to show in the header in place of the column names.
+        disp_cols: Names to show in the header: a dict of column name to name shown, for some columns, or a list for every column.
         header: A header row to show in place of the one made from the column names.
 
     Returns:
@@ -683,6 +684,15 @@ def _to_md(
         | a1 |  pen |   1.5 | blue, fine tip |
         | b2 |  ink |   4.0 |                |
         <BLANKLINE>
+
+        A dict renames only the columns it names:
+
+        >>> print(daf[0:2].to_md(disp_cols={'item': 'Item'}))
+        | id | Item | price |      note      |
+        | -: | ---: | ----: | -------------: |
+        | a1 |  pen |   1.5 | blue, fine tip |
+        | b2 |  ink |   4.0 |                |
+        <BLANKLINE>
         >>> print(daf[0:2].to_md(disp_cols=['ID', 'Item', 'Price', 'Note'], max_cols=2))
         | ID | ... |      Note      |
         | -: | --: | -------------: |
@@ -760,7 +770,7 @@ def _to_md_cols(
         max_text_len:   int     = 80,        # see above.
         smart_fmt:      bool    = False,     # if columns are numeric, then limit the number of figures right of the decimal to "smart" numbers.
         include_summary: bool   = False,     # include a one-line summary after the table.
-        disp_cols:      T_ls | None = None, # use these column names instead of those defined in daf.
+        disp_cols:      T_cs | None = None, # use these column names instead of those defined in daf.
         ) -> str:
     """
     Make a Markdown table in which each row of the Daf is a column.
@@ -777,7 +787,7 @@ def _to_md_cols(
         max_text_len: The longest text to show in full.
         smart_fmt: If True, show numbers with fewer decimal places.
         include_summary: Not used.
-        disp_cols: Column names to show instead of the real ones.
+        disp_cols: Names to show in the header: a dict of column name to name shown, for some columns, or a list for every column.
 
     Returns:
         The Markdown text.
@@ -868,7 +878,7 @@ def _daf_to_lol_summary(
     Args:
         max_rows: The most rows to keep. 0 for no limit.
         max_cols: The most columns to keep. 0 for no limit.
-        disp_cols: Column names to use instead of the real ones.
+        disp_cols: Names to show in the header: a dict of column name to name shown, for some columns, or a list for every column.
 
     Returns:
         The rows, with a header row first if there are column names.
@@ -897,6 +907,8 @@ def _daf_to_lol_summary(
 
         >>> daf.daf_to_lol_summary(disp_cols=['ID', 'Item', 'Qty'])
         [['ID', 'Item', 'Qty'], ['a1', 'pen', 3], ['b2', 'ink', 10], ['c3', 'pad', 7]]
+        >>> daf.daf_to_lol_summary(disp_cols={'qty': 'Qty'})
+        [['id', 'item', 'Qty'], ['a1', 'pen', 3], ['b2', 'ink', 10], ['c3', 'pad', 7]]
 
         An odd limit keeps the extra row at the start:
 
@@ -905,15 +917,8 @@ def _daf_to_lol_summary(
         [['n'], [0], [1], ['...'], [9]]
     """
 
-    if disp_cols:
-        if isinstance(disp_cols, list):
-            colnames_ls = disp_cols
-        else:
-            colnames_ls = list(disp_cols)
-    else:
-        colnames_ls = list(self.hd.keys())
-
-    colnames_ls = cast(list, colnames_ls)    
+    # A dict renames the columns it names. A list names every column.
+    colnames_ls: T_ls = daf_utils.display_colnames(list(self.hd.keys()), disp_cols)
 
     result_lol = self.lol
     if colnames_ls:

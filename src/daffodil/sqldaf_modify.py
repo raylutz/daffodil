@@ -210,7 +210,7 @@ def _concat(self: 'SqlDaf', other_instance: Daf, respect_kd: bool = False) -> 'S
     if other_instance.columns() != self.columns():
         if not other_instance:
             return self
-        raise KeyError(f"concat: columns mismatch: this one has {self.columns()}, the other {other_instance.columns()}.")
+        raise KeyError(daf_utils.columns_mismatch_msg(self.columns(), other_instance.columns(), self.name))
     # A SqlDaf this connection cannot read, as in another file, is brought in as a TEMP copy, dropped after.
     rows_from: Any = self._readable(other_instance) if isinstance(other_instance, SqlDaf) else other_instance
 

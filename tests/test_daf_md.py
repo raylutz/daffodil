@@ -692,7 +692,7 @@ def test_to_md_max_cols_alone_adds_no_row_of_dots():
     assert all(line.split('|')[1].strip() != '...' for line in body)
 
 
-@pytest.mark.xfail(strict=True, reason="BUG: src/daffodil/daf_report.py, to_md(disp_cols=dict) takes the dict's keys as the names. Assumed correct: the dict maps column names to display names, and others keep their names. Ray to confirm")
 def test_to_md_disp_cols_dict_renames_only_the_named_columns():
+    """ A dict maps column names to names shown. Columns it does not name keep their names. """
     lines = _items_daf().to_md(disp_cols={'item': 'Item'}).splitlines()
     assert [name.strip() for name in lines[0].split('|')[1:-1]] == ['id', 'Item', 'price', 'note']

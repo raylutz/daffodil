@@ -18,7 +18,7 @@ import csv
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Literal, Tuple, overload, TYPE_CHECKING
 from daffodil.daf import Daf, NULL
-from daffodil.lib.daf_types import T_ls, T_la, T_lola, T_da, T_buff
+from daffodil.lib.daf_types import T_ls, T_cs, T_la, T_lola, T_da, T_buff
 import daffodil.lib.daf_utils as daf_utils
 import daffodil.lib.daf_sql as daf_sql
 from daffodil.lib.daf_sql import sqlite3
@@ -521,7 +521,7 @@ def _daf_to_lol_summary(
         self: 'SqlDaf',
         max_rows:   int = 10,
         max_cols:   int = 10,
-        disp_cols:  Any = None,
+        disp_cols:  T_cs | None = None,
         ) -> T_lola:
     """
     Give the header and the rows to display, as `Daf.daf_to_lol_summary()` does.
@@ -532,12 +532,12 @@ def _daf_to_lol_summary(
     Args:
         max_rows: The most rows to show. 0 for all.
         max_cols: The most columns to show. 0 for all.
-        disp_cols: Names to show in place of the column names.
+        disp_cols: Names to show in the header: a dict of column name to name shown, for some columns, or a list for every column.
 
     Returns:
         The header, then the rows.
     """
-    colnames_ls: T_ls = list(disp_cols) if disp_cols else list(self.hd)
+    colnames_ls: T_ls = daf_utils.display_colnames(list(self.hd), disp_cols)
     header_lol: T_lola = [colnames_ls] if colnames_ls else []
     num_rows: int = len(self) if max_rows else 0
     if not max_rows or num_rows <= max_rows:
@@ -564,7 +564,7 @@ def _to_md(
         max_text_len:       int = 80,
         smart_fmt:          bool = False,
         include_summary:    bool = False,
-        disp_cols:          Any = None,
+        disp_cols:          T_cs | None = None,
         header:             Any = None,
         ) -> str:
     """
@@ -581,7 +581,7 @@ def _to_md(
         max_text_len: The length past which text is shortened.
         smart_fmt: If True, limit the digits after the point in numbers.
         include_summary: If True, add a line with the shape, keyfield and name.
-        disp_cols: Names to show in place of the column names.
+        disp_cols: Names to show in the header: a dict of column name to name shown, for some columns, or a list for every column.
         header: A header to use in place of the column names.
 
     Returns:
@@ -604,7 +604,7 @@ def _to_md_cols(
         max_text_len:       int = 80,
         smart_fmt:          bool = False,
         include_summary:    bool = False,
-        disp_cols:          T_ls | None = None,
+        disp_cols:          T_cs | None = None,
         ) -> str:
     """
     Make a Markdown table with each row as a column, as `Daf.to_md_cols()` does.
@@ -619,7 +619,7 @@ def _to_md_cols(
         max_text_len: The length past which text is shortened.
         smart_fmt: If True, limit the digits after the point in numbers.
         include_summary: Not used, as in a Daf.
-        disp_cols: Names to show in place of the column names.
+        disp_cols: Names to show in the header: a dict of column name to name shown, for some columns, or a list for every column.
 
     Returns:
         The Markdown text.

@@ -595,12 +595,10 @@ def test_sum_kl_called_directly_with_a_dict() -> None:
     assert Daf.count_values_kl({'g': 'a'}, {}, ['g']) == {'g': {'a': 1}}
 
 
-@pytest.mark.xfail(strict=True, reason="BUG: src/daffodil/daf_apply.py:2409, sum_da() applies astype only when cols is given and is_sparse is False")
 def test_sum_da_astype_converts_without_cols():
     assert Daf.sum_da({'a': '2'}, {'a': 0}, astype=int) == {'a': 2}
 
 
-@pytest.mark.xfail(strict=True, reason="BUG: src/daffodil/daf_apply.py:2409, sum_da() applies astype only when cols is given and is_sparse is False")
 def test_sum_da_astype_converts_with_is_sparse():
     assert Daf.sum_da({'a': '2'}, {'a': 0}, cols=['a'], astype=int, is_sparse=True) == {'a': 2}
 

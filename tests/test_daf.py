@@ -1441,8 +1441,18 @@ class TestDaf(unittest.TestCase):
         daf1 = Daf(cols=cols1, lol=lol1, keyfield='', dtypes={'col1': int, 'col2': str})
         daf2 = Daf(cols=cols2, lol=lol2, keyfield='', dtypes={'col1': int, 'col2': str})
 
-        with self.assertRaises(KeyError):
+        with self.assertRaises(KeyError) as ctx:
             daf1.concat(daf2)  # Should fail due to different column order
+        self.assertEqual(ctx.exception.args[0], "concat(): the columns are in another order. This table: ['col1', 'col2']. The other: ['col2', 'col1'].")
+
+    def test_append_daf_with_other_columns_names_them(self):
+        """ The message names the columns found in only one of the two tables. """
+        daf1 = Daf(cols=['id', 'qty'], lol=[['a1', 3]], name='items')
+        daf2 = Daf(cols=['id', 'price', 'note'], lol=[['b2', 4.0, '']])
+        with self.assertRaises(KeyError) as ctx:
+            daf1.append(daf2)
+        self.assertEqual(ctx.exception.args[0], "concat() into 'items': the columns differ. Only in this table: ['qty']. Only in the other: ['price', 'note'].")
+        self.assertEqual(daf1.lol, [['a1', 3]])
         
     # remove_key
     def test_remove_key_existing_key(self):

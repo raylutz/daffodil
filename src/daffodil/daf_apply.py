@@ -2506,14 +2506,14 @@ def _sum_da( row_da:         T_ma,                       # the current row from 
 
     This is a static method. A value that cannot be added, such as text or an empty
     cell, is skipped with no error. See [sum_kl][daffodil.daf_apply._sum_kl] for what that
-    means for a bad number. The total is changed and returned. With `astype` and `cols`, each
-    value is first converted to that type. `reduce()` uses `sum_kl()` in its place.
+    means for a bad number. The total is changed and returned. With `astype`, each value is
+    first converted to that type. `reduce()` uses `sum_kl()` in its place.
 
     Args:
         row_da: The current row.
         reduction_da: The running total. It is changed.
         cols: The columns to add. All if None.
-        astype: A type to convert each value to before adding. Only with `cols`, and without `is_sparse`.
+        astype: A type to convert each value to before adding: int, float or str.
         is_sparse: If True, loop over the row's own keys, which is faster when a row holds few of many columns.
         diagnose: Not used.
 
@@ -2524,11 +2524,12 @@ def _sum_da( row_da:         T_ma,                       # the current row from 
         >>> Daf.sum_da({'x': 1, 'y': 2}, {'x': 10, 'y': 0}, cols=['x', 'y'])
         {'x': 11, 'y': 2}
 
-        Convert each value before adding, with `astype`. It takes effect only with `cols`, and without
-        `is_sparse`. A value that cannot be converted is skipped:
+        Convert each value before adding, with `astype`. A value that cannot be converted is skipped:
 
         >>> Daf.sum_da({'a': '3', 'b': 'x'}, {'a': 0, 'b': 0}, cols=['a', 'b'], astype=int)
         {'a': 3, 'b': 0}
+        >>> Daf.sum_da({'a': '3', 'b': '1.5'}, {'a': 0, 'b': 0}, astype=float)
+        {'a': 3.0, 'b': 1.5}
 
         With `is_sparse=True`, the loop runs over the row's own keys, not over `cols`. That is faster
         when a row holds few of many columns. The total is the same:
@@ -2553,6 +2554,9 @@ def _sum_da( row_da:         T_ma,                       # the current row from 
                 continue
 
             try:
+                if astype:
+                    val = _astype_val(val, astype)
+
                 # note that the "+ 0" in the following expression is important so that
                 # string operands will cause 'TypeError: can only concatenate str (not "int") to str'
                 # This will only invoke the exception when encountering non-numeric data, and does
@@ -2629,12 +2633,7 @@ def _sum_da( row_da:         T_ma,                       # the current row from 
             if astype:
                 #value = row_da.get(col, 0)
                 try:
-                    if astype is int and isinstance(value, (str, float, bool)):
-                        value = int(float(value or 0))
-                    elif astype is float and isinstance(value, (str, int, bool)):
-                        value = float(value or 0)
-                    elif astype is str and isinstance(value, (float, int, bool)):
-                        value = str(value)
+                    value = _astype_val(value, astype)
 
                     reduction_da[col] += value
 
@@ -2657,6 +2656,23 @@ def _sum_da( row_da:         T_ma,                       # the current row from 
 
 
         return reduction_da
+
+
+def _astype_val(value: Any, astype: Type) -> Any:
+    """
+    Convert a value to int, float or str before it is added. Internal use by `sum_da()`.
+
+    Text goes through float, so '2.0' gives 2 as an int. A Python NULL gives 0.
+    A value of any other type is returned as it is.
+    Text that is not a number raises ValueError, which the caller takes as a skip.
+    """
+    if astype is int and isinstance(value, (str, float, bool)):
+        return int(float(value or 0))
+    if astype is float and isinstance(value, (str, int, bool)):
+        return float(value or 0)
+    if astype is str and isinstance(value, (float, int, bool)):
+        return str(value)
+    return value
 
 
 def _sum_sparse_keys(row_da: T_ma, reduction_da: T_rma, **kwargs: Any) -> T_rma:
@@ -2785,7 +2801,7 @@ def _sum_kl( row_kl:         Any,                        # the current row, a Ke
         row_kl: The current row.
         reduction_da: The running total. It is changed.
         cols: The columns to add. All if None.
-        astype: A type to convert each value to before adding. Only with `cols`, and without `is_sparse`.
+        astype: A type to convert each value to before adding: int, float or str.
         is_sparse: If True, loop over the row's own keys, which is faster when a row holds few of many columns.
         diagnose: Not used.
 

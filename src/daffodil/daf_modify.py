@@ -95,6 +95,7 @@ def _append(self: 'Daf',
     Raises:
         TypeError: More than one of `data_item`, `lol` and `la` is given, or `data_item` is not a supported type.
         ValueError: A list has more values than there are columns.
+        KeyError: `data_item` is a Daf whose columns differ, in name or in order. Nothing is added.
 
     Examples:
         The table used in the examples:
@@ -322,7 +323,7 @@ def _concat(self: 'Daf', other_instance: 'Daf', respect_kd: bool=False) -> 'Daf'
         This Daf, which has been changed in place. The rows are deep copies.
 
     Raises:
-        KeyError: The column names of the two Daf instances differ.
+        KeyError: The columns differ, in name or in order. The message names the columns found in only one.
         ValueError: With `respect_kd=True`, both Daf instances have a keyfield and the
             keyfields differ.
 
@@ -406,17 +407,7 @@ def _concat(self: 'Daf', other_instance: 'Daf', respect_kd: bool=False) -> 'Daf'
 
     # Fields must match exactly!
     if self.hd != other_daf.hd:
-        _, missing_list, extra_list, _ = daf_utils.compare_lists(
-            work_list=self.hd,
-            ref_list=other_daf.hd,
-            req_list=None,
-        )
-
-        error_str = (f"columns mismatch: this_instance ({self.name}):\n({list(self.hd.keys())}) \n"
-              f"other_instance:\n({list(other_daf.hd.keys())})\n"
-              f"missing_list:\n{missing_list}\n"
-              f"extra_list:\n{extra_list}\n")
-        raise KeyError(error_str)
+        raise KeyError(daf_utils.columns_mismatch_msg(list(self.hd), list(other_daf.hd), self.name))
 
     if respect_kd and self.keyfield:
         if other_daf.keyfield and other_daf.keyfield != self.keyfield:

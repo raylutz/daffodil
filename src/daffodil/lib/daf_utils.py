@@ -668,6 +668,66 @@ _CONVERTERS: Dict[Any, Callable[[Any], Any]] = {
 }
 
 
+def columns_mismatch_msg(cols: T_ls, other_cols: T_ls, name: str = '') -> str:
+    """
+    The message for adding rows from a table whose columns differ, as in `concat()`.
+
+    It names the columns found in only one of the two tables.
+    When both have the same columns in another order, it shows both orders.
+
+    Args:
+        cols: The columns of the table that receives the rows.
+        other_cols: The columns of the table whose rows are added.
+        name: The name of the table that receives the rows, if it has one.
+
+    Returns:
+        The message, for a KeyError.
+
+    Examples:
+        >>> columns_mismatch_msg(['id', 'qty'], ['id', 'price'])
+        "concat(): the columns differ. Only in this table: ['qty']. Only in the other: ['price']."
+        >>> columns_mismatch_msg(['id', 'qty'], ['qty', 'id'], name='items')
+        "concat() into 'items': the columns are in another order. This table: ['id', 'qty']. The other: ['qty', 'id']."
+    """
+    where_s: str = f"concat() into {name!r}" if name else "concat()"
+    other_set: set = set(other_cols)
+    cols_set: set = set(cols)
+    only_here_ls: T_ls = [col for col in cols if col not in other_set]
+    only_there_ls: T_ls = [col for col in other_cols if col not in cols_set]
+    if not only_here_ls and not only_there_ls:
+        return f"{where_s}: the columns are in another order. This table: {list(cols)}. The other: {list(other_cols)}."
+    return f"{where_s}: the columns differ. Only in this table: {only_here_ls}. Only in the other: {only_there_ls}."
+
+
+def display_colnames(cols: T_ls, disp_cols: Any) -> T_ls:
+    """
+    The names to show for the columns, given `disp_cols` as in `to_md()`.
+
+    A dict maps a column name to the name shown. Columns it does not name keep their own names.
+    A list or other sequence gives a name for each column, in order. None or empty keeps every name.
+
+    Args:
+        cols: The column names, in order.
+        disp_cols: A dict of column name to name shown, a list of names, or None.
+
+    Returns:
+        The names to show, one for each column of a dict, or the list as given.
+
+    Examples:
+        >>> display_colnames(['id', 'item', 'qty'], {'item': 'Item'})
+        ['id', 'Item', 'qty']
+        >>> display_colnames(['id', 'item', 'qty'], ['ID', 'Item', 'Qty'])
+        ['ID', 'Item', 'Qty']
+        >>> display_colnames(['id', 'item'], None)
+        ['id', 'item']
+    """
+    if not disp_cols:
+        return list(cols)
+    if isinstance(disp_cols, dict):
+        return [disp_cols.get(col, col) for col in cols]
+    return list(disp_cols)
+
+
 def get_converter(desired_type: Any, unflatten: bool=True) -> Callable[[Any], Any]:
     """ Return the function that converts one value to desired_type.
 
