@@ -593,3 +593,39 @@ def test_silent_error_skips_the_row() -> None:
 def test_sum_kl_called_directly_with_a_dict() -> None:
     assert Daf.sum_kl({'x': 1, 'y': 'abc'}, {'x': 10, 'y': 0}, cols=['x', 'y']) == {'x': 11, 'y': 0}
     assert Daf.count_values_kl({'g': 'a'}, {}, ['g']) == {'g': {'a': 1}}
+
+
+@pytest.mark.xfail(strict=True, reason="BUG: src/daffodil/daf_apply.py:2409, sum_da() applies astype only when cols is given and is_sparse is False")
+def test_sum_da_astype_converts_without_cols():
+    assert Daf.sum_da({'a': '2'}, {'a': 0}, astype=int) == {'a': 2}
+
+
+@pytest.mark.xfail(strict=True, reason="BUG: src/daffodil/daf_apply.py:2409, sum_da() applies astype only when cols is given and is_sparse is False")
+def test_sum_da_astype_converts_with_is_sparse():
+    assert Daf.sum_da({'a': '2'}, {'a': 0}, cols=['a'], astype=int, is_sparse=True) == {'a': 2}
+
+
+def test_sum_da_astype_converts_with_cols():
+    assert Daf.sum_da({'a': '2', 'b': 'x'}, {'a': 0, 'b': 0}, cols=['a'], astype=int) == {'a': 2, 'b': 0}
+
+
+def _sparse_ballots() -> Daf:
+    return Daf(cols=['id', 'precinct', 'votes'], lol=[
+        ['b1', 'P1', {'mayor': 1}], ['b2', 'P1', {'council': 1}], ['b3', 'P2', {'mayor': 1, 'council': 1}]])
+
+
+def test_groupby_reduce_sparse_row_sums_the_dicts_of_each_group():
+    result = _sparse_ballots().groupby_reduce('precinct', Daf.sum_da, by='sparse_row', indirect_col='votes')
+    assert result.lol == [['P1', {'mayor': 1, 'council': 1}], ['P2', {'mayor': 1, 'council': 1}]]
+
+
+@pytest.mark.xfail(strict=True, reason="BUG: src/daffodil/daf_apply.py, groupby_cols_reduce() with by='sparse_row' drops the dict column")
+def test_groupby_cols_reduce_sparse_row_matches_groupby_reduce():
+    result = _sparse_ballots().groupby_cols_reduce(['precinct'], Daf.sum_da, by='sparse_row', indirect_col='votes')
+    assert result.lol == [['P1', {'mayor': 1, 'council': 1}], ['P2', {'mayor': 1, 'council': 1}]]
+
+
+@pytest.mark.xfail(strict=True, reason="BUG: src/daffodil/daf_apply.py, multi_groupby_reduce() with by='sparse_row' gives zeros")
+def test_multi_groupby_reduce_sparse_row_matches_groupby_reduce():
+    result = _sparse_ballots().multi_groupby_reduce(['precinct'], Daf.sum_da, by='sparse_row', indirect_col='votes')
+    assert result['precinct'].lol == [['P1', {'mayor': 1, 'council': 1}], ['P2', {'mayor': 1, 'council': 1}]]

@@ -347,6 +347,22 @@ def _insert_dif_row(self: 'Daf',
         <BLANKLINE>
         %% daf rows=4; cols=2; keyfield=''; name=''
         <BLANKLINE>
+
+        The difference is the first row minus the second. Choose the two rows, where the new row goes,
+        and the columns to subtract. The other columns are empty:
+
+        >>> series = Daf(cols=['t', 'n'], lol=[[1, 10], [2, 15], [4, 30]])
+        >>> series.insert_dif_row(0, 2, irow_insert=3, cols=['n'])
+        <BLANKLINE>
+        | t  |  n  |
+        | -: | --: |
+        |  1 |  10 |
+        |  2 |  15 |
+        |  4 |  30 |
+        |    | -20 |
+        <BLANKLINE>
+        %% daf rows=4; cols=2; keyfield=''; name=''
+        <BLANKLINE>
     """
 
     if irow2 is None:
@@ -409,6 +425,34 @@ def _insert_dif_rows(self: 'Daf',
         |  6 | 20 |
         <BLANKLINE>
         %% daf rows=5; cols=2; keyfield=''; name=''
+        <BLANKLINE>
+
+        Only after some rows, with `irows_rli`, and only some columns, with `cols`. With `offset=1`, each
+        difference goes after the second row of its pair:
+
+        >>> series = Daf(cols=['t', 'n'], lol=[[1, 10], [2, 15], [4, 30]])
+        >>> series.insert_dif_rows(cols=['n'], offset=1)
+        <BLANKLINE>
+        | t  |  n  |
+        | -: | --: |
+        |  1 |  10 |
+        |  2 |  15 |
+        |    |  -5 |
+        |  4 |  30 |
+        |    | -15 |
+        <BLANKLINE>
+        %% daf rows=5; cols=2; keyfield=''; name=''
+        <BLANKLINE>
+        >>> Daf(cols=['t', 'n'], lol=[[1, 10], [2, 15], [4, 30]]).insert_dif_rows([1])
+        <BLANKLINE>
+        | t  |  n  |
+        | -: | --: |
+        |  1 |  10 |
+        |  2 |  15 |
+        | -2 | -15 |
+        |  4 |  30 |
+        <BLANKLINE>
+        %% daf rows=4; cols=2; keyfield=''; name=''
         <BLANKLINE>
     """
 
@@ -516,6 +560,30 @@ def _apply(
         <BLANKLINE>
         %% daf rows=2; cols=2; keyfield=''; name=''
         <BLANKLINE>
+
+        Extra keyword arguments go to the function:
+
+        >>> stock = Daf(cols=['id', 'qty'], keyfield='id', lol=[['a1', 3], ['b2', 10], ['c3', 7]])
+        >>> stock.apply(lambda row, factor: {'id': row['id'], 'qty': row['qty'] * factor}, factor=10)
+        <BLANKLINE>
+        | id | qty |
+        | -: | --: |
+        | a1 |  30 |
+        | b2 | 100 |
+        | c3 |  70 |
+        <BLANKLINE>
+        %% daf rows=3; cols=2; keyfield=''; name=''
+        <BLANKLINE>
+
+        Only the rows of some keys. They come in the order of the table, not of the list:
+
+        >>> stock.apply(lambda row: {'id': row['id']}, keylist=['c3', 'a1']).col('id')
+        ['a1', 'c3']
+
+        With `by='table'`, the function gets the whole Daf, and its result is returned as it is:
+
+        >>> stock.apply(lambda daf: len(daf), by='table')
+        3
     """
     if by == 'table':
         # by contract (see docstring) func returns a 'Daf' when by='table', though this
@@ -661,6 +729,12 @@ def _apply_in_place(
         <BLANKLINE>
         >>> daf.col('y')
         [0, 0, 0]
+
+        Only the rows of some keys:
+
+        >>> stock = Daf(cols=['id', 'qty'], keyfield='id', lol=[['a1', 3], ['b2', 10], ['c3', 7]])
+        >>> stock.apply_in_place(lambda row: {'qty': row['qty'] * 2}, rowkeys=['b2', 'c3']).col('qty')
+        [3, 20, 14]
     """
     if rowkeys is None:
         rowkeys = []
@@ -1050,6 +1124,20 @@ def _groupby(
         <BLANKLINE>
         %% daf rows=2; cols=1; keyfield=''; name=''
         <BLANKLINE>
+
+        Group by two columns together. Each key is then a tuple:
+
+        >>> ballots = Daf(cols=['id', 'precinct', 'party'], keyfield='id', lol=[
+        ...     ['b1', 'P1', 'D'], ['b2', 'P1', 'R'], ['b3', 'P2', 'D'], ['b4', 'P1', 'D'], ['b5', '', 'R']])
+        >>> list(ballots.groupby(colnames=['precinct', 'party']).keys())
+        [('P1', 'D'), ('P1', 'R'), ('P2', 'D'), ('', 'R')]
+
+        Leave out the rows with an empty value in the column:
+
+        >>> list(ballots.groupby('precinct').keys())
+        ['P1', 'P2', '']
+        >>> list(ballots.groupby('precinct', omit_nulls=True).keys())
+        ['P1', 'P2']
     """
 
     if isinstance(colname, list) and not colnames:
@@ -1188,6 +1276,15 @@ def _group_where(
         >>> groups = daf.group_where(lambda row: [row['g'], 'all'])
         >>> {key: len(group) for key, group in groups.items()}
         {'a': 2, 'all': 3, 'b': 1}
+
+        With `indirect_col`, the function reads the keys of the dict in that column as columns. Here
+        each ballot that has a vote for mayor goes into one group:
+
+        >>> ballots = Daf(cols=['id', 'votes'], lol=[
+        ...     ['b1', {'mayor': 1}], ['b2', {'council': 1}], ['b3', {'mayor': 1, 'council': 1}]])
+        >>> groups = ballots.group_where(lambda row: 'mayor' if row['mayor'] else None, indirect_col='votes')
+        >>> groups['mayor'].col('id')
+        ['b1', 'b3']
     """
 
     # --- helpers ---
@@ -1349,9 +1446,9 @@ def _groupby_cols_reduce(
     Args:
         groupby_colnames: The columns that identify a group.
         func: The reduction function. See `reduce()`.
-        by: How the function is applied. See `reduce()`.
+        by: Leave it as `row`. Only `row` gives a correct result here. For sparse rows, use `groupby_reduce()`.
         reduce_cols: The columns to reduce.
-        diagnose: If True, print progress messages.
+        diagnose: If True, print the progress with a timestamp: the grouping, the number of groups, and the first groups.
         **kwargs: Keyword arguments passed on to the function.
 
     Returns:
@@ -1586,7 +1683,7 @@ def _groupby_reduce(
         func: The reduction function. See `reduce()`.
         by: How the function is applied. See `reduce()`.
         reduce_cols: The columns to reduce. All except `colname` if None.
-        diagnose: If True, print progress messages.
+        diagnose: If True, print the progress with a timestamp: the grouping, the number of groups, and the first groups.
         **kwargs: Keyword arguments passed on to the function.
 
     Returns:
@@ -1612,6 +1709,20 @@ def _groupby_reduce(
         |  b |    | 20 |
         <BLANKLINE>
         %% daf rows=2; cols=3; keyfield='g'; name=''
+        <BLANKLINE>
+
+        For sparse rows, with `by='sparse_row'`, each group's dicts are added into one dict:
+
+        >>> ballots = Daf(cols=['id', 'precinct', 'votes'], lol=[
+        ...     ['b1', 'P1', {'mayor': 1}], ['b2', 'P1', {'council': 1}], ['b3', 'P2', {'mayor': 1, 'council': 1}]])
+        >>> ballots.groupby_reduce('precinct', Daf.sum_da, by='sparse_row', indirect_col='votes')
+        <BLANKLINE>
+        | precinct |           votes            |
+        | -------: | -------------------------: |
+        |       P1 | {'mayor': 1, 'council': 1} |
+        |       P2 | {'mayor': 1, 'council': 1} |
+        <BLANKLINE>
+        %% daf rows=2; cols=2; keyfield='precinct'; name=''
         <BLANKLINE>
     """
 
@@ -1695,6 +1806,13 @@ def _multi_groupby(
         <BLANKLINE>
         %% daf rows=2; cols=1; keyfield=''; name=''
         <BLANKLINE>
+
+        Leave out the rows with an empty value, in each grouping:
+
+        >>> ballots = Daf(cols=['id', 'precinct', 'party'], lol=[
+        ...     ['b1', 'P1', 'D'], ['b2', 'P1', ''], ['b3', '', 'D']])
+        >>> {name: list(groups.keys()) for name, groups in ballots.multi_groupby(['precinct', 'party'], omit_nulls=True).items()}
+        {'precinct': ['P1'], 'party': ['D']}
     """
 
     if isinstance(groupby_colnames, str):
@@ -1750,7 +1868,7 @@ def _reduce_dodaf_to_daf(
         func: The reduction function. See `reduce()`.
         grouped_dodaf: A dict or a KeyedList that maps each value to a Daf.
         reduce_cols: The columns to reduce. All columns except `colname` if None.
-        diagnose: If True, print progress messages.
+        diagnose: If True, print the progress with a timestamp: the grouping, the number of groups, and the first groups.
         all_cols: The columns of the result, in order. Use it when each group holds only
             some columns, so that the rows have the same columns as for whole groups. The
             columns that are not reduced are then empty.
@@ -1770,6 +1888,31 @@ def _reduce_dodaf_to_daf(
         |  3 |  b |
         <BLANKLINE>
         %% daf rows=2; cols=2; keyfield='g'; name=''
+        <BLANKLINE>
+
+        Reduce only some columns, with `reduce_cols`. The others are empty:
+
+        >>> parts = {'x': Daf(cols=['qty', 'n'], lol=[[3, 1], [7, 1]])}
+        >>> Daf.reduce_dodaf_to_daf('g', Daf.sum_da, parts, reduce_cols=['qty'])
+        <BLANKLINE>
+        | qty | n  | g  |
+        | --: | -: | -: |
+        |  10 |    |  x |
+        <BLANKLINE>
+        %% daf rows=1; cols=3; keyfield='g'; name=''
+        <BLANKLINE>
+
+        Give the columns of the result with `all_cols`, when the groups hold only some of them:
+
+        >>> parts = {'x': Daf(cols=['qty'], lol=[[3], [7]]), 'y': Daf(cols=['qty'], lol=[[10]])}
+        >>> Daf.reduce_dodaf_to_daf('g', Daf.sum_da, parts, all_cols=['g', 'qty', 'note'])
+        <BLANKLINE>
+        | g  | qty | note |
+        | -: | --: | ---: |
+        |  x |  10 |      |
+        |  y |  10 |      |
+        <BLANKLINE>
+        %% daf rows=2; cols=3; keyfield='g'; name=''
         <BLANKLINE>
     """
 
@@ -1857,9 +2000,9 @@ def _multi_groupby_reduce(
     Args:
         colnames: The columns to group by, one at a time.
         func: The reduction function. See `reduce()`.
-        by: How the function is applied. See `reduce()`.
+        by: Leave it as `row`. Only `row` gives a correct result here. For sparse rows, use `groupby_reduce()`.
         reduce_cols: The columns to reduce.
-        diagnose: If True, print progress messages.
+        diagnose: If True, print the progress with a timestamp: the grouping, the number of groups, and the first groups.
         **kwargs: Keyword arguments passed on to the function.
 
     Returns:
@@ -2019,6 +2162,13 @@ def _daf_sum(
         <BLANKLINE>
         >>> daf.daf_sum(cols=['y'])
         {'g': '', 'x': '', 'y': 60}
+
+        Sum the dict in each row, with `by='sparse_row'`:
+
+        >>> ballots = Daf(cols=['id', 'votes'], lol=[
+        ...     ['b1', {'mayor': 1}], ['b2', {'council': 1}], ['b3', {'mayor': 1, 'council': 1}]])
+        >>> ballots.daf_sum(by='sparse_row', indirect_col='votes')
+        {'mayor': 2, 'council': 2}
     """
 
     return cast(T_da, self.reduce(func=Daf.sum_kl, by=by, cols=cols, indirect_col=indirect_col, **kwargs))
@@ -2144,6 +2294,41 @@ def _reduce(
         {'c1v': 1, 'c0b': 2, 'c2v': 1}
         >>> votes_daf.reduce(Daf.sum_da, by='sparse_row', indirect_col='cv', cols=['c2v', 'c0b'])
         {'c2v': 1, 'c0b': 2}
+
+        Start from a result other than zeros, with `initial_da`:
+
+        >>> daf.reduce(Daf.sum_da, cols=['x'], initial_da={'g': '', 'x': 100, 'y': ''})
+        {'g': '', 'x': 106, 'y': ''}
+
+        `sum_da` adds only numbers. Text in a column is skipped, with no error:
+
+        >>> mixed = Daf(cols=['id', 'qty'], lol=[['a', 3], ['b', 'x'], ['c', 7]])
+        >>> mixed.reduce(Daf.sum_da, cols=['qty'])
+        {'id': '', 'qty': 10}
+
+        A function of your own that fails on a row stops the reduction. With `silent_error=True`, that
+        row is skipped:
+
+        >>> def add_qty(row, result, cols=None):
+        ...     result['qty'] = result['qty'] + row['qty']
+        ...     return result
+        >>> mixed.reduce(add_qty, cols=['qty'])
+        Traceback (most recent call last):
+        ...
+        TypeError: unsupported operand type(s) for +: 'int' and 'str'
+        >>> mixed.reduce(add_qty, cols=['qty'], silent_error=True)
+        {'id': '', 'qty': 10}
+
+        With `by='col'`, the function gets each column as a list, and the result so far as a list.
+        Here it counts the different values in each column:
+
+        >>> daf.reduce(lambda col, result: result + [len(set(col))], by='col')
+        [2, 3, 3]
+
+        With `by='table'`, the function gets the Daf and `cols`, and its result is returned as it is:
+
+        >>> daf.reduce(lambda table, cols: {'rows': len(table)}, by='table')
+        {'rows': 3}
     """
     if by == 'table':
         reduction_ma = func(self, cols, **kwargs)
@@ -2320,15 +2505,15 @@ def _sum_da( row_da:         T_ma,                       # the current row from 
 
     This is a static method. A value that cannot be added, such as text or an empty
     cell, is skipped with no error. See [sum_kl][daffodil.daf_apply._sum_kl] for what that
-    means for a bad number. The total is changed and returned. With `astype`, each value
-    is first converted to that type. `reduce()` uses `sum_kl()` in its place.
+    means for a bad number. The total is changed and returned. With `astype` and `cols`, each
+    value is first converted to that type. `reduce()` uses `sum_kl()` in its place.
 
     Args:
         row_da: The current row.
         reduction_da: The running total. It is changed.
         cols: The columns to add. All if None.
-        astype: A type to convert each value to before adding.
-        is_sparse: If True, the row may hold only some of the columns.
+        astype: A type to convert each value to before adding. Only with `cols`, and without `is_sparse`.
+        is_sparse: If True, loop over the row's own keys, which is faster when a row holds few of many columns.
         diagnose: Not used.
 
     Returns:
@@ -2337,6 +2522,18 @@ def _sum_da( row_da:         T_ma,                       # the current row from 
     Examples:
         >>> Daf.sum_da({'x': 1, 'y': 2}, {'x': 10, 'y': 0}, cols=['x', 'y'])
         {'x': 11, 'y': 2}
+
+        Convert each value before adding, with `astype`. It takes effect only with `cols`, and without
+        `is_sparse`. A value that cannot be converted is skipped:
+
+        >>> Daf.sum_da({'a': '3', 'b': 'x'}, {'a': 0, 'b': 0}, cols=['a', 'b'], astype=int)
+        {'a': 3, 'b': 0}
+
+        With `is_sparse=True`, the loop runs over the row's own keys, not over `cols`. That is faster
+        when a row holds few of many columns. The total is the same:
+
+        >>> Daf.sum_da({'a': 2}, {'a': 1, 'b': 5}, cols=['a', 'b'], is_sparse=True)
+        {'a': 3, 'b': 5}
     """
     # def sum_da         (row_da: T_da, reduction_da: T_da, cols: Iterable, astype: Type | None = None, diagnose:bool=False
 
@@ -2587,8 +2784,8 @@ def _sum_kl( row_kl:         Any,                        # the current row, a Ke
         row_kl: The current row.
         reduction_da: The running total. It is changed.
         cols: The columns to add. All if None.
-        astype: A type to convert each value to before adding.
-        is_sparse: If True, the row may hold only some of the columns.
+        astype: A type to convert each value to before adding. Only with `cols`, and without `is_sparse`.
+        is_sparse: If True, loop over the row's own keys, which is faster when a row holds few of many columns.
         diagnose: Not used.
 
     Returns:
@@ -2598,6 +2795,9 @@ def _sum_kl( row_kl:         Any,                        # the current row, a Ke
         >>> from daffodil.keyedlist import KeyedList
         >>> Daf.sum_kl(KeyedList(['x', 'y'], [1, 'abc']), {'x': 10, 'y': 0}, cols=['x', 'y'])
         {'x': 11, 'y': 0}
+
+        `astype` and `is_sparse` work as in [sum_da()][daffodil.daf_apply._sum_da], which has an
+        example of each.
     """
     if row_kl.__class__ is not KeyedList or cols is None or astype is not None or is_sparse:
         return Daf.sum_da(row_kl, reduction_da, cols=cols, astype=astype, is_sparse=is_sparse)
@@ -2635,7 +2835,7 @@ def _groupsum_daf(
 
     Args:
         colname: The column to group by.
-        by: How the function is applied. See `reduce()`.
+        by: Leave it as `row`. Only `row` gives a correct result here. For sparse rows, use `groupby_reduce()`.
         reduce_cols: The columns to add.
 
     Returns:
@@ -2685,7 +2885,7 @@ def _multi_groupsum(
 
     Args:
         colnames: The columns to group by. These are required.
-        by: How the function is applied. See `reduce()`.
+        by: Leave it as `row`. Only `row` gives a correct result here. For sparse rows, use `groupby_reduce()`.
         reduce_cols: The columns to add.
 
     Returns:
@@ -2778,6 +2978,19 @@ def _set_col2_from_col1_using_regex_select(self: 'Daf', col1: str, col2: str='',
         <BLANKLINE>
         >>> daf.col('s')
         ['12', '34']
+
+        Write the result to another column, here a new one:
+
+        >>> paths = Daf(cols=['id', 'path'], lol=[['a', 'dir/file1.csv'], ['b', 'dir/file22.csv']])
+        >>> paths.set_col2_from_col1_using_regex_select('path', 'name', r'dir/(\w+)\.csv')
+        <BLANKLINE>
+        | id |      path      |  name  |
+        | -: | -------------: | -----: |
+        |  a |  dir/file1.csv |  file1 |
+        |  b | dir/file22.csv | file22 |
+        <BLANKLINE>
+        %% daf rows=2; cols=3; keyfield=''; name=''
+        <BLANKLINE>
     """
 
     # from utilities import daf_utils
@@ -2834,6 +3047,19 @@ def _apply_replace_regex(self: 'Daf', col: str, col2: str='', replace_regex: str
         <BLANKLINE>
         >>> daf.apply_replace_regex('s', replace_regex='/ab//').col('s')
         ['12']
+
+        Write the result to another column, here a new one. The pattern has the form
+        `/find/replace/`, where the first character is the separator:
+
+        >>> paths = Daf(cols=['id', 'path'], lol=[['a', 'dir/file1.csv']])
+        >>> paths.apply_replace_regex('path', 'stem', r'/\.csv$//')
+        <BLANKLINE>
+        | id |     path      |   stem    |
+        | -: | ------------: | --------: |
+        |  a | dir/file1.csv | dir/file1 |
+        <BLANKLINE>
+        %% daf rows=1; cols=3; keyfield=''; name=''
+        <BLANKLINE>
     """
 
     # from utilities import daf_utils
@@ -2899,6 +3125,18 @@ def _alter_daf_per_setting(
         >>> spec = {'spec_name': 'a.zip', 'colname': 'ballot_id', 'replace_regex': r'/^04_/14_/'}
         >>> daf.alter_daf_per_setting({'fix': [spec]}, 'fix', {'spec_name': 'a.zip'}).col('ballot_id')
         ['14_1', '05_2']
+
+        A setting that is not in the dict raises KeyError, or changes nothing with `silent_error=True`:
+
+        >>> table = Daf(cols=['id', 'qty'], lol=[['a', '3']])
+        >>> table.alter_daf_per_setting({}, 'alter', {'spec_name': 'f.csv'}, silent_error=True)
+        <BLANKLINE>
+        | id | qty |
+        | -: | --: |
+        |  a |   3 |
+        <BLANKLINE>
+        %% daf rows=1; cols=2; keyfield=''; name=''
+        <BLANKLINE>
     """
 
     if silent_error:
@@ -3101,6 +3339,13 @@ def _count_values_da(
     Examples:
         >>> Daf.count_values_da({'g': 'a'}, {}, ['g'])
         {'g': {'a': 1}}
+
+        Empty cells are counted as `''`, unless `omit_nulls=True`:
+
+        >>> Daf.count_values_da({'g': ''}, {'g': {}}, cols=['g'])
+        {'g': {'': 1}}
+        >>> Daf.count_values_da({'g': ''}, {'g': {}}, cols=['g'], omit_nulls=True)
+        {'g': {}}
     """
 
     # if cols is None:
@@ -3180,6 +3425,14 @@ def _count_values_kl(
         >>> from daffodil.keyedlist import KeyedList
         >>> Daf.count_values_kl(KeyedList(['g'], ['a']), {'g': {'a': 2}}, ['g'])
         {'g': {'a': 3}}
+
+        Empty cells are counted as `''`, unless `omit_nulls=True`:
+
+        >>> row = KeyedList({'g': ''})
+        >>> Daf.count_values_kl(row, {'g': {}}, cols=['g'])
+        {'g': {'': 1}}
+        >>> Daf.count_values_kl(row, {'g': {}}, cols=['g'], omit_nulls=True)
+        {'g': {}}
     """
     if row_kl.__class__ is not KeyedList:
         return Daf.count_values_da(row_kl, reduction_da, cols, omit_nulls=omit_nulls)
@@ -3337,6 +3590,11 @@ def _sum_np(
         {'x': 3, 'y': 30}
         >>> Daf(lol=[[1, 10], [2, '']], cols=['x', 'y']).sum_np()
         {'x': 3, 'y': 10}
+
+        Only some columns:
+
+        >>> Daf(cols=['a', 'b'], lol=[[1, 2], [3, 4]]).sum_np(['b'])
+        {'b': 6}
     """
     # unit tests exist
 
