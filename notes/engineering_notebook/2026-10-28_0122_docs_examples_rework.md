@@ -54,7 +54,12 @@ Tests for the bugs, as xfail with a reason that starts with BUG:
 - Bug 5: Ray chose that `indirect_col` alone means sparse rows, Q311, in `reduce()` and every grouping
   reducer. Each grouping reducer keeps the concise form of `groupby_reduce()`. The two xfail tests
   pass, and their markers are gone.
-- Still open: bugs 1, 2 and 4.
+- Bug 1: Ray chose that a dict as `disp_cols` maps column names to names shown, and the others keep
+  their names, Q307. `display_colnames()` in daf_utils.py serves the Daf and the SqlDaf.
+- Bug 2: Ray approved a shorter message, Q308. `columns_mismatch_msg()` in daf_utils.py names the
+  columns found in only one table, or shows both orders. The Daf and the SqlDaf give the same text.
+- Bug 4: fixed with Ray's approval. `_astype_val()` converts in both loops of `sum_da()`.
+- All three at 6030424. No xfail tests remain.
 
 ## Done so far
 

@@ -33,7 +33,7 @@ _NAMES_FROM_SQLDAF: Tuple[str, ...] = ('ORD_COL', 'none_to_null', 'quote_name')
 
 def _md_daf_table_snippet(self: 'SqlDaf') -> str:
     """
-    Make a short Markdown table of the rows, with a summary line, as `Daf.md_daf_table_snippet()` does.
+    Make a short Markdown table of the rows, with a summary line, as [`Daf.md_daf_table_snippet()`][daffodil.daf_report._md_daf_table_snippet] does.
 
     It is the same text as for a Daf of the same rows, byte for byte. It reads the rows from the
     table in SQL: a count, then the first and the last rows it shows. So a table of any size
@@ -70,6 +70,39 @@ def _to_daf(self: 'SqlDaf') -> Daf:
 
     Returns:
         A Daf of every row.
+
+    Examples:
+        >>> import tempfile
+        >>> SqlDaf.db_path = tempfile.mkdtemp() + '/job.db'
+        >>> items_sdaf = SqlDaf.from_daf(Daf(cols=['id', 'item', 'qty'], keyfield='id', lol=[['a1', 'pen', 3], ['b2', 'ink', ''], ['c3', 'pad', 7]]), name='items')
+        >>> items_daf = items_sdaf.to_daf()
+        >>> items_daf
+        <BLANKLINE>
+        | id | item | qty |
+        | -: | ---: | --: |
+        | a1 |  pen |   3 |
+        | b2 |  ink |     |
+        | c3 |  pad |   7 |
+        <BLANKLINE>
+        %% daf rows=3; cols=3; keyfield='id'; name='items'
+        <BLANKLINE>
+
+        The Daf is a copy. A change to it does not reach the table:
+
+        >>> items_daf['a1', 'qty'] = 99
+        >>> items_sdaf.select_record('a1')
+        {'id': 'a1', 'item': 'pen', 'qty': 3}
+
+        Select first, so only the rows needed come into memory:
+
+        >>> items_sdaf.select_where_sql('qty > ?', [5]).to_daf()
+        <BLANKLINE>
+        | id | item | qty |
+        | -: | ---: | --: |
+        | c3 |  pad |   7 |
+        <BLANKLINE>
+        %% daf rows=1; cols=3; keyfield='id'; name='daf_tmp_items_v1'
+        <BLANKLINE>
     """
     self._resolve()
     lol: T_lola = [none_to_null(row_t) for row_t in self._select_rows()]
@@ -78,7 +111,7 @@ def _to_daf(self: 'SqlDaf') -> Daf:
 
 
 def _write_csv(self: 'SqlDaf', text_f: Any, line_terminator: str | None, include_header: bool) -> None:
-    """ Write the rows as CSV to an open text file, a batch at a time, as `Daf.to_csv_buff()` writes them. Internal use. """
+    """ Write the rows as CSV to an open text file, a batch at a time, as [`Daf.to_csv_buff()`][daffodil.daf_convert._to_csv_buff] writes them. Internal use. """
     csv_writer = csv.writer(text_f, lineterminator='\r\n' if line_terminator is None else line_terminator)
     if include_header:
         csv_writer.writerow([daf_sql.sql_unesc_str(col) for col in self.columns()])     # a name stored with the __HH encoding is written decoded.
@@ -94,7 +127,7 @@ def _to_csv_file(
         include_header:     bool = True,
         ) -> str:
     r"""
-    Write the rows to a CSV file, as `Daf.to_csv_file()` does.
+    Write the rows to a CSV file, as [`Daf.to_csv_file()`][daffodil.daf_convert._to_csv_file] does.
 
     A local file is written as the rows are read, 10,000 at a time, so a table larger than
     memory can be written. The text is the same as a Daf of the same rows would write: each
@@ -151,7 +184,7 @@ def _to_csv_buff(
         include_header:     bool = True,
         ) -> T_buff:
     r"""
-    Make CSV text from the rows, as `Daf.to_csv_buff()` does.
+    Make CSV text from the rows, as [`Daf.to_csv_buff()`][daffodil.daf_convert._to_csv_buff] does.
 
     The whole text is built in memory, so use it for a selection of modest size. To write a
     large table, use `to_csv_file()`, which writes as it reads.
@@ -162,6 +195,18 @@ def _to_csv_buff(
 
     Returns:
         The CSV text.
+
+    Examples:
+        >>> import tempfile
+        >>> SqlDaf.db_path = tempfile.mkdtemp() + '/job.db'
+        >>> items_sdaf = SqlDaf.from_daf(Daf(cols=['id', 'item', 'qty'], keyfield='id', lol=[['a1', 'pen', 3], ['b2', 'ink', ''], ['c3', 'pad', 7]]), name='items')
+        >>> items_sdaf.to_csv_buff()
+        'id,item,qty\r\na1,pen,3\r\nb2,ink,\r\nc3,pad,7\r\n'
+
+        Without the header, and with another line ending:
+
+        >>> items_sdaf.to_csv_buff(line_terminator='\n', include_header=False)
+        'a1,pen,3\nb2,ink,\nc3,pad,7\n'
     """
     text_f = io.StringIO(newline='')
     self._write_csv(text_f, line_terminator, include_header)
@@ -170,7 +215,7 @@ def _to_csv_buff(
 
 def _to_dict(self: 'SqlDaf') -> T_da:
     """
-    Read a table of one row as a dict, as `Daf.to_dict()` does.
+    Read a table of one row as a dict, as [`Daf.to_dict()`][daffodil.daf_convert._to_dict] does.
 
     A child has its rows found first. For a row by key or by position, `select_record()` and
     `iloc()` are cheaper: they make no selection.
@@ -180,6 +225,15 @@ def _to_dict(self: 'SqlDaf') -> T_da:
 
     Raises:
         ValueError: There is more than one row.
+
+    Examples:
+        >>> import tempfile
+        >>> SqlDaf.db_path = tempfile.mkdtemp() + '/job.db'
+        >>> items_sdaf = SqlDaf.from_daf(Daf(cols=['id', 'item', 'qty'], keyfield='id', lol=[['a1', 'pen', 3], ['b2', 'ink', ''], ['c3', 'pad', 7]]), name='items')
+        >>> items_sdaf['b2'].to_dict()
+        {'id': 'b2', 'item': 'ink', 'qty': ''}
+        >>> items_sdaf.select_record('b2')
+        {'id': 'b2', 'item': 'ink', 'qty': ''}
     """
     self._resolve()
     rows_lot: List[Tuple[Any, ...]] = self._select_rows(limit=2)
@@ -192,7 +246,7 @@ def _to_dict(self: 'SqlDaf') -> T_da:
 
 def _to_list(self: 'SqlDaf') -> T_la:
     """
-    Read a table of one row, or of one column, as a list, as `Daf.to_list()` does.
+    Read a table of one row, or of one column, as a list, as [`Daf.to_list()`][daffodil.daf_convert._to_list] does.
 
     One column gives every value of the column, in order, so select first. A child has its
     rows found first.
@@ -202,6 +256,15 @@ def _to_list(self: 'SqlDaf') -> T_la:
 
     Raises:
         ValueError: There is more than one row and more than one column.
+
+    Examples:
+        >>> import tempfile
+        >>> SqlDaf.db_path = tempfile.mkdtemp() + '/job.db'
+        >>> items_sdaf = SqlDaf.from_daf(Daf(cols=['id', 'item', 'qty'], keyfield='id', lol=[['a1', 'pen', 3], ['b2', 'ink', ''], ['c3', 'pad', 7]]), name='items')
+        >>> items_sdaf['c3'].to_list()
+        ['c3', 'pad', 7]
+        >>> items_sdaf[:, 'qty'].to_list()
+        [3, '', 7]
     """
     self._resolve()
     if len(self.hd) == 1:
@@ -214,7 +277,7 @@ def _to_list(self: 'SqlDaf') -> T_la:
 
 def _to_value(self: 'SqlDaf') -> Any:
     """
-    Read a table of one row and one column as its value, as `Daf.to_value()` does.
+    Read a table of one row and one column as its value, as [`Daf.to_value()`][daffodil.daf_convert._to_value] does.
 
     A child has its rows found first.
 
@@ -223,6 +286,18 @@ def _to_value(self: 'SqlDaf') -> Any:
 
     Raises:
         ValueError: The table is not one row and one column.
+
+    Examples:
+        >>> import tempfile
+        >>> SqlDaf.db_path = tempfile.mkdtemp() + '/job.db'
+        >>> items_sdaf = SqlDaf.from_daf(Daf(cols=['id', 'item', 'qty'], keyfield='id', lol=[['a1', 'pen', 3], ['b2', 'ink', ''], ['c3', 'pad', 7]]), name='items')
+        >>> items_sdaf['c3', 'qty'].to_value()
+        7
+
+        A SQL NULL comes back as Python NULL, the empty string:
+
+        >>> items_sdaf['b2', 'qty'].to_value()
+        ''
     """
     self._resolve()
     rows_lot: List[Tuple[Any, ...]] = self._select_rows(limit=2)
@@ -245,7 +320,7 @@ def _iloc(
         rtype:          str = 'dict',               # 'dict' or 'list'.
         ) -> T_da | T_la:
     """
-    Read one row by position, as `Daf.iloc()` does, in one query.
+    Read one row by position, as [`Daf.iloc()`][daffodil.daf_select._iloc] does, in one query.
 
     On a selection, the position is within the selection's own rows, in its order.
     The call makes no selection. On a selection whose rows are not yet found, it does not
@@ -267,6 +342,40 @@ def _iloc(
         KeyError: A name in `include_cols` is not a column.
         NotImplementedError: `rtype` is not 'dict' or 'list'.
         ValueError: This is a parent that has had rows deleted. See SqlDaf.
+
+    Examples:
+        >>> import tempfile
+        >>> SqlDaf.db_path = tempfile.mkdtemp() + '/job.db'
+        >>> items_sdaf = SqlDaf.from_daf(Daf(cols=['id', 'item', 'qty'], keyfield='id', lol=[['a1', 'pen', 3], ['b2', 'ink', ''], ['c3', 'pad', 7]]), name='items')
+        >>> items_sdaf.to_daf()
+        <BLANKLINE>
+        | id | item | qty |
+        | -: | ---: | --: |
+        | a1 |  pen |   3 |
+        | b2 |  ink |     |
+        | c3 |  pad |   7 |
+        <BLANKLINE>
+        %% daf rows=3; cols=3; keyfield='id'; name='items'
+        <BLANKLINE>
+        >>> items_sdaf.iloc(0)
+        {'id': 'a1', 'item': 'pen', 'qty': 3}
+
+        A negative position counts from the end:
+
+        >>> items_sdaf.iloc(-1)
+        {'id': 'c3', 'item': 'pad', 'qty': 7}
+
+        Only some columns, in the order given, and as a list:
+
+        >>> items_sdaf.iloc(1, include_cols=['qty', 'id'])
+        {'qty': '', 'id': 'b2'}
+        >>> items_sdaf.iloc(1, rtype='list')
+        ['b2', 'ink', '']
+
+        On a selection, the position is within its own rows:
+
+        >>> items_sdaf.select_where_sql('qty > ?', [5]).iloc(0)
+        {'id': 'c3', 'item': 'pad', 'qty': 7}
     """
     self._check_positions('iloc')
     if rtype not in ('dict', 'list'):
@@ -290,7 +399,7 @@ def _iloc(
 
 def _select_record(self: 'SqlDaf', key: Any, silent_error: bool = True) -> T_da:
     """
-    Read one row by its key, as a dict, as `Daf.select_record()` does, in one query.
+    Read one row by its key, as a dict, as [`Daf.select_record()`][daffodil.daf_select._select_record] does, in one query.
 
     The keyfield's unique index is made first if it is not there yet, so the lookup does not
     read every row. It took about 18 us on 1,000,000 rows, or 9 us inside `transaction()`.
@@ -309,6 +418,31 @@ def _select_record(self: 'SqlDaf', key: Any, silent_error: bool = True) -> T_da:
     Raises:
         KeyError: The key is missing, and `silent_error` is False.
         ValueError: There is no keyfield.
+
+    Examples:
+        >>> import tempfile
+        >>> SqlDaf.db_path = tempfile.mkdtemp() + '/job.db'
+        >>> items_sdaf = SqlDaf.from_daf(Daf(cols=['id', 'item', 'qty'], keyfield='id', lol=[['a1', 'pen', 3], ['b2', 'ink', ''], ['c3', 'pad', 7]]), name='items')
+        >>> items_sdaf.to_daf()
+        <BLANKLINE>
+        | id | item | qty |
+        | -: | ---: | --: |
+        | a1 |  pen |   3 |
+        | b2 |  ink |     |
+        | c3 |  pad |   7 |
+        <BLANKLINE>
+        %% daf rows=3; cols=3; keyfield='id'; name='items'
+        <BLANKLINE>
+        >>> items_sdaf.select_record('c3')
+        {'id': 'c3', 'item': 'pad', 'qty': 7}
+
+        A missing key gives an empty dict, or raises with `silent_error=False`:
+
+        >>> items_sdaf.select_record('z9')
+        {}
+        >>> items_sdaf.select_record('z9', silent_error=False)
+        Traceback (most recent call last):
+        KeyError: 'z9'
     """
     key_col: str = self._need_keyfield('select_record')
     rows_lot: List[Tuple[Any, ...]] = self._select_rows(f'{quote_name(key_col)} IS ?', (key,), limit=1)
@@ -341,7 +475,7 @@ def _col(
         default:        Any = NULL,
         ) -> T_la:
     """
-    Get one column as a list, by name, as `Daf.col()` does.
+    Get one column as a list, by name, as [`Daf.col()`][daffodil.daf_select._col] does.
 
     Only that column is read into memory, or only `indirect_col` for a value inside a dict
     column. The options act as in a Daf. With `omit_nulls`, both SQL NULL and the text '' are
@@ -361,6 +495,40 @@ def _col(
 
     Raises:
         ColumnNotFoundError: The name is not a column, and `silent_error` is False.
+
+    Examples:
+        >>> import tempfile
+        >>> SqlDaf.db_path = tempfile.mkdtemp() + '/job.db'
+        >>> sales_sdaf = SqlDaf.from_daf(Daf(cols=['id', 'g', 'qty', 'extra'], keyfield='id', lol=[
+        ...     ['a1', 'x', 3, {'color': 'red'}], ['b2', 'y', '', {}], ['c3', 'x', 7, {'color': 'blue'}]]), name='sales')
+        >>> sales_sdaf.to_daf()
+        <BLANKLINE>
+        | id | g  | qty |       extra       |
+        | -: | -: | --: | ----------------: |
+        | a1 |  x |   3 |  {'color': 'red'} |
+        | b2 |  y |     |                {} |
+        | c3 |  x |   7 | {'color': 'blue'} |
+        <BLANKLINE>
+        %% daf rows=3; cols=4; keyfield='id'; name='sales'
+        <BLANKLINE>
+        >>> sales_sdaf.col('qty')
+        [3, '', 7]
+
+        Each option, as in a Daf:
+
+        >>> sales_sdaf.col('g', unique=True)
+        ['x', 'y']
+        >>> sales_sdaf.col('qty', omit_nulls=True)
+        [3, 7]
+        >>> sales_sdaf.col('qty', omit_nulls=True, astype=float)
+        [3.0, 7.0]
+        >>> sales_sdaf.col('price', silent_error=True)
+        []
+
+        A value inside a dict column, with a default for a dict that lacks it:
+
+        >>> sales_sdaf.col('color', indirect_col='extra', default='none')
+        ['red', 'none', 'blue']
     """
     return self.col_to_la(colname, unique=unique, omit_nulls=omit_nulls, silent_error=silent_error,
                           astype=astype, indirect_col=indirect_col, default=default)
@@ -391,6 +559,13 @@ def _col_to_la(
 
     Returns:
         The values of the column, in row order.
+
+    Examples:
+        >>> import tempfile
+        >>> SqlDaf.db_path = tempfile.mkdtemp() + '/job.db'
+        >>> items_sdaf = SqlDaf.from_daf(Daf(cols=['id', 'item', 'qty'], keyfield='id', lol=[['a1', 'pen', 3], ['b2', 'ink', ''], ['c3', 'pad', 7]]), name='items')
+        >>> items_sdaf.col_to_la('qty', omit_nulls=True)
+        [3, 7]
     """
     # A plain column is read straight into a list, with the options applied as Daf applies them.
     if colname in self.hd:
@@ -409,7 +584,7 @@ def _col_to_la(
 
 def _icol(self: 'SqlDaf', icol: int) -> T_la:
     """
-    Get one column as a list, by its place among the columns, as `Daf.icol()` does.
+    Get one column as a list, by its place among the columns, as [`Daf.icol()`][daffodil.daf_select._icol] does.
 
     The place is looked up in the column names, so it does not depend on the rows. A
     negative place counts from the end. A place out of range raises IndexError, unless the
@@ -423,6 +598,15 @@ def _icol(self: 'SqlDaf', icol: int) -> T_la:
 
     Raises:
         IndexError: The place is out of range, and the table has rows.
+
+    Examples:
+        >>> import tempfile
+        >>> SqlDaf.db_path = tempfile.mkdtemp() + '/job.db'
+        >>> items_sdaf = SqlDaf.from_daf(Daf(cols=['id', 'item', 'qty'], keyfield='id', lol=[['a1', 'pen', 3], ['b2', 'ink', ''], ['c3', 'pad', 7]]), name='items')
+        >>> items_sdaf.icol(1)
+        ['pen', 'ink', 'pad']
+        >>> items_sdaf.icol(-1)
+        [3, '', 7]
     """
     return self.icol_to_la(icol)
 
@@ -443,6 +627,15 @@ def _icol_to_la(self: 'SqlDaf', icol: int, unique: bool = False, omit_nulls: boo
 
     Raises:
         IndexError: The place is out of range, and the table has rows.
+
+    Examples:
+        >>> import tempfile
+        >>> SqlDaf.db_path = tempfile.mkdtemp() + '/job.db'
+        >>> items_sdaf = SqlDaf.from_daf(Daf(cols=['id', 'g', 'qty'], keyfield='id', lol=[['a1', 'x', 3], ['b2', 'y', ''], ['c3', 'x', 7]]), name='items')
+        >>> items_sdaf.icol_to_la(1, unique=True)
+        ['x', 'y']
+        >>> items_sdaf.icol_to_la(2, omit_nulls=True)
+        [3, 7]
     """
     cols_ls: T_ls = list(self.hd)
     if not -len(cols_ls) <= icol < len(cols_ls):
@@ -454,7 +647,7 @@ def _icol_to_la(self: 'SqlDaf', icol: int, unique: bool = False, omit_nulls: boo
 
 def _cols_to_dol(self: 'SqlDaf', colname1: str, colname2: str) -> Dict[Any, T_la]:
     """
-    Map each value of one column to the values seen with it in another, as `Daf.cols_to_dol()` does.
+    Map each value of one column to the values seen with it in another, as [`Daf.cols_to_dol()`][daffodil.daf_apply._cols_to_dol] does.
 
     Only the two columns are read into memory. If a name is not a column, or there are no
     rows, the result is empty.
@@ -465,6 +658,13 @@ def _cols_to_dol(self: 'SqlDaf', colname1: str, colname2: str) -> Dict[Any, T_la
 
     Returns:
         A dict from each value of the first column to the values of the second, in the order first seen.
+
+    Examples:
+        >>> import tempfile
+        >>> SqlDaf.db_path = tempfile.mkdtemp() + '/job.db'
+        >>> items_sdaf = SqlDaf.from_daf(Daf(cols=['id', 'g', 'item'], keyfield='id', lol=[['a1', 'x', 'pen'], ['b2', 'y', 'ink'], ['c3', 'x', 'pad']]), name='items')
+        >>> items_sdaf.cols_to_dol('g', 'item')
+        {'x': ['pen', 'pad'], 'y': ['ink']}
     """
     if colname1 not in self.hd or colname2 not in self.hd:
         return {}
@@ -473,19 +673,26 @@ def _cols_to_dol(self: 'SqlDaf', colname1: str, colname2: str) -> Dict[Any, T_la
 
 def _to_lod(self: 'SqlDaf') -> List[T_da]:
     """
-    Make a list of dicts, one for each row, as `Daf.to_lod()` does.
+    Make a list of dicts, one for each row, as [`Daf.to_lod()`][daffodil.daf_convert._to_lod] does.
 
     Every row is read into memory. Use `iter_dict()` to go through the rows one at a time.
 
     Returns:
         The rows as dicts, in order.
+
+    Examples:
+        >>> import tempfile
+        >>> SqlDaf.db_path = tempfile.mkdtemp() + '/job.db'
+        >>> items_sdaf = SqlDaf.from_daf(Daf(cols=['id', 'item', 'qty'], keyfield='id', lol=[['a1', 'pen', 3], ['b2', 'ink', '']]), name='items')
+        >>> items_sdaf.to_lod()
+        [{'id': 'a1', 'item': 'pen', 'qty': 3}, {'id': 'b2', 'item': 'ink', 'qty': ''}]
     """
     return list(self.iter_dict())
 
 
 def _to_dod(self: 'SqlDaf', remove_keyfield: bool = True) -> Dict[Any, T_da]:
     """
-    Make a dict of dicts, named by the keyfield, as `Daf.to_dod()` does.
+    Make a dict of dicts, named by the keyfield, as [`Daf.to_dod()`][daffodil.daf_convert._to_dod] does.
 
     Every row is read into memory, through `to_daf()`.
 
@@ -497,22 +704,40 @@ def _to_dod(self: 'SqlDaf', remove_keyfield: bool = True) -> Dict[Any, T_da]:
 
     Raises:
         KeysDisabledError: There is no keyfield, and there are rows.
+
+    Examples:
+        >>> import tempfile
+        >>> SqlDaf.db_path = tempfile.mkdtemp() + '/job.db'
+        >>> items_sdaf = SqlDaf.from_daf(Daf(cols=['id', 'item', 'qty'], keyfield='id', lol=[['a1', 'pen', 3], ['b2', 'ink', '']]), name='items')
+        >>> items_sdaf.to_dod()
+        {'a1': {'item': 'pen', 'qty': 3}, 'b2': {'item': 'ink', 'qty': ''}}
+        >>> items_sdaf.to_dod(remove_keyfield=False)
+        {'a1': {'id': 'a1', 'item': 'pen', 'qty': 3}, 'b2': {'id': 'b2', 'item': 'ink', 'qty': ''}}
     """
     return self.to_daf().to_dod(remove_keyfield=remove_keyfield)
 
 
 def _to_json(self: 'SqlDaf', concise: bool = True) -> str:
     """
-    Make JSON text that holds the whole table, as `Daf.to_json()` does.
+    Make JSON text that holds the whole table, as [`Daf.to_json()`][daffodil.daf_convert._to_json] does.
 
     Every row is read into memory, through `to_daf()`. The text holds the rows, the column
-    names, the dtypes, the keyfield and the name. `Daf.from_json()` reads it back as a Daf.
+    names, the dtypes, the keyfield and the name. [`Daf.from_json()`][daffodil.daf_convert._from_json] reads it back as a Daf.
 
     Args:
         concise: If True, leave out the parts that are empty.
 
     Returns:
         The JSON text.
+
+    Examples:
+        >>> import tempfile
+        >>> SqlDaf.db_path = tempfile.mkdtemp() + '/job.db'
+        >>> items_sdaf = SqlDaf.from_daf(Daf(cols=['id', 'qty'], keyfield='id', lol=[['a1', 3], ['b2', '']]), name='items')
+        >>> items_sdaf.to_json()
+        '{"name": "items", "lol": [["a1", 3], ["b2", ""]], "hd": {"id": 0, "qty": 1}, "keyfield": "id"}'
+        >>> items_sdaf.to_json(concise=False)
+        '{"name": "items", "lol": [["a1", 3], ["b2", ""]], "hd": {"id": 0, "qty": 1}, "dtypes": {}, "keyfield": "id", "attrs": {}, "disp_cols": []}'
     """
     return self.to_daf().to_json(concise=concise)
 
@@ -524,7 +749,7 @@ def _daf_to_lol_summary(
         disp_cols:  T_cs | None = None,
         ) -> T_lola:
     """
-    Give the header and the rows to display, as `Daf.daf_to_lol_summary()` does.
+    Give the header and the rows to display, as [`Daf.daf_to_lol_summary()`][daffodil.daf_report._daf_to_lol_summary] does.
 
     With `max_rows`, only the first and last rows are read, around a row of '...'. Without
     it, every row is read.
@@ -536,6 +761,17 @@ def _daf_to_lol_summary(
 
     Returns:
         The header, then the rows.
+
+    Examples:
+        >>> import tempfile
+        >>> SqlDaf.db_path = tempfile.mkdtemp() + '/job.db'
+        >>> nums_sdaf = SqlDaf.from_daf(Daf(cols=['id', 'a', 'b', 'c'], lol=[[f'r{i}', i, i * 10, i * 100] for i in range(6)]), name='nums')
+        >>> nums_sdaf.daf_to_lol_summary(max_rows=4, max_cols=0)
+        [['id', 'a', 'b', 'c'], ['r0', 0, 0, 0], ['r1', 1, 10, 100], ['...', '...', '...', '...'], ['r4', 4, 40, 400], ['r5', 5, 50, 500]]
+        >>> nums_sdaf.daf_to_lol_summary(max_rows=0, max_cols=2)
+        [['id', '...', 'c'], ['r0', '...', 0], ['r1', '...', 100], ['r2', '...', 200], ['r3', '...', 300], ['r4', '...', 400], ['r5', '...', 500]]
+        >>> nums_sdaf.daf_to_lol_summary(max_rows=2, max_cols=0, disp_cols={'a': 'A'})
+        [['id', 'A', 'b', 'c'], ['r0', 0, 0, 0], ['...', '...', '...', '...'], ['r5', 5, 50, 500]]
     """
     colnames_ls: T_ls = daf_utils.display_colnames(list(self.hd), disp_cols)
     header_lol: T_lola = [colnames_ls] if colnames_ls else []
@@ -568,7 +804,7 @@ def _to_md(
         header:             Any = None,
         ) -> str:
     """
-    Make a Markdown table, as `Daf.to_md()` does.
+    Make a Markdown table, as [`Daf.to_md()`][daffodil.daf_report._to_md] does.
 
     Set `max_rows` for a large table. Then only the first and last rows are read. Without it,
     every row is read into memory.
@@ -586,6 +822,53 @@ def _to_md(
 
     Returns:
         The Markdown text.
+
+    Examples:
+        >>> import tempfile
+        >>> SqlDaf.db_path = tempfile.mkdtemp() + '/job.db'
+        >>> items_sdaf = SqlDaf.from_daf(Daf(cols=['id', 'item', 'price', 'note'], keyfield='id', lol=[
+        ...     ['a1', 'pen', 1.5, 'blue, fine tip'], ['b2', 'ink', 4.0, ''], ['c3', 'pad', 2.25, 'lined, 80 sheets of recycled paper']]), name='items')
+        >>> print(items_sdaf.to_md())
+        | id | item | price |                note                |
+        | -: | ---: | ----: | ---------------------------------: |
+        | a1 |  pen |   1.5 |                     blue, fine tip |
+        | b2 |  ink |   4.0 |                                    |
+        | c3 |  pad |  2.25 | lined, 80 sheets of recycled paper |
+        <BLANKLINE>
+
+        Only the first and last rows are read with `max_rows`:
+
+        >>> print(items_sdaf.to_md(max_rows=2, max_cols=3))
+        | id  | item | ... |                note                |
+        | --: | ---: | --: | ---------------------------------: |
+        |  a1 |  pen | ... |                     blue, fine tip |
+        | ... |  ... | ... |                                ... |
+        |  c3 |  pad | ... | lined, 80 sheets of recycled paper |
+        <BLANKLINE>
+
+        The other options act as in a Daf:
+
+        >>> print(items_sdaf.to_md(just='<<><', max_text_len=12, smart_fmt=True))
+        | id | item | price |     note     |
+        | :- | :--- | ----: | :----------- |
+        | a1 | pen  |   1.5 | blue,..e tip |
+        | b2 | ink  |   4.0 |              |
+        | c3 | pad  |   2.2 | lined..paper |
+        <BLANKLINE>
+        >>> print(items_sdaf.to_md(shorten_text=False, disp_cols={'item': 'Item'}, include_summary=True))
+        | id | Item | price |                note                |
+        | -: | ---: | ----: | ---------------------------------: |
+        | a1 |  pen |   1.5 |                     blue, fine tip |
+        | b2 |  ink |   4.0 |                                    |
+        | c3 |  pad |  2.25 | lined, 80 sheets of recycled paper |
+        <BLANKLINE>
+        %% daf rows=3; cols=4; keyfield='id'; name='items'
+        <BLANKLINE>
+        >>> print(items_sdaf[0:1].to_md(header=['ID', 'Item', 'Price', 'Note']))
+        | ID | Item | Price |      Note      |
+        | -: | ---: | ----: | -------------: |
+        | a1 |  pen |   1.5 | blue, fine tip |
+        <BLANKLINE>
     """
     md_str: str = Daf.to_md(self, max_rows=max_rows, max_cols=max_cols, just=just, shorten_text=shorten_text,
                             max_text_len=max_text_len, smart_fmt=smart_fmt, include_summary=False,
@@ -607,7 +890,7 @@ def _to_md_cols(
         disp_cols:          T_cs | None = None,
         ) -> str:
     """
-    Make a Markdown table with each row as a column, as `Daf.to_md_cols()` does.
+    Make a Markdown table with each row as a column, as [`Daf.to_md_cols()`][daffodil.daf_report._to_md_cols] does.
 
     Set `max_rows` for a large table. Then only the first and last rows are read.
 
@@ -623,6 +906,29 @@ def _to_md_cols(
 
     Returns:
         The Markdown text.
+
+    Examples:
+        >>> import tempfile
+        >>> SqlDaf.db_path = tempfile.mkdtemp() + '/job.db'
+        >>> items_sdaf = SqlDaf.from_daf(Daf(cols=['id', 'item', 'price', 'note'], keyfield='id', lol=[
+        ...     ['a1', 'pen', 1.5, 'blue, fine tip'], ['b2', 'ink', 4.0, ''], ['c3', 'pad', 2.25, 'lined, 80 sheets of recycled paper']]), name='items')
+        >>> print(items_sdaf.to_md_cols())
+        |  id   |       a1       | b2  |                 c3                 |
+        | item  |      pen       | ink |                pad                 |
+        | price |      1.5       | 4.0 |                2.25                |
+        | note  | blue, fine tip |     | lined, 80 sheets of recycled paper |
+        <BLANKLINE>
+        >>> print(items_sdaf.to_md_cols(max_rows=2, just='<<<', max_text_len=12, smart_fmt=True, disp_cols={'id': 'ID'}))
+        | ID    | a1           | ... | c3           |
+        | item  | pen          | ... | pad          |
+        | price | 1.5          | ... | 2.2          |
+        | note  | blue,..e tip | ... | lined..paper |
+        <BLANKLINE>
+        >>> print(items_sdaf.to_md_cols(max_cols=2, shorten_text=False))
+        |  id  |       a1       | b2  |                 c3                 |
+        | ...  |      ...       | ... |                ...                 |
+        | note | blue, fine tip |     | lined, 80 sheets of recycled paper |
+        <BLANKLINE>
     """
     return Daf.to_md_cols(self, max_rows=max_rows, max_cols=max_cols, just=just, shorten_text=shorten_text,
                           max_text_len=max_text_len, smart_fmt=smart_fmt, include_summary=include_summary,
@@ -641,6 +947,13 @@ def _iloc_exists(self: 'SqlDaf', irow: int) -> bool:
 
     Raises:
         ValueError: This is a parent that has had rows deleted. See SqlDaf.
+
+    Examples:
+        >>> import tempfile
+        >>> SqlDaf.db_path = tempfile.mkdtemp() + '/job.db'
+        >>> items_sdaf = SqlDaf.from_daf(Daf(cols=['id', 'qty'], keyfield='id', lol=[['a1', 3], ['b2', '']]), name='items')
+        >>> items_sdaf.iloc_exists(1), items_sdaf.iloc_exists(2)
+        (True, False)
     """
     self._check_positions('iloc_exists')
     rows_sql, rows_params = self._rows_sql()

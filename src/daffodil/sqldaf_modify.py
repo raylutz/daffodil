@@ -45,7 +45,7 @@ def _delete_records(
         silent_error:   bool = False,               # if True, keys that are not found are ignored.
         ) -> 'SqlDaf':
     """
-    Remove the rows with these keys, as `Daf.delete_records()` does. A Python NULL key gives
+    Remove the rows with these keys, as [`Daf.delete_records()`][daffodil.daf_modify._delete_records] does. A Python NULL key gives
     undefined results: see SqlDaf.
 
     By default nothing is changed: a selection without those rows is returned, as
@@ -109,7 +109,7 @@ def _delete_records(
 
 def _remove_dups(self: 'SqlDaf', keyfield: str = '') -> Tuple['SqlDaf', 'SqlDaf']:
     """
-    Split the rows into those with a unique key and those with a repeated key, as `Daf.remove_dups()` does.
+    Split the rows into those with a unique key and those with a repeated key, as [`Daf.remove_dups()`][daffodil.daf_modify._remove_dups] does.
 
     Only the key column is compared, not the whole row.
     For each key, the last row is the unique one. The earlier rows with that key are the duplicates.
@@ -176,7 +176,7 @@ def _remove_dups(self: 'SqlDaf', keyfield: str = '') -> Tuple['SqlDaf', 'SqlDaf'
 
 def _concat(self: 'SqlDaf', other_instance: Daf, respect_kd: bool = False) -> 'SqlDaf':
     """
-    Add the rows of another Daf or SqlDaf to the end of this one, as `Daf.concat()` does.
+    Add the rows of another Daf or SqlDaf to the end of this one, as [`Daf.concat()`][daffodil.daf_modify._concat] does.
 
     The other must have the same columns, in the same order, as in a Daf. An other with no
     rows adds nothing, whatever its columns, as in a Daf. So the empty result of `apply()`,
@@ -285,7 +285,7 @@ def _append(
         fast:       bool = False,
         ) -> 'SqlDaf':
     """
-    Add one row, or several, to the end, as `Daf.append()` does.
+    Add one row, or several, to the end, as [`Daf.append()`][daffodil.daf_modify._append] does.
 
     - A dict or a KeyedList is one row, placed by column name.
     - A list of values is one row, in column order. A short list is padded with Python NULL.
@@ -340,7 +340,7 @@ def _append(
 
 def _record_append(self: 'SqlDaf', record: T_da | KeyedList, respect_kd: bool = True) -> 'SqlDaf':
     """
-    Add one row given as a dict or a KeyedList, as `Daf.record_append()` does.
+    Add one row given as a dict or a KeyedList, as [`Daf.record_append()`][daffodil.daf_modify._record_append] does.
 
     By default the row with the same key is replaced, in its place. This is the default
     here, unlike `append()`. An empty record adds nothing.
@@ -372,7 +372,7 @@ def _extend(
         lol:            T_lola | None = None,
         ) -> 'SqlDaf':
     """
-    Add several rows, as dicts or as lists, as `Daf.extend()` does.
+    Add several rows, as dicts or as lists, as [`Daf.extend()`][daffodil.daf_modify._extend] does.
 
     Each dict is placed by column name. Each list of `lol` is in column order. All rows are
     added in one transaction. If one fails, none is added.
@@ -406,7 +406,7 @@ def _extend(
 
 def _assign_record(self: 'SqlDaf', record: T_da) -> 'SqlDaf':
     """
-    Put one row in by its key, replacing the row that has that key, as `Daf.assign_record()` does.
+    Put one row in by its key, replacing the row that has that key, as [`Daf.assign_record()`][daffodil.daf_modify._assign_record] does.
 
     The whole row is replaced, in its place. Columns the dict lacks become Python NULL. A new
     key is added at the end. Use `update_record_krow()` to change only some cells.
@@ -429,7 +429,7 @@ def _assign_record(self: 'SqlDaf', record: T_da) -> 'SqlDaf':
 
 def _update_by_keylist(self: 'SqlDaf', keylist: T_la | None = None, record: T_da | None = None) -> 'SqlDaf':
     """
-    Change some cells in the rows that have the given keys, as `Daf.update_by_keylist()` does.
+    Change some cells in the rows that have the given keys, as [`Daf.update_by_keylist()`][daffodil.daf_modify._update_by_keylist] does.
 
     Only the columns named in the dict change. A key that is not found is skipped. It is one
     UPDATE for all the keys. For one row, `update_record_krow()` raises KeyError for a missing key. On a selection, the parent's rows change, as a Daf selection
@@ -463,7 +463,7 @@ def _update_by_keylist(self: 'SqlDaf', keylist: T_la | None = None, record: T_da
 
 def _update_record_krow(self: 'SqlDaf', key: Any, record: T_da | None = None) -> 'SqlDaf':
     """
-    Change some cells in the row that has this key, as `Daf.update_record_krow()` does.
+    Change some cells in the row that has this key, as [`Daf.update_record_krow()`][daffodil.daf_modify._update_record_krow] does.
 
     Only the columns named in the dict change. An int is always a key here, never a
     position, so it suits a keyfield of ints. It is one UPDATE. On a selection, the
@@ -528,7 +528,7 @@ def _update_record_krow(self: 'SqlDaf', key: Any, record: T_da | None = None) ->
 
 def _assign_col(self: 'SqlDaf', colname: str, la: T_la | None = None, default: Any = NULL) -> 'SqlDaf':
     """
-    Fill a column by name with the values of a list, or add it if it is new, as `Daf.assign_col()` does.
+    Fill a column by name with the values of a list, or add it if it is new, as [`Daf.assign_col()`][daffodil.daf_modify._assign_col] does.
 
     The values go to the rows in order. A short list is filled out with `default`, and a long
     one is cut. With no list, every row gets `default`. A new column is added at the end, with
@@ -563,7 +563,7 @@ def _assign_col(self: 'SqlDaf', colname: str, la: T_la | None = None, default: A
 
 def _apply_to_col(self: 'SqlDaf', col: str, func: Callable, **kwargs: Any) -> 'SqlDaf':
     """
-    Replace each value of a column by the result of a function, in place, as `Daf.apply_to_col()` does.
+    Replace each value of a column by the result of a function, in place, as [`Daf.apply_to_col()`][daffodil.daf_apply._apply_to_col] does.
 
     It is one UPDATE, with the function registered in SQLite. The function gets Python NULL
     for SQL NULL. An error it raises is raised as itself, and nothing changes.
@@ -605,7 +605,7 @@ def _apply_in_place(
         **kwargs:   Any,                        # passed on to func.
         ) -> 'SqlDaf':
     """
-    Apply a function to each row and store the results, as `Daf.apply_in_place()` does.
+    Apply a function to each row and store the results, as [`Daf.apply_in_place()`][daffodil.daf_apply._apply_in_place] does.
 
     With `by='row'`, the function gets each row as a dict and returns a dict. Its values are
     written back by column name. A column the dict lacks keeps its value. With
@@ -697,7 +697,7 @@ def _insert_col(
         default:    Any = NULL,                 # the value for rows that the list does not reach.
         ) -> 'SqlDaf':
     """
-    Add a named column, or fill it if the name is there, as `Daf.insert_col()` does.
+    Add a named column, or fill it if the name is there, as [`Daf.insert_col()`][daffodil.daf_modify._insert_col] does.
 
     A new column goes at the end, since ALTER TABLE adds columns only there.
     Any other position raises NotImplementedError.
@@ -754,7 +754,7 @@ def _insert_col(
 
 def _insert_idx_col(self: 'SqlDaf', colname: str = 'idx', icol: int = 0, startat: int = 0) -> 'SqlDaf':
     """
-    Insert a column of row numbers, as `Daf.insert_idx_col()` does.
+    Insert a column of row numbers, as [`Daf.insert_idx_col()`][daffodil.daf_modify._insert_idx_col] does.
 
     The rows are numbered from `startat`, in their order here, so a selection is numbered from
     its own first row. The column goes at `icol`. A negative `icol`, or one past the last column,
@@ -832,7 +832,7 @@ def _insert_idx_col(self: 'SqlDaf', colname: str = 'idx', icol: int = 0, startat
 
 def _drop_cols(self: 'SqlDaf', exclude_cols: T_ls | None = None) -> 'SqlDaf':
     """
-    Remove columns from the table, in place, as `Daf.drop_cols()` does.
+    Remove columns from the table, in place, as [`Daf.drop_cols()`][daffodil.daf_modify._drop_cols] does.
 
     Each column goes with ALTER TABLE DROP COLUMN, which rewrites the table.
     On 1,000,000 rows of 6 columns, one drop took 0.73 s, twice the time of `copy()`.
@@ -895,7 +895,7 @@ def _drop_cols(self: 'SqlDaf', exclude_cols: T_ls | None = None) -> 'SqlDaf':
 
 def _rename_cols(self: 'SqlDaf', from_to_dict: T_ds) -> 'SqlDaf':
     """
-    Rename columns in place, as `Daf.rename_cols()` does.
+    Rename columns in place, as [`Daf.rename_cols()`][daffodil.daf_structure._rename_cols] does.
 
     Each is ALTER TABLE RENAME COLUMN, which changes only the schema.
     On 1,000,000 rows it took 15 ms.
@@ -979,7 +979,7 @@ def _set_cols(
         unnamed_prefix: str = 'col',            # the start of a name made for an empty one.
         ) -> 'SqlDaf':
     """
-    Set the column names by position, in place, as `Daf.set_cols()` does.
+    Set the column names by position, in place, as [`Daf.set_cols()`][daffodil.daf_structure._set_cols] does.
 
     The names are made as in a Daf.
     Without a list, they are A, B, C and so on.
@@ -1032,7 +1032,7 @@ def _set_dtypes(
         typ_to_cols_dict:   Dict[Type, T_ls] | None = None, # maps a type to the names of its columns.
         ) -> 'SqlDaf':
     """
-    Set the dtype of every column, from a default and a few exceptions, as `Daf.set_dtypes()` does.
+    Set the dtype of every column, from a default and a few exceptions, as [`Daf.set_dtypes()`][daffodil.daf_dtypes._set_dtypes] does.
 
     No value is converted. `apply_dtypes()` does that.
     On a permanent table with a record, the record is changed too, as `set_keyfield()` changes it.
@@ -1074,7 +1074,7 @@ def _sort_by_colname(
         as_str:             bool = False,       # if True, sort by the text of each value.
         ) -> 'SqlDaf':
     """
-    Sort the rows by one column, in place, as `Daf.sort_by_colname()` does.
+    Sort the rows by one column, in place, as [`Daf.sort_by_colname()`][daffodil.daf_modify._sort_by_colname] does.
 
     See `sort_by_colnames()` for how the rows are sorted and where they go.
 
@@ -1122,7 +1122,7 @@ def _sort_by_colnames(
         as_str:             bool = False,       # if True, sort by the text of each value.
         ) -> 'SqlDaf':
     """
-    Sort the rows by several columns, in place, as `Daf.sort_by_colnames()` does.
+    Sort the rows by several columns, in place, as [`Daf.sort_by_colnames()`][daffodil.daf_modify._sort_by_colnames] does.
 
     The first column is the main sort key. The others break ties.
     Rows that tie on every column keep their order, as Python's sort keeps them.
@@ -1216,7 +1216,7 @@ def _sort_by_colnames(
 
 def _attach_schema(self: 'SqlDaf', schema: type) -> 'SqlDaf':
     """
-    Attach a `@schemaclass` to this SqlDaf, as `Daf.attach_schema()` does.
+    Attach a `@schemaclass` to this SqlDaf, as [`Daf.attach_schema()`][daffodil.lib.daf_schema._attach_schema] does.
 
     It stores the schema, then fills in the dtypes and the keyfield, each only if there is none.
     No value is converted, and nothing is checked against the rows.

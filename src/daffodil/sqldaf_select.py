@@ -74,7 +74,7 @@ def _select_where(
         cols:           T_ls | None = None,         # the columns the function reads. All if None.
         ) -> 'SqlDaf':
     """
-    Select the rows for which a Python function is true, as `Daf.select_where()` does.
+    Select the rows for which a Python function is true, as [`Daf.select_where()`][daffodil.daf_select._select_where] does.
 
     The function gets each row as a [KeyedList][daffodil.keyedlist.KeyedList], with Python NULL for
     a missing value, and reads cells by name, as in `row['n']`. It is registered with SQLite
@@ -139,7 +139,7 @@ def _select_by_dict(
     """
     Select the rows that match every field of a dict, or any one of a list of dicts.
 
-    It works as `Daf.select_by_dict()` does, with the SQL written for you. A dict is an AND of
+    It works as [`Daf.select_by_dict()`][daffodil.daf_select._select_by_dict] does, with the SQL written for you. A dict is an AND of
     equalities, and a list of dicts is an OR of those. With `inverse=True`, the rows that do
     not match. An empty dict matches every row, and an empty list none. A dict that names a
     column that is not there matches no row. Python NULL as a value matches a missing value.
@@ -236,10 +236,10 @@ def _split_where(
     """
     Split the rows in two, by a Python function that is true or false for each row.
 
-    This is deprecated, as `Daf.split_where()` is. Use `group_where()` with a function that
+    This is deprecated, as [`Daf.split_where()`][daffodil.daf_select._split_where] is. Use `group_where()` with a function that
     returns True or False.
 
-    It works as `Daf.split_where()` does, with the rows staying in the database. It is two
+    It works as [`Daf.split_where()`][daffodil.daf_select._split_where] does, with the rows staying in the database. It is two
     calls of `select_where()`: one keeps the rows where the function is true, and the other
     the rest. Nothing runs yet. Each side is found when it is first read, and the function is
     called again for each side that is read. So it should give the same answer each time.
@@ -285,7 +285,7 @@ def _split_where(
 
 def _select_first_row_by_dict(self: 'SqlDaf', selector_da: T_da, inverse: bool = False) -> T_da:
     """
-    Get the first row that matches every field of a dict, as `Daf.select_first_row_by_dict()` does.
+    Get the first row that matches every field of a dict, as [`Daf.select_first_row_by_dict()`][daffodil.daf_select._select_first_row_by_dict] does.
 
     The matching rule is that of `select_by_dict()`. The search stops at the first match.
 
@@ -307,7 +307,7 @@ def _select_krows(
         silent_error:   bool = False,               # if True, keys that are not found are ignored.
         ) -> 'SqlDaf':
     """
-    Select rows by key, as `Daf.select_krows()` does.
+    Select rows by key, as [`Daf.select_krows()`][daffodil.daf_select._select_krows] does.
 
     - A key, or a list or other iterable of keys, selects those rows, in the order of the keys.
       This is `select_records_daf()`.
@@ -373,7 +373,7 @@ def _select_records_daf(
         silent_error:   bool = False,               # if True, keys that are not found are ignored.
         ) -> 'SqlDaf':
     """
-    Select the rows with these keys, as `Daf.select_records_daf()` does.
+    Select the rows with these keys, as [`Daf.select_records_daf()`][daffodil.daf_select._select_records_daf] does.
 
     The keys may be a list or any iterable, an in-memory Daf, or another SqlDaf of the same
     database file. A SqlDaf's keys are used in SQL, as a join, so no key comes into Python. The other forms are written to a TEMP table first. The selected rows come in
@@ -452,7 +452,7 @@ def _calc_cols(
         exclude_types:  List[Type] | None = None,
         ) -> T_ls:
     """
-    Choose column names by rules, as `Daf.calc_cols()` does.
+    Choose column names by rules, as [`Daf.calc_cols()`][daffodil.daf_structure._calc_cols] does.
 
     It reads only the column names and the dtypes, never the rows.
 
@@ -475,7 +475,7 @@ def _select_cols(
         exclude_cols:   T_ls | None = None,     # the columns to leave out.
         ) -> 'SqlDaf':
     """
-    Make a new table with only some columns, chosen by name, as `Daf.select_cols()` does.
+    Make a new table with only some columns, chosen by name, as [`Daf.select_cols()`][daffodil.daf_select._select_cols] does.
 
     The columns come in the order of `cols`. A name given twice is used once. A name that is
     not a column raises KeyError. With no `cols`, all columns are kept, in this table's order.

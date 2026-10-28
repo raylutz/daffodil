@@ -78,7 +78,7 @@ def null_to_none(row_la: Iterable[Any]) -> Tuple[Any, ...]:
     A row on its way into SQL. Internal use.
 
     Python NULL becomes None, which SQLite stores as SQL NULL.
-    A dict or a list becomes its text, as `Daf.to_csv_file()` writes it.
+    A dict or a list becomes its text, as [`Daf.to_csv_file()`][daffodil.daf_convert._to_csv_file] writes it.
     A subclass of either, or a tuple, is passed as it is, and SQLite refuses it.
     """
     return tuple(None if val is NULL else str(val) if val.__class__ in _TEXT_CELL_CLASSES else val
@@ -221,8 +221,8 @@ class GroupReduction:
     A subclass sets func, read_cols, reduce_cols, result_cols and call_kwargs.
     Each cell of a row comes as one argument, as for RowReduction.
     The rows of the group are kept as they are stored, with SQL NULL as Python NULL.
-    At the end they are one Daf, reduced by `Daf.reduce()`.
-    So the function is called just as `Daf.groupby_reduce()` calls it.
+    At the end they are one Daf, reduced by [`Daf.reduce()`][daffodil.daf_apply._reduce].
+    So the function is called just as [`Daf.groupby_reduce()`][daffodil.daf_apply._groupby_reduce] calls it.
     A plain sum then adds down each column, which is much faster than a call for each row.
     """
     func:           Callable[..., Any]
@@ -644,7 +644,7 @@ class SqlDaf(Daf):
         as SQL NULL. The table gets a hidden first column, daf_rid, an INTEGER PRIMARY KEY, which
         numbers the rows in order. It is not one of the `columns()`. The columns are declared
         with no SQL type, so an int stays an int, and text stays text. A cell that holds a dict
-        or a list is stored as its text, as `Daf.to_csv_file()` writes it, and is read back as
+        or a list is stored as its text, as [`Daf.to_csv_file()`][daffodil.daf_convert._to_csv_file] writes it, and is read back as
         that text. `to_daf().apply_dtypes()` decodes it, with the column's dtype dict or list, as
         for a table loaded from a CSV file.
 
@@ -1709,6 +1709,15 @@ class SqlDaf(Daf):
 
         Returns:
             The number of rows.
+
+        Examples:
+            >>> import tempfile
+            >>> SqlDaf.db_path = tempfile.mkdtemp() + '/job.db'
+            >>> items_sdaf = SqlDaf.from_daf(Daf(cols=['id', 'g', 'qty'], keyfield='id', lol=[['a1', 'x', 3], ['b2', 'y', ''], ['c3', 'x', 7]]), name='items')
+            >>> len(items_sdaf)
+            3
+            >>> len(items_sdaf.select_by_dict({'g': 'x'}))
+            2
         """
         self._resolve()
         if self.parent_sdaf is None:
@@ -1717,7 +1726,21 @@ class SqlDaf(Daf):
 
 
     def len(self) -> int:
-        """ Count the rows, as `len(sdaf)` does. It is here so that code written for a Daf, which calls `daf.len()`, runs on a SqlDaf. """
+        """
+        Count the rows, as `len(sdaf)` does.
+
+        It is here so that code written for a Daf, which calls `daf.len()`, runs on a SqlDaf.
+
+        Returns:
+            The number of rows.
+
+        Examples:
+            >>> import tempfile
+            >>> SqlDaf.db_path = tempfile.mkdtemp() + '/job.db'
+            >>> items_sdaf = SqlDaf.from_daf(Daf(cols=['id', 'qty'], keyfield='id', lol=[['a1', 3], ['b2', '']]), name='items')
+            >>> items_sdaf.len()
+            2
+        """
         return len(self)
 
 
@@ -1730,6 +1753,15 @@ class SqlDaf(Daf):
 
         Returns:
             True if there is a row.
+
+        Examples:
+            >>> import tempfile
+            >>> SqlDaf.db_path = tempfile.mkdtemp() + '/job.db'
+            >>> items_sdaf = SqlDaf.from_daf(Daf(cols=['id', 'qty'], keyfield='id', lol=[['a1', 3], ['b2', 10]]), name='items')
+            >>> bool(items_sdaf)
+            True
+            >>> bool(items_sdaf.select_where_sql('qty > ?', [50]))
+            False
         """
         self._resolve()
         return self.conn.execute(f'SELECT 1 FROM {quote_name(self.name)} LIMIT 1').fetchone() is not None
@@ -1743,6 +1775,13 @@ class SqlDaf(Daf):
 
         Returns:
             The number of columns.
+
+        Examples:
+            >>> import tempfile
+            >>> SqlDaf.db_path = tempfile.mkdtemp() + '/job.db'
+            >>> items_sdaf = SqlDaf.from_daf(Daf(cols=['id', 'item', 'qty'], keyfield='id', lol=[['a1', 'pen', 3]]), name='items')
+            >>> items_sdaf.num_cols()
+            3
         """
         return len(self.hd)
 
@@ -1782,19 +1821,45 @@ class SqlDaf(Daf):
 
         Returns:
             The rows, as dicts.
+
+        Examples:
+            >>> import tempfile
+            >>> SqlDaf.db_path = tempfile.mkdtemp() + '/job.db'
+            >>> items_sdaf = SqlDaf.from_daf(Daf(cols=['id', 'qty'], keyfield='id', lol=[['a1', 3], ['b2', ''], ['c3', 7]]), name='items')
+            >>> def total_qty(sdaf):
+            ...     total = 0
+            ...     for row in sdaf:
+            ...         total += row['qty'] or 0
+            ...     return total
+            >>> total_qty(items_sdaf)
+            10
         """
         return self.iter_dict()
 
 
     def iter_dict(self) -> Iterator[T_da]:                                  # type: ignore[override]
         """
-        Loop over the rows as dicts, as `Daf.iter_dict()` does.
+        Loop over the rows as dicts, as [`Daf.iter_dict()`][daffodil.daf.Daf.iter_dict] does.
 
         Rows are read in order, in batches. SQL NULL comes back as Python NULL. Each dict is a
         copy, so changing it does not change the table.
 
         Returns:
             Each row as a dict of column name to value.
+
+        Examples:
+            >>> import tempfile
+            >>> SqlDaf.db_path = tempfile.mkdtemp() + '/job.db'
+            >>> items_sdaf = SqlDaf.from_daf(Daf(cols=['id', 'qty'], keyfield='id', lol=[['a1', 3], ['b2', '']]), name='items')
+            >>> list(items_sdaf.iter_dict())
+            [{'id': 'a1', 'qty': 3}, {'id': 'b2', 'qty': ''}]
+
+            Each dict is a copy. Changing it leaves the table as it was:
+
+            >>> for row in items_sdaf.iter_dict():
+            ...     row['qty'] = 0
+            >>> items_sdaf.col('qty')
+            [3, '']
         """
         cols_ls: T_ls = list(self.hd)
         batch_lot: List[Tuple[Any, ...]]
@@ -1812,6 +1877,25 @@ class SqlDaf(Daf):
 
         Returns:
             Each row as a KeyedList.
+
+        Examples:
+            >>> import tempfile
+            >>> SqlDaf.db_path = tempfile.mkdtemp() + '/job.db'
+            >>> items_sdaf = SqlDaf.from_daf(Daf(cols=['id', 'qty'], keyfield='id', lol=[['a1', 3], ['b2', 10]]), name='items')
+            >>> [row['qty'] for row in items_sdaf.iter_klist()]
+            [3, 10]
+
+            Assigning to a row changes only the copy:
+
+            >>> for row in items_sdaf.iter_klist():
+            ...     row['qty'] = 0
+            >>> items_sdaf.col('qty')
+            [3, 10]
+
+            To change values, use `update_record_krow()` or `apply_in_place()`:
+
+            >>> items_sdaf.update_record_krow('a1', {'qty': 4}).col('qty')
+            [4, 10]
         """
         batch_lot: List[Tuple[Any, ...]]
         for batch_lot in self._iter_row_batches():
@@ -1828,6 +1912,13 @@ class SqlDaf(Daf):
 
         Returns:
             Each row as a list.
+
+        Examples:
+            >>> import tempfile
+            >>> SqlDaf.db_path = tempfile.mkdtemp() + '/job.db'
+            >>> items_sdaf = SqlDaf.from_daf(Daf(cols=['id', 'qty'], keyfield='id', lol=[['a1', 3], ['b2', '']]), name='items')
+            >>> list(items_sdaf.iter_list())
+            [['a1', 3], ['b2', '']]
         """
         batch_lot: List[Tuple[Any, ...]]
         for batch_lot in self._iter_row_batches():
@@ -1838,18 +1929,42 @@ class SqlDaf(Daf):
     # ---- reading columns ----
 
     def num_rows(self) -> int:
-        """ Count the rows, as `len()` does. """
+        """
+        Count the rows, as `len()` does. It is here so that code written for a Daf runs on a SqlDaf.
+
+        Returns:
+            The number of rows.
+
+        Examples:
+            >>> import tempfile
+            >>> SqlDaf.db_path = tempfile.mkdtemp() + '/job.db'
+            >>> items_sdaf = SqlDaf.from_daf(Daf(cols=['id', 'qty'], keyfield='id', lol=[['a1', 3], ['b2', '']]), name='items')
+            >>> items_sdaf.num_rows()
+            2
+        """
         return len(self)
 
 
     def shape(self) -> Tuple[int, int]:
         """
-        Give the number of rows and the number of columns, as `Daf.shape()` does.
+        Give the number of rows and the number of columns, as [`Daf.shape()`][daffodil.daf.Daf.shape] does.
 
         A table with no rows gives (0, 0), as in a Daf. The rows are counted with `len()`.
 
         Returns:
             A tuple of the number of rows and the number of columns.
+
+        Examples:
+            >>> import tempfile
+            >>> SqlDaf.db_path = tempfile.mkdtemp() + '/job.db'
+            >>> items_sdaf = SqlDaf.from_daf(Daf(cols=['id', 'item', 'qty'], keyfield='id', lol=[['a1', 'pen', 3], ['b2', 'ink', '']]), name='items')
+            >>> items_sdaf.shape()
+            (2, 3)
+
+            A table with no rows gives (0, 0), whatever its columns:
+
+            >>> items_sdaf.select_where_sql('qty > ?', [50]).shape()
+            (0, 0)
         """
         num_rows: int = len(self)
         return (num_rows, len(self.hd)) if num_rows else (0, 0)
@@ -2030,9 +2145,9 @@ class SqlDaf(Daf):
             astype:         str = 'list',               # 'list' for a list, 'view' for a KeysView.
             ) -> T_la | T_kva:
         """
-        Get the keys, the keyfield's values in row order, as `Daf.keys()` does.
+        Get the keys, the keyfield's values in row order, as [`Daf.keys()`][daffodil.daf.Daf.keys] does.
 
-        Every key is read into memory. This takes the arguments of `Daf.keys()`, so code written
+        Every key is read into memory. This takes the arguments of [`Daf.keys()`][daffodil.daf.Daf.keys], so code written
         for a Daf runs on a SqlDaf. With `astype='view'` it gives a KeysView of a dict made from
         the keys, in row order, with a repeated key once. A Daf gives a view of its key index,
         which costs nothing. Here the dict is built, so it holds every key.
@@ -2185,7 +2300,7 @@ class SqlDaf(Daf):
 
     def get_existing_keys(self, keylist: T_la) -> T_la:                     # type: ignore[override]
         """
-        Keep the keys of a list that have a row, in the order of the list, as `Daf.get_existing_keys()` does.
+        Keep the keys of a list that have a row, in the order of the list, as [`Daf.get_existing_keys()`][daffodil.daf.Daf.get_existing_keys] does.
 
         The keys are looked up in SQL, all at once. Without a keyfield, the result is empty, as in a Daf.
 
@@ -2212,7 +2327,7 @@ class SqlDaf(Daf):
 
     def _row_from_item(self, item: Any, method: str) -> T_la:
         """
-        One row in column order, placed as `Daf.append()` places it. Internal use.
+        One row in column order, placed as [`Daf.append()`][daffodil.daf_modify._append] places it. Internal use.
 
         A dict or a KeyedList is placed by column name. A missing name gets Python NULL.
         A name that is not a column is dropped. A list is in column order, and a short one is padded.
@@ -2370,7 +2485,7 @@ class SqlDaf(Daf):
             name:   str = '',                       # the name of the new table. Generated if empty.
             ) -> 'SqlDaf':
         """
-        Make a new table with the same layout, as `Daf.clone_empty()` does.
+        Make a new table with the same layout, as [`Daf.clone_empty()`][daffodil.daf.Daf.clone_empty] does.
 
         It has the same columns, keyfield and dtypes, and no rows unless `lol` is given.
         It is a TEMP table, as `copy()` makes, so `save()` keeps it.
@@ -2441,12 +2556,12 @@ class SqlDaf(Daf):
             inplace:     bool = False,                      # if True, copy into this SqlDaf and return it.
             ) -> 'SqlDaf':
         """
-        Copy the rows into a TEMP table of their own, as `Daf.copy()` copies a Daf.
+        Copy the rows into a TEMP table of their own, as [`Daf.copy()`][daffodil.daf.Daf.copy] copies a Daf.
 
         The copy is a parent, with daf_rid, the rows in order, and this SqlDaf's keyfield and
         dtypes. Nothing ties it to the rows it came from: a change to one does not show in the
         other. A SQL cell holds a plain value, so every level gives what `deep` gives in a Daf.
-        The level is only checked, as `Daf.copy()` checks it.
+        The level is only checked, as [`Daf.copy()`][daffodil.daf.Daf.copy] checks it.
 
         With `inplace=True`, this SqlDaf becomes the copy, and is returned. Use it on a child, to
         make it a table of its own, independent of its parent. As in a Daf, a level that would
@@ -2456,10 +2571,10 @@ class SqlDaf(Daf):
         file.
 
         Args:
-            level: As in `Daf.copy()`. With `inplace`, it must copy the rows: `editable` or `deep`.
+            level: As in [`Daf.copy()`][daffodil.daf.Daf.copy]. With `inplace`, it must copy the rows: `editable` or `deep`.
             name: The name of the copy. Generated if empty, as in daf_tmp_marks_v4.
-            deep: Deprecated, as in `Daf.copy()`.
-            for_sorting: Deprecated, as in `Daf.copy()`.
+            deep: Deprecated, as in [`Daf.copy()`][daffodil.daf.Daf.copy].
+            for_sorting: Deprecated, as in [`Daf.copy()`][daffodil.daf.Daf.copy].
             inplace: If True, this SqlDaf becomes the copy, and is returned.
 
         Returns:
@@ -2753,7 +2868,7 @@ class SqlDaf(Daf):
         New dtypes given here are kept in the metadata record of the table, if it has one.
 
         A table loaded from a CSV file holds text. Call this to turn the columns you need into
-        numbers. Each value is converted by the same function `Daf.apply_dtypes()` uses, so the
+        numbers. Each value is converted by the same function [`Daf.apply_dtypes()`][daffodil.daf_dtypes._apply_dtypes] uses, so the
         results are the same as in memory.
 
         - '12' becomes 12, and '2.5' with dtype int becomes 2.
@@ -2763,7 +2878,7 @@ class SqlDaf(Daf):
 
         By default the cells are taken to be text already, as from a CSV file, so a str column is
         skipped. Pass `from_str=False` when a str column may hold numbers, as from `from_daf()` of a
-        typed Daf. Then each number becomes its text, as `Daf.apply_dtypes()` gives, so 3 becomes '3'
+        typed Daf. Then each number becomes its text, as [`Daf.apply_dtypes()`][daffodil.daf_dtypes._apply_dtypes] gives, so 3 becomes '3'
         and 1.5 becomes '1.5'. The table then holds what `from_csv()` of the same rows holds.
 
         Conversion does not check that every value got the requested type. A converted column
@@ -2919,7 +3034,7 @@ def _none_safe(converter: Callable[[Any], Any]) -> Callable[[Any], Any]:
     Wrap a converter so that it sees Python NULL where SQL has SQL NULL, as it would in a Daf. Internal use.
 
     An empty result is stored as SQL NULL again. So NULL stays NULL for int and float, and
-    becomes 0 for bool, as `Daf.apply_dtypes()` gives.
+    becomes 0 for bool, as [`Daf.apply_dtypes()`][daffodil.daf_dtypes._apply_dtypes] gives.
     """
     def convert(val: Any) -> Any:
         result: Any = converter(NULL if val is None else val)

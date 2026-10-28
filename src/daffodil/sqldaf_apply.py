@@ -75,10 +75,10 @@ def _apply(
         **kwargs:   Any,                        # passed on to func.
         ) -> Any:
     """
-    Apply a Python function to each row, and collect the results in a new table, as `Daf.apply()` does.
+    Apply a Python function to each row, and collect the results in a new table, as [`Daf.apply()`][daffodil.daf_apply._apply] does.
 
     The function gets each row as a dict, with Python NULL for a missing value, and returns what to
-    add to the new table, by the rules of `Daf.apply()`:
+    add to the new table, by the rules of [`Daf.apply()`][daffodil.daf_apply._apply]:
 
     - A dict, or a KeyedList, adds one row.
     - A list of them adds a row for each, so one row can become several.
@@ -87,7 +87,7 @@ def _apply(
     The new table takes its columns from the first row returned. A later row is placed by
     column name. A column it lacks gets Python NULL, and a name the first row did not have is dropped.
     So have the function return every column in every row. The new table has no keyfield
-    and no dtypes, as the new Daf of `Daf.apply()` has none.
+    and no dtypes, as the new Daf of [`Daf.apply()`][daffodil.daf_apply._apply] has none.
 
     The rows are read 10,000 at a time, in order, and the results are written as they come,
     all in one transaction. So a table larger than memory can be converted, and memory does
@@ -185,10 +185,10 @@ def _reduce(
         **kwargs:       Any,                        # passed on to func.
         ) -> Any:
     """
-    Combine all the rows into one result, using a function, as `Daf.reduce()` does.
+    Combine all the rows into one result, using a function, as [`Daf.reduce()`][daffodil.daf_apply._reduce] does.
 
     The function is called in Python for each row, with the same arguments and the same
-    result as in `Daf.reduce()`. A sum or a count is a reduction, as with `Daf.sum_da`.
+    result as in [`Daf.reduce()`][daffodil.daf_apply._reduce]. A sum or a count is a reduction, as with `Daf.sum_da`.
     The rows are read 10,000 at a time, in order, so the table is never all in memory.
     Memory use still depends on the result the function builds.
 
@@ -196,7 +196,7 @@ def _reduce(
       values. Unlike in a Daf, writing to it does not change the table.
     - With `indirect_col`, or `by='sparse_row'`, the function gets the dict held in `indirect_col`, JSON or
       PYON text decoded as in a Daf, and the result starts as `initial_da` or an empty dict.
-      A plain sum chooses its loop once, from the first 100 rows, as `Daf.reduce()` describes.
+      A plain sum chooses its loop once, from the first 100 rows, as [`Daf.reduce()`][daffodil.daf_apply._reduce] describes.
       With `cols`, the result is in the order of `cols`.
     - With `by='table'`, the function gets this SqlDaf and `cols`.
 
@@ -328,7 +328,7 @@ def _valuecounts_for_colname(
         omit_nulls: bool = False,                   # if True, leave out the count of Python NULL.
         ) -> Dict[Any, int]:
     """
-    Count how often each value occurs in one column, as `Daf.valuecounts_for_colname()` does.
+    Count how often each value occurs in one column, as [`Daf.valuecounts_for_colname()`][daffodil.daf_report._valuecounts_for_colname] does.
 
     One GROUP BY counts them in SQLite, so no column is read into Python. The values are in
     the order first seen, or by count with `sort`. Python NULL is counted as Python NULL, unless
@@ -387,7 +387,7 @@ def _valuecounts_for_colnames_ls(
         omit_nulls:     bool = False,
         ) -> Dict[str, Dict[Any, int]]:
     """
-    Count how often each value occurs, in each of several columns, as `Daf.valuecounts_for_colnames_ls()` does.
+    Count how often each value occurs, in each of several columns, as [`Daf.valuecounts_for_colnames_ls()`][daffodil.daf_report._valuecounts_for_colnames_ls] does.
 
     It is one GROUP BY for each column. See `valuecounts_for_colname()`.
 
@@ -519,7 +519,7 @@ def _value_counts_daf(
         omit_nulls:     bool = False,
         ) -> Daf:
     """
-    Count the values of a column into a Daf in memory, with one row per value, as `Daf.value_counts_daf()` does.
+    Count the values of a column into a Daf in memory, with one row per value, as [`Daf.value_counts_daf()`][daffodil.daf_report._value_counts_daf] does.
 
     The counts come from `valuecounts_for_colname()`. The Daf has the columns `colname` and
     counts, and a row for each value.
@@ -548,7 +548,7 @@ def _daf_valuecount(
         cols:   T_ls | None = None,                 # the columns to count. All if None.
         ) -> T_da:
     """
-    Count how often each value occurs, in each column, as `Daf.daf_valuecount()` does.
+    Count how often each value occurs, in each column, as [`Daf.daf_valuecount()`][daffodil.daf_report._daf_valuecount] does.
 
     It gives the same result: a column that is not in `cols` gets Python NULL in place of its
     counts, and a table with no rows gives an empty dict. Each column is one GROUP BY.
@@ -577,10 +577,10 @@ def _sum(
         colnames_ls:    T_ls | None = None,         # the columns to total. All if None.
         ) -> T_da:
     """
-    Total the columns, as `Daf.sum()` does, and return a dict of the totals.
+    Total the columns, as [`Daf.sum()`][daffodil.daf_apply._sum] does, and return a dict of the totals.
 
     Numbers are totalled by SQLite. A column that also holds text has its text cells read
-    into Python and added as `Daf.sum()` adds them: text that is not a number raises
+    into Python and added as [`Daf.sum()`][daffodil.daf_apply._sum] adds them: text that is not a number raises
     ValueError. Python NULL is skipped. Each total starts as a
     float, and is converted to the dtype of its column if there is one.
 
@@ -640,7 +640,7 @@ def _groupsum_daf(
         indirect_col:   str = '',                   # a column that holds a dict, for sparse rows.
         ) -> Daf:
     """
-    Group by a column and add up the other columns of each group, as `Daf.groupsum_daf()` does.
+    Group by a column and add up the other columns of each group, as [`Daf.groupsum_daf()`][daffodil.daf_apply._groupsum_daf] does.
 
     One GROUP BY does it all in SQLite. The result is a Daf in memory, with one row for each
     value, in the order first seen, and `colname` as its keyfield. As in a
@@ -717,10 +717,10 @@ def _groupby(
         cols:           T_ls | None = None,         # not supported on a SqlDaf yet.
         ) -> KeyedList:
     """
-    Group the rows by the values of a column, as `Daf.groupby()` does.
+    Group the rows by the values of a column, as [`Daf.groupby()`][daffodil.daf_apply._groupby] does.
 
     The result is a KeyedList of selections, one for each value, in the order first seen. It
-    works as a dict, as the result of `Daf.groupby()` does. One query finds the values. Each
+    works as a dict, as the result of [`Daf.groupby()`][daffodil.daf_apply._groupby] does. One query finds the values. Each
     group is then `select_by_dict()` of its value, so Python NULL is a value like any other. Nothing
     is read until a group is read.
 
@@ -792,7 +792,7 @@ def _groupby_reduce(
         **kwargs:       Any,                        # passed on to func, and indirect_col for 'sparse_row'.
         ) -> 'SqlDaf':
     """
-    Group the rows by one column and reduce each group to one row, as `Daf.groupby_reduce()` does.
+    Group the rows by one column and reduce each group to one row, as [`Daf.groupby_reduce()`][daffodil.daf_apply._groupby_reduce] does.
 
     Use it to turn many rows of one key into one row, such as the contests of a ballot
     into one record of the ballot.
@@ -802,7 +802,7 @@ def _groupby_reduce(
 
     - With `by='row'`, the rows of each group become a Daf of the columns the group holds.
       These are `reduce_cols`, or all columns. The cells are as stored, so a dict cell is text.
-      `Daf.reduce()` reduces it, so the function is called just as `Daf.groupby_reduce()` calls it.
+      [`Daf.reduce()`][daffodil.daf_apply._reduce] reduces it, so the function is called just as [`Daf.groupby_reduce()`][daffodil.daf_apply._groupby_reduce] calls it.
       A plain `Daf.sum_da` adds down each column there, with no call for each row.
     - With `by='sparse_row'`, the function gets the dict held in the cell of `indirect_col`.
       Its `cols` is `reduce_cols`, and the reduction starts as an empty dict.
@@ -817,7 +817,7 @@ def _groupby_reduce(
     Results are in daffodil form, as `groupby_aggregate()` describes.
     The new table is a TEMP table, as `copy()` makes. Keep it with `save(name)`.
 
-    It differs from `Daf.groupby_reduce()` in three ways:
+    It differs from [`Daf.groupby_reduce()`][daffodil.daf_apply._groupby_reduce] in three ways:
 
     - The rows are in the sorted order of the column, not in the order first seen.
       SQL NULL and '' are one group, first.
@@ -826,8 +826,8 @@ def _groupby_reduce(
 
     Args:
         colname: The column to group by.
-        func: The reduction function, such as `Daf.sum_da`. See `Daf.reduce()`.
-        by: `row` or `sparse_row`. See `Daf.reduce()`.
+        func: The reduction function, such as `Daf.sum_da`. See [`Daf.reduce()`][daffodil.daf_apply._reduce].
+        by: `row` or `sparse_row`. See [`Daf.reduce()`][daffodil.daf_apply._reduce].
         reduce_cols: The columns to reduce. All columns except `colname` if None.
         diagnose: If True, show the query and the first rows of the result.
         batch_size: Not used. It is kept so that existing calls work.
@@ -941,7 +941,7 @@ def _groupby_aggregate(
     So no rows are read into Python, except one at a time through the function.
     It is the same reduction as `groupby_reduce()`, and faster when there are many small groups.
 
-    The function has the form of `Daf.sum_da()`: it takes a row as a dict and the reduction
+    The function has the form of [`Daf.sum_da()`][daffodil.daf_apply._sum_da]: it takes a row as a dict and the reduction
     so far, and returns the reduction.
 
     There are two forms, by the number of columns:
@@ -953,7 +953,7 @@ def _groupby_aggregate(
       reduced value. An empty cell is an empty dict.
     - **Several columns.** The function gets a dict of the grouping columns and these
       columns, with each dict cell decoded. The reduction starts with 0 for each column of
-      `reduce_cols`, as in `Daf.reduce()`. The result has a column for each of `result_cols`.
+      `reduce_cols`, as in [`Daf.reduce()`][daffodil.daf_apply._reduce]. The result has a column for each of `result_cols`.
 
     In a result, a dict or list is compact JSON text. True and False are 1 and 0, and None is
     NULLSTR, as `normalize_val()` gives them.
@@ -1094,7 +1094,7 @@ def _groupby_cols(
         omit_nulls:     bool = False,               # if True, leave out rows with Python NULL in any of the columns.
         ) -> KeyedList:
     """
-    Group the rows by the values of several columns, as `Daf.groupby_cols()` does.
+    Group the rows by the values of several columns, as [`Daf.groupby_cols()`][daffodil.daf_apply._groupby_cols] does.
 
     Each key is a tuple of the values, even for one column. Each group is a selection, as in
     `groupby()`.
@@ -1134,7 +1134,7 @@ def _groupby_repeated_cols(
         exclude:    Dict[str, T_la] | None = None,          # values of a column that make a row never match.
         ) -> 'T_klosdaf':
     """
-    Group the rows whose key repeats, as `Daf.groupby_repeated_cols()` does.
+    Group the rows whose key repeats, as [`Daf.groupby_repeated_cols()`][daffodil.daf_apply._groupby_repeated_cols] does.
 
     The repeated keys are found in one query, a GROUP BY that keeps the keys with more than
     one row. So no group is made for a key seen once, and nothing comes into memory but the
@@ -1222,11 +1222,11 @@ def _group_where(
         cols:           T_ls | None = None,         # the columns the function reads. All if None.
         ) -> KeyedList:
     """
-    Group the rows by the keys a Python function returns, as `Daf.group_where()` does.
+    Group the rows by the keys a Python function returns, as [`Daf.group_where()`][daffodil.daf_apply._group_where] does.
 
     The function gets each row as a KeyedList, as in `select_where()`, and returns a key, a
     list of keys, or None. A row goes into the group of each key, so a row can be in any
-    number of groups, and None leaves it out. As in `Daf.group_where()`, any iterable other
+    number of groups, and None leaves it out. As in [`Daf.group_where()`][daffodil.daf_apply._group_where], any iterable other
     than a str is a list of keys, a tuple too. So to use a tuple as one key, return a list
     of tuples.
 
@@ -1321,25 +1321,25 @@ def _join(
         fill:                   Any = NULL,         # only Python NULL is supported.
         ) -> 'SqlDaf':
     """
-    Join two SqlDaf tables on their keyfields, as `Daf.join()` does, in SQL.
+    Join two SqlDaf tables on their keyfields, as [`Daf.join()`][daffodil.daf_join._join] does, in SQL.
 
-    The columns are named exactly as `Daf.join()` names them, by the same translator: a
+    The columns are named exactly as [`Daf.join()`][daffodil.daf_join._join] names them, by the same translator: a
     column that both have gets the name of its source as a suffix, such as `name_audit`,
     unless it is in `shared_fields`, and `tag_other` suffixes every column of the other. The
     names are those of the parent tables, or `daf1` and `daf2` if they are the same. The rows
-    come as in `Daf.join()`: in this table's order, and for `right` and `outer`, the other
+    come as in [`Daf.join()`][daffodil.daf_join._join]: in this table's order, and for `right` and `outer`, the other
     table's unmatched rows after, in its order. A cell with no match is Python NULL. The keyfield of
     the result is this table's.
 
-    The keyfields must be unique, as in `Daf.join()`. A repeated key is not checked, and the
+    The keyfields must be unique, as in [`Daf.join()`][daffodil.daf_join._join]. A repeated key is not checked, and the
     result is then undefined. Check the keys first if they may repeat. A Python NULL key is
     undefined too: see SqlDaf.
 
     A row found only in the other table, in a right or outer join, takes its key and its
-    shared fields from the other table, as in `Daf.join()`.
+    shared fields from the other table, as in [`Daf.join()`][daffodil.daf_join._join].
 
     Nothing runs yet. The join is resolved the first time it is read, into a TEMP table of
-    new rows, as `Daf.join()` makes new rows. A selection made from it resolves it first.
+    new rows, as [`Daf.join()`][daffodil.daf_join._join] makes new rows. A selection made from it resolves it first.
 
     The other table may be in another database file. It is copied then into a TEMP table on this
     table's connection, with its key index, and the join reads the copy. Neither file changes. The
