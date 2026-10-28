@@ -2849,7 +2849,9 @@ def _groupsum_daf(
     """
     Group by a column and add up the other columns of each group.
 
-    This is `groupby_reduce()` with `sum_da()`.
+    This is `groupby_reduce()` with `sum_da()`. The result has one row for each value of the
+    column, in the order first seen, with that column as its keyfield. Only numbers are added.
+    Text counts as 0, even text of digits, so convert a table read from CSV first.
 
     Args:
         colname: The column to group by.
@@ -3233,6 +3235,10 @@ def _apply_to_col(self: 'Daf', col: str, func: Callable, **kwargs: Any) -> 'Daf'
 
     """
     Replace each value of a column by the result of a function, in place.
+
+    The function gets each value, and returns the new one. Keyword arguments are passed on to it.
+    All the new values are made before any is stored, so if the function raises, the column is
+    left as it was. Use `apply_in_place()` when the new value needs other columns of the row.
 
     Args:
         col: The column name.

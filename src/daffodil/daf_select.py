@@ -1351,7 +1351,8 @@ def _irow(self: 'Daf', irow: int=0, include_cols: T_ls | None = None) -> T_da:
     """
     Get one row as a dict, by position.
 
-    This is `iloc()` with the default `rtype`.
+    This is `iloc()` with the default `rtype`. A negative position counts from the end. The dict
+    is new, so changing it does not change the Daf.
 
     Args:
         irow: The row position.
@@ -2233,7 +2234,7 @@ def _col_to_la(self: 'Daf',
     """
     Get one column as a list, by name.
 
-    This does the same as `col()`. See that method.
+    This does the same as [`col()`][daffodil.daf_select._col], which shows each option.
 
     Args:
         colname: The column name.

@@ -1979,7 +1979,8 @@ def _set_icol(self: 'Daf', icol: int, val: Any) -> 'Daf':
     """
     Set one value in every row of a column, by position.
 
-    This is `my_daf[:, icol] = value`.
+    This is `daf[:, icol] = value`. A negative position counts from the end. To give each row a
+    value of its own, assign a list, as `daf[:, icol] = values`.
 
     Args:
         icol: The column position.

@@ -36,6 +36,10 @@ def _daf_valuecount(
     """
     Count how often each value occurs, in each column, using `reduce()` and `count_values_kl()`.
 
+    The result maps each column to a dict of value and count. With `cols`, only those columns are
+    counted, and every other column maps to Python NULL. For a result that holds only the columns
+    asked for, use `valuecounts_for_colnames_ls()`.
+
     Args:
         by: How the function is applied. See `reduce()`.
         cols: The columns to count. All if None.
@@ -169,6 +173,9 @@ def _valuecounts_for_colnames_ls(
     """
     Count how often each value occurs, in each of several columns.
 
+    The result maps each column to a dict of value and count, as `valuecounts_for_colname()`
+    gives for one column. A name that is not a column maps to an empty dict, with no error.
+
     Args:
         colnames_ls: The columns to count. All if None.
         sort: If True, order each count by size.
@@ -220,6 +227,10 @@ def _valuecounts_for_colname_selectedby_colname(
         ) -> Dict[Any, int]:
     """
     Count the values of a column, in the rows where another column has a value.
+
+    It answers a question such as how often each color occurs in group x, with no selection made
+    first. A name that is not a column gives an empty dict, with no error. For the counts of every
+    group at once, use `valuecounts_for_colname1_groupedby_colname2()`.
 
     Args:
         colname: The column to count.

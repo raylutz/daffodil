@@ -614,7 +614,7 @@ class Daf:
         new list put in place, as by a sort, is not.
 
         Returns:
-            Iterator: The rows, as dicts or KeyedList objects.
+            The rows, as dicts or KeyedList objects.
 
         Examples:
             >>> daf = Daf(cols=['id', 'qty'], keyfield='id', lol=[['a1', 3], ['b2', 10]])
@@ -654,7 +654,7 @@ class Daf:
         Each dict is a copy, so changing it does not change the Daf.
 
         Returns:
-            Iterator[Dict[str, Any]]: Each row as a dict of column name to value.
+            Each row as a dict of column name to value.
 
         Examples:
             >>> daf = Daf(cols=['x', 'y'], lol=[[1, 2], [3, 4]])
@@ -691,10 +691,11 @@ class Daf:
         Loop over the rows as [KeyedList][daffodil.keyedlist.KeyedList] objects, whatever the
         itermode is.
 
-        See [KeyedList][daffodil.keyedlist.KeyedList] for how these rows work.
+        Each row reads by column name, and writes through: assigning to it changes the Daf. So it is
+        the fast way to change values in a loop. On a SqlDaf, each row is a copy instead.
 
         Returns:
-            Iterator[KeyedList]: Each row as a KeyedList.
+            Each row as a KeyedList.
 
         Examples:
             >>> daf = Daf(cols=['x', 'y'], lol=[[1, 2], [3, 4]])
@@ -757,7 +758,7 @@ class Daf:
         not copies, so assigning to one changes the Daf.
 
         Returns:
-            Iterator[list]: Each row as a list.
+            Each row as a list.
 
         Examples:
             >>> daf = Daf(cols=['x', 'y'], lol=[[1, 2], [3, 4]])
@@ -1057,6 +1058,8 @@ class Daf:
         """
         Return the number of rows.
 
+        It is the same as `len(daf)`. A SqlDaf has it too, so code that calls it runs on either.
+
         Returns:
             The number of rows.
 
@@ -1077,7 +1080,8 @@ class Daf:
         """
         Return the number of rows.
 
-        This does the same as `num_rows()` and `len(d)`.
+        It does the same as `num_rows()` and `len(daf)`. A SqlDaf has it too, so code that calls it
+        runs on either.
 
         Returns:
             The number of rows.

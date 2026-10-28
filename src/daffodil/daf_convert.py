@@ -299,7 +299,7 @@ def _from_lot(
             dtypes (Dict[str, type] | None):                     Data types for each column.
 
         Returns:
-            Daf: A new Daf instance with data populated from lot.
+            A new Daf of the rows.
 
         Example:
             records_lot = [(1, 'Alice', 30), (2, 'Bob', 25)]
@@ -651,6 +651,11 @@ def _from_cols_dol(
 def _to_cols_dol(self: 'Daf') -> dict:
     """
     Make a dict of lists, one list of values for each column.
+
+    This turns the table on its side: a list for each column, in place of a list for each row.
+    Use it to hand the data to code that wants columns, such as a plotting library. Each list is
+    new, so changing it does not change the Daf. A dict or a list in a cell is the same object in
+    both.
 
     Returns:
         A dict that maps each column name to the list of its values.
@@ -1051,7 +1056,7 @@ def _from_csv(cls: 'type[Daf]', source: str | Path, **kwargs: Any) -> 'Daf':
             **kwargs: Additional arguments passed to from_csv_buff().
 
         Returns:
-            Daf: A Daf array loaded from the CSV.
+            A new Daf of the rows of the file.
         """
     if isinstance(source, Path):  # Convert Path object to string
         source = str(source)
@@ -1252,7 +1257,7 @@ def _from_csv_buff(
             name: str = '',                             # name attribute of the Daf array created.
 
         Returns:
-            Daf: The loaded Daf array.
+            A new Daf of the rows.
         """
 
     if include_cols and noheader:
@@ -2039,6 +2044,11 @@ def _to_json(self: 'Daf', concise: bool=True) -> str:
 def _from_json(cls: 'type[Daf]', json_str: str) -> 'Daf':
     """
     Make a Daf from JSON text made by `to_json()`.
+
+    The name, the keyfield and the dtypes come back with the rows. The dtypes are stored by the
+    name of each type, and turned back into types. A dict or a list in a cell comes back as a dict
+    or a list, since JSON holds them as they are. Use it to send a Daf to another process, or to
+    keep one in a text file.
 
     Args:
         json_str: The JSON text.
