@@ -324,7 +324,7 @@ def _from_lot(
     return cls(cols=cols, lol=lol, keyfield=keyfield, dtypes=dtypes, name=name)
 
 
-def _to_daf(self: 'Daf') -> 'Daf':
+def _to_daf(self: 'Daf', name: str | None = None) -> 'Daf':
     """
     Give this Daf itself, so code can end the same way on a Daf or a SqlDaf.
 
@@ -334,6 +334,12 @@ def _to_daf(self: 'Daf') -> 'Daf':
 
     This Daf is returned, not a copy. A change to the result changes this Daf. A SqlDaf gives
     rows of their own instead. Use `copy('editable')` for rows of your own.
+
+    `name` sets the name of this Daf, since the result is this Daf. It is here so that code that
+    names the result of `SqlDaf.to_daf()` runs on a Daf too.
+
+    Args:
+        name: A new name for this Daf. If None, the name is left as it is.
 
     Returns:
         This Daf.
@@ -353,7 +359,11 @@ def _to_daf(self: 'Daf') -> 'Daf':
         [['b2', 2]]
         >>> daf.to_daf() is daf
         True
+        >>> daf.to_daf(name='items').name
+        'items'
     """
+    if name is not None:
+        self.name = name
     return self
 
 

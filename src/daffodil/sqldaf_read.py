@@ -81,14 +81,21 @@ def _select_rows(self: 'SqlDaf', where_sql: str = '', params: Tuple[Any, ...] = 
     return self._fetch(cursor)
 
 
-def _to_daf(self: 'SqlDaf') -> Daf:
+def _to_daf(self: 'SqlDaf', name: str | None = None) -> Daf:
     """
     Pull every row into an ordinary Daf in memory.
 
     Use it once the rows you need are few enough to hold. The rows come in order. A SQL NULL
-    comes back as Python NULL. The new Daf has this SqlDaf's name, keyfield and dtypes. Nothing
+    comes back as Python NULL. The new Daf has this SqlDaf's keyfield and dtypes. Nothing
     ties it to the table afterwards: a change to one does not show in the other. A child has
     its rows found first.
+
+    The Daf of a permanent table has the table's name. The Daf of a selection, or of a TEMP
+    table such as a copy or a join, has no name, as a Daf selection has none. Give `name` to
+    set one.
+
+    Args:
+        name: The name of the new Daf. If None, the table's name, or none for a selection or TEMP table.
 
     Returns:
         A Daf of every row.
@@ -123,12 +130,19 @@ def _to_daf(self: 'SqlDaf') -> Daf:
         | -: | ---: | --: |
         | c3 |  pad |   7 |
         <BLANKLINE>
-        %% daf rows=1; cols=3; keyfield='id'; name='daf_tmp_items_v1'
+        %% daf rows=1; cols=3; keyfield='id'; name=''
         <BLANKLINE>
+
+        A selection has no name, as in a Daf. Give one with `name`:
+
+        >>> items_sdaf.select_where_sql('qty > ?', [5]).to_daf(name='big_items').name
+        'big_items'
     """
     self._resolve()
     lol: T_lola = [none_to_null(row_t) for row_t in self._select_rows()]
-    return Daf(lol=lol, cols=self.columns(), keyfield=self.keyfield, name=self.name,
+    if name is None:
+        name = '' if self.is_child or self.is_temp else self.name
+    return Daf(lol=lol, cols=self.columns(), keyfield=self.keyfield, name=name,
                dtypes=dict(self.dtypes) if self.dtypes else None)
 
 
