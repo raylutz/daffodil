@@ -45,57 +45,42 @@ def _append(self: 'Daf',
     """
     Add one row, or several, to the end of the Daf.
 
-    This is the general way to add data. What it does depends on what you give it.
-    Give exactly one of `data_item`, `lol` and `la`.
+    This is the general way to add data. Give it one of these:
 
-    A dict or a [KeyedList][daffodil.keyedlist.KeyedList] is one row. It is placed
-    by column name, so its keys may be in any order. A missing key gets NULL. A key
-    that is not a column is dropped.
+    - **A dict,** or a [KeyedList][daffodil.keyedlist.KeyedList]: one row, placed by column name,
+      in any order. A missing key gets NULL, the empty string. A key that is not a column is dropped.
+    - **A list of values:** one row, in column order. A short list is padded with NULL. A longer
+      one raises ValueError.
+    - **A list of dicts:** several rows, as `extend()` adds them.
+    - **A Daf** with the same columns: its rows, as `concat()` adds them.
+    - **`lol=`,** a list of lists: several rows, each in column order.
+    - **`la=`,** a list: one row, even when its values are lists. Use it to say so plainly.
 
-    A list of values is one row, in column order. A short list is padded with NULL.
-    A list with more values than there are columns raises `ValueError`. With no
-    columns defined, the list is added as it is. A list of lists given as
-    `data_item` is therefore one row whose cells are lists, which fits only if there
-    are enough columns.
+    None, an empty dict, an empty list and an empty Daf add nothing. `append()` changes this Daf and
+    returns it, so calls can be chained.
 
-    To say what you mean, use the keywords. `lol` is several rows, each a list in
-    column order, as in `append(lol=[[2, 'b'], [3, 'c']])`. `la` is one row, even if
-    its items are lists, as in `append(la=[[2, 'b'], [3, 'c']])`. Each row of `lol`
-    follows the length rule above.
+    **Keys.** The keyfield is not checked, so a key that is already there is added again, as a
+    second row. This keeps appending fast. With `respect_kd=True`, the row that has the same key is
+    replaced instead. That looks the key up on every call, so it costs more for many single rows.
 
-    A list of dicts is several rows. See `extend()`.
+    **Copies.** With columns defined, each row is copied, so you can change or reuse your list or
+    dict afterwards. With no columns defined, a list is added as it is.
 
-    A Daf is several rows. See `concat()`. Its columns must match.
+    **fast=True** adds the row with no copy, and checks it only lightly, for speed in a loop that
+    builds each row itself:
 
-    An empty dict, list or Daf adds nothing.
+    - A KeyedList must share this Daf's column names, as one from `default_record(astype=KeyedList)`,
+      `iloc()` or `iter_klist()` does. Nothing else is checked.
+    - A dict or list is checked fully if it is the first row of an empty Daf. A dict must have the
+      columns as its keys, in order, and a list one value for each column. Every later dict or list
+      is checked only for its number of values. A row that fails raises ValueError.
+    - The list, or the KeyedList's values, becomes the row itself. Do not change it afterwards, and
+      do not fill one list in place and append it again: every row would be that same list.
+    - A later dict in another order, with the right number of values, puts its values in the wrong
+      columns. Leave out `fast` if rows may come in another order.
 
-    By default the keyfield is not checked, so a key that is already present is
-    added again. This keeps appending fast. Pass `respect_kd=True` to replace the
-    row that has the same key instead. That looks the key up on every call, so
-    it costs more when you add many rows one at a time.
-
-    With columns defined, a list is added as a copy, so you can reuse it. With no
-    columns, the list itself is added.
-
-    A KeyedList made by this Daf, as by `default_record(astype=KeyedList)`, `iloc()` or
-    `iter_klist()`, shares its `hd`. Its keys are then the columns, so its columns are not
-    checked. Its values are still copied.
-
-    With `fast=True` nothing is copied. A KeyedList must share the `hd` of this Daf, and
-    then nothing else is checked. A dict or a list is checked fully if it is the first row
-    added to an empty Daf: a dict must have the columns as its keys, in order, and a list one
-    value for each column. Every later dict or list is checked only for its number of values.
-    A row that fails raises `ValueError`.
-    Use it when you build each row yourself in column order, as in a loop, best with
-    `default_record()`. A list, or the value list of a KeyedList, becomes the row itself,
-    so do not change it afterwards. Giving a variable a new list each time is fine.
-    Filling one list in place and appending it again is not: every row is then that same
-    list. A dict gives its values in its own order. A later row with the right number of
-    values in another order is added anyway, and its values land in the wrong columns. If you want every row
-    checked, leave out `fast`. `fast` makes no difference to the first row of a Daf with
-    no columns, to a Daf or a list of dicts, or with `respect_kd=True` and a keyfield.
-
-    None, an empty dict, an empty list and an empty Daf add nothing.
+    `fast` makes no difference to the first row of a Daf with no columns, to a Daf, to a list of
+    dicts, or with `respect_kd=True` and a keyfield.
 
     Args:
         data_item: The row or rows to add.
@@ -112,75 +97,76 @@ def _append(self: 'Daf',
         ValueError: A list has more values than there are columns.
 
     Examples:
-        >>> daf = Daf(lol=[[1, 'a']], cols=['id', 'v'], keyfield='id')
-        >>> daf
+        The table used in the examples:
+
+        >>> daf = Daf(cols=['id', 'item', 'qty'], keyfield='id')
+
+        Each call is followed by a read of the row it added. `append()` returns the Daf, so at the
+        prompt a bare call shows the whole table.
+
+        **A dict,** by column name. A missing column gets NULL, and an unknown key is dropped:
+
+        >>> daf.append({'qty': 3, 'id': 'a1', 'item': 'pen'}).select_record('a1')
+        {'id': 'a1', 'item': 'pen', 'qty': 3}
+        >>> daf.append({'id': 'b2', 'color': 'red'}).select_record('b2')
+        {'id': 'b2', 'item': '', 'qty': ''}
+
+        **A list,** in column order. A short list is padded, and a long one raises:
+
+        >>> daf.append(['c3', 'pad', 7]).select_record('c3')
+        {'id': 'c3', 'item': 'pad', 'qty': 7}
+        >>> daf.append(['d4']).select_record('d4')
+        {'id': 'd4', 'item': '', 'qty': ''}
+        >>> daf.append(['e5', 'tag', 1, 'extra'])
+        Traceback (most recent call last):
+        ...
+        ValueError: append(): the list has 4 values for 3 columns.
+
+        **Several rows:** a list of dicts, `lol=`, or another Daf with the same columns:
+
+        >>> daf.append([{'id': 'f6', 'qty': 2}, {'id': 'g7', 'qty': 5}]).keys()
+        ['a1', 'b2', 'c3', 'd4', 'f6', 'g7']
+        >>> daf.append(lol=[['h8', 'cap', 1], ['i9', 'ink', 4]]).keys()
+        ['a1', 'b2', 'c3', 'd4', 'f6', 'g7', 'h8', 'i9']
+        >>> more = Daf(cols=['id', 'item', 'qty'], lol=[['j10', 'pen', 6]])
+        >>> daf.append(more).keys()
+        ['a1', 'b2', 'c3', 'd4', 'f6', 'g7', 'h8', 'i9', 'j10']
+
+        **One row whose values are lists,** with `la=`:
+
+        >>> tags = Daf(cols=['id', 'tags'], keyfield='id')
+        >>> tags.append(la=['a1', ['red', 'large']]).select_record('a1')
+        {'id': 'a1', 'tags': ['red', 'large']}
+
+        **A repeated key** is added again, unless `respect_kd=True`, which replaces the row:
+
+        >>> stock = Daf(cols=['id', 'qty'], lol=[['a1', 3], ['b2', 10]], keyfield='id')
+        >>> stock.append({'id': 'a1', 'qty': 30}, respect_kd=True)
         <BLANKLINE>
-        | id | v  |
-        | -: | -: |
-        |  1 |  a |
-        <BLANKLINE>
-        %% daf rows=1; cols=2; keyfield='id'; name=''
-        <BLANKLINE>
-        >>> daf.append({'v': 'b', 'id': 2})
-        <BLANKLINE>
-        | id | v  |
-        | -: | -: |
-        |  1 |  a |
-        |  2 |  b |
+        | id | qty |
+        | -: | --: |
+        | a1 |  30 |
+        | b2 |  10 |
         <BLANKLINE>
         %% daf rows=2; cols=2; keyfield='id'; name=''
         <BLANKLINE>
-        >>> daf.append([3, 'c'])
-        <BLANKLINE>
-        | id | v  |
-        | -: | -: |
-        |  1 |  a |
-        |  2 |  b |
-        |  3 |  c |
-        <BLANKLINE>
-        %% daf rows=3; cols=2; keyfield='id'; name=''
-        <BLANKLINE>
-        >>> daf.append(lol=[[4, 'd'], [5, 'e']])
-        <BLANKLINE>
-        | id | v  |
-        | -: | -: |
-        |  1 |  a |
-        |  2 |  b |
-        |  3 |  c |
-        |  4 |  d |
-        |  5 |  e |
-        <BLANKLINE>
-        %% daf rows=5; cols=2; keyfield='id'; name=''
-        <BLANKLINE>
-        >>> daf.append({'id': 2, 'v': 'new'}, respect_kd=True)
-        <BLANKLINE>
-        | id |  v  |
-        | -: | --: |
-        |  1 |   a |
-        |  2 | new |
-        |  3 |   c |
-        |  4 |   d |
-        |  5 |   e |
-        <BLANKLINE>
-        %% daf rows=5; cols=2; keyfield='id'; name=''
-        <BLANKLINE>
-        >>> e_daf = Daf(lol=[[1, 'a']], cols=['id', 'v'])
-        >>> e_daf
-        <BLANKLINE>
-        | id | v  |
-        | -: | -: |
-        |  1 |  a |
-        <BLANKLINE>
-        %% daf rows=1; cols=2; keyfield=''; name=''
-        <BLANKLINE>
-        >>> e_daf.append(None).append({}).append([])
-        <BLANKLINE>
-        | id | v  |
-        | -: | -: |
-        |  1 |  a |
-        <BLANKLINE>
-        %% daf rows=1; cols=2; keyfield=''; name=''
-        <BLANKLINE>
+
+        **Nothing to add,** as None or an empty dict, list or Daf, changes nothing:
+
+        >>> len(stock.append(None).append({}).append([]).append(Daf()))
+        2
+
+        **fast=True,** with a KeyedList from `default_record()`. A row of the wrong length raises:
+
+        >>> from daffodil.keyedlist import KeyedList
+        >>> row = stock.default_record(astype=KeyedList)
+        >>> row['id'], row['qty'] = 'c3', 7
+        >>> stock.append(row, fast=True).select_record('c3')
+        {'id': 'c3', 'qty': 7}
+        >>> stock.append(['d4'], fast=True)
+        Traceback (most recent call last):
+        ...
+        ValueError: append(fast=True): row 3 has 1 values for 2 columns. With fast=True a list must have one value for each column, in column order. Leave out fast to pad a short list with NULL.
     """
 
     """ general append method can handle appending one record as T_da or T_la, many records as T_loda or T_daf
@@ -834,6 +820,16 @@ def _remove_key(self: 'Daf', keyval: str | int | T_la | T_ta | None, silent_erro
         <BLANKLINE>
         %% daf rows=1; cols=2; keyfield='('g', 'n')'; name=''
         <BLANKLINE>
+
+        A key that is not found raises KeyError, or is ignored with `silent_error=True`:
+
+        >>> stock = Daf(cols=['id', 'qty'], lol=[['a1', 3], ['b2', 10]], keyfield='id')
+        >>> stock.remove_key('z9')
+        Traceback (most recent call last):
+        ...
+        KeyError: 'z9'
+        >>> stock.remove_key('z9', silent_error=True).keys()
+        ['a1', 'b2']
     """
 
     # test exists in test_daf.py
@@ -907,6 +903,12 @@ def _remove_keylist(self: 'Daf', keylist: T_la, silent_error: bool=False) -> 'Da
         <BLANKLINE>
         %% daf rows=1; cols=3; keyfield='['p', 'q']'; name=''
         <BLANKLINE>
+
+        Keys that are not found raise KeyError, or are ignored with `silent_error=True`:
+
+        >>> stock = Daf(cols=['id', 'qty'], lol=[['a1', 3], ['b2', 10], ['c3', 7]], keyfield='id')
+        >>> stock.remove_keylist(['a1', 'z9'], silent_error=True).keys()
+        ['b2', 'c3']
     """
     # test exists in test_daf.py
 
@@ -1179,16 +1181,6 @@ def _assign_record(self: 'Daf', record: T_da) -> 'Daf':
         %% daf rows=3; cols=3; keyfield='id'; name=''
         <BLANKLINE>
         >>> daf.assign_record({'id': 2, 'v': 'new'})
-        <BLANKLINE>
-        | id |  v  | n  |
-        | -: | --: | -: |
-        |  1 |   a | 10 |
-        |  2 | new |    |
-        |  3 |   c | 30 |
-        <BLANKLINE>
-        %% daf rows=3; cols=3; keyfield='id'; name=''
-        <BLANKLINE>
-        >>> daf
         <BLANKLINE>
         | id |  v  | n  |
         | -: | --: | -: |
@@ -1647,6 +1639,20 @@ def _insert_icol(
         <BLANKLINE>
         >>> daf.insert_icol(1, ['x', 'y', 'z'], colname='new').columns()
         ['id', 'new', 'v', 'n']
+
+        A list shorter than the rows is filled out with `default`:
+
+        >>> stock = Daf(cols=['id', 'qty'], lol=[['a1', 3], ['b2', 10], ['c3', 7]], keyfield='id')
+        >>> stock.insert_icol(1, ['red'], 'color', default='none')
+        <BLANKLINE>
+        | id | color | qty |
+        | -: | ----: | --: |
+        | a1 |   red |   3 |
+        | b2 |  none |  10 |
+        | c3 |  none |   7 |
+        <BLANKLINE>
+        %% daf rows=3; cols=3; keyfield='id'; name=''
+        <BLANKLINE>
     """
 
     # from utilities import daf_utils
@@ -1715,6 +1721,20 @@ def _insert_irow(self: 'Daf', irow: int | None = None, row: T_la | T_da | None =
         <BLANKLINE>
         %% daf rows=4; cols=3; keyfield='id'; name=''
         <BLANKLINE>
+
+        A short list is filled out with `default`:
+
+        >>> stock = Daf(cols=['id', 'item', 'qty'], lol=[['a1', 'pen', 3], ['b2', 'ink', 10]], keyfield='id')
+        >>> stock.insert_irow(1, ['z0'], default='?')
+        <BLANKLINE>
+        | id | item | qty |
+        | -: | ---: | --: |
+        | a1 |  pen |   3 |
+        | z0 |    ? |   ? |
+        | b2 |  ink |  10 |
+        <BLANKLINE>
+        %% daf rows=3; cols=3; keyfield='id'; name=''
+        <BLANKLINE>
     """
 
     # from utilities import daf_utils
@@ -1772,6 +1792,22 @@ def _assign_col(self: 'Daf', colname: str, la: T_la | None = None, default: Any=
         ['id', 'v', 'n', 'w']
         >>> daf.col('w')
         [0, 0, 0]
+
+        A list shorter than the rows is filled out with `default`. A new name adds a column at the right:
+
+        >>> stock = Daf(cols=['id', 'qty'], lol=[['a1', 3], ['b2', 10], ['c3', 7]], keyfield='id')
+        >>> stock.assign_col('qty', [1], default=0).col('qty')
+        [1, 0, 0]
+        >>> stock.assign_col('note', ['n1', 'n2', 'n3'])
+        <BLANKLINE>
+        | id | qty | note |
+        | -: | --: | ---: |
+        | a1 |   1 |   n1 |
+        | b2 |   0 |   n2 |
+        | c3 |   0 |   n3 |
+        <BLANKLINE>
+        %% daf rows=3; cols=3; keyfield='id'; name=''
+        <BLANKLINE>
     """
 
     if colname in self.hd:
@@ -1881,6 +1917,20 @@ def _insert_idx_col(self: 'Daf', colname: str='idx', icol:int=0, startat:int=0) 
         <BLANKLINE>
         >>> daf.insert_idx_col().col('idx')
         [0, 1, 2]
+
+        Another name, in another place, numbered from 1:
+
+        >>> stock = Daf(cols=['id', 'qty'], lol=[['a1', 3], ['b2', 10], ['c3', 7]], keyfield='id')
+        >>> stock.insert_idx_col('n', icol=1, startat=1)
+        <BLANKLINE>
+        | id | n  | qty |
+        | -: | -: | --: |
+        | a1 |  1 |   3 |
+        | b2 |  2 |  10 |
+        | c3 |  3 |   7 |
+        <BLANKLINE>
+        %% daf rows=3; cols=3; keyfield='id'; name=''
+        <BLANKLINE>
     """
 
     num_rows = len(self)
@@ -2312,6 +2362,12 @@ def _sort_by_colname(self: 'Daf', colname:str, *, reverse: bool=False, length_pr
         <BLANKLINE>
         >>> daf.sort_by_colname('n', as_str=True, length_priority=True).col('n')
         [None, '', 2, 10]
+
+        From high to low:
+
+        >>> stock = Daf(cols=['id', 'qty'], lol=[['a1', 3], ['b2', 1], ['c3', 2]])
+        >>> stock.sort_by_colname('qty', reverse=True).col('id')
+        ['a1', 'c3', 'b2']
     """
     if not self or len(self) <= 1:
         return self
@@ -2374,6 +2430,27 @@ def _sort_by_colnames(self: 'Daf', colnames:T_ls, reverse: bool=False, length_pr
         <BLANKLINE>
         %% daf rows=3; cols=2; keyfield=''; name=''
         <BLANKLINE>
+
+        The options, on a column of names:
+
+        >>> names = Daf(cols=['id', 'name'], lol=[['a', 'bb'], ['b', 'a'], ['c', 'ccc'], ['d', 'b']])
+        >>> names.sort_by_colnames(['name']).col('name')
+        ['a', 'b', 'bb', 'ccc']
+        >>> names.sort_by_colnames(['name'], reverse=True).col('name')
+        ['ccc', 'bb', 'b', 'a']
+
+        With `length_priority=True`, shorter values come first, and values of one length by value:
+
+        >>> names.sort_by_colnames(['name'], length_priority=True).col('name')
+        ['a', 'b', 'bb', 'ccc']
+
+        A column of numbers mixed with text, or with None, cannot be compared, and raises TypeError.
+        With `as_str=True` it sorts by text, where `'10'` comes before `'9'`, and None sorts as an
+        empty cell:
+
+        >>> mixed = Daf(cols=['id', 'v'], lol=[['a', 10], ['b', 9], ['c', 'x'], ['d', None]])
+        >>> mixed.sort_by_colnames(['v'], as_str=True).col('v')
+        [None, 10, 9, 'x']
     """
     if not self or len(self) <= 1:
         return self
@@ -2443,6 +2520,24 @@ def _transpose(self: 'Daf', new_keyfield:str='', new_cols:T_la | None = None, in
         ['A', 'B']
         >>> daf.transpose(include_header=True).columns()
         ['key', 'A', 'B']
+
+        Name the columns of the result, and choose its keyfield. Here the first column holds the old
+        column names, so they become the keys:
+
+        >>> stock = Daf(cols=['id', 'item', 'qty'], lol=[['a1', 'pen', 3], ['b2', 'ink', 10]])
+        >>> by_field = stock.transpose(include_header=True, new_cols=['field', 'r1', 'r2'], new_keyfield='field')
+        >>> by_field
+        <BLANKLINE>
+        | field | r1  | r2  |
+        | ----: | --: | --: |
+        |    id |  a1 |  b2 |
+        |  item | pen | ink |
+        |   qty |   3 |  10 |
+        <BLANKLINE>
+        %% daf rows=3; cols=3; keyfield='field'; name=''
+        <BLANKLINE>
+        >>> by_field.select_record('qty')
+        {'field': 'qty', 'r1': 3, 'r2': 10}
     """
 
     if not self.is_rectangular():
@@ -2524,6 +2619,21 @@ def _wide_to_narrow(self: 'Daf',
 
         >>> daf.wide_to_narrow(['id']).narrow_to_wide(['id']).lol
         [['x', 1, 2], ['y', 3, 4]]
+
+        Name the two new columns:
+
+        >>> votes = Daf(cols=['ballot', 'mayor', 'council'], lol=[['b1', 1, 0], ['b2', 0, 1]])
+        >>> votes.wide_to_narrow(['ballot'], varname_colname='contest', value_colname='vote')
+        <BLANKLINE>
+        | ballot | contest | vote |
+        | -----: | ------: | ---: |
+        |     b1 |   mayor |    1 |
+        |     b1 | council |    0 |
+        |     b2 |   mayor |    0 |
+        |     b2 | council |    1 |
+        <BLANKLINE>
+        %% daf rows=4; cols=3; keyfield=''; name=''
+        <BLANKLINE>
     """
     if not isinstance(id_cols, list):
         raise TypeError("id_cols must be a list")
@@ -2606,6 +2716,29 @@ def _narrow_to_wide(self: 'Daf',
         |  y |  4 |  3 |
         <BLANKLINE>
         %% daf rows=2; cols=3; keyfield=''; name=''
+        <BLANKLINE>
+
+        Name the two columns to read, and keep only some of the new columns:
+
+        >>> narrow = Daf(cols=['ballot', 'contest', 'vote'], lol=[
+        ...     ['b1', 'mayor', 1], ['b1', 'council', 0], ['b2', 'mayor', 0], ['b2', 'council', 1]])
+        >>> narrow.narrow_to_wide(['ballot'], varname_col='contest', value_col='vote')
+        <BLANKLINE>
+        | ballot | mayor | council |
+        | -----: | ----: | ------: |
+        |     b1 |     1 |       0 |
+        |     b2 |     0 |       1 |
+        <BLANKLINE>
+        %% daf rows=2; cols=3; keyfield=''; name=''
+        <BLANKLINE>
+        >>> narrow.narrow_to_wide(['ballot'], varname_col='contest', value_col='vote', wide_cols=['council'])
+        <BLANKLINE>
+        | ballot | council |
+        | -----: | ------: |
+        |     b1 |       0 |
+        |     b2 |       1 |
+        <BLANKLINE>
+        %% daf rows=2; cols=2; keyfield=''; name=''
         <BLANKLINE>
     """
     if not self.lol:

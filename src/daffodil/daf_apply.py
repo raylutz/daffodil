@@ -163,17 +163,6 @@ def _apply_formulas(self: 'Daf', formulas_daf: 'Daf') -> 'Daf':
         <BLANKLINE>
         %% daf rows=4; cols=3; keyfield=''; name=''
         <BLANKLINE>
-        >>> daf
-        <BLANKLINE>
-        | A  | B  | C  |
-        | -: | -: | -: |
-        |  1 |  2 |  3 |
-        |  4 |  5 |  9 |
-        |  7 |  8 | 15 |
-        | 12 | 15 | 27 |
-        <BLANKLINE>
-        %% daf rows=4; cols=3; keyfield=''; name=''
-        <BLANKLINE>
     """
 
     # TODO: This algorithm is not optimal. Ideally, a dependency tree would be formed and
