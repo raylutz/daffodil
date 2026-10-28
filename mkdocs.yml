@@ -2,6 +2,11 @@ site_name: Daffodil
 site_url: https://raylutz.github.io/daffodil/
 repo_url: https://github.com/raylutz/daffodil
 docs_dir: docsite
+# Build tools kept beside the pages, not published.
+exclude_docs: |
+  griffe_bound_methods.py
+  __pycache__/
+  templates/
 
 theme:
   name: material
@@ -84,6 +89,7 @@ markdown_extensions:
 plugins:
   - search
   - mkdocstrings:
+      custom_templates: docsite/templates
       handlers:
         python:
           paths: [src]

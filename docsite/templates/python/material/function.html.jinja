@@ -1,0 +1,22 @@
+{% extends "_base/function.html.jinja" %}
+
+{#- Most Daf and SqlDaf methods are functions in topic modules, as _select_where in daf_select.py.
+    Each is documented with a heading, its method name. The signature shows that name too, in place
+    of the function's own name with its underscore. An entry with no heading is shown as before. -#}
+{% block signature scoped %}
+  {% set shown_name = config.heading if (config.heading and root) else function.name %}
+  {% if function.overloads and config.show_overloads %}
+    <div class="doc-overloads">
+      {% for overload in function.overloads %}
+        {% filter format_signature(overload, config.line_length, annotations=True, crossrefs=config.signature_crossrefs) %}
+          {{ shown_name }}
+        {% endfilter %}
+      {% endfor %}
+    </div>
+  {% endif %}
+  {% if config.separate_signature and not (config.show_overloads and function.overloads and config.overloads_only) %}
+    {% filter format_signature(function, config.line_length, crossrefs=config.signature_crossrefs) %}
+      {{ shown_name }}
+    {% endfilter %}
+  {% endif %}
+{% endblock signature %}
