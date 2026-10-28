@@ -181,7 +181,8 @@ def _concat(self: 'SqlDaf', other_instance: Daf, respect_kd: bool = False) -> 'S
     The other must have the same columns, in the same order, as in a Daf. An other with no
     rows adds nothing, whatever its columns, as in a Daf. So the empty result of `apply()`,
     which has no columns, can be added with no error. A SqlDaf of the
-    same database file is copied in SQL, in its row order, so no row comes into Python. An in-memory
+    same database file is copied in SQL, in its row order, so no row comes into Python. A SqlDaf of
+    another file is first copied into a TEMP table here, which is deleted after. An in-memory
     Daf is written row by row. All of it is one transaction.
 
     If this is a child, it first becomes a table of its own, by `copy(inplace=True)`, as
@@ -203,15 +204,15 @@ def _concat(self: 'SqlDaf', other_instance: Daf, respect_kd: bool = False) -> 'S
         KeyError: The columns differ, and the other has rows.
         ValueError: A key added is a Python NULL. Nothing is added.
         sqlite3.IntegrityError: A key would be repeated. Nothing is added.
-        NotImplementedError: The other is a SqlDaf this connection cannot read.
+        NotImplementedError: The other is a selection or TEMP table of another thread's connection.
     """
     # Rows are counted only when the columns differ, so a normal concat costs nothing more.
     if other_instance.columns() != self.columns():
         if not other_instance:
             return self
         raise KeyError(f"concat: columns mismatch: this one has {self.columns()}, the other {other_instance.columns()}.")
-    if isinstance(other_instance, SqlDaf):
-        self._check_same_db(other_instance, 'concat')
+    # A SqlDaf this connection cannot read, as in another file, is brought in as a TEMP copy, dropped after.
+    rows_from: Any = self._readable(other_instance) if isinstance(other_instance, SqlDaf) else other_instance
 
     if self.parent_sdaf is not None:
         self.copy(inplace=True)
@@ -223,8 +224,8 @@ def _concat(self: 'SqlDaf', other_instance: Daf, respect_kd: bool = False) -> 'S
     if respect_kd and self.keyfield:
         upsert_sql = f' ON CONFLICT ({quote_name(self.keyfield)}) DO UPDATE SET {self._excluded_sql()}'
     with self.transaction():
-        if isinstance(other_instance, SqlDaf):
-            rows_sql, rows_params = other_instance._rows_sql()
+        if isinstance(rows_from, SqlDaf):
+            rows_sql, rows_params = rows_from._rows_sql()
             # WHERE true lets SQLite tell the ON CONFLICT of an upsert from a join's ON.
             self._execute(f'INSERT INTO {quote_name(self.name)} ({self._cols_sql()}) '
                           f'SELECT {self._cols_sql()} FROM ({rows_sql}) WHERE true ORDER BY {ORD_COL}{upsert_sql}', rows_params)
@@ -236,6 +237,8 @@ def _concat(self: 'SqlDaf', other_instance: Daf, respect_kd: bool = False) -> 'S
             self._insert_rows(other_instance.lol)
         if self.keyfield:
             self._check_no_null_key('concat')       # the unique index does not stop SQL NULL keys.
+    if rows_from is not other_instance:
+        self._execute(f'DROP TABLE IF EXISTS temp.{quote_name(rows_from.name)}')
     return self
 
 

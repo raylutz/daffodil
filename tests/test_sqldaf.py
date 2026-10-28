@@ -2697,16 +2697,104 @@ def test_another_thread_has_its_own_connection_and_its_children_cannot_be_joined
     thread.join()
     cvr_sdaf, some_sdaf = made_ls
     assert cvr_sdaf.conn is not audit_sdaf.conn
-    with pytest.raises(NotImplementedError, match='child or a TEMP table'):
+    with pytest.raises(NotImplementedError, match="another thread's connection"):
         audit_sdaf.join(some_sdaf)
 
 
-def test_join_with_a_table_in_another_file_raises(tmp_path):
+def _temp_tables(sdaf: SqlDaf) -> list:
+    return [row_t[0] for row_t in sdaf.conn.execute("SELECT name FROM sqlite_temp_master WHERE type = 'table'")]
+
+
+def test_join_with_a_table_in_another_file_brings_it_in_and_matches_one_file(tmp_path):
+    """ The other table is copied into TEMP for the join, and the result is as for two tables in one file. """
     audit_daf, cvr_daf = make_join_pair()
     audit_sdaf: SqlDaf = SqlDaf.from_daf(audit_daf, name='audit')
-    cvr_sdaf: SqlDaf = SqlDaf.from_daf(cvr_daf, name='cvr', db_path=str(tmp_path / 'other.db'))
-    with pytest.raises(NotImplementedError, match='another database file'):
-        audit_sdaf.join(cvr_sdaf)
+    near_sdaf: SqlDaf = SqlDaf.from_daf(cvr_daf, name='cvr_here')
+    other_path: str = str(tmp_path / 'other.db')
+    far_sdaf: SqlDaf = SqlDaf.from_daf(cvr_daf, name='cvr', db_path=other_path)
+    for how in ('inner', 'left', 'right', 'outer'):
+        far_lol = audit_sdaf.join(far_sdaf, how=how).to_daf().lol
+        near_lol = audit_sdaf.join(near_sdaf, how=how).to_daf().lol
+        assert far_lol == near_lol, how
+
+
+def test_join_copy_lives_until_the_join_is_read(tmp_path):
+    audit_daf, cvr_daf = make_join_pair()
+    audit_sdaf: SqlDaf = SqlDaf.from_daf(audit_daf, name='audit')
+    far_sdaf: SqlDaf = SqlDaf.from_daf(cvr_daf, name='cvr', db_path=str(tmp_path / 'other.db'))
+    join_sdaf: SqlDaf = audit_sdaf.join(far_sdaf, how='left')
+    assert [name for name in _temp_tables(audit_sdaf) if 'cvr' in name and 'join' not in name]
+    join_sdaf.to_daf()
+    assert not [name for name in _temp_tables(audit_sdaf) if 'cvr' in name and 'join' not in name]
+
+
+def test_join_never_read_drops_its_copy_when_it_is_gone(tmp_path):
+    audit_daf, cvr_daf = make_join_pair()
+    audit_sdaf: SqlDaf = SqlDaf.from_daf(audit_daf, name='audit')
+    far_sdaf: SqlDaf = SqlDaf.from_daf(cvr_daf, name='cvr', db_path=str(tmp_path / 'other.db'))
+    join_sdaf: SqlDaf | None = audit_sdaf.join(far_sdaf, how='left')
+    assert [name for name in _temp_tables(audit_sdaf) if 'cvr' in name]
+    join_sdaf = None
+    assert not [name for name in _temp_tables(audit_sdaf) if 'cvr' in name]
+
+
+def test_chain_of_joins_across_three_files_leaves_no_copy(tmp_path):
+    audit_daf, cvr_daf = make_join_pair()
+    audit_sdaf: SqlDaf = SqlDaf.from_daf(audit_daf, name='audit')
+    cvr_sdaf: SqlDaf = SqlDaf.from_daf(cvr_daf, name='cvr', db_path=str(tmp_path / 'cvr.db'))
+    notes_daf: Daf = Daf(cols=[audit_daf.keyfield, 'note'], lol=[[key, f'n{i}'] for i, key in enumerate(audit_daf.keys())],
+                         keyfield=audit_daf.keyfield)
+    notes_sdaf: SqlDaf = SqlDaf.from_daf(notes_daf, name='notes', db_path=str(tmp_path / 'notes.db'))
+    chain_sdaf: SqlDaf = audit_sdaf.join(cvr_sdaf, how='left').join(notes_sdaf, how='left')
+    assert chain_sdaf.col('note') == [f'n{i}' for i in range(len(audit_daf))]
+    assert all('join' in name for name in _temp_tables(audit_sdaf))
+
+
+def test_join_leaves_both_files_as_they_were(tmp_path):
+    audit_daf, cvr_daf = make_join_pair()
+    audit_path: str = str(tmp_path / 'audit.db')
+    other_path: str = str(tmp_path / 'other.db')
+    SqlDaf.from_daf(audit_daf, name='audit', db_path=audit_path)
+    SqlDaf.from_daf(cvr_daf, name='cvr', db_path=other_path)
+    SqlDaf.close(audit_path)
+    SqlDaf.close(other_path)
+    other_stat = os.stat(other_path)
+    audit_sdaf: SqlDaf = SqlDaf('audit', db_path=audit_path, read_only=True)
+    audit_sdaf.join(SqlDaf('cvr', db_path=other_path), how='left').to_daf()
+    assert (os.stat(other_path).st_size, os.stat(other_path).st_mtime) == (other_stat.st_size, other_stat.st_mtime)
+    assert [row_t[0] for row_t in audit_sdaf.conn.execute("SELECT name FROM main.sqlite_master WHERE type = 'table'")] == ['audit', 'daf_tables']
+
+
+def test_join_with_a_selection_in_another_file_copies_it_through_python(tmp_path):
+    audit_daf, cvr_daf = make_join_pair()
+    audit_sdaf: SqlDaf = SqlDaf.from_daf(audit_daf, name='audit')
+    far_sdaf: SqlDaf = SqlDaf.from_daf(cvr_daf, name='cvr', db_path=str(tmp_path / 'other.db'))
+    some_sdaf: SqlDaf = far_sdaf[0:2]
+    near_sdaf: SqlDaf = SqlDaf.from_daf(cvr_daf, name='cvr_here')[0:2]
+    assert audit_sdaf.join(some_sdaf, how='inner').to_daf().lol == audit_sdaf.join(near_sdaf, how='inner').to_daf().lol
+
+
+def test_join_inside_a_transaction_copies_through_python(tmp_path):
+    audit_daf, cvr_daf = make_join_pair()
+    audit_sdaf: SqlDaf = SqlDaf.from_daf(audit_daf, name='audit')
+    far_sdaf: SqlDaf = SqlDaf.from_daf(cvr_daf, name='cvr', db_path=str(tmp_path / 'other.db'))
+    near_sdaf: SqlDaf = SqlDaf.from_daf(cvr_daf, name='cvr_here')
+    with audit_sdaf.transaction():
+        far_lol = audit_sdaf.join(far_sdaf, how='left').to_daf().lol
+    assert far_lol == audit_sdaf.join(near_sdaf, how='left').to_daf().lol
+
+
+def test_concat_and_keys_from_another_file(tmp_path):
+    audit_daf, cvr_daf = make_join_pair()
+    audit_sdaf: SqlDaf = SqlDaf.from_daf(audit_daf, name='audit')
+    far_sdaf: SqlDaf = SqlDaf.from_daf(audit_daf.clone_empty(), name='more', db_path=str(tmp_path / 'other.db'))
+    far_sdaf.append(['z9'] + [''] * (len(audit_daf.columns()) - 1))
+    audit_sdaf.concat(far_sdaf)
+    assert audit_sdaf.keys()[-1] == 'z9'
+    assert not [name for name in _temp_tables(audit_sdaf) if 'more' in name]
+    keys_sdaf: SqlDaf = SqlDaf.from_daf(Daf(cols=[audit_daf.keyfield], lol=[[audit_daf.keys()[0]], ['z9']], keyfield=audit_daf.keyfield),
+                                        name='keys', db_path=str(tmp_path / 'keys.db'))
+    assert audit_sdaf.select_records_daf(keys_sdaf).keys() == [audit_daf.keys()[0], 'z9']
 
 
 # ---- select_cols ----

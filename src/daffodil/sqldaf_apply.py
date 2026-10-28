@@ -1311,7 +1311,7 @@ def _group_where(
 
 def _join(
         self: 'SqlDaf',
-        other_daf:              'SqlDaf',           # the SqlDaf to join with, in the same file.
+        other_daf:              'SqlDaf',           # the SqlDaf to join with, in this file or another.
         how:                    str = 'inner',      # 'inner', 'left', 'right' or 'outer'.
         shared_fields:          T_ls | None = None, # columns that both have and that appear only once.
         tag_other:              bool = False,       # if True, every column of the other gets a suffix.
@@ -1341,6 +1341,12 @@ def _join(
     Nothing runs yet. The join is resolved the first time it is read, into a TEMP table of
     new rows, as `Daf.join()` makes new rows. A selection made from it resolves it first.
 
+    The other table may be in another database file. It is copied then into a TEMP table on this
+    table's connection, with its key index, and the join reads the copy. Neither file changes. The
+    copy is deleted when the join is first read, or when the join is gone unread, or when the file
+    is closed. A chain of joins keeps each copy until the last join that uses it is read. See the
+    Guide page on SqlDaf, Tables in other files.
+
     Args:
         other_daf: The SqlDaf to join with, in the same database file.
         how: `inner`, `left`, `right` or `outer`.
@@ -1356,7 +1362,7 @@ def _join(
 
     Raises:
         ValueError: `how` is not one of the four, or a table has no keyfield.
-        NotImplementedError: `custom_translator_daf` or a `fill` other than Python NULL, or a SqlDaf this connection cannot read.
+        NotImplementedError: `custom_translator_daf` or a `fill` other than Python NULL, or a selection or TEMP table of another thread's connection.
 
     Examples:
         >>> import tempfile
@@ -1410,9 +1416,15 @@ def _join(
         raise NotImplementedError("join(fill=) other than Python NULL is not supported on a SqlDaf yet.")
     if not isinstance(other_daf, SqlDaf):
         raise NotImplementedError("join: the other must be a SqlDaf. Make one with SqlDaf.from_daf().")
-    self._check_same_db(other_daf, 'join')
     if not self.keyfield or not other_daf.keyfield:
         raise ValueError("join: both tables need a keyfield.")
+
+    # A table in another file is brought in as a TEMP copy, which lives until the join is first read.
+    # A chain of joins also keeps the copies of the unread joins it is made from.
+    other_rows_sdaf: SqlDaf = self._readable(other_daf)
+    _brought_in_ls: T_ls = list(self._brought_in_ls) + list(other_daf._brought_in_ls)
+    if other_rows_sdaf is not other_daf:
+        _brought_in_ls.append(other_rows_sdaf.name)
 
     a_name: str = self._root().name
     b_name: str = other_daf._root().name
@@ -1450,7 +1462,7 @@ def _join(
             b_exprs_ls.append(f'B.{quote_name(source_col)}')
 
     a_sql, a_params = self._rows_sql()
-    b_sql, b_params = other_daf._rows_sql()
+    b_sql, b_params = other_rows_sdaf._rows_sql()
     on_sql: str = f'A.{quote_name(self.keyfield)} = B.{quote_name(other_daf.keyfield)}'
     named_ls: T_ls = [f'{expr} AS {quote_name(col)}' for expr, col in zip(a_exprs_ls, out_cols)]
     join_kind: str = 'JOIN' if how in ('inner', 'right') else 'LEFT JOIN'
@@ -1482,4 +1494,6 @@ def _join(
     join_sdaf.pending_sql    = pending_sql
     join_sdaf.pending_params = params
     join_sdaf.is_resolved    = False
+    if _brought_in_ls:
+        self._hold_brought_in(join_sdaf, _brought_in_ls)
     return join_sdaf

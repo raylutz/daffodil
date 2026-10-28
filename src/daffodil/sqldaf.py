@@ -8,6 +8,7 @@ import csv
 import glob
 import json
 import threading
+import weakref
 import contextlib
 import urllib.parse
 
@@ -436,6 +437,25 @@ def _file_schema(conn: sqlite3.Connection, conn_path: str, path: str, read_only:
         conn.execute(f'DETACH DATABASE {FILE_SCHEMA}')
 
 
+def _release_brought_in(conn: sqlite3.Connection, counts_di: Dict[str, int], names: Tuple[str, ...]) -> None:
+    """
+    Give up a join's use of TEMP copies, and drop each that no other unread join uses. Internal use.
+
+    It runs once, when the join is first read, or when the join is gone. A copy that cannot be
+    dropped now, as on a closed or busy connection, goes when the connection closes.
+    """
+    name: str
+    for name in names:
+        counts_di[name] = counts_di.get(name, 1) - 1
+        if counts_di[name] > 0:
+            continue
+        del counts_di[name]
+        try:
+            conn.execute(f'DROP TABLE IF EXISTS temp.{quote_name(name)}')
+        except sqlite3.Error:
+            pass
+
+
 def _meta_delete(conn: sqlite3.Connection, name: str) -> None:
     """ Remove the record of a table, if there is one. Internal use. """
     if _table_exists_on(conn, META_TABLE, 'main'):
@@ -466,7 +486,8 @@ class SqlDaf(Daf):
     come back as they were, from the metadata that SqlDaf keeps in the table daf_tables of the
     same file. A table made by other code has no such record, so give them to the constructor.
     `SqlDaf.from_csv()` and `SqlDaf.from_daf()` load a file or a Daf into a new table.
-    `SqlDaf.from_db()` copies in a table kept in another database file.
+    A join, `concat()` and keys with a table in another database file bring it in themselves, as a
+    TEMP copy. `SqlDaf.from_db()` copies a table in as a permanent one.
 
     A SqlDaf is a parent or a child.
 
@@ -697,7 +718,8 @@ class SqlDaf(Daf):
         if key_t not in SqlDaf._open_conns:
             # URI filenames let from_db() attach a source read-only. A plain path opens as before.
             SqlDaf._open_conns[key_t] = (_connect(path, isolation_level=None, uri=True),
-                                         {'func_error': None, 'temp_count': 0, 'func_count': 0, 'no_gaps_ss': set(), 'has_read_only': False, 'guard': None})
+                                         {'func_error': None, 'temp_count': 0, 'func_count': 0, 'no_gaps_ss': set(), 'has_read_only': False, 'guard': None,
+                                          'brought_in_di': {}})
         return SqlDaf._open_conns[key_t]
 
 
@@ -973,9 +995,9 @@ class SqlDaf(Daf):
         """
         Copy a table from another database file into the working file, and open the copy.
 
-        Use it to open the input tables of a job, each kept in a file of its own, as `from_csv()`
-        opens CSV files. Every table then sits in one file, on one connection. So joins,
-        `concat()` and keys work across them, as within any one file.
+        It makes a permanent table in the working file. Use it to build a file named for the table a
+        stage makes, with each input copied into it. A join, `concat()` or keys with a table in another
+        file need no copy made this way: they bring the other table in themselves, as a TEMP copy.
 
         The source file is only read, once, and never changed. It is attached read-only, so SQLite
         refuses any write to it. A change made to the copy stays in the working file. To keep a result in a file of its own, write it with `save(db_path=)`.
@@ -1103,6 +1125,10 @@ class SqlDaf(Daf):
 
 
     read_only: bool = False
+
+    # The TEMP copies a join not read yet depends on, brought in from other files. See _readable().
+    _brought_in_ls: Tuple[str, ...] = ()
+    _release_brought_in: Any = None
     """ True if this SqlDaf was opened with `read_only=True`, or is a selection of one. """
 
     @property
@@ -1426,22 +1452,88 @@ class SqlDaf(Daf):
             self.conn.executemany(stmt, (null_to_none(row_la) for row_la in rows))
 
 
-    def _check_same_db(self, other_sdaf: 'SqlDaf', method: str) -> None:
+    def _can_read(self, other_sdaf: 'SqlDaf') -> bool:
         """
-        Check that another SqlDaf can be read from this connection, for a join or the like. Internal use.
+        Say whether this connection can read another SqlDaf in SQL, for a join or the like. Internal use.
 
         On the same connection, it always can. On another connection to the same file, it can if
-        it is a parent on a permanent table, since every connection on a file sees its tables.
+        the other is a parent on a permanent table, since every connection on a file sees its tables.
         A child or a TEMP table depends on objects that only its own connection sees.
         """
         if other_sdaf.conn is self.conn:
-            return
-        if os.path.realpath(other_sdaf.db_path) != os.path.realpath(self.db_path):
-            raise NotImplementedError(f"{method}: the other SqlDaf is in another database file, "
-                                      f"{other_sdaf.db_path}. Both must be in one file. Copy it in with SqlDaf.from_db().")
-        if other_sdaf.parent_sdaf is not None or other_sdaf.is_temp or not other_sdaf.is_resolved:
-            raise NotImplementedError(f"{method}: '{other_sdaf.name}' is a child or a TEMP table of another connection. "
-                                      f"Save it first, or make both from the same table.")
+            return True
+        return (os.path.realpath(other_sdaf.db_path) == os.path.realpath(self.db_path)
+                and other_sdaf.parent_sdaf is None and not other_sdaf.is_temp and other_sdaf.is_resolved)
+
+
+    def _readable(self, other_sdaf: 'SqlDaf') -> 'SqlDaf':
+        """
+        The other SqlDaf, or a TEMP copy of it on this connection if this connection cannot read it. Internal use.
+
+        A join, `concat()` and keys from a SqlDaf read the other table in SQL on this connection.
+        A table in another file, or a selection or TEMP table of another connection, is brought in
+        as a TEMP table here. A TEMP table is in no database file, so neither file changes, and it
+        goes when the connection closes. The caller drops it sooner, when it is no longer needed.
+        """
+        if self._can_read(other_sdaf):
+            return other_sdaf
+        return self._bring_in(other_sdaf)
+
+
+    def _bring_in(self, other_sdaf: 'SqlDaf') -> 'SqlDaf':
+        """
+        Copy another SqlDaf into a TEMP table on this connection, and give a SqlDaf on it. Internal use.
+
+        A permanent table in another file is copied in SQL, with its file attached read-only for
+        the copy, as `from_db()` does. That took 0.6 s for 1,000,000 rows of 5 columns. Anything
+        else, or any copy inside a transaction, where SQLite cannot attach a file, is copied
+        through Python, a batch of rows at a time, from the other's own connection.
+        """
+        name: str = self._next_temp_name(other_sdaf._root().name)
+        cols_ls: T_ls = list(other_sdaf.hd)
+        cols_sql: str = ', '.join(quote_name(col) for col in cols_ls)
+        table_sql: str = _create_table_sql(self.conn, name, cols_ls, 'temp')
+        is_table: bool = other_sdaf.parent_sdaf is None and not other_sdaf.is_temp and other_sdaf.is_resolved
+        if is_table and not self.conn.in_transaction:
+            order_col: str = RID_COL if other_sdaf.has_rid else 'rowid'
+            with _file_schema(self.conn, self.db_path, other_sdaf.db_path, read_only=True) as schema:
+                self._execute(table_sql)
+                self._execute(f'INSERT INTO {quote_name(name)} ({cols_sql}) '
+                              f'SELECT {cols_sql} FROM {schema}.{quote_name(other_sdaf.name)} ORDER BY {order_col}')
+        else:
+            insert_sql: str = f'INSERT INTO {quote_name(name)} ({cols_sql}) VALUES ({placeholders(len(cols_ls))})'
+            try:
+                with self.transaction():
+                    self._execute(table_sql)
+                    batch_lot: List[Tuple[Any, ...]]
+                    for batch_lot in other_sdaf._iter_row_batches(cols=cols_ls):
+                        self.conn.executemany(insert_sql, batch_lot)
+            except sqlite3.ProgrammingError as exc_info:
+                # Python's sqlite3 refuses a connection of another thread, or one that is closed.
+                raise NotImplementedError(f"'{other_sdaf.name}' is a selection or TEMP table of another thread's "
+                                          f"connection, or of a closed one, so it cannot be read here. "
+                                          f"Save it in its own thread first.") from exc_info
+        copy_sdaf: SqlDaf = self._new_on_conn(name, other_sdaf.keyfield, dict(other_sdaf.dtypes), is_temp=True)
+        # A join looks up each key in the copy, so the copy gets its key index, as the table had.
+        if copy_sdaf.keyfield:
+            copy_sdaf.ensure_key_index()
+        return copy_sdaf
+
+
+    def _hold_brought_in(self, join_sdaf: 'SqlDaf', names: T_ls) -> None:
+        """
+        Count a join as a user of TEMP copies, and release them when it is read or goes away. Internal use.
+
+        A chain of joins shares the copies of the unread joins in it, so each copy has a count of
+        the joins that use it. The join gives them up when it is first read, or when it is gone
+        without being read, as the inner join of a chain is. A copy is dropped at a count of zero.
+        """
+        counts_di: Dict[str, int] = self._conn_da['brought_in_di']
+        name: str
+        for name in names:
+            counts_di[name] = counts_di.get(name, 0) + 1
+        join_sdaf._brought_in_ls = tuple(names)
+        join_sdaf._release_brought_in = weakref.finalize(join_sdaf, _release_brought_in, self.conn, counts_di, tuple(names))
 
 
     # ---- the SQL that gives the rows ----
@@ -1547,6 +1639,9 @@ class SqlDaf(Daf):
             self.is_resolved = True
             self.pending_sql = ''
             self.pending_params = ()
+            if self._release_brought_in is not None:
+                self._release_brought_in()             # the join is read, so it needs its copies no more.
+            self._brought_in_ls = ()
             return self
         self._execute(self._refs_table_sql(self.name))
         self._execute(f'INSERT INTO {quote_name(self.name)} (ref) '
@@ -2017,10 +2112,12 @@ class SqlDaf(Daf):
         both are written to a TEMP table of keys first, with an index, so the keys are read once
         and joined in SQL.
         """
+        if isinstance(keys_ls, SqlDaf) and not keys_ls.keyfield:
+            raise ValueError(f"The keys are the SqlDaf '{keys_ls.name}', which has no keyfield.")
+        if isinstance(keys_ls, SqlDaf) and not self._can_read(keys_ls):
+            # A SqlDaf in another file gives only its keys, read in batches into a TEMP table of keys below.
+            keys_ls = (row_t[0] for batch_lot in keys_ls._iter_row_batches(cols=[keys_ls.keyfield]) for row_t in batch_lot)
         if isinstance(keys_ls, SqlDaf):
-            self._check_same_db(keys_ls, 'The keys')
-            if not keys_ls.keyfield:
-                raise ValueError(f"The keys are the SqlDaf '{keys_ls.name}', which has no keyfield.")
             # A selection of keys is found in by its references, so they need an index.
             if keys_ls.parent_sdaf is not None:
                 keys_ls._resolve()

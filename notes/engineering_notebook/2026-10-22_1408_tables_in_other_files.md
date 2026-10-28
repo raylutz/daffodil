@@ -101,3 +101,35 @@ took 2.11 s, 680 MB of values, and the whole copy 6.21 s, writing a 760 MB table
 the write into the working file. A cp of the whole 804 MB file took 0.61 s, but copies every table. The join matched `Daf.join()` of the same
 tables in memory. No ballot lacked a blt row. Each source file had the same bytes and mtime after.
 Script: scratch from_db_d05.py, not kept.
+
+## A join brings in a table from another file, 2026-10-28, Q312
+
+AuditEngine asked, as their Q438: mail to_daffodil/2026-10-28_0326_join_brings_in_other_file.md, and
+their notebook engineering_notebook/2026-10-28_sqldaf_join_across_files.md. Ray: "Yes implement".
+Ray's model: the other table is brought in for the join, the join is done, the copy is deleted, and
+the result is saved in a file of its own. `from_db()` stays for a file named for the eventual table.
+
+Built:
+
+- `_readable()` in sqldaf.py replaces `_check_same_db()`. It gives the other SqlDaf when this
+  connection can read it, and otherwise `_bring_in()`, a TEMP copy here with its key index.
+- `_bring_in()` copies a permanent table in SQL through a brief read-only ATTACH, as `from_db()`
+  does, and anything else through Python in batches from the other's connection. Inside a transaction
+  it also uses Python, since SQLite cannot detach a file used in one.
+- A join holds its copies until it is first read. Each copy has a count on the connection, in
+  `brought_in_di`, of the unread joins that use it, since a chain `a.join(b).join(c)` reads the copy of
+  `a.join(b)` inside its own SQL. `weakref.finalize` releases a join's copies when it is read, or when
+  the join object is gone unread, as the inner join of a chain is. A copy at a count of zero is dropped.
+- `concat()` drops its copy after the insert. Keys copy only the key column, into the TEMP table of
+  keys that a Daf of keys already uses.
+- A selection of another thread's connection cannot be read from this thread, as Python's sqlite3
+  refuses it. It raises NotImplementedError with a clear message.
+
+Timings, 1,000,000 rows of 5 columns, a left join on unique keys:
+
+    one file                                  3.4 to 3.8 s
+    other file, copy without an index         0.30 s, then the join 4.80 s
+    other file, copy with its key index       0.7 s, then the join 3.7 to 3.9 s
+    a selection in another file, by Python    2.37 s to copy, then 5.1 s
+
+The index on the copy is what makes the join as fast as in one file.

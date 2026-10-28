@@ -346,9 +346,9 @@ group. That Daf is small only when the groups are few.
 
 ## Joins
 
-`join()` joins two tables of the same file on their keyfields, in SQL. A table kept in another
-file is copied in first, with `from_db()`, as [Tables in other files](#tables-in-other-files) shows. The columns and the
-rows come as `Daf.join()` gives them. A cell with no match is Python NULL.
+`join()` joins two tables on their keyfields, in SQL. The other table may be in another file. It
+is brought in for the join, as [Tables in other files](#tables-in-other-files) shows. The columns
+and the rows come as `Daf.join()` gives them. A cell with no match is Python NULL.
 
 ```pycon
 >>> names_sdaf = SqlDaf('names', cols=['ballot_id', 'voter'], keyfield='ballot_id',
@@ -474,10 +474,47 @@ table in its own file opens it without `read_only`. Neither has to close the fil
 ## Tables in other files
 
 A job may keep each large table in a file of its own. That makes it plain which tables are
-built, and a table is dropped by deleting its file. `from_db()` copies such a table into the
-working file, `SqlDaf.db_path`, as `from_csv()` loads a CSV file. Its rows keep their order, and
-its keyfield and dtypes come with it. From there, joins and keys work across tables as within
-any one file.
+built, and a table is dropped by deleting its file.
+
+**A join with a table in another file** is written as for a Daf. The other table is copied into a
+TEMP table on this table's connection, with its key index, and joined there. A TEMP table is in no
+database file, so neither file changes. The copy lives until the join is first read, and is then
+deleted. A join never read loses its copy when it is gone, or when the file is closed. A chain of
+joins works the same way. The result is kept in a file of its own with `save(db_path=)`:
+
+```pycon
+>>> job_dir = os.path.dirname(SqlDaf.db_path)
+>>> ballots_sdaf = SqlDaf('ballots', cols=['ballot_id', 'qty'], keyfield='ballot_id',
+...                       lol=[['b1', 3], ['b2', 12], ['b3', 7]])
+>>> voters_sdaf = SqlDaf('voters', db_path=job_dir + '/voters.db', keyfield='ballot_id',
+...                      cols=['ballot_id', 'voter'], lol=[['b1', 'Ann'], ['b3', 'Cy']])
+>>> ballots_voters_sdaf = ballots_sdaf.join(voters_sdaf, how='left')
+>>> ballots_voters_sdaf.save('ballots_voters', db_path=job_dir + '/ballots_voters.db').to_daf()
+<BLANKLINE>
+| ballot_id | qty | voter |
+| --------: | --: | ----: |
+|        b1 |   3 |   Ann |
+|        b2 |  12 |       |
+|        b3 |   7 |    Cy |
+<BLANKLINE>
+%% daf rows=3; cols=3; keyfield='ballot_id'; name='ballots_voters'
+<BLANKLINE>
+
+No copy is left on the connection:
+
+>>> [row_t[0] for row_t in ballots_sdaf.conn.execute("SELECT name FROM sqlite_temp_master WHERE name LIKE '%voters%'")]
+[]
+```
+
+`concat()` and keys from a SqlDaf in another file, as in `select_records_daf()`, bring it in the
+same way. For keys, only the key column is copied. A permanent table is copied in SQL, which took
+0.7 s for 1,000,000 rows of 5 columns, with its key index. The join then took as long as in one
+file. A selection or a TEMP table of another connection is copied through Python, which is slower.
+Inside a transaction, where SQLite cannot attach a file, the copy also goes through Python.
+
+**`from_db()`** copies a table into the working file, `SqlDaf.db_path`, as a permanent table, as
+`from_csv()` loads a CSV file. Use it to build a file named for the table a stage makes, with each
+input copied into it. Its rows keep their order, and its keyfield and dtypes come with it.
 
 The other file is only read. It is attached for the copy alone, which is one SQL statement, and
 then detached. So any number of files can be copied in, and a change to the copy never reaches
@@ -727,9 +764,10 @@ same rows on both. On a SqlDaf they run in SQL and read only the rows they retur
   work_sdaf.save('full_bif_p1', db_path='p1.db')          # keep it, if wanted
   ```
   On a Daf the same lines run, and `copy()` gives rows of its own, as a change needs there too.
-- **Open each input table with `from_db()`.** A job that keeps each table in a file of its own
-  copies the ones a stage uses into one working file. Then every table is on one connection, and
-  the files they came from are only read.
+- **Join tables in their own files directly.** A job that keeps each table in a file of its own
+  opens each where it is. A join brings the other table in for itself, and the files are only
+  read. Keep the result with `save(db_path=)`. To build a file named for the table a stage makes,
+  copy each input into it with `from_db()`.
 
 ```pycon
 >>> votes_daf = Daf(cols=['ballot_id', 'corrupted'], keyfield='ballot_id',
