@@ -625,9 +625,9 @@ def test_sum_specific_columns():
     assert daf.sum(['a']) == {'a': 4.0}
 
 
-def test_sum_numeric_only_with_dtypes():
+def test_sum_of_named_columns_with_dtypes():
     daf = Daf(lol=[['1', 'x'], ['3', 'y']], cols=['a', 'b'], dtypes={'a': int, 'b': str})
-    assert daf.sum(['a', 'b'], numeric_only=True) == {'a': 4}
+    assert daf.sum(['a']) == {'a': 4}
 
 
 # =====================================================================

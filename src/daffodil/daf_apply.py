@@ -35,25 +35,6 @@ if TYPE_CHECKING:       # for mypy. daf.py sets the names below when the program
 _NAMES_FROM_DAF: Tuple[str, ...] = ('Daf', 'T_dodaf', '_IndirectRowView', '_uncountable_message', 'logs')
 
 
-def _safe_tofloat(val: Any) -> float:
-    """
-    Safely convert value to float.
-
-    Args:
-        val: Value to convert.
-
-    Returns:
-        float | str: Converted float or original value on failure.
-
-    Note:
-        Internal use.    
-    """
-    try:
-        return float(val)
-    except ValueError:
-        return 0.0
-
-
 def _basic_append(self: 'Daf', row: KeyedList | Dict[Any, Any] | list) -> 'Daf':
     # --- list ---
     if isinstance(row, list):
@@ -3494,7 +3475,6 @@ def _sum_dodis(this_dodi: T_dodi, accum_dodi: T_dodi) -> None:
 def _sum(
         self: 'Daf',
         colnames_ls:    T_cs | None = None,    # parameter name now inconsistent.
-        numeric_only:   bool = False,
         ) -> dict: # sums_di
     """
     Total the columns, and return a dict of the totals.
@@ -3505,13 +3485,11 @@ def _sum(
 
     `reduce(Daf.sum_da)` adds differently. It skips every value that is not a number,
     including the text `'2'`, and never raises. So the two can give different totals
-    for a column that holds text. See the example. With `numeric_only`, and dtypes of `int` or `float`, only
-    those columns are totaled, and a cell that is not a number counts as 0. The
-    totals are converted to the dtypes, if the Daf has them.
+    for a column that holds text. See the example. The totals are converted to the
+    dtypes, if the Daf has them.
 
     Args:
-        colnames_ls: The columns to total. All if None.
-        numeric_only: If True, total only the columns with an `int` or `float` dtype.
+        colnames_ls: The columns to total. All if None. Name only the columns that hold numbers.
 
     Returns:
         A dict that maps each column name to its total.
@@ -3541,10 +3519,8 @@ def _sum(
 
     if colnames_ls is None:
         cleaned_colnames_cs: T_cs = self.hd.keys()
-    elif not (numeric_only and self.dtypes):
-        cleaned_colnames_cs = {col:None for col in colnames_ls if col in self.hd.keys()}
     else:
-        cleaned_colnames_cs = {col:None for col in colnames_ls if col in self.hd and self.dtypes.get(col) in [int, float]}
+        cleaned_colnames_cs = {col:None for col in colnames_ls if col in self.hd.keys()}
 
     sums_d = dict.fromkeys(cleaned_colnames_cs, 0.0)
 
@@ -3553,10 +3529,7 @@ def _sum(
         for la in self.lol:
             val = la[colidx]
             if val:
-                if numeric_only:
-                    sums_d[colname] += Daf._safe_tofloat(val)    # perflint-reviewed
-                else:
-                    sums_d[colname] += float(val)        # perflint-reviewed
+                sums_d[colname] += float(val)        # perflint-reviewed
 
     sums_d = daf_utils.set_dict_dtypes(sums_d, dtypes=self.dtypes)
 

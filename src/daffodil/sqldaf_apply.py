@@ -571,19 +571,17 @@ def _daf_valuecount(
 def _sum(
         self: 'SqlDaf',
         colnames_ls:    T_ls | None = None,         # the columns to total. All if None.
-        numeric_only:   bool = False,               # if True, total only int and float columns, and text counts as 0.
         ) -> T_da:
     """
     Total the columns, as `Daf.sum()` does, and return a dict of the totals.
 
     Numbers are totalled by SQLite. A column that also holds text has its text cells read
     into Python and added as `Daf.sum()` adds them: text that is not a number raises
-    ValueError, or counts as 0 with `numeric_only`. Python NULL is skipped. Each total starts as a
+    ValueError. Python NULL is skipped. Each total starts as a
     float, and is converted to the dtype of its column if there is one.
 
     Args:
-        colnames_ls: The columns to total. All if None.
-        numeric_only: If True, total only the columns with an int or float dtype, and count text that is not a number as 0.
+        colnames_ls: The columns to total. All if None. Name only the columns that hold numbers.
 
     Returns:
         A dict that maps each column name to its total.
@@ -607,10 +605,8 @@ def _sum(
     sum_cols_ls: T_ls
     if colnames_ls is None:
         sum_cols_ls = self.columns()
-    elif not (numeric_only and self.dtypes):
-        sum_cols_ls = list(dict.fromkeys(col for col in colnames_ls if col in self.hd))
     else:
-        sum_cols_ls = list(dict.fromkeys(col for col in colnames_ls if col in self.hd and self.dtypes.get(col) in (int, float)))
+        sum_cols_ls = list(dict.fromkeys(col for col in colnames_ls if col in self.hd))
     sums_d: T_da = dict.fromkeys(sum_cols_ls, 0.0)
     if not sum_cols_ls:
         return sums_d
@@ -626,10 +622,9 @@ def _sum(
     for icol, col in enumerate(sum_cols_ls):
         sums_d[col] = float(totals_t[2 * icol])
         if totals_t[2 * icol + 1]:                      # text cells: add them as Daf.sum() does.
-            to_float: Callable[[Any], float] = Daf._safe_tofloat if numeric_only else float
             text_lot: List[Tuple[Any, ...]] = self._fetch(self._execute(
                     f"SELECT {quote_name(col)} FROM ({rows_sql}) WHERE typeof({quote_name(col)}) = 'text'", rows_params))
-            sums_d[col] += sum(to_float(text_t[0]) for text_t in text_lot if text_t[0])
+            sums_d[col] += sum(float(text_t[0]) for text_t in text_lot if text_t[0])
     return daf_utils.set_dict_dtypes(sums_d, dtypes=self.dtypes)
 
 

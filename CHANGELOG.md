@@ -10,6 +10,7 @@ all prior releases. Plans for future moved to ROADMAP.md.
 ## [Unreleased]
 
 ### Changed
+- **Breaking.** `sum()` on a Daf and a SqlDaf takes no `numeric_only`. Name the columns to total instead, as `sum(['qty', 'n'])`. It was a pandas habit. With no `cols` it gave the text `'0.0'` for each column it skipped, and a test locked that in. Without it, text that is not a number raises ValueError, as it did without `numeric_only`. AuditEngine calls it once, with the columns named, at generic_cvr.py:2228, and drops the argument. Ray decided it on 2026-10-28, Q310. Tests are in `tests/test_daf.py`, `tests/test_daf_misc.py` and `tests/test_sqldaf.py`.
 - The docs examples show the real output of each call, with no `_ =`, and give an example for each parameter of a method, or a few together. The Quick start and Getting started pages are rewritten, and the Quick start runs as a doctest. A moved method's signature in the API pages shows its method name, not the function's. `to_md()`, `col()`, `append()`, the brackets and many more are reworked. Where a docstring said something the code does not do, it now says what the code does, and the bugs found are listed in `notes/engineering_notebook/`. Tests were added for the cases shown, and four xfail tests record two of the bugs. Ray asked for this on 2026-10-28, Q306.
 
 ## [0.9.1] - (2026-10-26)

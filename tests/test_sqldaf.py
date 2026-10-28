@@ -1578,7 +1578,6 @@ COUNT_CALLS = [
     ('daf_valuecount all', lambda d: d.daf_valuecount()),
     ('value_counts_daf', lambda d: d.value_counts_daf('precinct', sort=True, include_total=True).lol),
     ('sum', lambda d: d.sum(['style'])),
-    ('sum numeric_only', lambda d: d.sum(['style', 'n', 't'], numeric_only=True)),
     ('groupsum_daf', lambda d: (d.groupsum_daf('precinct', reduce_cols=['style', 'n', 't']).lol, d.groupsum_daf('precinct').keyfield)),
     ('groupsum_daf all', lambda d: d.groupsum_daf('precinct').lol),
     ]
@@ -1634,7 +1633,7 @@ def test_sum_raises_on_text_and_uses_dtypes():
     nums_daf: Daf = Daf(lol=[[1, 2.5], [2, 1]], cols=['i', 'f'], dtypes={'i': int, 'f': float})
     nums_sdaf: SqlDaf = SqlDaf.from_daf(nums_daf, name='nums')
     assert nums_sdaf.sum() == nums_daf.sum() == {'i': 3, 'f': 3.5}
-    assert nums_sdaf.sum(['i', 'nothing'], numeric_only=True) == nums_daf.sum(['i', 'nothing'], numeric_only=True)
+    assert nums_sdaf.sum(['i', 'nothing']) == nums_daf.sum(['i', 'nothing']) == {'i': 3}
 
 
 def test_counts_on_an_empty_table():

@@ -1913,7 +1913,6 @@ class Daf:
 
     #==== apply, reduce and group: functions in daf_apply.py
 
-    _safe_tofloat                         = daf_apply._safe_tofloat
     _basic_append                         = daf_apply._basic_append
     apply_formulas                        = daf_apply._apply_formulas
     _parse_formulas                       = daf_apply._parse_formulas
