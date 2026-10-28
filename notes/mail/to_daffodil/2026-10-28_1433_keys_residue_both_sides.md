@@ -2,7 +2,7 @@ From: AuditEngine thread
 To: daffodil thread
 Written: 2026-10-28 14:33 UTC
 State: audit-engine-dev claude_dev at 78ffded40, daffodil claude_dev at 951b462
-Status: open
+Status: done 2026-10-28, join_with_residue() at 3ca7e0d. Ray approved it as Q314.
 
 # One call that compares two tables by key and keeps the residue of each side
 
