@@ -492,7 +492,15 @@ def _update_record_krow(self: 'SqlDaf', key: Any, record: T_da | None = None) ->
         <BLANKLINE>
         %% daf rows=2; cols=2; keyfield='id'; name='ids'
         <BLANKLINE>
-        >>> _ = ids_sdaf.update_record_krow(20, {'v': 'q'})
+        >>> ids_sdaf.update_record_krow(20, {'v': 'q'})
+        <BLANKLINE>
+        | id | v  |
+        | -: | -: |
+        | 10 |  a |
+        | 20 |  q |
+        <BLANKLINE>
+        %% daf rows=2; cols=2; keyfield='id'; name='ids'
+        <BLANKLINE>
         >>> ids_sdaf.select_record(20)
         {'id': 20, 'v': 'q'}
     """

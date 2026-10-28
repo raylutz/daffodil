@@ -152,7 +152,17 @@ def _apply_formulas(self: 'Daf', formulas_daf: 'Daf') -> 'Daf':
         <BLANKLINE>
         %% daf rows=4; cols=3; keyfield=''; name=''
         <BLANKLINE>
-        >>> _ = daf.apply_formulas(f_daf)
+        >>> daf.apply_formulas(f_daf)
+        <BLANKLINE>
+        | A  | B  | C  |
+        | -: | -: | -: |
+        |  1 |  2 |  3 |
+        |  4 |  5 |  9 |
+        |  7 |  8 | 15 |
+        | 12 | 15 | 27 |
+        <BLANKLINE>
+        %% daf rows=4; cols=3; keyfield=''; name=''
+        <BLANKLINE>
         >>> daf
         <BLANKLINE>
         | A  | B  | C  |
@@ -638,10 +648,28 @@ def _apply_in_place(
         <BLANKLINE>
         %% daf rows=3; cols=3; keyfield=''; name=''
         <BLANKLINE>
-        >>> _ = daf.apply_in_place(lambda row: {**row, 'y': row['y'] + 1})
+        >>> daf.apply_in_place(lambda row: {**row, 'y': row['y'] + 1})
+        <BLANKLINE>
+        | g  | x  | y  |
+        | -: | -: | -: |
+        |  a |  1 | 11 |
+        |  b |  2 | 21 |
+        |  a |  3 | 31 |
+        <BLANKLINE>
+        %% daf rows=3; cols=3; keyfield=''; name=''
+        <BLANKLINE>
         >>> daf.col('y')
         [11, 21, 31]
-        >>> _ = daf.apply_in_place(lambda row: row.__setitem__('y', 0), by='row_klist')
+        >>> daf.apply_in_place(lambda row: row.__setitem__('y', 0), by='row_klist')
+        <BLANKLINE>
+        | g  | x  | y  |
+        | -: | -: | -: |
+        |  a |  1 |  0 |
+        |  b |  2 |  0 |
+        |  a |  3 |  0 |
+        <BLANKLINE>
+        %% daf rows=3; cols=3; keyfield=''; name=''
+        <BLANKLINE>
         >>> daf.col('y')
         [0, 0, 0]
     """
@@ -2750,7 +2778,15 @@ def _set_col2_from_col1_using_regex_select(self: 'Daf', col1: str, col2: str='',
         <BLANKLINE>
         %% daf rows=2; cols=2; keyfield=''; name=''
         <BLANKLINE>
-        >>> _ = daf.set_col2_from_col1_using_regex_select('s', regex=r'(\d+)')
+        >>> daf.set_col2_from_col1_using_regex_select('s', regex=r'(\d+)')
+        <BLANKLINE>
+        | id | s  |
+        | -: | -: |
+        |  1 | 12 |
+        |  2 | 34 |
+        <BLANKLINE>
+        %% daf rows=2; cols=2; keyfield=''; name=''
+        <BLANKLINE>
         >>> daf.col('s')
         ['12', '34']
     """
@@ -2967,10 +3003,26 @@ def _apply_to_col(self: 'Daf', col: str, func: Callable, **kwargs: Any) -> 'Daf'
         <BLANKLINE>
         %% daf rows=2; cols=2; keyfield=''; name=''
         <BLANKLINE>
-        >>> _ = daf.apply_to_col('b', lambda value: value * 2)
+        >>> daf.apply_to_col('b', lambda value: value * 2)
+        <BLANKLINE>
+        | a  | b  |
+        | -: | -: |
+        |  1 | 10 |
+        |  2 | 12 |
+        <BLANKLINE>
+        %% daf rows=2; cols=2; keyfield=''; name=''
+        <BLANKLINE>
         >>> daf.col('b')
         [10, 12]
-        >>> _ = daf.apply_to_col('b', lambda value, factor: value * factor, factor=10)
+        >>> daf.apply_to_col('b', lambda value, factor: value * factor, factor=10)
+        <BLANKLINE>
+        | a  |  b  |
+        | -: | --: |
+        |  1 | 100 |
+        |  2 | 120 |
+        <BLANKLINE>
+        %% daf rows=2; cols=2; keyfield=''; name=''
+        <BLANKLINE>
         >>> daf.col('b')
         [100, 120]
     """

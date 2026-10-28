@@ -5,6 +5,8 @@
 # For those pages only:
 # - The closing ``` of a fence is not part of an example's expected output.
 # - Whitespace is normalized, as print(daf.to_md()) ends with a blank line.
+# - A path shown as '.../name' matches any folder, as a temporary one differs each run.
+#   Only such outputs match '...' loosely. A table's '| ... |' row is still checked exactly.
 # The docstrings keep exact matching.
 #
 # Most Daf and SqlDaf methods live in modules by topic, as src/daffodil/daf_select.py, and are
@@ -34,6 +36,8 @@ def pytest_collection_modifyitems(items: list) -> None:
                 if example.exc_msg is not None:         # an expected exception keeps its message apart
                     example.exc_msg = _strip_fence(example.exc_msg)
                 example.options[doctest.NORMALIZE_WHITESPACE] = True
+                if "'.../" in example.want:               # a temporary path, shown as '.../name'
+                    example.options[doctest.ELLIPSIS] = True
 
 
 def _strip_fence(text: str) -> str:

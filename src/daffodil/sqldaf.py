@@ -2349,7 +2349,11 @@ class SqlDaf(Daf):
             >>> sel_sdaf = marks_sdaf.select_where_sql('v = 1')
             >>> sel_sdaf.copy(inplace=True).is_child
             False
-            >>> _ = marks_sdaf.sql("UPDATE marks SET v = 9")
+            >>> marks_sdaf.sql("UPDATE marks SET v = 9")
+            <BLANKLINE>
+            <BLANKLINE>
+            %% daf rows=0; cols=0; keyfield=''; name=''
+            <BLANKLINE>
             >>> sel_sdaf.to_daf().lol
             [['b1', 1]]
         """

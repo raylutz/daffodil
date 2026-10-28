@@ -11,10 +11,45 @@ often collects the rows in a list of dicts first and converts them at the end.
 ```pycon
 >>> from daffodil.daf import Daf
 >>> daf = Daf(cols=['id', 'qty'], keyfield='id')
->>> _ = daf.append({'qty': 3, 'id': 'a1'})      # dict: by name
->>> _ = daf.append(['b2', 10])                   # list: column order
->>> _ = daf.append([{'id': 'c3', 'qty': 7}])     # list of dicts
->>> _ = daf.append(lol=[['d4', 1], ['e5', 2]])   # several lists
+>>> daf.append({'qty': 3, 'id': 'a1'})      # dict: by name
+<BLANKLINE>
+| id | qty |
+| -: | --: |
+| a1 |   3 |
+<BLANKLINE>
+%% daf rows=1; cols=2; keyfield='id'; name=''
+<BLANKLINE>
+>>> daf.append(['b2', 10])                   # list: column order
+<BLANKLINE>
+| id | qty |
+| -: | --: |
+| a1 |   3 |
+| b2 |  10 |
+<BLANKLINE>
+%% daf rows=2; cols=2; keyfield='id'; name=''
+<BLANKLINE>
+>>> daf.append([{'id': 'c3', 'qty': 7}])     # list of dicts
+<BLANKLINE>
+| id | qty |
+| -: | --: |
+| a1 |   3 |
+| b2 |  10 |
+| c3 |   7 |
+<BLANKLINE>
+%% daf rows=3; cols=2; keyfield='id'; name=''
+<BLANKLINE>
+>>> daf.append(lol=[['d4', 1], ['e5', 2]])   # several lists
+<BLANKLINE>
+| id | qty |
+| -: | --: |
+| a1 |   3 |
+| b2 |  10 |
+| c3 |   7 |
+| d4 |   1 |
+| e5 |   2 |
+<BLANKLINE>
+%% daf rows=5; cols=2; keyfield='id'; name=''
+<BLANKLINE>
 >>> daf.col('id')
 ['a1', 'b2', 'c3', 'd4', 'e5']
 ```
@@ -30,7 +65,18 @@ The key is not checked, which keeps appending fast. A key that is already there 
 again. With `respect_kd=True`, the row that has the same key is replaced instead:
 
 ```pycon
->>> _ = daf.append({'id': 'a1', 'qty': 30}, respect_kd=True)
+>>> daf.append({'id': 'a1', 'qty': 30}, respect_kd=True)
+<BLANKLINE>
+| id | qty |
+| -: | --: |
+| a1 |  30 |
+| b2 |  10 |
+| c3 |   7 |
+| d4 |   1 |
+| e5 |   2 |
+<BLANKLINE>
+%% daf rows=5; cols=2; keyfield='id'; name=''
+<BLANKLINE>
 >>> daf.select_record('a1'), len(daf)
 ({'id': 'a1', 'qty': 30}, 5)
 ```

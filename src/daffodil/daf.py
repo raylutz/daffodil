@@ -1171,11 +1171,29 @@ class Daf:
             >>> c = daf.copy(name='work')
             >>> c.name, daf.name
             ('work', 'orig')
-            >>> _ = c.append([3, 'c'])
+            >>> c.append([3, 'c'])
+            <BLANKLINE>
+            | id | v  |
+            | -: | -: |
+            |  2 |  b |
+            |  1 |  a |
+            |  3 |  c |
+            <BLANKLINE>
+            %% daf rows=3; cols=2; keyfield=''; name='work'
+            <BLANKLINE>
             >>> daf.num_rows()
             2
             >>> s = daf.copy('shallow')
-            >>> _ = s.append([3, 'c'])
+            >>> s.append([3, 'c'])
+            <BLANKLINE>
+            | id | v  |
+            | -: | -: |
+            |  2 |  b |
+            |  1 |  a |
+            |  3 |  c |
+            <BLANKLINE>
+            %% daf rows=3; cols=2; keyfield=''; name=''
+            <BLANKLINE>
             >>> daf.num_rows()
             3
             >>> daf = Daf(lol=[[2, 'b'], [1, 'a']], cols=['id', 'v'])
@@ -2451,7 +2469,15 @@ class Daf:
             >>> k_daf[0, 'id'] = 'z'
             >>> k_daf.select_record('z')
             {}
-            >>> _ = k_daf.set_keyfield(k_daf.keyfield)
+            >>> k_daf.set_keyfield(k_daf.keyfield)
+            <BLANKLINE>
+            | id | q  |
+            | -: | -: |
+            |  z |  1 |
+            |  b |  2 |
+            <BLANKLINE>
+            %% daf rows=2; cols=2; keyfield='id'; name=''
+            <BLANKLINE>
             >>> k_daf.select_record('z')
             {'id': 'z', 'q': 1}
         """

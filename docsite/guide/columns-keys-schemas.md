@@ -41,10 +41,26 @@ A Daf with no names can be given spreadsheet names, or names of your own, with `
 <BLANKLINE>
 >>> raw.columns()
 []
->>> _ = raw.set_cols()
+>>> raw.set_cols()
+<BLANKLINE>
+| A  | B  |
+| -: | -: |
+|  1 |  2 |
+|  3 |  4 |
+<BLANKLINE>
+%% daf rows=2; cols=2; keyfield=''; name=''
+<BLANKLINE>
 >>> raw.columns()
 ['A', 'B']
->>> _ = raw.set_cols(['x', 'y'])
+>>> raw.set_cols(['x', 'y'])
+<BLANKLINE>
+| x  | y  |
+| -: | -: |
+|  1 |  2 |
+|  3 |  4 |
+<BLANKLINE>
+%% daf rows=2; cols=2; keyfield=''; name=''
+<BLANKLINE>
 >>> raw.col('y')
 [2, 4]
 ```

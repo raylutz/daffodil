@@ -967,7 +967,15 @@ def _delete_records(
         [{'id': 'r1', 'v': 'a'}, {'id': 'r3', 'v': 'c'}]
         >>> len(daf)
         3
-        >>> _ = daf.delete_records(['r2', 'r9'], inplace=True, silent_error=True)
+        >>> daf.delete_records(['r2', 'r9'], inplace=True, silent_error=True)
+        <BLANKLINE>
+        | id | v  |
+        | -: | -: |
+        | r1 |  a |
+        | r3 |  c |
+        <BLANKLINE>
+        %% daf rows=2; cols=2; keyfield='id'; name=''
+        <BLANKLINE>
         >>> daf.to_lod()
         [{'id': 'r1', 'v': 'a'}, {'id': 'r3', 'v': 'c'}]
     """
@@ -1170,7 +1178,16 @@ def _assign_record(self: 'Daf', record: T_da) -> 'Daf':
         <BLANKLINE>
         %% daf rows=3; cols=3; keyfield='id'; name=''
         <BLANKLINE>
-        >>> _ = daf.assign_record({'id': 2, 'v': 'new'})
+        >>> daf.assign_record({'id': 2, 'v': 'new'})
+        <BLANKLINE>
+        | id |  v  | n  |
+        | -: | --: | -: |
+        |  1 |   a | 10 |
+        |  2 | new |    |
+        |  3 |   c | 30 |
+        <BLANKLINE>
+        %% daf rows=3; cols=3; keyfield='id'; name=''
+        <BLANKLINE>
         >>> daf
         <BLANKLINE>
         | id |  v  | n  |
@@ -1240,13 +1257,41 @@ def _assign_record_irow(self: 'Daf', irow: int | None = None, record: T_da | Non
         <BLANKLINE>
         %% daf rows=3; cols=3; keyfield='id'; name=''
         <BLANKLINE>
-        >>> _ = daf.assign_record_irow(1, {'v': 'q'})
+        >>> daf.assign_record_irow(1, {'v': 'q'})
+        <BLANKLINE>
+        | id | v  | n  |
+        | -: | -: | -: |
+        |  1 |  a | 10 |
+        |    |  q |    |
+        |  3 |  c | 30 |
+        <BLANKLINE>
+        %% daf rows=3; cols=3; keyfield='id'; name=''
+        <BLANKLINE>
         >>> daf.iloc(1)
         {'id': '', 'v': 'q', 'n': ''}
-        >>> _ = daf.assign_record_irow(-1, {'id': 9})
+        >>> daf.assign_record_irow(-1, {'id': 9})
+        <BLANKLINE>
+        | id | v  | n  |
+        | -: | -: | -: |
+        |  1 |  a | 10 |
+        |    |  q |    |
+        |  9 |    |    |
+        <BLANKLINE>
+        %% daf rows=3; cols=3; keyfield='id'; name=''
+        <BLANKLINE>
         >>> daf.iloc(-1)
         {'id': 9, 'v': '', 'n': ''}
-        >>> _ = daf.assign_record_irow(record={'id': 10})
+        >>> daf.assign_record_irow(record={'id': 10})
+        <BLANKLINE>
+        | id | v  | n  |
+        | -: | -: | -: |
+        |  1 |  a | 10 |
+        |    |  q |    |
+        |  9 |    |    |
+        | 10 |    |    |
+        <BLANKLINE>
+        %% daf rows=4; cols=3; keyfield='id'; name=''
+        <BLANKLINE>
         >>> daf.iloc(-1), len(daf)
         ({'id': 10, 'v': '', 'n': ''}, 4)
     """
@@ -1356,10 +1401,28 @@ def _update_record_irow(self: 'Daf', irow: int=-1, record: T_da | None = None) -
         <BLANKLINE>
         %% daf rows=3; cols=3; keyfield='id'; name=''
         <BLANKLINE>
-        >>> _ = daf.update_record_irow(1, {'v': 'q'})
+        >>> daf.update_record_irow(1, {'v': 'q'})
+        <BLANKLINE>
+        | id | v  | n  |
+        | -: | -: | -: |
+        |  1 |  a | 10 |
+        |  2 |  q | 20 |
+        |  3 |  c | 30 |
+        <BLANKLINE>
+        %% daf rows=3; cols=3; keyfield='id'; name=''
+        <BLANKLINE>
         >>> daf.iloc(1)
         {'id': 2, 'v': 'q', 'n': 20}
-        >>> _ = daf.update_record_irow(record={'n': 99})
+        >>> daf.update_record_irow(record={'n': 99})
+        <BLANKLINE>
+        | id | v  | n  |
+        | -: | -: | -: |
+        |  1 |  a | 10 |
+        |  2 |  q | 20 |
+        |  3 |  c | 99 |
+        <BLANKLINE>
+        %% daf rows=3; cols=3; keyfield='id'; name=''
+        <BLANKLINE>
         >>> daf.iloc(-1)
         {'id': 3, 'v': 'c', 'n': 99}
     """
@@ -1421,7 +1484,16 @@ def _update_record_krow(self: 'Daf', key: Any, record: T_da | None = None) -> 'D
         <BLANKLINE>
         %% daf rows=3; cols=3; keyfield='id'; name=''
         <BLANKLINE>
-        >>> _ = daf.update_record_krow(2, {'v': 'q'})
+        >>> daf.update_record_krow(2, {'v': 'q'})
+        <BLANKLINE>
+        | id | v  | n  |
+        | -: | -: | -: |
+        |  1 |  a | 10 |
+        |  2 |  q | 20 |
+        |  3 |  c | 30 |
+        <BLANKLINE>
+        %% daf rows=3; cols=3; keyfield='id'; name=''
+        <BLANKLINE>
         >>> daf.select_record(2)
         {'id': 2, 'v': 'q', 'n': 20}
     """
@@ -1479,7 +1551,16 @@ def _assign_icol(
         <BLANKLINE>
         %% daf rows=3; cols=3; keyfield='id'; name=''
         <BLANKLINE>
-        >>> _ = daf.assign_icol(1, ['x', 'y'], default='D')
+        >>> daf.assign_icol(1, ['x', 'y'], default='D')
+        <BLANKLINE>
+        | id | v  | n  |
+        | -: | -: | -: |
+        |  1 |  x | 10 |
+        |  2 |  y | 20 |
+        |  3 |  D | 30 |
+        <BLANKLINE>
+        %% daf rows=3; cols=3; keyfield='id'; name=''
+        <BLANKLINE>
         >>> daf.col('v')
         ['x', 'y', 'D']
     """
@@ -1921,7 +2002,16 @@ def _set_icol_irows(self: 'Daf', icol: int, irows: T_li, val: Any) -> 'Daf':
         <BLANKLINE>
         %% daf rows=3; cols=3; keyfield='id'; name=''
         <BLANKLINE>
-        >>> _ = daf.set_icol_irows(1, [0, 9, -1], 'Z')
+        >>> daf.set_icol_irows(1, [0, 9, -1], 'Z')
+        <BLANKLINE>
+        | id | v  | n  |
+        | -: | -: | -: |
+        |  1 |  Z | 10 |
+        |  2 |  b | 20 |
+        |  3 |  c | 30 |
+        <BLANKLINE>
+        %% daf rows=3; cols=3; keyfield='id'; name=''
+        <BLANKLINE>
         >>> daf.col('v')
         ['Z', 'b', 'c']
     """
@@ -1966,7 +2056,16 @@ def _find_replace(self: 'Daf', find_pat: str, replace_val: Any) -> 'Daf':
         <BLANKLINE>
         %% daf rows=3; cols=3; keyfield='id'; name=''
         <BLANKLINE>
-        >>> _ = daf.find_replace(r'^[ab]$', 'HIT')
+        >>> daf.find_replace(r'^[ab]$', 'HIT')
+        <BLANKLINE>
+        | id |  v  | n  |
+        | -: | --: | -: |
+        |  1 | HIT | 10 |
+        |  2 | HIT | 20 |
+        |  3 |   c | 30 |
+        <BLANKLINE>
+        %% daf rows=3; cols=3; keyfield='id'; name=''
+        <BLANKLINE>
         >>> daf.col('v')
         ['HIT', 'HIT', 'c']
     """

@@ -164,7 +164,17 @@ This sums each row into the last column, and each column into the last row:
 <BLANKLINE>
 %% daf rows=4; cols=3; keyfield=''; name=''
 <BLANKLINE>
->>> _ = data.apply_formulas(formulas)
+>>> data.apply_formulas(formulas)
+<BLANKLINE>
+| A  | B  | C  |
+| -: | -: | -: |
+|  1 |  2 |  3 |
+|  4 |  5 |  9 |
+|  7 |  8 | 15 |
+| 12 | 15 | 27 |
+<BLANKLINE>
+%% daf rows=4; cols=3; keyfield=''; name=''
+<BLANKLINE>
 >>> data.lol
 [[1, 2, 3], [4, 5, 9], [7, 8, 15], [12, 15, 27]]
 ```

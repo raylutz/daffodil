@@ -90,7 +90,14 @@ def _apply_schema(
         <BLANKLINE>
         %% daf rows=1; cols=2; keyfield=''; name=''
         <BLANKLINE>
-        >>> _ = raw.apply_schema(Person)
+        >>> raw.apply_schema(Person)
+        <BLANKLINE>
+        | name | age |
+        | ---: | --: |
+        |  ann |   7 |
+        <BLANKLINE>
+        %% daf rows=1; cols=2; keyfield=''; name=''
+        <BLANKLINE>
         >>> raw.columns(), raw.lol
         (['name', 'age'], [['ann', '7']])
         >>> daf.dtypes

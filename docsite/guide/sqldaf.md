@@ -107,7 +107,8 @@ converts a column in the table itself. As with a Daf, name the columns to conver
 
 ```pycon
 >>> csv_path = os.path.join(os.path.dirname(SqlDaf.db_path), 'marks.csv')
->>> _ = open(csv_path, 'w').write('ballot_id,n\nb1,3\nb2,12\nb3,7\n')
+>>> open(csv_path, 'w').write('ballot_id,n\nb1,3\nb2,12\nb3,7\n')
+28
 >>> marks_sdaf = SqlDaf.from_csv(csv_path, keyfield='ballot_id')
 >>> marks_sdaf.to_daf()
 <BLANKLINE>
@@ -121,7 +122,16 @@ converts a column in the table itself. As with a Daf, name the columns to conver
 <BLANKLINE>
 >>> marks_sdaf.select_where_sql('n < ?', [5]).to_daf().lol
 []
->>> _ = marks_sdaf.apply_dtypes(dtypes={'n': int}, cols='n')
+>>> marks_sdaf.apply_dtypes(dtypes={'n': int}, cols='n')
+<BLANKLINE>
+| ballot_id | n  |
+| --------: | -: |
+|        b1 |  3 |
+|        b2 | 12 |
+|        b3 |  7 |
+<BLANKLINE>
+%% daf rows=3; cols=2; keyfield='ballot_id'; name='marks'
+<BLANKLINE>
 >>> marks_sdaf.select_where_sql('n < ?', [5]).to_daf().lol
 [['b1', 3]]
 ```
@@ -141,8 +151,10 @@ becomes a new column, after the first file's.
 
 ```pycon
 >>> chunk_dir = os.path.dirname(SqlDaf.db_path)
->>> _ = open(chunk_dir + '/v_0.csv', 'w').write('ballot_id,n\nb1,3\n')
->>> _ = open(chunk_dir + '/v_1.csv', 'w').write('n,ballot_id,note\n12,b2,late\n')
+>>> open(chunk_dir + '/v_0.csv', 'w').write('ballot_id,n\nb1,3\n')
+17
+>>> open(chunk_dir + '/v_1.csv', 'w').write('n,ballot_id,note\n12,b2,late\n')
+28
 >>> SqlDaf.from_csv(chunk_dir + '/v_*.csv', name='chunked', strict_header=False).to_daf()
 <BLANKLINE>
 | ballot_id | n  | note |
@@ -210,7 +222,17 @@ key with `select_record()`.
 Rows are added and values set as on a Daf. Each change is written to the file at once.
 
 ```pycon
->>> _ = items_sdaf.append({'id': 'a4', 'grp': 'y', 'qty': 2})
+>>> items_sdaf.append({'id': 'a4', 'grp': 'y', 'qty': 2})
+<BLANKLINE>
+| id | grp | qty |
+| -: | --: | --: |
+| a1 |   x |   1 |
+| a2 |   x |  12 |
+| a3 |   y |   7 |
+| a4 |   y |   2 |
+<BLANKLINE>
+%% daf rows=4; cols=3; keyfield='id'; name='items'
+<BLANKLINE>
 >>> items_sdaf['a2', 'qty'] = 13
 >>> items_sdaf.select_record('a2')
 {'id': 'a2', 'grp': 'x', 'qty': 13}
@@ -235,7 +257,17 @@ raises NotImplementedError, since it would be a position in a Daf. To change som
 row with a key, of any type, use `update_record_krow()`.
 
 ```pycon
->>> _ = items_sdaf.update_record_krow('a3', {'grp': 'z'})
+>>> items_sdaf.update_record_krow('a3', {'grp': 'z'})
+<BLANKLINE>
+| id | grp | qty |
+| -: | --: | --: |
+| a1 |   x |   1 |
+| a2 |   x |  13 |
+| a3 |   z |   7 |
+| a4 |   y |   2 |
+<BLANKLINE>
+%% daf rows=4; cols=3; keyfield='id'; name='items'
+<BLANKLINE>
 >>> items_sdaf.select_record('a3')
 {'id': 'a3', 'grp': 'z', 'qty': 7}
 ```
@@ -341,10 +373,30 @@ the file keeps its order. `save()` keeps the sorted copy under a name not in use
 removes TEMP tables, so save what you want to keep first.
 
 ```pycon
->>> _ = items_sdaf.sort_by_colname('qty', reverse=True)
+>>> items_sdaf.sort_by_colname('qty', reverse=True)
+<BLANKLINE>
+| id | grp | qty |
+| -: | --: | --: |
+| a2 |   x |  13 |
+| a4 |   y |   2 |
+| a1 |   x |   0 |
+| a3 |   z |   0 |
+<BLANKLINE>
+%% daf rows=4; cols=3; keyfield='id'; name='daf_tmp_items_v10'
+<BLANKLINE>
 >>> items_sdaf.col('id')
 ['a2', 'a4', 'a1', 'a3']
->>> _ = items_sdaf.save('items_by_qty')
+>>> items_sdaf.save('items_by_qty')
+<BLANKLINE>
+| id | grp | qty |
+| -: | --: | --: |
+| a2 |   x |  13 |
+| a4 |   y |   2 |
+| a1 |   x |   0 |
+| a3 |   z |   0 |
+<BLANKLINE>
+%% daf rows=4; cols=3; keyfield='id'; name='items_by_qty'
+<BLANKLINE>
 >>> SqlDaf.close()
 >>> SqlDaf('items_by_qty').col('id')
 ['a2', 'a4', 'a1', 'a3']
@@ -365,7 +417,15 @@ to its file at once, and nothing in the file shows later that it changed. So a t
 work depends on can be opened read-only:
 
 ```pycon
->>> _ = SqlDaf('items_ro', cols=['id', 'qty'], lol=[['a1', 3], ['a2', 12]], keyfield='id')
+>>> SqlDaf('items_ro', cols=['id', 'qty'], lol=[['a1', 3], ['a2', 12]], keyfield='id')
+<BLANKLINE>
+| id | qty |
+| -: | --: |
+| a1 |   3 |
+| a2 |  12 |
+<BLANKLINE>
+%% daf rows=2; cols=2; keyfield='id'; name='items_ro'
+<BLANKLINE>
 >>> ro_sdaf = SqlDaf('items_ro', read_only=True)
 >>> ro_sdaf.to_daf()
 <BLANKLINE>
@@ -428,7 +488,17 @@ and the SqlDaf then refers to it there.
 
 ```pycon
 >>> job_dir = os.path.dirname(SqlDaf.db_path)
->>> _ = SqlDaf('items_by_qty').save('items', db_path=job_dir + '/items.db')
+>>> SqlDaf('items_by_qty').save('items', db_path=job_dir + '/items.db')
+<BLANKLINE>
+| id | grp | qty |
+| -: | --: | --: |
+| a2 |   x |  13 |
+| a4 |   y |   2 |
+| a1 |   x |   0 |
+| a3 |   z |   0 |
+<BLANKLINE>
+%% daf rows=4; cols=3; keyfield='id'; name='items'
+<BLANKLINE>
 >>> SqlDaf('items', db_path=job_dir + '/items.db').col('id')
 ['a2', 'a4', 'a1', 'a3']
 >>> back_sdaf = SqlDaf.from_db(job_dir + '/items.db', 'items', new_name='items_back')
@@ -521,7 +591,8 @@ holds exactly what the direct write stored:
 
 ```pycon
 >>> csv_path = os.path.join(os.path.dirname(SqlDaf.db_path), 'kinds.csv')
->>> _ = kinds_daf.to_csv_file(csv_path)
+>>> kinds_daf.to_csv_file(csv_path)
+'.../kinds.csv'
 >>> print(open(csv_path).read())
 id,n,x,ok,p,cv,ls
 b1,3,2.5,1,P1,"{'c0': 1, 'c1': ''}","[1, 'two']"
@@ -535,7 +606,15 @@ b2,,,0,,{},[]
 | b2 |      null |      null |       text |      null |       text |       text |
 <BLANKLINE>
 %% daf rows=2; cols=7; keyfield=''; name=''
->>> _ = loaded_sdaf.apply_dtypes(dtypes={'n': int, 'x': float, 'ok': bool, 'cv': dict, 'ls': list}, cols=['n', 'x', 'ok', 'cv', 'ls'])
+>>> loaded_sdaf.apply_dtypes(dtypes={'n': int, 'x': float, 'ok': bool, 'cv': dict, 'ls': list}, cols=['n', 'x', 'ok', 'cv', 'ls'])
+<BLANKLINE>
+| id | n  |  x  | ok | p  |         cv          |     ls     |
+| -: | -: | --: | -: | -: | ------------------: | ---------: |
+| b1 |  3 | 2.5 |  1 | P1 | {'c0': 1, 'c1': ''} | [1, 'two'] |
+| b2 |    |     |  0 |    |                  {} |         [] |
+<BLANKLINE>
+%% daf rows=2; cols=7; keyfield='id'; name='kinds_csv'
+<BLANKLINE>
 >>> loaded_sdaf.sql('SELECT id, typeof(n), typeof(x), typeof(ok), typeof(p), typeof(cv), typeof(ls) FROM kinds_csv')
 <BLANKLINE>
 | id | typeof(n) | typeof(x) | typeof(ok) | typeof(p) | typeof(cv) | typeof(ls) |

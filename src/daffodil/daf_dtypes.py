@@ -248,12 +248,26 @@ def _apply_dtypes(self: 'Daf', *,
         <BLANKLINE>
         %% daf rows=1; cols=3; keyfield=''; name=''
         <BLANKLINE>
-        >>> _ = daf.apply_dtypes(cols=['a'])
+        >>> daf.apply_dtypes(cols=['a'])
+        <BLANKLINE>
+        | a  |  b  | n  |
+        | -: | --: | -: |
+        |  1 | 2.5 |  7 |
+        <BLANKLINE>
+        %% daf rows=1; cols=3; keyfield=''; name=''
+        <BLANKLINE>
         >>> daf.iloc(0)
         {'a': 1, 'b': '2.5', 'n': '7'}
         >>> daf.dtypes == {'a': int, 'b': float, 'n': int}
         True
-        >>> _ = daf.apply_dtypes(cols=['n'])
+        >>> daf.apply_dtypes(cols=['n'])
+        <BLANKLINE>
+        | a  |  b  | n  |
+        | -: | --: | -: |
+        |  1 | 2.5 |  7 |
+        <BLANKLINE>
+        %% daf rows=1; cols=3; keyfield=''; name=''
+        <BLANKLINE>
         >>> daf.iloc(0)
         {'a': 1, 'b': '2.5', 'n': 7}
 
@@ -271,7 +285,17 @@ def _apply_dtypes(self: 'Daf', *,
         <BLANKLINE>
         %% daf rows=4; cols=2; keyfield=''; name=''
         <BLANKLINE>
-        >>> _ = b_daf.apply_dtypes(dtypes={'ok': bool, 'n': int})
+        >>> b_daf.apply_dtypes(dtypes={'ok': bool, 'n': int})
+        <BLANKLINE>
+        |  ok   | n  |
+        | ----: | -: |
+        |     0 |  1 |
+        |     0 |  x |
+        |     1 |  3 |
+        | maybe |    |
+        <BLANKLINE>
+        %% daf rows=4; cols=2; keyfield=''; name=''
+        <BLANKLINE>
         >>> b_daf.lol
         [[0, 1], [0, 'x'], [1, 3], ['maybe', '']]
 
@@ -295,7 +319,16 @@ def _apply_dtypes(self: 'Daf', *,
         <BLANKLINE>
         %% daf rows=3; cols=1; keyfield=''; name=''
         <BLANKLINE>
-        >>> _ = daf.apply_to_col('n', to_int)
+        >>> daf.apply_to_col('n', to_int)
+        <BLANKLINE>
+        | n  |
+        | -: |
+        |  1 |
+        |    |
+        |  3 |
+        <BLANKLINE>
+        %% daf rows=3; cols=1; keyfield=''; name=''
+        <BLANKLINE>
         >>> daf.dtypes = {'n': int}
         >>> daf
         <BLANKLINE>

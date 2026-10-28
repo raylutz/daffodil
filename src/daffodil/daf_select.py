@@ -1216,7 +1216,17 @@ def _select_records_daf(self: 'Daf', keys_ls: 'T_ls | Iterable | Daf', inverse:b
         >>> kept = daf.select_records_daf([], inverse=True)
         >>> kept == daf
         True
-        >>> _ = kept.append(['r4', 'd', 40])
+        >>> kept.append(['r4', 'd', 40])
+        <BLANKLINE>
+        | id | v  | n  |
+        | -: | -: | -: |
+        | r1 |  a | 10 |
+        | r2 |  b |    |
+        | r3 |  a | 30 |
+        | r4 |  d | 40 |
+        <BLANKLINE>
+        %% daf rows=4; cols=3; keyfield='id'; name=''
+        <BLANKLINE>
         >>> daf.num_rows(), kept.num_rows()
         (3, 4)
         >>> kept[0, 'v'] = 'Q'

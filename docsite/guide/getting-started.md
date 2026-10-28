@@ -92,8 +92,27 @@ See [Selecting and indexing](selecting.md) for all the ways to select.
 ## Add rows
 
 ```pycon
->>> _ = daf.append({'id': 'c3', 'item': 'pad', 'qty': 7})
->>> _ = daf.append(['d4', 'cap', 1])
+>>> daf.append({'id': 'c3', 'item': 'pad', 'qty': 7})
+<BLANKLINE>
+| id | item | qty |
+| -: | ---: | --: |
+| a1 |  pen |   3 |
+| b2 |  ink |  10 |
+| c3 |  pad |   7 |
+<BLANKLINE>
+%% daf rows=3; cols=3; keyfield='id'; name=''
+<BLANKLINE>
+>>> daf.append(['d4', 'cap', 1])
+<BLANKLINE>
+| id | item | qty |
+| -: | ---: | --: |
+| a1 |  pen |   3 |
+| b2 |  ink |  10 |
+| c3 |  pad |   7 |
+| d4 |  cap |   1 |
+<BLANKLINE>
+%% daf rows=4; cols=3; keyfield='id'; name=''
+<BLANKLINE>
 >>> daf.col('id')
 ['a1', 'b2', 'c3', 'd4']
 ```

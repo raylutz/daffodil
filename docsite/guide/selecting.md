@@ -280,7 +280,15 @@ have the index rebuilt:
 >>> stock[0, 'id'] = 'z9'
 >>> stock.select_record('z9')
 {}
->>> _ = stock.set_keyfield(stock.keyfield)
+>>> stock.set_keyfield(stock.keyfield)
+<BLANKLINE>
+| id | qty |
+| -: | --: |
+| z9 |   3 |
+| b2 |  10 |
+<BLANKLINE>
+%% daf rows=2; cols=2; keyfield='id'; name=''
+<BLANKLINE>
 >>> stock.select_record('z9')
 {'id': 'z9', 'qty': 3}
 ```

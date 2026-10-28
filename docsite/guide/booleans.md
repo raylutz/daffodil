@@ -70,7 +70,24 @@ So there is no gain in storing True and False, as long as the code treats the co
 
 ```pycon
 >>> flags = Daf(cols=['ok'], lol=[['True'], ['false'], ['1'], ['NO'], ['Off'], ['y'], [''], ['tRuE'], ['2'], [None], [2]])
->>> _ = flags.apply_dtypes(dtypes={'ok': bool})
+>>> flags.apply_dtypes(dtypes={'ok': bool})
+<BLANKLINE>
+|  ok  |
+| ---: |
+|    1 |
+|    0 |
+|    1 |
+|    0 |
+|    0 |
+|  ... |
+|    0 |
+| tRuE |
+|    2 |
+|    0 |
+|    1 |
+<BLANKLINE>
+%% daf rows=11; cols=1; keyfield=''; name=''
+<BLANKLINE>
 >>> flags.col('ok')
 [1, 0, 1, 0, 0, 1, 0, 'tRuE', '2', 0, 1]
 ```
@@ -81,8 +98,24 @@ To turn a word into the text `'0'` or `'1'`, convert to `bool` first, then to `s
 
 ```pycon
 >>> words = Daf(cols=['ok'], lol=[['YES'], ['off']])
->>> _ = words.apply_dtypes(dtypes={'ok': bool})
->>> _ = words.apply_dtypes(dtypes={'ok': str}, from_str=False)
+>>> words.apply_dtypes(dtypes={'ok': bool})
+<BLANKLINE>
+| ok |
+| -: |
+|  1 |
+|  0 |
+<BLANKLINE>
+%% daf rows=2; cols=1; keyfield=''; name=''
+<BLANKLINE>
+>>> words.apply_dtypes(dtypes={'ok': str}, from_str=False)
+<BLANKLINE>
+| ok |
+| -: |
+|  1 |
+|  0 |
+<BLANKLINE>
+%% daf rows=2; cols=1; keyfield=''; name=''
+<BLANKLINE>
 >>> words.col('ok')
 ['1', '0']
 ```
@@ -92,7 +125,15 @@ of a file that holds 0 and 1:
 
 ```pycon
 >>> typed = Daf(cols=['ok', 'n'], lol=[[True, 3], [False, 4]])
->>> _ = typed.apply_dtypes(dtypes={'ok': str, 'n': str}, from_str=False)
+>>> typed.apply_dtypes(dtypes={'ok': str, 'n': str}, from_str=False)
+<BLANKLINE>
+| ok | n  |
+| -: | -: |
+|  1 |  3 |
+|  0 |  4 |
+<BLANKLINE>
+%% daf rows=2; cols=2; keyfield=''; name=''
+<BLANKLINE>
 >>> typed.lol
 [['1', '3'], ['0', '4']]
 ```

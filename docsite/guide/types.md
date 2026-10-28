@@ -39,7 +39,15 @@ A CSV file gives text. `apply_dtypes()` converts the columns in place, and retur
 <BLANKLINE>
 >>> daf.lol
 [['a1', '3', '1.5', '[1, 2]'], ['b2', '', '2.0', '[]']]
->>> _ = daf.apply_dtypes(dtypes={'id': str, 'qty': int, 'price': float, 'tags': list})
+>>> daf.apply_dtypes(dtypes={'id': str, 'qty': int, 'price': float, 'tags': list})
+<BLANKLINE>
+| id | qty | price |  tags  |
+| -: | --: | ----: | -----: |
+| a1 |   3 |   1.5 | [1, 2] |
+| b2 |     |   2.0 |     [] |
+<BLANKLINE>
+%% daf rows=2; cols=4; keyfield=''; name=''
+<BLANKLINE>
 >>> daf.lol
 [['a1', 3, 1.5, [1, 2]], ['b2', '', 2.0, []]]
 ```
@@ -61,7 +69,14 @@ A CSV file gives text. `apply_dtypes()` converts the columns in place, and retur
 <BLANKLINE>
 %% daf rows=1; cols=3; keyfield=''; name=''
 <BLANKLINE>
->>> _ = e_daf.apply_dtypes(dtypes={'id': str, 'qty': int, 'note': str}, cols=['qty'])
+>>> e_daf.apply_dtypes(dtypes={'id': str, 'qty': int, 'note': str}, cols=['qty'])
+<BLANKLINE>
+| id | qty | note |
+| -: | --: | ---: |
+| a1 |   3 |    x |
+<BLANKLINE>
+%% daf rows=1; cols=3; keyfield=''; name=''
+<BLANKLINE>
 >>> e_daf.lol
 [['a1', 3, 'x']]
 ```
@@ -94,7 +109,20 @@ Other text stays as it is. Note that `'False'` gives 0, where Python's `bool('Fa
 <BLANKLINE>
 %% daf rows=7; cols=1; keyfield=''; name=''
 <BLANKLINE>
->>> _ = flags.apply_dtypes(dtypes={'ok': bool})
+>>> flags.apply_dtypes(dtypes={'ok': bool})
+<BLANKLINE>
+|  ok   |
+| ----: |
+|     0 |
+|     0 |
+|     1 |
+|     0 |
+|     1 |
+|     0 |
+| maybe |
+<BLANKLINE>
+%% daf rows=7; cols=1; keyfield=''; name=''
+<BLANKLINE>
 >>> flags.col('ok')
 [0, 0, 1, 0, 1, 0, 'maybe']
 ```
@@ -107,7 +135,15 @@ and 1:
 
 ```pycon
 >>> typed = Daf(cols=['ok', 'n'], lol=[[True, 3], [False, 4]])
->>> _ = typed.apply_dtypes(dtypes={'ok': str, 'n': str}, from_str=False)
+>>> typed.apply_dtypes(dtypes={'ok': str, 'n': str}, from_str=False)
+<BLANKLINE>
+| ok | n  |
+| -: | -: |
+|  1 |  3 |
+|  0 |  4 |
+<BLANKLINE>
+%% daf rows=2; cols=2; keyfield=''; name=''
+<BLANKLINE>
 >>> typed.lol
 [['1', '3'], ['0', '4']]
 ```
