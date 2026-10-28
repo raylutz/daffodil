@@ -1633,6 +1633,7 @@ class SqlDaf(Daf):
     _ensure_group_index                            = sqldaf_apply._ensure_group_index
     group_where                                    = sqldaf_apply._group_where
     join                                           = sqldaf_apply._join  # type: ignore[assignment]
+    join_with_residue                              = sqldaf_apply._join_with_residue  # type: ignore[assignment]
 
     def _execute(self, stmt: str, params: Iterable[Any] = ()) -> sqlite3.Cursor:
         """ Run one statement, raising an error from a registered Python function as itself. Internal use. """

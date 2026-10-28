@@ -133,3 +133,25 @@ Timings, 1,000,000 rows of 5 columns, a left join on unique keys:
     a selection in another file, by Python    2.37 s to copy, then 5.1 s
 
 The index on the copy is what makes the join as fast as in one file.
+
+## join_with_residue(), Q314, 2026-10-28
+
+AuditEngine asked for one call that compares two tables by key and keeps the residue of each side,
+which it did with two `select_records_daf(other, inverse=True, silent_error=True)` calls in three
+places. Ray saw it as a join, since the matched rows gain the other's fields, and approved the name.
+
+- It is built from existing calls: `join(how='inner')` and the two inverse selections. Nothing new
+  in SQL. On a SqlDaf the join brings in a copy of a table from another file, and each residue
+  streams only the other table's keys into a TEMP table of keys.
+- An outer join was rejected as the answer. It keeps every row, but pads each unmatched row with
+  the other's columns, so only blank cells show it had no partner.
+- `how` is left out. The three results together already hold every row.
+- Each residue makes the table's unique key index in its own file, if it has none, as any lookup
+  by key does. The rows do not change. A plain join changes neither file. Allowed under read_only.
+- Timings on 200,000 rows of 5 columns, 20,000 unmatched on each side: one file, join 1.10 s,
+  join_with_residue 1.36 s. Two files, 1.15 s and 2.21 s. Daf, 2.74 s and 2.99 s.
+- Open: sharing one copy of the other table for the join and the residue of this table would save
+  the key streaming across files, about 1 s at 200,000 rows. Not done, since the cost is what
+  AuditEngine pays today.
+- Left on the connection until close: the TEMP table of keys of each side, and each residue's
+  reference table. The full copy of the other table is dropped when the join is read.

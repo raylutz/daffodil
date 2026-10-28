@@ -8,6 +8,10 @@ Combining two tables.
     options:
       heading: "join"
 
+::: daffodil.daf_join._join_with_residue
+    options:
+      heading: "join_with_residue"
+
 ::: daffodil.daf_join._join_records
     options:
       heading: "join_records"

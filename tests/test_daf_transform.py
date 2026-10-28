@@ -417,6 +417,39 @@ def test_join_missing_keyfield_raises():
         no_key.join(right)
 
 
+
+def test_join_with_residue_gives_the_join_and_each_side_unmatched():
+    """ The inner join, then each table's rows whose key the other lacks, in its own columns. """
+    left, right = _make_join_dafs()
+    joined, left_res, right_res = left.join_with_residue(right)
+    assert joined.lol == left.join(right, how='inner').lol
+    assert (left_res.columns(), left_res.lol) == (['id', 'name'], [[3, 'c']])
+    assert (right_res.columns(), right_res.lol) == (['id', 'val'], [[4, 400]])
+    assert left.lol == [[1, 'a'], [2, 'b'], [3, 'c']] and right.lol == [[1, 100], [2, 200], [4, 400]]
+
+
+def test_join_with_residue_when_all_or_none_match():
+    left, right = _make_join_dafs()
+    joined, left_res, right_res = left.join_with_residue(left.copy('editable'))
+    assert len(joined) == 3 and len(left_res) == 0 and len(right_res) == 0
+    other = Daf(lol=[[7, 70]], cols=['id', 'val'], keyfield='id')
+    joined, left_res, right_res = left.join_with_residue(other)
+    assert len(joined) == 0 and left_res.lol == left.lol and right_res.lol == [[7, 70]]
+
+
+def test_join_with_residue_passes_the_join_options():
+    left = Daf(lol=[[1, 'a', 5], [2, 'b', 6]], cols=['id', 'name', 'val'], keyfield='id', name='left')
+    right = Daf(lol=[[1, 100]], cols=['id', 'val'], keyfield='id', name='right')
+    assert left.join_with_residue(right, shared_fields=['val'])[0].columns() == ['id', 'name', 'val']
+    joined = left.join_with_residue(right, tag_other=True, name='both')[0]
+    assert joined.columns() == left.join(right, tag_other=True).columns() and joined.name == 'both'
+
+
+def test_join_with_residue_needs_keyfields():
+    left, right = _make_join_dafs()
+    with pytest.raises(KeysDisabledError):
+        Daf(lol=[[1, 'a']], cols=['id', 'name']).join_with_residue(right)
+
 def test_join_conflicting_column_default_suffixes():
     left = Daf(lol=[[1, 'a', 5]], cols=['id', 'name', 'val'], keyfield='id', name='left')
     right = Daf(lol=[[1, 100]], cols=['id', 'val'], keyfield='id', name='right')

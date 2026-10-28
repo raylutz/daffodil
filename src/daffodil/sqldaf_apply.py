@@ -1640,3 +1640,83 @@ def _join(
     if _brought_in_ls:
         self._hold_brought_in(join_sdaf, _brought_in_ls)
     return join_sdaf
+
+
+def _join_with_residue(
+        self: 'SqlDaf',
+        other_daf:              'SqlDaf',               # the other SqlDaf, joined by key.
+        shared_fields:          T_ls | None = None,     # columns both have that appear once, as in join().
+        tag_other:              bool = False,           # suffix the other's columns, as in join().
+        custom_translator_daf:  Daf | None = None,      # not supported on a SqlDaf.
+        diagnose:               bool = False,           # not used.
+        name:                   str = '',               # the name of the joined table.
+        ) -> Tuple['SqlDaf', 'SqlDaf', 'SqlDaf']:
+    """
+    Join two tables by key, and keep the rows of each that have no partner, as [`Daf.join_with_residue()`][daffodil.daf_join._join_with_residue] does.
+
+    It gives three SqlDaf objects: the inner join, as `join()` gives it, the rows of this table
+    whose key the other lacks, and the rows of the other table whose key this one lacks. Each
+    residue is a selection of its own table, in its own columns, as `select_records_daf()` gives.
+    Nothing runs yet. Each result is found when it is first read. Neither table is changed.
+
+    The other table may be in another database file. The join brings it in as `join()` does.
+    Each residue reads only the keys of the other table, so a table in another file gives only
+    its key column there.
+
+    The rows of both tables stay as they are. Each residue looks up keys, so each table gets the
+    unique index on its keyfield in its own file, if it has none yet, as any lookup by key makes it.
+    A table opened with `read_only=True` allows that, since an index leaves the data as it is.
+
+    Args:
+        other_daf: The SqlDaf to join with, by its keyfield. It may be in another database file.
+        shared_fields: Columns that both have and that appear only once in the join.
+        tag_other: If True, every column of the other, except shared ones, gets a suffix.
+        custom_translator_daf: Not supported on a SqlDaf. It raises NotImplementedError.
+        diagnose: Not used.
+        name: The name of the joined table. Generated if empty.
+
+    Returns:
+        The joined SqlDaf, the residue of this SqlDaf, and the residue of the other.
+
+    Raises:
+        ValueError: A table has no keyfield.
+        NotImplementedError: `custom_translator_daf` is given.
+
+    Examples:
+        >>> import tempfile
+        >>> SqlDaf.db_path = tempfile.mkdtemp() + '/job.db'
+        >>> bia_sdaf = SqlDaf.from_daf(Daf(cols=['ballot_id', 'sheet', 'style'], keyfield='ballot_id', lol=[
+        ...     ['b1', 0, 'S1'], ['b2', 0, 'S2'], ['b3', 1, 'S1']]), name='bia')
+        >>> cvr_sdaf = SqlDaf.from_daf(Daf(cols=['ballot_id', 'precinct', 'style'], keyfield='ballot_id', lol=[
+        ...     ['b2', 'P1', 'S2'], ['b3', 'P2', 'S1'], ['b9', 'P1', 'S3']]), name='cvr')
+        >>> joined_sdaf, bia_res_sdaf, cvr_res_sdaf = bia_sdaf.join_with_residue(cvr_sdaf, shared_fields=['style'], name='bia_cvr')
+        >>> joined_sdaf.to_daf()
+        <BLANKLINE>
+        | ballot_id | sheet | style | precinct |
+        | --------: | ----: | ----: | -------: |
+        |        b2 |     0 |    S2 |       P1 |
+        |        b3 |     1 |    S1 |       P2 |
+        <BLANKLINE>
+        %% daf rows=2; cols=4; keyfield='ballot_id'; name='bia_cvr'
+        <BLANKLINE>
+        >>> bia_res_sdaf.to_lod()
+        [{'ballot_id': 'b1', 'sheet': 0, 'style': 'S1'}]
+        >>> cvr_res_sdaf.to_lod()
+        [{'ballot_id': 'b9', 'precinct': 'P1', 'style': 'S3'}]
+
+        The other table may be in another file:
+
+        >>> cvr_path = tempfile.mkdtemp() + '/cvr.db'
+        >>> far_sdaf = SqlDaf('cvr', db_path=SqlDaf.db_path).copy().save('cvr_far', db_path=cvr_path)
+        >>> [result_sdaf.keys() for result_sdaf in bia_sdaf.join_with_residue(far_sdaf, tag_other=True)]
+        [['b2', 'b3'], ['b1'], ['b9']]
+    """
+    if custom_translator_daf is not None:
+        raise NotImplementedError("join_with_residue(custom_translator_daf=) is not supported on a SqlDaf.")
+    joined_sdaf: SqlDaf = self.join(other_daf, how='inner', shared_fields=shared_fields, tag_other=tag_other,
+                                    diagnose=diagnose, name=name)
+
+    # Each residue is a selection of its own table: the rows whose key the other table lacks.
+    self_res_sdaf: SqlDaf = self.select_records_daf(other_daf, inverse=True, silent_error=True)
+    other_res_sdaf: SqlDaf = other_daf.select_records_daf(self, inverse=True, silent_error=True)
+    return joined_sdaf, self_res_sdaf, other_res_sdaf

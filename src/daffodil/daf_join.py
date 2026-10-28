@@ -755,6 +755,100 @@ def _join(
     return result_daf
 
 
+def _join_with_residue(
+        self: 'Daf',
+        other_daf:              'Daf',                  # the other Daf, joined by key.
+        shared_fields:          T_ls | None = None,     # columns both have that appear once, as in join().
+        tag_other:              bool = False,           # suffix the other's columns, as in join().
+        custom_translator_daf:  'Daf | None' = None,    # the naming of the columns, as in join().
+        diagnose:               bool = False,           # log the steps, as in join().
+        name:                   str = '',               # the name of the joined Daf.
+        ) -> Tuple['Daf', 'Daf', 'Daf']:
+    """
+    Join two tables by key, and keep the rows of each that have no partner.
+
+    It gives three Daf objects:
+
+    - the inner join: the rows whose key both tables have, with the columns of both, as
+      `join()` gives them.
+    - the residue of this Daf: its rows whose key the other lacks, in its own columns.
+    - the residue of the other Daf: its rows whose key this Daf lacks, in its own columns.
+
+    Together they hold every row of both tables. No row is lost, and no column is added to say
+    how a row matched. An outer join keeps every row too, but pads each unmatched row with the
+    other table's columns, so only blank cells show it had no partner.
+
+    Use it where an unmatched row is a finding to report, not a row to drop. Neither table is
+    changed. Each residue is a selection, which shares its rows with its table, as
+    `select_records_daf()` gives. Both tables need a keyfield.
+
+    Args:
+        other_daf: The Daf to join with, by its keyfield.
+        shared_fields: Columns that both have and that appear only once in the join.
+        tag_other: If True, every column of the other, except shared ones, gets a suffix.
+        custom_translator_daf: A translator that sets the names of the joined columns. See `join()`.
+        diagnose: If True, log the steps of the join.
+        name: The name of the joined Daf.
+
+    Returns:
+        The joined Daf, the residue of this Daf, and the residue of the other.
+
+    Raises:
+        KeysDisabledError: A table has no keyfield.
+
+    Examples:
+        >>> bia_daf = Daf(cols=['ballot_id', 'sheet', 'style'], keyfield='ballot_id', lol=[
+        ...     ['b1', 0, 'S1'], ['b2', 0, 'S2'], ['b3', 1, 'S1']])
+        >>> bia_daf
+        <BLANKLINE>
+        | ballot_id | sheet | style |
+        | --------: | ----: | ----: |
+        |        b1 |     0 |    S1 |
+        |        b2 |     0 |    S2 |
+        |        b3 |     1 |    S1 |
+        <BLANKLINE>
+        %% daf rows=3; cols=3; keyfield='ballot_id'; name=''
+        <BLANKLINE>
+        >>> cvr_daf = Daf(cols=['ballot_id', 'precinct', 'style'], keyfield='ballot_id', lol=[
+        ...     ['b2', 'P1', 'S2'], ['b3', 'P2', 'S1'], ['b9', 'P1', 'S3']])
+        >>> cvr_daf
+        <BLANKLINE>
+        | ballot_id | precinct | style |
+        | --------: | -------: | ----: |
+        |        b2 |       P1 |    S2 |
+        |        b3 |       P2 |    S1 |
+        |        b9 |       P1 |    S3 |
+        <BLANKLINE>
+        %% daf rows=3; cols=3; keyfield='ballot_id'; name=''
+        <BLANKLINE>
+        >>> joined_daf, bia_res_daf, cvr_res_daf = bia_daf.join_with_residue(cvr_daf, shared_fields=['style'])
+        >>> joined_daf
+        <BLANKLINE>
+        | ballot_id | sheet | style | precinct |
+        | --------: | ----: | ----: | -------: |
+        |        b2 |     0 |    S2 |       P1 |
+        |        b3 |     1 |    S1 |       P2 |
+        <BLANKLINE>
+        %% daf rows=2; cols=4; keyfield='ballot_id'; name=''
+        <BLANKLINE>
+        >>> bia_res_daf.to_lod()
+        [{'ballot_id': 'b1', 'sheet': 0, 'style': 'S1'}]
+        >>> cvr_res_daf.to_lod()
+        [{'ballot_id': 'b9', 'precinct': 'P1', 'style': 'S3'}]
+
+        The options of the join act as in `join()`:
+
+        >>> bia_daf.join_with_residue(cvr_daf, tag_other=True, name='bia_cvr')[0].columns()
+        ['ballot_id', 'sheet', 'style_daf1', 'precinct_daf2', 'style_daf2']
+    """
+    joined_daf: 'Daf' = self.join(other_daf, how='inner', shared_fields=shared_fields, tag_other=tag_other,
+                                  custom_translator_daf=custom_translator_daf, diagnose=diagnose, name=name)
+
+    # Each residue is the rows whose key the other table lacks.
+    self_res_daf: 'Daf' = self.select_records_daf(other_daf, inverse=True, silent_error=True)
+    other_res_daf: 'Daf' = other_daf.select_records_daf(self, inverse=True, silent_error=True)
+    return joined_daf, self_res_daf, other_res_daf
+
 def _join_records(
     records: List[T_ma | None],     # List of dictionaries representing the source records
                                     # only two records are supported here.

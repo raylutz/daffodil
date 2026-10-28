@@ -2765,6 +2765,43 @@ def test_join_leaves_both_files_as_they_were(tmp_path):
     assert [row_t[0] for row_t in audit_sdaf.conn.execute("SELECT name FROM main.sqlite_master WHERE type = 'table'")] == ['audit', 'daf_tables']
 
 
+
+@pytest.mark.parametrize('tag_other', [False, True])
+def test_join_with_residue_matches_mdaf(tag_other):
+    audit_daf, cvr_daf = make_join_pair()
+    audit_sdaf: SqlDaf = SqlDaf.from_daf(audit_daf, name='audit')
+    cvr_sdaf: SqlDaf = SqlDaf.from_daf(cvr_daf, name='cvr')
+    sql_results: tuple = audit_sdaf.join_with_residue(cvr_sdaf, tag_other=tag_other)
+    mem_results: tuple = audit_daf.join_with_residue(cvr_daf, tag_other=tag_other)
+    for result_sdaf, result_daf in zip(sql_results, mem_results):
+        assert result_sdaf.columns() == result_daf.columns()
+        assert result_sdaf.to_daf().lol == result_daf.lol
+
+
+def test_join_with_residue_from_another_file_leaves_no_copy_and_adds_only_key_indexes(tmp_path):
+    """ The rows of both files stay as they were. Each file gains only its key index, as any lookup by key makes. """
+    audit_daf, cvr_daf = make_join_pair()
+    audit_path: str = str(tmp_path / 'audit.db')
+    other_path: str = str(tmp_path / 'other.db')
+    SqlDaf.from_daf(audit_daf, name='audit', db_path=audit_path)
+    SqlDaf.from_daf(cvr_daf, name='cvr', db_path=other_path)
+    audit_sdaf: SqlDaf = SqlDaf('audit', db_path=audit_path, read_only=True)
+    cvr_sdaf: SqlDaf = SqlDaf('cvr', db_path=other_path, read_only=True)
+    results: tuple = audit_sdaf.join_with_residue(cvr_sdaf)
+    want: tuple = audit_daf.join_with_residue(cvr_daf)
+    assert [result_sdaf.to_daf().lol for result_sdaf in results] == [result_daf.lol for result_daf in want]
+    assert not [name for name in _temp_tables(audit_sdaf) if name.startswith('daf_tmp_cvr')]     # the copy of cvr is dropped.
+    assert audit_sdaf.to_daf().lol == audit_daf.lol and cvr_sdaf.to_daf().lol == cvr_daf.lol
+    for sdaf, index_name in ((audit_sdaf, 'daf_ix_audit_id'), (cvr_sdaf, 'daf_ix_cvr_id')):
+        objects_ls: list = [row_t[0] for row_t in sdaf.conn.execute("SELECT name FROM main.sqlite_master WHERE name NOT LIKE 'sqlite_%'")]
+        assert sorted(objects_ls) == sorted([sdaf.name, 'daf_tables', index_name])
+
+def test_join_with_residue_on_sqldaf_refuses_a_custom_translator():
+    audit_daf, cvr_daf = make_join_pair()
+    audit_sdaf: SqlDaf = SqlDaf.from_daf(audit_daf, name='audit')
+    with pytest.raises(NotImplementedError):
+        audit_sdaf.join_with_residue(SqlDaf.from_daf(cvr_daf, name='cvr'), custom_translator_daf=Daf())
+
 def test_join_with_a_selection_in_another_file_copies_it_through_python(tmp_path):
     audit_daf, cvr_daf = make_join_pair()
     audit_sdaf: SqlDaf = SqlDaf.from_daf(audit_daf, name='audit')
