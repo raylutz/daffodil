@@ -33,7 +33,7 @@ jobs:
           uv run pytest -q -p no:cacheprovider --doctest-modules src/daffodil
           --ignore=src/daffodil/lib/daf_pdf.py --ignore=src/daffodil/lib/md_demo.py
       - name: Guide examples
-        run: uv run pytest -q -p no:cacheprovider --doctest-glob='*.md' docsite/guide
+        run: uv run pytest -q -p no:cacheprovider --doctest-glob='*.md' docsite/guide docsite/index.md
 
   types:
     name: Type check

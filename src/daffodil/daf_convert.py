@@ -775,15 +775,19 @@ def _from_excel_buff(
         The new Daf.
 
     Examples:
+        A small Excel file, made here with xlsxwriter for the example:
+
         >>> import io, xlsxwriter
-        >>> buff = io.BytesIO()
-        >>> workbook = xlsxwriter.Workbook(buff, {'in_memory': True})
-        >>> sheet = workbook.add_worksheet()
-        >>> for irow, row in enumerate([['id', 'v'], [1, 'a'], [2, 'b']]):
-        ...     for icol, value in enumerate(row):
-        ...         _ = sheet.write(irow, icol, value)
-        >>> workbook.close()
-        >>> daf = Daf.from_excel_buff(buff.getvalue(), keyfield='id')
+        >>> def excel_bytes(rows):
+        ...     buff = io.BytesIO()
+        ...     workbook = xlsxwriter.Workbook(buff, {'in_memory': True})
+        ...     sheet = workbook.add_worksheet()
+        ...     for irow, row in enumerate(rows):
+        ...         sheet.write_row(irow, 0, row)
+        ...     workbook.close()
+        ...     return buff.getvalue()
+        >>> xlsx = excel_bytes([['id', 'v'], [1, 'a'], [2, 'b']])
+        >>> daf = Daf.from_excel_buff(xlsx, keyfield='id')
         >>> daf
         <BLANKLINE>
         | id | v  |
@@ -793,7 +797,7 @@ def _from_excel_buff(
         <BLANKLINE>
         %% daf rows=2; cols=2; keyfield='id'; name=''
         <BLANKLINE>
-        >>> Daf.from_excel_buff(buff.getvalue(), dtypes={'id': int, 'v': str})
+        >>> Daf.from_excel_buff(xlsx, dtypes={'id': int, 'v': str})
         <BLANKLINE>
         | id | v  |
         | -: | -: |

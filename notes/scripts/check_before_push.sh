@@ -31,7 +31,7 @@ for py in 3.10 3.11 3.12 3.13; do
     uv sync -q --python "$py"
     run_step "Python $py: tests   " uv run --python "$py" pytest -q -p no:cacheprovider
     run_step "Python $py: doctests" uv run --python "$py" pytest -q -p no:cacheprovider "${DOCTEST_ARGS[@]}"
-    run_step "Python $py: guide   " uv run --python "$py" pytest -q -p no:cacheprovider --doctest-glob='*.md' docsite/guide
+    run_step "Python $py: guide   " uv run --python "$py" pytest -q -p no:cacheprovider --doctest-glob='*.md' docsite/guide docsite/index.md
 done
 unset UV_PROJECT_ENVIRONMENT
 

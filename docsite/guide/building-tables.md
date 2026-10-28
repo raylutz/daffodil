@@ -6,79 +6,115 @@ often collects the rows in a list of dicts first and converts them at the end.
 
 ## append()
 
-`append()` takes a dict, a KeyedList, a list of values, a list of dicts, or another Daf.
+`append()` adds rows to the end of the table. It takes a dict, a list of values, a list of dicts,
+a list of lists with `lol=`, a KeyedList, or another Daf. It changes the table and returns it,
+so at the prompt it shows the whole table. Here each call is followed by a read of the row it
+added, to keep the output short. In a program, `daf.append(row)` on its own line adds the row,
+and nothing is shown.
+
+A dict is placed by column name, in any order:
 
 ```pycon
 >>> from daffodil.daf import Daf
 >>> daf = Daf(cols=['id', 'qty'], keyfield='id')
->>> daf.append({'qty': 3, 'id': 'a1'})      # dict: by name
+>>> daf.append({'qty': 3, 'id': 'a1'}).select_record('a1')
+{'id': 'a1', 'qty': 3}
+```
+
+A dict that lacks a column gets NULL there, the empty string. A key that is not a column is
+dropped:
+
+```pycon
+>>> daf.append({'id': 'b2', 'color': 'red'}).select_record('b2')
+{'id': 'b2', 'qty': ''}
+```
+
+A list goes in column order. A list shorter than the columns is padded with NULL:
+
+```pycon
+>>> daf.append(['c3', 10]).select_record('c3')
+{'id': 'c3', 'qty': 10}
+>>> daf.append(['d4']).select_record('d4')
+{'id': 'd4', 'qty': ''}
+```
+
+A list longer than the columns raises ValueError, since a value would have no column:
+
+```pycon
+>>> daf.append(['e5', 1, 'extra'])
+Traceback (most recent call last):
+...
+ValueError: append(): the list has 3 values for 2 columns.
+```
+
+Several rows at once: a list of dicts, or a list of lists with `lol=`:
+
+```pycon
+>>> daf.append([{'id': 'f6', 'qty': 7}, {'id': 'g7', 'qty': 1}]).keys()
+['a1', 'b2', 'c3', 'd4', 'f6', 'g7']
+>>> daf.append(lol=[['h8', 2], ['i9', 5]]).keys()
+['a1', 'b2', 'c3', 'd4', 'f6', 'g7', 'h8', 'i9']
+>>> daf
 <BLANKLINE>
 | id | qty |
 | -: | --: |
 | a1 |   3 |
+| b2 |     |
+| c3 |  10 |
+| d4 |     |
+| f6 |   7 |
+| g7 |   1 |
+| h8 |   2 |
+| i9 |   5 |
 <BLANKLINE>
-%% daf rows=1; cols=2; keyfield='id'; name=''
+%% daf rows=8; cols=2; keyfield='id'; name=''
 <BLANKLINE>
->>> daf.append(['b2', 10])                   # list: column order
+```
+
+The table gets its own copy of each row, so you can change or reuse your list or dict
+afterwards:
+
+```pycon
+>>> row = ['j10', 4]
+>>> daf.append(row).select_record('j10')
+{'id': 'j10', 'qty': 4}
+>>> row[1] = 99
+>>> daf.select_record('j10')
+{'id': 'j10', 'qty': 4}
+```
+
+The key is not checked, which keeps appending fast. A key that is already there is added
+again, as a second row. A lookup by that key then finds the last one:
+
+```pycon
+>>> stock = Daf(cols=['id', 'qty'], lol=[['a1', 3], ['b2', 10]], keyfield='id')
+>>> stock.append({'id': 'a1', 'qty': 30})
 <BLANKLINE>
 | id | qty |
 | -: | --: |
 | a1 |   3 |
 | b2 |  10 |
-<BLANKLINE>
-%% daf rows=2; cols=2; keyfield='id'; name=''
-<BLANKLINE>
->>> daf.append([{'id': 'c3', 'qty': 7}])     # list of dicts
-<BLANKLINE>
-| id | qty |
-| -: | --: |
-| a1 |   3 |
-| b2 |  10 |
-| c3 |   7 |
+| a1 |  30 |
 <BLANKLINE>
 %% daf rows=3; cols=2; keyfield='id'; name=''
 <BLANKLINE>
->>> daf.append(lol=[['d4', 1], ['e5', 2]])   # several lists
-<BLANKLINE>
-| id | qty |
-| -: | --: |
-| a1 |   3 |
-| b2 |  10 |
-| c3 |   7 |
-| d4 |   1 |
-| e5 |   2 |
-<BLANKLINE>
-%% daf rows=5; cols=2; keyfield='id'; name=''
-<BLANKLINE>
->>> daf.col('id')
-['a1', 'b2', 'c3', 'd4', 'e5']
+>>> stock.select_record('a1')
+{'id': 'a1', 'qty': 30}
 ```
 
-`append()` returns the Daf, so these examples assign it to `_`.
-
-- A dict that lacks a column gets NULL there, the empty string. A key that is not a column is
-  dropped.
-- A list shorter than the columns is padded with NULL. A longer one raises `ValueError`.
-- The table gets its own copy of each row, so you can reuse your list or dict afterwards.
-
-The key is not checked, which keeps appending fast. A key that is already there is added
-again. With `respect_kd=True`, the row that has the same key is replaced instead:
+With `respect_kd=True`, the row that has the same key is replaced instead:
 
 ```pycon
->>> daf.append({'id': 'a1', 'qty': 30}, respect_kd=True)
+>>> stock = Daf(cols=['id', 'qty'], lol=[['a1', 3], ['b2', 10]], keyfield='id')
+>>> stock.append({'id': 'a1', 'qty': 30}, respect_kd=True)
 <BLANKLINE>
 | id | qty |
 | -: | --: |
 | a1 |  30 |
 | b2 |  10 |
-| c3 |   7 |
-| d4 |   1 |
-| e5 |   2 |
 <BLANKLINE>
-%% daf rows=5; cols=2; keyfield='id'; name=''
+%% daf rows=2; cols=2; keyfield='id'; name=''
 <BLANKLINE>
->>> daf.select_record('a1'), len(daf)
-({'id': 'a1', 'qty': 30}, 5)
 ```
 
 ## Rows to fill in: default_record()
@@ -93,14 +129,23 @@ the check of its columns.
 
 ```pycon
 >>> from daffodil.keyedlist import KeyedList
->>> marks = Daf(cols=['ballot', 'contest', 'x', 'y'])
->>> for ballot, contest, x, y in [('b1', 'mayor', 10, 20), ('b2', 'mayor', 11, 21)]:
-...     row = marks.default_record(astype=KeyedList)
-...     row['y'], row['x'] = y, x                   # by name, in any order
-...     row['ballot'], row['contest'] = ballot, contest
-...     _ = marks.append(row)
->>> marks.lol
-[['b1', 'mayor', 10, 20], ['b2', 'mayor', 11, 21]]
+>>> def read_marks(readings):
+...     marks = Daf(cols=['ballot', 'contest', 'x', 'y'])
+...     for ballot, contest, x, y in readings:
+...         row = marks.default_record(astype=KeyedList)
+...         row['y'], row['x'] = y, x                   # by name, in any order
+...         row['ballot'], row['contest'] = ballot, contest
+...         marks.append(row)
+...     return marks
+>>> read_marks([('b1', 'mayor', 10, 20), ('b2', 'mayor', 11, 21)])
+<BLANKLINE>
+| ballot | contest | x  | y  |
+| -----: | ------: | -: | -: |
+|     b1 |   mayor | 10 | 20 |
+|     b2 |   mayor | 11 | 21 |
+<BLANKLINE>
+%% daf rows=2; cols=4; keyfield=''; name=''
+<BLANKLINE>
 ```
 
 ## append(fast=True)
@@ -117,13 +162,23 @@ the row to the table: nothing is copied. A few checks remain, and a row that fai
 | list | Its number of values must be the number of columns. |
 
 ```pycon
->>> fast = Daf(cols=['ballot', 'x'])
->>> for ballot, x in [('b1', 10), ('b2', 11)]:
-...     row = fast.default_record(astype=KeyedList)
-...     row['ballot'], row['x'] = ballot, x
-...     _ = fast.append(row, fast=True)
->>> fast.lol
-[['b1', 10], ['b2', 11]]
+>>> def read_fast(readings):
+...     fast = Daf(cols=['ballot', 'x'])
+...     for ballot, x in readings:
+...         row = fast.default_record(astype=KeyedList)
+...         row['ballot'], row['x'] = ballot, x
+...         fast.append(row, fast=True)
+...     return fast
+>>> fast = read_fast([('b1', 10), ('b2', 11)])
+>>> fast
+<BLANKLINE>
+| ballot | x  |
+| -----: | -: |
+|     b1 | 10 |
+|     b2 | 11 |
+<BLANKLINE>
+%% daf rows=2; cols=2; keyfield=''; name=''
+<BLANKLINE>
 >>> fast.append(['b3'], fast=True)
 Traceback (most recent call last):
     ...

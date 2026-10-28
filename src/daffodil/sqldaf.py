@@ -1310,8 +1310,15 @@ class SqlDaf(Daf):
             <BLANKLINE>
             %% daf rows=1; cols=2; keyfield=''; name='marks'
             <BLANKLINE>
+
+            An UPDATE returns no rows, so `sql()` gives an empty Daf, shown by its summary line:
+
             >>> with marks_sdaf.transaction():
-            ...     _ = marks_sdaf.sql("UPDATE marks SET v = 2")
+            ...     marks_sdaf.sql("UPDATE marks SET v = 2")
+            <BLANKLINE>
+            <BLANKLINE>
+            %% daf rows=0; cols=0; keyfield=''; name=''
+            <BLANKLINE>
             >>> marks_sdaf.to_daf().lol
             [['b1', 2]]
         """

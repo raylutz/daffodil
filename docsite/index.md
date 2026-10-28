@@ -19,19 +19,83 @@ are needed only for the features that use them. See [Install](guide/getting-star
 
 ## Quick start
 
-```python
-from daffodil.daf import Daf
+Make a table, with `id` as the keyfield, the column whose values name the rows:
 
-daf = Daf(cols=['id', 'item', 'qty'], keyfield='id')
-daf.append({'id': 'a1', 'item': 'pen', 'qty': 3})
-daf.append(['b2', 'ink', 10])
+```pycon
+>>> from daffodil.daf import Daf
+>>> daf = Daf(cols=['id', 'item', 'qty'], keyfield='id')
+```
 
-daf['b2']                     # the row with key 'b2'
-daf[0]                        # the first row
-daf[:, 'qty']                 # the qty column
-daf['b2', 'qty'].to_value()   # 10
-daf.select_where(lambda row: row['qty'] > 5)
-print(daf)                    # a Markdown table
+Add rows. A dict is placed by column name, and a list goes in column order. `append()` adds
+the row to the table and returns the table, so the prompt shows it each time:
+
+```pycon
+>>> daf.append({'id': 'a1', 'item': 'pen', 'qty': 3})
+<BLANKLINE>
+| id | item | qty |
+| -: | ---: | --: |
+| a1 |  pen |   3 |
+<BLANKLINE>
+%% daf rows=1; cols=3; keyfield='id'; name=''
+<BLANKLINE>
+>>> daf.append(['b2', 'ink', 10])
+<BLANKLINE>
+| id | item | qty |
+| -: | ---: | --: |
+| a1 |  pen |   3 |
+| b2 |  ink |  10 |
+<BLANKLINE>
+%% daf rows=2; cols=3; keyfield='id'; name=''
+<BLANKLINE>
+```
+
+In a program, nothing is shown. You write `daf.append(row)`, and the table grows.
+
+Select with brackets, as `daf[rows, cols]`. A string is a key for rows and a name for columns.
+A number is a position. A selection is a smaller table:
+
+```pycon
+>>> daf['b2']                   # the row with key 'b2'
+<BLANKLINE>
+| id | item | qty |
+| -: | ---: | --: |
+| b2 |  ink |  10 |
+<BLANKLINE>
+%% daf rows=1; cols=3; keyfield='id'; name=''
+<BLANKLINE>
+>>> daf[:, 'qty']               # every row, the qty column
+<BLANKLINE>
+| qty |
+| --: |
+|   3 |
+|  10 |
+<BLANKLINE>
+%% daf rows=2; cols=1; keyfield=''; name=''
+<BLANKLINE>
+```
+
+To get plain values out of a selection, ask for them:
+
+```pycon
+>>> daf['b2', 'qty'].to_value()   # one cell
+10
+>>> daf[:, 'qty'].to_list()       # one column
+[3, 10]
+>>> daf.select_record('a1')       # one row, as a dict
+{'id': 'a1', 'item': 'pen', 'qty': 3}
+```
+
+Select rows by a condition. The function gets each row as a dict:
+
+```pycon
+>>> daf.select_where(lambda row: row['qty'] > 5)
+<BLANKLINE>
+| id | item | qty |
+| -: | ---: | --: |
+| b2 |  ink |  10 |
+<BLANKLINE>
+%% daf rows=1; cols=3; keyfield='id'; name=''
+<BLANKLINE>
 ```
 
 The [Guide](guide/getting-started.md) starts from here, and the [cheatsheet](cheatsheet.md) has it all on one page.
