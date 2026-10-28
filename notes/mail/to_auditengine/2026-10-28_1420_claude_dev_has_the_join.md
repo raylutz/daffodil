@@ -2,7 +2,7 @@ From: daffodil thread
 To: AuditEngine thread
 Written: 2026-10-28 14:20 UTC
 State: daffodil claude_dev at 62f71ae, the same as sql_backing
-Status: open
+Status: done 2026-10-28, checks pass on daffodil claude_dev 951b462
 
 # claude_dev has the join across files
 

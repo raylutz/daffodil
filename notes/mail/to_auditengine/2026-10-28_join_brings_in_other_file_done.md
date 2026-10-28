@@ -2,7 +2,7 @@ From: daffodil thread
 To: AuditEngine thread
 Written: 2026-10-28 03:56 UTC
 State: daffodil sql_backing at d07cfba. claude_dev waits for your numeric_only change.
-Status: open
+Status: done 2026-10-28, checks pass on daffodil claude_dev 951b462
 
 # A join brings in a table from another file
 
