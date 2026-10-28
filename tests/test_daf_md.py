@@ -664,3 +664,29 @@ def test_md_cols_lol_table_ragged_columns_padded():
     result = md.md_cols_lol_table([[1, 2, 3], ['a']], header=['nums', 'letters'])
     lines = result.splitlines()
     assert len(lines) == 5  # header + ruling + 3 data rows
+
+
+# ---- to_md(): the cases its docstring shows ----
+
+def _items_daf() -> Daf:
+    return Daf(cols=['id', 'item', 'price', 'note'], keyfield='id', lol=[
+        ['a1', 'pen', 1.5, 'blue, fine tip'], ['b2', 'ink', 4.0, '']])
+
+
+def test_to_md_disp_cols_stay_matched_to_their_columns_with_max_cols():
+    lines = _items_daf().to_md(disp_cols=['ID', 'Item', 'Price', 'Note'], max_cols=2).splitlines()
+    assert lines[0].split('|')[1:-1] == [' ID ', ' ... ', '      Note      ']
+    assert lines[2].split('|')[3].strip() == 'blue, fine tip'
+
+
+def test_to_md_smart_fmt_shows_fewer_decimals_as_numbers_grow():
+    sizes = Daf(cols=['n'], lol=[[12345], [1234.56], [2.25], [0.333333], [0.0456]])
+    cells = [line.strip('| ').strip() for line in sizes.to_md(smart_fmt=True).splitlines()[2:]]
+    assert cells == ['12,345', '1,235', '2.2', '0.33', '0.046']
+
+
+def test_to_md_max_cols_alone_adds_no_row_of_dots():
+    daf = Daf(cols=[f'c{i}' for i in range(5)], lol=[[r * 10 + c for c in range(5)] for r in range(3)])
+    body = daf.to_md(max_cols=2).splitlines()[2:]
+    assert len(body) == 3
+    assert all(line.split('|')[1].strip() != '...' for line in body)

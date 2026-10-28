@@ -45,19 +45,21 @@ def _daf_valuecount(
         not in `cols` is empty.
 
     Examples:
-        >>> daf = Daf(lol=[['a', 1, 10], ['b', 2, 20], ['a', 3, 30]], cols=['g', 'x', 'y'])
-        >>> daf
-        <BLANKLINE>
-        | g  | x  | y  |
-        | -: | -: | -: |
-        |  a |  1 | 10 |
-        |  b |  2 | 20 |
-        |  a |  3 | 30 |
-        <BLANKLINE>
-        %% daf rows=3; cols=3; keyfield=''; name=''
-        <BLANKLINE>
-        >>> daf.daf_valuecount(cols=['g'])['g']
-        {'a': 2, 'b': 1}
+        The table used in the examples:
+
+        >>> daf = Daf(cols=['precinct', 'party'], lol=[
+        ...     ['P1', 'R'], ['P1', 'D'], ['P2', 'D'], ['P2', ''],
+        ...     ['P1', 'D'], ['P2', 'R'], ['P2', 'R'], ['P1', 'D']])
+
+        Every column:
+
+        >>> daf.daf_valuecount()
+        {'precinct': {'P1': 4, 'P2': 4}, 'party': {'R': 3, 'D': 4, '': 1}}
+
+        One column. The others are in the result, with NULL, the empty string:
+
+        >>> daf.daf_valuecount(cols=['party'])
+        {'precinct': '', 'party': {'R': 3, 'D': 4, '': 1}}
     """
 
     # by='row' (the default, and the only mode exercised) always reduces to a single record.
@@ -89,20 +91,49 @@ def _valuecounts_for_colname(
         A dict that maps each value to its count.
 
     Examples:
-        >>> daf = Daf(lol=[['a'], ['b'], ['a'], ['']], cols=['g'])
+        The table used in the examples, of ballots by precinct and party. One ballot has no party:
+
+        >>> daf = Daf(cols=['precinct', 'party'], lol=[
+        ...     ['P1', 'R'], ['P1', 'D'], ['P2', 'D'], ['P2', ''],
+        ...     ['P1', 'D'], ['P2', 'R'], ['P2', 'R'], ['P1', 'D']])
         >>> daf
         <BLANKLINE>
-        | g  |
-        | -: |
-        |  a |
-        |  b |
-        |  a |
-        |    |
+        | precinct | party |
+        | -------: | ----: |
+        |       P1 |     R |
+        |       P1 |     D |
+        |       P2 |     D |
+        |       P2 |       |
+        |       P1 |     D |
+        |       P2 |     R |
+        |       P2 |     R |
+        |       P1 |     D |
         <BLANKLINE>
-        %% daf rows=4; cols=1; keyfield=''; name=''
+        %% daf rows=8; cols=2; keyfield=''; name=''
         <BLANKLINE>
-        >>> daf.valuecounts_for_colname('g', sort=True, omit_nulls=True)
-        {'a': 2, 'b': 1}
+
+        The values come in the order first seen. The empty cell is counted as `''`:
+
+        >>> daf.valuecounts_for_colname('party')
+        {'R': 3, 'D': 4, '': 1}
+
+        With `sort=True`, the most common value comes first. With `reverse=False` as well, the least
+        common does:
+
+        >>> daf.valuecounts_for_colname('party', sort=True)
+        {'D': 4, 'R': 3, '': 1}
+        >>> daf.valuecounts_for_colname('party', sort=True, reverse=False)
+        {'': 1, 'R': 3, 'D': 4}
+
+        Leave out the empty cells:
+
+        >>> daf.valuecounts_for_colname('party', omit_nulls=True)
+        {'R': 3, 'D': 4}
+
+        A column that does not exist gives an empty dict, with no error:
+
+        >>> daf.valuecounts_for_colname('color')
+        {}
     """
 
     valuecounts_di: T_di = {}
@@ -148,18 +179,21 @@ def _valuecounts_for_colnames_ls(
         A dict that maps each column to a dict of value and count.
 
     Examples:
-        >>> daf = Daf(lol=[['a', 'x'], ['b', 'x']], cols=['g', 'h'])
-        >>> daf
-        <BLANKLINE>
-        | g  | h  |
-        | -: | -: |
-        |  a |  x |
-        |  b |  x |
-        <BLANKLINE>
-        %% daf rows=2; cols=2; keyfield=''; name=''
-        <BLANKLINE>
+        The table used in the examples:
+
+        >>> daf = Daf(cols=['precinct', 'party'], lol=[
+        ...     ['P1', 'R'], ['P1', 'D'], ['P2', 'D'], ['P2', ''],
+        ...     ['P1', 'D'], ['P2', 'R'], ['P2', 'R'], ['P1', 'D']])
+
+        Every column, with no list given:
+
         >>> daf.valuecounts_for_colnames_ls()
-        {'g': {'a': 1, 'b': 1}, 'h': {'x': 2}}
+        {'precinct': {'P1': 4, 'P2': 4}, 'party': {'R': 3, 'D': 4, '': 1}}
+
+        Some columns, each sorted with the most common first, and without the empty cells:
+
+        >>> daf.valuecounts_for_colnames_ls(['party'], sort=True, omit_nulls=True)
+        {'party': {'D': 4, 'R': 3}}
     """
 
     if not colnames_ls:
@@ -198,19 +232,21 @@ def _valuecounts_for_colname_selectedby_colname(
         A dict that maps each value to its count. It is empty if a column does not exist.
 
     Examples:
-        >>> daf = Daf(lol=[['a', 'x'], ['b', 'x'], ['a', 'y']], cols=['g', 'h'])
-        >>> daf
-        <BLANKLINE>
-        | g  | h  |
-        | -: | -: |
-        |  a |  x |
-        |  b |  x |
-        |  a |  y |
-        <BLANKLINE>
-        %% daf rows=3; cols=2; keyfield=''; name=''
-        <BLANKLINE>
-        >>> daf.valuecounts_for_colname_selectedby_colname('g', 'h', 'x')
-        {'a': 1, 'b': 1}
+        The table used in the examples:
+
+        >>> daf = Daf(cols=['precinct', 'party'], lol=[
+        ...     ['P1', 'R'], ['P1', 'D'], ['P2', 'D'], ['P2', ''],
+        ...     ['P1', 'D'], ['P2', 'R'], ['P2', 'R'], ['P1', 'D']])
+
+        Count the parties in precinct P1 only:
+
+        >>> daf.valuecounts_for_colname_selectedby_colname('party', 'precinct', 'P1')
+        {'R': 1, 'D': 3}
+
+        The same, sorted with the most common first:
+
+        >>> daf.valuecounts_for_colname_selectedby_colname('party', 'precinct', 'P1', sort=True)
+        {'D': 3, 'R': 1}
     """
 
 
@@ -261,21 +297,21 @@ def _valuecounts_for_colnames_ls_selectedby_colname(
         A dict that maps each column to a dict of value and count.
 
     Examples:
-        >>> daf = Daf(lol=[['a', 'x', 1], ['a', 'y', 2], ['b', 'x', 3]], cols=['g', 'k', 'n'])
-        >>> daf
-        <BLANKLINE>
-        | g  | k  | n  |
-        | -: | -: | -: |
-        |  a |  x |  1 |
-        |  a |  y |  2 |
-        |  b |  x |  3 |
-        <BLANKLINE>
-        %% daf rows=3; cols=3; keyfield=''; name=''
-        <BLANKLINE>
-        >>> daf.valuecounts_for_colnames_ls_selectedby_colname(['k'], 'g', 'a')
-        {'k': {'x': 1, 'y': 1}}
-        >>> daf.valuecounts_for_colnames_ls_selectedby_colname(['g', 'k'], 'g', 'a')
-        {'g': {'a': 2}, 'k': {'x': 1, 'y': 1}}
+        The table used in the examples, with a column for how each ballot was cast:
+
+        >>> daf = Daf(cols=['precinct', 'party', 'how'], lol=[
+        ...     ['P1', 'R', 'poll'], ['P1', 'D', 'mail'], ['P2', 'D', 'poll'], ['P2', '', 'poll'],
+        ...     ['P1', 'D', 'mail'], ['P2', 'R', 'mail'], ['P2', 'R', 'mail'], ['P1', 'D', 'mail']])
+
+        Count two columns, in precinct P2 only:
+
+        >>> daf.valuecounts_for_colnames_ls_selectedby_colname(['party', 'how'], 'precinct', 'P2')
+        {'party': {'D': 1, '': 1, 'R': 2}, 'how': {'poll': 2, 'mail': 2}}
+
+        With each count sorted, the most common first:
+
+        >>> daf.valuecounts_for_colnames_ls_selectedby_colname(['party', 'how'], 'precinct', 'P2', sort=True)
+        {'party': {'R': 2, 'D': 1, '': 1}, 'how': {'poll': 2, 'mail': 2}}
     """
 
 
@@ -322,19 +358,28 @@ def _valuecounts_for_colname1_groupedby_colname2(
         A dict that maps each value of the second column to a dict of value and count.
 
     Examples:
-        >>> daf = Daf(lol=[['a', 'x'], ['b', 'x'], ['a', 'y']], cols=['g', 'h'])
-        >>> daf
-        <BLANKLINE>
-        | g  | h  |
-        | -: | -: |
-        |  a |  x |
-        |  b |  x |
-        |  a |  y |
-        <BLANKLINE>
-        %% daf rows=3; cols=2; keyfield=''; name=''
-        <BLANKLINE>
-        >>> daf.valuecounts_for_colname1_groupedby_colname2('g', 'h')
-        {'x': {'a': 1, 'b': 1}, 'y': {'a': 1}}
+        The table used in the examples:
+
+        >>> daf = Daf(cols=['precinct', 'party'], lol=[
+        ...     ['P1', 'R'], ['P1', 'D'], ['P2', 'D'], ['P2', ''],
+        ...     ['P1', 'D'], ['P2', 'R'], ['P2', 'R'], ['P1', 'D']])
+
+        The parties counted in each precinct:
+
+        >>> daf.valuecounts_for_colname1_groupedby_colname2('party', 'precinct')
+        {'P1': {'R': 1, 'D': 3}, 'P2': {'D': 1, '': 1, 'R': 2}}
+
+        The same, with each count sorted, the most common first:
+
+        >>> daf.valuecounts_for_colname1_groupedby_colname2('party', 'precinct', sort=True)
+        {'P1': {'D': 3, 'R': 1}, 'P2': {'R': 2, 'D': 1, '': 1}}
+
+        To check that one column depends on another, count it by the other. Here each style belongs to
+        one precinct, so each precinct shows one style:
+
+        >>> styles = Daf(cols=['precinct', 'style'], lol=[['P1', 's1'], ['P2', 's2'], ['P1', 's1']])
+        >>> styles.valuecounts_for_colname1_groupedby_colname2('style', 'precinct')
+        {'P1': {'s1': 2}, 'P2': {'s2': 1}}
     """
 
 
@@ -390,18 +435,42 @@ def _gen_stats_daf(self: 'Daf', col_def_lot: T_lota) -> T_doda:
         NotImplementedError: A profile is not one of the five.
 
     Examples:
-        >>> daf = Daf(lol=[[1], [3]], cols=['n'])
-        >>> daf
-        <BLANKLINE>
-        | n  |
-        | -: |
-        |  1 |
-        |  3 |
-        <BLANKLINE>
-        %% daf rows=2; cols=1; keyfield=''; name=''
-        <BLANKLINE>
-        >>> daf.gen_stats_daf([('n', int, '', 'scalar')])['n']['mean']
-        2
+        The table used in the examples, of ballots, their precinct and a count:
+
+        >>> daf = Daf(cols=['ballot', 'precinct', 'n'], lol=[['b1', 'P1', 3], ['b2', 'P1', 5], ['b2', 'P2', 10]])
+
+        Each profile measures something else. The result is a dict for each column, with many entries.
+        These examples pick out the main ones.
+
+        An `index` column should not repeat. `num_within_reps` counts the repeats.
+        `within_reps_loti` lists each repeat as `(0, row)`, where row is its position. The first
+        time a value appears is not listed. Here b2 at row 2 repeats b2 at row 1:
+
+        >>> stats = daf.gen_stats_daf([('ballot', str, '', 'index')])['ballot']
+        >>> stats['num_uniques'], stats['num_within_reps'], stats['within_reps_loti']
+        (2, 1, [(0, 2)])
+
+        An `attrib` column is counted by value:
+
+        >>> daf.gen_stats_daf([('precinct', str, '', 'attrib')])['precinct']['val_counts']
+        {'P1': 2, 'P2': 1}
+
+        A `scalar` column gives its range, mean and standard deviation:
+
+        >>> stats = daf.gen_stats_daf([('n', int, '', 'scalar')])['n']
+        >>> stats['min'], stats['max'], stats['mean'], round(stats['stdev'], 2)
+        (3, 10, 6, 3.61)
+
+        A `localidx` column holds whole numbers, and says whether they run in sequence:
+
+        >>> stats = daf.gen_stats_daf([('n', int, '', 'localidx')])['n']
+        >>> stats['all_ints'], stats['sequential']
+        (True, False)
+
+        Several columns at once, each with its own profile:
+
+        >>> sorted(daf.gen_stats_daf([('precinct', str, '', 'attrib'), ('n', int, '', 'scalar')]))
+        ['n', 'precinct']
     """
 
     info_dod = {}
@@ -478,52 +547,155 @@ def _to_md(
         ) -> str:
             
     """
-    Make a Markdown table of the Daf.
+    Make a Markdown table of the Daf, as text.
 
-    Use it to put a table into a report or a log, as in `daf[0:50].to_md()`. An f-string of a
-    Daf gives `str()`, which keeps only 10 rows and 10 columns and adds a summary line. `to_md()`
-    writes every row and column, and leaves the summary line out, unless asked. So it gives the
-    rows selected, as most code wants. A SqlDaf gives the same text, reading only those rows.
+    Use it to put a table into a report or a log, as in `daf[0:50].to_md()`. It writes every row
+    and column, with no summary line, unless asked. That is the difference from `str()`, which
+    is what `print(daf)` and an f-string give: `str()` keeps 10 rows and 10 columns and adds the
+    summary line. A SqlDaf gives the same text, and reads only the rows it shows.
 
-    Without limits the whole table is written. With `max_rows` or `max_cols`, the
-    first and last are kept, and the middle is replaced by `...`. Text longer
-    than `max_text_len` is shortened by cutting out its middle. `just` has one
-    character for each column: `<` left, `^` center, `>` right. The default is
-    right. With no column names, `A`, `B` and so on are used. With `include_summary`,
-    the Markdown can be read back with `from_md()`, as text.
+    The parameters shape the table:
 
-    A ragged Daf, with rows of different lengths, is shown with its short rows padded
-    with blank cells. The Daf itself is not changed. With `include_summary`, the summary
-    line ends with `ragged rows detected`. `from_md()` reads such a table back as
-    rectangular.
+    - `max_rows` and `max_cols` keep the first and last rows and columns, and put `...` in place
+      of the middle. 0 means no limit.
+    - `just` sets the justification of each column, one character for each: `<` left, `^` center,
+      `>` right. The default is right for every column.
+    - Text longer than `max_text_len` loses its middle, marked `..`, so both ends show.
+      `shorten_text=False` writes it in full.
+    - `smart_fmt=True` shows numbers for people to read. A whole number gets commas, as 12,345. A
+      float above 100 is rounded to a whole number. Above 1 it keeps one decimal, above 0.1 two,
+      above 0.01 three, and above 0.001 four. Only the text is changed, not the Daf.
+    - `include_summary=True` adds the summary line that `str()` shows, starting with `%%`. With it,
+      `from_md()` can read the table back, as text.
+    - `disp_cols` names the columns differently in the header. The Daf keeps its own names.
+      `header` replaces the header row as it is shown, so it must match the columns shown. With
+      `max_cols`, use `disp_cols`, which stays matched to the columns it names.
 
-    Use `max_rows` and `max_cols` together, or neither. With only `max_cols`, a row of
-    `...` is added under the header by mistake.
+    A Daf with no column names gets `A`, `B` and so on in the header, as a spreadsheet does. A
+    ragged Daf, with rows of different lengths, is shown with blank cells in its short rows, and
+    the Daf is not changed. Then the summary line ends with `ragged rows detected`.
 
     Args:
-        max_rows: The most rows to show. 0 for all.
-        max_cols: The most columns to show. 0 for all.
-        just: The justification of each column.
+        max_rows: The most rows to show, the first and the last. 0 for all.
+        max_cols: The most columns to show, the first and the last. 0 for all.
+        just: The justification of each column, one of `<`, `^` or `>` for each.
         shorten_text: If True, shorten text that is longer than `max_text_len`.
         max_text_len: The longest text to show in full.
-        smart_fmt: If True, show numbers with fewer decimal places.
+        smart_fmt: If True, show floats with fewer digits.
         include_summary: If True, add a line with the size, keyfield and name.
-        disp_cols: Column names to show instead of the real ones.
-        header: A header to use instead.
+        disp_cols: Names to show in the header in place of the column names.
+        header: A header row to show in place of the one made from the column names.
 
     Returns:
-        The Markdown text.
+        The Markdown text, ending with a newline.
 
     Examples:
-        >>> daf = Daf(lol=[[1, 'a'], [2, 'b']], cols=['id', 'v'])
+        The table used in the examples:
+
+        >>> daf = Daf(cols=['id', 'item', 'price', 'note'], keyfield='id', lol=[
+        ...     ['a1', 'pen', 1.5, 'blue, fine tip'],
+        ...     ['b2', 'ink', 4.0, ''],
+        ...     ['c3', 'pad', 2.25, 'lined, 80 sheets of recycled paper'],
+        ...     ['d4', 'cap', 0.333333, 'red'],
+        ...     ['e5', 'tag', 10.0, 'paper']])
         >>> print(daf.to_md())
-        | id | v  |
-        | -: | -: |
-        |  1 |  a |
-        |  2 |  b |
+        | id | item |  price   |                note                |
+        | -: | ---: | -------: | ---------------------------------: |
+        | a1 |  pen |      1.5 |                     blue, fine tip |
+        | b2 |  ink |      4.0 |                                    |
+        | c3 |  pad |     2.25 | lined, 80 sheets of recycled paper |
+        | d4 |  cap | 0.333333 |                                red |
+        | e5 |  tag |     10.0 |                              paper |
+        <BLANKLINE>
+
+        Keep the first and last 2 rows, and the first and last column:
+
+        >>> print(daf.to_md(max_rows=4, max_cols=2))
+        | id  | ... |      note      |
+        | --: | --: | -------------: |
+        |  a1 | ... | blue, fine tip |
+        |  b2 | ... |                |
+        | ... | ... |            ... |
+        |  d4 | ... |            red |
+        |  e5 | ... |          paper |
+        <BLANKLINE>
+
+        Justify the columns left, center, right and right:
+
+        >>> print(daf[0:2].to_md(just='<^>>'))
+        | id | item | price |      note      |
+        | :- | :--: | ----: | -------------: |
+        | a1 | pen  |   1.5 | blue, fine tip |
+        | b2 | ink  |   4.0 |                |
+        <BLANKLINE>
+
+        Shorten long text to 20 characters, or write it in full:
+
+        >>> print(daf[:, ['id', 'note']].to_md(max_text_len=20))
+        | id |         note         |
+        | -: | -------------------: |
+        | a1 |       blue, fine tip |
+        | b2 |                      |
+        | c3 | lined, 80..led paper |
+        | d4 |                  red |
+        | e5 |                paper |
+        <BLANKLINE>
+        >>> print(daf[:, ['id', 'note']].to_md(max_text_len=20, shorten_text=False))
+        | id |                note                |
+        | -: | ---------------------------------: |
+        | a1 |                     blue, fine tip |
+        | b2 |                                    |
+        | c3 | lined, 80 sheets of recycled paper |
+        | d4 |                                red |
+        | e5 |                              paper |
+        <BLANKLINE>
+
+        Show numbers for people to read. The number of decimals depends on the size:
+
+        >>> sizes = Daf(cols=['n'], lol=[[12345], [1234.56], [2.25], [0.333333], [0.0456]])
+        >>> print(sizes.to_md(smart_fmt=True))
+        |   n    |
+        | -----: |
+        | 12,345 |
+        |  1,235 |
+        |    2.2 |
+        |   0.33 |
+        |  0.046 |
+        <BLANKLINE>
+
+        Add the summary line:
+
+        >>> print(daf[0:2].to_md(include_summary=True))
+        | id | item | price |      note      |
+        | -: | ---: | ----: | -------------: |
+        | a1 |  pen |   1.5 | blue, fine tip |
+        | b2 |  ink |   4.0 |                |
+        <BLANKLINE>
+        %% daf rows=2; cols=4; keyfield='id'; name=''
+        <BLANKLINE>
+
+        Show other names in the header. `disp_cols` stays matched to its columns when some are
+        hidden. `header` is the header row as shown, so with `max_cols` it would need `...` too:
+
+        >>> print(daf[0:2].to_md(disp_cols=['ID', 'Item', 'Price', 'Note']))
+        | ID | Item | Price |      Note      |
+        | -: | ---: | ----: | -------------: |
+        | a1 |  pen |   1.5 | blue, fine tip |
+        | b2 |  ink |   4.0 |                |
+        <BLANKLINE>
+        >>> print(daf[0:2].to_md(disp_cols=['ID', 'Item', 'Price', 'Note'], max_cols=2))
+        | ID | ... |      Note      |
+        | -: | --: | -------------: |
+        | a1 | ... | blue, fine tip |
+        | b2 | ... |                |
+        <BLANKLINE>
+        >>> print(daf[0:2].to_md(header=['ID', '...', 'Note'], max_cols=2))
+        | ID | ... |      Note      |
+        | -: | --: | -------------: |
+        | a1 | ... | blue, fine tip |
+        | b2 | ... |                |
         <BLANKLINE>
     """
-
     daf_lol = self.daf_to_lol_summary(max_rows=max_rows, max_cols=max_cols, disp_cols=disp_cols)
 
     header_exists = bool(self.hd)
@@ -611,10 +783,42 @@ def _to_md_cols(
         The Markdown text.
 
     Examples:
-        >>> daf = Daf(lol=[[1, 'a'], [2, 'b']], cols=['x', 'y'])
-        >>> print(daf.to_md_cols(), end='')
-        | x  | 1  | 2  |
-        | y  | a  | b  |
+        The table used in the examples:
+
+        >>> daf = Daf(cols=['id', 'item', 'price', 'note'], lol=[
+        ...     ['a1', 'pen', 1.5, 'blue, fine tip'],
+        ...     ['b2', 'ink', 4.0, ''],
+        ...     ['c3', 'pad', 2.25, 'lined, 80 sheets of recycled paper']])
+
+        Each row of the Daf becomes a column. The first column holds the column names. The cells are
+        centered:
+
+        >>> print(daf.to_md_cols())
+        |  id   |       a1       | b2  |                 c3                 |
+        | item  |      pen       | ink |                pad                 |
+        | price |      1.5       | 4.0 |                2.25                |
+        | note  | blue, fine tip |     | lined, 80 sheets of recycled paper |
+        <BLANKLINE>
+
+        `max_rows` limits the rows of the Daf, which are the columns here, and `max_cols` the columns
+        of the Daf, which are the lines. The middle ones become `...`:
+
+        >>> print(daf.to_md_cols(max_rows=2, max_cols=2))
+        |  id  |       a1       | ... |                 c3                 |
+        | ...  |      ...       | ... |                ...                 |
+        | note | blue, fine tip | ... | lined, 80 sheets of recycled paper |
+        <BLANKLINE>
+
+        `just` has one character for each column of the text: the names, then one for each row. Here
+        text is shortened to 12 characters, a float is shown with fewer digits, and the names are
+        replaced:
+
+        >>> print(daf.to_md_cols(just='<<<<', max_text_len=12, smart_fmt=True, disp_cols=['ID', 'Item', 'Price', 'Note']))
+        | ID    | a1           | b2  | c3           |
+        | Item  | pen          | ink | pad          |
+        | Price | 1.5          | 4.0 | 2.2          |
+        | Note  | blue,..e tip |     | lined..paper |
+        <BLANKLINE>
     """
 
     daf_lol = self.daf_to_lol_summary(max_rows=max_rows, max_cols=max_cols, disp_cols=disp_cols)
@@ -663,39 +867,35 @@ def _daf_to_lol_summary(
         The rows, with a header row first if there are column names.
 
     Examples:
-        >>> daf = Daf(lol=[[1, 'a'], [2, 'b']], cols=['x', 'y'])
-        >>> daf
-        <BLANKLINE>
-        | x  | y  |
-        | -: | -: |
-        |  1 |  a |
-        |  2 |  b |
-        <BLANKLINE>
-        %% daf rows=2; cols=2; keyfield=''; name=''
-        <BLANKLINE>
+        The table used in the examples:
+
+        >>> daf = Daf(cols=['id', 'item', 'qty'], lol=[['a1', 'pen', 3], ['b2', 'ink', 10], ['c3', 'pad', 7]])
+
+        The column names come first, then the rows:
+
         >>> daf.daf_to_lol_summary()
-        [['x', 'y'], [1, 'a'], [2, 'b']]
-        >>> big = Daf(lol=[[i, i] for i in range(20)], cols=['x', 'y'])
-        >>> big
-        <BLANKLINE>
-        |  x  |  y  |
-        | --: | --: |
-        |   0 |   0 |
-        |   1 |   1 |
-        |   2 |   2 |
-        |   3 |   3 |
-        |   4 |   4 |
-        | ... | ... |
-        |  15 |  15 |
-        |  16 |  16 |
-        |  17 |  17 |
-        |  18 |  18 |
-        |  19 |  19 |
-        <BLANKLINE>
-        %% daf rows=20; cols=2; keyfield=''; name=''
-        <BLANKLINE>
-        >>> big.daf_to_lol_summary(max_rows=4)
-        [['x', 'y'], [0, 0], [1, 1], ['...', '...'], [18, 18], [19, 19]]
+        [['id', 'item', 'qty'], ['a1', 'pen', 3], ['b2', 'ink', 10], ['c3', 'pad', 7]]
+
+        Keep 2 rows, the first and the last, with `...` between them:
+
+        >>> daf.daf_to_lol_summary(max_rows=2)
+        [['id', 'item', 'qty'], ['a1', 'pen', 3], ['...', '...', '...'], ['c3', 'pad', 7]]
+
+        Keep 2 columns, the first and the last. With only `max_cols`, every row is kept:
+
+        >>> daf.daf_to_lol_summary(max_rows=0, max_cols=2)
+        [['id', '...', 'qty'], ['a1', '...', 3], ['b2', '...', 10], ['c3', '...', 7]]
+
+        Other names for the columns:
+
+        >>> daf.daf_to_lol_summary(disp_cols=['ID', 'Item', 'Qty'])
+        [['ID', 'Item', 'Qty'], ['a1', 'pen', 3], ['b2', 'ink', 10], ['c3', 'pad', 7]]
+
+        An odd limit keeps the extra row at the start:
+
+        >>> big = Daf(cols=['n'], lol=[[i] for i in range(10)])
+        >>> big.daf_to_lol_summary(max_rows=3)
+        [['n'], [0], [1], ['...'], [9]]
     """
 
     if disp_cols:
@@ -753,11 +953,22 @@ def _dict_to_md(da: T_da, cols: T_ls | None = None, just: str='<<') -> str:
         The Markdown text.
 
     Examples:
-        >>> print(Daf.dict_to_md({'a': 1, 'b': 'two'}))
-        | key | value |
-        | :-- | :---- |
-        | a   | 1     |
-        | b   | two   |
+        A dict, as a table of keys and values, left justified:
+
+        >>> print(Daf.dict_to_md({'pen': 3, 'ink': 'out of stock'}))
+        | key |    value     |
+        | :-- | :----------- |
+        | pen | 3            |
+        | ink | out of stock |
+        <BLANKLINE>
+
+        Other names for the two columns, and right justified:
+
+        >>> print(Daf.dict_to_md({'pen': 3, 'ink': 'out of stock'}, cols=['item', 'qty'], just='>>'))
+        | item |     qty      |
+        | ---: | -----------: |
+        |  pen |            3 |
+        |  ink | out of stock |
         <BLANKLINE>
     """
     if not cols:
@@ -790,25 +1001,50 @@ def _value_counts_daf(self: 'Daf',
         The new Daf.
 
     Examples:
-        >>> daf = Daf(lol=[['a'], ['b'], ['a']], cols=['g'])
-        >>> daf
+        The table used in the examples:
+
+        >>> daf = Daf(cols=['precinct', 'party'], lol=[
+        ...     ['P1', 'R'], ['P1', 'D'], ['P2', 'D'], ['P2', ''],
+        ...     ['P1', 'D'], ['P2', 'R'], ['P2', 'R'], ['P1', 'D']])
+
+        Each value and its count, in the order first seen:
+
+        >>> daf.value_counts_daf('party')
         <BLANKLINE>
-        | g  |
-        | -: |
-        |  a |
-        |  b |
-        |  a |
+        | party | counts |
+        | ----: | -----: |
+        |     R |      3 |
+        |     D |      4 |
+        |       |      1 |
         <BLANKLINE>
-        %% daf rows=3; cols=1; keyfield=''; name=''
+        %% daf rows=3; cols=2; keyfield=''; name=''
         <BLANKLINE>
-        >>> daf.value_counts_daf('g', sort=True)
+
+        Sorted with the most common first, without the empty cells, and with a total. The total's
+        label is `**Total**`, which shows in bold in Markdown:
+
+        >>> daf.value_counts_daf('party', sort=True, omit_nulls=True, include_total=True)
         <BLANKLINE>
-        | g  | counts |
-        | -: | -----: |
-        |  a |      2 |
-        |  b |      1 |
+        |   party   | counts |
+        | --------: | -----: |
+        |         D |      4 |
+        |         R |      3 |
+        | **Total** |      7 |
         <BLANKLINE>
-        %% daf rows=2; cols=2; keyfield=''; name=''
+        %% daf rows=3; cols=2; keyfield=''; name=''
+        <BLANKLINE>
+
+        With `reverse=False`, the least common comes first:
+
+        >>> daf.value_counts_daf('party', sort=True, reverse=False)
+        <BLANKLINE>
+        | party | counts |
+        | ----: | -----: |
+        |       |      1 |
+        |     R |      3 |
+        |     D |      4 |
+        <BLANKLINE>
+        %% daf rows=3; cols=2; keyfield=''; name=''
         <BLANKLINE>
     """
 
