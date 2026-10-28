@@ -78,3 +78,32 @@ Tests for the bugs, as xfail with a reason that starts with BUG:
 - A second audit leaves only options that are deprecated, not used, not supported on a SqlDaf,
   shown on a linked method, or waiting on Ray (`numeric_only`). `diagnose` prints timestamps, so it
   is described in words, not shown.
+
+## Second round, 2026-10-28, overnight
+
+Ray asked whether the full review, as done for `to_md()`, was finished. The audit of the first round
+counted an option as shown when the SqlDaf docstring said "as Daf.x() does". So about 35 SqlDaf
+methods had no example at all. This round:
+
+- Every SqlDaf method on the API pages has examples, one for each option, or for a few together.
+  Commits d051ac7, 96ef308, 77e8534, 3b85f30.
+- Each mention of a Daf method in a SqlDaf docstring links to its entry. A script found the
+  entry by the `heading` of each `:::` line in docsite/api/daf.
+- Thin Daf descriptions were filled out, each claim checked by running. 91d91a2.
+- Two audits run over every documented function: parameters with no Args entry (only `from_pdf()`,
+  which is experimental and left alone), and errors raised by name with no Raises entry (four, now
+  listed). c98a636.
+- Stale text fixed: SqlDaf `join()` said the other table must be in the same file, which Q312
+  changed. SqlDaf `groupsum_daf()` said only `by='row'`, which Q311 changed. SqlDaf `apply_dtypes()`
+  said `cols=None` meant the columns of the dtypes. It means every column, as in a Daf.
+
+Tools in the job's scratch folder: triage.py scores descriptions and counts examples for each API
+entry. args_audit.py and raises_audit.py are the two audits. desc_only.py replaces a description
+and keeps the examples. add_raises.py adds a Raises entry. link_daf.py adds the links.
+
+### Seen, not changed, for Ray
+
+10. `to_daf()` of a SqlDaf selection gives a Daf named for the internal TEMP table, as
+    `daf_tmp_items_v1`. A Daf selection has an empty name. Shown in the `to_daf()` example.
+11. The class attributes on the API pages, such as `RETMODE_VAL` and `SqlDaf.engine`, have no
+    examples. They are constants, described in words.

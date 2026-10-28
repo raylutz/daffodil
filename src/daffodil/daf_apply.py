@@ -2904,7 +2904,9 @@ def _multi_groupsum(
     """
     Group by each of several columns, one at a time, and add up the columns.
 
-    This is `multi_groupby_reduce()` with `sum_da()`.
+    This is `multi_groupby_reduce()` with `sum_da()`. Each column gets a Daf of its own, with one
+    row for each of its values, and that column as the keyfield. The other columns grouped by are
+    Python NULL in it. Use it to total the same columns by precinct, by style and so on, in one call.
 
     Args:
         colnames: The columns to group by. These are required.

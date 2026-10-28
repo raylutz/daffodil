@@ -297,6 +297,9 @@ def _valuecounts_for_colnames_ls_selectedby_colname(
     """
     Count the values of several columns, in the rows where another column has a value.
 
+    It is `valuecounts_for_colname_selectedby_colname()` for several columns at once. Use it for a
+    profile of one group, such as the parties and the ways of voting in one precinct.
+
     Args:
         colnames_ls: The columns to count. All if None.
         selectedby_colname: The column to test.
