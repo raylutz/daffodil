@@ -92,3 +92,19 @@ Revised shape, for a SqlDaf:
 - A rule SQL cannot say, as normalized JSON votes, is a Python function registered on the
   connection and called inside the SQL, as `select_where()` does now.
 - A Python callable per key stays as the general form, and as the form for a Daf.
+
+## Ideas discussed with Ray, 2026-10-29, not decided
+
+These are ideas being tossed around. Nothing here is decided or scheduled.
+
+- The function is the caller's. joint_apply() does not prescribe SQL routes or SELECT lists. It
+  resolves the inputs, puts them on one connection, calls the function, and cleans up. The SQL route
+  form above is one function a caller might write.
+- Inputs and outputs could both be parameters, named and specified by the caller, as
+  `joint_apply(inputs, outputs, func)`. The function fills the outputs, so it knows their names.
+  An output could be a name, or a spec with columns, keyfield and file.
+- join_with_residue() is one instance of joint_apply() with a residue function, not a kind for kind
+  replacement, as `sum()` is to `reduce()`. If joint_apply() exists, join_with_residue() could call it.
+- A wider weakness of SqlDaf: a method that makes tables cannot let the caller name them through a
+  return value. Most make up names, as daf_tmp_items_v3. Outputs passed as parameters would let the
+  caller name them. Only copy(), join(), save() and the loaders take a name today.
