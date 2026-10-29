@@ -65,3 +65,30 @@ find_variants on pilot d05 takes 31 s in all today.
 - Q315: build it as above?
 - Several rows for one key in a table, as for one-to-many matching, are not covered.
   A SqlDaf keeps keys unique, so a row per key is the rule there.
+
+## Revised, 2026-10-29: the function may be SQL
+
+Ray: the function need not be Python. It can be a SQL function, as joins are done in SQL.
+
+Prototype on the same three tables, 200,000 keys, whole rows written to six outputs:
+
+| Form | Time |
+| :--- | ---: |
+| Python function per key, keys only written | 1.08 s |
+| Six SQL conditions, each over the key-union view | 2.45 s |
+| One CASE per key into a TEMP route table, then one INSERT per output | 0.79 s |
+| One output, with a registered Python function inside the SQL condition | 0.62 s |
+
+Six separate conditions recompute the union of keys and the joins six times. The route computed
+once is the fast form.
+
+Revised shape, for a SqlDaf:
+
+- route: a SQL expression over the tables, named by their names in the KeyedList, giving the
+  route of each key, as a CASE. It is computed once, for every key.
+- outputs: for each output table, the route it takes, and its SELECT list. `audit.*` copies the
+  audit row. `audit.*, cvr.precinct` makes a joined row. Column names given with AS are the
+  translator, in SQL.
+- A rule SQL cannot say, as normalized JSON votes, is a Python function registered on the
+  connection and called inside the SQL, as `select_where()` does now.
+- A Python callable per key stays as the general form, and as the form for a Daf.
