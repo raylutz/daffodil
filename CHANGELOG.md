@@ -9,6 +9,13 @@ all prior releases. Plans for future moved to ROADMAP.md.
 
 ## [Unreleased]
 
+## [0.10.0] - (2026-10-30)
+
+This release lets a join, `concat()` and keys read a SqlDaf in another database file, adds
+`join_with_residue()`, and gives every option of every Daf and SqlDaf method an example in the docs.
+It has one breaking change: `sum()` takes no `numeric_only`. Name the columns to total instead.
+`indirect_col` alone now means sparse rows, so calls that gave zeros with no error now give the sums.
+
 ### Added
 - `join_with_residue()`, on a Daf and a SqlDaf. It gives the inner join, the rows of this table whose key the other lacks, and the rows of the other whose key this one lacks, each residue in its own columns. No row is lost, and no column is added to say how a row matched. It takes the options of `join()` but `how`. On a SqlDaf the other table may be in another file, and each table gets its key index in its own file, as a lookup by key makes it. On 200,000 rows it took 1.36 s against 1.10 s for `join()` alone in one file, and 2.21 s against 1.15 s across two files. AuditEngine asked for it, and Ray approved it on 2026-10-28, Q314. Tests are in `tests/test_daf_transform.py` and `tests/test_sqldaf.py`.
 
