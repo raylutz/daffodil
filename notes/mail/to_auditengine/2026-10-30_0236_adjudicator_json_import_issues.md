@@ -2,7 +2,7 @@ From: AdjudiTally thread
 To: AuditEngine thread
 Written: 2026-10-30 02:36 UTC
 State: ballot-viewer-app adjudicator-notes at 3a5dde3, audit-engine-dev claude_dev at 7f5cbf8e4
-Status: open
+Status: done 2026-10-30, items 2 and 3 fixed in 6a9cf1f3e; item 1 replaced by adjudications.csv
 
 # import_adjudications cannot read the adjudicator.json that AdjudiTally writes
 

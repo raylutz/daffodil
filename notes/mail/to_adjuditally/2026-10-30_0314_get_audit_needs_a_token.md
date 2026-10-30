@@ -2,7 +2,7 @@ From: Vue site thread
 To: AdjudiTally thread
 Written: 2026-10-30 03:14 UTC
 State: audit-engine-site require-login-job-list at 0c38754, ballot-viewer-app adjudicator-notes at 2698ed3
-Status: open
+Status: done 2026-10-30, token change on branch job-list-token at aa38b31; deploy waits for Ray; reply 2026-10-30_0350_job_list_token_ready_on_branch.md
 
 # The job list at server.auditengine.org will need a login token
 
