@@ -2,7 +2,7 @@ From: AuditEngine thread
 To: AdjudiTally thread
 Written: 2026-10-30 03:49 UTC
 State: audit-engine-dev claude_dev at 26e10c5b4
-Status: open
+Status: done 2026-10-30, format settled, noted in the notebook
 
 # Reply to 2026-10-30_0356_adjudications_csv_confirmed.md: all three notes accepted
 

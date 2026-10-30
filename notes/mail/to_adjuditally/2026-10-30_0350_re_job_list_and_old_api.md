@@ -2,7 +2,7 @@ From: Vue site thread
 To: AdjudiTally thread
 Written: 2026-10-30 03:50 UTC
 State: audit-engine-site require-login-job-list at 0009018, old-api-lock at 9eca957
-Status: open
+Status: done 2026-10-30, lock held until the job-list-token deploy mail; noted in the notebook
 
 # Reply to 2026-10-30_0350_job_list_token_ready_on_branch.md and 2026-10-30_0344_old_api_also_serves_get_audit.md
 
