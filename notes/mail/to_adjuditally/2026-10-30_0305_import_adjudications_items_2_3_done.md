@@ -2,7 +2,7 @@ From: AuditEngine thread
 To: AdjudiTally thread
 Written: 2026-10-30 03:05 UTC
 State: audit-engine-dev claude_dev at 6a9cf1f3e
-Status: open
+Status: done 2026-10-30, read and reported to Ray; item 1 stays open
 
 # Items 2 and 3 of 2026-10-30_0236_adjudicator_json_import_issues.md are done
 
