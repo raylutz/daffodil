@@ -611,7 +611,7 @@ class SqlDaf(Daf):
         | p1 |  Ana Lopez |  34 |
         | p2 | Ben Okafor |     |
         <BLANKLINE>
-        %% daf rows=2; cols=3; keyfield='id'; name='people'
+        %% sdaf rows=2; cols=3; keyfield='id'; name='people'
         <BLANKLINE>
 
         Find the people whose age is not known, with SQL. A Python NULL is stored as SQL NULL:
@@ -706,7 +706,7 @@ class SqlDaf(Daf):
             | p1 |  Ana Lopez |  34 |
             | p2 | Ben Okafor |  52 |
             <BLANKLINE>
-            %% daf rows=2; cols=3; keyfield='id'; name='people'
+            %% sdaf rows=2; cols=3; keyfield='id'; name='people'
             <BLANKLINE>
 
             Open the table again by its name, with no `cols`. Its keyfield and dtypes are those recorded:
@@ -951,7 +951,7 @@ class SqlDaf(Daf):
             | p2 |     |
             | p3 |  27 |
             <BLANKLINE>
-            %% daf rows=3; cols=2; keyfield='id'; name='people'
+            %% sdaf rows=3; cols=2; keyfield='id'; name='people'
             <BLANKLINE>
 
             Load a list of files, in its own order, with another delimiter:
@@ -1101,7 +1101,7 @@ class SqlDaf(Daf):
             | p1 |  Ana Lopez |  34 |
             | p2 | Ben Okafor |     |
             <BLANKLINE>
-            %% daf rows=2; cols=3; keyfield='id'; name='people'
+            %% sdaf rows=2; cols=3; keyfield='id'; name='people'
             <BLANKLINE>
 
             Write it with another keyfield, into another file:
@@ -1369,13 +1369,16 @@ class SqlDaf(Daf):
             | p1 |  34 |
             | p2 |  52 |
             <BLANKLINE>
-            %% daf rows=2; cols=2; keyfield='id'; name='people'
+            %% sdaf rows=2; cols=2; keyfield='id'; name='people'
             <BLANKLINE>
         """
         return '\n' + self.md_daf_table_snippet()
 
 
     # ---- text, as a Daf shows it ----
+
+    summary_tag: str = 'sdaf'
+    """ The word after %% in the summary line, so a printout shows it came from a SqlDaf. """
 
     md_max_rows: int = 10
     """ The number of rows that `str()` shows, half from the start and half from the end. """
@@ -1442,7 +1445,7 @@ class SqlDaf(Daf):
             | p10 |  50 |
             | p11 |  53 |
             <BLANKLINE>
-            %% daf rows=12; cols=2; keyfield=''; name='people'
+            %% sdaf rows=12; cols=2; keyfield=''; name='people'
             <BLANKLINE>
         """
         return self.md_daf_table_snippet()
@@ -2392,7 +2395,7 @@ class SqlDaf(Daf):
             | p2 | Ben Okafor | Austin |  52 |
             | p3 |    Chen Wu | Boston |  27 |
             <BLANKLINE>
-            %% daf rows=3; cols=4; keyfield='id'; name='people'
+            %% sdaf rows=3; cols=4; keyfield='id'; name='people'
             <BLANKLINE>
 
             Select two rows by key, in the order given, and look at them directly:
@@ -2404,7 +2407,7 @@ class SqlDaf(Daf):
             | p3 |   Chen Wu | Boston |  27 |
             | p1 | Ana Lopez | Denver |  34 |
             <BLANKLINE>
-            %% daf rows=2; cols=4; keyfield='id'; name='daf_tmp_people_v2'
+            %% sdaf rows=2; cols=4; keyfield='id'; name='daf_tmp_people_v2'
             <BLANKLINE>
 
             Select one cell, and read it as a value:
@@ -2922,7 +2925,7 @@ class SqlDaf(Daf):
             | -: | -------: | --: |
             | p7 | Gus Berg |  61 |
             <BLANKLINE>
-            %% daf rows=1; cols=3; keyfield='id'; name='daf_tmp_people_v2'
+            %% sdaf rows=1; cols=3; keyfield='id'; name='daf_tmp_people_v2'
             <BLANKLINE>
             >>> people_sdaf.clone_empty(cols=['id', 'email']).columns()
             ['id', 'email']
@@ -3020,7 +3023,7 @@ class SqlDaf(Daf):
             | p2 |  52 |
             | p3 |  27 |
             <BLANKLINE>
-            %% daf rows=3; cols=2; keyfield='id'; name='daf_tmp_people_v3'
+            %% sdaf rows=3; cols=2; keyfield='id'; name='daf_tmp_people_v3'
             <BLANKLINE>
         """
         if isinstance(level, bool):                     # an old call, copy(True), meant deep.

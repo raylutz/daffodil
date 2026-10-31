@@ -772,7 +772,7 @@ def _to_md(
         if not self.is_rectangular():
             parts.append("ragged rows detected")
 
-        mdstr += "\n%% daf " + "; ".join(parts) + "\n"
+        mdstr += f"\n%% {self.summary_tag} " + "; ".join(parts) + "\n"
 
     # if include_summary:
     #     # (compatible with tuple keys.)

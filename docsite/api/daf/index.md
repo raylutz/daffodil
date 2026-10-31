@@ -43,6 +43,8 @@ pass. For example, `to_value()` with no `default` raises for an empty selection,
 
 ## Class constants
 
+::: daffodil.daf.Daf.summary_tag
+
 ::: daffodil.daf.Daf.COPY_NONE
 
 ::: daffodil.daf.Daf.COPY_ROWS

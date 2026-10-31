@@ -181,7 +181,7 @@ def _remove_dups(self: 'SqlDaf', keyfield: str = '') -> Tuple['SqlDaf', 'SqlDaf'
         | ana@example.com |     Ana L. |
         | ben@example.com | Ben Okafor |
         <BLANKLINE>
-        %% daf rows=2; cols=2; keyfield='email'; name='daf_tmp_signups_v1'
+        %% sdaf rows=2; cols=2; keyfield='email'; name='daf_tmp_signups_v1'
         <BLANKLINE>
         >>> dups_sdaf
         <BLANKLINE>
@@ -189,7 +189,7 @@ def _remove_dups(self: 'SqlDaf', keyfield: str = '') -> Tuple['SqlDaf', 'SqlDaf'
         | --------------: | --------: |
         | ana@example.com | Ana Lopez |
         <BLANKLINE>
-        %% daf rows=1; cols=2; keyfield='email'; name='daf_tmp_signups_v2'
+        %% sdaf rows=1; cols=2; keyfield='email'; name='daf_tmp_signups_v2'
         <BLANKLINE>
     """
     key_col: Any = keyfield or self.keyfield
@@ -269,7 +269,7 @@ def _concat(self: 'SqlDaf', other_instance: Daf, respect_kd: bool = False) -> 'S
         | p2 | Ben Okafor |  53 |
         | p3 |    Chen Wu |  27 |
         <BLANKLINE>
-        %% daf rows=3; cols=3; keyfield='id'; name='people'
+        %% sdaf rows=3; cols=3; keyfield='id'; name='people'
         <BLANKLINE>
 
         The columns must match, in name and order:
@@ -496,7 +496,7 @@ def _record_append(self: 'SqlDaf', record: T_da | KeyedList, respect_kd: bool = 
         | p2 | Ben Okafor |  52 |
         | p3 |    Chen Wu |  27 |
         <BLANKLINE>
-        %% daf rows=3; cols=3; keyfield='id'; name='people'
+        %% sdaf rows=3; cols=3; keyfield='id'; name='people'
         <BLANKLINE>
 
         With `respect_kd=False`, a key that is there raises instead:
@@ -610,7 +610,7 @@ def _assign_record(self: 'SqlDaf', record: T_da) -> 'SqlDaf':
         | p1 |            |  35 |
         | p2 | Ben Okafor |  52 |
         <BLANKLINE>
-        %% daf rows=2; cols=3; keyfield='id'; name='people'
+        %% sdaf rows=2; cols=3; keyfield='id'; name='people'
         <BLANKLINE>
 
         A new key is added at the end:
@@ -661,7 +661,7 @@ def _update_by_keylist(self: 'SqlDaf', keylist: T_la | None = None, record: T_da
         | p2 | Ben Okafor |  Austin |
         | p3 |    Chen Wu | Boulder |
         <BLANKLINE>
-        %% daf rows=3; cols=3; keyfield='id'; name='people'
+        %% sdaf rows=3; cols=3; keyfield='id'; name='people'
         <BLANKLINE>
     """
     cols_ls: T_ls = [col for col in (record or {}) if col in self.hd]
@@ -717,7 +717,7 @@ def _update_record_krow(self: 'SqlDaf', key: Any, record: T_da | None = None) ->
         |   1042 |  Ana Lopez |       Analyst |
         |   2071 | Ben Okafor | Lead Engineer |
         <BLANKLINE>
-        %% daf rows=2; cols=3; keyfield='emp_no'; name='staff'
+        %% sdaf rows=2; cols=3; keyfield='emp_no'; name='staff'
         <BLANKLINE>
     """
     if record is None:
@@ -787,7 +787,7 @@ def _assign_col(self: 'SqlDaf', colname: str, la: T_la | None = None, default: A
         | p2 |   0 | unknown |
         | p3 |   0 | unknown |
         <BLANKLINE>
-        %% daf rows=3; cols=3; keyfield='id'; name='people'
+        %% sdaf rows=3; cols=3; keyfield='id'; name='people'
         <BLANKLINE>
     """
     if colname not in self.hd:
@@ -915,7 +915,7 @@ def _apply_in_place(
         | o2 |   4.0 |   6 |  24.0 |
         | o3 |  30.0 |   1 |  30.0 |
         <BLANKLINE>
-        %% daf rows=3; cols=4; keyfield='id'; name='orders'
+        %% sdaf rows=3; cols=4; keyfield='id'; name='orders'
         <BLANKLINE>
 
         Change only some rows, with `rowkeys`. Other keywords go to the function:
@@ -1037,7 +1037,7 @@ def _insert_col(
         | p1 |  Ana Lopez |  Denver |
         | p2 | Ben Okafor | unknown |
         <BLANKLINE>
-        %% daf rows=2; cols=3; keyfield='id'; name='people'
+        %% sdaf rows=2; cols=3; keyfield='id'; name='people'
         <BLANKLINE>
 
         A column at another position is not supported on a SqlDaf:
@@ -1091,7 +1091,7 @@ def _insert_idx_col(self: 'SqlDaf', colname: str = 'idx', icol: int = 0, startat
         |   1 | p1 | Ana Lopez | Denver |
         |   2 | p3 |   Chen Wu | Denver |
         <BLANKLINE>
-        %% daf rows=2; cols=4; keyfield='id'; name='daf_tmp_people_v2'
+        %% sdaf rows=2; cols=4; keyfield='id'; name='daf_tmp_people_v2'
         <BLANKLINE>
         >>> people_sdaf.columns()
         ['id', 'name', 'city']
@@ -1106,7 +1106,7 @@ def _insert_idx_col(self: 'SqlDaf', colname: str = 'idx', icol: int = 0, startat
         | p2 |      1 | Ben Okafor | Austin |
         | p3 |      2 |    Chen Wu | Denver |
         <BLANKLINE>
-        %% daf rows=3; cols=4; keyfield='id'; name='daf_tmp_people_v3'
+        %% sdaf rows=3; cols=4; keyfield='id'; name='daf_tmp_people_v3'
         <BLANKLINE>
     """
     if not colname:
@@ -1183,7 +1183,7 @@ def _drop_cols(self: 'SqlDaf', exclude_cols: T_ls | None = None) -> 'SqlDaf':
         | -: | --------: | --: |
         | p1 | Ana Lopez |  34 |
         <BLANKLINE>
-        %% daf rows=1; cols=3; keyfield='id'; name='people'
+        %% sdaf rows=1; cols=3; keyfield='id'; name='people'
         <BLANKLINE>
     """
     if not exclude_cols:
@@ -1253,7 +1253,7 @@ def _rename_cols(self: 'SqlDaf', from_to_dict: T_ds) -> 'SqlDaf':
         | --------: | --------: |
         |        p1 | Ana Lopez |
         <BLANKLINE>
-        %% daf rows=1; cols=2; keyfield='person_id'; name='people'
+        %% sdaf rows=1; cols=2; keyfield='person_id'; name='people'
         <BLANKLINE>
     """
     self._check_layout_change('rename_cols')
@@ -1435,7 +1435,7 @@ def _sort_by_colname(
         | p1 |  Ana Lopez |  34 |
         | p2 | Ben Okafor |  52 |
         <BLANKLINE>
-        %% daf rows=3; cols=3; keyfield=''; name='daf_tmp_people_v1'
+        %% sdaf rows=3; cols=3; keyfield=''; name='daf_tmp_people_v1'
         <BLANKLINE>
         >>> people_sdaf.sort_by_colname('age', reverse=True).col('name')
         ['Ben Okafor', 'Ana Lopez', 'Chen Wu']
@@ -1520,7 +1520,7 @@ def _sort_by_colnames(
         | p3 | Denver |  Ana Lopez |
         | p1 | Denver |    Chen Wu |
         <BLANKLINE>
-        %% daf rows=3; cols=3; keyfield=''; name='daf_tmp_people_v1'
+        %% sdaf rows=3; cols=3; keyfield=''; name='daf_tmp_people_v1'
         <BLANKLINE>
 
         Sort by name from high to low, or with shorter names first:

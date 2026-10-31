@@ -60,7 +60,7 @@ def _select_where_sql(self: 'SqlDaf', where_sql: str, params: Iterable[Any] = ()
         | p2 | Ben Okafor | Austin |  52 |
         | p3 |    Chen Wu | Boston |  27 |
         <BLANKLINE>
-        %% daf rows=3; cols=4; keyfield='id'; name='people'
+        %% sdaf rows=3; cols=4; keyfield='id'; name='people'
         <BLANKLINE>
 
         Select the people over 30 with a SQL condition, the value passed as a parameter:
@@ -72,7 +72,7 @@ def _select_where_sql(self: 'SqlDaf', where_sql: str, params: Iterable[Any] = ()
         | p1 |  Ana Lopez | Denver |  34 |
         | p2 | Ben Okafor | Austin |  52 |
         <BLANKLINE>
-        %% daf rows=2; cols=4; keyfield='id'; name='daf_tmp_people_v1'
+        %% sdaf rows=2; cols=4; keyfield='id'; name='daf_tmp_people_v1'
         <BLANKLINE>
     """
     self._resolve_parent()
@@ -123,7 +123,7 @@ def _select_where(
         | p2 | Ben Okafor | Austin |  52 |
         | p3 |    Chen Wu | Boston |  27 |
         <BLANKLINE>
-        %% daf rows=3; cols=4; keyfield='id'; name='people'
+        %% sdaf rows=3; cols=4; keyfield='id'; name='people'
         <BLANKLINE>
 
         Select the people who live in Austin or Boston, with a Python function:
@@ -135,7 +135,7 @@ def _select_where(
         | p2 | Ben Okafor | Austin |  52 |
         | p3 |    Chen Wu | Boston |  27 |
         <BLANKLINE>
-        %% daf rows=2; cols=4; keyfield='id'; name='daf_tmp_people_v1'
+        %% sdaf rows=2; cols=4; keyfield='id'; name='daf_tmp_people_v1'
         <BLANKLINE>
     """
     if indirect_col is not None:
@@ -205,7 +205,7 @@ def _select_by_dict(
         | p3 |    Chen Wu | Austin |  27 |
         | p4 | Dana Smith |        |  41 |
         <BLANKLINE>
-        %% daf rows=4; cols=4; keyfield='id'; name='people'
+        %% sdaf rows=4; cols=4; keyfield='id'; name='people'
         <BLANKLINE>
 
         Select the rows whose city is Austin:
@@ -217,7 +217,7 @@ def _select_by_dict(
         | p2 | Ben Okafor | Austin |  52 |
         | p3 |    Chen Wu | Austin |  27 |
         <BLANKLINE>
-        %% daf rows=2; cols=4; keyfield='id'; name='daf_tmp_people_v1'
+        %% sdaf rows=2; cols=4; keyfield='id'; name='daf_tmp_people_v1'
         <BLANKLINE>
 
         Select the row with no city. Python NULL matches an empty cell:
@@ -326,7 +326,7 @@ def _split_where(
         | p1 |  Ana Lopez | Denver |  34 |
         | p2 | Ben Okafor | Austin |  52 |
         <BLANKLINE>
-        %% daf rows=2; cols=4; keyfield='id'; name='daf_tmp_people_v1'
+        %% sdaf rows=2; cols=4; keyfield='id'; name='daf_tmp_people_v1'
         <BLANKLINE>
         >>> younger_sdaf
         <BLANKLINE>
@@ -334,7 +334,7 @@ def _split_where(
         | -: | ------: | -----: | --: |
         | p3 | Chen Wu | Boston |  27 |
         <BLANKLINE>
-        %% daf rows=1; cols=4; keyfield='id'; name='daf_tmp_people_v2'
+        %% sdaf rows=1; cols=4; keyfield='id'; name='daf_tmp_people_v2'
         <BLANKLINE>
     """
     return (self.select_where(where, indirect_col=indirect_col, cols=cols),
@@ -431,7 +431,7 @@ def _select_krows(
         | p3 |   Chen Wu |  27 |
         | p1 | Ana Lopez |  34 |
         <BLANKLINE>
-        %% daf rows=2; cols=3; keyfield='id'; name='daf_tmp_people_v2'
+        %% sdaf rows=2; cols=3; keyfield='id'; name='daf_tmp_people_v2'
         <BLANKLINE>
 
         Select a range of keys, in row order. One end may be left open:
@@ -535,7 +535,7 @@ def _select_records_daf(
         | p3 |   Chen Wu |  27 |
         | p1 | Ana Lopez |  34 |
         <BLANKLINE>
-        %% daf rows=2; cols=3; keyfield='id'; name='daf_tmp_people_v2'
+        %% sdaf rows=2; cols=3; keyfield='id'; name='daf_tmp_people_v2'
         <BLANKLINE>
 
         Select the rows whose keys are not listed, with `inverse=True`:
@@ -666,7 +666,7 @@ def _select_cols(
         |  34 |  Ana Lopez |
         |  52 | Ben Okafor |
         <BLANKLINE>
-        %% daf rows=2; cols=2; keyfield=''; name='daf_tmp_people_v1'
+        %% sdaf rows=2; cols=2; keyfield=''; name='daf_tmp_people_v1'
         <BLANKLINE>
 
         Select every column but some:

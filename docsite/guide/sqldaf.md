@@ -54,7 +54,7 @@ in use in the file yet, or the constructor raises ValueError.
 | a2 |   x |  12 |
 | a3 |   y |   7 |
 <BLANKLINE>
-%% daf rows=3; cols=3; keyfield='id'; name='items'
+%% sdaf rows=3; cols=3; keyfield='id'; name='items'
 <BLANKLINE>
 >>> len(items_sdaf)
 3
@@ -119,13 +119,13 @@ converts a column in the table itself. As with a Daf, name the columns to conver
 | p2 |  52 |
 | p3 |  27 |
 <BLANKLINE>
-%% daf rows=3; cols=2; keyfield='id'; name='people'
+%% sdaf rows=3; cols=2; keyfield='id'; name='people'
 <BLANKLINE>
 >>> # The ages are text, so a condition on numbers finds nothing.
 >>> people_sdaf.select_where_sql('age < ?', [30])
 <BLANKLINE>
 <BLANKLINE>
-%% daf rows=0; cols=2; keyfield='id'; name='daf_tmp_people_v1'
+%% sdaf rows=0; cols=2; keyfield='id'; name='daf_tmp_people_v1'
 <BLANKLINE>
 >>> # Convert the ages to numbers, in the table itself. Then the condition works.
 >>> people_sdaf.apply_dtypes(dtypes={'age': int}, cols='age')
@@ -136,7 +136,7 @@ converts a column in the table itself. As with a Daf, name the columns to conver
 | p2 |  52 |
 | p3 |  27 |
 <BLANKLINE>
-%% daf rows=3; cols=2; keyfield='id'; name='people'
+%% sdaf rows=3; cols=2; keyfield='id'; name='people'
 <BLANKLINE>
 >>> people_sdaf.select_where_sql('age < ?', [30])
 <BLANKLINE>
@@ -144,7 +144,7 @@ converts a column in the table itself. As with a Daf, name the columns to conver
 | -: | --: |
 | p3 |  27 |
 <BLANKLINE>
-%% daf rows=1; cols=2; keyfield='id'; name='daf_tmp_people_v2'
+%% sdaf rows=1; cols=2; keyfield='id'; name='daf_tmp_people_v2'
 <BLANKLINE>
 ```
 
@@ -175,7 +175,7 @@ becomes a new column, after the first file's.
 | p1 |  34 |        |
 | p2 |  52 | Denver |
 <BLANKLINE>
-%% daf rows=2; cols=3; keyfield=''; name='chunked'
+%% sdaf rows=2; cols=3; keyfield=''; name='chunked'
 <BLANKLINE>
 ```
 
@@ -244,7 +244,7 @@ Rows are added and values set as on a Daf. Each change is written to the file at
 | a3 |   y |   7 |
 | a4 |   y |   2 |
 <BLANKLINE>
-%% daf rows=4; cols=3; keyfield='id'; name='items'
+%% sdaf rows=4; cols=3; keyfield='id'; name='items'
 <BLANKLINE>
 >>> items_sdaf['a2', 'qty'] = 13
 >>> items_sdaf.select_record('a2')
@@ -279,7 +279,7 @@ row with a key, of any type, use `update_record_krow()`.
 | a3 |   z |   7 |
 | a4 |   y |   2 |
 <BLANKLINE>
-%% daf rows=4; cols=3; keyfield='id'; name='items'
+%% sdaf rows=4; cols=3; keyfield='id'; name='items'
 <BLANKLINE>
 >>> items_sdaf.select_record('a3')
 {'id': 'a3', 'grp': 'z', 'qty': 7}
@@ -333,7 +333,7 @@ it when it is stored. A reduction by `sparse_row` reads the text of each cell as
 | c2 | Denver | {'apples': 5, 'pears': 2} |
 | c3 | Austin |              {'pears': 4} |
 <BLANKLINE>
-%% daf rows=3; cols=3; keyfield='id'; name='carts'
+%% sdaf rows=3; cols=3; keyfield='id'; name='carts'
 <BLANKLINE>
 >>> # Total the items in all the carts. Each cart is a sparse row.
 >>> carts_sdaf.reduce(Daf.sum_da, indirect_col='cart')
@@ -377,7 +377,7 @@ and the rows come as `Daf.join()` gives them. A cell with no match is Python NUL
 | p1 | ana@example.com |
 | p2 | ben@example.com |
 <BLANKLINE>
-%% daf rows=2; cols=2; keyfield='id'; name='emails'
+%% sdaf rows=2; cols=2; keyfield='id'; name='emails'
 <BLANKLINE>
 >>> people_sdaf.join(emails_sdaf, how='left')
 <BLANKLINE>
@@ -387,7 +387,7 @@ and the rows come as `Daf.join()` gives them. A cell with no match is Python NUL
 | p2 |  52 | ben@example.com |
 | p3 |  27 |                 |
 <BLANKLINE>
-%% daf rows=3; cols=3; keyfield='id'; name='daf_tmp_people_join_emails_v9'
+%% sdaf rows=3; cols=3; keyfield='id'; name='daf_tmp_people_join_emails_v9'
 <BLANKLINE>
 ```
 
@@ -407,7 +407,7 @@ removes TEMP tables, so save what you want to keep first.
 | a1 |   x |   0 |
 | a3 |   z |   0 |
 <BLANKLINE>
-%% daf rows=4; cols=3; keyfield='id'; name='daf_tmp_items_v10'
+%% sdaf rows=4; cols=3; keyfield='id'; name='daf_tmp_items_v10'
 <BLANKLINE>
 >>> items_sdaf.col('id')
 ['a2', 'a4', 'a1', 'a3']
@@ -420,7 +420,7 @@ removes TEMP tables, so save what you want to keep first.
 | a1 |   x |   0 |
 | a3 |   z |   0 |
 <BLANKLINE>
-%% daf rows=4; cols=3; keyfield='id'; name='items_by_qty'
+%% sdaf rows=4; cols=3; keyfield='id'; name='items_by_qty'
 <BLANKLINE>
 >>> SqlDaf.close()
 >>> SqlDaf('items_by_qty').col('id')
@@ -449,7 +449,7 @@ work depends on can be opened read-only:
 | a1 |   3 |
 | a2 |  12 |
 <BLANKLINE>
-%% daf rows=2; cols=2; keyfield='id'; name='items_ro'
+%% sdaf rows=2; cols=2; keyfield='id'; name='items_ro'
 <BLANKLINE>
 >>> ro_sdaf = SqlDaf('items_ro', read_only=True)
 >>> ro_sdaf
@@ -459,7 +459,7 @@ work depends on can be opened read-only:
 | a1 |   3 |
 | a2 |  12 |
 <BLANKLINE>
-%% daf rows=2; cols=2; keyfield='id'; name='items_ro'
+%% sdaf rows=2; cols=2; keyfield='id'; name='items_ro'
 <BLANKLINE>
 >>> ro_sdaf.update_record_krow('a1', {'qty': 4})
 Traceback (most recent call last):
@@ -524,7 +524,7 @@ joins works the same way. The result is kept in a file of its own with `save(db_
 | s2 | Ben Okafor |        |
 | s3 |    Chen Wu |  58000 |
 <BLANKLINE>
-%% daf rows=3; cols=3; keyfield='id'; name='staff_pay'
+%% sdaf rows=3; cols=3; keyfield='id'; name='staff_pay'
 <BLANKLINE>
 >>> # No copy of the pay table is left on the connection.
 >>> [row_t[0] for row_t in staff_sdaf.conn.execute("SELECT name FROM sqlite_temp_master WHERE name LIKE '%pay%'")]
@@ -559,7 +559,7 @@ and the SqlDaf then refers to it there.
 | a1 |   x |   0 |
 | a3 |   z |   0 |
 <BLANKLINE>
-%% daf rows=4; cols=3; keyfield='id'; name='items'
+%% sdaf rows=4; cols=3; keyfield='id'; name='items'
 <BLANKLINE>
 >>> SqlDaf('items', db_path=job_dir + '/items.db').col('id')
 ['a2', 'a4', 'a1', 'a3']
@@ -601,7 +601,7 @@ SQL NULL, and reads and prints as NULL again. A dict or a list is stored as its 
 | p1 |  34 |     1.68 |      1 | Denver | {'news': 1, 'phone': ''} | [7, 'blue'] |
 | p2 |     |          |      0 |        |                       {} |          [] |
 <BLANKLINE>
-%% daf rows=2; cols=7; keyfield='id'; name='kinds'
+%% sdaf rows=2; cols=7; keyfield='id'; name='kinds'
 <BLANKLINE>
 >>> # Ask SQLite what it holds in each cell.
 >>> kinds_sdaf.sql('SELECT id, typeof(age), typeof(height_m), typeof(member), typeof(city), typeof(prefs), typeof(tags) FROM kinds')
@@ -688,7 +688,7 @@ p2,,,0,,{},[]
 | p1 |  34 |     1.68 |      1 | Denver | {'news': 1, 'phone': ''} | [7, 'blue'] |
 | p2 |     |          |      0 |        |                       {} |          [] |
 <BLANKLINE>
-%% daf rows=2; cols=7; keyfield='id'; name='kinds_csv'
+%% sdaf rows=2; cols=7; keyfield='id'; name='kinds_csv'
 <BLANKLINE>
 >>> loaded_sdaf.sql('SELECT id, typeof(age), typeof(height_m), typeof(member), typeof(city), typeof(prefs), typeof(tags) FROM kinds_csv')
 <BLANKLINE>

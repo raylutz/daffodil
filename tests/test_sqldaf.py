@@ -644,11 +644,26 @@ def test_a_subclass_of_dict_or_a_tuple_cell_is_refused_by_sqlite():
         cells_sdaf.append({'id': 'e6', 'cv': {}, 'ls': (1, 2)})
 
 
+def _as_sdaf_text(daf_text: str) -> str:
+    """ The text a Daf prints, with the summary line of a SqlDaf, which says sdaf. """
+    return daf_text.replace('\n%% daf ', '\n%% sdaf ')
+
+
+def test_summary_line_says_sdaf_and_from_md_reads_it_back():
+    """ A SqlDaf prints sdaf in its summary line. from_md() reads that line, as it reads the daf one. """
+    marks_sdaf: SqlDaf = SqlDaf.from_daf(make_marks_daf(), name='marks')
+    text: str = marks_sdaf.to_md(include_summary=True)
+    assert "\n%% sdaf rows=" in text and "\n%% sdaf rows=" in str(marks_sdaf)
+    back_daf: Daf = Daf.from_md(text)
+    assert (back_daf.keyfield, back_daf.name, back_daf.columns()) == (marks_sdaf.keyfield, 'marks', marks_sdaf.columns())
+    assert "\n%% daf rows=" in make_marks_daf().to_md(include_summary=True)
+
+
 def test_isinstance_daf_and_repr():
     marks_sdaf: SqlDaf = SqlDaf.from_daf(make_marks_daf(), name='marks')
     assert isinstance(marks_sdaf, Daf)
     assert repr(marks_sdaf) == '\n' + str(marks_sdaf)
-    assert repr(marks_sdaf) == repr(SqlDaf('marks').to_daf())
+    assert repr(marks_sdaf) == _as_sdaf_text(repr(SqlDaf('marks').to_daf()))
 
 
 def test_str_and_format_give_the_text_of_a_daf():
@@ -658,8 +673,8 @@ def test_str_and_format_give_the_text_of_a_daf():
                                      for idx in range(14)] for row in range(60)]
     wide_daf: Daf = Daf(cols=cols_ls, lol=rows_lol, keyfield='ballot_id', name='wide')
     wide_sdaf: SqlDaf = SqlDaf.from_daf(wide_daf, name='wide')
-    assert str(wide_sdaf) == str(wide_daf)
-    assert f'{wide_sdaf}' == str(wide_daf)
+    assert str(wide_sdaf) == _as_sdaf_text(str(wide_daf))
+    assert f'{wide_sdaf}' == _as_sdaf_text(str(wide_daf))
     assert f"{wide_sdaf['b7', 'c1']:.2f}" == '7.00'
     with pytest.raises(ValueError):
         f'{wide_sdaf:.2f}'
@@ -667,7 +682,7 @@ def test_str_and_format_give_the_text_of_a_daf():
     marks_sdaf: SqlDaf = SqlDaf.from_daf(make_marks_daf(), name='marks')
     marks_daf: Daf = make_marks_daf()
     marks_daf.name = 'marks'
-    assert str(marks_sdaf) == str(marks_daf)
+    assert str(marks_sdaf) == _as_sdaf_text(str(marks_daf))
     marks_sdaf.md_max_rows = 2
     assert '...' in str(marks_sdaf)
 
@@ -3045,7 +3060,7 @@ def test_exports_match_mdaf():
     assert read_sdaf.to_md() == read_daf.to_md()
     assert read_sdaf.to_md_cols() == read_daf.to_md_cols()
     read_daf.name = 't'
-    assert read_sdaf.to_md(include_summary=True) == read_daf.to_md(include_summary=True)
+    assert read_sdaf.to_md(include_summary=True) == _as_sdaf_text(read_daf.to_md(include_summary=True))
 
 
 @pytest.mark.parametrize('max_rows, max_cols', [(3, 0), (4, 2), (2, 3), (9, 0), (0, 2)])

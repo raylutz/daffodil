@@ -131,7 +131,7 @@ def _apply(
         | p1 |  chess |
         | p1 | hiking |
         <BLANKLINE>
-        %% daf rows=2; cols=2; keyfield=''; name='daf_tmp_people_v1'
+        %% sdaf rows=2; cols=2; keyfield=''; name='daf_tmp_people_v1'
         <BLANKLINE>
 
         With `by='table'`, the function gets the whole SqlDaf, and its result is returned as it is:
@@ -236,7 +236,7 @@ def _reduce(
         | c1 |      4 | {'apples': 3, 'pears': 2} |
         | c2 |      7 | {'apples': 5, 'plums': 6} |
         <BLANKLINE>
-        %% daf rows=2; cols=3; keyfield=''; name='carts'
+        %% sdaf rows=2; cols=3; keyfield=''; name='carts'
         <BLANKLINE>
 
         Total the visits:
@@ -470,7 +470,7 @@ def _valuecounts_for_colname_selectedby_colname(
         | c4 | Denver | basic |
         | c5 | Denver | basic |
         <BLANKLINE>
-        %% daf rows=5; cols=3; keyfield=''; name='customers'
+        %% sdaf rows=5; cols=3; keyfield=''; name='customers'
         <BLANKLINE>
 
         Count the plans of the customers in Denver only:
@@ -1020,7 +1020,7 @@ def _groupby_reduce(
         | Austin | {"apples":5,"pears":2} |
         | Denver | {"apples":3,"pears":4} |
         <BLANKLINE>
-        %% daf rows=2; cols=2; keyfield='city'; name='daf_tmp_carts_v1'
+        %% sdaf rows=2; cols=2; keyfield='city'; name='daf_tmp_carts_v1'
         <BLANKLINE>
 
         Reduce only some columns, with `reduce_cols`. The groups come in sorted order:
@@ -1034,7 +1034,7 @@ def _groupby_reduce(
         |    | Austin |   6 |
         |    | Denver |   3 |
         <BLANKLINE>
-        %% daf rows=2; cols=3; keyfield='city'; name='daf_tmp_orders_v2'
+        %% sdaf rows=2; cols=3; keyfield='city'; name='daf_tmp_orders_v2'
         <BLANKLINE>
     """
     if colname not in self.hd:
@@ -1169,7 +1169,7 @@ def _groupby_aggregate(
         | Austin | {"apples":5,"pears":2} |
         | Denver | {"apples":3,"pears":4} |
         <BLANKLINE>
-        %% daf rows=2; cols=2; keyfield='city'; name='daf_tmp_carts_v1'
+        %% sdaf rows=2; cols=2; keyfield='city'; name='daf_tmp_carts_v1'
         <BLANKLINE>
 
         Give the function two columns, and keep only the visits in the result:
@@ -1181,7 +1181,7 @@ def _groupby_aggregate(
         | Austin |      7 |
         | Denver |      6 |
         <BLANKLINE>
-        %% daf rows=2; cols=2; keyfield='city'; name='daf_tmp_carts_v2'
+        %% sdaf rows=2; cols=2; keyfield='city'; name='daf_tmp_carts_v2'
         <BLANKLINE>
     """
     group_cols_ls: T_ls = [groupby_cols] if isinstance(groupby_cols, str) else list(groupby_cols)
@@ -1380,7 +1380,7 @@ def _groupby_repeated_cols(
         | s4 |    Chen Wu |       1997 |     ok |
         | s5 | Ben Okafor |       1972 |     ok |
         <BLANKLINE>
-        %% daf rows=5; cols=4; keyfield='id'; name='signups'
+        %% sdaf rows=5; cols=4; keyfield='id'; name='signups'
         <BLANKLINE>
 
         Group the rows whose name and birth year repeat. A pair seen once makes no group:
@@ -1605,7 +1605,7 @@ def _join(
         | p1 |  Ana Lopez |  72000 |
         | p2 | Ben Okafor |        |
         <BLANKLINE>
-        %% daf rows=2; cols=3; keyfield='id'; name='daf_tmp_people_join_pay_v1'
+        %% sdaf rows=2; cols=3; keyfield='id'; name='daf_tmp_people_join_pay_v1'
         <BLANKLINE>
 
         Both tables have a name column. By default, each gets its table's name as a suffix:
@@ -1622,7 +1622,7 @@ def _join(
         | -: | --------: | -----: |
         | p1 | Ana Lopez |  72000 |
         <BLANKLINE>
-        %% daf rows=1; cols=3; keyfield='id'; name='people_pay'
+        %% sdaf rows=1; cols=3; keyfield='id'; name='people_pay'
         <BLANKLINE>
 
         Give every column of the other table a suffix, with `tag_other=True`:
@@ -1781,7 +1781,7 @@ def _join_with_residue(
         | p2 | Ben Okafor | Austin |  64000 |
         | p3 |    Chen Wu | Boston |  58000 |
         <BLANKLINE>
-        %% daf rows=2; cols=4; keyfield='id'; name='people_pay'
+        %% sdaf rows=2; cols=4; keyfield='id'; name='people_pay'
         <BLANKLINE>
         >>> people_res_sdaf.to_lod()
         [{'id': 'p1', 'name': 'Ana Lopez', 'city': 'Denver'}]

@@ -243,6 +243,9 @@ class Daf:
     ITERMODE_DICT = 'dict'
     ITERMODE_KEYEDLIST = 'keyedlist'
 
+    summary_tag: str = 'daf'
+    """ The word after %% in the summary line of `str()` and `to_md(include_summary=True)`. A SqlDaf writes sdaf. `from_md()` reads both. """
+
     # The parts that copy() can give a copy of its own. Add them with |. A part without its bit is shared.
     COPY_NONE   = 0     # nothing: the copy shares every part.
     COPY_ATTRS  = 1     # the attrs dict, deep copied, and the disp_cols list.

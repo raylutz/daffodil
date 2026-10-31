@@ -66,7 +66,7 @@ def _md_daf_table_snippet(self: 'SqlDaf') -> str:
         | p28 |  48 |
         | p29 |  49 |
         <BLANKLINE>
-        %% daf rows=30; cols=2; keyfield=''; name='people'
+        %% sdaf rows=30; cols=2; keyfield=''; name='people'
         <BLANKLINE>
     """
     return Daf.md_daf_table_snippet(self)
@@ -577,7 +577,7 @@ def _col(
         | p2 | Austin |     |                    {} |
         | p3 | Denver |  27 | {'phone': '555-0103'} |
         <BLANKLINE>
-        %% daf rows=3; cols=4; keyfield='id'; name='people'
+        %% sdaf rows=3; cols=4; keyfield='id'; name='people'
         <BLANKLINE>
 
         Read one column as a list:
@@ -1014,7 +1014,7 @@ def _to_md(
         | p2 | Ben Okafor |        1.8 |                                         |
         | p3 |    Chen Wu |      1.755 | 4500 Long Meadow Parkway, Apartment 12B |
         <BLANKLINE>
-        %% daf rows=3; cols=4; keyfield='id'; name='people'
+        %% sdaf rows=3; cols=4; keyfield='id'; name='people'
         <BLANKLINE>
 
         Give a header row of your own:
@@ -1029,7 +1029,7 @@ def _to_md(
                             max_text_len=max_text_len, smart_fmt=smart_fmt, include_summary=False,
                             disp_cols=disp_cols, header=header)
     if include_summary:
-        md_str += f"\n%% daf rows={len(self)}; cols={len(self.hd)}; keyfield='{self.keyfield}'; name='{self.name}'\n"
+        md_str += f"\n%% {self.summary_tag} rows={len(self)}; cols={len(self.hd)}; keyfield='{self.keyfield}'; name='{self.name}'\n"
     return md_str
 
 

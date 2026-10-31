@@ -485,7 +485,7 @@ def _from_md(cls: type[Daf], md_str: str) -> 'Daf': # -> "Daf":
     names, so the round trip adds column names. The text of a table cannot tell these
     names from names that you chose.
 
-    A footer line that starts with `%% daf ` and follows the table may give the
+    A footer line that starts with `%% daf `, or `%% sdaf ` from a SqlDaf, and follows the table may give the
     keyfield and name, as `to_md(include_summary=True)` writes. Every cell is read as
     text. Convert them with `apply_dtypes()`. Text with no table, or empty text,
     gives an empty Daf.
@@ -555,7 +555,7 @@ def _from_md(cls: type[Daf], md_str: str) -> 'Daf': # -> "Daf":
 
             stripped = ln.strip()
 
-            if stripped.startswith("%% daf "):
+            if stripped.startswith(_FOOTER_PREFIXES):
 
                 footer_meta = _parse_daf_footer(stripped)
 
@@ -577,7 +577,7 @@ def _from_md(cls: type[Daf], md_str: str) -> 'Daf': # -> "Daf":
 
         stripped = ln.strip()
 
-        if stripped.startswith("%% daf "):
+        if stripped.startswith(_FOOTER_PREFIXES):
 
             footer_meta = _parse_daf_footer(stripped)
 
@@ -793,12 +793,18 @@ def find_first_markdown_table(
 
 
 
+# A summary line starts with one of these: 'daf' from a Daf, 'sdaf' from a SqlDaf.
+_FOOTER_PREFIXES: Tuple[str, ...] = ("%% daf ", "%% sdaf ")
+
+
 def _parse_daf_footer(line: str) -> dict:
     """
     Parse footer of the form:
         %% daf key=value; key=value; ...
+    or the same with sdaf, from a SqlDaf.
     """
-    content = line[len("%% daf "):]
+    prefix: str = next(prefix for prefix in _FOOTER_PREFIXES if line.startswith(prefix))
+    content = line[len(prefix):]
     meta = {}
 
     for part in content.split(";"):

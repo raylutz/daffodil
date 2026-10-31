@@ -100,6 +100,8 @@ Size, looping, single rows and columns, and moving rows into memory.
 
 ::: daffodil.sqldaf.SqlDaf.__format__
 
+::: daffodil.sqldaf.SqlDaf.summary_tag
+
 ::: daffodil.sqldaf.SqlDaf.md_max_rows
 
 ::: daffodil.sqldaf.SqlDaf.md_max_cols
