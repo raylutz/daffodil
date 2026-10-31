@@ -594,25 +594,35 @@ class SqlDaf(Daf):
     column, and MAX() gives the last in text order.
 
     The `name` is the name of the table in the database. A child gets a generated name, such as
-    daf_tmp_marks_v3, which names its reference table once its rows are found.
+    daf_tmp_people_v3, which names its reference table once its rows are found.
 
     Examples:
+        Create a small SqlDaf table of people. It is stored on disk, so its size is not limited by
+        memory. One age is not known:
+
         >>> import tempfile
         >>> SqlDaf.db_path = tempfile.mkdtemp() + '/job.db'
-        >>> marks_sdaf = SqlDaf('marks', cols=['ballot_id', 'v'], lol=[['b1', 1], ['b2', '']], keyfield='ballot_id')
-        >>> marks_sdaf
+        >>> people_sdaf = SqlDaf('people', cols=['id', 'name', 'age'], keyfield='id', lol=[
+        ...     ['p1', 'Ana Lopez', 34], ['p2', 'Ben Okafor', '']])
+        >>> people_sdaf
         <BLANKLINE>
-        | ballot_id | v  |
-        | --------: | -: |
-        |        b1 |  1 |
-        |        b2 |    |
+        | id |    name    | age |
+        | -: | ---------: | --: |
+        | p1 |  Ana Lopez |  34 |
+        | p2 | Ben Okafor |     |
         <BLANKLINE>
-        %% daf rows=2; cols=2; keyfield='ballot_id'; name='marks'
+        %% daf rows=2; cols=3; keyfield='id'; name='people'
         <BLANKLINE>
-        >>> marks_sdaf.sql('SELECT ballot_id FROM marks WHERE v IS NULL').to_list()
-        ['b2']
-        >>> SqlDaf('marks').keyfield
-        'ballot_id'
+
+        Find the people whose age is not known, with SQL. A Python NULL is stored as SQL NULL:
+
+        >>> people_sdaf.sql('SELECT id FROM people WHERE age IS NULL').to_list()
+        ['p2']
+
+        Open the table again by its name. Its keyfield was recorded when it was made:
+
+        >>> SqlDaf('people').keyfield
+        'id'
     """
 
     engine: str = 'sqlite'
@@ -1625,7 +1635,7 @@ class SqlDaf(Daf):
 
 
     def _next_temp_name(self, parent: str) -> str:
-        """ A new name for a TEMP object made from `parent`, as in daf_tmp_marks_v3. Internal use. """
+        """ A new name for a TEMP object made from `parent`, as in daf_tmp_people_v3. Internal use. """
         while True:
             self._conn_da['temp_count'] += 1
             name: str = f'{TEMP_PREFIX}{parent}_v{self._conn_da["temp_count"]}'
@@ -2886,7 +2896,7 @@ class SqlDaf(Daf):
         Args:
             lol: Rows for the new table, written as the constructor writes them. None for no rows.
             cols: Column names to use instead of these.
-            name: The name of the new table. Generated if empty, as in daf_tmp_marks_v4.
+            name: The name of the new table. Generated if empty, as in daf_tmp_people_v4.
 
         Returns:
             The new SqlDaf.
@@ -2964,7 +2974,7 @@ class SqlDaf(Daf):
 
         Args:
             level: As in [`Daf.copy()`][daffodil.daf.Daf.copy]. With `inplace`, it must copy the rows: `editable` or `deep`.
-            name: The name of the copy. Generated if empty, as in daf_tmp_marks_v4.
+            name: The name of the copy. Generated if empty, as in daf_tmp_people_v4.
             deep: Deprecated, as in [`Daf.copy()`][daffodil.daf.Daf.copy].
             for_sorting: Deprecated, as in [`Daf.copy()`][daffodil.daf.Daf.copy].
             inplace: If True, this SqlDaf becomes the copy, and is returned.
@@ -3050,7 +3060,7 @@ class SqlDaf(Daf):
 
         The name is the one this SqlDaf has, unless one is given: the name given to the
         constructor, or to `copy(name=)`. A table with only a generated name, such as
-        daf_tmp_marks_v4, needs one. The keyfield and dtypes are recorded with it, so
+        daf_tmp_people_v4, needs one. The keyfield and dtypes are recorded with it, so
         `SqlDaf(name)` opens it as it was.
 
         - A TEMP table, made by `copy()`, a sort or a join, is moved into the file. The TEMP
@@ -3222,7 +3232,7 @@ class SqlDaf(Daf):
 
     def key_index_name(self) -> str:
         """
-        The name of the unique index on the keyfield, as in daf_ix_marks_ballot_id.
+        The name of the unique index on the keyfield, as in daf_ix_people_id.
 
         Examples:
             Create a small SqlDaf table of people, keyed by id:

@@ -957,8 +957,8 @@ def _groupby_reduce(
     """
     Group the rows by one column and reduce each group to one row, as [`Daf.groupby_reduce()`][daffodil.daf_apply._groupby_reduce] does.
 
-    Use it to turn many rows of one key into one row, such as the contests of a ballot
-    into one record of the ballot.
+    Use it to turn many rows of one key into one row, such as the order lines of an order
+    into one record of the order.
 
     The groups are reduced inside SQLite, in one query, by a registered aggregate,
     as `groupby_aggregate()` does. No query is made for each group.
