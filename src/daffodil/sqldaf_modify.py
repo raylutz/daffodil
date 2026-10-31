@@ -164,7 +164,7 @@ def _remove_dups(self: 'SqlDaf', keyfield: str = '') -> Tuple['SqlDaf', 'SqlDaf'
         >>> import tempfile
         >>> SqlDaf.db_path = tempfile.mkdtemp() + '/job.db'
         >>> marks_sdaf = SqlDaf('marks', cols=['id', 'v'], lol=[[1, 'a'], [2, 'b'], [1, 'c']])
-        >>> marks_sdaf.to_daf()
+        >>> marks_sdaf
         <BLANKLINE>
         | id | v  |
         | -: | -: |
@@ -368,7 +368,7 @@ def _append(
         >>> import tempfile
         >>> SqlDaf.db_path = tempfile.mkdtemp() + '/job.db'
         >>> items_sdaf = SqlDaf.from_daf(Daf(cols=['id', 'item', 'qty'], keyfield='id', lol=[['a1', 'pen', 3], ['b2', 'ink', 10]]), name='items')
-        >>> items_sdaf.to_daf()
+        >>> items_sdaf
         <BLANKLINE>
         | id | item | qty |
         | -: | ---: | --: |
@@ -628,7 +628,7 @@ def _update_record_krow(self: 'SqlDaf', key: Any, record: T_da | None = None) ->
         >>> import tempfile
         >>> SqlDaf.db_path = tempfile.mkdtemp() + '/job.db'
         >>> ids_sdaf = SqlDaf('ids', cols=['id', 'v'], lol=[[10, 'a'], [20, 'b']], keyfield='id')
-        >>> ids_sdaf.to_daf()
+        >>> ids_sdaf
         <BLANKLINE>
         | id | v  |
         | -: | -: |
@@ -922,7 +922,7 @@ def _insert_col(
         >>> import tempfile
         >>> SqlDaf.db_path = tempfile.mkdtemp() + '/job.db'
         >>> marks_sdaf = SqlDaf('marks', cols=['ballot_id', 'v'], lol=[['b1', 1], ['b2', 0]], keyfield='ballot_id')
-        >>> marks_sdaf.to_daf()
+        >>> marks_sdaf
         <BLANKLINE>
         | ballot_id | v  |
         | --------: | -: |
@@ -931,15 +931,29 @@ def _insert_col(
         <BLANKLINE>
         %% daf rows=2; cols=2; keyfield='ballot_id'; name='marks'
         <BLANKLINE>
-        >>> marks_sdaf.insert_col('w', ['x']).to_daf().lol
-        [['b1', 1, 'x'], ['b2', 0, '']]
+        >>> marks_sdaf.insert_col('w', ['x'])
+        <BLANKLINE>
+        | ballot_id | v  | w  |
+        | --------: | -: | -: |
+        |        b1 |  1 |  x |
+        |        b2 |  0 |    |
+        <BLANKLINE>
+        %% daf rows=2; cols=3; keyfield='ballot_id'; name='marks'
+        <BLANKLINE>
 
         A list shorter than the rows is filled out with `default`. The column goes at the end. Another
         position raises NotImplementedError:
 
         >>> stock_sdaf = SqlDaf.from_daf(Daf(cols=['id', 'qty'], lol=[['a1', 3], ['b2', 10]]), name='ins_stock')
-        >>> stock_sdaf.insert_col('color', ['red'], default='none').to_daf().lol
-        [['a1', 3, 'red'], ['b2', 10, 'none']]
+        >>> stock_sdaf.insert_col('color', ['red'], default='none')
+        <BLANKLINE>
+        | id | qty | color |
+        | -: | --: | ----: |
+        | a1 |   3 |   red |
+        | b2 |  10 |  none |
+        <BLANKLINE>
+        %% daf rows=2; cols=3; keyfield=''; name='ins_stock'
+        <BLANKLINE>
     """
     if not colname:
         return self
@@ -973,7 +987,7 @@ def _insert_idx_col(self: 'SqlDaf', colname: str = 'idx', icol: int = 0, startat
         >>> import tempfile
         >>> SqlDaf.db_path = tempfile.mkdtemp() + '/job.db'
         >>> marks_sdaf = SqlDaf('marks', cols=['ballot_id', 'v'], lol=[['b1', 1], ['b2', 0], ['b3', 1]], keyfield='ballot_id')
-        >>> marks_sdaf.to_daf()
+        >>> marks_sdaf
         <BLANKLINE>
         | ballot_id | v  |
         | --------: | -: |
@@ -983,16 +997,30 @@ def _insert_idx_col(self: 'SqlDaf', colname: str = 'idx', icol: int = 0, startat
         <BLANKLINE>
         %% daf rows=3; cols=2; keyfield='ballot_id'; name='marks'
         <BLANKLINE>
-        >>> marks_sdaf.select_by_dict({'v': 1}).insert_idx_col(startat=1).to_daf().lol
-        [[1, 'b1', 1], [2, 'b3', 1]]
+        >>> marks_sdaf.select_by_dict({'v': 1}).insert_idx_col(startat=1)
+        <BLANKLINE>
+        | idx | ballot_id | v  |
+        | --: | --------: | -: |
+        |   1 |        b1 |  1 |
+        |   2 |        b3 |  1 |
+        <BLANKLINE>
+        %% daf rows=2; cols=3; keyfield='ballot_id'; name='daf_tmp_marks_v2'
+        <BLANKLINE>
         >>> marks_sdaf.columns()
         ['ballot_id', 'v']
 
         Another name, in another place:
 
         >>> stock_sdaf = SqlDaf.from_daf(Daf(cols=['id', 'qty'], lol=[['a1', 3], ['b2', 10]]), name='idx_stock')
-        >>> stock_sdaf.insert_idx_col('n', icol=1).to_daf().lol
-        [['a1', 0, 3], ['b2', 1, 10]]
+        >>> stock_sdaf.insert_idx_col('n', icol=1)
+        <BLANKLINE>
+        | id | n  | qty |
+        | -: | -: | --: |
+        | a1 |  0 |   3 |
+        | b2 |  1 |  10 |
+        <BLANKLINE>
+        %% daf rows=2; cols=3; keyfield=''; name='daf_tmp_idx_stock_v3'
+        <BLANKLINE>
     """
     if not colname:
         return self
@@ -1057,7 +1085,7 @@ def _drop_cols(self: 'SqlDaf', exclude_cols: T_ls | None = None) -> 'SqlDaf':
         >>> import tempfile
         >>> SqlDaf.db_path = tempfile.mkdtemp() + '/job.db'
         >>> marks_sdaf = SqlDaf('marks', cols=['ballot_id', 'v', 'n'], lol=[['b1', 1, 10]], keyfield='ballot_id')
-        >>> marks_sdaf.to_daf()
+        >>> marks_sdaf
         <BLANKLINE>
         | ballot_id | v  | n  |
         | --------: | -: | -: |
@@ -1124,7 +1152,7 @@ def _rename_cols(self: 'SqlDaf', from_to_dict: T_ds) -> 'SqlDaf':
         >>> import tempfile
         >>> SqlDaf.db_path = tempfile.mkdtemp() + '/job.db'
         >>> marks_sdaf = SqlDaf('marks', cols=['id', 'v'], lol=[['b1', 1]], keyfield='id')
-        >>> marks_sdaf.to_daf()
+        >>> marks_sdaf
         <BLANKLINE>
         | id | v  |
         | -: | -: |
@@ -1444,7 +1472,7 @@ def _attach_schema(self: 'SqlDaf', schema: type) -> 'SqlDaf':
         ...     v: int = 0
         >>> SqlDaf.db_path = tempfile.mkdtemp() + '/job.db'
         >>> marks_sdaf = SqlDaf('marks', cols=['ballot_id', 'v'], lol=[['b1', '1']]).attach_schema(Mark)
-        >>> marks_sdaf.to_daf()
+        >>> marks_sdaf
         <BLANKLINE>
         | ballot_id | v  |
         | --------: | -: |

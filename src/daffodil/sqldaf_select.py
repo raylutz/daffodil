@@ -49,7 +49,7 @@ def _select_where_sql(self: 'SqlDaf', where_sql: str, params: Iterable[Any] = ()
         >>> import tempfile
         >>> SqlDaf.db_path = tempfile.mkdtemp() + '/job.db'
         >>> marks_sdaf = SqlDaf.from_daf(Daf(lol=[['b1', 1], ['b2', 0]], cols=['ballot_id', 'v']), name='marks')
-        >>> marks_sdaf.to_daf()
+        >>> marks_sdaf
         <BLANKLINE>
         | ballot_id | v  |
         | --------: | -: |
@@ -101,7 +101,7 @@ def _select_where(
         >>> import tempfile
         >>> SqlDaf.db_path = tempfile.mkdtemp() + '/job.db'
         >>> marks_sdaf = SqlDaf.from_daf(Daf(lol=[['b1', 1], ['b2', 0]], cols=['ballot_id', 'v']), name='marks')
-        >>> marks_sdaf.to_daf()
+        >>> marks_sdaf
         <BLANKLINE>
         | ballot_id | v  |
         | --------: | -: |
@@ -167,7 +167,7 @@ def _select_by_dict(
         >>> import tempfile
         >>> SqlDaf.db_path = tempfile.mkdtemp() + '/job.db'
         >>> marks_sdaf = SqlDaf.from_daf(Daf(lol=[['b1', 1], ['b2', '']], cols=['ballot_id', 'v']), name='marks')
-        >>> marks_sdaf.to_daf()
+        >>> marks_sdaf
         <BLANKLINE>
         | ballot_id | v  |
         | --------: | -: |
@@ -265,7 +265,7 @@ def _split_where(
         >>> import tempfile
         >>> SqlDaf.db_path = tempfile.mkdtemp() + '/job.db'
         >>> marks_sdaf = SqlDaf.from_daf(Daf(lol=[['b1', 10], ['b2', 20], ['b3', 30]], cols=['ballot_id', 'n']), name='marks')
-        >>> marks_sdaf.to_daf()
+        >>> marks_sdaf
         <BLANKLINE>
         | ballot_id | n  |
         | --------: | -: |
@@ -446,8 +446,15 @@ def _select_records_daf(
         %% daf rows=3; cols=2; keyfield='ballot_id'; name=''
         <BLANKLINE>
         >>> marks_sdaf = SqlDaf.from_daf(marks_daf, name='marks')
-        >>> marks_sdaf.select_records_daf(['b3', 'b1']).to_daf().to_lod()
-        [{'ballot_id': 'b3', 'v': 1}, {'ballot_id': 'b1', 'v': 1}]
+        >>> marks_sdaf.select_records_daf(['b3', 'b1'])
+        <BLANKLINE>
+        | ballot_id | v  |
+        | --------: | -: |
+        |        b3 |  1 |
+        |        b1 |  1 |
+        <BLANKLINE>
+        %% daf rows=2; cols=2; keyfield='ballot_id'; name='daf_tmp_marks_v2'
+        <BLANKLINE>
 
         The rows whose keys are not listed, with `inverse=True`. A key that is not found raises
         KeyError, or is left out with `silent_error=True`:
@@ -546,7 +553,7 @@ def _select_cols(
         >>> import tempfile
         >>> SqlDaf.db_path = tempfile.mkdtemp() + '/job.db'
         >>> marks_sdaf = SqlDaf('marks', cols=['ballot_id', 'v', 'n'], lol=[['b1', 1, 10], ['b2', 0, 20]], keyfield='ballot_id')
-        >>> marks_sdaf.to_daf()
+        >>> marks_sdaf
         <BLANKLINE>
         | ballot_id | v  | n  |
         | --------: | -: | -: |
@@ -555,8 +562,15 @@ def _select_cols(
         <BLANKLINE>
         %% daf rows=2; cols=3; keyfield='ballot_id'; name='marks'
         <BLANKLINE>
-        >>> marks_sdaf.select_cols(['n', 'ballot_id']).to_daf().lol
-        [[10, 'b1'], [20, 'b2']]
+        >>> marks_sdaf.select_cols(['n', 'ballot_id'])
+        <BLANKLINE>
+        | n  | ballot_id |
+        | -: | --------: |
+        | 10 |        b1 |
+        | 20 |        b2 |
+        <BLANKLINE>
+        %% daf rows=2; cols=2; keyfield='ballot_id'; name='daf_tmp_marks_v1'
+        <BLANKLINE>
         >>> marks_sdaf.select_cols(exclude_cols=['v']).columns()
         ['ballot_id', 'n']
     """

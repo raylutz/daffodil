@@ -116,7 +116,7 @@ def _apply(
         >>> import tempfile
         >>> SqlDaf.db_path = tempfile.mkdtemp() + '/job.db'
         >>> votes_sdaf = SqlDaf.from_daf(Daf(lol=[['b1', 'c0,c1'], ['b2', '']], cols=['ballot_id', 'contests']), name='votes')
-        >>> votes_sdaf.to_daf()
+        >>> votes_sdaf
         <BLANKLINE>
         | ballot_id | contests |
         | --------: | -------: |
@@ -127,8 +127,15 @@ def _apply(
         <BLANKLINE>
         >>> def split(row):
         ...     return [{'ballot_id': row['ballot_id'], 'contest': c} for c in row['contests'].split(',') if c]
-        >>> votes_sdaf.apply(split).to_daf().lol
-        [['b1', 'c0'], ['b1', 'c1']]
+        >>> votes_sdaf.apply(split)
+        <BLANKLINE>
+        | ballot_id | contest |
+        | --------: | ------: |
+        |        b1 |      c0 |
+        |        b1 |      c1 |
+        <BLANKLINE>
+        %% daf rows=2; cols=2; keyfield=''; name='daf_tmp_votes_v1'
+        <BLANKLINE>
 
         With `by='table'`, the function gets the whole SqlDaf, and its result is returned as it is:
 
@@ -224,7 +231,7 @@ def _reduce(
         >>> SqlDaf.db_path = tempfile.mkdtemp() + '/job.db'
         >>> votes_sdaf = SqlDaf('votes', cols=['ballot_id', 'v', 'concise_votes'],
         ...                     lol=[['b1', 1, "{'c0b': 1, 'c0v': 1}"], ['b2', 2, '{"c0b": 1, "c1b": 1}']])
-        >>> votes_sdaf.to_daf()
+        >>> votes_sdaf
         <BLANKLINE>
         | ballot_id | v  |    concise_votes     |
         | --------: | -: | -------------------: |
@@ -347,7 +354,7 @@ def _valuecounts_for_colname(
         >>> import tempfile
         >>> SqlDaf.db_path = tempfile.mkdtemp() + '/job.db'
         >>> bif_sdaf = SqlDaf.from_daf(Daf(lol=[['b1', 'P1'], ['b2', 'P2'], ['b3', 'P1']], cols=['ballot_id', 'precinct']), name='bif')
-        >>> bif_sdaf.to_daf()
+        >>> bif_sdaf
         <BLANKLINE>
         | ballot_id | precinct |
         | --------: | -------: |
@@ -440,7 +447,7 @@ def _valuecounts_for_colname_selectedby_colname(
         >>> SqlDaf.db_path = tempfile.mkdtemp() + '/job.db'
         >>> sales_sdaf = SqlDaf.from_daf(Daf(cols=['id', 'g', 'color', 'size'], keyfield='id', lol=[
         ...     ['a1', 'x', 'red', 'S'], ['b2', 'y', 'blue', 'M'], ['c3', 'x', 'red', 'M'], ['d4', 'x', 'blue', 'S'], ['e5', 'x', 'red', '']]), name='sales')
-        >>> sales_sdaf.to_daf()
+        >>> sales_sdaf
         <BLANKLINE>
         | id | g  | color | size |
         | -: | -: | ----: | ---: |
@@ -763,7 +770,7 @@ def _groupsum_daf(
         >>> import tempfile
         >>> SqlDaf.db_path = tempfile.mkdtemp() + '/job.db'
         >>> nums_sdaf = SqlDaf.from_daf(Daf(lol=[['a', 1, 10], ['b', 2, 20], ['a', 3, 30]], cols=['g', 'x', 'y']), name='nums')
-        >>> nums_sdaf.to_daf()
+        >>> nums_sdaf
         <BLANKLINE>
         | g  | x  | y  |
         | -: | -: | -: |
@@ -848,7 +855,7 @@ def _groupby(
         >>> import tempfile
         >>> SqlDaf.db_path = tempfile.mkdtemp() + '/job.db'
         >>> bif_sdaf = SqlDaf.from_daf(Daf(lol=[['b1', 'P1'], ['b2', 'P2'], ['b3', 'P1']], cols=['ballot_id', 'precinct']), name='bif')
-        >>> bif_sdaf.to_daf()
+        >>> bif_sdaf
         <BLANKLINE>
         | ballot_id | precinct |
         | --------: | -------: |
@@ -946,7 +953,7 @@ def _groupby_reduce(
         >>> SqlDaf.db_path = tempfile.mkdtemp() + '/job.db'
         >>> votes_sdaf = SqlDaf('votes', cols=['precinct', 'concise_votes'],
         ...                     lol=[['P2', "{'c0v': 1}"], ['P1', "{'c0v': 1, 'c1v': 1}"], ['P2', "{'c1v': 1}"]])
-        >>> votes_sdaf.to_daf()
+        >>> votes_sdaf
         <BLANKLINE>
         | precinct |    concise_votes     |
         | -------: | -------------------: |
@@ -957,15 +964,29 @@ def _groupby_reduce(
         %% daf rows=3; cols=2; keyfield=''; name='votes'
         <BLANKLINE>
         >>> sums_sdaf = votes_sdaf.groupby_reduce('precinct', Daf.sum_da, by='sparse_row', indirect_col='concise_votes')
-        >>> sums_sdaf.to_daf().lol
-        [['P1', '{"c0v":1,"c1v":1}'], ['P2', '{"c0v":1,"c1v":1}']]
+        >>> sums_sdaf
+        <BLANKLINE>
+        | precinct |   concise_votes   |
+        | -------: | ----------------: |
+        |       P1 | {"c0v":1,"c1v":1} |
+        |       P2 | {"c0v":1,"c1v":1} |
+        <BLANKLINE>
+        %% daf rows=2; cols=2; keyfield='precinct'; name='daf_tmp_votes_v1'
+        <BLANKLINE>
 
         Reduce only some columns, with `reduce_cols`. The groups come in sorted order:
 
         >>> stock_sdaf = SqlDaf.from_daf(Daf(cols=['id', 'g', 'qty'], lol=[
         ...     ['a1', 'x', 3], ['b2', 'y', 10], ['c3', 'x', 7]], dtypes={'id': str, 'g': str, 'qty': int}), name='gr_stock')
-        >>> stock_sdaf.groupby_reduce('g', Daf.sum_da, reduce_cols=['qty']).to_daf().lol
-        [['', 'x', 10], ['', 'y', 10]]
+        >>> stock_sdaf.groupby_reduce('g', Daf.sum_da, reduce_cols=['qty'])
+        <BLANKLINE>
+        | id | g  | qty |
+        | -: | -: | --: |
+        |    |  x |  10 |
+        |    |  y |  10 |
+        <BLANKLINE>
+        %% daf rows=2; cols=3; keyfield='g'; name='daf_tmp_gr_stock_v2'
+        <BLANKLINE>
     """
     if colname not in self.hd:
         raise KeyError(colname)
@@ -1087,7 +1108,7 @@ def _groupby_aggregate(
         >>> SqlDaf.db_path = tempfile.mkdtemp() + '/job.db'
         >>> votes_sdaf = SqlDaf('votes', cols=['precinct', 'v', 'concise_votes'],
         ...                     lol=[['P2', 1, "{'c0v': 1}"], ['P1', 1, "{'c0v': 1, 'c1v': 1}"], ['P2', 0, "{'c1v': 1}"]])
-        >>> votes_sdaf.to_daf()
+        >>> votes_sdaf
         <BLANKLINE>
         | precinct | v  |    concise_votes     |
         | -------: | -: | -------------------: |
@@ -1097,10 +1118,24 @@ def _groupby_aggregate(
         <BLANKLINE>
         %% daf rows=3; cols=3; keyfield=''; name='votes'
         <BLANKLINE>
-        >>> votes_sdaf.groupby_aggregate('precinct', Daf.sum_da, 'concise_votes').to_daf().lol
-        [['P1', '{"c0v":1,"c1v":1}'], ['P2', '{"c0v":1,"c1v":1}']]
-        >>> votes_sdaf.groupby_aggregate('precinct', Daf.sum_da, ['v', 'concise_votes'], result_cols=['v']).to_daf().lol
-        [['P1', 1], ['P2', 1]]
+        >>> votes_sdaf.groupby_aggregate('precinct', Daf.sum_da, 'concise_votes')
+        <BLANKLINE>
+        | precinct |   concise_votes   |
+        | -------: | ----------------: |
+        |       P1 | {"c0v":1,"c1v":1} |
+        |       P2 | {"c0v":1,"c1v":1} |
+        <BLANKLINE>
+        %% daf rows=2; cols=2; keyfield='precinct'; name='daf_tmp_votes_v1'
+        <BLANKLINE>
+        >>> votes_sdaf.groupby_aggregate('precinct', Daf.sum_da, ['v', 'concise_votes'], result_cols=['v'])
+        <BLANKLINE>
+        | precinct | v  |
+        | -------: | -: |
+        |       P1 |  1 |
+        |       P2 |  1 |
+        <BLANKLINE>
+        %% daf rows=2; cols=2; keyfield='precinct'; name='daf_tmp_votes_v2'
+        <BLANKLINE>
     """
     group_cols_ls: T_ls = [groupby_cols] if isinstance(groupby_cols, str) else list(groupby_cols)
     reduce_cols_ls: T_ls = [reduce_cols] if isinstance(reduce_cols, str) else list(reduce_cols)
@@ -1280,7 +1315,7 @@ def _groupby_repeated_cols(
         >>> SqlDaf.db_path = tempfile.mkdtemp() + '/job.db'
         >>> cards_sdaf = SqlDaf.from_daf(Daf(cols=['id', 'batch', 'seq', 'status'], keyfield='id', lol=[
         ...     ['r1', 'B1', 1, 'ok'], ['r2', 'B1', 2, 'ok'], ['r3', 'B1', 1, 'void'], ['r4', 'B2', 1, 'ok'], ['r5', 'B1', 2, 'ok']]), name='cards')
-        >>> cards_sdaf.to_daf()
+        >>> cards_sdaf
         <BLANKLINE>
         | id | batch | seq | status |
         | -: | ----: | --: | -----: |
@@ -1396,7 +1431,7 @@ def _group_where(
         >>> import tempfile
         >>> SqlDaf.db_path = tempfile.mkdtemp() + '/job.db'
         >>> bif_sdaf = SqlDaf.from_daf(Daf(lol=[['b1', 'P1'], ['b2', 'P2'], ['b3', 'P1']], cols=['ballot_id', 'precinct']), name='bif')
-        >>> bif_sdaf.to_daf()
+        >>> bif_sdaf
         <BLANKLINE>
         | ballot_id | precinct |
         | --------: | -------: |
@@ -1511,7 +1546,7 @@ def _join(
         >>> import tempfile
         >>> SqlDaf.db_path = tempfile.mkdtemp() + '/job.db'
         >>> a_sdaf = SqlDaf.from_daf(Daf(lol=[[1, 'Alice'], [2, 'Bob']], cols=['id', 'name'], keyfield='id'), name='a')
-        >>> a_sdaf.to_daf()
+        >>> a_sdaf
         <BLANKLINE>
         | id | name  |
         | -: | ----: |
@@ -1521,7 +1556,7 @@ def _join(
         %% daf rows=2; cols=2; keyfield='id'; name='a'
         <BLANKLINE>
         >>> b_sdaf = SqlDaf.from_daf(Daf(lol=[[1, 50], [3, 70]], cols=['id', 'salary'], keyfield='id'), name='b')
-        >>> b_sdaf.to_daf()
+        >>> b_sdaf
         <BLANKLINE>
         | id | salary |
         | -: | -----: |
@@ -1530,8 +1565,15 @@ def _join(
         <BLANKLINE>
         %% daf rows=2; cols=2; keyfield='id'; name='b'
         <BLANKLINE>
-        >>> a_sdaf.join(b_sdaf, how='left').to_daf().lol
-        [[1, 'Alice', 50], [2, 'Bob', '']]
+        >>> a_sdaf.join(b_sdaf, how='left')
+        <BLANKLINE>
+        | id | name  | salary |
+        | -: | ----: | -----: |
+        |  1 | Alice |     50 |
+        |  2 |   Bob |        |
+        <BLANKLINE>
+        %% daf rows=2; cols=3; keyfield='id'; name='daf_tmp_a_join_b_v1'
+        <BLANKLINE>
 
         `shared_fields`, `tag_other` and `name` work as for a Daf. `fill` other than NULL is not
         supported on a SqlDaf, and raises NotImplementedError:
@@ -1540,7 +1582,7 @@ def _join(
         >>> price_sdaf = SqlDaf.from_daf(Daf(cols=['id', 'item', 'price'], keyfield='id', lol=[['a1', 'pen', 1.5]]), name='join_price')
         >>> stock_sdaf.join(price_sdaf).columns()
         ['id', 'item_join_stock', 'qty', 'item_join_price', 'price']
-        >>> stock_sdaf.join(price_sdaf, shared_fields=['item'], name='join_result').to_daf()
+        >>> stock_sdaf.join(price_sdaf, shared_fields=['item'], name='join_result')
         <BLANKLINE>
         | id | item | qty | price |
         | -: | ---: | --: | ----: |
@@ -1690,7 +1732,7 @@ def _join_with_residue(
         >>> cvr_sdaf = SqlDaf.from_daf(Daf(cols=['ballot_id', 'precinct', 'style'], keyfield='ballot_id', lol=[
         ...     ['b2', 'P1', 'S2'], ['b3', 'P2', 'S1'], ['b9', 'P1', 'S3']]), name='cvr')
         >>> joined_sdaf, bia_res_sdaf, cvr_res_sdaf = bia_sdaf.join_with_residue(cvr_sdaf, shared_fields=['style'], name='bia_cvr')
-        >>> joined_sdaf.to_daf()
+        >>> joined_sdaf
         <BLANKLINE>
         | ballot_id | sheet | style | precinct |
         | --------: | ----: | ----: | -------: |

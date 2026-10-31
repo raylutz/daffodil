@@ -46,7 +46,7 @@ in use in the file yet, or the constructor raises ValueError.
 ```pycon
 >>> items_sdaf = SqlDaf('items', cols=['id', 'grp', 'qty'], keyfield='id',
 ...                     lol=[['a1', 'x', 3], ['a2', 'x', 12], ['a3', 'y', 7]])
->>> items_sdaf.to_daf()
+>>> items_sdaf
 <BLANKLINE>
 | id | grp | qty |
 | -: | --: | --: |
@@ -110,7 +110,7 @@ converts a column in the table itself. As with a Daf, name the columns to conver
 >>> open(csv_path, 'w').write('ballot_id,n\nb1,3\nb2,12\nb3,7\n')
 28
 >>> marks_sdaf = SqlDaf.from_csv(csv_path, keyfield='ballot_id')
->>> marks_sdaf.to_daf()
+>>> marks_sdaf
 <BLANKLINE>
 | ballot_id | n  |
 | --------: | -: |
@@ -120,8 +120,11 @@ converts a column in the table itself. As with a Daf, name the columns to conver
 <BLANKLINE>
 %% daf rows=3; cols=2; keyfield='ballot_id'; name='marks'
 <BLANKLINE>
->>> marks_sdaf.select_where_sql('n < ?', [5]).to_daf().lol
-[]
+>>> marks_sdaf.select_where_sql('n < ?', [5])
+<BLANKLINE>
+<BLANKLINE>
+%% daf rows=0; cols=2; keyfield='ballot_id'; name='daf_tmp_marks_v1'
+<BLANKLINE>
 >>> marks_sdaf.apply_dtypes(dtypes={'n': int}, cols='n')
 <BLANKLINE>
 | ballot_id | n  |
@@ -132,8 +135,14 @@ converts a column in the table itself. As with a Daf, name the columns to conver
 <BLANKLINE>
 %% daf rows=3; cols=2; keyfield='ballot_id'; name='marks'
 <BLANKLINE>
->>> marks_sdaf.select_where_sql('n < ?', [5]).to_daf().lol
-[['b1', 3]]
+>>> marks_sdaf.select_where_sql('n < ?', [5])
+<BLANKLINE>
+| ballot_id | n  |
+| --------: | -: |
+|        b1 |  3 |
+<BLANKLINE>
+%% daf rows=1; cols=2; keyfield='ballot_id'; name='daf_tmp_marks_v2'
+<BLANKLINE>
 ```
 
 The dtypes are kept with the table, so they come back when it is opened again. A value that
@@ -311,7 +320,7 @@ it when it is stored. A reduction by `sparse_row` reads the text of each cell as
 >>> votes_sdaf = SqlDaf('votes', cols=['ballot_id', 'precinct', 'votes'], keyfield='ballot_id',
 ...                     lol=[['b1', 'p1', "{'c1': 1}"], ['b2', 'p1', "{'c1': 1, 'c2': 1}"],
 ...                          ['b3', 'p2', "{'c2': 1}"]])
->>> votes_sdaf.to_daf()
+>>> votes_sdaf
 <BLANKLINE>
 | ballot_id | precinct |       votes        |
 | --------: | -------: | -----------------: |
@@ -353,7 +362,7 @@ and the rows come as `Daf.join()` gives them. A cell with no match is Python NUL
 ```pycon
 >>> names_sdaf = SqlDaf('names', cols=['ballot_id', 'voter'], keyfield='ballot_id',
 ...                     lol=[['b1', 'Ann'], ['b2', 'Bo']])
->>> names_sdaf.to_daf()
+>>> names_sdaf
 <BLANKLINE>
 | ballot_id | voter |
 | --------: | ----: |
@@ -362,8 +371,16 @@ and the rows come as `Daf.join()` gives them. A cell with no match is Python NUL
 <BLANKLINE>
 %% daf rows=2; cols=2; keyfield='ballot_id'; name='names'
 <BLANKLINE>
->>> marks_sdaf.join(names_sdaf, how='left').to_daf().lol
-[['b1', 3, 'Ann'], ['b2', 12, 'Bo'], ['b3', 7, '']]
+>>> marks_sdaf.join(names_sdaf, how='left')
+<BLANKLINE>
+| ballot_id | n  | voter |
+| --------: | -: | ----: |
+|        b1 |  3 |   Ann |
+|        b2 | 12 |    Bo |
+|        b3 |  7 |       |
+<BLANKLINE>
+%% daf rows=3; cols=3; keyfield='ballot_id'; name='daf_tmp_marks_join_names_v9'
+<BLANKLINE>
 ```
 
 ## Keeping tables
@@ -427,7 +444,7 @@ work depends on can be opened read-only:
 %% daf rows=2; cols=2; keyfield='id'; name='items_ro'
 <BLANKLINE>
 >>> ro_sdaf = SqlDaf('items_ro', read_only=True)
->>> ro_sdaf.to_daf()
+>>> ro_sdaf
 <BLANKLINE>
 | id | qty |
 | -: | --: |
@@ -489,7 +506,7 @@ joins works the same way. The result is kept in a file of its own with `save(db_
 >>> voters_sdaf = SqlDaf('voters', db_path=job_dir + '/voters.db', keyfield='ballot_id',
 ...                      cols=['ballot_id', 'voter'], lol=[['b1', 'Ann'], ['b3', 'Cy']])
 >>> ballots_voters_sdaf = ballots_sdaf.join(voters_sdaf, how='left')
->>> ballots_voters_sdaf.save('ballots_voters', db_path=job_dir + '/ballots_voters.db').to_daf()
+>>> ballots_voters_sdaf.save('ballots_voters', db_path=job_dir + '/ballots_voters.db')
 <BLANKLINE>
 | ballot_id | qty | voter |
 | --------: | --: | ----: |

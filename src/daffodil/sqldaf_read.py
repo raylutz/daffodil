@@ -181,7 +181,7 @@ def _to_csv_file(
         >>> import os, tempfile
         >>> SqlDaf.db_path = tempfile.mkdtemp() + '/job.db'
         >>> marks_sdaf = SqlDaf.from_daf(Daf(lol=[['b1', 1], ['b2', '']], cols=['ballot_id', 'v']), name='marks')
-        >>> marks_sdaf.to_daf()
+        >>> marks_sdaf
         <BLANKLINE>
         | ballot_id | v  |
         | --------: | -: |
@@ -380,7 +380,7 @@ def _iloc(
         >>> import tempfile
         >>> SqlDaf.db_path = tempfile.mkdtemp() + '/job.db'
         >>> items_sdaf = SqlDaf.from_daf(Daf(cols=['id', 'item', 'qty'], keyfield='id', lol=[['a1', 'pen', 3], ['b2', 'ink', ''], ['c3', 'pad', 7]]), name='items')
-        >>> items_sdaf.to_daf()
+        >>> items_sdaf
         <BLANKLINE>
         | id | item | qty |
         | -: | ---: | --: |
@@ -456,7 +456,7 @@ def _select_record(self: 'SqlDaf', key: Any, silent_error: bool = True) -> T_da:
         >>> import tempfile
         >>> SqlDaf.db_path = tempfile.mkdtemp() + '/job.db'
         >>> items_sdaf = SqlDaf.from_daf(Daf(cols=['id', 'item', 'qty'], keyfield='id', lol=[['a1', 'pen', 3], ['b2', 'ink', ''], ['c3', 'pad', 7]]), name='items')
-        >>> items_sdaf.to_daf()
+        >>> items_sdaf
         <BLANKLINE>
         | id | item | qty |
         | -: | ---: | --: |
@@ -534,7 +534,7 @@ def _col(
         >>> SqlDaf.db_path = tempfile.mkdtemp() + '/job.db'
         >>> sales_sdaf = SqlDaf.from_daf(Daf(cols=['id', 'g', 'qty', 'extra'], keyfield='id', lol=[
         ...     ['a1', 'x', 3, {'color': 'red'}], ['b2', 'y', '', {}], ['c3', 'x', 7, {'color': 'blue'}]]), name='sales')
-        >>> sales_sdaf.to_daf()
+        >>> sales_sdaf
         <BLANKLINE>
         | id | g  | qty |       extra       |
         | -: | -: | --: | ----------------: |
