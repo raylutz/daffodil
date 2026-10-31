@@ -200,33 +200,41 @@ class Daf:
     [itermode][daffodil.daf.Daf.itermode].
 
     Examples:
-        >>> daf = Daf(lol=[[1, 'a'], [2, 'b']], cols=['id', 'v'], keyfield='id')
+        Create a small Daf of people, keyed by an int id:
+
+        >>> daf = Daf(cols=['id', 'name'], lol=[[1, 'Ana Lopez'], [2, 'Ben Okafor']], keyfield='id')
         >>> daf
         <BLANKLINE>
-        | id | v  |
-        | -: | -: |
-        |  1 |  a |
-        |  2 |  b |
+        | id |    name    |
+        | -: | ---------: |
+        |  1 |  Ana Lopez |
+        |  2 | Ben Okafor |
         <BLANKLINE>
         %% daf rows=2; cols=2; keyfield='id'; name=''
         <BLANKLINE>
+
+        Read its column names, one row by key, and its shape:
+
         >>> daf.columns()
-        ['id', 'v']
+        ['id', 'name']
         >>> daf.select_record(2)
-        {'id': 2, 'v': 'b'}
+        {'id': 2, 'name': 'Ben Okafor'}
         >>> daf.shape()
         (2, 2)
-        >>> e_daf = Daf(lol=[[[1, 2], {'k': 1}]], cols=['a', 'b'], dtypes={'a': int, 'b': str})
+
+        A cell can hold any Python object, such as a list or a dict. The dtypes describe the columns, and do not force them:
+
+        >>> e_daf = Daf(cols=['scores', 'prefs'], lol=[[[88, 92], {'news': 1}]], dtypes={'scores': int, 'prefs': str})
         >>> e_daf
         <BLANKLINE>
-        |   a    |    b     |
-        | -----: | -------: |
-        | [1, 2] | {'k': 1} |
+        |  scores  |    prefs    |
+        | -------: | ----------: |
+        | [88, 92] | {'news': 1} |
         <BLANKLINE>
         %% daf rows=1; cols=2; keyfield=''; name=''
         <BLANKLINE>
         >>> e_daf.iloc(0)
-        {'a': [1, 2], 'b': {'k': 1}}
+        {'scores': [88, 92], 'prefs': {'news': 1}}
     """
 
     RETMODE_OBJ  = 'obj'
@@ -323,20 +331,28 @@ class Daf:
             KeyError: The `keyfield` is not a column, or one of its columns is not.
 
         Examples:
-            >>> daf = Daf(lol=[[1, 'a'], [2, 'b']], cols=['id', 'v'], keyfield='id')
+            Create a small Daf of people, keyed by an int id:
+
+            >>> daf = Daf(cols=['id', 'name'], lol=[[1, 'Ana Lopez'], [2, 'Ben Okafor']], keyfield='id')
             >>> daf
             <BLANKLINE>
-            | id | v  |
-            | -: | -: |
-            |  1 |  a |
-            |  2 |  b |
+            | id |    name    |
+            | -: | ---------: |
+            |  1 |  Ana Lopez |
+            |  2 | Ben Okafor |
             <BLANKLINE>
             %% daf rows=2; cols=2; keyfield='id'; name=''
             <BLANKLINE>
+
+            Count its rows:
+
             >>> daf.num_rows()
             2
-            >>> Daf(lol=[[1, 2]], cols=['a', 'a']).columns()
-            ['a', 'a_1']
+
+            A repeated column name gets a suffix, so each name is unique:
+
+            >>> Daf(cols=['name', 'name'], lol=[['Ana', 'Lopez']]).columns()
+            ['name', 'name_1']
         """
 
         self.name           = name              # str - arbitrary name for this daffodil array
@@ -480,25 +496,33 @@ class Daf:
             str: 'obj' or 'val'.
 
         Examples:
-            >>> daf = Daf(cols=['x', 'y'], lol=[[1, 2], [3, 4]])
+            Create a small Daf of people:
+
+            >>> daf = Daf(cols=['name', 'age'], lol=[['Ana Lopez', 34], ['Ben Okafor', 52]])
             >>> daf
             <BLANKLINE>
-            | x  | y  |
-            | -: | -: |
-            |  1 |  2 |
-            |  3 |  4 |
+            |    name    | age |
+            | ---------: | --: |
+            |  Ana Lopez |  34 |
+            | Ben Okafor |  52 |
             <BLANKLINE>
             %% daf rows=2; cols=2; keyfield=''; name=''
             <BLANKLINE>
-            >>> type(daf[0, 'x']).__name__
+
+            By default, a selection of one cell is a Daf:
+
+            >>> type(daf[0, 'name']).__name__
             'Daf'
+
+            In 'val' mode, one cell, one row and one column give plain values:
+
             >>> daf.retmode = 'val'
-            >>> daf[0, 'x']
-            1
+            >>> daf[0, 'name']
+            'Ana Lopez'
             >>> daf[1, :]
-            [3, 4]
-            >>> daf[:, 'y']
-            [2, 4]
+            ['Ben Okafor', 52]
+            >>> daf[:, 'age']
+            [34, 52]
         """
         return self._retmode
 
@@ -543,36 +567,44 @@ class Daf:
             str: 'dict' or 'keyedlist'.
 
         Examples:
-            >>> daf = Daf(cols=['x', 'y'], lol=[[1, 2], [3, 4]])
+            Create a small Daf of people:
+
+            >>> daf = Daf(cols=['name', 'age'], lol=[['Ana Lopez', 34], ['Ben Okafor', 52]])
             >>> daf
             <BLANKLINE>
-            | x  | y  |
-            | -: | -: |
-            |  1 |  2 |
-            |  3 |  4 |
+            |    name    | age |
+            | ---------: | --: |
+            |  Ana Lopez |  34 |
+            | Ben Okafor |  52 |
             <BLANKLINE>
             %% daf rows=2; cols=2; keyfield=''; name=''
             <BLANKLINE>
+
+            By default, each row of a loop is a new dict, so assigning to it leaves the Daf as it was:
+
             >>> for row in daf:
-            ...     row['y'] = 0
+            ...     row['age'] = 0
             >>> daf
             <BLANKLINE>
-            | x  | y  |
-            | -: | -: |
-            |  1 |  2 |
-            |  3 |  4 |
+            |    name    | age |
+            | ---------: | --: |
+            |  Ana Lopez |  34 |
+            | Ben Okafor |  52 |
             <BLANKLINE>
             %% daf rows=2; cols=2; keyfield=''; name=''
             <BLANKLINE>
+
+            In 'keyedlist' mode, each row writes through to the Daf:
+
             >>> daf.itermode = 'keyedlist'
             >>> for row in daf:
-            ...     row['y'] = 0
+            ...     row['age'] = 0
             >>> daf
             <BLANKLINE>
-            | x  | y  |
-            | -: | -: |
-            |  1 |  0 |
-            |  3 |  0 |
+            |    name    | age |
+            | ---------: | --: |
+            |  Ana Lopez |   0 |
+            | Ben Okafor |   0 |
             <BLANKLINE>
             %% daf rows=2; cols=2; keyfield=''; name=''
             <BLANKLINE>
@@ -617,6 +649,8 @@ class Daf:
             The rows, as dicts or KeyedList objects.
 
         Examples:
+            Create a small Daf of items in stock, and read a column in a loop:
+
             >>> daf = Daf(cols=['id', 'qty'], keyfield='id', lol=[['a1', 3], ['b2', 10]])
             >>> [row['qty'] for row in daf]
             [3, 10]
@@ -657,26 +691,31 @@ class Daf:
             Each row as a dict of column name to value.
 
         Examples:
-            >>> daf = Daf(cols=['x', 'y'], lol=[[1, 2], [3, 4]])
+            Create a small Daf of people:
+
+            >>> daf = Daf(cols=['name', 'age'], lol=[['Ana Lopez', 34], ['Ben Okafor', 52]])
             >>> daf
             <BLANKLINE>
-            | x  | y  |
-            | -: | -: |
-            |  1 |  2 |
-            |  3 |  4 |
+            |    name    | age |
+            | ---------: | --: |
+            |  Ana Lopez |  34 |
+            | Ben Okafor |  52 |
             <BLANKLINE>
             %% daf rows=2; cols=2; keyfield=''; name=''
             <BLANKLINE>
+
+            Read the rows as dicts. Each dict is a copy, so assigning to it leaves the Daf as it was:
+
             >>> list(daf.iter_dict())
-            [{'x': 1, 'y': 2}, {'x': 3, 'y': 4}]
+            [{'name': 'Ana Lopez', 'age': 34}, {'name': 'Ben Okafor', 'age': 52}]
             >>> for row in daf.iter_dict():
-            ...     row['y'] = 0
+            ...     row['age'] = 0
             >>> daf
             <BLANKLINE>
-            | x  | y  |
-            | -: | -: |
-            |  1 |  2 |
-            |  3 |  4 |
+            |    name    | age |
+            | ---------: | --: |
+            |  Ana Lopez |  34 |
+            | Ben Okafor |  52 |
             <BLANKLINE>
             %% daf rows=2; cols=2; keyfield=''; name=''
             <BLANKLINE>
@@ -698,26 +737,31 @@ class Daf:
             Each row as a KeyedList.
 
         Examples:
-            >>> daf = Daf(cols=['x', 'y'], lol=[[1, 2], [3, 4]])
+            Create a small Daf of people:
+
+            >>> daf = Daf(cols=['name', 'age'], lol=[['Ana Lopez', 34], ['Ben Okafor', 52]])
             >>> daf
             <BLANKLINE>
-            | x  | y  |
-            | -: | -: |
-            |  1 |  2 |
-            |  3 |  4 |
+            |    name    | age |
+            | ---------: | --: |
+            |  Ana Lopez |  34 |
+            | Ben Okafor |  52 |
             <BLANKLINE>
             %% daf rows=2; cols=2; keyfield=''; name=''
             <BLANKLINE>
-            >>> [row['x'] for row in daf.iter_klist()]
-            [1, 3]
+
+            Read each row as a KeyedList, by name. Assigning to a row changes the Daf:
+
+            >>> [row['name'] for row in daf.iter_klist()]
+            ['Ana Lopez', 'Ben Okafor']
             >>> for row in daf.iter_klist():
-            ...     row['y'] = 0
+            ...     row['age'] = 0
             >>> daf
             <BLANKLINE>
-            | x  | y  |
-            | -: | -: |
-            |  1 |  0 |
-            |  3 |  0 |
+            |    name    | age |
+            | ---------: | --: |
+            |  Ana Lopez |   0 |
+            | Ben Okafor |   0 |
             <BLANKLINE>
             %% daf rows=2; cols=2; keyfield=''; name=''
             <BLANKLINE>
@@ -761,26 +805,31 @@ class Daf:
             Each row as a list.
 
         Examples:
-            >>> daf = Daf(cols=['x', 'y'], lol=[[1, 2], [3, 4]])
+            Create a small Daf of people:
+
+            >>> daf = Daf(cols=['name', 'age'], lol=[['Ana Lopez', 34], ['Ben Okafor', 52]])
             >>> daf
             <BLANKLINE>
-            | x  | y  |
-            | -: | -: |
-            |  1 |  2 |
-            |  3 |  4 |
+            |    name    | age |
+            | ---------: | --: |
+            |  Ana Lopez |  34 |
+            | Ben Okafor |  52 |
             <BLANKLINE>
             %% daf rows=2; cols=2; keyfield=''; name=''
             <BLANKLINE>
+
+            Read each row as the Daf's own list. Assigning to a row changes the Daf:
+
             >>> [row[0] for row in daf.iter_list()]
-            [1, 3]
+            ['Ana Lopez', 'Ben Okafor']
             >>> for row in daf.iter_list():
             ...     row[1] = 9
             >>> daf
             <BLANKLINE>
-            | x  | y  |
-            | -: | -: |
-            |  1 |  9 |
-            |  3 |  9 |
+            |    name    | age |
+            | ---------: | --: |
+            |  Ana Lopez |   9 |
+            | Ben Okafor |   9 |
             <BLANKLINE>
             %% daf rows=2; cols=2; keyfield=''; name=''
             <BLANKLINE>
@@ -816,9 +865,11 @@ class Daf:
             True if there is data.
 
         Examples:
-            >>> bool(Daf(cols=['a']))
+            A Daf with no rows is false. One with a row is true:
+
+            >>> bool(Daf(cols=['name']))
             False
-            >>> bool(Daf(lol=[[1]], cols=['a']))
+            >>> bool(Daf(cols=['name'], lol=[['Ana Lopez']]))
             True
         """
 
@@ -843,8 +894,10 @@ class Daf:
             ValueError: A spec is given and the Daf does not have exactly one cell.
 
         Examples:
-            >>> format(Daf(lol=[[3.14159]], cols=['a']), '.2f')
-            '3.14'
+            Format a Daf of one cell in an f-string or with `format()`, with a format spec:
+
+            >>> format(Daf(cols=['height_m'], lol=[[1.684]]), '.2f')
+            '1.68'
         """
         # Assuming the current object is a single cell when called in formatting
         # If a format_spec is provided, use it; otherwise, use __str__
@@ -871,18 +924,23 @@ class Daf:
             True if equal.
 
         Examples:
-            >>> a_daf = Daf(lol=[[1]], cols=['x'])
+            Create a small Daf of one age:
+
+            >>> a_daf = Daf(cols=['age'], lol=[[34]])
             >>> a_daf
             <BLANKLINE>
-            | x  |
-            | -: |
-            |  1 |
+            | age |
+            | --: |
+            |  34 |
             <BLANKLINE>
             %% daf rows=1; cols=1; keyfield=''; name=''
             <BLANKLINE>
-            >>> a_daf == Daf(lol=[[1]], cols=['x'])
+
+            Two Daf objects are equal when their rows, columns and keyfield match:
+
+            >>> a_daf == Daf(cols=['age'], lol=[[34]])
             True
-            >>> a_daf == Daf(lol=[[1]], cols=['x'], keyfield='x')
+            >>> a_daf == Daf(cols=['age'], lol=[[34]], keyfield='age')
             False
         """
         if not isinstance(other, Daf):
@@ -904,21 +962,23 @@ class Daf:
             The Markdown text.
 
         Examples:
-            >>> daf = Daf(cols=['id', 'n'], lol=[[f'r{i}', i] for i in range(12)])
+            Create a Daf of 12 people, and print it. It shows the first five rows and the last five:
+
+            >>> daf = Daf(cols=['id', 'age'], lol=[[f'p{i:02}', 20 + 3 * i] for i in range(12)])
             >>> print(daf)
-            | id  |  n  |
+            | id  | age |
             | --: | --: |
-            |  r0 |   0 |
-            |  r1 |   1 |
-            |  r2 |   2 |
-            |  r3 |   3 |
-            |  r4 |   4 |
+            | p00 |  20 |
+            | p01 |  23 |
+            | p02 |  26 |
+            | p03 |  29 |
+            | p04 |  32 |
             | ... | ... |
-            |  r7 |   7 |
-            |  r8 |   8 |
-            |  r9 |   9 |
-            | r10 |  10 |
-            | r11 |  11 |
+            | p07 |  41 |
+            | p08 |  44 |
+            | p09 |  47 |
+            | p10 |  50 |
+            | p11 |  53 |
             <BLANKLINE>
             %% daf rows=12; cols=2; keyfield=''; name=''
             <BLANKLINE>
@@ -927,13 +987,13 @@ class Daf:
 
             >>> daf.md_max_rows = 4
             >>> print(daf)
-            | id  |  n  |
+            | id  | age |
             | --: | --: |
-            |  r0 |   0 |
-            |  r1 |   1 |
+            | p00 |  20 |
+            | p01 |  23 |
             | ... | ... |
-            | r10 |  10 |
-            | r11 |  11 |
+            | p10 |  50 |
+            | p11 |  53 |
             <BLANKLINE>
             %% daf rows=12; cols=2; keyfield=''; name=''
             <BLANKLINE>
@@ -952,6 +1012,8 @@ class Daf:
             The Markdown text.
 
         Examples:
+            Create a small Daf of items in stock, and echo it at the prompt to see it as a table:
+
             >>> daf = Daf(cols=['id', 'qty'], keyfield='id', lol=[['a1', 3], ['b2', 10]])
             >>> daf
             <BLANKLINE>
@@ -983,16 +1045,21 @@ class Daf:
             KeyError: The Daf has rows but no keyfield, and no key index was adopted.
 
         Examples:
-            >>> daf = Daf(lol=[[1, 'a'], [2, 'b']], cols=['id', 'v'], keyfield='id')
+            Create a small Daf of people, keyed by an int id:
+
+            >>> daf = Daf(cols=['id', 'name'], lol=[[1, 'Ana Lopez'], [2, 'Ben Okafor']], keyfield='id')
             >>> daf
             <BLANKLINE>
-            | id | v  |
-            | -: | -: |
-            |  1 |  a |
-            |  2 |  b |
+            | id |    name    |
+            | -: | ---------: |
+            |  1 |  Ana Lopez |
+            |  2 | Ben Okafor |
             <BLANKLINE>
             %% daf rows=2; cols=2; keyfield='id'; name=''
             <BLANKLINE>
+
+            Ask whether a row has this key:
+
             >>> 2 in daf, 5 in daf
             (True, False)
         """
@@ -1026,9 +1093,11 @@ class Daf:
             The number of columns.
 
         Examples:
-            >>> Daf(lol=[[1, 2, 3]], cols=['a', 'b']).num_cols()
+            Count the columns. A row longer than the column names counts as one more column:
+
+            >>> Daf(cols=['name', 'age'], lol=[['Ana Lopez', 34, 'Denver']]).num_cols()
             3
-            >>> Daf(cols=['a', 'b']).num_cols()
+            >>> Daf(cols=['name', 'age']).num_cols()
             0
         """
         # unit tested
@@ -1047,6 +1116,8 @@ class Daf:
             The number of rows.
 
         Examples:
+            Count the rows of a Daf, of a selection, and of an empty Daf:
+
             >>> daf = Daf(cols=['id', 'qty'], keyfield='id', lol=[['a1', 3], ['b2', 10], ['c3', 7]])
             >>> len(daf), len(daf[1:]), len(Daf())
             (3, 2, 0)
@@ -1064,7 +1135,9 @@ class Daf:
             The number of rows.
 
         Examples:
-            >>> Daf(cols=['x'], lol=[[1], [2], [3]]).num_rows()
+            Count the rows:
+
+            >>> Daf(cols=['age'], lol=[[34], [52], [27]]).num_rows()
             3
             >>> Daf().num_rows()
             0
@@ -1087,17 +1160,22 @@ class Daf:
             The number of rows.
 
         Examples:
-            >>> daf = Daf(cols=['x'], lol=[[1], [2], [3]])
+            Create a small Daf of ages:
+
+            >>> daf = Daf(cols=['age'], lol=[[34], [52], [27]])
             >>> daf
             <BLANKLINE>
-            | x  |
-            | -: |
-            |  1 |
-            |  2 |
-            |  3 |
+            | age |
+            | --: |
+            |  34 |
+            |  52 |
+            |  27 |
             <BLANKLINE>
             %% daf rows=3; cols=1; keyfield=''; name=''
             <BLANKLINE>
+
+            Count the rows, as a method or with `len()`:
+
             >>> daf.len(), len(daf)
             (3, 3)
         """
@@ -1124,7 +1202,9 @@ class Daf:
             A tuple of the number of rows and the number of columns.
 
         Examples:
-            >>> Daf(lol=[[1, 2], [3, 4], [5, 6]], cols=['a', 'b']).shape()
+            Give the number of rows and of columns:
+
+            >>> Daf(cols=['name', 'age'], lol=[['Ana Lopez', 34], ['Ben Okafor', 52], ['Chen Wu', 27]]).shape()
             (3, 2)
         """
         # test exists in test_daf.py
@@ -1233,68 +1313,88 @@ class Daf:
             ValueError: `level` is a name that is not one of the four, or `inplace` with a level that does not copy the rows.
 
         Examples:
-            >>> daf = Daf(lol=[[2, 'b'], [1, 'a']], cols=['id', 'v'], name='orig')
+            Create a small Daf of people, with a name:
+
+            >>> daf = Daf(cols=['id', 'name'], lol=[[2, 'Ben Okafor'], [1, 'Ana Lopez']], name='orig')
             >>> daf
             <BLANKLINE>
-            | id | v  |
-            | -: | -: |
-            |  2 |  b |
-            |  1 |  a |
+            | id |    name    |
+            | -: | ---------: |
+            |  2 | Ben Okafor |
+            |  1 |  Ana Lopez |
             <BLANKLINE>
             %% daf rows=2; cols=2; keyfield=''; name='orig'
             <BLANKLINE>
-            >>> c = daf.copy(name='work')
-            >>> c.name, daf.name
+
+            Make a copy with a name of its own. Adding a row to the copy leaves the original as it was:
+
+            >>> work = daf.copy(name='work')
+            >>> work.name, daf.name
             ('work', 'orig')
-            >>> c.append([3, 'c'])
+            >>> work.append([3, 'Chen Wu'])
             <BLANKLINE>
-            | id | v  |
-            | -: | -: |
-            |  2 |  b |
-            |  1 |  a |
-            |  3 |  c |
+            | id |    name    |
+            | -: | ---------: |
+            |  2 | Ben Okafor |
+            |  1 |  Ana Lopez |
+            |  3 |    Chen Wu |
             <BLANKLINE>
             %% daf rows=3; cols=2; keyfield=''; name='work'
             <BLANKLINE>
             >>> daf.num_rows()
             2
-            >>> s = daf.copy('shallow')
-            >>> s.append([3, 'c'])
+
+            A shallow copy shares the list of rows, so a row added to it shows in the original:
+
+            >>> shallow = daf.copy('shallow')
+            >>> shallow.append([3, 'Chen Wu'])
             <BLANKLINE>
-            | id | v  |
-            | -: | -: |
-            |  2 |  b |
-            |  1 |  a |
-            |  3 |  c |
+            | id |    name    |
+            | -: | ---------: |
+            |  2 | Ben Okafor |
+            |  1 |  Ana Lopez |
+            |  3 |    Chen Wu |
             <BLANKLINE>
             %% daf rows=3; cols=2; keyfield=''; name=''
             <BLANKLINE>
             >>> daf.num_rows()
             3
-            >>> daf = Daf(lol=[[2, 'b'], [1, 'a']], cols=['id', 'v'])
+
+            Create the Daf again, to change cells in copies:
+
+            >>> daf = Daf(cols=['id', 'name'], lol=[[2, 'Ben Okafor'], [1, 'Ana Lopez']])
             >>> daf
             <BLANKLINE>
-            | id | v  |
-            | -: | -: |
-            |  2 |  b |
-            |  1 |  a |
+            | id |    name    |
+            | -: | ---------: |
+            |  2 | Ben Okafor |
+            |  1 |  Ana Lopez |
             <BLANKLINE>
             %% daf rows=2; cols=2; keyfield=''; name=''
             <BLANKLINE>
-            >>> e = daf.copy('editable')
-            >>> e[0, 'v'] = 'X'
+
+            An editable copy has rows of its own, so a changed cell leaves the original as it was:
+
+            >>> editable = daf.copy('editable')
+            >>> editable[0, 'name'] = 'Ben O. Okafor'
             >>> daf.iloc(0)
-            {'id': 2, 'v': 'b'}
-            >>> m = daf.copy(Daf.COPY_OUTER | Daf.COPY_HD)
-            >>> m[0, 'v'] = 'Y'
+            {'id': 2, 'name': 'Ben Okafor'}
+
+            Choose what to copy with the flags. Here the rows are shared, so a changed cell shows in the original:
+
+            >>> mixed = daf.copy(Daf.COPY_OUTER | Daf.COPY_HD)
+            >>> mixed[0, 'name'] = 'Ben Okafor Jr.'
             >>> daf.iloc(0)
-            {'id': 2, 'v': 'Y'}
+            {'id': 2, 'name': 'Ben Okafor Jr.'}
+
+            Give a selection rows of its own, in place, so a later change to the original does not show in it:
+
             >>> sel = daf.select_where(lambda row: row['id'] == 1)
             >>> sel.copy(inplace=True) is sel
             True
-            >>> daf[1, 'v'] = 'Z'
+            >>> daf[1, 'name'] = 'Ana L. Lopez'
             >>> sel.lol
-            [[1, 'a']]
+            [[1, 'Ana Lopez']]
         """
 
         if inplace:
@@ -1404,8 +1504,10 @@ class Daf:
             The column names, in order.
 
         Examples:
-            >>> Daf(cols=['a', 'b']).columns()
-            ['a', 'b']
+            Read the column names:
+
+            >>> Daf(cols=['name', 'age']).columns()
+            ['name', 'age']
         """
         # test exists in test_daf.py
         return list(self.hd.keys())
@@ -1510,35 +1612,43 @@ class Daf:
             ValueError: `astype` is neither `list` nor `view`.
 
         Examples:
-            >>> daf = Daf(lol=[[1, 'a'], [2, 'b']], cols=['id', 'v'], keyfield='id')
+            Create a small Daf of people, keyed by an int id:
+
+            >>> daf = Daf(cols=['id', 'name'], lol=[[1, 'Ana Lopez'], [2, 'Ben Okafor']], keyfield='id')
             >>> daf
             <BLANKLINE>
-            | id | v  |
-            | -: | -: |
-            |  1 |  a |
-            |  2 |  b |
+            | id |    name    |
+            | -: | ---------: |
+            |  1 |  Ana Lopez |
+            |  2 | Ben Okafor |
             <BLANKLINE>
             %% daf rows=2; cols=2; keyfield='id'; name=''
             <BLANKLINE>
+
+            Read the keys, in row order:
+
             >>> daf.keys()
             [1, 2]
-            >>> dup = Daf(cols=['id', 'q'], lol=[['a', 1], ['b', 2], ['a', 3]], keyfield='id')
+
+            A key that repeats is listed once, and a lookup finds its last row:
+
+            >>> dup = Daf(cols=['email', 'visits'], lol=[['ana@example.com', 4], ['ben@example.com', 7], ['ana@example.com', 9]], keyfield='email')
             >>> dup
             <BLANKLINE>
-            | id | q  |
-            | -: | -: |
-            |  a |  1 |
-            |  b |  2 |
-            |  a |  3 |
+            |      email      | visits |
+            | --------------: | -----: |
+            | ana@example.com |      4 |
+            | ben@example.com |      7 |
+            | ana@example.com |      9 |
             <BLANKLINE>
-            %% daf rows=3; cols=2; keyfield='id'; name=''
+            %% daf rows=3; cols=2; keyfield='email'; name=''
             <BLANKLINE>
-            >>> dup.keys(), dup.select_record('a')
-            (['a', 'b'], {'id': 'a', 'q': 3})
+            >>> dup.keys(), dup.select_record('ana@example.com')
+            (['ana@example.com', 'ben@example.com'], {'email': 'ana@example.com', 'visits': 9})
 
             With no keyfield, the answer is an empty list, or an error with `silent_error=False`:
 
-            >>> plain = Daf(cols=['id'], lol=[['a']])
+            >>> plain = Daf(cols=['id'], lol=[['p1']])
             >>> plain.keys()
             []
             >>> plain.keys(silent_error=False)
@@ -1549,7 +1659,7 @@ class Daf:
             With `astype='view'`, a view of the key index, with no copy:
 
             >>> dup.keys(astype='view')
-            dict_keys(['a', 'b'])
+            dict_keys(['ana@example.com', 'ben@example.com'])
         """
 
         # test exists in test_daf.py
@@ -1607,21 +1717,29 @@ class Daf:
             KeyError: The keyfield is not a column, and `silent_error` is not True.
 
         Examples:
-            >>> daf = Daf(lol=[[1, 'a'], [2, 'b']], cols=['id', 'v'])
+            Create a small Daf of people, with no keyfield:
+
+            >>> daf = Daf(cols=['id', 'name'], lol=[[1, 'Ana Lopez'], [2, 'Ben Okafor']])
             >>> daf
             <BLANKLINE>
-            | id | v  |
-            | -: | -: |
-            |  1 |  a |
-            |  2 |  b |
+            | id |    name    |
+            | -: | ---------: |
+            |  1 |  Ana Lopez |
+            |  2 | Ben Okafor |
             <BLANKLINE>
             %% daf rows=2; cols=2; keyfield=''; name=''
             <BLANKLINE>
+
+            Make id the keyfield. A list of columns makes each key a tuple:
+
             >>> daf.set_keyfield('id').keys()
             [1, 2]
-            >>> daf.set_keyfield(['id', 'v']).keys()
-            [(1, 'a'), (2, 'b')]
-            >>> empty_daf = Daf(cols=['id', 'v']).set_keyfield('id')
+            >>> daf.set_keyfield(['id', 'name']).keys()
+            [(1, 'Ana Lopez'), (2, 'Ben Okafor')]
+
+            An empty Daf can have a keyfield, and its keys grow as rows are added:
+
+            >>> empty_daf = Daf(cols=['id', 'name']).set_keyfield('id')
             >>> empty_daf
             <BLANKLINE>
             <BLANKLINE>
@@ -1629,7 +1747,7 @@ class Daf:
             <BLANKLINE>
             >>> empty_daf.keyfield
             'id'
-            >>> empty_daf.append({'id': 7, 'v': 'x'}).keys()
+            >>> empty_daf.append({'id': 7, 'name': 'Gus Berg'}).keys()
             [7]
 
             A name that is not a column raises KeyError. With `silent_error=True` it is stored anyway, and
@@ -1881,16 +1999,21 @@ class Daf:
             The keys from the list that have a row.
 
         Examples:
-            >>> daf = Daf(lol=[[1, 'a'], [2, 'b']], cols=['id', 'v'], keyfield='id')
+            Create a small Daf of people, keyed by an int id:
+
+            >>> daf = Daf(cols=['id', 'name'], lol=[[1, 'Ana Lopez'], [2, 'Ben Okafor']], keyfield='id')
             >>> daf
             <BLANKLINE>
-            | id | v  |
-            | -: | -: |
-            |  1 |  a |
-            |  2 |  b |
+            | id |    name    |
+            | -: | ---------: |
+            |  1 |  Ana Lopez |
+            |  2 | Ben Okafor |
             <BLANKLINE>
             %% daf rows=2; cols=2; keyfield='id'; name=''
             <BLANKLINE>
+
+            Keep the keys of a list that have a row, in the order of the list:
+
             >>> daf.get_existing_keys([1, 5, 2])
             [1, 2]
         """
@@ -2100,18 +2223,23 @@ class Daf:
             The new Daf.
 
         Examples:
-            >>> daf = Daf(lol=[[1, 'a']], cols=['id', 'v'], keyfield='id')
+            Create a small Daf of people, keyed by an int id:
+
+            >>> daf = Daf(cols=['id', 'name'], lol=[[1, 'Ana Lopez']], keyfield='id')
             >>> daf
             <BLANKLINE>
-            | id | v  |
-            | -: | -: |
-            |  1 |  a |
+            | id |   name    |
+            | -: | --------: |
+            |  1 | Ana Lopez |
             <BLANKLINE>
             %% daf rows=1; cols=2; keyfield='id'; name=''
             <BLANKLINE>
-            >>> c = daf.clone_empty()
-            >>> c.columns(), c.keyfield, c.num_rows()
-            (['id', 'v'], 'id', 0)
+
+            Make a new Daf with the same columns and keyfield, and no rows:
+
+            >>> empty = daf.clone_empty()
+            >>> empty.columns(), empty.keyfield, empty.num_rows()
+            (['id', 'name'], 'id', 0)
 
             With rows of its own, other column names, or a name:
 
@@ -2124,8 +2252,8 @@ class Daf:
             <BLANKLINE>
             %% daf rows=1; cols=2; keyfield='id'; name='new'
             <BLANKLINE>
-            >>> stock.clone_empty(cols=['k', 'v']).columns()
-            ['k', 'v']
+            >>> stock.clone_empty(cols=['id', 'email']).columns()
+            ['id', 'email']
         """
         if self is None:
             return Daf()
@@ -2162,16 +2290,21 @@ class Daf:
             This Daf, which has been changed.
 
         Examples:
-            >>> daf = Daf(lol=[[1, 'a']], cols=['id', 'v'], keyfield='id')
+            Create a small Daf of people, keyed by an int id:
+
+            >>> daf = Daf(cols=['id', 'name'], lol=[[1, 'Ana Lopez']], keyfield='id')
             >>> daf
             <BLANKLINE>
-            | id | v  |
-            | -: | -: |
-            |  1 |  a |
+            | id |   name    |
+            | -: | --------: |
+            |  1 | Ana Lopez |
             <BLANKLINE>
             %% daf rows=1; cols=2; keyfield='id'; name=''
             <BLANKLINE>
-            >>> daf.set_lol([[5, 'q'], [6, 'r']]).keys()
+
+            Replace all the rows. The key index follows the new rows:
+
+            >>> daf.set_lol([[5, 'Eva Novak'], [6, 'Femi Ade']]).keys()
             [5, 6]
         """
         """ set the lol with the value passed, leaving other settings,
@@ -3618,12 +3751,17 @@ def register_daf_namespace(name: str) -> Callable[[type], type]:
         ValueError: The name is not a public identifier, or it is already in use on Daf.
 
     Examples:
+        Add a namespace of your own methods to every Daf, here `totals`, with a method that totals a column:
+
         >>> @register_daf_namespace('totals')
         ... class Totals:
         ...     def __init__(self, daf):
         ...         self._daf = daf
         ...     def of(self, col):
         ...         return sum(self._daf.col(col))
+
+        Create a small Daf of items in stock, and call the method on it and on a selection:
+
         >>> daf = Daf(cols=['id', 'qty'], lol=[['a1', 3], ['b2', 10]], keyfield='id')
         >>> daf
         <BLANKLINE>
@@ -3636,6 +3774,9 @@ def register_daf_namespace(name: str) -> Callable[[type], type]:
         <BLANKLINE>
         >>> daf.totals.of('qty'), daf[0:1].totals.of('qty')
         (13, 3)
+
+        Remove the namespace again:
+
         >>> del Daf.totals
     """
     instance_attrs: T_ls = list(vars(Daf()))
