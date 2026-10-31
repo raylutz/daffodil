@@ -38,7 +38,9 @@ def _is_rectangular(self: 'Daf') -> bool:
         True if all rows have the expected length.
 
     Examples:
-        >>> Daf(lol=[[1, 2], [3]], cols=['a', 'b']).is_rectangular()
+        A Daf whose rows have different lengths is not rectangular:
+
+        >>> Daf(cols=['name', 'age'], lol=[['Ana Lopez', 34], ['Ben Okafor']]).is_rectangular()
         False
     """
     if not self.lol:
@@ -70,12 +72,14 @@ def _force_rectangular(self: 'Daf') -> 'Daf':
         ValueError: A row is longer than the number of columns. Nothing is changed.
 
     Examples:
-        >>> Daf(lol=[[1, 2], [3]], cols=['a', 'b']).force_rectangular()
+        Pad the short rows with NULL, so every row is as long as the column names:
+
+        >>> Daf(cols=['name', 'age'], lol=[['Ana Lopez', 34], ['Ben Okafor']]).force_rectangular()
         <BLANKLINE>
-        | a  | b  |
-        | -: | -: |
-        |  1 |  2 |
-        |  3 |    |
+        |    name    | age |
+        | ---------: | --: |
+        |  Ana Lopez |  34 |
+        | Ben Okafor |     |
         <BLANKLINE>
         %% daf rows=2; cols=2; keyfield=''; name=''
         <BLANKLINE>
@@ -129,17 +133,22 @@ def _calc_cols(self: 'Daf',
         RuntimeError: A type rule is given and no dtypes are set.
 
     Examples:
-        >>> daf = Daf(lol=[[1, 2, 3]], cols=['a', 'b', 'c'])
+        Create a small Daf of a person:
+
+        >>> daf = Daf(cols=['id', 'name', 'age'], lol=[['p1', 'Ana Lopez', 34]])
         >>> daf
         <BLANKLINE>
-        | a  | b  | c  |
-        | -: | -: | -: |
-        |  1 |  2 |  3 |
+        | id |   name    | age |
+        | -: | --------: | --: |
+        | p1 | Ana Lopez |  34 |
         <BLANKLINE>
         %% daf rows=1; cols=3; keyfield=''; name=''
         <BLANKLINE>
-        >>> daf.calc_cols(exclude_cols='b')
-        ['a', 'c']
+
+        Choose every column but one:
+
+        >>> daf.calc_cols(exclude_cols='name')
+        ['id', 'age']
 
         By dtype, with `include_types` or `exclude_types`. Names that are not columns are ignored:
 
@@ -217,28 +226,36 @@ def _rename_cols(self: 'Daf', from_to_dict: T_ds) -> 'Daf':
         This Daf, which has been changed.
 
     Examples:
-        >>> daf = Daf(lol=[[1, 2]], cols=['a', 'b'])
+        Create a small Daf of a person:
+
+        >>> daf = Daf(cols=['name', 'yrs'], lol=[['Ana Lopez', 34]])
         >>> daf
         <BLANKLINE>
-        | a  | b  |
-        | -: | -: |
-        |  1 |  2 |
+        |   name    | yrs |
+        | --------: | --: |
+        | Ana Lopez |  34 |
         <BLANKLINE>
         %% daf rows=1; cols=2; keyfield=''; name=''
         <BLANKLINE>
-        >>> daf.rename_cols({'b': 'c'}).columns()
-        ['a', 'c']
-        >>> k_daf = Daf(lol=[[1, 'x']], cols=['id', 'v'], keyfield='id')
+
+        Rename a column:
+
+        >>> daf.rename_cols({'yrs': 'age'}).columns()
+        ['name', 'age']
+
+        Renaming the key column moves the keyfield to the new name:
+
+        >>> k_daf = Daf(cols=['id', 'name'], lol=[['p1', 'Ana Lopez']], keyfield='id')
         >>> k_daf
         <BLANKLINE>
-        | id | v  |
-        | -: | -: |
-        |  1 |  x |
+        | id |   name    |
+        | -: | --------: |
+        | p1 | Ana Lopez |
         <BLANKLINE>
         %% daf rows=1; cols=2; keyfield='id'; name=''
         <BLANKLINE>
-        >>> k_daf.rename_cols({'id': 'ident'}).keyfield
-        'ident'
+        >>> k_daf.rename_cols({'id': 'person_id'}).keyfield
+        'person_id'
     """
 
     # unit tests exist
@@ -282,27 +299,38 @@ def _set_cols(self: 'Daf', new_cols: T_ls | None = None, sanitize_cols: bool=Tru
         AttributeError: The number of names is not the number of columns.
 
     Examples:
-        >>> Daf(lol=[[1, 2, 3]]).set_cols().columns()
+        A Daf made with no column names gets A, B and so on from `set_cols()`:
+
+        >>> Daf(lol=[['Ana Lopez', 'Denver', 34]]).set_cols().columns()
         ['A', 'B', 'C']
-        >>> Daf(lol=[[1, 2, 3]]).set_cols(['a', 'a', '']).columns()
-        ['a', 'a_1', 'col2']
-        >>> daf = Daf(lol=[[1, 'x']], keyfield='id').set_cols(['id', 'v'])
+
+        Names given are taken as they are, even repeated or empty:
+
+        >>> Daf(lol=[['Ana Lopez', 'Denver', 34]]).set_cols(['name', 'name', '']).columns()
+        ['name', 'name_1', 'col2']
+
+        A keyfield given before the names takes effect once a column has that name:
+
+        >>> daf = Daf(lol=[['p1', 'Ana Lopez']], keyfield='id').set_cols(['id', 'name'])
         >>> daf
         <BLANKLINE>
-        | id | v  |
-        | -: | -: |
-        |  1 |  x |
+        | id |   name    |
+        | -: | --------: |
+        | p1 | Ana Lopez |
         <BLANKLINE>
         %% daf rows=1; cols=2; keyfield='id'; name=''
         <BLANKLINE>
         >>> daf.keyfield
         'id'
-        >>> daf = Daf(lol=[[1, 'x']], cols=['a', 'b'], keyfield='a').set_cols(['id', 'v'])
+
+        Renaming the key column moves the keyfield to the new name:
+
+        >>> daf = Daf(lol=[['p1', 'Ana Lopez']], cols=['a', 'b'], keyfield='a').set_cols(['id', 'name'])
         >>> daf
         <BLANKLINE>
-        | id | v  |
-        | -: | -: |
-        |  1 |  x |
+        | id |   name    |
+        | -: | --------: |
+        | p1 | Ana Lopez |
         <BLANKLINE>
         %% daf rows=1; cols=2; keyfield='id'; name=''
         <BLANKLINE>
@@ -312,10 +340,10 @@ def _set_cols(self: 'Daf', new_cols: T_ls | None = None, sanitize_cols: bool=Tru
         With `sanitize_cols=True`, an empty name gets one made from `unnamed_prefix`, and a repeated
         name gets a number:
 
-        >>> Daf(lol=[[1, 2, 3]]).set_cols(['a', '', 'a'], sanitize_cols=True).columns()
-        ['a', 'col1', 'a_2']
-        >>> Daf(lol=[[1, 2, 3]]).set_cols(['a', '', ''], sanitize_cols=True, unnamed_prefix='unnamed').columns()
-        ['a', 'unnamed1', 'unnamed2']
+        >>> Daf(lol=[['Ana Lopez', 'Denver', 34]]).set_cols(['name', '', 'name'], sanitize_cols=True).columns()
+        ['name', 'col1', 'name_2']
+        >>> Daf(lol=[['Ana Lopez', 'Denver', 34]]).set_cols(['name', '', ''], sanitize_cols=True, unnamed_prefix='col').columns()
+        ['name', 'col1', 'col2']
     """
 
     num_cols = self.num_cols() or len(self.hd)

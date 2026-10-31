@@ -47,17 +47,22 @@ def _set_dtypes(self: 'Daf',
         NotImplementedError: The Daf has no column names.
 
     Examples:
-        >>> daf = Daf(lol=[['1', '2', 'x']], cols=['a', 'b', 'c'])
+        Create a small Daf of a person, loaded as text:
+
+        >>> daf = Daf(cols=['age', 'visits', 'name'], lol=[['34', '7', 'Ana Lopez']])
         >>> daf
         <BLANKLINE>
-        | a  | b  | c  |
-        | -: | -: | -: |
-        |  1 |  2 |  x |
+        | age | visits |   name    |
+        | --: | -----: | --------: |
+        |  34 |      7 | Ana Lopez |
         <BLANKLINE>
         %% daf rows=1; cols=3; keyfield=''; name=''
         <BLANKLINE>
-        >>> daf.set_dtypes(str, {int: ['a', 'b']}).dtypes
-        {'a': <class 'int'>, 'b': <class 'int'>, 'c': <class 'str'>}
+
+        Record str as the type of every column, and int for two of them. Nothing is converted:
+
+        >>> daf.set_dtypes(str, {int: ['age', 'visits']}).dtypes
+        {'age': <class 'int'>, 'visits': <class 'int'>, 'name': <class 'str'>}
     """
 
     """ set dtypes from default and dol where the key of the dict is the type,
@@ -191,113 +196,118 @@ def _apply_dtypes(self: 'Daf', *,
         TypeError: A cell in an `int` or `float` column is not text and not a number.
 
     Examples:
-        >>> daf = Daf(lol=[['1', '2.5', 'x']], cols=['a', 'b', 'c'])
+        Create a small Daf of a person, loaded as text:
+
+        >>> daf = Daf(cols=['age', 'height_m', 'name'], lol=[['34', '1.68', 'Ana Lopez']])
         >>> daf
         <BLANKLINE>
-        | a  |  b  | c  |
-        | -: | --: | -: |
-        |  1 | 2.5 |  x |
+        | age | height_m |   name    |
+        | --: | -------: | --------: |
+        |  34 |     1.68 | Ana Lopez |
         <BLANKLINE>
         %% daf rows=1; cols=3; keyfield=''; name=''
         <BLANKLINE>
-        >>> daf.apply_dtypes(dtypes={'a': int, 'b': float, 'c': str})
+
+        Convert each column to its type, in place:
+
+        >>> daf.apply_dtypes(dtypes={'age': int, 'height_m': float, 'name': str})
         <BLANKLINE>
-        | a  |  b  | c  |
-        | -: | --: | -: |
-        |  1 | 2.5 |  x |
+        | age | height_m |   name    |
+        | --: | -------: | --------: |
+        |  34 |     1.68 | Ana Lopez |
         <BLANKLINE>
         %% daf rows=1; cols=3; keyfield=''; name=''
         <BLANKLINE>
 
         An empty cell stays empty, and the sum methods skip it:
 
-        >>> daf = Daf.from_csv_buff('a,b\n1,\n,3\n4,5\n')
+        >>> daf = Daf.from_csv_buff('qty,visits\n2,\n,7\n6,4\n')
         >>> daf
         <BLANKLINE>
-        | a  | b  |
-        | -: | -: |
-        |  1 |    |
-        |    |  3 |
-        |  4 |  5 |
+        | qty | visits |
+        | --: | -----: |
+        |   2 |        |
+        |     |      7 |
+        |   6 |      4 |
         <BLANKLINE>
         %% daf rows=3; cols=2; keyfield=''; name=''
         <BLANKLINE>
-        >>> daf.apply_dtypes(dtypes={'a': int, 'b': int})
+        >>> daf.apply_dtypes(dtypes={'qty': int, 'visits': int})
         <BLANKLINE>
-        | a  | b  |
-        | -: | -: |
-        |  1 |    |
-        |    |  3 |
-        |  4 |  5 |
+        | qty | visits |
+        | --: | -----: |
+        |   2 |        |
+        |     |      7 |
+        |   6 |      4 |
         <BLANKLINE>
         %% daf rows=3; cols=2; keyfield=''; name=''
         <BLANKLINE>
         >>> daf.sum()
-        {'a': 5, 'b': 8}
+        {'qty': 8, 'visits': 11}
 
         Convert only some columns with `cols`. The others stay text, and the
         `dtypes` of the Daf are not changed:
 
-        >>> daf = Daf(lol=[['1', '2.5', '7']], cols=['a', 'b', 'n'],
-        ...         dtypes={'a': int, 'b': float, 'n': int})
+        >>> daf = Daf(cols=['age', 'height_m', 'visits'], lol=[['34', '1.68', '7']],
+        ...         dtypes={'age': int, 'height_m': float, 'visits': int})
         >>> daf
         <BLANKLINE>
-        | a  |  b  | n  |
-        | -: | --: | -: |
-        |  1 | 2.5 |  7 |
+        | age | height_m | visits |
+        | --: | -------: | -----: |
+        |  34 |     1.68 |      7 |
         <BLANKLINE>
         %% daf rows=1; cols=3; keyfield=''; name=''
         <BLANKLINE>
-        >>> daf.apply_dtypes(cols=['a'])
+        >>> daf.apply_dtypes(cols=['age'])
         <BLANKLINE>
-        | a  |  b  | n  |
-        | -: | --: | -: |
-        |  1 | 2.5 |  7 |
+        | age | height_m | visits |
+        | --: | -------: | -----: |
+        |  34 |     1.68 |      7 |
         <BLANKLINE>
         %% daf rows=1; cols=3; keyfield=''; name=''
         <BLANKLINE>
         >>> daf.iloc(0)
-        {'a': 1, 'b': '2.5', 'n': '7'}
-        >>> daf.dtypes == {'a': int, 'b': float, 'n': int}
+        {'age': 34, 'height_m': '1.68', 'visits': '7'}
+        >>> daf.dtypes == {'age': int, 'height_m': float, 'visits': int}
         True
-        >>> daf.apply_dtypes(cols=['n'])
+        >>> daf.apply_dtypes(cols=['visits'])
         <BLANKLINE>
-        | a  |  b  | n  |
-        | -: | --: | -: |
-        |  1 | 2.5 |  7 |
+        | age | height_m | visits |
+        | --: | -------: | -----: |
+        |  34 |     1.68 |      7 |
         <BLANKLINE>
         %% daf rows=1; cols=3; keyfield=''; name=''
         <BLANKLINE>
         >>> daf.iloc(0)
-        {'a': 1, 'b': '2.5', 'n': 7}
+        {'age': 34, 'height_m': '1.68', 'visits': 7}
 
         A `bool` column, and text that does not convert:
 
-        >>> b_daf = Daf(cols=['ok', 'n'], lol=[['', '1'], ['0', 'x'], ['True', '3'], ['maybe', '']])
+        >>> b_daf = Daf(cols=['member', 'visits'], lol=[['', '7'], ['0', 'unknown'], ['True', '12'], ['maybe', '']])
         >>> b_daf
         <BLANKLINE>
-        |  ok   | n  |
-        | ----: | -: |
-        |       |  1 |
-        |     0 |  x |
-        |  True |  3 |
-        | maybe |    |
+        | member | visits  |
+        | -----: | ------: |
+        |        |       7 |
+        |      0 | unknown |
+        |   True |      12 |
+        |  maybe |         |
         <BLANKLINE>
         %% daf rows=4; cols=2; keyfield=''; name=''
         <BLANKLINE>
-        >>> b_daf.apply_dtypes(dtypes={'ok': bool, 'n': int})
+        >>> b_daf.apply_dtypes(dtypes={'member': bool, 'visits': int})
         <BLANKLINE>
-        |  ok   | n  |
-        | ----: | -: |
-        |     0 |  1 |
-        |     0 |  x |
-        |     1 |  3 |
-        | maybe |    |
+        | member | visits  |
+        | -----: | ------: |
+        |      0 |       7 |
+        |      0 | unknown |
+        |      1 |      12 |
+        |  maybe |         |
         <BLANKLINE>
         %% daf rows=4; cols=2; keyfield=''; name=''
         <BLANKLINE>
         >>> b_daf.lol
-        [[0, 1], [0, 'x'], [1, 3], ['maybe', '']]
+        [[0, 7], [0, 'unknown'], [1, 12], ['maybe', '']]
 
         Your own conversion, here one that records the values that fail:
 
@@ -308,40 +318,40 @@ def _apply_dtypes(self: 'Daf', *,
         ...     except ValueError:
         ...         bad.append(value)
         ...         return ''
-        >>> daf = Daf(lol=[['1'], ['x'], ['3']], cols=['n'])
+        >>> daf = Daf(cols=['age'], lol=[['34'], ['unknown'], ['27']])
         >>> daf
         <BLANKLINE>
-        | n  |
-        | -: |
-        |  1 |
-        |  x |
-        |  3 |
+        |   age   |
+        | ------: |
+        |      34 |
+        | unknown |
+        |      27 |
         <BLANKLINE>
         %% daf rows=3; cols=1; keyfield=''; name=''
         <BLANKLINE>
-        >>> daf.apply_to_col('n', to_int)
+        >>> daf.apply_to_col('age', to_int)
         <BLANKLINE>
-        | n  |
-        | -: |
-        |  1 |
-        |    |
-        |  3 |
+        | age |
+        | --: |
+        |  34 |
+        |     |
+        |  27 |
         <BLANKLINE>
         %% daf rows=3; cols=1; keyfield=''; name=''
         <BLANKLINE>
-        >>> daf.dtypes = {'n': int}
+        >>> daf.dtypes = {'age': int}
         >>> daf
         <BLANKLINE>
-        | n  |
-        | -: |
-        |  1 |
-        |    |
-        |  3 |
+        | age |
+        | --: |
+        |  34 |
+        |     |
+        |  27 |
         <BLANKLINE>
         %% daf rows=3; cols=1; keyfield=''; name=''
         <BLANKLINE>
         >>> bad
-        ['x']
+        ['unknown']
 
         **The other options.** A list column stays text with `unflatten=False`:
 
@@ -557,20 +567,25 @@ def _flatten(self: 'Daf', convert_bool_to_int: bool=True, use_pyon: bool = True)
         RuntimeError: The Daf has rows and dtypes, but no column names.
 
     Examples:
-        >>> daf = Daf(lol=[[[1, 2], True]], cols=['a', 'b'], dtypes={'a': list, 'b': bool})
+        Create a small Daf with a list in one cell and a bool in another:
+
+        >>> daf = Daf(cols=['scores', 'member'], lol=[[[88, 92], True]], dtypes={'scores': list, 'member': bool})
         >>> daf
         <BLANKLINE>
-        |   a    |  b   |
-        | -----: | ---: |
-        | [1, 2] | True |
+        |  scores  | member |
+        | -------: | -----: |
+        | [88, 92] |   True |
         <BLANKLINE>
         %% daf rows=1; cols=2; keyfield=''; name=''
         <BLANKLINE>
+
+        Turn the list into its text, and the bool into 1:
+
         >>> daf.flatten()
         <BLANKLINE>
-        |   a    | b  |
-        | -----: | -: |
-        | [1, 2] |  1 |
+        |  scores  | member |
+        | -------: | -----: |
+        | [88, 92] |      1 |
         <BLANKLINE>
         %% daf rows=1; cols=2; keyfield=''; name=''
         <BLANKLINE>
@@ -633,11 +648,13 @@ def _strip(self: 'Daf', chrs: str=' ') -> 'Daf':
         This Daf, which has been changed.
 
     Examples:
-        >>> Daf(lol=[[' a ', 3, '("x")']], cols=['p', 'q', 'r']).strip(' ()"')
+        Strip spaces, quotes and parentheses from each text cell. Numbers are left as they are:
+
+        >>> Daf(cols=['name', 'age', 'city'], lol=[[' Ana Lopez ', 34, '("Denver")']]).strip(' ()"')
         <BLANKLINE>
-        | p  | q  | r  |
-        | -: | -: | -: |
-        |  a |  3 |  x |
+        |   name    | age |  city  |
+        | --------: | --: | -----: |
+        | Ana Lopez |  34 | Denver |
         <BLANKLINE>
         %% daf rows=1; cols=3; keyfield=''; name=''
         <BLANKLINE>

@@ -76,52 +76,57 @@ def _update_with_history(
             differ. A key of either table is not in `key_order`.
 
     Examples:
+        Create a small Daf of order lines, several lines for some orders. The values are text, as from a CSV file:
+
         >>> from daffodil.daf import Daf
-        >>> prior_daf = Daf(cols=['bid', 'opt', 'v'],
-        ...                 lol=[['a', '1', '0'], ['a', '2', '1'], ['b', '1', '1'], ['c', '1', '0']])
+        >>> prior_daf = Daf(cols=['order_id', 'line', 'qty'],
+        ...                 lol=[['o1', '1', '5'], ['o1', '2', '2'], ['o2', '1', '8'], ['o3', '1', '4']])
         >>> prior_daf
         <BLANKLINE>
-        | bid | opt | v  |
-        | --: | --: | -: |
-        |   a |   1 |  0 |
-        |   a |   2 |  1 |
-        |   b |   1 |  1 |
-        |   c |   1 |  0 |
+        | order_id | line | qty |
+        | -------: | ---: | --: |
+        |       o1 |    1 |   5 |
+        |       o1 |    2 |   2 |
+        |       o2 |    1 |   8 |
+        |       o3 |    1 |   4 |
         <BLANKLINE>
         %% daf rows=4; cols=3; keyfield=''; name=''
         <BLANKLINE>
 
-        The rerun changes a, repeats c as it was, and adds d:
+        The new table changes order o1, repeats o3 as it was, and adds o4:
 
-        >>> new_daf = Daf(cols=['bid', 'opt', 'v'], lol=[['a', 1, 1], ['a', 2, 0], ['c', 1, 0], ['d', 1, 1]])
-        >>> updated_daf, history_daf = prior_daf.update_with_history(new_daf, by='bid')
+        >>> new_daf = Daf(cols=['order_id', 'line', 'qty'], lol=[['o1', 1, 6], ['o1', 2, 2], ['o3', 1, 4], ['o4', 1, 3]])
+
+        Update it, and keep the replaced rows as history:
+
+        >>> updated_daf, history_daf = prior_daf.update_with_history(new_daf, by='order_id')
         >>> updated_daf
         <BLANKLINE>
-        | bid | opt | v  |
-        | --: | --: | -: |
-        |   a |   1 |  1 |
-        |   a |   2 |  0 |
-        |   b |   1 |  1 |
-        |   c |   1 |  0 |
-        |   d |   1 |  1 |
+        | order_id | line | qty |
+        | -------: | ---: | --: |
+        |       o1 |    1 |   6 |
+        |       o1 |    2 |   2 |
+        |       o2 |    1 |   8 |
+        |       o3 |    1 |   4 |
+        |       o4 |    1 |   3 |
         <BLANKLINE>
         %% daf rows=5; cols=3; keyfield=''; name=''
         <BLANKLINE>
         >>> history_daf
         <BLANKLINE>
-        | bid | opt | v  |
-        | --: | --: | -: |
-        |   a |   1 |  0 |
-        |   a |   2 |  1 |
-        |   d |     |    |
+        | order_id | line | qty |
+        | -------: | ---: | --: |
+        |       o1 |    1 |   5 |
+        |       o1 |    2 |   2 |
+        |       o4 |      |     |
         <BLANKLINE>
         %% daf rows=3; cols=3; keyfield=''; name=''
         <BLANKLINE>
 
         With `key_order`, the keys come in that order. It must hold every key of both tables:
 
-        >>> prior_daf.update_with_history(new_daf, by='bid', key_order=['d', 'c', 'b', 'a'])[0].col('bid')
-        ['d', 'c', 'b', 'a', 'a']
+        >>> prior_daf.update_with_history(new_daf, by='order_id', key_order=['o4', 'o3', 'o2', 'o1'])[0].col('order_id')
+        ['o4', 'o3', 'o2', 'o1', 'o1']
     """
 
     keyfield_a: Any = self.keyfield
@@ -213,32 +218,37 @@ def _annotate_daf(self: 'Daf', other_daf: 'Daf', my_to_other_dict: T_ds) -> 'Daf
         KeyError: A keyfield is not set, or a key is not found in `other_daf`.
 
     Examples:
-        >>> a_daf = Daf(lol=[[1, 'x'], [2, 'y']], cols=['id', 'v'], keyfield='id')
+        Create a Daf of people whose city is not known yet, and a Daf that has their cities:
+
+        >>> a_daf = Daf(cols=['id', 'city'], lol=[[1, 'unknown'], [2, 'unknown']], keyfield='id')
         >>> a_daf
         <BLANKLINE>
-        | id | v  |
-        | -: | -: |
-        |  1 |  x |
-        |  2 |  y |
+        | id |  city   |
+        | -: | ------: |
+        |  1 | unknown |
+        |  2 | unknown |
         <BLANKLINE>
         %% daf rows=2; cols=2; keyfield='id'; name=''
         <BLANKLINE>
-        >>> o_daf = Daf(lol=[[1, 'P'], [2, 'Q']], cols=['id', 'w'], keyfield='id')
+        >>> o_daf = Daf(cols=['id', 'home_city'], lol=[[1, 'Denver'], [2, 'Austin']], keyfield='id')
         >>> o_daf
         <BLANKLINE>
-        | id | w  |
-        | -: | -: |
-        |  1 |  P |
-        |  2 |  Q |
+        | id | home_city |
+        | -: | --------: |
+        |  1 |    Denver |
+        |  2 |    Austin |
         <BLANKLINE>
         %% daf rows=2; cols=2; keyfield='id'; name=''
         <BLANKLINE>
-        >>> a_daf.annotate_daf(o_daf, {'v': 'w'})
+
+        Fill in each city from the other Daf, matched by key:
+
+        >>> a_daf.annotate_daf(o_daf, {'city': 'home_city'})
         <BLANKLINE>
-        | id | v  |
-        | -: | -: |
-        |  1 |  P |
-        |  2 |  Q |
+        | id |  city  |
+        | -: | -----: |
+        |  1 | Denver |
+        |  2 | Austin |
         <BLANKLINE>
         %% daf rows=2; cols=2; keyfield='id'; name=''
         <BLANKLINE>
@@ -307,24 +317,29 @@ def _derive_join_translator(
         The translator Daf. Its keyfield is `resolved_colname`.
 
     Examples:
-        >>> a_daf = Daf(lol=[[1, 'x']], cols=['id', 'name'], keyfield='id')
+        Create two small Daf tables of people, which both have a name column:
+
+        >>> a_daf = Daf(cols=['id', 'name'], lol=[[1, 'Ana Lopez']], keyfield='id')
         >>> a_daf
         <BLANKLINE>
-        | id | name |
-        | -: | ---: |
-        |  1 |    x |
+        | id |   name    |
+        | -: | --------: |
+        |  1 | Ana Lopez |
         <BLANKLINE>
         %% daf rows=1; cols=2; keyfield='id'; name=''
         <BLANKLINE>
-        >>> b_daf = Daf(lol=[[1, 'y']], cols=['id', 'name'], keyfield='id')
+        >>> b_daf = Daf(cols=['id', 'name'], lol=[[1, 'Ana L. Lopez']], keyfield='id')
         >>> b_daf
         <BLANKLINE>
-        | id | name |
-        | -: | ---: |
-        |  1 |    y |
+        | id |     name     |
+        | -: | -----------: |
+        |  1 | Ana L. Lopez |
         <BLANKLINE>
         %% daf rows=1; cols=2; keyfield='id'; name=''
         <BLANKLINE>
+
+        See the names the join would give the columns. Each name column gets its table's suffix:
+
         >>> a_daf.derive_join_translator(b_daf).col('resolved_colname')
         ['id', 'name_daf1', 'name_daf2']
 
@@ -409,25 +424,33 @@ def _derive_join_translator_daf(
         The translator Daf. Its keyfield is `resolved_colname`.
 
     Examples:
-        >>> tr = Daf.derive_join_translator_daf('id', 'id', ['id', 'v'], ['id', 'w'], 'L', 'R')
-        >>> tr.columns()
+        Make the translator for a join of people and pay, from their keyfields, columns and names:
+
+        >>> translator = Daf.derive_join_translator_daf('id', 'id', ['id', 'name'], ['id', 'salary'], 'people', 'pay')
+        >>> translator.columns()
         ['resolved_colname', 'source_name', 'source_colname', 'is_keyfield']
-        >>> tr
+        >>> translator
         <BLANKLINE>
         | resolved_colname | source_name | source_colname | is_keyfield |
         | ---------------: | ----------: | -------------: | ----------: |
-        |               id |           L |             id |        True |
-        |                v |           L |              v |       False |
-        |                w |           R |              w |       False |
+        |               id |      people |             id |        True |
+        |             name |      people |           name |       False |
+        |           salary |         pay |         salary |       False |
         <BLANKLINE>
         %% daf rows=3; cols=4; keyfield='resolved_colname'; name=''
         <BLANKLINE>
-        >>> tagged = Daf.derive_join_translator_daf('id', 'id', ['id', 'v'], ['id', 'w'], 'L', 'R', tag_other=True)
+
+        Give every column of the other table a suffix, with `tag_other=True`:
+
+        >>> tagged = Daf.derive_join_translator_daf('id', 'id', ['id', 'name'], ['id', 'salary'], 'people', 'pay', tag_other=True)
         >>> tagged.col('resolved_colname')
-        ['id', 'v', 'w_R']
-        >>> omitted = Daf.derive_join_translator_daf('id', 'id', ['id', 'v'], ['id', 'w', 'x'], 'L', 'R', omit_other_cols=['x'])
+        ['id', 'name', 'salary_pay']
+
+        Leave a column of the other table out, with `omit_other_cols`:
+
+        >>> omitted = Daf.derive_join_translator_daf('id', 'id', ['id', 'name'], ['id', 'salary', 'bonus'], 'people', 'pay', omit_other_cols=['bonus'])
         >>> omitted.col('resolved_colname')
-        ['id', 'v', 'w']
+        ['id', 'name', 'salary']
     """
 
     shared_fields   = list(shared_fields or [])     # a copy, so the caller's list is not changed.
@@ -559,49 +582,57 @@ def _join(
         KeyError: A keyfield is a tuple.
 
     Examples:
-        >>> a_daf = Daf(lol=[[1, 'Alice'], [2, 'Bob']], cols=['id', 'name'], keyfield='id')
+        Create two small Daf tables, people and their salaries, keyed by id:
+
+        >>> a_daf = Daf(cols=['id', 'name'], lol=[[1, 'Ana Lopez'], [2, 'Ben Okafor']], keyfield='id')
         >>> a_daf
         <BLANKLINE>
-        | id | name  |
-        | -: | ----: |
-        |  1 | Alice |
-        |  2 |   Bob |
+        | id |    name    |
+        | -: | ---------: |
+        |  1 |  Ana Lopez |
+        |  2 | Ben Okafor |
         <BLANKLINE>
         %% daf rows=2; cols=2; keyfield='id'; name=''
         <BLANKLINE>
-        >>> b_daf = Daf(lol=[[1, 50], [3, 70]], cols=['id', 'salary'], keyfield='id')
+        >>> b_daf = Daf(cols=['id', 'salary'], lol=[[1, 72000], [3, 58000]], keyfield='id')
         >>> b_daf
         <BLANKLINE>
         | id | salary |
         | -: | -----: |
-        |  1 |     50 |
-        |  3 |     70 |
+        |  1 |  72000 |
+        |  3 |  58000 |
         <BLANKLINE>
         %% daf rows=2; cols=2; keyfield='id'; name=''
         <BLANKLINE>
+
+        Join them. By default only the keys in both are kept:
+
         >>> a_daf.join(b_daf)
         <BLANKLINE>
-        | id | name  | salary |
-        | -: | ----: | -----: |
-        |  1 | Alice |     50 |
+        | id |   name    | salary |
+        | -: | --------: | -----: |
+        |  1 | Ana Lopez |  72000 |
         <BLANKLINE>
         %% daf rows=1; cols=3; keyfield='id'; name=''
         <BLANKLINE>
+
+        Keep every person, with NULL where there is no salary, or with another `fill` value:
+
         >>> a_daf.join(b_daf, how='left')
         <BLANKLINE>
-        | id | name  | salary |
-        | -: | ----: | -----: |
-        |  1 | Alice |     50 |
-        |  2 |   Bob |        |
+        | id |    name    | salary |
+        | -: | ---------: | -----: |
+        |  1 |  Ana Lopez |  72000 |
+        |  2 | Ben Okafor |        |
         <BLANKLINE>
         %% daf rows=2; cols=3; keyfield='id'; name=''
         <BLANKLINE>
         >>> a_daf.join(b_daf, how='left', fill=None)
         <BLANKLINE>
-        | id | name  | salary |
-        | -: | ----: | -----: |
-        |  1 | Alice |     50 |
-        |  2 |   Bob |   None |
+        | id |    name    | salary |
+        | -: | ---------: | -----: |
+        |  1 |  Ana Lopez |  72000 |
+        |  2 | Ben Okafor |   None |
         <BLANKLINE>
         %% daf rows=2; cols=3; keyfield='id'; name=''
         <BLANKLINE>
@@ -797,49 +828,54 @@ def _join_with_residue(
         KeysDisabledError: A table has no keyfield.
 
     Examples:
-        >>> bia_daf = Daf(cols=['ballot_id', 'sheet', 'style'], keyfield='ballot_id', lol=[
-        ...     ['b1', 0, 'S1'], ['b2', 0, 'S2'], ['b3', 1, 'S1']])
-        >>> bia_daf
+        Create two small Daf tables, people and their salaries. Each has a key the other lacks:
+
+        >>> people_daf = Daf(cols=['id', 'name', 'city'], keyfield='id', lol=[
+        ...     ['p1', 'Ana Lopez', 'Denver'], ['p2', 'Ben Okafor', 'Austin'], ['p3', 'Chen Wu', 'Boston']])
+        >>> people_daf
         <BLANKLINE>
-        | ballot_id | sheet | style |
-        | --------: | ----: | ----: |
-        |        b1 |     0 |    S1 |
-        |        b2 |     0 |    S2 |
-        |        b3 |     1 |    S1 |
+        | id |    name    |  city  |
+        | -: | ---------: | -----: |
+        | p1 |  Ana Lopez | Denver |
+        | p2 | Ben Okafor | Austin |
+        | p3 |    Chen Wu | Boston |
         <BLANKLINE>
-        %% daf rows=3; cols=3; keyfield='ballot_id'; name=''
+        %% daf rows=3; cols=3; keyfield='id'; name=''
         <BLANKLINE>
-        >>> cvr_daf = Daf(cols=['ballot_id', 'precinct', 'style'], keyfield='ballot_id', lol=[
-        ...     ['b2', 'P1', 'S2'], ['b3', 'P2', 'S1'], ['b9', 'P1', 'S3']])
-        >>> cvr_daf
+        >>> pay_daf = Daf(cols=['id', 'salary', 'city'], keyfield='id', lol=[
+        ...     ['p2', 64000, 'Austin'], ['p3', 58000, 'Boston'], ['p9', 81000, 'Denver']])
+        >>> pay_daf
         <BLANKLINE>
-        | ballot_id | precinct | style |
-        | --------: | -------: | ----: |
-        |        b2 |       P1 |    S2 |
-        |        b3 |       P2 |    S1 |
-        |        b9 |       P1 |    S3 |
+        | id | salary |  city  |
+        | -: | -----: | -----: |
+        | p2 |  64000 | Austin |
+        | p3 |  58000 | Boston |
+        | p9 |  81000 | Denver |
         <BLANKLINE>
-        %% daf rows=3; cols=3; keyfield='ballot_id'; name=''
+        %% daf rows=3; cols=3; keyfield='id'; name=''
         <BLANKLINE>
-        >>> joined_daf, bia_res_daf, cvr_res_daf = bia_daf.join_with_residue(cvr_daf, shared_fields=['style'])
+
+        Join them, and keep the rows of each that have no partner:
+
+        >>> joined_daf, people_res_daf, pay_res_daf = people_daf.join_with_residue(pay_daf, shared_fields=['city'])
         >>> joined_daf
         <BLANKLINE>
-        | ballot_id | sheet | style | precinct |
-        | --------: | ----: | ----: | -------: |
-        |        b2 |     0 |    S2 |       P1 |
-        |        b3 |     1 |    S1 |       P2 |
+        | id |    name    |  city  | salary |
+        | -: | ---------: | -----: | -----: |
+        | p2 | Ben Okafor | Austin |  64000 |
+        | p3 |    Chen Wu | Boston |  58000 |
         <BLANKLINE>
-        %% daf rows=2; cols=4; keyfield='ballot_id'; name=''
+        %% daf rows=2; cols=4; keyfield='id'; name=''
         <BLANKLINE>
-        >>> bia_res_daf.to_lod()
-        [{'ballot_id': 'b1', 'sheet': 0, 'style': 'S1'}]
-        >>> cvr_res_daf.to_lod()
-        [{'ballot_id': 'b9', 'precinct': 'P1', 'style': 'S3'}]
+        >>> people_res_daf.to_lod()
+        [{'id': 'p1', 'name': 'Ana Lopez', 'city': 'Denver'}]
+        >>> pay_res_daf.to_lod()
+        [{'id': 'p9', 'salary': 81000, 'city': 'Denver'}]
 
         The options of the join act as in `join()`:
 
-        >>> bia_daf.join_with_residue(cvr_daf, tag_other=True, name='bia_cvr')[0].columns()
-        ['ballot_id', 'sheet', 'style_daf1', 'precinct_daf2', 'style_daf2']
+        >>> people_daf.join_with_residue(pay_daf, tag_other=True, name='people_pay')[0].columns()
+        ['id', 'name', 'city_daf1', 'salary_daf2', 'city_daf2']
     """
     joined_daf: 'Daf' = self.join(other_daf, how='inner', shared_fields=shared_fields, tag_other=tag_other,
                                   custom_translator_daf=custom_translator_daf, diagnose=diagnose, name=name)
@@ -884,13 +920,21 @@ def _join_records(
         ValueError: The translator names more than two sources and `join_names_ls` is not given.
 
     Examples:
-        >>> tr = Daf.derive_join_translator_daf('id', 'id', ['id', 'v'], ['id', 'w'], 'L', 'R')
-        >>> Daf.join_records([{'id': 1, 'v': 'a'}, {'id': 1, 'w': 'b'}], tr)
-        {'id': 1, 'v': 'a', 'w': 'b'}
-        >>> Daf.join_records([{'id': 1, 'v': 'a'}, None], tr)
-        {'id': 1, 'v': 'a', 'w': ''}
-        >>> Daf.join_records([{'id': 1, 'v': 'a'}, None], tr, fill=0)
-        {'id': 1, 'v': 'a', 'w': 0}
+        Make the translator for a join of people and pay:
+
+        >>> translator = Daf.derive_join_translator_daf('id', 'id', ['id', 'name'], ['id', 'salary'], 'people', 'pay')
+
+        Join one row of each into one row:
+
+        >>> Daf.join_records([{'id': 1, 'name': 'Ana Lopez'}, {'id': 1, 'salary': 72000}], translator)
+        {'id': 1, 'name': 'Ana Lopez', 'salary': 72000}
+
+        With no row from the other table, its cells are NULL, or the `fill` value:
+
+        >>> Daf.join_records([{'id': 1, 'name': 'Ana Lopez'}, None], translator)
+        {'id': 1, 'name': 'Ana Lopez', 'salary': ''}
+        >>> Daf.join_records([{'id': 1, 'name': 'Ana Lopez'}, None], translator, fill=0)
+        {'id': 1, 'name': 'Ana Lopez', 'salary': 0}
     """
     combined_record = {}
 
