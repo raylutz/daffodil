@@ -89,38 +89,46 @@ def _from_lod(
             and `ignore_extra_keys` is not True.
 
     Examples:
-        >>> Daf.from_lod([{'a': 1, 'b': 2}, {'a': 3}])
+        Make a Daf from a list of dicts. A key a dict lacks gives NULL in that row:
+
+        >>> Daf.from_lod([{'name': 'Ana Lopez', 'age': 34}, {'name': 'Ben Okafor'}])
         <BLANKLINE>
-        | a  | b  |
-        | -: | -: |
-        |  1 |  2 |
-        |  3 |    |
+        |    name    | age |
+        | ---------: | --: |
+        |  Ana Lopez |  34 |
+        | Ben Okafor |     |
         <BLANKLINE>
         %% daf rows=2; cols=2; keyfield=''; name=''
         <BLANKLINE>
-        >>> Daf.from_lod([{'a': 1}, {'a': 2, 'b': 5}, {'c': 9}])
+
+        The columns are the keys in the order first seen:
+
+        >>> Daf.from_lod([{'name': 'Ana Lopez'}, {'name': 'Ben Okafor', 'age': 52}, {'city': 'Boston'}])
         <BLANKLINE>
-        | a  | b  | c  |
-        | -: | -: | -: |
-        |  1 |    |    |
-        |  2 |  5 |    |
-        |    |    |  9 |
+        |    name    | age |  city  |
+        | ---------: | --: | -----: |
+        |  Ana Lopez |     |        |
+        | Ben Okafor |  52 |        |
+        |            |     | Boston |
         <BLANKLINE>
         %% daf rows=3; cols=3; keyfield=''; name=''
         <BLANKLINE>
-        >>> Daf.from_lod([{'a': 1, 'b': 2}], cols=['b', 'a'])
+
+        Give the columns and their order with `cols`. Leave out other keys with `ignore_extra_keys=True`:
+
+        >>> Daf.from_lod([{'name': 'Ana Lopez', 'age': 34}], cols=['age', 'name'])
         <BLANKLINE>
-        | b  | a  |
-        | -: | -: |
-        |  2 |  1 |
+        | age |   name    |
+        | --: | --------: |
+        |  34 | Ana Lopez |
         <BLANKLINE>
         %% daf rows=1; cols=2; keyfield=''; name=''
         <BLANKLINE>
-        >>> Daf.from_lod([{'a': 1, 'b': 2, 'c': 3}], cols=['a', 'b'], ignore_extra_keys=True)
+        >>> Daf.from_lod([{'name': 'Ana Lopez', 'age': 34, 'city': 'Denver'}], cols=['name', 'age'], ignore_extra_keys=True)
         <BLANKLINE>
-        | a  | b  |
-        | -: | -: |
-        |  1 |  2 |
+        |   name    | age |
+        | --------: | --: |
+        | Ana Lopez |  34 |
         <BLANKLINE>
         %% daf rows=1; cols=2; keyfield=''; name=''
         <BLANKLINE>
@@ -269,18 +277,23 @@ def _from_lot(
         ValueError: A tuple does not have as many items as there are columns.
 
     Examples:
-        >>> Daf.from_lot([(1, 'a'), (2, 'b')], cols=['id', 'v'])
+        Make a Daf from a list of tuples, with the column names:
+
+        >>> Daf.from_lot([('p1', 'Ana Lopez'), ('p2', 'Ben Okafor')], cols=['id', 'name'])
         <BLANKLINE>
-        | id | v  |
-        | -: | -: |
-        |  1 |  a |
-        |  2 |  b |
+        | id |    name    |
+        | -: | ---------: |
+        | p1 |  Ana Lopez |
+        | p2 | Ben Okafor |
         <BLANKLINE>
         %% daf rows=2; cols=2; keyfield=''; name=''
         <BLANKLINE>
-        >>> Daf.from_lot([(1, 'a')]).columns()
+
+        With no names, the Daf has no columns until `set_cols()` gives them, as A, B and so on:
+
+        >>> Daf.from_lot([('p1', 'Ana Lopez')]).columns()
         []
-        >>> Daf.from_lot([(1, 'a')]).set_cols().columns()
+        >>> Daf.from_lot([('p1', 'Ana Lopez')]).set_cols().columns()
         ['A', 'B']
 
         Give the keyfield, the types and a name:
@@ -345,18 +358,23 @@ def _to_daf(self: 'Daf', name: str | None = None) -> 'Daf':
         This Daf.
 
     Examples:
-        >>> daf = Daf(cols=['id', 'v'], lol=[['a1', 1], ['b2', 2]], keyfield='id')
+        Create a small Daf of items in stock:
+
+        >>> daf = Daf(cols=['id', 'qty'], lol=[['a1', 3], ['b2', 10]], keyfield='id')
         >>> daf
         <BLANKLINE>
-        | id | v  |
-        | -: | -: |
-        | a1 |  1 |
-        | b2 |  2 |
+        | id | qty |
+        | -: | --: |
+        | a1 |   3 |
+        | b2 |  10 |
         <BLANKLINE>
         %% daf rows=2; cols=2; keyfield='id'; name=''
         <BLANKLINE>
+
+        `to_daf()` gives the Daf itself, so the same line reads a Daf or a SqlDaf:
+
         >>> daf.select_records_daf(['b2']).to_daf().lol
-        [['b2', 2]]
+        [['b2', 10]]
         >>> daf.to_daf() is daf
         True
         >>> daf.to_daf(name='items').name
@@ -382,22 +400,27 @@ def _to_lod(self: 'Daf') -> T_loda:
         KeysDisabledError: The Daf has rows and no column names.
 
     Examples:
-        >>> daf = Daf(lol=[[1, 'a'], [2, ['x']]], cols=['id', 'v'])
+        Create a small Daf of people, one with a list of hobbies in a cell:
+
+        >>> daf = Daf(cols=['id', 'tags'], lol=[['p1', 'none'], ['p2', ['chess']]])
         >>> daf
         <BLANKLINE>
-        | id |   v   |
-        | -: | ----: |
-        |  1 |     a |
-        |  2 | ['x'] |
+        | id |   tags    |
+        | -: | --------: |
+        | p1 |      none |
+        | p2 | ['chess'] |
         <BLANKLINE>
         %% daf rows=2; cols=2; keyfield=''; name=''
         <BLANKLINE>
+
+        Make a list of dicts. A list in a cell is the same object in the dict and the Daf:
+
         >>> lod = daf.to_lod()
         >>> lod
-        [{'id': 1, 'v': 'a'}, {'id': 2, 'v': ['x']}]
-        >>> lod[1]['v'].append('y')
+        [{'id': 'p1', 'tags': 'none'}, {'id': 'p2', 'tags': ['chess']}]
+        >>> lod[1]['tags'].append('hiking')
         >>> daf.iloc(1)
-        {'id': 2, 'v': ['x', 'y']}
+        {'id': 'p2', 'tags': ['chess', 'hiking']}
     """
     # test exists in test_daf.py
 
@@ -452,23 +475,28 @@ def _from_dod(
         KeyError: `dtypes` does not name the `keyfield` column.
 
     Examples:
-        >>> daf = Daf.from_dod({'r0': {'x': 1}, 'r1': {'x': 2}})
+        Make a Daf from a dict of dicts. The outer keys go into a column named rowkey:
+
+        >>> daf = Daf.from_dod({'p1': {'age': 34}, 'p2': {'age': 52}})
         >>> daf
         <BLANKLINE>
-        | rowkey | x  |
-        | -----: | -: |
-        |     r0 |  1 |
-        |     r1 |  2 |
+        | rowkey | age |
+        | -----: | --: |
+        |     p1 |  34 |
+        |     p2 |  52 |
         <BLANKLINE>
         %% daf rows=2; cols=2; keyfield='rowkey'; name=''
         <BLANKLINE>
-        >>> dod = {'r0': {'x': 1, 'id': 7}, 'r1': {'x': 2, 'id': 8}}
-        >>> Daf.from_dod(dod, dtypes={'rowkey': str, 'x': int}, ignore_extra_keys=True)
+
+        Give the types, and leave out keys that have no type, with `ignore_extra_keys=True`:
+
+        >>> dod = {'p1': {'age': 34, 'zip': '80202'}, 'p2': {'age': 52, 'zip': '73301'}}
+        >>> Daf.from_dod(dod, dtypes={'rowkey': str, 'age': int}, ignore_extra_keys=True)
         <BLANKLINE>
-        | rowkey | x  |
-        | -----: | -: |
-        |     r0 |  1 |
-        |     r1 |  2 |
+        | rowkey | age |
+        | -----: | --: |
+        |     p1 |  34 |
+        |     p2 |  52 |
         <BLANKLINE>
         %% daf rows=2; cols=2; keyfield='rowkey'; name=''
         <BLANKLINE>
@@ -540,19 +568,24 @@ def _to_dod(
         KeysDisabledError: The Daf has no keyfield.
 
     Examples:
-        >>> daf = Daf(lol=[[1, 'a']], cols=['id', 'v'], keyfield='id')
+        Create a small Daf of people, keyed by id:
+
+        >>> daf = Daf(cols=['id', 'name'], lol=[['p1', 'Ana Lopez']], keyfield='id')
         >>> daf
         <BLANKLINE>
-        | id | v  |
-        | -: | -: |
-        |  1 |  a |
+        | id |   name    |
+        | -: | --------: |
+        | p1 | Ana Lopez |
         <BLANKLINE>
         %% daf rows=1; cols=2; keyfield='id'; name=''
         <BLANKLINE>
+
+        Make a dict of dicts under each key, without the key, and with it:
+
         >>> daf.to_dod()
-        {1: {'v': 'a'}}
+        {'p1': {'name': 'Ana Lopez'}}
         >>> daf.to_dod(remove_keyfield=False)
-        {1: {'id': 1, 'v': 'a'}}
+        {'p1': {'id': 'p1', 'name': 'Ana Lopez'}}
     """
 
     """ a dict of dict structure is very similar to a Daf table, but there is a slight difference.
@@ -609,14 +642,16 @@ def _from_cols_dol(
         ValueError: A list has a different length from the first.
 
     Examples:
-        >>> daf = Daf.from_cols_dol({'A': [1, 2, 3], 'B': [4, 5, 6]})
+        Make a Daf from a dict of columns, each a list:
+
+        >>> daf = Daf.from_cols_dol({'name': ['Ana Lopez', 'Ben Okafor', 'Chen Wu'], 'age': [34, 52, 27]})
         >>> daf
         <BLANKLINE>
-        | A  | B  |
-        | -: | -: |
-        |  1 |  4 |
-        |  2 |  5 |
-        |  3 |  6 |
+        |    name    | age |
+        | ---------: | --: |
+        |  Ana Lopez |  34 |
+        | Ben Okafor |  52 |
+        |    Chen Wu |  27 |
         <BLANKLINE>
         %% daf rows=3; cols=2; keyfield=''; name=''
         <BLANKLINE>
@@ -674,8 +709,10 @@ def _to_cols_dol(self: 'Daf') -> dict:
         A dict that maps each column name to the list of its values.
 
     Examples:
-        >>> Daf(lol=[[1, 'a'], [2, 'b']], cols=['id', 'v']).to_cols_dol()
-        {'id': [1, 2], 'v': ['a', 'b']}
+        Make a dict of columns, each a list:
+
+        >>> Daf(cols=['name', 'age'], lol=[['Ana Lopez', 34], ['Ben Okafor', 52]]).to_cols_dol()
+        {'name': ['Ana Lopez', 'Ben Okafor'], 'age': [34, 52]}
     """
 
     """ convert daf to dictionary of lists of values, where key is the
@@ -701,8 +738,10 @@ def _to_attrib_dict(self: 'Daf') -> dict:
         A dict with the keys `cols` and `lol`.
 
     Examples:
-        >>> Daf(lol=[[1, 'a']], cols=['id', 'v']).to_attrib_dict()
-        {'cols': ['id', 'v'], 'lol': [[1, 'a']]}
+        Make a dict of the Daf's attributes, such as its name and keyfield, for saving it:
+
+        >>> Daf(cols=['id', 'name'], lol=[['p1', 'Ana Lopez']]).to_attrib_dict()
+        {'cols': ['id', 'name'], 'lol': [['p1', 'Ana Lopez']]}
     """
     return {'cols': self.columns(), 'lol': self.lol}
 
@@ -741,31 +780,33 @@ def _from_lod_to_cols(
             Name all the keys.
 
     Examples:
-        >>> daf = Daf.from_lod_to_cols([{'A': 1, 'B': 2}, {'A': 4, 'B': 5}], cols=['Feature', 'T1', 'T2'])
+        Make a Daf from a list of dicts, with each dict as a column. The first column holds the keys:
+
+        >>> daf = Daf.from_lod_to_cols([{'visits': 4, 'orders': 2}, {'visits': 7, 'orders': 3}], cols=['measure', 'week1', 'week2'])
         >>> daf
         <BLANKLINE>
-        | Feature | T1 | T2 |
-        | ------: | -: | -: |
-        |       A |  1 |  4 |
-        |       B |  2 |  5 |
+        | measure | week1 | week2 |
+        | ------: | ----: | ----: |
+        |  visits |     4 |     7 |
+        |  orders |     2 |     3 |
         <BLANKLINE>
         %% daf rows=2; cols=3; keyfield=''; name=''
         <BLANKLINE>
 
         Name the columns, and make the column of keys the keyfield:
 
-        >>> rows = Daf.from_lod_to_cols([{'a': 1, 'b': 2}, {'a': 3, 'b': 4}], cols=['field', 'r1', 'r2'], keyfield='field')
+        >>> rows = Daf.from_lod_to_cols([{'age': 34, 'visits': 4}, {'age': 52, 'visits': 7}], cols=['field', 'p1', 'p2'], keyfield='field')
         >>> rows
         <BLANKLINE>
-        | field | r1 | r2 |
-        | ----: | -: | -: |
-        |     a |  1 |  3 |
-        |     b |  2 |  4 |
+        | field  | p1 | p2 |
+        | -----: | -: | -: |
+        |    age | 34 | 52 |
+        | visits |  4 |  7 |
         <BLANKLINE>
         %% daf rows=2; cols=3; keyfield='field'; name=''
         <BLANKLINE>
-        >>> rows.select_record('b')
-        {'field': 'b', 'r1': 2, 'r2': 4}
+        >>> rows.select_record('visits')
+        {'field': 'visits', 'p1': 4, 'p2': 7}
     """
     r""" Create Daf instance from a list of dictionaries to be placed in columns
             where each column shares the same keys in the first column of the array.
@@ -865,23 +906,23 @@ def _from_excel_buff(
         ...         sheet.write_row(irow, 0, row)
         ...     workbook.close()
         ...     return buff.getvalue()
-        >>> xlsx = excel_bytes([['id', 'v'], [1, 'a'], [2, 'b']])
+        >>> xlsx = excel_bytes([['id', 'name'], [1, 'Ana Lopez'], [2, 'Ben Okafor']])
         >>> daf = Daf.from_excel_buff(xlsx, keyfield='id')
         >>> daf
         <BLANKLINE>
-        | id | v  |
-        | -: | -: |
-        |  1 |  a |
-        |  2 |  b |
+        | id |    name    |
+        | -: | ---------: |
+        |  1 |  Ana Lopez |
+        |  2 | Ben Okafor |
         <BLANKLINE>
         %% daf rows=2; cols=2; keyfield='id'; name=''
         <BLANKLINE>
-        >>> Daf.from_excel_buff(xlsx, dtypes={'id': int, 'v': str})
+        >>> Daf.from_excel_buff(xlsx, dtypes={'id': int, 'name': str})
         <BLANKLINE>
-        | id | v  |
-        | -: | -: |
-        |  1 |  a |
-        |  2 |  b |
+        | id |    name    |
+        | -: | ---------: |
+        |  1 |  Ana Lopez |
+        |  2 | Ben Okafor |
         <BLANKLINE>
         %% daf rows=2; cols=2; keyfield=''; name=''
         <BLANKLINE>
@@ -1042,17 +1083,19 @@ def _from_csv(cls: 'type[Daf]', source: str | Path, **kwargs: Any) -> 'Daf':
             local file cannot be read or parsed. The message says which.
 
     Examples:
+        Write a CSV file of people, and read it. Every cell is text:
+
         >>> import os, tempfile
-        >>> path = os.path.join(tempfile.mkdtemp(), 'x.csv')
+        >>> path = os.path.join(tempfile.mkdtemp(), 'people.csv')
         >>> with open(path, 'w') as f:
-        ...     n = f.write('id,v\n1,a\n')
+        ...     n = f.write('id,name,age\np1,Ana Lopez,34\n')
         >>> Daf.from_csv(path)
         <BLANKLINE>
-        | id | v  |
-        | -: | -: |
-        |  1 |  a |
+        | id |   name    | age |
+        | -: | --------: | --: |
+        | p1 | Ana Lopez |  34 |
         <BLANKLINE>
-        %% daf rows=1; cols=2; keyfield=''; name=''
+        %% daf rows=1; cols=3; keyfield=''; name=''
         <BLANKLINE>
     """
     """
@@ -1168,41 +1211,52 @@ def _from_csv_buff(
             of the columns come from the header.
 
     Examples:
-        >>> daf = Daf.from_csv_buff('id,v\n1,a\n2,"b,c"\n')
+        Read CSV text. A quoted cell may hold a comma:
+
+        >>> daf = Daf.from_csv_buff('id,name\np1,Ana Lopez\np2,"Okafor, Ben"\n')
         >>> daf
         <BLANKLINE>
-        | id |  v  |
-        | -: | --: |
-        |  1 |   a |
-        |  2 | b,c |
+        | id |    name     |
+        | -: | ----------: |
+        | p1 |   Ana Lopez |
+        | p2 | Okafor, Ben |
         <BLANKLINE>
         %% daf rows=2; cols=2; keyfield=''; name=''
         <BLANKLINE>
-        >>> Daf.from_csv_buff('id,v\n1,a\n').apply_dtypes(dtypes={'id': int, 'v': str})
+
+        The cells are text. Convert them with `apply_dtypes()`:
+
+        >>> Daf.from_csv_buff('id,age\n1,34\n').apply_dtypes(dtypes={'id': int, 'age': int})
         <BLANKLINE>
-        | id | v  |
-        | -: | -: |
-        |  1 |  a |
+        | id | age |
+        | -: | --: |
+        |  1 |  34 |
         <BLANKLINE>
         %% daf rows=1; cols=2; keyfield=''; name=''
         <BLANKLINE>
-        >>> daf = Daf.from_csv_buff('a,b,c\n1,2,3\n4,5,6\n', include_cols=['c', 'a'])
+
+        Keep only some columns, in a new order:
+
+        >>> daf = Daf.from_csv_buff('id,name,age\np1,Ana Lopez,34\np2,Ben Okafor,52\n', include_cols=['age', 'id'])
         >>> daf
         <BLANKLINE>
-        | c  | a  |
-        | -: | -: |
-        |  3 |  1 |
-        |  6 |  4 |
+        | age | id |
+        | --: | -: |
+        |  34 | p1 |
+        |  52 | p2 |
         <BLANKLINE>
         %% daf rows=2; cols=2; keyfield=''; name=''
         <BLANKLINE>
-        >>> daf = Daf.from_csv_buff('id,v\n1,a\n2\n')
+
+        A short line makes a short row, so the Daf is ragged until it is made rectangular:
+
+        >>> daf = Daf.from_csv_buff('id,name\np1,Ana Lopez\np2\n')
         >>> daf
         <BLANKLINE>
-        | id | v  |
-        | -: | -: |
-        |  1 |  a |
-        |  2 |    |
+        | id |   name    |
+        | -: | --------: |
+        | p1 | Ana Lopez |
+        | p2 |           |
         <BLANKLINE>
         %% daf rows=2; cols=2; keyfield=''; name=''; ragged rows detected
         <BLANKLINE>
@@ -1210,10 +1264,10 @@ def _from_csv_buff(
         False
         >>> daf.force_rectangular()
         <BLANKLINE>
-        | id | v  |
-        | -: | -: |
-        |  1 |  a |
-        |  2 |    |
+        | id |   name    |
+        | -: | --------: |
+        | p1 | Ana Lopez |
+        | p2 |           |
         <BLANKLINE>
         %% daf rows=2; cols=2; keyfield=''; name=''
         <BLANKLINE>
@@ -1339,17 +1393,19 @@ def _from_csv_file(
         RuntimeError: The file cannot be read or parsed.
 
     Examples:
+        Write a CSV file of people, and read it:
+
         >>> import os, tempfile
-        >>> path = os.path.join(tempfile.mkdtemp(), 'x.csv')
+        >>> path = os.path.join(tempfile.mkdtemp(), 'people.csv')
         >>> with open(path, 'w') as f:
-        ...     n = f.write('id,v\n1,a\n')
+        ...     n = f.write('id,name,age\np1,Ana Lopez,34\n')
         >>> Daf.from_csv_file(path)
         <BLANKLINE>
-        | id | v  |
-        | -: | -: |
-        |  1 |  a |
+        | id |   name    | age |
+        | -: | --------: | --: |
+        | p1 | Ana Lopez |  34 |
         <BLANKLINE>
-        %% daf rows=1; cols=2; keyfield=''; name=''
+        %% daf rows=1; cols=3; keyfield=''; name=''
         <BLANKLINE>
 
         The options are those of `from_csv_buff()`, which has an example of each. Here a file with a
@@ -1423,14 +1479,16 @@ def _to_csv_file(
         The path that was written.
 
     Examples:
+        Write a small Daf of people to a CSV file:
+
         >>> import os, tempfile
-        >>> path = os.path.join(tempfile.mkdtemp(), 'x.csv')
-        >>> daf = Daf(lol=[[1, 'a']], cols=['id', 'v'])
+        >>> path = os.path.join(tempfile.mkdtemp(), 'people.csv')
+        >>> daf = Daf(cols=['id', 'name'], lol=[['p1', 'Ana Lopez']])
         >>> daf
         <BLANKLINE>
-        | id | v  |
-        | -: | -: |
-        |  1 |  a |
+        | id |   name    |
+        | -: | --------: |
+        | p1 | Ana Lopez |
         <BLANKLINE>
         %% daf rows=1; cols=2; keyfield=''; name=''
         <BLANKLINE>
@@ -1488,19 +1546,24 @@ def _to_csv_buff(
         The CSV text.
 
     Examples:
-        >>> daf = Daf(lol=[[1, 'a']], cols=['id', 'v'])
+        Make CSV text from a small Daf of people:
+
+        >>> daf = Daf(cols=['id', 'name'], lol=[['p1', 'Ana Lopez']])
         >>> daf
         <BLANKLINE>
-        | id | v  |
-        | -: | -: |
-        |  1 |  a |
+        | id |   name    |
+        | -: | --------: |
+        | p1 | Ana Lopez |
         <BLANKLINE>
         %% daf rows=1; cols=2; keyfield=''; name=''
         <BLANKLINE>
         >>> daf.to_csv_buff(line_terminator='\n')
-        'id,v\n1,a\n'
-        >>> Daf(lol=[[{1: 'a'}]], cols=['x']).to_csv_buff(line_terminator='\n')
-        "x\n{1: 'a'}\n"
+        'id,name\np1,Ana Lopez\n'
+
+        A dict in a cell is written as its text:
+
+        >>> Daf(cols=['prefs'], lol=[[{'news': 1}]]).to_csv_buff(line_terminator='\n')
+        "prefs\n{'news': 1}\n"
 
         Without the header line, and with another line ending:
 
@@ -1554,12 +1617,14 @@ def _buff_to_file(buff: T_buff, file_path: str | Path, fmt:str='.csv') -> str:
         The path that was written.
 
     Examples:
+        Write text to a file, and read it back:
+
         >>> import os, tempfile
-        >>> path = os.path.join(tempfile.mkdtemp(), 'x.csv')
-        >>> Daf.buff_to_file('id,v\n1,a\n', path) == path
+        >>> path = os.path.join(tempfile.mkdtemp(), 'people.csv')
+        >>> Daf.buff_to_file('id,name\np1,Ana Lopez\n', path) == path
         True
         >>> open(path).read()
-        'id,v\n1,a\n'
+        'id,name\np1,Ana Lopez\n'
     """
     # write_buff_to_fp() does str-only operations on file_path (.startswith('s3'), a regex
     # substitution) that would raise AttributeError on a real Path object -- str() it here
@@ -1609,12 +1674,17 @@ def _from_directory(
         The new Daf.
 
     Examples:
+        Make a folder with three files, one in a subfolder:
+
         >>> import os, tempfile
         >>> folder = tempfile.mkdtemp()
         >>> os.mkdir(os.path.join(folder, 'sub'))
         >>> for name in ('b.txt', 'a.csv', os.path.join('sub', 'c.csv')):
         ...     with open(os.path.join(folder, name), 'w') as f:
         ...         n = f.write('hello')
+
+        List every file, with its name and size, and then only some of them:
+
         >>> daf = Daf.from_directory(folder)
         >>> sorted(daf.col('basename')), daf.col('size')
         (['a.csv', 'b.txt', 'c.csv'], [5, 5, 5])
@@ -1783,13 +1853,15 @@ def _from_numpy(cls: 'type[Daf]', npa: Any, keyfield:str='', cols:T_la | None = 
         The new Daf.
 
     Examples:
+        Make a Daf from a numpy array, with column names:
+
         >>> import numpy as np
-        >>> Daf.from_numpy(np.array([[1, 2], [3, 4]]), cols=['a', 'b'])
+        >>> Daf.from_numpy(np.array([[1042, 34], [2071, 52]]), cols=['emp_no', 'age'])
         <BLANKLINE>
-        | a  | b  |
-        | -: | -: |
-        |  1 |  2 |
-        |  3 |  4 |
+        | emp_no | age |
+        | -----: | --: |
+        |   1042 |  34 |
+        |   2071 |  52 |
         <BLANKLINE>
         %% daf rows=2; cols=2; keyfield=''; name=''
         <BLANKLINE>
@@ -1797,9 +1869,9 @@ def _from_numpy(cls: 'type[Daf]', npa: Any, keyfield:str='', cols:T_la | None = 
         Give the keyfield and a name:
 
         >>> import numpy as np
-        >>> table = Daf.from_numpy(np.array([[1, 2], [3, 4]]), cols=['a', 'b'], keyfield='a', name='grid')
-        >>> table.name, table.select_record(3)
-        ('grid', {'a': 3, 'b': 4})
+        >>> table = Daf.from_numpy(np.array([[1042, 34], [2071, 52]]), cols=['emp_no', 'age'], keyfield='emp_no', name='staff')
+        >>> table.name, table.select_record(2071)
+        ('staff', {'emp_no': 2071, 'age': 52})
     """
     """
         Convert a Numpy dataframe to daf object
@@ -1835,8 +1907,10 @@ def _to_numpy(self: 'Daf') -> T_npa:
         The NumPy array.
 
     Examples:
-        >>> Daf(lol=[[1, 2.5]], cols=['a', 'b']).to_numpy().tolist()
-        [[1.0, 2.5]]
+        Make a numpy array from a small Daf of orders:
+
+        >>> Daf(cols=['qty', 'amount'], lol=[[2, 25.0], [6, 24.5]]).to_numpy().tolist()
+        [[2.0, 25.0], [6.0, 24.5]]
     """
     """
         Convert the core array of a Daf object to numpy.
@@ -1866,7 +1940,7 @@ def _to_donpa(self: 'Daf', colnames: T_ls | None = None, default: Any = _MISSING
     Make a dict of NumPy arrays, one array for each column.
 
     This is a light form of a DataFrame. The arrays can be used in vector
-    operations, such as `donpa['D_pct'] = donpa['D_votes'] / donpa['RV_total']`.
+    operations, such as `donpa['margin'] = donpa['profit'] / donpa['cost']`.
     Each column gets its own type, so numbers and text can be mixed.
 
     Args:
@@ -1889,30 +1963,36 @@ def _to_donpa(self: 'Daf', colnames: T_ls | None = None, default: Any = _MISSING
             and also a `RuntimeError`.
 
     Examples:
-        >>> Daf(lol=[[1, 'a'], [2, 'b']], cols=['id', 'v']).to_donpa(['id'])['id'].tolist()
-        [1, 2]
-        >>> daf = Daf(lol=[[1, 5], [2, ''], [None, 7]], cols=['n', 'm'])
+        Make a dict of numpy arrays, one for each column named:
+
+        >>> Daf(cols=['id', 'qty'], lol=[['o1', 2], ['o2', 6]]).to_donpa(['qty'])['qty'].tolist()
+        [2, 6]
+
+        A column with an empty cell becomes a text array. A numeric `default` replaces each empty or
+        None cell, so the column stays numeric. The Daf is not changed:
+
+        >>> daf = Daf(cols=['qty', 'amount'], lol=[[2, 25.0], [6, ''], [None, 30.5]])
         >>> daf
         <BLANKLINE>
-        |  n   | m  |
-        | ---: | -: |
-        |    1 |  5 |
-        |    2 |    |
-        | None |  7 |
+        | qty  | amount |
+        | ---: | -----: |
+        |    2 |   25.0 |
+        |    6 |        |
+        | None |   30.5 |
         <BLANKLINE>
         %% daf rows=3; cols=2; keyfield=''; name=''
         <BLANKLINE>
-        >>> daf.to_donpa(['m'])['m'].tolist()
-        ['5', '', '7']
-        >>> daf.to_donpa(['n', 'm'], default=0)['m'].tolist()
-        [5, 0, 7]
+        >>> daf.to_donpa(['amount'])['amount'].tolist()
+        ['25.0', '', '30.5']
+        >>> daf.to_donpa(['qty', 'amount'], default=0)['amount'].tolist()
+        [25.0, 0.0, 30.5]
         >>> daf
         <BLANKLINE>
-        |  n   | m  |
-        | ---: | -: |
-        |    1 |  5 |
-        |    2 |    |
-        | None |  7 |
+        | qty  | amount |
+        | ---: | -----: |
+        |    2 |   25.0 |
+        |    6 |        |
+        | None |   30.5 |
         <BLANKLINE>
         %% daf rows=3; cols=2; keyfield=''; name=''
         <BLANKLINE>
@@ -1965,6 +2045,8 @@ def _from_googlesheet(cls: 'type[Daf]', spreadsheet_id: str, sheetname: str = 'S
         NotImplementedError: Always.
 
     Examples:
+        Read a Google Sheet. This needs the network and a key file, so it is not run here:
+
         >>> Daf.from_googlesheet('some-id', service_account_file='key.json')
         Traceback (most recent call last):
             ...
@@ -1989,6 +2071,8 @@ def _to_googlesheet(self: 'Daf', spreadsheet_id: str, sheetname: str = 'Sheet1',
         NotImplementedError: Always.
 
     Examples:
+        Write to a Google Sheet. This needs the network and a key file, so it is not run here:
+
         >>> Daf(cols=['x'], lol=[[1]]).to_googlesheet('some-id', service_account_file='key.json')
         Traceback (most recent call last):
             ...
@@ -2018,13 +2102,15 @@ def _to_json(self: 'Daf', concise: bool=True) -> str:
         The JSON text.
 
     Examples:
-        >>> Daf(lol=[[1]], cols=['a']).to_json()
-        '{"lol": [[1]], "hd": {"a": 0}}'
+        Make JSON text of a small Daf, leaving out the parts that are empty:
+
+        >>> Daf(cols=['age'], lol=[[34]]).to_json()
+        '{"lol": [[34]], "hd": {"age": 0}}'
 
         With `concise=False`, the empty parts are written too:
 
-        >>> Daf(cols=['a'], lol=[[1]]).to_json(concise=False)
-        '{"name": "", "lol": [[1]], "hd": {"a": 0}, "dtypes": {}, "keyfield": "", "attrs": {}, "disp_cols": []}'
+        >>> Daf(cols=['age'], lol=[[34]]).to_json(concise=False)
+        '{"name": "", "lol": [[34]], "hd": {"age": 0}, "dtypes": {}, "keyfield": "", "attrs": {}, "disp_cols": []}'
     """
     # Convert data types to string representations, rather than type objects.
     #   isinstance(v, type) -- Checks if the value is a Python type object (int, float, str, etc.).
@@ -2070,15 +2156,20 @@ def _from_json(cls: 'type[Daf]', json_str: str) -> 'Daf':
         The new Daf.
 
     Examples:
-        >>> daf = Daf(lol=[[1, 'a']], cols=['id', 'v'], keyfield='id')
+        Create a small Daf of people:
+
+        >>> daf = Daf(cols=['id', 'name'], lol=[['p1', 'Ana Lopez']], keyfield='id')
         >>> daf
         <BLANKLINE>
-        | id | v  |
-        | -: | -: |
-        |  1 |  a |
+        | id |   name    |
+        | -: | --------: |
+        | p1 | Ana Lopez |
         <BLANKLINE>
         %% daf rows=1; cols=2; keyfield='id'; name=''
         <BLANKLINE>
+
+        Write it as JSON, and read it back as an equal Daf:
+
         >>> Daf.from_json(daf.to_json()) == daf
         True
     """
@@ -2123,19 +2214,24 @@ def _to_value(self: 'Daf',
         ValueError: The Daf is not one cell and no default is given.
 
     Examples:
-        >>> daf = Daf(lol=[[1, 'a', 10], [2, 'b', 20], [3, 'c', 30]], cols=['id', 'v', 'n'], keyfield='id')
+        Create a small Daf of people:
+
+        >>> daf = Daf(cols=['id', 'city', 'age'], lol=[[1, 'Denver', 34], [2, 'Austin', 52], [3, 'Boston', 27]], keyfield='id')
         >>> daf
         <BLANKLINE>
-        | id | v  | n  |
-        | -: | -: | -: |
-        |  1 |  a | 10 |
-        |  2 |  b | 20 |
-        |  3 |  c | 30 |
+        | id |  city  | age |
+        | -: | -----: | --: |
+        |  1 | Denver |  34 |
+        |  2 | Austin |  52 |
+        |  3 | Boston |  27 |
         <BLANKLINE>
         %% daf rows=3; cols=3; keyfield='id'; name=''
         <BLANKLINE>
-        >>> daf[1, 'n'].to_value()
-        20
+
+        Select one cell, and read it as a value:
+
+        >>> daf[1, 'age'].to_value()
+        52
 
         Convert the value with `astype`, here from text:
 
@@ -2190,40 +2286,45 @@ def _to_list(self: 'Daf',
         ValueError: The Daf has more than one row and more than one column.
 
     Examples:
-        >>> daf = Daf(lol=[[1, 'a', 10], [2, 'b', 20], [3, 'c', 30]], cols=['id', 'v', 'n'], keyfield='id')
+        Create a small Daf of people:
+
+        >>> daf = Daf(cols=['id', 'city', 'age'], lol=[[1, 'Denver', 34], [2, 'Austin', 52], [3, 'Boston', 27]], keyfield='id')
         >>> daf
         <BLANKLINE>
-        | id | v  | n  |
-        | -: | -: | -: |
-        |  1 |  a | 10 |
-        |  2 |  b | 20 |
-        |  3 |  c | 30 |
+        | id |  city  | age |
+        | -: | -----: | --: |
+        |  1 | Denver |  34 |
+        |  2 | Austin |  52 |
+        |  3 | Boston |  27 |
         <BLANKLINE>
         %% daf rows=3; cols=3; keyfield='id'; name=''
         <BLANKLINE>
-        >>> daf[:, 'v'].to_list()
-        ['a', 'b', 'c']
+
+        Read one column, or one row, as a list:
+
+        >>> daf[:, 'city'].to_list()
+        ['Denver', 'Austin', 'Boston']
         >>> daf[1].to_list()
-        [2, 'b', 20]
+        [2, 'Austin', 52]
 
         The options, on a column whose cells hold lists, with one empty cell:
 
-        >>> tags = Daf(cols=['tags'], lol=[[['a', 'b']], [''], [['b', 'c']]])
+        >>> tags = Daf(cols=['tags'], lol=[[['chess', 'hiking']], [''], [['hiking', 'jazz']]])
         >>> tags.to_list()
-        [['a', 'b'], '', ['b', 'c']]
+        [['chess', 'hiking'], '', ['hiking', 'jazz']]
         >>> tags.to_list(flatten=True)
-        ['a', 'b', '', 'b', 'c']
+        ['chess', 'hiking', '', 'hiking', 'jazz']
         >>> tags.to_list(flatten=True, unique=True)
-        ['a', 'b', '', 'c']
+        ['chess', 'hiking', '', 'jazz']
         >>> tags.to_list(omit_nulls=True)
-        [['a', 'b'], ['b', 'c']]
+        [['chess', 'hiking'], ['hiking', 'jazz']]
         >>> tags.to_list(default=None)
-        [['a', 'b'], None, ['b', 'c']]
+        [['chess', 'hiking'], None, ['hiking', 'jazz']]
 
         Convert each value with `astype`:
 
-        >>> Daf(cols=['n'], lol=[['1'], ['2']]).to_list(astype=int)
-        [1, 2]
+        >>> Daf(cols=['age'], lol=[['34'], ['52']]).to_list(astype=int)
+        [34, 52]
     """
     """ return data from a daf array as a list
             defaults to the most obvious list if irow and icol not specified.
@@ -2290,8 +2391,10 @@ def _to_lota(self: 'Daf',
         The rows as tuples.
 
     Examples:
-        >>> Daf(lol=[[1, 'a'], [2, 'b']], cols=['id', 'v']).to_lota()
-        [(1, 'a'), (2, 'b')]
+        Make a list of tuples, one for each row:
+
+        >>> Daf(cols=['id', 'name'], lol=[['p1', 'Ana Lopez'], ['p2', 'Ben Okafor']]).to_lota()
+        [('p1', 'Ana Lopez'), ('p2', 'Ben Okafor')]
     """
     """ return data from a daf array as a list of tuple of any (List[Tuple[Any...]])
             This is convenient for creating compound keys
@@ -2324,19 +2427,24 @@ def _to_dict(self: 'Daf',
         ValueError: The Daf has more than one row.
 
     Examples:
-        >>> daf = Daf(lol=[[1, 'a', 10], [2, 'b', 20], [3, 'c', 30]], cols=['id', 'v', 'n'], keyfield='id')
+        Create a small Daf of people:
+
+        >>> daf = Daf(cols=['id', 'city', 'age'], lol=[[1, 'Denver', 34], [2, 'Austin', 52], [3, 'Boston', 27]], keyfield='id')
         >>> daf
         <BLANKLINE>
-        | id | v  | n  |
-        | -: | -: | -: |
-        |  1 |  a | 10 |
-        |  2 |  b | 20 |
-        |  3 |  c | 30 |
+        | id |  city  | age |
+        | -: | -----: | --: |
+        |  1 | Denver |  34 |
+        |  2 | Austin |  52 |
+        |  3 | Boston |  27 |
         <BLANKLINE>
         %% daf rows=3; cols=3; keyfield='id'; name=''
         <BLANKLINE>
+
+        Select one row, and read it as a dict:
+
         >>> daf[1].to_dict()
-        {'id': 2, 'v': 'b', 'n': 20}
+        {'id': 2, 'city': 'Austin', 'age': 52}
     """
     """ alias for iloc
             Note that this does not convert a column to a dict. Use to_list to convert a column.
@@ -2366,18 +2474,23 @@ def _to_klist(self: 'Daf', irow: int=0) -> KeyedList:
         IndexError: The position is out of range, for a Daf that has rows.
 
     Examples:
-        >>> daf = Daf(lol=[[1, 'a', 10], [2, 'b', 20], [3, 'c', 30]], cols=['id', 'v', 'n'], keyfield='id')
+        Create a small Daf of people:
+
+        >>> daf = Daf(cols=['id', 'city', 'age'], lol=[[1, 'Denver', 34], [2, 'Austin', 52], [3, 'Boston', 27]], keyfield='id')
         >>> daf
         <BLANKLINE>
-        | id | v  | n  |
-        | -: | -: | -: |
-        |  1 |  a | 10 |
-        |  2 |  b | 20 |
-        |  3 |  c | 30 |
+        | id |  city  | age |
+        | -: | -----: | --: |
+        |  1 | Denver |  34 |
+        |  2 | Austin |  52 |
+        |  3 | Boston |  27 |
         <BLANKLINE>
         %% daf rows=3; cols=3; keyfield='id'; name=''
         <BLANKLINE>
-        >>> daf.to_klist(1)['v']
-        'b'
+
+        Read the row at position 1 as a KeyedList, and one value from it by name:
+
+        >>> daf.to_klist(1)['city']
+        'Austin'
     """
     return cast(KeyedList, self.iloc(irow, rtype='klist'))
