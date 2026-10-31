@@ -49,21 +49,21 @@ def _daf_valuecount(
         not in `cols` is empty.
 
     Examples:
-        The table used in the examples:
+        Create a small Daf of customers, with their city and plan. One plan is not known:
 
-        >>> daf = Daf(cols=['precinct', 'party'], lol=[
-        ...     ['P1', 'R'], ['P1', 'D'], ['P2', 'D'], ['P2', ''],
-        ...     ['P1', 'D'], ['P2', 'R'], ['P2', 'R'], ['P1', 'D']])
+        >>> daf = Daf(cols=['city', 'plan'], lol=[
+        ...     ['Denver', 'pro'], ['Denver', 'basic'], ['Austin', 'basic'], ['Austin', ''],
+        ...     ['Denver', 'basic'], ['Austin', 'pro'], ['Austin', 'pro'], ['Denver', 'basic']])
 
         Every column:
 
         >>> daf.daf_valuecount()
-        {'precinct': {'P1': 4, 'P2': 4}, 'party': {'R': 3, 'D': 4, '': 1}}
+        {'city': {'Denver': 4, 'Austin': 4}, 'plan': {'pro': 3, 'basic': 4, '': 1}}
 
         One column. The others are in the result, with NULL, the empty string:
 
-        >>> daf.daf_valuecount(cols=['party'])
-        {'precinct': '', 'party': {'R': 3, 'D': 4, '': 1}}
+        >>> daf.daf_valuecount(cols=['plan'])
+        {'city': '', 'plan': {'pro': 3, 'basic': 4, '': 1}}
     """
 
     # by='row' (the default, and the only mode exercised) always reduces to a single record.
@@ -95,44 +95,44 @@ def _valuecounts_for_colname(
         A dict that maps each value to its count.
 
     Examples:
-        The table used in the examples, of ballots by precinct and party. One ballot has no party:
+        Create a small Daf of customers, with their city and plan. One plan is not known:
 
-        >>> daf = Daf(cols=['precinct', 'party'], lol=[
-        ...     ['P1', 'R'], ['P1', 'D'], ['P2', 'D'], ['P2', ''],
-        ...     ['P1', 'D'], ['P2', 'R'], ['P2', 'R'], ['P1', 'D']])
+        >>> daf = Daf(cols=['city', 'plan'], lol=[
+        ...     ['Denver', 'pro'], ['Denver', 'basic'], ['Austin', 'basic'], ['Austin', ''],
+        ...     ['Denver', 'basic'], ['Austin', 'pro'], ['Austin', 'pro'], ['Denver', 'basic']])
         >>> daf
         <BLANKLINE>
-        | precinct | party |
-        | -------: | ----: |
-        |       P1 |     R |
-        |       P1 |     D |
-        |       P2 |     D |
-        |       P2 |       |
-        |       P1 |     D |
-        |       P2 |     R |
-        |       P2 |     R |
-        |       P1 |     D |
+        |  city  | plan  |
+        | -----: | ----: |
+        | Denver |   pro |
+        | Denver | basic |
+        | Austin | basic |
+        | Austin |       |
+        | Denver | basic |
+        | Austin |   pro |
+        | Austin |   pro |
+        | Denver | basic |
         <BLANKLINE>
         %% daf rows=8; cols=2; keyfield=''; name=''
         <BLANKLINE>
 
         The values come in the order first seen. The empty cell is counted as `''`:
 
-        >>> daf.valuecounts_for_colname('party')
-        {'R': 3, 'D': 4, '': 1}
+        >>> daf.valuecounts_for_colname('plan')
+        {'pro': 3, 'basic': 4, '': 1}
 
         With `sort=True`, the most common value comes first. With `reverse=False` as well, the least
         common does:
 
-        >>> daf.valuecounts_for_colname('party', sort=True)
-        {'D': 4, 'R': 3, '': 1}
-        >>> daf.valuecounts_for_colname('party', sort=True, reverse=False)
-        {'': 1, 'R': 3, 'D': 4}
+        >>> daf.valuecounts_for_colname('plan', sort=True)
+        {'basic': 4, 'pro': 3, '': 1}
+        >>> daf.valuecounts_for_colname('plan', sort=True, reverse=False)
+        {'': 1, 'pro': 3, 'basic': 4}
 
         Leave out the empty cells:
 
-        >>> daf.valuecounts_for_colname('party', omit_nulls=True)
-        {'R': 3, 'D': 4}
+        >>> daf.valuecounts_for_colname('plan', omit_nulls=True)
+        {'pro': 3, 'basic': 4}
 
         A column that does not exist gives an empty dict, with no error:
 
@@ -186,21 +186,21 @@ def _valuecounts_for_colnames_ls(
         A dict that maps each column to a dict of value and count.
 
     Examples:
-        The table used in the examples:
+        Create a small Daf of customers, with their city and plan. One plan is not known:
 
-        >>> daf = Daf(cols=['precinct', 'party'], lol=[
-        ...     ['P1', 'R'], ['P1', 'D'], ['P2', 'D'], ['P2', ''],
-        ...     ['P1', 'D'], ['P2', 'R'], ['P2', 'R'], ['P1', 'D']])
+        >>> daf = Daf(cols=['city', 'plan'], lol=[
+        ...     ['Denver', 'pro'], ['Denver', 'basic'], ['Austin', 'basic'], ['Austin', ''],
+        ...     ['Denver', 'basic'], ['Austin', 'pro'], ['Austin', 'pro'], ['Denver', 'basic']])
 
         Every column, with no list given:
 
         >>> daf.valuecounts_for_colnames_ls()
-        {'precinct': {'P1': 4, 'P2': 4}, 'party': {'R': 3, 'D': 4, '': 1}}
+        {'city': {'Denver': 4, 'Austin': 4}, 'plan': {'pro': 3, 'basic': 4, '': 1}}
 
         Some columns, each sorted with the most common first, and without the empty cells:
 
-        >>> daf.valuecounts_for_colnames_ls(['party'], sort=True, omit_nulls=True)
-        {'party': {'D': 4, 'R': 3}}
+        >>> daf.valuecounts_for_colnames_ls(['plan'], sort=True, omit_nulls=True)
+        {'plan': {'basic': 4, 'pro': 3}}
     """
 
     if not colnames_ls:
@@ -243,21 +243,21 @@ def _valuecounts_for_colname_selectedby_colname(
         A dict that maps each value to its count. It is empty if a column does not exist.
 
     Examples:
-        The table used in the examples:
+        Create a small Daf of customers, with their city and plan. One plan is not known:
 
-        >>> daf = Daf(cols=['precinct', 'party'], lol=[
-        ...     ['P1', 'R'], ['P1', 'D'], ['P2', 'D'], ['P2', ''],
-        ...     ['P1', 'D'], ['P2', 'R'], ['P2', 'R'], ['P1', 'D']])
+        >>> daf = Daf(cols=['city', 'plan'], lol=[
+        ...     ['Denver', 'pro'], ['Denver', 'basic'], ['Austin', 'basic'], ['Austin', ''],
+        ...     ['Denver', 'basic'], ['Austin', 'pro'], ['Austin', 'pro'], ['Denver', 'basic']])
 
-        Count the parties in precinct P1 only:
+        Count the plans in Denver only:
 
-        >>> daf.valuecounts_for_colname_selectedby_colname('party', 'precinct', 'P1')
-        {'R': 1, 'D': 3}
+        >>> daf.valuecounts_for_colname_selectedby_colname('plan', 'city', 'Denver')
+        {'pro': 1, 'basic': 3}
 
         The same, sorted with the most common first:
 
-        >>> daf.valuecounts_for_colname_selectedby_colname('party', 'precinct', 'P1', sort=True)
-        {'D': 3, 'R': 1}
+        >>> daf.valuecounts_for_colname_selectedby_colname('plan', 'city', 'Denver', sort=True)
+        {'basic': 3, 'pro': 1}
     """
 
 
@@ -298,7 +298,7 @@ def _valuecounts_for_colnames_ls_selectedby_colname(
     Count the values of several columns, in the rows where another column has a value.
 
     It is `valuecounts_for_colname_selectedby_colname()` for several columns at once. Use it for a
-    profile of one group, such as the parties and the ways of voting in one precinct.
+    profile of one group, such as the plans and company sizes of the customers in one city.
 
     Args:
         colnames_ls: The columns to count. All if None.
@@ -311,21 +311,21 @@ def _valuecounts_for_colnames_ls_selectedby_colname(
         A dict that maps each column to a dict of value and count.
 
     Examples:
-        The table used in the examples, with a column for how each ballot was cast:
+        Create a small Daf of customers, with their city, plan and size of company:
 
-        >>> daf = Daf(cols=['precinct', 'party', 'how'], lol=[
-        ...     ['P1', 'R', 'poll'], ['P1', 'D', 'mail'], ['P2', 'D', 'poll'], ['P2', '', 'poll'],
-        ...     ['P1', 'D', 'mail'], ['P2', 'R', 'mail'], ['P2', 'R', 'mail'], ['P1', 'D', 'mail']])
+        >>> daf = Daf(cols=['city', 'plan', 'size'], lol=[
+        ...     ['Denver', 'pro', 'small'], ['Denver', 'basic', 'large'], ['Austin', 'basic', 'small'], ['Austin', '', 'small'],
+        ...     ['Denver', 'basic', 'large'], ['Austin', 'pro', 'large'], ['Austin', 'pro', 'large'], ['Denver', 'basic', 'large']])
 
-        Count two columns, in precinct P2 only:
+        Count two columns, in Austin only:
 
-        >>> daf.valuecounts_for_colnames_ls_selectedby_colname(['party', 'how'], 'precinct', 'P2')
-        {'party': {'D': 1, '': 1, 'R': 2}, 'how': {'poll': 2, 'mail': 2}}
+        >>> daf.valuecounts_for_colnames_ls_selectedby_colname(['plan', 'size'], 'city', 'Austin')
+        {'plan': {'basic': 1, '': 1, 'pro': 2}, 'size': {'small': 2, 'large': 2}}
 
         With each count sorted, the most common first:
 
-        >>> daf.valuecounts_for_colnames_ls_selectedby_colname(['party', 'how'], 'precinct', 'P2', sort=True)
-        {'party': {'R': 2, 'D': 1, '': 1}, 'how': {'poll': 2, 'mail': 2}}
+        >>> daf.valuecounts_for_colnames_ls_selectedby_colname(['plan', 'size'], 'city', 'Austin', sort=True)
+        {'plan': {'pro': 2, 'basic': 1, '': 1}, 'size': {'small': 2, 'large': 2}}
     """
 
 
@@ -372,28 +372,28 @@ def _valuecounts_for_colname1_groupedby_colname2(
         A dict that maps each value of the second column to a dict of value and count.
 
     Examples:
-        The table used in the examples:
+        Create a small Daf of customers, with their city and plan. One plan is not known:
 
-        >>> daf = Daf(cols=['precinct', 'party'], lol=[
-        ...     ['P1', 'R'], ['P1', 'D'], ['P2', 'D'], ['P2', ''],
-        ...     ['P1', 'D'], ['P2', 'R'], ['P2', 'R'], ['P1', 'D']])
+        >>> daf = Daf(cols=['city', 'plan'], lol=[
+        ...     ['Denver', 'pro'], ['Denver', 'basic'], ['Austin', 'basic'], ['Austin', ''],
+        ...     ['Denver', 'basic'], ['Austin', 'pro'], ['Austin', 'pro'], ['Denver', 'basic']])
 
-        The parties counted in each precinct:
+        The plans counted in each city:
 
-        >>> daf.valuecounts_for_colname1_groupedby_colname2('party', 'precinct')
-        {'P1': {'R': 1, 'D': 3}, 'P2': {'D': 1, '': 1, 'R': 2}}
+        >>> daf.valuecounts_for_colname1_groupedby_colname2('plan', 'city')
+        {'Denver': {'pro': 1, 'basic': 3}, 'Austin': {'basic': 1, '': 1, 'pro': 2}}
 
         The same, with each count sorted, the most common first:
 
-        >>> daf.valuecounts_for_colname1_groupedby_colname2('party', 'precinct', sort=True)
-        {'P1': {'D': 3, 'R': 1}, 'P2': {'R': 2, 'D': 1, '': 1}}
+        >>> daf.valuecounts_for_colname1_groupedby_colname2('plan', 'city', sort=True)
+        {'Denver': {'basic': 3, 'pro': 1}, 'Austin': {'pro': 2, 'basic': 1, '': 1}}
 
-        To check that one column depends on another, count it by the other. Here each style belongs to
-        one precinct, so each precinct shows one style:
+        To check that one column depends on another, count it by the other. Here each zip code belongs to
+        one city, so each city shows one zip code:
 
-        >>> styles = Daf(cols=['precinct', 'style'], lol=[['P1', 's1'], ['P2', 's2'], ['P1', 's1']])
-        >>> styles.valuecounts_for_colname1_groupedby_colname2('style', 'precinct')
-        {'P1': {'s1': 2}, 'P2': {'s2': 1}}
+        >>> zips_daf = Daf(cols=['city', 'zip'], lol=[['Denver', '80202'], ['Austin', '73301'], ['Denver', '80202']])
+        >>> zips_daf.valuecounts_for_colname1_groupedby_colname2('zip', 'city')
+        {'Denver': {'80202': 2}, 'Austin': {'73301': 1}}
     """
 
 
@@ -449,42 +449,42 @@ def _gen_stats_daf(self: 'Daf', col_def_lot: T_lota) -> T_doda:
         NotImplementedError: A profile is not one of the five.
 
     Examples:
-        The table used in the examples, of ballots, their precinct and a count:
+        Create a small Daf of orders, with their city and quantity. One order number repeats:
 
-        >>> daf = Daf(cols=['ballot', 'precinct', 'n'], lol=[['b1', 'P1', 3], ['b2', 'P1', 5], ['b2', 'P2', 10]])
+        >>> daf = Daf(cols=['order', 'city', 'qty'], lol=[['o1', 'Denver', 3], ['o2', 'Denver', 5], ['o2', 'Austin', 10]])
 
         Each profile measures something else. The result is a dict for each column, with many entries.
         These examples pick out the main ones.
 
         An `index` column should not repeat. `num_within_reps` counts the repeats.
         `within_reps_loti` lists each repeat as `(0, row)`, where row is its position. The first
-        time a value appears is not listed. Here b2 at row 2 repeats b2 at row 1:
+        time a value appears is not listed. Here o2 at row 2 repeats o2 at row 1:
 
-        >>> stats = daf.gen_stats_daf([('ballot', str, '', 'index')])['ballot']
+        >>> stats = daf.gen_stats_daf([('order', str, '', 'index')])['order']
         >>> stats['num_uniques'], stats['num_within_reps'], stats['within_reps_loti']
         (2, 1, [(0, 2)])
 
         An `attrib` column is counted by value:
 
-        >>> daf.gen_stats_daf([('precinct', str, '', 'attrib')])['precinct']['val_counts']
-        {'P1': 2, 'P2': 1}
+        >>> daf.gen_stats_daf([('city', str, '', 'attrib')])['city']['val_counts']
+        {'Denver': 2, 'Austin': 1}
 
         A `scalar` column gives its range, mean and standard deviation:
 
-        >>> stats = daf.gen_stats_daf([('n', int, '', 'scalar')])['n']
+        >>> stats = daf.gen_stats_daf([('qty', int, '', 'scalar')])['qty']
         >>> stats['min'], stats['max'], stats['mean'], round(stats['stdev'], 2)
         (3, 10, 6, 3.61)
 
         A `localidx` column holds whole numbers, and says whether they run in sequence:
 
-        >>> stats = daf.gen_stats_daf([('n', int, '', 'localidx')])['n']
+        >>> stats = daf.gen_stats_daf([('qty', int, '', 'localidx')])['qty']
         >>> stats['all_ints'], stats['sequential']
         (True, False)
 
         Several columns at once, each with its own profile:
 
-        >>> sorted(daf.gen_stats_daf([('precinct', str, '', 'attrib'), ('n', int, '', 'scalar')]))
-        ['n', 'precinct']
+        >>> sorted(daf.gen_stats_daf([('city', str, '', 'attrib'), ('qty', int, '', 'scalar')]))
+        ['city', 'qty']
     """
 
     info_dod = {}
@@ -519,18 +519,20 @@ def _md_daf_table_snippet(
         The Markdown text.
 
     Examples:
-        >>> daf = Daf(lol=[[1, 'a'], [2, 'b']], cols=['x', 'y'])
+        Create a small Daf of people, and show it as a short Markdown table with its summary line:
+
+        >>> daf = Daf(cols=['id', 'name', 'age'], lol=[['p1', 'Ana Lopez', 34], ['p2', 'Ben Okafor', 52]])
         >>> print(daf.md_daf_table_snippet(), end='')
-        | x  | y  |
-        | -: | -: |
-        |  1 |  a |
-        |  2 |  b |
+        | id |    name    | age |
+        | -: | ---------: | --: |
+        | p1 |  Ana Lopez |  34 |
+        | p2 | Ben Okafor |  52 |
         <BLANKLINE>
-        %% daf rows=2; cols=2; keyfield=''; name=''
+        %% daf rows=2; cols=3; keyfield=''; name=''
 
         An empty Daf has no rows and no columns, so only the summary line shows. This is so even if it has column names:
 
-        >>> Daf(cols=['x', 'y'])
+        >>> Daf(cols=['id', 'name', 'age'])
         <BLANKLINE>
         <BLANKLINE>
         %% daf rows=0; cols=0; keyfield=''; name=''
@@ -605,7 +607,7 @@ def _to_md(
         The Markdown text, ending with a newline.
 
     Examples:
-        The table used in the examples:
+        Create a small Daf of items for sale, with a price and a note. Some notes are long:
 
         >>> daf = Daf(cols=['id', 'item', 'price', 'note'], keyfield='id', lol=[
         ...     ['a1', 'pen', 1.5, 'blue, fine tip'],
@@ -613,6 +615,9 @@ def _to_md(
         ...     ['c3', 'pad', 2.25, 'lined, 80 sheets of recycled paper'],
         ...     ['d4', 'cap', 0.333333, 'red'],
         ...     ['e5', 'tag', 10.0, 'paper']])
+
+        Make a Markdown table of every row and column:
+
         >>> print(daf.to_md())
         | id | item |  price   |                note                |
         | -: | ---: | -------: | ---------------------------------: |
@@ -807,7 +812,7 @@ def _to_md_cols(
         The Markdown text.
 
     Examples:
-        The table used in the examples:
+        Create a small Daf of items for sale, with a price and a note:
 
         >>> daf = Daf(cols=['id', 'item', 'price', 'note'], lol=[
         ...     ['a1', 'pen', 1.5, 'blue, fine tip'],
@@ -898,7 +903,7 @@ def _daf_to_lol_summary(
         The rows, with a header row first if there are column names.
 
     Examples:
-        The table used in the examples:
+        Create a small Daf of items in stock:
 
         >>> daf = Daf(cols=['id', 'item', 'qty'], lol=[['a1', 'pen', 3], ['b2', 'ink', 10], ['c3', 'pad', 7]])
 
@@ -1027,20 +1032,20 @@ def _value_counts_daf(self: 'Daf',
         The new Daf.
 
     Examples:
-        The table used in the examples:
+        Create a small Daf of customers, with their city and plan. One plan is not known:
 
-        >>> daf = Daf(cols=['precinct', 'party'], lol=[
-        ...     ['P1', 'R'], ['P1', 'D'], ['P2', 'D'], ['P2', ''],
-        ...     ['P1', 'D'], ['P2', 'R'], ['P2', 'R'], ['P1', 'D']])
+        >>> daf = Daf(cols=['city', 'plan'], lol=[
+        ...     ['Denver', 'pro'], ['Denver', 'basic'], ['Austin', 'basic'], ['Austin', ''],
+        ...     ['Denver', 'basic'], ['Austin', 'pro'], ['Austin', 'pro'], ['Denver', 'basic']])
 
         Each value and its count, in the order first seen:
 
-        >>> daf.value_counts_daf('party')
+        >>> daf.value_counts_daf('plan')
         <BLANKLINE>
-        | party | counts |
+        | plan  | counts |
         | ----: | -----: |
-        |     R |      3 |
-        |     D |      4 |
+        |   pro |      3 |
+        | basic |      4 |
         |       |      1 |
         <BLANKLINE>
         %% daf rows=3; cols=2; keyfield=''; name=''
@@ -1049,12 +1054,12 @@ def _value_counts_daf(self: 'Daf',
         Sorted with the most common first, without the empty cells, and with a total. The total's
         label is `**Total**`, which shows in bold in Markdown:
 
-        >>> daf.value_counts_daf('party', sort=True, omit_nulls=True, include_total=True)
+        >>> daf.value_counts_daf('plan', sort=True, omit_nulls=True, include_total=True)
         <BLANKLINE>
-        |   party   | counts |
+        |   plan    | counts |
         | --------: | -----: |
-        |         D |      4 |
-        |         R |      3 |
+        |     basic |      4 |
+        |       pro |      3 |
         | **Total** |      7 |
         <BLANKLINE>
         %% daf rows=3; cols=2; keyfield=''; name=''
@@ -1062,13 +1067,13 @@ def _value_counts_daf(self: 'Daf',
 
         With `reverse=False`, the least common comes first:
 
-        >>> daf.value_counts_daf('party', sort=True, reverse=False)
+        >>> daf.value_counts_daf('plan', sort=True, reverse=False)
         <BLANKLINE>
-        | party | counts |
+        | plan  | counts |
         | ----: | -----: |
         |       |      1 |
-        |     R |      3 |
-        |     D |      4 |
+        |   pro |      3 |
+        | basic |      4 |
         <BLANKLINE>
         %% daf rows=3; cols=2; keyfield=''; name=''
         <BLANKLINE>
