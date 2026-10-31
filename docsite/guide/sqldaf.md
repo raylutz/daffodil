@@ -101,47 +101,50 @@ named after the file. CSV values are loaded as text, as `Daf.from_csv()` reads t
 dtypes.
 
 Convert the number columns before filtering, sorting or adding them up. Until then, '12' is
-text, not the number 12, and a condition such as `n < 5` finds nothing. `apply_dtypes()`
+text, not the number 12, and a condition such as `age < 30` finds nothing. `apply_dtypes()`
 converts a column in the table itself. As with a Daf, name the columns to convert with
 `cols=`, or give a dtype for every column.
 
 ```pycon
->>> csv_path = os.path.join(os.path.dirname(SqlDaf.db_path), 'marks.csv')
->>> open(csv_path, 'w').write('ballot_id,n\nb1,3\nb2,12\nb3,7\n')
-28
->>> marks_sdaf = SqlDaf.from_csv(csv_path, keyfield='ballot_id')
->>> marks_sdaf
+>>> # Write a small CSV file of people, and load it into a SqlDaf table.
+>>> csv_path = os.path.join(os.path.dirname(SqlDaf.db_path), 'people.csv')
+>>> open(csv_path, 'w').write('id,age\np1,34\np2,52\np3,27\n')
+25
+>>> people_sdaf = SqlDaf.from_csv(csv_path, keyfield='id')
+>>> people_sdaf
 <BLANKLINE>
-| ballot_id | n  |
-| --------: | -: |
-|        b1 |  3 |
-|        b2 | 12 |
-|        b3 |  7 |
+| id | age |
+| -: | --: |
+| p1 |  34 |
+| p2 |  52 |
+| p3 |  27 |
 <BLANKLINE>
-%% daf rows=3; cols=2; keyfield='ballot_id'; name='marks'
+%% daf rows=3; cols=2; keyfield='id'; name='people'
 <BLANKLINE>
->>> marks_sdaf.select_where_sql('n < ?', [5])
+>>> # The ages are text, so a condition on numbers finds nothing.
+>>> people_sdaf.select_where_sql('age < ?', [30])
 <BLANKLINE>
 <BLANKLINE>
-%% daf rows=0; cols=2; keyfield='ballot_id'; name='daf_tmp_marks_v1'
+%% daf rows=0; cols=2; keyfield='id'; name='daf_tmp_people_v1'
 <BLANKLINE>
->>> marks_sdaf.apply_dtypes(dtypes={'n': int}, cols='n')
+>>> # Convert the ages to numbers, in the table itself. Then the condition works.
+>>> people_sdaf.apply_dtypes(dtypes={'age': int}, cols='age')
 <BLANKLINE>
-| ballot_id | n  |
-| --------: | -: |
-|        b1 |  3 |
-|        b2 | 12 |
-|        b3 |  7 |
+| id | age |
+| -: | --: |
+| p1 |  34 |
+| p2 |  52 |
+| p3 |  27 |
 <BLANKLINE>
-%% daf rows=3; cols=2; keyfield='ballot_id'; name='marks'
+%% daf rows=3; cols=2; keyfield='id'; name='people'
 <BLANKLINE>
->>> marks_sdaf.select_where_sql('n < ?', [5])
+>>> people_sdaf.select_where_sql('age < ?', [30])
 <BLANKLINE>
-| ballot_id | n  |
-| --------: | -: |
-|        b1 |  3 |
+| id | age |
+| -: | --: |
+| p3 |  27 |
 <BLANKLINE>
-%% daf rows=1; cols=2; keyfield='ballot_id'; name='daf_tmp_marks_v2'
+%% daf rows=1; cols=2; keyfield='id'; name='daf_tmp_people_v2'
 <BLANKLINE>
 ```
 
@@ -151,7 +154,7 @@ still hold some text.
 
 ### Many files into one table
 
-`from_csv()` also takes a glob pattern, such as `chunks/votes_*.csv`, or a list of files, and
+`from_csv()` also takes a glob pattern, such as `chunks/people_*.csv`, or a list of files, and
 loads them all into one table. By default every file must have the first file's header, or
 ValueError names both files. With `strict_header=False`, each value goes into the column of
 its name in the file's header. So files whose columns come in another order, or that lack a
@@ -159,17 +162,18 @@ column, load safely. A missing column is Python NULL. A name that only a later f
 becomes a new column, after the first file's.
 
 ```pycon
+>>> # Write two files of people, whose columns differ, and load them into one table by column name.
 >>> chunk_dir = os.path.dirname(SqlDaf.db_path)
->>> open(chunk_dir + '/v_0.csv', 'w').write('ballot_id,n\nb1,3\n')
-17
->>> open(chunk_dir + '/v_1.csv', 'w').write('n,ballot_id,note\n12,b2,late\n')
-28
->>> SqlDaf.from_csv(chunk_dir + '/v_*.csv', name='chunked', strict_header=False).to_daf()
+>>> open(chunk_dir + '/p_0.csv', 'w').write('id,age\np1,34\n')
+13
+>>> open(chunk_dir + '/p_1.csv', 'w').write('age,id,city\n52,p2,Denver\n')
+25
+>>> SqlDaf.from_csv(chunk_dir + '/p_*.csv', name='chunked', strict_header=False)
 <BLANKLINE>
-| ballot_id | n  | note |
-| --------: | -: | ---: |
-|        b1 |  3 |      |
-|        b2 | 12 | late |
+| id | age |  city  |
+| -: | --: | -----: |
+| p1 |  34 |        |
+| p2 |  52 | Denver |
 <BLANKLINE>
 %% daf rows=2; cols=3; keyfield=''; name='chunked'
 <BLANKLINE>
@@ -317,21 +321,23 @@ A dict cell stays as the text that a CSV file holds, as written by Python. Nothi
 it when it is stored. A reduction by `sparse_row` reads the text of each cell as it goes.
 
 ```pycon
->>> votes_sdaf = SqlDaf('votes', cols=['ballot_id', 'precinct', 'votes'], keyfield='ballot_id',
-...                     lol=[['b1', 'p1', "{'c1': 1}"], ['b2', 'p1', "{'c1': 1, 'c2': 1}"],
-...                          ['b3', 'p2', "{'c2': 1}"]])
->>> votes_sdaf
+>>> # Create a table of shopping carts. Each cart maps an item to how many were bought.
+>>> carts_sdaf = SqlDaf('carts', cols=['id', 'city', 'cart'], keyfield='id',
+...                     lol=[['c1', 'Denver', "{'apples': 3}"], ['c2', 'Denver', "{'apples': 5, 'pears': 2}"],
+...                          ['c3', 'Austin', "{'pears': 4}"]])
+>>> carts_sdaf
 <BLANKLINE>
-| ballot_id | precinct |       votes        |
-| --------: | -------: | -----------------: |
-|        b1 |       p1 |          {'c1': 1} |
-|        b2 |       p1 | {'c1': 1, 'c2': 1} |
-|        b3 |       p2 |          {'c2': 1} |
+| id |  city  |           cart            |
+| -: | -----: | ------------------------: |
+| c1 | Denver |             {'apples': 3} |
+| c2 | Denver | {'apples': 5, 'pears': 2} |
+| c3 | Austin |              {'pears': 4} |
 <BLANKLINE>
-%% daf rows=3; cols=3; keyfield='ballot_id'; name='votes'
+%% daf rows=3; cols=3; keyfield='id'; name='carts'
 <BLANKLINE>
->>> votes_sdaf.reduce(Daf.sum_da, by='sparse_row', indirect_col='votes')
-{'c1': 2, 'c2': 2}
+>>> # Total the items in all the carts. Each cart is a sparse row.
+>>> carts_sdaf.reduce(Daf.sum_da, indirect_col='cart')
+{'apples': 8, 'pears': 6}
 ```
 
 A reduction reads the rows in batches, so the table is never all in memory. Memory use still
@@ -343,11 +349,12 @@ depends on the result your function builds.
 so each group is found without a full scan of the table. The index stays with the table.
 
 ```pycon
->>> groups_klodaf = votes_sdaf.groupby('precinct')
+>>> # Group the carts by city, and read the keys of one group.
+>>> groups_klodaf = carts_sdaf.groupby('city')
 >>> list(groups_klodaf.keys())
-['p1', 'p2']
->>> groups_klodaf['p2'].to_daf().col('ballot_id')
-['b3']
+['Denver', 'Austin']
+>>> groups_klodaf['Denver'].col('id')
+['c1', 'c2']
 ```
 
 `groupsum_daf()` and the count methods do the work in SQLite and give a Daf with one row per
@@ -360,26 +367,27 @@ is brought in for the join, as [Tables in other files](#tables-in-other-files) s
 and the rows come as `Daf.join()` gives them. A cell with no match is Python NULL.
 
 ```pycon
->>> names_sdaf = SqlDaf('names', cols=['ballot_id', 'voter'], keyfield='ballot_id',
-...                     lol=[['b1', 'Ann'], ['b2', 'Bo']])
->>> names_sdaf
+>>> # Create a table of email addresses, and join it to the people, keeping every person.
+>>> emails_sdaf = SqlDaf('emails', cols=['id', 'email'], keyfield='id',
+...                      lol=[['p1', 'ana@example.com'], ['p2', 'ben@example.com']])
+>>> emails_sdaf
 <BLANKLINE>
-| ballot_id | voter |
-| --------: | ----: |
-|        b1 |   Ann |
-|        b2 |    Bo |
+| id |      email      |
+| -: | --------------: |
+| p1 | ana@example.com |
+| p2 | ben@example.com |
 <BLANKLINE>
-%% daf rows=2; cols=2; keyfield='ballot_id'; name='names'
+%% daf rows=2; cols=2; keyfield='id'; name='emails'
 <BLANKLINE>
->>> marks_sdaf.join(names_sdaf, how='left')
+>>> people_sdaf.join(emails_sdaf, how='left')
 <BLANKLINE>
-| ballot_id | n  | voter |
-| --------: | -: | ----: |
-|        b1 |  3 |   Ann |
-|        b2 | 12 |    Bo |
-|        b3 |  7 |       |
+| id | age |      email      |
+| -: | --: | --------------: |
+| p1 |  34 | ana@example.com |
+| p2 |  52 | ben@example.com |
+| p3 |  27 |                 |
 <BLANKLINE>
-%% daf rows=3; cols=3; keyfield='ballot_id'; name='daf_tmp_marks_join_names_v9'
+%% daf rows=3; cols=3; keyfield='id'; name='daf_tmp_people_join_emails_v9'
 <BLANKLINE>
 ```
 
@@ -500,26 +508,26 @@ deleted. A join never read loses its copy when it is gone, or when the file is c
 joins works the same way. The result is kept in a file of its own with `save(db_path=)`:
 
 ```pycon
+>>> # Create a table of staff here, and a table of pay in a file of its own.
 >>> job_dir = os.path.dirname(SqlDaf.db_path)
->>> ballots_sdaf = SqlDaf('ballots', cols=['ballot_id', 'qty'], keyfield='ballot_id',
-...                       lol=[['b1', 3], ['b2', 12], ['b3', 7]])
->>> voters_sdaf = SqlDaf('voters', db_path=job_dir + '/voters.db', keyfield='ballot_id',
-...                      cols=['ballot_id', 'voter'], lol=[['b1', 'Ann'], ['b3', 'Cy']])
->>> ballots_voters_sdaf = ballots_sdaf.join(voters_sdaf, how='left')
->>> ballots_voters_sdaf.save('ballots_voters', db_path=job_dir + '/ballots_voters.db')
+>>> staff_sdaf = SqlDaf('staff', cols=['id', 'name'], keyfield='id',
+...                     lol=[['s1', 'Ana Lopez'], ['s2', 'Ben Okafor'], ['s3', 'Chen Wu']])
+>>> pay_sdaf = SqlDaf('pay', db_path=job_dir + '/pay.db', keyfield='id',
+...                   cols=['id', 'salary'], lol=[['s1', 72000], ['s3', 58000]])
+>>> # Join them, and keep the result in a file of its own.
+>>> staff_pay_sdaf = staff_sdaf.join(pay_sdaf, how='left')
+>>> staff_pay_sdaf.save('staff_pay', db_path=job_dir + '/staff_pay.db')
 <BLANKLINE>
-| ballot_id | qty | voter |
-| --------: | --: | ----: |
-|        b1 |   3 |   Ann |
-|        b2 |  12 |       |
-|        b3 |   7 |    Cy |
+| id |    name    | salary |
+| -: | ---------: | -----: |
+| s1 |  Ana Lopez |  72000 |
+| s2 | Ben Okafor |        |
+| s3 |    Chen Wu |  58000 |
 <BLANKLINE>
-%% daf rows=3; cols=3; keyfield='ballot_id'; name='ballots_voters'
+%% daf rows=3; cols=3; keyfield='id'; name='staff_pay'
 <BLANKLINE>
-
-No copy is left on the connection:
-
->>> [row_t[0] for row_t in ballots_sdaf.conn.execute("SELECT name FROM sqlite_temp_master WHERE name LIKE '%voters%'")]
+>>> # No copy of the pay table is left on the connection.
+>>> [row_t[0] for row_t in staff_sdaf.conn.execute("SELECT name FROM sqlite_temp_master WHERE name LIKE '%pay%'")]
 []
 ```
 
@@ -571,54 +579,61 @@ SQL NULL, and reads and prints as NULL again. A dict or a list is stored as its 
 `str()` that `to_csv_file()` writes for it.
 
 ```pycon
->>> kinds_daf = Daf(cols=['id', 'n', 'x', 'ok', 'p', 'cv', 'ls'], keyfield='id', lol=[
-...     ['b1', 3, 2.5, 1, 'P1', {'c0': 1, 'c1': ''}, [1, 'two']],
-...     ['b2', '', '', 0, '', {}, []]])
+>>> # Create a Daf with a cell of each kind: int, float, bool, text, dict and list. The second row is mostly missing.
+>>> kinds_daf = Daf(cols=['id', 'age', 'height_m', 'member', 'city', 'prefs', 'tags'], keyfield='id', lol=[
+...     ['p1', 34, 1.68, 1, 'Denver', {'news': 1, 'phone': ''}, [7, 'blue']],
+...     ['p2', '', '', 0, '', {}, []]])
 >>> kinds_daf
 <BLANKLINE>
-| id | n  |  x  | ok | p  |         cv          |     ls     |
-| -: | -: | --: | -: | -: | ------------------: | ---------: |
-| b1 |  3 | 2.5 |  1 | P1 | {'c0': 1, 'c1': ''} | [1, 'two'] |
-| b2 |    |     |  0 |    |                  {} |         [] |
+| id | age | height_m | member |  city  |          prefs           |    tags     |
+| -: | --: | -------: | -----: | -----: | -----------------------: | ----------: |
+| p1 |  34 |     1.68 |      1 | Denver | {'news': 1, 'phone': ''} | [7, 'blue'] |
+| p2 |     |          |      0 |        |                       {} |          [] |
 <BLANKLINE>
 %% daf rows=2; cols=7; keyfield='id'; name=''
+<BLANKLINE>
+>>> # Write it into a SqlDaf table. It prints the same.
 >>> kinds_sdaf = SqlDaf.from_daf(kinds_daf, name='kinds')
 >>> kinds_sdaf
 <BLANKLINE>
-| id | n  |  x  | ok | p  |         cv          |     ls     |
-| -: | -: | --: | -: | -: | ------------------: | ---------: |
-| b1 |  3 | 2.5 |  1 | P1 | {'c0': 1, 'c1': ''} | [1, 'two'] |
-| b2 |    |     |  0 |    |                  {} |         [] |
+| id | age | height_m | member |  city  |          prefs           |    tags     |
+| -: | --: | -------: | -----: | -----: | -----------------------: | ----------: |
+| p1 |  34 |     1.68 |      1 | Denver | {'news': 1, 'phone': ''} | [7, 'blue'] |
+| p2 |     |          |      0 |        |                       {} |          [] |
 <BLANKLINE>
 %% daf rows=2; cols=7; keyfield='id'; name='kinds'
->>> kinds_sdaf.sql('SELECT id, typeof(n), typeof(x), typeof(ok), typeof(p), typeof(cv), typeof(ls) FROM kinds')
 <BLANKLINE>
-| id | typeof(n) | typeof(x) | typeof(ok) | typeof(p) | typeof(cv) | typeof(ls) |
-| -: | --------: | --------: | ---------: | --------: | ---------: | ---------: |
-| b1 |   integer |      real |    integer |      text |       text |       text |
-| b2 |      null |      null |    integer |      null |       text |       text |
+>>> # Ask SQLite what it holds in each cell.
+>>> kinds_sdaf.sql('SELECT id, typeof(age), typeof(height_m), typeof(member), typeof(city), typeof(prefs), typeof(tags) FROM kinds')
+<BLANKLINE>
+| id | typeof(age) | typeof(height_m) | typeof(member) | typeof(city) | typeof(prefs) | typeof(tags) |
+| -: | ----------: | ---------------: | -------------: | -----------: | ------------: | -----------: |
+| p1 |     integer |             real |        integer |         text |          text |         text |
+| p2 |        null |             null |        integer |         null |          text |         text |
 <BLANKLINE>
 %% daf rows=2; cols=7; keyfield=''; name=''
+<BLANKLINE>
 ```
 
 The table prints the same as the Daf. `typeof()` shows what SQLite holds. A NULL is SQL NULL, and
 the dict and list are text. Reading a row gives that text back:
 
 ```pycon
->>> kinds_sdaf.select_record('b1')
-{'id': 'b1', 'n': 3, 'x': 2.5, 'ok': 1, 'p': 'P1', 'cv': "{'c0': 1, 'c1': ''}", 'ls': "[1, 'two']"}
+>>> kinds_sdaf.select_record('p1')
+{'id': 'p1', 'age': 34, 'height_m': 1.68, 'member': 1, 'city': 'Denver', 'prefs': "{'news': 1, 'phone': ''}", 'tags': "[7, 'blue']"}
 ```
 
 With NULL stored as SQL NULL, SQL's own sums and counts skip it, as the Daf methods do:
 
 ```pycon
->>> kinds_sdaf.sql('SELECT SUM(n) AS sum_n, COUNT(n) AS count_n, AVG(x) AS avg_x FROM kinds')
+>>> kinds_sdaf.sql('SELECT SUM(age) AS sum_age, COUNT(age) AS count_age, AVG(height_m) AS avg_height FROM kinds')
 <BLANKLINE>
-| sum_n | count_n | avg_x |
-| ----: | ------: | ----: |
-|     3 |       1 |   2.5 |
+| sum_age | count_age | avg_height |
+| ------: | --------: | ---------: |
+|      34 |         1 |       1.68 |
 <BLANKLINE>
 %% daf rows=1; cols=3; keyfield=''; name=''
+<BLANKLINE>
 ```
 
 The text of a dict or list is daffodil's own form, with bools as 0 and 1 and missing values as
@@ -626,16 +641,18 @@ The text of a dict or list is daffodil's own form, with bools as 0 and 1 and mis
 function in `select_where()` or `apply()` gets it as text, and decodes it if it needs to:
 
 ```pycon
->>> kinds_sdaf.select_where_sql("json_extract(cv, '$.c0') = ?", [1]).keys()
-['b1']
->>> kinds_sdaf.sql("SELECT id, json_extract(cv, '$.c0') AS c0, json_extract(ls, '$[1]') AS ls1 FROM kinds")
+>>> # Select by a value inside the dict, and read a value inside the dict and the list.
+>>> kinds_sdaf.select_where_sql("json_extract(prefs, '$.news') = ?", [1]).keys()
+['p1']
+>>> kinds_sdaf.sql("SELECT id, json_extract(prefs, '$.news') AS news, json_extract(tags, '$[1]') AS tag1 FROM kinds")
 <BLANKLINE>
-| id | c0 | ls1 |
-| -: | -: | --: |
-| b1 |  1 | two |
-| b2 |    |     |
+| id | news | tag1 |
+| -: | ---: | ---: |
+| p1 |    1 | blue |
+| p2 |      |      |
 <BLANKLINE>
 %% daf rows=2; cols=3; keyfield=''; name=''
+<BLANKLINE>
 ```
 
 A table loaded from a CSV file starts as text, as a Daf read with `from_csv()` does. An empty
@@ -644,39 +661,44 @@ list dtype is recorded and converts nothing, since the text is the value. After 
 holds exactly what the direct write stored:
 
 ```pycon
+>>> # Write the Daf to a CSV file, and load the file into a SqlDaf table. Every cell starts as text.
 >>> csv_path = os.path.join(os.path.dirname(SqlDaf.db_path), 'kinds.csv')
 >>> kinds_daf.to_csv_file(csv_path)
 '.../kinds.csv'
 >>> print(open(csv_path).read())
-id,n,x,ok,p,cv,ls
-b1,3,2.5,1,P1,"{'c0': 1, 'c1': ''}","[1, 'two']"
-b2,,,0,,{},[]
->>> loaded_sdaf = SqlDaf.from_csv(csv_path, name='kinds_csv', keyfield='id')
->>> loaded_sdaf.sql('SELECT id, typeof(n), typeof(x), typeof(ok), typeof(p), typeof(cv), typeof(ls) FROM kinds_csv')
+id,age,height_m,member,city,prefs,tags
+p1,34,1.68,1,Denver,"{'news': 1, 'phone': ''}","[7, 'blue']"
+p2,,,0,,{},[]
 <BLANKLINE>
-| id | typeof(n) | typeof(x) | typeof(ok) | typeof(p) | typeof(cv) | typeof(ls) |
-| -: | --------: | --------: | ---------: | --------: | ---------: | ---------: |
-| b1 |      text |      text |       text |      text |       text |       text |
-| b2 |      null |      null |       text |      null |       text |       text |
+>>> loaded_sdaf = SqlDaf.from_csv(csv_path, name='kinds_csv', keyfield='id')
+>>> loaded_sdaf.sql('SELECT id, typeof(age), typeof(height_m), typeof(member), typeof(city), typeof(prefs), typeof(tags) FROM kinds_csv')
+<BLANKLINE>
+| id | typeof(age) | typeof(height_m) | typeof(member) | typeof(city) | typeof(prefs) | typeof(tags) |
+| -: | ----------: | ---------------: | -------------: | -----------: | ------------: | -----------: |
+| p1 |        text |             text |           text |         text |          text |         text |
+| p2 |        null |             null |           text |         null |          text |         text |
 <BLANKLINE>
 %% daf rows=2; cols=7; keyfield=''; name=''
->>> loaded_sdaf.apply_dtypes(dtypes={'n': int, 'x': float, 'ok': bool, 'cv': dict, 'ls': list}, cols=['n', 'x', 'ok', 'cv', 'ls'])
 <BLANKLINE>
-| id | n  |  x  | ok | p  |         cv          |     ls     |
-| -: | -: | --: | -: | -: | ------------------: | ---------: |
-| b1 |  3 | 2.5 |  1 | P1 | {'c0': 1, 'c1': ''} | [1, 'two'] |
-| b2 |    |     |  0 |    |                  {} |         [] |
+>>> # Convert the columns once. Then the table holds what the direct write stored.
+>>> loaded_sdaf.apply_dtypes(dtypes={'age': int, 'height_m': float, 'member': bool, 'prefs': dict, 'tags': list}, cols=['age', 'height_m', 'member', 'prefs', 'tags'])
+<BLANKLINE>
+| id | age | height_m | member |  city  |          prefs           |    tags     |
+| -: | --: | -------: | -----: | -----: | -----------------------: | ----------: |
+| p1 |  34 |     1.68 |      1 | Denver | {'news': 1, 'phone': ''} | [7, 'blue'] |
+| p2 |     |          |      0 |        |                       {} |          [] |
 <BLANKLINE>
 %% daf rows=2; cols=7; keyfield='id'; name='kinds_csv'
 <BLANKLINE>
->>> loaded_sdaf.sql('SELECT id, typeof(n), typeof(x), typeof(ok), typeof(p), typeof(cv), typeof(ls) FROM kinds_csv')
+>>> loaded_sdaf.sql('SELECT id, typeof(age), typeof(height_m), typeof(member), typeof(city), typeof(prefs), typeof(tags) FROM kinds_csv')
 <BLANKLINE>
-| id | typeof(n) | typeof(x) | typeof(ok) | typeof(p) | typeof(cv) | typeof(ls) |
-| -: | --------: | --------: | ---------: | --------: | ---------: | ---------: |
-| b1 |   integer |      real |    integer |      text |       text |       text |
-| b2 |      null |      null |    integer |      null |       text |       text |
+| id | typeof(age) | typeof(height_m) | typeof(member) | typeof(city) | typeof(prefs) | typeof(tags) |
+| -: | ----------: | ---------------: | -------------: | -----------: | ------------: | -----------: |
+| p1 |     integer |             real |        integer |         text |          text |         text |
+| p2 |        null |             null |        integer |         null |          text |         text |
 <BLANKLINE>
 %% daf rows=2; cols=7; keyfield=''; name=''
+<BLANKLINE>
 >>> loaded_sdaf.to_daf().lol == kinds_sdaf.to_daf().lol
 True
 ```
@@ -686,9 +708,9 @@ In memory, a Daf decodes the dict and list text. `to_daf()` carries the dtypes, 
 Daf it started from:
 
 ```pycon
->>> back_daf = loaded_sdaf.to_daf().apply_dtypes(cols=['cv', 'ls'])
->>> back_daf.select_record('b1')
-{'id': 'b1', 'n': 3, 'x': 2.5, 'ok': 1, 'p': 'P1', 'cv': {'c0': 1, 'c1': ''}, 'ls': [1, 'two']}
+>>> back_daf = loaded_sdaf.to_daf().apply_dtypes(cols=['prefs', 'tags'])
+>>> back_daf.select_record('p1')
+{'id': 'p1', 'age': 34, 'height_m': 1.68, 'member': 1, 'city': 'Denver', 'prefs': {'news': 1, 'phone': ''}, 'tags': [7, 'blue']}
 >>> back_daf.lol == kinds_daf.lol
 True
 ```
@@ -698,8 +720,8 @@ text too. Only a dict or a list itself is turned into text. A tuple, or a subcla
 OrderedDict, is refused by SQLite, with sqlite3.ProgrammingError or InterfaceError:
 
 ```pycon
->>> kinds_sdaf.append({'id': 'b3', 'n': 4, 'x': 0.5, 'ok': 1, 'p': 'P2', 'cv': {'c2': 2}, 'ls': ['q']}).select_record('b3')
-{'id': 'b3', 'n': 4, 'x': 0.5, 'ok': 1, 'p': 'P2', 'cv': "{'c2': 2}", 'ls': "['q']"}
+>>> kinds_sdaf.append({'id': 'p3', 'age': 27, 'height_m': 1.75, 'member': 1, 'city': 'Boston', 'prefs': {'sms': 1}, 'tags': ['red']}).select_record('p3')
+{'id': 'p3', 'age': 27, 'height_m': 1.75, 'member': 1, 'city': 'Boston', 'prefs': "{'sms': 1}", 'tags': "['red']"}
 ```
 
 ## Missing values
@@ -719,8 +741,8 @@ A SqlDaf has the most common Daf methods, under the same names. Every other Daf 
 NotImplementedError, which names it. So nothing quietly loads a large table into memory.
 
 ```pycon
->>> marks_sdaf = SqlDaf('marks')
->>> marks_sdaf.transpose()
+>>> people_sdaf = SqlDaf('people')
+>>> people_sdaf.transpose()
 Traceback (most recent call last):
 ...
 NotImplementedError: transpose() is not supported on a SqlDaf yet. Use sql(), or to_daf() on a few rows.
@@ -730,7 +752,7 @@ For anything not covered, `sql()` runs a statement of your own. It gives the who
 Daf, so select only what you need.
 
 ```pycon
->>> marks_sdaf.sql("SELECT COUNT(*) AS n FROM marks WHERE n > 5").lol
+>>> people_sdaf.sql("SELECT COUNT(*) AS n FROM people WHERE age > 30").lol
 [[2]]
 ```
 
@@ -774,11 +796,11 @@ same rows on both. On a SqlDaf they run in SQL and read only the rows they retur
   selecting, grouping and joining need no copy. Only a change to the data does:
 
   ```python
-  bif_sdaf = SqlDaf('full_bif', read_only=True)
-  p1_sdaf = bif_sdaf.select_by_dict({'precinct': 'P1'})   # no copy
-  work_sdaf = p1_sdaf.copy()                              # changes go here
-  work_sdaf.insert_col('sheet0', default=0)
-  work_sdaf.save('full_bif_p1', db_path='p1.db')          # keep it, if wanted
+  people_sdaf = SqlDaf('people', read_only=True)
+  denver_sdaf = people_sdaf.select_by_dict({'city': 'Denver'})   # no copy
+  work_sdaf = denver_sdaf.copy()                                 # changes go here
+  work_sdaf.insert_col('visits', default=0)
+  work_sdaf.save('people_denver', db_path='denver.db')           # keep it, if wanted
   ```
   On a Daf the same lines run, and `copy()` gives rows of its own, as a change needs there too.
 - **Join tables in their own files directly.** A job that keeps each table in a file of its own
@@ -787,43 +809,47 @@ same rows on both. On a SqlDaf they run in SQL and read only the rows they retur
   copy each input into it with `from_db()`.
 
 ```pycon
->>> votes_daf = Daf(cols=['ballot_id', 'corrupted'], keyfield='ballot_id',
-...                 lol=[['b1', 0], ['b2', 1], ['b3', ''], ['b4', 0]])
->>> votes_daf
+>>> # Create a Daf of customers, with a flag for a closed account, and a Daf of their invoices.
+>>> customers_daf = Daf(cols=['id', 'closed'], keyfield='id',
+...                     lol=[['c1', 0], ['c2', 1], ['c3', ''], ['c4', 0]])
+>>> customers_daf
 <BLANKLINE>
-| ballot_id | corrupted |
-| --------: | --------: |
-|        b1 |         0 |
-|        b2 |         1 |
-|        b3 |           |
-|        b4 |         0 |
+| id | closed |
+| -: | -----: |
+| c1 |      0 |
+| c2 |      1 |
+| c3 |        |
+| c4 |      0 |
 <BLANKLINE>
-%% daf rows=4; cols=2; keyfield='ballot_id'; name=''
+%% daf rows=4; cols=2; keyfield='id'; name=''
 <BLANKLINE>
->>> images_daf = Daf(cols=['ballot_id', 'pages'], keyfield='ballot_id',
-...                  lol=[['b2', 2], ['b4', 1], ['b9', 2]])
->>> images_daf
+>>> invoices_daf = Daf(cols=['id', 'amount'], keyfield='id',
+...                    lol=[['c2', 120.0], ['c4', 75.5], ['c9', 40.0]])
+>>> invoices_daf
 <BLANKLINE>
-| ballot_id | pages |
-| --------: | ----: |
-|        b2 |     2 |
-|        b4 |     1 |
-|        b9 |     2 |
+| id | amount |
+| -: | -----: |
+| c2 |  120.0 |
+| c4 |   75.5 |
+| c9 |   40.0 |
 <BLANKLINE>
-%% daf rows=3; cols=2; keyfield='ballot_id'; name=''
+%% daf rows=3; cols=2; keyfield='id'; name=''
 <BLANKLINE>
->>> votes_sdaf = SqlDaf.from_daf(votes_daf, name='votes_cb')
->>> images_sdaf = SqlDaf.from_daf(images_daf, name='images_cb')
->>> votes_daf.valuecounts_for_colname1_groupedby_colname2('ballot_id', 'corrupted') == \
-...     votes_sdaf.valuecounts_for_colname1_groupedby_colname2('ballot_id', 'corrupted')
+>>> # The same tables as SqlDaf tables.
+>>> customers_sdaf = SqlDaf.from_daf(customers_daf, name='customers_cb')
+>>> invoices_sdaf = SqlDaf.from_daf(invoices_daf, name='invoices_cb')
+>>> # Grouped counts give the same result on both.
+>>> customers_daf.valuecounts_for_colname1_groupedby_colname2('id', 'closed') == \
+...     customers_sdaf.valuecounts_for_colname1_groupedby_colname2('id', 'closed')
 True
->>> for votes, images in [(votes_daf, images_daf), (votes_sdaf, images_sdaf)]:
-...     votes_only = votes.select_records_daf(images, inverse=True, silent_error=True)
-...     images_only = images.select_records_daf(votes, inverse=True, silent_error=True)
-...     print(votes_only.keys(), images_only.keys(), len(votes) - len(votes_only),
-...           votes[0:2].keys(), votes.select_by_dict({'corrupted': 1}, inverse=True).keys())
-['b1', 'b3'] ['b9'] 2 ['b1', 'b2'] ['b1', 'b3', 'b4']
-['b1', 'b3'] ['b9'] 2 ['b1', 'b2'] ['b1', 'b3', 'b4']
+>>> # The same code compares the tables, counts, samples and splits on a Daf and on a SqlDaf.
+>>> for customers, invoices in [(customers_daf, invoices_daf), (customers_sdaf, invoices_sdaf)]:
+...     customers_only = customers.select_records_daf(invoices, inverse=True, silent_error=True)
+...     invoices_only = invoices.select_records_daf(customers, inverse=True, silent_error=True)
+...     print(customers_only.keys(), invoices_only.keys(), len(customers) - len(customers_only),
+...           customers[0:2].keys(), customers.select_by_dict({'closed': 1}, inverse=True).keys())
+['c1', 'c3'] ['c9'] 2 ['c1', 'c2'] ['c1', 'c3', 'c4']
+['c1', 'c3'] ['c9'] 2 ['c1', 'c2'] ['c1', 'c3', 'c4']
 ```
 
 ## Differences from Daf
