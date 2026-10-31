@@ -391,7 +391,7 @@ def _select_krows(
     Select rows by key, as [`Daf.select_krows()`][daffodil.daf_select._select_krows] does.
 
     - A key, or a list or other iterable of keys, selects those rows, in the order of the keys.
-      This is `select_records_daf()`.
+      This is `select_records()`.
     - A tuple of two keys selects every row from the first key to the last, both included, in
       row order. Either may be None, for the start or the end. A tuple of one key runs to the end.
 
@@ -459,7 +459,7 @@ def _select_krows(
         raise NotImplementedError("select_krows() with a slice is not supported on a SqlDaf. "
                                   "In a Daf it means row positions. Use sdaf[n:m].")
     if not isinstance(krows, tuple):
-        return self.select_records_daf(krows, inverse=inverse, silent_error=silent_error)
+        return self.select_records(krows, inverse=inverse, silent_error=silent_error)
 
     # A tuple is a range of keys, from the first to the last, in row order.
     if not 1 <= len(krows) <= 2 or krows == (None,):
@@ -486,17 +486,21 @@ def _select_krows(
     return SqlDaf._new_selection(self, f'SELECT * FROM ({rows_sql}) WHERE {range_sql}', rows_params + bounds_params)
 
 
-def _select_records_daf(
+def _select_records(
         self: 'SqlDaf',
         keys_ls:        Any,                        # the keys: a list, an iterable, a Daf or a SqlDaf.
         inverse:        bool = False,               # if True, the rows whose key is not among them.
         silent_error:   bool = False,               # if True, keys that are not found are ignored.
         ) -> 'SqlDaf':
     """
-    Select the rows with these keys, as [`Daf.select_records_daf()`][daffodil.daf_select._select_records_daf] does.
+    Select the rows with these keys, as [`Daf.select_records()`][daffodil.daf_select._select_records] does.
 
-    The keys may be a list or any iterable, an in-memory Daf, or another SqlDaf of the same
-    database file. A SqlDaf's keys are used in SQL, as a join, so no key comes into Python. The other forms are written to a TEMP table first. The selected rows come in
+    `select_records_daf()` is the old name of this method. It still works, and is deprecated.
+
+    The keys may be a list or any iterable, an in-memory Daf, or another SqlDaf.
+    A SqlDaf in another database file is brought in first, as in `join()`.
+    A SqlDaf's keys are used in SQL, as a join, so no key comes into Python.
+    The other forms are written to a TEMP table first. The selected rows come in
     the order of the keys, as in a Daf. With `inverse=True`, the rows whose key is not among
     them, in this table's order.
 
@@ -528,7 +532,7 @@ def _select_records_daf(
 
         Select the rows with these keys, in the order given:
 
-        >>> people_sdaf.select_records_daf(['p3', 'p1'])
+        >>> people_sdaf.select_records(['p3', 'p1'])
         <BLANKLINE>
         | id |   name    | age |
         | -: | --------: | --: |
@@ -540,22 +544,22 @@ def _select_records_daf(
 
         Select the rows whose keys are not listed, with `inverse=True`:
 
-        >>> people_sdaf.select_records_daf(['p1'], inverse=True).keys()
+        >>> people_sdaf.select_records(['p1'], inverse=True).keys()
         ['p2', 'p3']
 
         A key that is not found raises. With `silent_error=True` it is ignored:
 
-        >>> people_sdaf.select_records_daf(['p1', 'p9'], silent_error=True).keys()
+        >>> people_sdaf.select_records(['p1', 'p9'], silent_error=True).keys()
         ['p1']
 
         The keys may come from another table, as its keyfield:
 
         >>> visits_sdaf = SqlDaf('visits', cols=['id', 'visits'], keyfield='id', lol=[['p2', 7], ['p3', 12]])
-        >>> people_sdaf.select_records_daf(visits_sdaf).keys()
+        >>> people_sdaf.select_records(visits_sdaf).keys()
         ['p2', 'p3']
     """
     self._resolve_parent()
-    key_col: str = self._need_keyfield('select_records_daf')
+    key_col: str = self._need_keyfield('select_records')
     keys_sql, keys_params = self._key_source_sql(keys_ls)
     if not silent_error:
         missing_key: Any = self._first_missing_key(keys_sql, keys_params)

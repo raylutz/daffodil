@@ -959,7 +959,7 @@ def _delete_records(
     Remove the rows with these keys.
 
     By default, this Daf is left as it is, and a new Daf without the rows is returned, as
-    `select_records_daf(keys, inverse=True)` gives. That is the usual way in daffodil, and
+    `select_records(keys, inverse=True)` gives. That is the usual way in daffodil, and
     the new Daf shares the rows that remain.
 
     With `inplace=True`, the rows are deleted from this Daf itself, and it is returned. The
@@ -970,7 +970,7 @@ def _delete_records(
     `SqlDaf.delete_records()` in sqldaf.py.
 
     The keys may be a list, any iterable, or another Daf, whose keys are then used through a
-    view of its key index, as in `select_records_daf()`.
+    view of its key index, as in `select_records()`.
 
     Args:
         keys_ls: The keys of the rows to remove, or a Daf whose keys are used.
@@ -1021,7 +1021,7 @@ def _delete_records(
         [{'id': 'p1', 'name': 'Ana Lopez'}, {'id': 'p3', 'name': 'Chen Wu'}]
     """
     if not inplace:
-        return self.select_records_daf(keys_ls, inverse=True, silent_error=silent_error)
+        return self.select_records(keys_ls, inverse=True, silent_error=silent_error)
 
     if isinstance(keys_ls, Daf):
         keys_ls = keys_ls.keys(silent_error=False, astype='view')

@@ -343,7 +343,7 @@ def _to_daf(self: 'Daf', name: str | None = None) -> 'Daf':
 
     `SqlDaf.to_daf()` reads the rows of a table into memory. A Daf is in memory already, so
     nothing is copied. That lets one line read a table of either kind, as in
-    `table.select_records_daf(keys).to_daf().apply_dtypes()`.
+    `table.select_records(keys).to_daf().apply_dtypes()`.
 
     This Daf is returned, not a copy. A change to the result changes this Daf. A SqlDaf gives
     rows of their own instead. Use `copy('editable')` for rows of your own.
@@ -373,7 +373,7 @@ def _to_daf(self: 'Daf', name: str | None = None) -> 'Daf':
 
         `to_daf()` gives the Daf itself, so the same line reads a Daf or a SqlDaf:
 
-        >>> daf.select_records_daf(['b2']).to_daf().lol
+        >>> daf.select_records(['b2']).to_daf().lol
         [['b2', 10]]
         >>> daf.to_daf() is daf
         True

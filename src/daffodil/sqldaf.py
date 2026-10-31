@@ -549,7 +549,7 @@ class SqlDaf(Daf):
     - Columns: `col()`, `col_to_la()`, `icol()`, `icol_to_la()` and `cols_to_dol()`.
     - Selecting: `select_where()`, `select_by_dict()`, `select_where_sql()`, `split_where()`,
       `select_cols()` and indexing.
-    - By key: `key in sdaf`, `keys()`, `select_records_daf()`, `select_krows()`,
+    - By key: `key in sdaf`, `keys()`, `select_records()`, `select_krows()`,
       `get_existing_keys()` and `delete_records()`.
     - The first match: `select_first_row_by_dict()`.
     - Groups and counts: `groupby()`, `groupby_cols()`, `group_where()`, `groupsum_daf()`,
@@ -584,7 +584,7 @@ class SqlDaf(Daf):
 
     Avoid a Python NULL key, the empty string in the keyfield. If you allow one, the results of
     SqlDaf are undefined. The key methods compare keys with = in SQL, and SQL NULL equals
-    nothing, so such a row is not found by key, `select_records_daf()`, `delete_records()` or
+    nothing, so such a row is not found by key, `select_records()`, `delete_records()` or
     `join()`. The unique index also lets several SQL NULL keys in. A Daf treats a Python NULL key
     as a key like any other, so the two differ. Give every row a real key. Making the key index
     raises ValueError on a Python NULL key, and so does `concat()` of one.
@@ -2304,7 +2304,8 @@ class SqlDaf(Daf):
     split_where              = sqldaf_select._split_where
     select_first_row_by_dict = sqldaf_select._select_first_row_by_dict
     select_krows             = sqldaf_select._select_krows
-    select_records_daf       = sqldaf_select._select_records_daf
+    select_records           = sqldaf_select._select_records
+    select_records_daf       = sqldaf_select._select_records  # the old name, deprecated
     calc_cols                = sqldaf_select._calc_cols  # type: ignore[assignment]
     select_cols              = sqldaf_select._select_cols
 
@@ -2348,12 +2349,12 @@ class SqlDaf(Daf):
 
         - An int is always a position, from 0, even when the keyfield holds ints. Negative counts
           from the end. A position past the end raises IndexError, as in a Daf. For an int key,
-          use `select_record()`, or `select_records_daf()` for several.
+          use `select_record()`, or `select_records()` for several.
         - A slice of positions, as in `sdaf[10:20]`. A step is not supported. A slice past
           the end is empty, as in a Daf.
         - A str is a key. The keyfield's unique index is made first. A missing key raises
           KeyError, as in a Daf.
-        - A list of keys gives their rows in the order of the list, as `select_records_daf()`
+        - A list of keys gives their rows in the order of the list, as `select_records()`
           does. A missing key raises KeyError, as in a Daf.
 
         Rows and columns together, as in `sdaf[key, 'col']` or `sdaf[:, ['a', 'b']]`, give new
@@ -2428,7 +2429,7 @@ class SqlDaf(Daf):
                                           f"Give a column name, a list of names or ':'.")
             return rows_sdaf.select_cols([cols_sel] if isinstance(cols_sel, str) else cols_sel)
         if isinstance(sel, list) and all(isinstance(key, str) for key in sel):
-            return self.select_records_daf(sel)
+            return self.select_records(sel)
         if isinstance(sel, bool) or not isinstance(sel, (int, slice, str)):
             raise NotImplementedError(f"sdaf[{sel!r}] is not supported on a SqlDaf yet. "
                                       f"Use an int, a slice, a key or a list of keys.")
@@ -2497,8 +2498,8 @@ class SqlDaf(Daf):
         It exists for that compatibility. On a large table there are better ways, which read no
         key into Python and run the same on a Daf:
 
-        - To compare two tables, select the rows: `a.select_records_daf(b, inverse=True, silent_error=True)`.
-        - To pass the keys to another method, give the SqlDaf itself, as in `b.select_records_daf(a)`.
+        - To compare two tables, select the rows: `a.select_records(b, inverse=True, silent_error=True)`.
+        - To pass the keys to another method, give the SqlDaf itself, as in `b.select_records(a)`.
         - To test one key, use `key in table`, or `table.select_record(key)` for its row.
         - To sample, take the first rows: `table[0:3].keys()`.
         - To count, use `len()` of the selection.

@@ -3047,7 +3047,8 @@ class Daf:
     select_icols                   = daf_select._select_icols
     select_record                  = daf_select._select_record
     _basic_get_record              = daf_select._basic_get_record
-    select_records_daf             = daf_select._select_records_daf
+    select_records                 = daf_select._select_records
+    select_records_daf             = daf_select._select_records      # the old name, deprecated
     irow_la                        = daf_select._irow_la
     irow                           = daf_select._irow
     iloc                           = daf_select._iloc

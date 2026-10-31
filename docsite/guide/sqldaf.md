@@ -531,7 +531,7 @@ joins works the same way. The result is kept in a file of its own with `save(db_
 []
 ```
 
-`concat()` and keys from a SqlDaf in another file, as in `select_records_daf()`, bring it in the
+`concat()` and keys from a SqlDaf in another file, as in `select_records()`, bring it in the
 same way. For keys, only the key column is copied. A permanent table is copied in SQL, which took
 0.7 s for 1,000,000 rows of 5 columns, with its key index. The join then took as long as in one
 file. A selection or a TEMP table of another connection is copied through Python, which is slower.
@@ -765,14 +765,14 @@ A SqlDaf is a Daf, so code written for a Daf calls the SqlDaf methods when given
 of writing it are fast on both, and some fill memory or fail on a SqlDaf. These patterns give the
 same rows on both. On a SqlDaf they run in SQL and read only the rows they return.
 
-- **Compare two tables by selecting rows.** `select_records_daf(other, inverse=True)` gives the
+- **Compare two tables by selecting rows.** `select_records(other, inverse=True)` gives the
   rows of this table whose keys the other lacks. On a SqlDaf it is a join, so no key comes into
   Python. Pass `silent_error=True`, or a key of the other table that this one lacks raises
   KeyError, on both. Avoid making key lists of both and comparing them.
 - **Use `keys()` only where a list of keys is the result you want.** It reads every key into
   memory. It takes `astype='view'` and `silent_error`, as a Daf's does, so Daf code runs
   unchanged, but on a SqlDaf the view is built from all the keys. Better ways read no key:
-  give the table itself as the keys, as in `b.select_records_daf(a)`; test one key with
+  give the table itself as the keys, as in `b.select_records(a)`; test one key with
   `key in table`; read one row with `table.select_record(key)`.
 - **Sample from the first rows.** `daf[0:3].keys()` reads 3 rows. `daf.keys()[0:3]` reads every key first.
 - **Count with `len()` of a selection.** Avoid a list made only to take its length.
@@ -780,7 +780,7 @@ same rows on both. On a SqlDaf they run in SQL and read only the rows they retur
   stay in table order. A row with Python NULL in the column falls on the inverse side.
   Avoid `groupby()` and then `append()` of the groups: an empty Daf that appends a SqlDaf fails.
 - **Select first, then `to_daf()`.** `to_daf()` reads every row into memory. On a Daf it gives
-  the Daf itself, so `select_records_daf(keys).to_daf().apply_dtypes()` reads either kind.
+  the Daf itself, so `select_records(keys).to_daf().apply_dtypes()` reads either kind.
 - **Summarize each group with grouped counts, not a loop over the groups.**
   `valuecounts_for_colname1_groupedby_colname2('is_bmd', 'batchid')` counts the values of one
   column in every group at once. A group's size is the sum of its counts, and its distinct
@@ -844,8 +844,8 @@ same rows on both. On a SqlDaf they run in SQL and read only the rows they retur
 True
 >>> # The same code compares the tables, counts, samples and splits on a Daf and on a SqlDaf.
 >>> for customers, invoices in [(customers_daf, invoices_daf), (customers_sdaf, invoices_sdaf)]:
-...     customers_only = customers.select_records_daf(invoices, inverse=True, silent_error=True)
-...     invoices_only = invoices.select_records_daf(customers, inverse=True, silent_error=True)
+...     customers_only = customers.select_records(invoices, inverse=True, silent_error=True)
+...     invoices_only = invoices.select_records(customers, inverse=True, silent_error=True)
 ...     print(customers_only.keys(), invoices_only.keys(), len(customers) - len(customers_only),
 ...           customers[0:2].keys(), customers.select_by_dict({'closed': 1}, inverse=True).keys())
 ['c1', 'c3'] ['c9'] 2 ['c1', 'c2'] ['c1', 'c3', 'c4']

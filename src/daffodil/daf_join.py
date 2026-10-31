@@ -811,7 +811,7 @@ def _join_with_residue(
 
     Use it where an unmatched row is a finding to report, not a row to drop. Neither table is
     changed. Each residue is a selection, which shares its rows with its table, as
-    `select_records_daf()` gives. Both tables need a keyfield.
+    `select_records()` gives. Both tables need a keyfield.
 
     Args:
         other_daf: The Daf to join with, by its keyfield.
@@ -881,8 +881,8 @@ def _join_with_residue(
                                   custom_translator_daf=custom_translator_daf, diagnose=diagnose, name=name)
 
     # Each residue is the rows whose key the other table lacks.
-    self_res_daf: 'Daf' = self.select_records_daf(other_daf, inverse=True, silent_error=True)
-    other_res_daf: 'Daf' = other_daf.select_records_daf(self, inverse=True, silent_error=True)
+    self_res_daf: 'Daf' = self.select_records(other_daf, inverse=True, silent_error=True)
+    other_res_daf: 'Daf' = other_daf.select_records(self, inverse=True, silent_error=True)
     return joined_daf, self_res_daf, other_res_daf
 
 def _join_records(

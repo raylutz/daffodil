@@ -50,6 +50,6 @@ Each selection is a child: it refers to rows of its parent, and runs no query un
     options:
       heading: "select_krows"
 
-::: daffodil.sqldaf_select._select_records_daf
+::: daffodil.sqldaf_select._select_records
     options:
-      heading: "select_records_daf"
+      heading: "select_records"

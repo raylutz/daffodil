@@ -220,7 +220,7 @@ changes the original:
 
 | Selection | The rows of the result |
 |---|---|
-| `daf[rows]`, `select_irows`, `select_krows`, `select_records_daf` | shared |
+| `daf[rows]`, `select_irows`, `select_krows`, `select_records` | shared |
 | `select_where`, `split_where`, `select_by_dict` | shared |
 | `groupby`, `multi_groupby`, `groupby_cols`, `group_where`, `copy()` | shared |
 | a selection of columns: `daf[:, cols]`, `select_cols`, `select_kcols`, `select_icols` | new |

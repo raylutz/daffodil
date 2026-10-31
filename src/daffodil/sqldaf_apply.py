@@ -1735,7 +1735,7 @@ def _join_with_residue(
 
     It gives three SqlDaf objects: the inner join, as `join()` gives it, the rows of this table
     whose key the other lacks, and the rows of the other table whose key this one lacks. Each
-    residue is a selection of its own table, in its own columns, as `select_records_daf()` gives.
+    residue is a selection of its own table, in its own columns, as `select_records()` gives.
     Nothing runs yet. Each result is found when it is first read. Neither table is changed.
 
     The other table may be in another database file. The join brings it in as `join()` does.
@@ -1801,6 +1801,6 @@ def _join_with_residue(
                                     diagnose=diagnose, name=name)
 
     # Each residue is a selection of its own table: the rows whose key the other table lacks.
-    self_res_sdaf: SqlDaf = self.select_records_daf(other_daf, inverse=True, silent_error=True)
-    other_res_sdaf: SqlDaf = other_daf.select_records_daf(self, inverse=True, silent_error=True)
+    self_res_sdaf: SqlDaf = self.select_records(other_daf, inverse=True, silent_error=True)
+    other_res_sdaf: SqlDaf = other_daf.select_records(self, inverse=True, silent_error=True)
     return joined_sdaf, self_res_sdaf, other_res_sdaf

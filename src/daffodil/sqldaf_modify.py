@@ -49,7 +49,7 @@ def _delete_records(
     undefined results: see SqlDaf.
 
     By default nothing is changed: a selection without those rows is returned, as
-    `select_records_daf(keys, inverse=True)` gives. That is always safe.
+    `select_records(keys, inverse=True)` gives. That is always safe.
 
     With `inplace=True`, the rows are removed from this SqlDaf, and it is returned.
 
@@ -60,11 +60,11 @@ def _delete_records(
       row in `len()`, though `to_daf()` leaves it out. So delete in place from a parent
       only when nothing else uses it.
 
-    The keys may be in any form that `select_records_daf()` takes. A key that is not found
+    The keys may be in any form that `select_records()` takes. A key that is not found
     raises KeyError, and nothing is removed, unless `silent_error` is True.
 
     Args:
-        keys_ls: The keys of the rows to remove, in any form `select_records_daf()` takes.
+        keys_ls: The keys of the rows to remove, in any form `select_records()` takes.
         inplace: If True, remove the rows from this SqlDaf and return it. If False, return a selection.
         silent_error: If True, keys that are not found are ignored.
 
@@ -104,7 +104,7 @@ def _delete_records(
         ['p1', 'p3']
     """
     if not inplace:
-        return self.select_records_daf(keys_ls, inverse=True, silent_error=silent_error)
+        return self.select_records(keys_ls, inverse=True, silent_error=silent_error)
 
     key_col: str = self._need_keyfield('delete_records')
     keys_sql, keys_params = self._key_source_sql(keys_ls)
@@ -933,7 +933,7 @@ def _apply_in_place(
     if by not in ('row', 'row_klist'):
         raise NotImplementedError(f"apply_in_place(by={by!r}) is not supported on a SqlDaf.")
     if rowkeys is not None:
-        self.select_records_daf(rowkeys, silent_error=True).apply_in_place(func, by=by, **kwargs)
+        self.select_records(rowkeys, silent_error=True).apply_in_place(func, by=by, **kwargs)
         return self
 
     table, ref_col, _scope_sql, _scope_params = self._update_scope()

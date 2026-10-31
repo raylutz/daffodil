@@ -3703,3 +3703,12 @@ def test_sqldaf_indirect_col_alone_means_sparse_rows():
         ballots_sdaf.groupsum_daf('precinct', by='sparse_row')
     with pytest.raises(NotImplementedError):
         ballots_sdaf.groupsum_daf('precinct', by='table')
+
+
+def test_select_records_daf_is_the_old_name_of_select_records():
+    """ The old name is the same method on a SqlDaf too. It gives the same rows. """
+    marks_sdaf: SqlDaf = SqlDaf.from_daf(make_marks_daf(), name='marks')
+    assert SqlDaf.select_records_daf is SqlDaf.select_records
+    keys_ls: list = marks_sdaf.keys()[:2][::-1]
+    assert marks_sdaf.select_records_daf(keys_ls).to_daf().lol == marks_sdaf.select_records(keys_ls).to_daf().lol
+    assert marks_sdaf.select_records(keys_ls).keys() == keys_ls

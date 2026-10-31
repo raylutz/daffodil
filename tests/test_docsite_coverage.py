@@ -25,12 +25,17 @@ def _documented() -> Counter:
     return found
 
 
+# Old names kept so old code still runs. The method's docstring names its old name.
+DEPRECATED_ALIASES: set = {'select_records_daf'}
+
+
 def _public_members() -> set:
     # Dunders count only when they are methods with a docstring. Python and the copy
     # module add dunder attributes such as __dict__ and __slotnames__ to the class.
     return {name for name, value in vars(Daf).items()
-            if not name.startswith('_')
-            or (name.startswith('__') and inspect.isfunction(value) and value.__doc__)}
+            if name not in DEPRECATED_ALIASES
+            and (not name.startswith('_')
+            or (name.startswith('__') and inspect.isfunction(value) and value.__doc__))}
 
 
 def test_every_daf_member_is_documented():
@@ -67,7 +72,7 @@ def _sqldaf_public_members() -> set:
     # The blocker puts a method on SqlDaf for each Daf method it refuses. Those are not SqlDaf's own.
     from daffodil.sqldaf import SqlDaf, BLOCKED_LS
     return {name for name, value in vars(SqlDaf).items()
-            if name not in BLOCKED_LS
+            if name not in BLOCKED_LS and name not in DEPRECATED_ALIASES
             and (not name.startswith('_')
                  or (name.startswith('__') and inspect.isfunction(value) and value.__doc__))}
 

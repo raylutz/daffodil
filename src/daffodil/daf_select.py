@@ -1258,7 +1258,7 @@ def _basic_get_record(self: 'Daf', irow: int, include_cols: T_ls | None = None) 
         return dict(zip(self.hd, self.lol[irow]))
 
 
-def _select_records_daf(self: 'Daf', keys_ls: 'T_ls | Iterable | Daf', inverse:bool=False, silent_error: bool=False) -> 'Daf':
+def _select_records(self: 'Daf', keys_ls: 'T_ls | Iterable | Daf', inverse:bool=False, silent_error: bool=False) -> 'Daf':
     """
     Select several rows by key and return them as a Daf.
 
@@ -1269,6 +1269,8 @@ def _select_records_daf(self: 'Daf', keys_ls: 'T_ls | Iterable | Daf', inverse:b
     so no list of them is made. That other Daf must have a keyfield. Its rows are not
     changed. The keys come in the order of its key index, so the rows selected come in
     that order too. A key that repeats in this Daf selects only its last row. See `keys()`.
+
+    `select_records_daf()` is the old name of this method. It still works, and is deprecated.
 
     The rows are shared with this Daf, as in `select_krows()`. The new Daf has its own
     row list, also with no keys and `inverse` True, so adding a row to one does not
@@ -1303,7 +1305,7 @@ def _select_records_daf(self: 'Daf', keys_ls: 'T_ls | Iterable | Daf', inverse:b
 
         Select the rows with these keys, in the order given. No keys selects no rows:
 
-        >>> daf.select_records_daf(['p3', 'p1'])
+        >>> daf.select_records(['p3', 'p1'])
         <BLANKLINE>
         | id |  city  | age |
         | -: | -----: | --: |
@@ -1312,12 +1314,12 @@ def _select_records_daf(self: 'Daf', keys_ls: 'T_ls | Iterable | Daf', inverse:b
         <BLANKLINE>
         %% daf rows=2; cols=3; keyfield='id'; name=''
         <BLANKLINE>
-        >>> daf.select_records_daf([])
+        >>> daf.select_records([])
         <BLANKLINE>
         <BLANKLINE>
         %% daf rows=0; cols=0; keyfield='id'; name=''
         <BLANKLINE>
-        >>> kept = daf.select_records_daf([], inverse=True)
+        >>> kept = daf.select_records([], inverse=True)
         >>> kept == daf
         True
         >>> kept.append(['p4', 'Boston', 41])
@@ -1349,7 +1351,7 @@ def _select_records_daf(self: 'Daf', keys_ls: 'T_ls | Iterable | Daf', inverse:b
         <BLANKLINE>
         %% daf rows=2; cols=2; keyfield='id'; name=''
         <BLANKLINE>
-        >>> daf.select_records_daf(other, silent_error=True).to_lod()
+        >>> daf.select_records(other, silent_error=True).to_lod()
         [{'id': 'p3', 'city': 'Denver', 'age': 27}]
     """
 

@@ -38,9 +38,9 @@ Reading rows, columns and cells by index, key, or condition.
     options:
       heading: "select_record"
 
-::: daffodil.daf_select._select_records_daf
+::: daffodil.daf_select._select_records
     options:
-      heading: "select_records_daf"
+      heading: "select_records"
 
 ## Columns
 

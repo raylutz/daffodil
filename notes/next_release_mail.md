@@ -4,3 +4,5 @@ Items to include when the next version is released. Clear this list once the mai
 The list was last cleared on 2026-10-26, when 0.9.0 was mailed.
 
 - `cols` of SqlDaf `select_where()`, `split_where()` and `group_where()` is deprecated and undocumented, Q323. It still works, so sdaf_variants.py needs no change. It can be dropped from those four calls at any time, at a small cost on wide tables.
+- `select_records()` is the new name of `select_records_daf()`, Q324. The old name still works, so no call needs to change now. AuditEngine has about 65 calls of the old name, to rename at any time.
+- A SqlDaf prints sdaf in its summary line, as `%% sdaf rows=3; ...`, Q325. A Daf still prints daf. A test that compares the printout of a SqlDaf with that of a Daf sees the difference.

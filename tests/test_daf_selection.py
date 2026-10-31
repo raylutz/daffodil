@@ -656,3 +656,10 @@ def test_no_keys():
     assert data_daf.delete_records([]).lol == make_delete_daf().lol
     assert data_daf.delete_records([], inplace=True) is data_daf
     assert data_daf.lol == make_delete_daf().lol
+
+
+def test_select_records_daf_is_the_old_name_of_select_records():
+    """ The old name is the same method. It gives the same rows. """
+    daf = Daf(cols=['id', 'age'], lol=[['p1', 34], ['p2', 52], ['p3', 27]], keyfield='id')
+    assert Daf.select_records_daf is Daf.select_records
+    assert daf.select_records_daf(['p3', 'p1']).lol == daf.select_records(['p3', 'p1']).lol == [['p3', 27], ['p1', 34]]
