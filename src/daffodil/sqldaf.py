@@ -680,45 +680,47 @@ class SqlDaf(Daf):
             NotImplementedError: The class setting `engine` is not 'sqlite'.
 
         Examples:
+            Choose the database file for the tables made after this:
+
             >>> import tempfile
             >>> SqlDaf.db_path = tempfile.mkdtemp() + '/job.db'
 
-            A new table, with `cols`. The rows may come from any iterable, read one at a time:
+            Create a new table, with `cols`. The rows may come from any iterable, read one at a time:
 
-            >>> items_sdaf = SqlDaf('items', cols=['id', 'item', 'qty'], lol=(['a1', 'pen', 3], ['b2', 'ink', 10]),
-            ...                     keyfield='id', dtypes={'id': str, 'item': str, 'qty': int})
-            >>> items_sdaf
+            >>> people_sdaf = SqlDaf('people', cols=['id', 'name', 'age'], lol=(['p1', 'Ana Lopez', 34], ['p2', 'Ben Okafor', 52]),
+            ...                      keyfield='id', dtypes={'id': str, 'name': str, 'age': int})
+            >>> people_sdaf
             <BLANKLINE>
-            | id | item | qty |
-            | -: | ---: | --: |
-            | a1 |  pen |   3 |
-            | b2 |  ink |  10 |
+            | id |    name    | age |
+            | -: | ---------: | --: |
+            | p1 |  Ana Lopez |  34 |
+            | p2 | Ben Okafor |  52 |
             <BLANKLINE>
-            %% daf rows=2; cols=3; keyfield='id'; name='items'
+            %% daf rows=2; cols=3; keyfield='id'; name='people'
             <BLANKLINE>
 
-            Without `cols`, the table of that name is opened. Its keyfield and dtypes are those recorded:
+            Open the table again by its name, with no `cols`. Its keyfield and dtypes are those recorded:
 
-            >>> again_sdaf = SqlDaf('items')
+            >>> again_sdaf = SqlDaf('people')
             >>> again_sdaf.keyfield, again_sdaf.dtypes
-            ('id', {'id': <class 'str'>, 'item': <class 'str'>, 'qty': <class 'int'>})
+            ('id', {'id': <class 'str'>, 'name': <class 'str'>, 'age': <class 'int'>})
 
-            `db_path` names another file for this table only:
+            Put a table in another file, with `db_path`:
 
             >>> other_path = tempfile.mkdtemp() + '/other.db'
-            >>> SqlDaf('notes', cols=['id', 'text'], lol=[['n1', 'hello']], db_path=other_path).to_lod()
-            [{'id': 'n1', 'text': 'hello'}]
+            >>> SqlDaf('notes', cols=['id', 'text'], lol=[['n1', 'Call back on Monday']], db_path=other_path).to_lod()
+            [{'id': 'n1', 'text': 'Call back on Monday'}]
 
-            With `read_only=True`, the data cannot be changed, but it can be read and copied:
+            Open a table read-only, with `read_only=True`. Its data cannot be changed, but it can be read and copied:
 
-            >>> ro_sdaf = SqlDaf('items', read_only=True)
-            >>> ro_sdaf['a1', 'qty'] = 0
+            >>> ro_sdaf = SqlDaf('people', read_only=True)
+            >>> ro_sdaf['p1', 'age'] = 35
             Traceback (most recent call last):
             daffodil.sqldaf.ReadOnlyTableError: ...
-            >>> ro_sdaf.copy().update_record_krow('a1', {'qty': 0}).col('qty')
-            [0, 10]
-            >>> items_sdaf.col('qty')
-            [3, 10]
+            >>> ro_sdaf.copy().update_record_krow('p1', {'age': 35}).col('age')
+            [35, 52]
+            >>> people_sdaf.col('age')
+            [34, 52]
         """
         path: str = db_path or type(self).db_path
         if not path:
@@ -914,45 +916,55 @@ class SqlDaf(Daf):
             NotImplementedError: A dtype is not int, float, bool, str, dict or list.
 
         Examples:
+            Write two CSV files of people to a folder. One age is not known:
+
             >>> import os, tempfile
             >>> csv_dir = tempfile.mkdtemp()
             >>> SqlDaf.db_path = os.path.join(csv_dir, 'job.db')
-            >>> for part, text in (('a', 'id,qty\na1,3\nb2,\n'), ('b', 'id,qty\nc3,7\n')):
-            ...     with open(os.path.join(csv_dir, f'votes_{part}.csv'), 'w') as csv_f:
+            >>> for part, text in (('a', 'id,age\np1,34\np2,\n'), ('b', 'id,age\np3,27\n')):
+            ...     with open(os.path.join(csv_dir, f'people_{part}.csv'), 'w') as csv_f:
             ...         n = csv_f.write(text)
 
-            One file. The name of the table is the file's name. Every value is text, and an empty cell is NULL:
+            Load one file. The table is named for the file. Every value is text, and an empty cell is NULL:
 
-            >>> SqlDaf.from_csv(os.path.join(csv_dir, 'votes_a.csv')).to_lod()
-            [{'id': 'a1', 'qty': '3'}, {'id': 'b2', 'qty': ''}]
+            >>> SqlDaf.from_csv(os.path.join(csv_dir, 'people_a.csv')).to_lod()
+            [{'id': 'p1', 'age': '34'}, {'id': 'p2', 'age': ''}]
 
-            A glob pattern loads its files in sorted order, into one table. `dtypes` converts as the rows load:
+            Load every file of a glob pattern, in sorted order, into one table. `dtypes` converts as the rows load:
 
-            >>> votes_sdaf = SqlDaf.from_csv(os.path.join(csv_dir, 'votes_*.csv'), name='votes', keyfield='id', dtypes={'qty': int})
-            >>> votes_sdaf.to_lod()
-            [{'id': 'a1', 'qty': 3}, {'id': 'b2', 'qty': ''}, {'id': 'c3', 'qty': 7}]
+            >>> people_sdaf = SqlDaf.from_csv(os.path.join(csv_dir, 'people_*.csv'), name='people', keyfield='id', dtypes={'age': int})
+            >>> people_sdaf
+            <BLANKLINE>
+            | id | age |
+            | -: | --: |
+            | p1 |  34 |
+            | p2 |     |
+            | p3 |  27 |
+            <BLANKLINE>
+            %% daf rows=3; cols=2; keyfield='id'; name='people'
+            <BLANKLINE>
 
-            A list of files, in its own order, with another delimiter:
+            Load a list of files, in its own order, with another delimiter:
 
             >>> with open(os.path.join(csv_dir, 'semi.csv'), 'w') as csv_f:
-            ...     n = csv_f.write('id;qty\nd4;1\n')
+            ...     n = csv_f.write('id;age\np4;41\n')
             >>> SqlDaf.from_csv([os.path.join(csv_dir, 'semi.csv')], name='semi', delimiter=';').to_lod()
-            [{'id': 'd4', 'qty': '1'}]
+            [{'id': 'p4', 'age': '41'}]
 
-            Files whose columns differ raise, unless `strict_header=False` places each value by its column name:
+            Files whose columns differ raise. With `strict_header=False`, each value goes in by its column name:
 
             >>> with open(os.path.join(csv_dir, 'more.csv'), 'w') as csv_f:
-            ...     n = csv_f.write('qty,id,note\n5,e5,late\n')
-            >>> mixed_paths = [os.path.join(csv_dir, 'votes_b.csv'), os.path.join(csv_dir, 'more.csv')]
+            ...     n = csv_f.write('age,id,city\n45,p5,Denver\n')
+            >>> mixed_paths = [os.path.join(csv_dir, 'people_b.csv'), os.path.join(csv_dir, 'more.csv')]
             >>> SqlDaf.from_csv(mixed_paths, name='mixed')
             Traceback (most recent call last):
             ValueError: ...
             >>> SqlDaf.from_csv(mixed_paths, name='mixed', strict_header=False).to_lod()
-            [{'id': 'c3', 'qty': '7', 'note': ''}, {'id': 'e5', 'qty': '5', 'note': 'late'}]
+            [{'id': 'p3', 'age': '27', 'city': ''}, {'id': 'p5', 'age': '45', 'city': 'Denver'}]
 
-            `db_path` puts the table in another file:
+            Put the table in another file, with `db_path`:
 
-            >>> SqlDaf.from_csv(os.path.join(csv_dir, 'votes_b.csv'), name='b_only', db_path=os.path.join(csv_dir, 'b.db')).len()
+            >>> SqlDaf.from_csv(os.path.join(csv_dir, 'people_b.csv'), name='b_only', db_path=os.path.join(csv_dir, 'b.db')).len()
             1
         """
         paths_ls: T_ls = _csv_paths(path)
@@ -1063,25 +1075,30 @@ class SqlDaf(Daf):
             KeyError: The keyfield is not one of the columns.
 
         Examples:
+            Create a Daf of people in memory. One age is not known:
+
             >>> import tempfile
             >>> SqlDaf.db_path = tempfile.mkdtemp() + '/job.db'
-            >>> items_daf = Daf(cols=['id', 'item', 'qty'], keyfield='id', lol=[['a1', 'pen', 3], ['b2', 'ink', '']])
-            >>> items_sdaf = SqlDaf.from_daf(items_daf, name='items')
-            >>> items_sdaf
+            >>> people_daf = Daf(cols=['id', 'name', 'age'], keyfield='id', lol=[['p1', 'Ana Lopez', 34], ['p2', 'Ben Okafor', '']])
+
+            Write it into a new SqlDaf table. The keyfield comes with it:
+
+            >>> people_sdaf = SqlDaf.from_daf(people_daf, name='people')
+            >>> people_sdaf
             <BLANKLINE>
-            | id | item | qty |
-            | -: | ---: | --: |
-            | a1 |  pen |   3 |
-            | b2 |  ink |     |
+            | id |    name    | age |
+            | -: | ---------: | --: |
+            | p1 |  Ana Lopez |  34 |
+            | p2 | Ben Okafor |     |
             <BLANKLINE>
-            %% daf rows=2; cols=3; keyfield='id'; name='items'
+            %% daf rows=2; cols=3; keyfield='id'; name='people'
             <BLANKLINE>
 
-            Another keyfield, and another file:
+            Write it with another keyfield, into another file:
 
-            >>> by_item_sdaf = SqlDaf.from_daf(items_daf, name='by_item', keyfield='item', db_path=tempfile.mkdtemp() + '/by_item.db')
-            >>> by_item_sdaf.select_record('ink')
-            {'id': 'b2', 'item': 'ink', 'qty': ''}
+            >>> by_name_sdaf = SqlDaf.from_daf(people_daf, name='by_name', keyfield='name', db_path=tempfile.mkdtemp() + '/by_name.db')
+            >>> by_name_sdaf.select_record('Ben Okafor')
+            {'id': 'p2', 'name': 'Ben Okafor', 'age': ''}
         """
         keyfield = keyfield or (data_daf.keyfield if isinstance(data_daf.keyfield, str) else '')
         dtypes: T_dtype_dict | None = data_daf.dtypes if isinstance(data_daf.dtypes, dict) and data_daf.dtypes else None
@@ -1132,40 +1149,29 @@ class SqlDaf(Daf):
                 or a transaction is open on the working file.
 
         Examples:
-            >>> import tempfile
-            >>> job_dir = tempfile.mkdtemp()
-            >>> bif_sdaf = SqlDaf.from_daf(Daf(lol=[['b1', 'P1'], ['b2', 'P2']], cols=['ballot_id', 'precinct'], keyfield='ballot_id'),
-            ...                            name='bif', db_path=job_dir + '/bif.db')
-            >>> bif_sdaf
-            <BLANKLINE>
-            | ballot_id | precinct |
-            | --------: | -------: |
-            |        b1 |       P1 |
-            |        b2 |       P2 |
-            <BLANKLINE>
-            %% daf rows=2; cols=2; keyfield='ballot_id'; name='bif'
-            <BLANKLINE>
-            >>> SqlDaf.db_path = job_dir + '/work.db'
-            >>> work_sdaf = SqlDaf.from_db(job_dir + '/bif.db', 'bif')
-            >>> work_sdaf.db_path == SqlDaf.db_path, work_sdaf.keyfield, len(work_sdaf)
-            (True, 'ballot_id', 2)
-
-            Give the copy another name with `new_name`, and read from a file other than the working one:
+            Create a table of people in a file of its own:
 
             >>> import os, tempfile
-            >>> source_path = os.path.join(tempfile.mkdtemp(), 'source.db')
-            >>> parts_sdaf = SqlDaf.from_daf(Daf(cols=['id', 'qty'], lol=[['a1', 3], ['b2', 4]]), name='fromdb_parts')
-            >>> parts_sdaf.copy().save('parts', db_path=source_path).name
-            'parts'
-            >>> brought_sdaf = SqlDaf.from_db(source_path, 'parts', new_name='fromdb_brought')
-            >>> brought_sdaf.name, len(brought_sdaf)
-            ('fromdb_brought', 2)
+            >>> job_dir = tempfile.mkdtemp()
+            >>> people_sdaf = SqlDaf('people', cols=['id', 'name', 'age'], keyfield='id', db_path=job_dir + '/people.db',
+            ...                      lol=[['p1', 'Ana Lopez', 34], ['p2', 'Ben Okafor', 52]])
 
-            `db_path` names the working file to copy into, in place of the class setting:
+            Copy it into the working file. The source file is only read:
 
-            >>> work_path = os.path.join(tempfile.mkdtemp(), 'work.db')
-            >>> SqlDaf.from_db(source_path, 'parts', db_path=work_path).to_lod()
-            [{'id': 'a1', 'qty': 3}, {'id': 'b2', 'qty': 4}]
+            >>> SqlDaf.db_path = job_dir + '/work.db'
+            >>> work_sdaf = SqlDaf.from_db(job_dir + '/people.db', 'people')
+            >>> work_sdaf.db_path == SqlDaf.db_path, work_sdaf.keyfield, len(work_sdaf)
+            (True, 'id', 2)
+
+            Give the copy another name, with `new_name`:
+
+            >>> SqlDaf.from_db(job_dir + '/people.db', 'people', new_name='people_copy').name
+            'people_copy'
+
+            Copy it into another working file, with `db_path`:
+
+            >>> SqlDaf.from_db(job_dir + '/people.db', 'people', db_path=os.path.join(job_dir, 'other_work.db')).to_lod()
+            [{'id': 'p1', 'name': 'Ana Lopez', 'age': 34}, {'id': 'p2', 'name': 'Ben Okafor', 'age': 52}]
         """
         working: str = db_path or cls.db_path
         if not working:
@@ -1217,12 +1223,17 @@ class SqlDaf(Daf):
             ValueError: There is no database path.
 
         Examples:
+            Choose a new database file. It has no tables yet:
+
             >>> import tempfile
             >>> SqlDaf.db_path = tempfile.mkdtemp() + '/job.db'
-            >>> SqlDaf.table_exists('items')
+            >>> SqlDaf.table_exists('people')
             False
-            >>> items_sdaf = SqlDaf.from_daf(Daf(cols=['id', 'qty'], lol=[['a1', 3]]), name='items')
-            >>> SqlDaf.table_exists('items'), SqlDaf.table_exists('items', db_path=tempfile.mkdtemp() + '/other.db')
+
+            Make the table, and ask again, here and in another file:
+
+            >>> people_sdaf = SqlDaf('people', cols=['id', 'age'], lol=[['p1', 34]])
+            >>> SqlDaf.table_exists('people'), SqlDaf.table_exists('people', db_path=tempfile.mkdtemp() + '/other.db')
             (True, False)
         """
         path: str = db_path or cls.db_path
@@ -1243,13 +1254,18 @@ class SqlDaf(Daf):
         The name of the table in the database. `copy(name=)` and `save(name)` give a new one.
 
         Examples:
+            Create a small SqlDaf table of people:
+
             >>> import tempfile
             >>> SqlDaf.db_path = tempfile.mkdtemp() + '/job.db'
-            >>> items_sdaf = SqlDaf.from_daf(Daf(cols=['id', 'qty'], keyfield='id', lol=[['a1', 3], ['b2', 10]]), name='items')
-            >>> items_sdaf.name
-            'items'
-            >>> items_sdaf.copy(name='items_copy').name
-            'items_copy'
+            >>> people_sdaf = SqlDaf('people', cols=['id', 'age'], keyfield='id', lol=[['p1', 34], ['p2', 52]])
+
+            Read the name of its table, and of a named copy:
+
+            >>> people_sdaf.name
+            'people'
+            >>> people_sdaf.copy(name='people_copy').name
+            'people_copy'
         """
         return self._name
 
@@ -1303,10 +1319,15 @@ class SqlDaf(Daf):
         True for a child, a selection that refers to rows of its parent. False for a parent, which holds its own rows.
 
         Examples:
+            Create a small SqlDaf table of people:
+
             >>> import tempfile
             >>> SqlDaf.db_path = tempfile.mkdtemp() + '/job.db'
-            >>> items_sdaf = SqlDaf.from_daf(Daf(cols=['id', 'qty'], keyfield='id', lol=[['a1', 3], ['b2', 10]]), name='items')
-            >>> items_sdaf.is_child, items_sdaf.select_krows(['b2']).is_child
+            >>> people_sdaf = SqlDaf('people', cols=['id', 'age'], keyfield='id', lol=[['p1', 34], ['p2', 52]])
+
+            The table holds its own rows. A selection of it is a child, which refers to them:
+
+            >>> people_sdaf.is_child, people_sdaf.select_krows(['p2']).is_child
             (False, True)
         """
         return self.parent_sdaf is not None
@@ -1323,17 +1344,22 @@ class SqlDaf(Daf):
             The Markdown text.
 
         Examples:
+            Create a small SqlDaf table of people:
+
             >>> import tempfile
             >>> SqlDaf.db_path = tempfile.mkdtemp() + '/job.db'
-            >>> items_sdaf = SqlDaf.from_daf(Daf(cols=['id', 'qty'], keyfield='id', lol=[['a1', 3], ['b2', 10]]), name='items')
-            >>> items_sdaf
+            >>> people_sdaf = SqlDaf('people', cols=['id', 'age'], keyfield='id', lol=[['p1', 34], ['p2', 52]])
+
+            Echo it at the prompt to see it as a table:
+
+            >>> people_sdaf
             <BLANKLINE>
-            | id | qty |
+            | id | age |
             | -: | --: |
-            | a1 |   3 |
-            | b2 |  10 |
+            | p1 |  34 |
+            | p2 |  52 |
             <BLANKLINE>
-            %% daf rows=2; cols=2; keyfield='id'; name='items'
+            %% daf rows=2; cols=2; keyfield='id'; name='people'
             <BLANKLINE>
         """
         return '\n' + self.md_daf_table_snippet()
@@ -1388,20 +1414,25 @@ class SqlDaf(Daf):
             The Markdown text.
 
         Examples:
+            Create a SqlDaf table of 12 people:
+
             >>> import tempfile
             >>> SqlDaf.db_path = tempfile.mkdtemp() + '/job.db'
-            >>> nums_sdaf = SqlDaf.from_daf(Daf(cols=['id', 'n'], lol=[[f'r{i}', i] for i in range(12)]), name='nums')
-            >>> nums_sdaf.md_max_rows = 4
-            >>> print(nums_sdaf)
-            | id  |  n  |
+            >>> people_sdaf = SqlDaf('people', cols=['id', 'age'], lol=[[f'p{i:02}', 20 + 3 * i] for i in range(12)])
+
+            Print it, with at most four rows, the first and the last:
+
+            >>> people_sdaf.md_max_rows = 4
+            >>> print(people_sdaf)
+            | id  | age |
             | --: | --: |
-            |  r0 |   0 |
-            |  r1 |   1 |
+            | p00 |  20 |
+            | p01 |  23 |
             | ... | ... |
-            | r10 |  10 |
-            | r11 |  11 |
+            | p10 |  50 |
+            | p11 |  53 |
             <BLANKLINE>
-            %% daf rows=12; cols=2; keyfield=''; name='nums'
+            %% daf rows=12; cols=2; keyfield=''; name='people'
             <BLANKLINE>
         """
         return self.md_daf_table_snippet()
@@ -1423,12 +1454,20 @@ class SqlDaf(Daf):
             ValueError: A spec is given and there is not exactly one cell.
 
         Examples:
+            Create a small SqlDaf table of people, with heights in meters:
+
             >>> import tempfile
             >>> SqlDaf.db_path = tempfile.mkdtemp() + '/job.db'
-            >>> items_sdaf = SqlDaf.from_daf(Daf(cols=['id', 'price'], keyfield='id', lol=[['a1', 1.5], ['b2', 4.0]]), name='items')
-            >>> f"price: {items_sdaf['b2', 'price']:.2f}"
-            'price: 4.00'
-            >>> f"{items_sdaf[:, 'price']:.2f}"
+            >>> people_sdaf = SqlDaf('people', cols=['id', 'height_m'], keyfield='id', lol=[['p1', 1.684], ['p2', 1.8]])
+
+            Format one cell in an f-string, with a format spec:
+
+            >>> f"height: {people_sdaf['p1', 'height_m']:.2f} m"
+            'height: 1.68 m'
+
+            A format spec needs exactly one cell:
+
+            >>> f"{people_sdaf[:, 'height_m']:.2f}"
             Traceback (most recent call last):
             ValueError: to_value() requires 1×1, got shape (2+, 1)
         """
@@ -1463,21 +1502,26 @@ class SqlDaf(Daf):
             ValueError: There is no database path.
 
         Examples:
+            Create a small SqlDaf table of people, and a TEMP copy of it:
+
             >>> import tempfile
             >>> SqlDaf.db_path = tempfile.mkdtemp() + '/job.db'
-            >>> items_sdaf = SqlDaf.from_daf(Daf(cols=['id', 'qty'], keyfield='id', lol=[['a1', 3], ['b2', 10]]), name='items')
-            >>> copy_sdaf = items_sdaf.copy()
+            >>> people_sdaf = SqlDaf('people', cols=['id', 'age'], keyfield='id', lol=[['p1', 34], ['p2', 52]])
+            >>> copy_sdaf = people_sdaf.copy()
+
+            Close the file:
+
             >>> SqlDaf.close()
 
-            The permanent table opens again. The TEMP copy is gone with the connection:
+            The permanent table opens again. The TEMP copy went with the connection:
 
-            >>> SqlDaf('items').col('qty')
-            [3, 10]
-            >>> copy_sdaf.col('qty')
+            >>> SqlDaf('people').col('age')
+            [34, 52]
+            >>> copy_sdaf.col('age')
             Traceback (most recent call last):
             sqlite3.ProgrammingError: Cannot operate on a closed database.
 
-            `db_path` closes another file. A file that is not open is left as it is:
+            Close another file, with `db_path`. A file that is not open is left as it is:
 
             >>> other_path = tempfile.mkdtemp() + '/other.db'
             >>> notes_sdaf = SqlDaf('notes', cols=['id'], lol=[['n1']], db_path=other_path)
@@ -1507,14 +1551,22 @@ class SqlDaf(Daf):
             ValueError: This is a child.
 
         Examples:
+            Create a small SqlDaf table of people:
+
             >>> import tempfile
             >>> SqlDaf.db_path = tempfile.mkdtemp() + '/job.db'
-            >>> items_sdaf = SqlDaf.from_daf(Daf(cols=['id', 'qty'], keyfield='id', lol=[['a1', 3], ['b2', 10]]), name='items')
-            >>> items_sdaf.select_krows(['a1']).delete()
+            >>> people_sdaf = SqlDaf('people', cols=['id', 'age'], keyfield='id', lol=[['p1', 34], ['p2', 52]])
+
+            A selection has no table of its own to delete:
+
+            >>> people_sdaf.select_krows(['p1']).delete()
             Traceback (most recent call last):
             ValueError: SqlDaf.delete: '...' is a child, with no table of its own. Delete its parent instead.
-            >>> items_sdaf.delete()
-            >>> SqlDaf.table_exists('items')
+
+            Delete the table from the file:
+
+            >>> people_sdaf.delete()
+            >>> SqlDaf.table_exists('people')
             False
         """
         if self.parent_sdaf is not None:
@@ -1551,34 +1603,22 @@ class SqlDaf(Daf):
         its own work is undone.
 
         Examples:
+            Create a small SqlDaf table of people:
+
             >>> import tempfile
             >>> SqlDaf.db_path = tempfile.mkdtemp() + '/job.db'
-            >>> marks_sdaf = SqlDaf('marks', cols=['ballot_id', 'v'], lol=[['b1', 1]])
-            >>> marks_sdaf
-            <BLANKLINE>
-            | ballot_id | v  |
-            | --------: | -: |
-            |        b1 |  1 |
-            <BLANKLINE>
-            %% daf rows=1; cols=2; keyfield=''; name='marks'
-            <BLANKLINE>
+            >>> people_sdaf = SqlDaf('people', cols=['id', 'age'], keyfield='id', lol=[['p1', 34], ['p2', 52], ['p3', 27]])
 
-            An UPDATE returns no rows, so `sql()` gives an empty Daf, shown by its summary line:
+            Add a year to the age of several people, in one transaction. The changes are committed together at
+            the end of the block, which is much faster than a commit for each:
 
-            >>> with marks_sdaf.transaction():
-            ...     marks_sdaf.sql("UPDATE marks SET v = 2")
-            <BLANKLINE>
-            <BLANKLINE>
-            %% daf rows=0; cols=0; keyfield=''; name=''
-            <BLANKLINE>
-            >>> marks_sdaf
-            <BLANKLINE>
-            | ballot_id | v  |
-            | --------: | -: |
-            |        b1 |  2 |
-            <BLANKLINE>
-            %% daf rows=1; cols=2; keyfield=''; name='marks'
-            <BLANKLINE>
+            >>> def add_a_year(sdaf, keys):
+            ...     with sdaf.transaction():
+            ...         for key in keys:
+            ...             sdaf.sql(f'UPDATE {sdaf.name} SET age = age + 1 WHERE id = ?', [key])
+            >>> add_a_year(people_sdaf, ['p1', 'p2'])
+            >>> people_sdaf.col('age')
+            [35, 53, 27]
         """
         with _transaction_on(self.conn):
             yield
@@ -1933,12 +1973,18 @@ class SqlDaf(Daf):
             The number of rows.
 
         Examples:
+            Create a small SqlDaf table of people:
+
             >>> import tempfile
             >>> SqlDaf.db_path = tempfile.mkdtemp() + '/job.db'
-            >>> items_sdaf = SqlDaf.from_daf(Daf(cols=['id', 'g', 'qty'], keyfield='id', lol=[['a1', 'x', 3], ['b2', 'y', ''], ['c3', 'x', 7]]), name='items')
-            >>> len(items_sdaf)
+            >>> people_sdaf = SqlDaf('people', cols=['id', 'city', 'age'], keyfield='id', lol=[
+            ...     ['p1', 'Denver', 34], ['p2', 'Austin', 52], ['p3', 'Denver', 27]])
+
+            Count the rows of the table, and of a selection:
+
+            >>> len(people_sdaf)
             3
-            >>> len(items_sdaf.select_by_dict({'g': 'x'}))
+            >>> len(people_sdaf.select_by_dict({'city': 'Denver'}))
             2
         """
         self._resolve()
@@ -1957,10 +2003,15 @@ class SqlDaf(Daf):
             The number of rows.
 
         Examples:
+            Create a small SqlDaf table of people:
+
             >>> import tempfile
             >>> SqlDaf.db_path = tempfile.mkdtemp() + '/job.db'
-            >>> items_sdaf = SqlDaf.from_daf(Daf(cols=['id', 'qty'], keyfield='id', lol=[['a1', 3], ['b2', '']]), name='items')
-            >>> items_sdaf.len()
+            >>> people_sdaf = SqlDaf('people', cols=['id', 'age'], keyfield='id', lol=[['p1', 34], ['p2', 52]])
+
+            Count the rows, as a method:
+
+            >>> people_sdaf.len()
             2
         """
         return len(self)
@@ -1977,12 +2028,17 @@ class SqlDaf(Daf):
             True if there is a row.
 
         Examples:
+            Create a small SqlDaf table of people:
+
             >>> import tempfile
             >>> SqlDaf.db_path = tempfile.mkdtemp() + '/job.db'
-            >>> items_sdaf = SqlDaf.from_daf(Daf(cols=['id', 'qty'], keyfield='id', lol=[['a1', 3], ['b2', 10]]), name='items')
-            >>> bool(items_sdaf)
+            >>> people_sdaf = SqlDaf('people', cols=['id', 'age'], keyfield='id', lol=[['p1', 34], ['p2', 52]])
+
+            Ask whether the table has a row, and whether a selection with no match does:
+
+            >>> bool(people_sdaf)
             True
-            >>> bool(items_sdaf.select_where_sql('qty > ?', [50]))
+            >>> bool(people_sdaf.select_where_sql('age > ?', [90]))
             False
         """
         self._resolve()
@@ -1999,10 +2055,15 @@ class SqlDaf(Daf):
             The number of columns.
 
         Examples:
+            Create a small SqlDaf table of people:
+
             >>> import tempfile
             >>> SqlDaf.db_path = tempfile.mkdtemp() + '/job.db'
-            >>> items_sdaf = SqlDaf.from_daf(Daf(cols=['id', 'item', 'qty'], keyfield='id', lol=[['a1', 'pen', 3]]), name='items')
-            >>> items_sdaf.num_cols()
+            >>> people_sdaf = SqlDaf('people', cols=['id', 'name', 'age'], keyfield='id', lol=[['p1', 'Ana Lopez', 34]])
+
+            Count the columns:
+
+            >>> people_sdaf.num_cols()
             3
         """
         return len(self.hd)
@@ -2045,16 +2106,21 @@ class SqlDaf(Daf):
             The rows, as dicts.
 
         Examples:
+            Create a small SqlDaf table of people. One age is not known:
+
             >>> import tempfile
             >>> SqlDaf.db_path = tempfile.mkdtemp() + '/job.db'
-            >>> items_sdaf = SqlDaf.from_daf(Daf(cols=['id', 'qty'], keyfield='id', lol=[['a1', 3], ['b2', ''], ['c3', 7]]), name='items')
-            >>> def total_qty(sdaf):
+            >>> people_sdaf = SqlDaf('people', cols=['id', 'age'], keyfield='id', lol=[['p1', 34], ['p2', ''], ['p3', 27]])
+
+            Loop over the rows, each a dict, to add up the known ages:
+
+            >>> def total_age(sdaf):
             ...     total = 0
             ...     for row in sdaf:
-            ...         total += row['qty'] or 0
+            ...         total += row['age'] or 0
             ...     return total
-            >>> total_qty(items_sdaf)
-            10
+            >>> total_age(people_sdaf)
+            61
         """
         return self.iter_dict()
 
@@ -2070,18 +2136,23 @@ class SqlDaf(Daf):
             Each row as a dict of column name to value.
 
         Examples:
+            Create a small SqlDaf table of people:
+
             >>> import tempfile
             >>> SqlDaf.db_path = tempfile.mkdtemp() + '/job.db'
-            >>> items_sdaf = SqlDaf.from_daf(Daf(cols=['id', 'qty'], keyfield='id', lol=[['a1', 3], ['b2', '']]), name='items')
-            >>> list(items_sdaf.iter_dict())
-            [{'id': 'a1', 'qty': 3}, {'id': 'b2', 'qty': ''}]
+            >>> people_sdaf = SqlDaf('people', cols=['id', 'age'], keyfield='id', lol=[['p1', 34], ['p2', 52]])
+
+            Read the rows as dicts:
+
+            >>> list(people_sdaf.iter_dict())
+            [{'id': 'p1', 'age': 34}, {'id': 'p2', 'age': 52}]
 
             Each dict is a copy. Changing it leaves the table as it was:
 
-            >>> for row in items_sdaf.iter_dict():
-            ...     row['qty'] = 0
-            >>> items_sdaf.col('qty')
-            [3, '']
+            >>> for row in people_sdaf.iter_dict():
+            ...     row['age'] = 0
+            >>> people_sdaf.col('age')
+            [34, 52]
         """
         cols_ls: T_ls = list(self.hd)
         batch_lot: List[Tuple[Any, ...]]
@@ -2101,23 +2172,28 @@ class SqlDaf(Daf):
             Each row as a KeyedList.
 
         Examples:
+            Create a small SqlDaf table of people:
+
             >>> import tempfile
             >>> SqlDaf.db_path = tempfile.mkdtemp() + '/job.db'
-            >>> items_sdaf = SqlDaf.from_daf(Daf(cols=['id', 'qty'], keyfield='id', lol=[['a1', 3], ['b2', 10]]), name='items')
-            >>> [row['qty'] for row in items_sdaf.iter_klist()]
-            [3, 10]
+            >>> people_sdaf = SqlDaf('people', cols=['id', 'age'], keyfield='id', lol=[['p1', 34], ['p2', 52]])
+
+            Read each row as a KeyedList, by column name:
+
+            >>> [row['age'] for row in people_sdaf.iter_klist()]
+            [34, 52]
 
             Assigning to a row changes only the copy:
 
-            >>> for row in items_sdaf.iter_klist():
-            ...     row['qty'] = 0
-            >>> items_sdaf.col('qty')
-            [3, 10]
+            >>> for row in people_sdaf.iter_klist():
+            ...     row['age'] = 0
+            >>> people_sdaf.col('age')
+            [34, 52]
 
             To change values, use `update_record_krow()` or `apply_in_place()`:
 
-            >>> items_sdaf.update_record_krow('a1', {'qty': 4}).col('qty')
-            [4, 10]
+            >>> people_sdaf.update_record_krow('p1', {'age': 35}).col('age')
+            [35, 52]
         """
         batch_lot: List[Tuple[Any, ...]]
         for batch_lot in self._iter_row_batches():
@@ -2136,11 +2212,16 @@ class SqlDaf(Daf):
             Each row as a list.
 
         Examples:
+            Create a small SqlDaf table of people. One age is not known:
+
             >>> import tempfile
             >>> SqlDaf.db_path = tempfile.mkdtemp() + '/job.db'
-            >>> items_sdaf = SqlDaf.from_daf(Daf(cols=['id', 'qty'], keyfield='id', lol=[['a1', 3], ['b2', '']]), name='items')
-            >>> list(items_sdaf.iter_list())
-            [['a1', 3], ['b2', '']]
+            >>> people_sdaf = SqlDaf('people', cols=['id', 'age'], keyfield='id', lol=[['p1', 34], ['p2', '']])
+
+            Read the rows as lists, the values in column order:
+
+            >>> list(people_sdaf.iter_list())
+            [['p1', 34], ['p2', '']]
         """
         batch_lot: List[Tuple[Any, ...]]
         for batch_lot in self._iter_row_batches():
@@ -2158,10 +2239,15 @@ class SqlDaf(Daf):
             The number of rows.
 
         Examples:
+            Create a small SqlDaf table of people:
+
             >>> import tempfile
             >>> SqlDaf.db_path = tempfile.mkdtemp() + '/job.db'
-            >>> items_sdaf = SqlDaf.from_daf(Daf(cols=['id', 'qty'], keyfield='id', lol=[['a1', 3], ['b2', '']]), name='items')
-            >>> items_sdaf.num_rows()
+            >>> people_sdaf = SqlDaf('people', cols=['id', 'age'], keyfield='id', lol=[['p1', 34], ['p2', 52]])
+
+            Count the rows:
+
+            >>> people_sdaf.num_rows()
             2
         """
         return len(self)
@@ -2177,15 +2263,20 @@ class SqlDaf(Daf):
             A tuple of the number of rows and the number of columns.
 
         Examples:
+            Create a small SqlDaf table of people:
+
             >>> import tempfile
             >>> SqlDaf.db_path = tempfile.mkdtemp() + '/job.db'
-            >>> items_sdaf = SqlDaf.from_daf(Daf(cols=['id', 'item', 'qty'], keyfield='id', lol=[['a1', 'pen', 3], ['b2', 'ink', '']]), name='items')
-            >>> items_sdaf.shape()
+            >>> people_sdaf = SqlDaf('people', cols=['id', 'name', 'age'], keyfield='id', lol=[['p1', 'Ana Lopez', 34], ['p2', 'Ben Okafor', 52]])
+
+            Give the number of rows and of columns:
+
+            >>> people_sdaf.shape()
             (2, 3)
 
             A table with no rows gives (0, 0), whatever its columns:
 
-            >>> items_sdaf.select_where_sql('qty > ?', [50]).shape()
+            >>> people_sdaf.select_where_sql('age > ?', [90]).shape()
             (0, 0)
         """
         num_rows: int = len(self)
@@ -2411,27 +2502,31 @@ class SqlDaf(Daf):
             ValueError: `astype` is neither `list` nor `view`.
 
         Examples:
+            Create a small SqlDaf table of people:
+
             >>> import tempfile
             >>> SqlDaf.db_path = tempfile.mkdtemp() + '/job.db'
-            >>> marks_sdaf = SqlDaf('marks', cols=['ballot_id', 'v'], lol=[['b1', 1], ['b2', 0], ['b3', 1]], keyfield='ballot_id')
-            >>> marks_sdaf
-            <BLANKLINE>
-            | ballot_id | v  |
-            | --------: | -: |
-            |        b1 |  1 |
-            |        b2 |  0 |
-            |        b3 |  1 |
-            <BLANKLINE>
-            %% daf rows=3; cols=2; keyfield='ballot_id'; name='marks'
-            <BLANKLINE>
-            >>> marks_sdaf.keys(astype='view')
-            dict_keys(['b1', 'b2', 'b3'])
-            >>> 'b2' in marks_sdaf, marks_sdaf[0:2].keys(), len(marks_sdaf.select_by_dict({'v': 1}))
-            (True, ['b1', 'b2'], 2)
+            >>> people_sdaf = SqlDaf('people', cols=['id', 'city', 'age'], keyfield='id', lol=[
+            ...     ['p1', 'Denver', 34], ['p2', 'Austin', 52], ['p3', 'Denver', 27]])
+
+            Read the keys, in row order:
+
+            >>> people_sdaf.keys()
+            ['p1', 'p2', 'p3']
+
+            Read them as a view, for fast membership tests:
+
+            >>> people_sdaf.keys(astype='view')
+            dict_keys(['p1', 'p2', 'p3'])
+
+            Read the keys of a selection:
+
+            >>> people_sdaf.select_by_dict({'city': 'Denver'}).keys()
+            ['p1', 'p3']
 
             With no keyfield, the answer is an empty list, or an error with `silent_error=False`:
 
-            >>> plain_sdaf = SqlDaf.from_daf(Daf(cols=['id'], lol=[['a']]), name='keys_plain')
+            >>> plain_sdaf = SqlDaf('plain', cols=['id'], lol=[['p1']])
             >>> plain_sdaf.keys()
             []
             >>> plain_sdaf.keys(silent_error=False)
@@ -2532,10 +2627,15 @@ class SqlDaf(Daf):
             ValueError: There is no keyfield, and there are rows.
 
         Examples:
+            Create a small SqlDaf table of people:
+
             >>> import tempfile
             >>> SqlDaf.db_path = tempfile.mkdtemp() + '/job.db'
-            >>> items_sdaf = SqlDaf.from_daf(Daf(cols=['id', 'qty'], keyfield='id', lol=[['a1', 3], ['b2', 10]]), name='items')
-            >>> 'b2' in items_sdaf, 'z9' in items_sdaf
+            >>> people_sdaf = SqlDaf('people', cols=['id', 'age'], keyfield='id', lol=[['p1', 34], ['p2', 52]])
+
+            Ask whether a row has this key:
+
+            >>> 'p2' in people_sdaf, 'p9' in people_sdaf
             (True, False)
         """
         if not self.keyfield and not self:
@@ -2556,11 +2656,16 @@ class SqlDaf(Daf):
             The keys from the list that have a row.
 
         Examples:
+            Create a small SqlDaf table of people:
+
             >>> import tempfile
             >>> SqlDaf.db_path = tempfile.mkdtemp() + '/job.db'
-            >>> items_sdaf = SqlDaf.from_daf(Daf(cols=['id', 'qty'], keyfield='id', lol=[['a1', 3], ['b2', 10], ['c3', 7]]), name='items')
-            >>> items_sdaf.get_existing_keys(['c3', 'z9', 'a1'])
-            ['c3', 'a1']
+            >>> people_sdaf = SqlDaf('people', cols=['id', 'age'], keyfield='id', lol=[['p1', 34], ['p2', 52], ['p3', 27]])
+
+            Keep the keys of a list that have a row, in the order of the list:
+
+            >>> people_sdaf.get_existing_keys(['p3', 'p9', 'p1'])
+            ['p3', 'p1']
         """
         if not self.keyfield:
             return []
@@ -2650,34 +2755,37 @@ class SqlDaf(Daf):
             sqlite3.IntegrityError: The change gives a repeated key. Nothing changes.
 
         Examples:
+            Create a small SqlDaf table of people:
+
             >>> import tempfile
             >>> SqlDaf.db_path = tempfile.mkdtemp() + '/job.db'
-            >>> items_sdaf = SqlDaf.from_daf(Daf(cols=['id', 'item', 'qty'], keyfield='id', lol=[['a1', 'pen', 3], ['b2', 'ink', 10], ['c3', 'pad', 7]]), name='items')
+            >>> people_sdaf = SqlDaf('people', cols=['id', 'name', 'age'], keyfield='id', lol=[
+            ...     ['p1', 'Ana Lopez', 34], ['p2', 'Ben Okafor', 52], ['p3', 'Chen Wu', 27]])
 
-            One cell, by key and column name:
+            Set one cell, by key and column name:
 
-            >>> items_sdaf['b2', 'qty'] = 0
-            >>> items_sdaf.select_record('b2')
-            {'id': 'b2', 'item': 'ink', 'qty': 0}
+            >>> people_sdaf['p2', 'age'] = 53
+            >>> people_sdaf.select_record('p2')
+            {'id': 'p2', 'name': 'Ben Okafor', 'age': 53}
 
-            A whole row, by key. Columns the dict lacks become Python NULL:
+            Set a whole row, by key. Columns the dict lacks become Python NULL:
 
-            >>> items_sdaf['c3'] = {'id': 'c3', 'item': 'cap'}
-            >>> items_sdaf.select_record('c3')
-            {'id': 'c3', 'item': 'cap', 'qty': ''}
+            >>> people_sdaf['p3'] = {'id': 'p3', 'name': 'Chen Wu'}
+            >>> people_sdaf.select_record('p3')
+            {'id': 'p3', 'name': 'Chen Wu', 'age': ''}
 
-            A column. A single value sets every row. A short list leaves the rows past its end as they were:
+            Set a column. A single value sets every row. A short list leaves the rows past its end as they were:
 
-            >>> items_sdaf[:, 'qty'] = 1
-            >>> items_sdaf[:, 'qty'] = [5, 6]
-            >>> items_sdaf.col('qty')
-            [5, 6, 1]
+            >>> people_sdaf[:, 'age'] = 40
+            >>> people_sdaf[:, 'age'] = [35, 54]
+            >>> people_sdaf.col('age')
+            [35, 54, 40]
 
             An int row is a position in a Daf, so it raises here:
 
-            >>> items_sdaf[0, 'qty'] = 9
+            >>> people_sdaf[0, 'age'] = 36
             Traceback (most recent call last):
-            NotImplementedError: sdaf[(0, 'qty')] = ...: an int row is a position, as in a Daf, and a SqlDaf does not assign by position. ...
+            NotImplementedError: sdaf[(0, 'age')] = ...: an int row is a position, as in a Daf, and a SqlDaf does not assign by position. ...
         """
         rows_sel: Any = slice_spec[0] if isinstance(slice_spec, tuple) and len(slice_spec) == 2 else slice_spec
         cols_sel: Any = slice_spec[1] if isinstance(slice_spec, tuple) and len(slice_spec) == 2 else slice(None)
@@ -2784,36 +2892,32 @@ class SqlDaf(Daf):
             The new SqlDaf.
 
         Examples:
+            Create a small SqlDaf table of people:
+
             >>> import tempfile
             >>> SqlDaf.db_path = tempfile.mkdtemp() + '/job.db'
-            >>> marks_sdaf = SqlDaf('marks', cols=['ballot_id', 'v'], lol=[['b1', 1]], keyfield='ballot_id')
-            >>> marks_sdaf
-            <BLANKLINE>
-            | ballot_id | v  |
-            | --------: | -: |
-            |        b1 |  1 |
-            <BLANKLINE>
-            %% daf rows=1; cols=2; keyfield='ballot_id'; name='marks'
-            <BLANKLINE>
-            >>> empty_sdaf = marks_sdaf.clone_empty()
+            >>> people_sdaf = SqlDaf('people', cols=['id', 'name', 'age'], keyfield='id', lol=[['p1', 'Ana Lopez', 34]])
+
+            Make a new table with the same columns and keyfield, and no rows:
+
+            >>> empty_sdaf = people_sdaf.clone_empty()
             >>> empty_sdaf.columns(), empty_sdaf.keyfield, len(empty_sdaf)
-            (['ballot_id', 'v'], 'ballot_id', 0)
+            (['id', 'name', 'age'], 'id', 0)
 
-            With rows of its own, other column names, or a name:
+            Give it rows of its own, other columns, or a name:
 
-            >>> stock_sdaf = SqlDaf.from_daf(Daf(cols=['id', 'qty'], keyfield='id', lol=[['a1', 3]]), name='clone_stock')
-            >>> stock_sdaf.clone_empty(lol=[['z9', 1]])
+            >>> people_sdaf.clone_empty(lol=[['p7', 'Gus Berg', 61]])
             <BLANKLINE>
-            | id | qty |
-            | -: | --: |
-            | z9 |   1 |
+            | id |   name   | age |
+            | -: | -------: | --: |
+            | p7 | Gus Berg |  61 |
             <BLANKLINE>
-            %% daf rows=1; cols=2; keyfield='id'; name='daf_tmp_clone_stock_v2'
+            %% daf rows=1; cols=3; keyfield='id'; name='daf_tmp_people_v2'
             <BLANKLINE>
-            >>> stock_sdaf.clone_empty(cols=['k', 'v']).columns()
-            ['k', 'v']
-            >>> stock_sdaf.clone_empty(name='clone_blank').name
-            'clone_blank'
+            >>> people_sdaf.clone_empty(cols=['id', 'email']).columns()
+            ['id', 'email']
+            >>> people_sdaf.clone_empty(name='people_blank').name
+            'people_blank'
         """
         cols_ls: T_ls = list(self.hd) if not cols else ([cols] if isinstance(cols, str) else list(cols))
         if cols_ls != list(self.hd) and (len(set(cols_ls)) != len(cols_ls) or NULL in cols_ls):
@@ -2872,47 +2976,41 @@ class SqlDaf(Daf):
             ValueError: A table of that name exists, `level` is not a level, or `inplace` with a level that does not copy the rows.
 
         Examples:
+            Create a small SqlDaf table of people, and a selection of those over 30:
+
             >>> import tempfile
             >>> SqlDaf.db_path = tempfile.mkdtemp() + '/job.db'
-            >>> marks_sdaf = SqlDaf('marks', cols=['ballot_id', 'v'], lol=[['b1', 1], ['b2', 0]])
-            >>> marks_sdaf
-            <BLANKLINE>
-            | ballot_id | v  |
-            | --------: | -: |
-            |        b1 |  1 |
-            |        b2 |  0 |
-            <BLANKLINE>
-            %% daf rows=2; cols=2; keyfield=''; name='marks'
-            <BLANKLINE>
-            >>> sel_sdaf = marks_sdaf.select_where_sql('v = 1')
-            >>> sel_sdaf.copy(inplace=True).is_child
+            >>> people_sdaf = SqlDaf('people', cols=['id', 'age'], keyfield='id', lol=[['p1', 34], ['p2', 52], ['p3', 27]])
+            >>> over_30_sdaf = people_sdaf.select_where_sql('age > 30')
+
+            Give the selection rows of its own, with `inplace=True`. It is then no longer a child:
+
+            >>> over_30_sdaf.copy(inplace=True).is_child
             False
-            >>> marks_sdaf.sql("UPDATE marks SET v = 9")
-            <BLANKLINE>
-            <BLANKLINE>
-            %% daf rows=0; cols=0; keyfield=''; name=''
-            <BLANKLINE>
-            >>> sel_sdaf
-            <BLANKLINE>
-            | ballot_id | v  |
-            | --------: | -: |
-            |        b1 |  1 |
-            <BLANKLINE>
-            %% daf rows=1; cols=2; keyfield=''; name='daf_tmp_marks_v2'
-            <BLANKLINE>
 
-            Give the copy a name, or a level. A level that copies the rows gives a TEMP table of its own:
+            A later change to the table no longer shows in it:
 
-            >>> sizes_sdaf = SqlDaf.from_daf(Daf(cols=['id', 'qty'], lol=[['a1', 3]]), name='copy_sizes')
-            >>> sizes_sdaf.copy(name='copy_sizes_2').name
-            'copy_sizes_2'
-            >>> sizes_sdaf.copy(level='editable')
+            >>> people_sdaf.update_record_krow('p1', {'age': 35}).col('age')
+            [35, 52, 27]
+            >>> over_30_sdaf.col('age')
+            [34, 52]
+
+            Give a copy a name:
+
+            >>> people_sdaf.copy(name='people_copy').name
+            'people_copy'
+
+            A level that copies the rows gives a TEMP table of its own:
+
+            >>> people_sdaf.copy(level='editable')
             <BLANKLINE>
-            | id | qty |
+            | id | age |
             | -: | --: |
-            | a1 |   3 |
+            | p1 |  35 |
+            | p2 |  52 |
+            | p3 |  27 |
             <BLANKLINE>
-            %% daf rows=1; cols=2; keyfield=''; name='daf_tmp_copy_sizes_v3'
+            %% daf rows=3; cols=2; keyfield='id'; name='daf_tmp_people_v3'
             <BLANKLINE>
         """
         if isinstance(level, bool):                     # an old call, copy(True), meant deep.
@@ -2985,31 +3083,28 @@ class SqlDaf(Daf):
                 With `db_path`, also when a transaction is open.
 
         Examples:
-            >>> import tempfile
-            >>> SqlDaf.db_path = tempfile.mkdtemp() + '/job.db'
-            >>> marks_sdaf = SqlDaf('marks', cols=['ballot_id', 'v'], lol=[['b1', 1], ['b2', 0]], keyfield='ballot_id')
-            >>> marks_sdaf
-            <BLANKLINE>
-            | ballot_id | v  |
-            | --------: | -: |
-            |        b1 |  1 |
-            |        b2 |  0 |
-            <BLANKLINE>
-            %% daf rows=2; cols=2; keyfield='ballot_id'; name='marks'
-            <BLANKLINE>
-            >>> agreed_sdaf = marks_sdaf.select_where_sql('v = 1').copy(name='agreed').save()
-            >>> SqlDaf('agreed').keyfield, len(SqlDaf('agreed'))
-            ('ballot_id', 1)
-
-            Save under a name, or into another database file, with `db_path`:
+            Create a small SqlDaf table of people:
 
             >>> import os, tempfile
-            >>> report_sdaf = SqlDaf.from_daf(Daf(cols=['id', 'qty'], lol=[['a1', 3]]), name='save_report')
-            >>> report_sdaf.copy().save('save_kept').name
-            'save_kept'
+            >>> SqlDaf.db_path = tempfile.mkdtemp() + '/job.db'
+            >>> people_sdaf = SqlDaf('people', cols=['id', 'age'], keyfield='id', lol=[['p1', 34], ['p2', 52], ['p3', 27]])
+
+            Keep a selection in the file, as a permanent table named by its copy:
+
+            >>> over_30_sdaf = people_sdaf.select_where_sql('age > 30').copy(name='over_30').save()
+            >>> SqlDaf('over_30').keyfield, len(SqlDaf('over_30'))
+            ('id', 2)
+
+            Keep a copy under a name given to `save()`:
+
+            >>> people_sdaf.copy().save('people_kept').name
+            'people_kept'
+
+            Keep a copy in another database file, with `db_path`:
+
             >>> other_path = os.path.join(tempfile.mkdtemp(), 'other.db')
-            >>> report_sdaf.copy().save('save_elsewhere', db_path=other_path).name, os.path.exists(other_path)
-            ('save_elsewhere', True)
+            >>> people_sdaf.copy().save('people_elsewhere', db_path=other_path).name, os.path.exists(other_path)
+            ('people_elsewhere', True)
         """
         if self.parent_sdaf is not None:
             raise ValueError(f"SqlDaf.save: '{self.name}' is a child, with no rows of its own. "
@@ -3090,17 +3185,25 @@ class SqlDaf(Daf):
             KeyError: The keyfield is not a column.
 
         Examples:
+            Create a small SqlDaf table of people, with no keyfield:
+
             >>> import tempfile
             >>> SqlDaf.db_path = tempfile.mkdtemp() + '/job.db'
-            >>> items_sdaf = SqlDaf.from_daf(Daf(cols=['id', 'item', 'qty'], lol=[['a1', 'pen', 3], ['b2', 'ink', 10]]), name='items')
-            >>> items_sdaf.set_keyfield('item').select_record('ink')
-            {'id': 'b2', 'item': 'ink', 'qty': 10}
+            >>> people_sdaf = SqlDaf('people', cols=['id', 'name', 'age'], lol=[['p1', 'Ana Lopez', 34], ['p2', 'Ben Okafor', 52]])
+
+            Make the name the keyfield, and look a row up by it:
+
+            >>> people_sdaf.set_keyfield('name').select_record('Ben Okafor')
+            {'id': 'p2', 'name': 'Ben Okafor', 'age': 52}
 
             The keyfield is recorded, so the table opens with it next time:
 
-            >>> SqlDaf('items').keyfield
-            'item'
-            >>> items_sdaf.set_keyfield('').keyfield
+            >>> SqlDaf('people').keyfield
+            'name'
+
+            Clear the keyfield:
+
+            >>> people_sdaf.set_keyfield('').keyfield
             ''
         """
         if keyfield and keyfield not in self.hd:
@@ -3122,11 +3225,16 @@ class SqlDaf(Daf):
         The name of the unique index on the keyfield, as in daf_ix_marks_ballot_id.
 
         Examples:
+            Create a small SqlDaf table of people, keyed by id:
+
             >>> import tempfile
             >>> SqlDaf.db_path = tempfile.mkdtemp() + '/job.db'
-            >>> marks_sdaf = SqlDaf.from_daf(Daf(cols=['ballot_id', 'v'], keyfield='ballot_id', lol=[['b1', 1]]), name='marks')
-            >>> marks_sdaf.key_index_name()
-            'daf_ix_marks_ballot_id'
+            >>> people_sdaf = SqlDaf('people', cols=['id', 'age'], keyfield='id', lol=[['p1', 34]])
+
+            Give the name of the unique index on its keyfield:
+
+            >>> people_sdaf.key_index_name()
+            'daf_ix_people_id'
         """
         return f'{INDEX_PREFIX}{self.name}_{self.keyfield}'
 
@@ -3156,18 +3264,24 @@ class SqlDaf(Daf):
             sqlite3.IntegrityError: A key is repeated. Nothing is made.
 
         Examples:
+            Create a small SqlDaf table of people, keyed by id:
+
             >>> import tempfile
             >>> SqlDaf.db_path = tempfile.mkdtemp() + '/job.db'
-            >>> items_sdaf = SqlDaf.from_daf(Daf(cols=['id', 'qty'], keyfield='id', lol=[['a1', 3], ['b2', 10]]), name='items')
-            >>> items_sdaf.ensure_key_index().sql("SELECT name FROM sqlite_master WHERE type = 'index' AND tbl_name = ?", ['items']).col('name')
-            ['daf_ix_items_id']
+            >>> people_sdaf = SqlDaf('people', cols=['id', 'age'], keyfield='id', lol=[['p1', 34], ['p2', 52]])
 
-            A repeated key, or a Python NULL key, raises, and no index is made:
+            Make the unique index on the keyfield, and find it in the file:
 
-            >>> dups_sdaf = SqlDaf.from_daf(Daf(cols=['id', 'qty'], lol=[['a1', 3], ['a1', 4]]), name='dups', keyfield='id')
-            >>> dups_sdaf.ensure_key_index()
+            >>> people_sdaf.ensure_key_index().sql("SELECT name FROM sqlite_master WHERE type = 'index' AND tbl_name = ?", ['people']).col('name')
+            ['daf_ix_people_id']
+
+            A repeated key raises, and no index is made:
+
+            >>> signups_sdaf = SqlDaf('signups', cols=['email', 'name'], keyfield='email', lol=[
+            ...     ['ana@example.com', 'Ana Lopez'], ['ana@example.com', 'Ana L.']])
+            >>> signups_sdaf.ensure_key_index()
             Traceback (most recent call last):
-            sqlite3.IntegrityError: UNIQUE constraint failed: dups.id
+            sqlite3.IntegrityError: UNIQUE constraint failed: signups.email
         """
         if self.parent_sdaf is not None:
             raise ValueError(f"SqlDaf.ensure_key_index: '{self.name}' is a child. Its parent has the index.")
@@ -3250,39 +3364,41 @@ class SqlDaf(Daf):
             NotImplementedError: A dtype is not int, float, bool, str, dict or list.
 
         Examples:
+            Write a CSV file of people, and load it. Every cell is text. One age is not a number:
+
             >>> import os, tempfile
             >>> csv_dir = tempfile.mkdtemp()
             >>> SqlDaf.db_path = os.path.join(csv_dir, 'job.db')
-            >>> with open(os.path.join(csv_dir, 'items.csv'), 'w') as csv_f:
-            ...     n = csv_f.write('id,qty,price,ok\na1,3,1.5,1\nb2,abc,,0\nc3,7,2.0,\n')
-            >>> items_sdaf = SqlDaf.from_csv(os.path.join(csv_dir, 'items.csv'), keyfield='id')
-            >>> items_sdaf.to_lod()
-            [{'id': 'a1', 'qty': '3', 'price': '1.5', 'ok': '1'}, {'id': 'b2', 'qty': 'abc', 'price': '', 'ok': '0'}, {'id': 'c3', 'qty': '7', 'price': '2.0', 'ok': ''}]
+            >>> with open(os.path.join(csv_dir, 'people.csv'), 'w') as csv_f:
+            ...     n = csv_f.write('id,age,height_m,member\np1,34,1.68,1\np2,unknown,,0\np3,27,1.75,\n')
+            >>> people_sdaf = SqlDaf.from_csv(os.path.join(csv_dir, 'people.csv'), keyfield='id')
+            >>> people_sdaf.to_lod()
+            [{'id': 'p1', 'age': '34', 'height_m': '1.68', 'member': '1'}, {'id': 'p2', 'age': 'unknown', 'height_m': '', 'member': '0'}, {'id': 'p3', 'age': '27', 'height_m': '1.75', 'member': ''}]
 
-            Convert only some columns. A value that does not convert, such as 'abc', stays as it is:
+            Convert only the age. A value that does not convert, such as 'unknown', stays as it is:
 
-            >>> items_sdaf.apply_dtypes(dtypes={'qty': int}, cols='qty').col('qty')
-            [3, 'abc', 7]
+            >>> people_sdaf.apply_dtypes(dtypes={'age': int}, cols='age').col('age')
+            [34, 'unknown', 27]
 
-            Several columns. Python NULL in a bool column becomes 0:
+            Convert several columns. Python NULL in a bool column becomes 0:
 
-            >>> items_sdaf.apply_dtypes(dtypes={'price': float, 'ok': bool}, cols=['price', 'ok']).to_lod()
-            [{'id': 'a1', 'qty': 3, 'price': 1.5, 'ok': 1}, {'id': 'b2', 'qty': 'abc', 'price': '', 'ok': 0}, {'id': 'c3', 'qty': 7, 'price': 2.0, 'ok': 0}]
+            >>> people_sdaf.apply_dtypes(dtypes={'height_m': float, 'member': bool}, cols=['height_m', 'member']).to_lod()
+            [{'id': 'p1', 'age': 34, 'height_m': 1.68, 'member': 1}, {'id': 'p2', 'age': 'unknown', 'height_m': '', 'member': 0}, {'id': 'p3', 'age': 27, 'height_m': 1.75, 'member': 0}]
 
-            Without `cols`, every column is converted, so each needs a dtype. A column without one
-            raises, unless `silent_error=True` leaves it as it is:
+            Without `cols`, every column is converted, so each needs a dtype. A column without one raises, unless
+            `silent_error=True` leaves it as it is:
 
-            >>> items_sdaf.apply_dtypes(dtypes={'qty': int})
+            >>> people_sdaf.apply_dtypes(dtypes={'age': int})
             Traceback (most recent call last):
-            ValueError: SqlDaf.apply_dtypes: no dtype for the columns ['id', 'price', 'ok']. ...
-            >>> items_sdaf.apply_dtypes(dtypes={'qty': int}, silent_error=True).col('qty')
-            [3, 'abc', 7]
+            ValueError: SqlDaf.apply_dtypes: no dtype for the columns ['id', 'height_m', 'member']. ...
+            >>> people_sdaf.apply_dtypes(dtypes={'age': int}, silent_error=True).col('age')
+            [34, 'unknown', 27]
 
             With `from_str=False`, a str column that holds numbers becomes text:
 
-            >>> nums_sdaf = SqlDaf.from_daf(Daf(cols=['id', 'code'], lol=[['a1', 3], ['b2', 1.5]]), name='nums')
-            >>> nums_sdaf.apply_dtypes(dtypes={'id': str, 'code': str}, from_str=False).col('code')
-            ['3', '1.5']
+            >>> codes_sdaf = SqlDaf('codes', cols=['id', 'zip'], lol=[['p1', 80202], ['p2', 73301]])
+            >>> codes_sdaf.apply_dtypes(dtypes={'id': str, 'zip': str}, from_str=False).col('zip')
+            ['80202', '73301']
         """
         # The dtypes are recorded with the conversion, in one transaction, so a refused or failed
         # conversion leaves the record and this SqlDaf as they were.
@@ -3366,28 +3482,31 @@ class SqlDaf(Daf):
             ReadOnlyTableError: The statement changes the data of a table opened with `read_only=True`.
 
         Examples:
+            Create a small SqlDaf table of people:
+
             >>> import tempfile
             >>> SqlDaf.db_path = tempfile.mkdtemp() + '/job.db'
-            >>> items_sdaf = SqlDaf.from_daf(Daf(cols=['id', 'g', 'qty'], keyfield='id', lol=[['a1', 'x', 3], ['b2', 'y', 10], ['c3', 'x', 7]]), name='items')
+            >>> people_sdaf = SqlDaf('people', cols=['id', 'city', 'age'], keyfield='id', lol=[
+            ...     ['p1', 'Denver', 34], ['p2', 'Austin', 52], ['p3', 'Denver', 27]])
 
-            A SELECT gives a Daf. Pass values as `params`, with `?` in the statement:
+            Run a SELECT of your own, which gives a Daf. Pass values as `params`, with `?` in the statement:
 
-            >>> items_sdaf.sql(f'SELECT g, SUM(qty) AS total FROM {items_sdaf.name} WHERE qty > ? GROUP BY g', [1])
+            >>> people_sdaf.sql(f'SELECT city, AVG(age) AS mean_age FROM {people_sdaf.name} WHERE age > ? GROUP BY city', [20])
             <BLANKLINE>
-            | g  | total |
-            | -: | ----: |
-            |  x |    10 |
-            |  y |    10 |
+            |  city  | mean_age |
+            | -----: | -------: |
+            | Austin |     52.0 |
+            | Denver |     30.5 |
             <BLANKLINE>
             %% daf rows=2; cols=2; keyfield=''; name=''
             <BLANKLINE>
 
             A statement that returns no rows gives an empty Daf, and is committed:
 
-            >>> len(items_sdaf.sql(f'UPDATE {items_sdaf.name} SET qty = 0 WHERE g = ?', ['y']))
+            >>> len(people_sdaf.sql(f'UPDATE {people_sdaf.name} SET age = age + 1 WHERE city = ?', ['Austin']))
             0
-            >>> items_sdaf.col('qty')
-            [3, 0, 7]
+            >>> people_sdaf.col('age')
+            [34, 53, 27]
         """
         changes_before: int = self.conn.total_changes
         try:
@@ -3470,6 +3589,8 @@ def register_sqldaf_namespace(name: str) -> Callable[[type], type]:
         ValueError: The name is not a public identifier, or it is already in use on SqlDaf.
 
     Examples:
+        Add a namespace of your own methods to every SqlDaf, here `totals`, with a method that totals a column:
+
         >>> import tempfile
         >>> SqlDaf.db_path = tempfile.mkdtemp() + '/job.db'
         >>> @register_sqldaf_namespace('totals')
@@ -3478,19 +3599,19 @@ def register_sqldaf_namespace(name: str) -> Callable[[type], type]:
         ...         self._sdaf = sdaf
         ...     def of(self, col):
         ...         return self._sdaf.sum([col])[col]
-        >>> sdaf = SqlDaf('items', cols=['id', 'qty'], lol=[['a1', 3], ['b2', 10]], keyfield='id',
-        ...               dtypes={'id': str, 'qty': int})
-        >>> sdaf
-        <BLANKLINE>
-        | id | qty |
-        | -: | --: |
-        | a1 |   3 |
-        | b2 |  10 |
-        <BLANKLINE>
-        %% daf rows=2; cols=2; keyfield='id'; name='items'
-        <BLANKLINE>
-        >>> sdaf.totals.of('qty'), sdaf[0:1].totals.of('qty')
-        (13, 3)
+
+        Create a small SqlDaf table of orders:
+
+        >>> orders_sdaf = SqlDaf('orders', cols=['id', 'qty'], keyfield='id', lol=[['o1', 12], ['o2', 30]],
+        ...                      dtypes={'id': str, 'qty': int})
+
+        Call the method through the namespace, on the table and on a selection of it:
+
+        >>> orders_sdaf.totals.of('qty'), orders_sdaf[0:1].totals.of('qty')
+        (42, 12)
+
+        Remove the namespace again:
+
         >>> del SqlDaf.totals
     """
     return daf_namespace.register_namespace(name, SqlDaf, _SQLDAF_INSTANCE_ATTRS)
