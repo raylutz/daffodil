@@ -2277,30 +2277,39 @@ class SqlDaf(Daf):
             ValueError: An int or a slice, on a parent that has had rows deleted. See SqlDaf.
 
         Examples:
+            Create a small SqlDaf table. It is stored on disk, so its size is not limited by memory:
+
             >>> import tempfile
             >>> SqlDaf.db_path = tempfile.mkdtemp() + '/job.db'
-            >>> marks_sdaf = SqlDaf('marks', cols=['ballot_id', 'v'], lol=[['b1', 1], ['b2', 0], ['b3', 1]], keyfield='ballot_id')
-            >>> marks_sdaf
+            >>> people_sdaf = SqlDaf('people', cols=['id', 'name', 'city', 'age'], keyfield='id', lol=[
+            ...     ['p1', 'Ana Lopez', 'Denver', 34], ['p2', 'Ben Okafor', 'Austin', 52], ['p3', 'Chen Wu', 'Boston', 27]])
+            >>> people_sdaf
             <BLANKLINE>
-            | ballot_id | v  |
-            | --------: | -: |
-            |        b1 |  1 |
-            |        b2 |  0 |
-            |        b3 |  1 |
+            | id |    name    |  city  | age |
+            | -: | ---------: | -----: | --: |
+            | p1 |  Ana Lopez | Denver |  34 |
+            | p2 | Ben Okafor | Austin |  52 |
+            | p3 |    Chen Wu | Boston |  27 |
             <BLANKLINE>
-            %% daf rows=3; cols=2; keyfield='ballot_id'; name='marks'
+            %% daf rows=3; cols=4; keyfield='id'; name='people'
             <BLANKLINE>
-            >>> marks_sdaf[['b3', 'b1']]
+
+            Select two rows by key, in the order given, and look at them directly:
+
+            >>> people_sdaf[['p3', 'p1']]
             <BLANKLINE>
-            | ballot_id | v  |
-            | --------: | -: |
-            |        b3 |  1 |
-            |        b1 |  1 |
+            | id |   name    |  city  | age |
+            | -: | --------: | -----: | --: |
+            | p3 |   Chen Wu | Boston |  27 |
+            | p1 | Ana Lopez | Denver |  34 |
             <BLANKLINE>
-            %% daf rows=2; cols=2; keyfield='ballot_id'; name='daf_tmp_marks_v2'
+            %% daf rows=2; cols=4; keyfield='id'; name='daf_tmp_people_v2'
             <BLANKLINE>
-            >>> marks_sdaf['b2', 'v'].to_value()
-            0
+
+            Select one cell, and read it as a value:
+
+            >>> people_sdaf['p2', 'age'].to_value()
+            52
         """
         if isinstance(sel, tuple):
             # Rows and columns: choose the rows, then the columns.

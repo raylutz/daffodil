@@ -110,6 +110,14 @@ Source code is in src/daffodil and tests are in tests.
   short by construction: chain a call that returns the Daf to a narrow read, as
   `daf.append(row).select_record('a1')`, keep tables to a few rows, and put a loop in a small
   function. Use text keys, so a key is not taken for a position.
+- Each example has a header: a plain line of text before it that says what the example does, as
+  "Select two rows by key, in the order given, and look at them directly:". The first example says
+  what table it makes and why, as "Create a small SqlDaf table. It is stored on disk, so its size is
+  not limited by memory:". Ray, 2026-10-31.
+- Use general, real-world data, such as people with names, cities and ages, or orders and amounts.
+  Not election data, such as ballots, precincts and votes. Numbers are distinctive, as 34, 52 and 27,
+  not only 0 and 1, so a reader can tell which value went where. A boolean is still 0 or 1.
+  Ray, 2026-10-31.
 - The examples show behavior. Catching errors is the unit tests' job. A case the docs show with no
   unit test is a gap in the tests.
 - Watch for a tuple that reads the same object before and after a change, as
