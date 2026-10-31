@@ -336,54 +336,62 @@ def _concat(self: 'Daf', other_instance: 'Daf', respect_kd: bool=False) -> 'Daf'
         A SqlDaf is read with `to_daf()`, so all its rows come into memory. Select the rows first.
 
     Examples:
-        >>> a_daf = Daf(lol=[[1, 'a1'], [2, 'a2']], cols=['id', 'v'], keyfield='id')
+        Create two small Daf tables of people, with one key in both:
+
+        >>> a_daf = Daf(cols=['id', 'name'], lol=[[1, 'Ana Lopez'], [2, 'Ben Okafor']], keyfield='id')
         >>> a_daf
         <BLANKLINE>
-        | id | v  |
-        | -: | -: |
-        |  1 | a1 |
-        |  2 | a2 |
+        | id |    name    |
+        | -: | ---------: |
+        |  1 |  Ana Lopez |
+        |  2 | Ben Okafor |
         <BLANKLINE>
         %% daf rows=2; cols=2; keyfield='id'; name=''
         <BLANKLINE>
-        >>> b_daf = Daf(lol=[[2, 'b2'], [3, 'b3']], cols=['id', 'v'])
+        >>> b_daf = Daf(cols=['id', 'name'], lol=[[2, 'Ben O. Okafor'], [3, 'Chen Wu']])
         >>> b_daf
         <BLANKLINE>
-        | id | v  |
-        | -: | -: |
-        |  2 | b2 |
-        |  3 | b3 |
+        | id |     name      |
+        | -: | ------------: |
+        |  2 | Ben O. Okafor |
+        |  3 |       Chen Wu |
         <BLANKLINE>
         %% daf rows=2; cols=2; keyfield=''; name=''
         <BLANKLINE>
+
+        Add the rows of the second to the first. A Daf does not check keys, so key 2 is there twice:
+
         >>> a_daf.concat(b_daf)
         <BLANKLINE>
-        | id | v  |
-        | -: | -: |
-        |  1 | a1 |
-        |  2 | a2 |
-        |  2 | b2 |
-        |  3 | b3 |
+        | id |     name      |
+        | -: | ------------: |
+        |  1 |     Ana Lopez |
+        |  2 |    Ben Okafor |
+        |  2 | Ben O. Okafor |
+        |  3 |       Chen Wu |
         <BLANKLINE>
         %% daf rows=4; cols=2; keyfield='id'; name=''
         <BLANKLINE>
-        >>> a_daf = Daf(lol=[[1, 'a1'], [2, 'a2']], cols=['id', 'v'], keyfield='id')
+        >>> a_daf = Daf(cols=['id', 'name'], lol=[[1, 'Ana Lopez'], [2, 'Ben Okafor']], keyfield='id')
         >>> a_daf
         <BLANKLINE>
-        | id | v  |
-        | -: | -: |
-        |  1 | a1 |
-        |  2 | a2 |
+        | id |    name    |
+        | -: | ---------: |
+        |  1 |  Ana Lopez |
+        |  2 | Ben Okafor |
         <BLANKLINE>
         %% daf rows=2; cols=2; keyfield='id'; name=''
         <BLANKLINE>
+
+        Start again, and add them with `respect_kd=True`. A row whose key is there replaces that row:
+
         >>> a_daf.concat(b_daf, respect_kd=True)
         <BLANKLINE>
-        | id | v  |
-        | -: | -: |
-        |  1 | a1 |
-        |  2 | b2 |
-        |  3 | b3 |
+        | id |     name      |
+        | -: | ------------: |
+        |  1 |     Ana Lopez |
+        |  2 | Ben O. Okafor |
+        |  3 |       Chen Wu |
         <BLANKLINE>
         %% daf rows=3; cols=2; keyfield='id'; name=''
         <BLANKLINE>
@@ -485,32 +493,40 @@ def _extend(self: 'Daf',
         ValueError: A row of `lol` has more values than there are columns.
 
     Examples:
-        >>> daf = Daf(lol=[[1, 'a']], cols=['id', 'v'], keyfield='id')
+        Create a small Daf of people, keyed by id:
+
+        >>> daf = Daf(cols=['id', 'name'], lol=[[1, 'Ana Lopez']], keyfield='id')
         >>> daf
         <BLANKLINE>
-        | id | v  |
-        | -: | -: |
-        |  1 |  a |
+        | id |   name    |
+        | -: | --------: |
+        |  1 | Ana Lopez |
         <BLANKLINE>
         %% daf rows=1; cols=2; keyfield='id'; name=''
         <BLANKLINE>
-        >>> daf.extend([{'id': 2, 'v': 'b'}, {'id': 1, 'v': 'new'}], respect_kd=True)
+
+        Add rows as dicts. With `respect_kd=True`, key 1 replaces its row:
+
+        >>> daf.extend([{'id': 2, 'name': 'Ben Okafor'}, {'id': 1, 'name': 'Ana L. Lopez'}], respect_kd=True)
         <BLANKLINE>
-        | id |  v  |
-        | -: | --: |
-        |  1 | new |
-        |  2 |   b |
+        | id |     name     |
+        | -: | -----------: |
+        |  1 | Ana L. Lopez |
+        |  2 |   Ben Okafor |
         <BLANKLINE>
         %% daf rows=2; cols=2; keyfield='id'; name=''
         <BLANKLINE>
-        >>> daf.extend(lol=[[3, 'c'], [4]])
+
+        Add rows as lists. A short list is padded:
+
+        >>> daf.extend(lol=[[3, 'Chen Wu'], [4]])
         <BLANKLINE>
-        | id |  v  |
-        | -: | --: |
-        |  1 | new |
-        |  2 |   b |
-        |  3 |   c |
-        |  4 |     |
+        | id |     name     |
+        | -: | -----------: |
+        |  1 | Ana L. Lopez |
+        |  2 |   Ben Okafor |
+        |  3 |      Chen Wu |
+        |  4 |              |
         <BLANKLINE>
         %% daf rows=4; cols=2; keyfield='id'; name=''
         <BLANKLINE>
@@ -598,32 +614,40 @@ def _record_append(self: 'Daf', record: T_da | KeyedList, respect_kd: bool=True)
         This Daf, which has been changed.
 
     Examples:
-        >>> daf = Daf(lol=[[1, 'a'], [2, 'b']], cols=['id', 'v'], keyfield='id')
+        Create a small Daf of people, keyed by id:
+
+        >>> daf = Daf(cols=['id', 'name'], lol=[[1, 'Ana Lopez'], [2, 'Ben Okafor']], keyfield='id')
         >>> daf
         <BLANKLINE>
-        | id | v  |
-        | -: | -: |
-        |  1 |  a |
-        |  2 |  b |
+        | id |    name    |
+        | -: | ---------: |
+        |  1 |  Ana Lopez |
+        |  2 | Ben Okafor |
         <BLANKLINE>
         %% daf rows=2; cols=2; keyfield='id'; name=''
         <BLANKLINE>
-        >>> daf.record_append({'id': 2, 'v': 'new'})
+
+        Add a row whose key is there. By default it replaces that row:
+
+        >>> daf.record_append({'id': 2, 'name': 'Ben O. Okafor'})
         <BLANKLINE>
-        | id |  v  |
-        | -: | --: |
-        |  1 |   a |
-        |  2 | new |
+        | id |     name      |
+        | -: | ------------: |
+        |  1 |     Ana Lopez |
+        |  2 | Ben O. Okafor |
         <BLANKLINE>
         %% daf rows=2; cols=2; keyfield='id'; name=''
         <BLANKLINE>
-        >>> daf.record_append({'id': 2, 'v': 'dup'}, respect_kd=False)
+
+        With `respect_kd=False`, it is added as another row:
+
+        >>> daf.record_append({'id': 2, 'name': 'Ben Okafor Jr.'}, respect_kd=False)
         <BLANKLINE>
-        | id |  v  |
-        | -: | --: |
-        |  1 |   a |
-        |  2 | new |
-        |  2 | dup |
+        | id |      name      |
+        | -: | -------------: |
+        |  1 |      Ana Lopez |
+        |  2 |  Ben O. Okafor |
+        |  2 | Ben Okafor Jr. |
         <BLANKLINE>
         %% daf rows=3; cols=2; keyfield='id'; name=''
         <BLANKLINE>
@@ -773,43 +797,51 @@ def _remove_key(self: 'Daf', keyval: str | int | T_la | T_ta | None, silent_erro
         KeyError: The key is not found and `silent_error` is False.
 
     Examples:
-        >>> daf = Daf(lol=[[1, 'a'], [2, 'b']], cols=['id', 'v'], keyfield='id')
+        Create a small Daf of people, keyed by id:
+
+        >>> daf = Daf(cols=['id', 'name'], lol=[[1, 'Ana Lopez'], [2, 'Ben Okafor']], keyfield='id')
         >>> daf
         <BLANKLINE>
-        | id | v  |
-        | -: | -: |
-        |  1 |  a |
-        |  2 |  b |
+        | id |    name    |
+        | -: | ---------: |
+        |  1 |  Ana Lopez |
+        |  2 | Ben Okafor |
         <BLANKLINE>
         %% daf rows=2; cols=2; keyfield='id'; name=''
         <BLANKLINE>
+
+        Remove the row with key 1:
+
         >>> daf.remove_key(1)
         <BLANKLINE>
-        | id | v  |
-        | -: | -: |
-        |  2 |  b |
+        | id |    name    |
+        | -: | ---------: |
+        |  2 | Ben Okafor |
         <BLANKLINE>
         %% daf rows=1; cols=2; keyfield='id'; name=''
         <BLANKLINE>
         >>> daf.num_rows()
         2
-        >>> c_daf = Daf(lol=[['a', 1], ['a', 2]], cols=['g', 'n'], keyfield=('g', 'n'))
+
+        A key of two columns is a tuple:
+
+        >>> c_daf = Daf(cols=['city', 'year'], lol=[['Denver', 2023], ['Denver', 2024]], keyfield=('city', 'year'))
         >>> c_daf
         <BLANKLINE>
-        | g  | n  |
-        | -: | -: |
-        |  a |  1 |
-        |  a |  2 |
+        |  city  | year |
+        | -----: | ---: |
+        | Denver | 2023 |
+        | Denver | 2024 |
         <BLANKLINE>
-        %% daf rows=2; cols=2; keyfield='('g', 'n')'; name=''
+        %% daf rows=2; cols=2; keyfield='('city', 'year')'; name=''
         <BLANKLINE>
-        >>> c_daf.remove_key(('a', 1))
+        >>> c_daf.remove_key(('Denver', 2023))
         <BLANKLINE>
-        | g  | n  |
-        | -: | -: |
-        |  a |  2 |
+        |  city  | year |
+        | -----: | ---: |
+        | Denver | 2024 |
         <BLANKLINE>
-        %% daf rows=1; cols=2; keyfield='('g', 'n')'; name=''
+        %% daf rows=1; cols=2; keyfield='('city', 'year')'; name=''
         <BLANKLINE>
 
         A key that is not found raises KeyError, or is ignored with `silent_error=True`:
@@ -857,42 +889,50 @@ def _remove_keylist(self: 'Daf', keylist: T_la, silent_error: bool=False) -> 'Da
         KeyError: A key is not found and `silent_error` is False.
 
     Examples:
-        >>> daf = Daf(lol=[[1, 'a'], [2, 'b'], [3, 'c']], cols=['id', 'v'], keyfield='id')
+        Create a small Daf of people, keyed by id:
+
+        >>> daf = Daf(cols=['id', 'name'], lol=[[1, 'Ana Lopez'], [2, 'Ben Okafor'], [3, 'Chen Wu']], keyfield='id')
         >>> daf
         <BLANKLINE>
-        | id | v  |
-        | -: | -: |
-        |  1 |  a |
-        |  2 |  b |
-        |  3 |  c |
+        | id |    name    |
+        | -: | ---------: |
+        |  1 |  Ana Lopez |
+        |  2 | Ben Okafor |
+        |  3 |    Chen Wu |
         <BLANKLINE>
         %% daf rows=3; cols=2; keyfield='id'; name=''
         <BLANKLINE>
+
+        Remove the rows with keys 1 and 3:
+
         >>> daf.remove_keylist([1, 3])
         <BLANKLINE>
-        | id | v  |
-        | -: | -: |
-        |  2 |  b |
+        | id |    name    |
+        | -: | ---------: |
+        |  2 | Ben Okafor |
         <BLANKLINE>
         %% daf rows=1; cols=2; keyfield='id'; name=''
         <BLANKLINE>
-        >>> d2 = Daf(lol=[[1, 'a', 0], [2, 'b', 1]], cols=['p', 'q', 'r'], keyfield=['p', 'q'])
-        >>> d2
+
+        A key of two columns is a tuple:
+
+        >>> visits_daf = Daf(cols=['year', 'city', 'visits'], lol=[[2023, 'Denver', 14], [2024, 'Austin', 9]], keyfield=['year', 'city'])
+        >>> visits_daf
         <BLANKLINE>
-        | p  | q  | r  |
-        | -: | -: | -: |
-        |  1 |  a |  0 |
-        |  2 |  b |  1 |
+        | year |  city  | visits |
+        | ---: | -----: | -----: |
+        | 2023 | Denver |     14 |
+        | 2024 | Austin |      9 |
         <BLANKLINE>
-        %% daf rows=2; cols=3; keyfield='['p', 'q']'; name=''
+        %% daf rows=2; cols=3; keyfield='['year', 'city']'; name=''
         <BLANKLINE>
-        >>> d2.remove_keylist([(1, 'a')])
+        >>> visits_daf.remove_keylist([(2023, 'Denver')])
         <BLANKLINE>
-        | p  | q  | r  |
-        | -: | -: | -: |
-        |  2 |  b |  1 |
+        | year |  city  | visits |
+        | ---: | -----: | -----: |
+        | 2024 | Austin |      9 |
         <BLANKLINE>
-        %% daf rows=1; cols=3; keyfield='['p', 'q']'; name=''
+        %% daf rows=1; cols=3; keyfield='['year', 'city']'; name=''
         <BLANKLINE>
 
         Keys that are not found raise KeyError, or are ignored with `silent_error=True`:
@@ -945,32 +985,40 @@ def _delete_records(
         KeyError: A key is not found and `silent_error` is False. Nothing is removed.
 
     Examples:
-        >>> daf = Daf(lol=[['r1', 'a'], ['r2', 'b'], ['r3', 'c']], cols=['id', 'v'], keyfield='id')
+        Create a small Daf of people, keyed by id:
+
+        >>> daf = Daf(cols=['id', 'name'], lol=[['p1', 'Ana Lopez'], ['p2', 'Ben Okafor'], ['p3', 'Chen Wu']], keyfield='id')
         >>> daf
         <BLANKLINE>
-        | id | v  |
-        | -: | -: |
-        | r1 |  a |
-        | r2 |  b |
-        | r3 |  c |
+        | id |    name    |
+        | -: | ---------: |
+        | p1 |  Ana Lopez |
+        | p2 | Ben Okafor |
+        | p3 |    Chen Wu |
         <BLANKLINE>
         %% daf rows=3; cols=2; keyfield='id'; name=''
         <BLANKLINE>
-        >>> daf.delete_records(['r2']).to_lod()
-        [{'id': 'r1', 'v': 'a'}, {'id': 'r3', 'v': 'c'}]
+
+        By default, get a Daf without the rows. The table keeps them:
+
+        >>> daf.delete_records(['p2']).to_lod()
+        [{'id': 'p1', 'name': 'Ana Lopez'}, {'id': 'p3', 'name': 'Chen Wu'}]
         >>> len(daf)
         3
-        >>> daf.delete_records(['r2', 'r9'], inplace=True, silent_error=True)
+
+        Delete them from the table itself, ignoring a key that is not found:
+
+        >>> daf.delete_records(['p2', 'p9'], inplace=True, silent_error=True)
         <BLANKLINE>
-        | id | v  |
-        | -: | -: |
-        | r1 |  a |
-        | r3 |  c |
+        | id |   name    |
+        | -: | --------: |
+        | p1 | Ana Lopez |
+        | p3 |   Chen Wu |
         <BLANKLINE>
         %% daf rows=2; cols=2; keyfield='id'; name=''
         <BLANKLINE>
         >>> daf.to_lod()
-        [{'id': 'r1', 'v': 'a'}, {'id': 'r3', 'v': 'c'}]
+        [{'id': 'p1', 'name': 'Ana Lopez'}, {'id': 'p3', 'name': 'Chen Wu'}]
     """
     if not inplace:
         return self.select_records_daf(keys_ls, inverse=True, silent_error=silent_error)
@@ -1012,34 +1060,39 @@ def _remove_dups(self: 'Daf', keyfield: str | T_ta | T_la='') -> Tuple['Daf', 'D
         KeyError: A key column is not found.
 
     Examples:
-        >>> daf = Daf(lol=[[1, 'a'], [2, 'b'], [1, 'c']], cols=['id', 'v'])
+        Create a small Daf of sign-ups, where one email appears twice:
+
+        >>> daf = Daf(cols=['email', 'name'], lol=[['ana@example.com', 'Ana Lopez'], ['ben@example.com', 'Ben Okafor'], ['ana@example.com', 'Ana L.']])
         >>> daf
         <BLANKLINE>
-        | id | v  |
-        | -: | -: |
-        |  1 |  a |
-        |  2 |  b |
-        |  1 |  c |
+        |      email      |    name    |
+        | --------------: | ---------: |
+        | ana@example.com |  Ana Lopez |
+        | ben@example.com | Ben Okafor |
+        | ana@example.com |     Ana L. |
         <BLANKLINE>
         %% daf rows=3; cols=2; keyfield=''; name=''
         <BLANKLINE>
-        >>> unique, dups = daf.remove_dups('id')
+
+        Split it into the first row for each email, and the repeats:
+
+        >>> unique, dups = daf.remove_dups('email')
         >>> unique
         <BLANKLINE>
-        | id | v  |
-        | -: | -: |
-        |  1 |  c |
-        |  2 |  b |
+        |      email      |    name    |
+        | --------------: | ---------: |
+        | ana@example.com |     Ana L. |
+        | ben@example.com | Ben Okafor |
         <BLANKLINE>
-        %% daf rows=2; cols=2; keyfield='id'; name=''
+        %% daf rows=2; cols=2; keyfield='email'; name=''
         <BLANKLINE>
         >>> dups
         <BLANKLINE>
-        | id | v  |
-        | -: | -: |
-        |  1 |  a |
+        |      email      |   name    |
+        | --------------: | --------: |
+        | ana@example.com | Ana Lopez |
         <BLANKLINE>
-        %% daf rows=1; cols=2; keyfield='id'; name=''
+        %% daf rows=1; cols=2; keyfield='email'; name=''
         <BLANKLINE>
     """
     """
@@ -1096,19 +1149,24 @@ def _drop_cols(self: 'Daf', exclude_cols: T_ls | None = None) -> 'Daf':
         This Daf, which has been changed.
 
     Examples:
-        >>> daf = Daf(lol=[[1, 'a', 10], [2, 'b', 20], [3, 'c', 30]], cols=['id', 'v', 'n'], keyfield='id')
+        Create a small Daf of people:
+
+        >>> daf = Daf(cols=['id', 'city', 'age'], lol=[[1, 'Denver', 34], [2, 'Austin', 52], [3, 'Boston', 27]], keyfield='id')
         >>> daf
         <BLANKLINE>
-        | id | v  | n  |
-        | -: | -: | -: |
-        |  1 |  a | 10 |
-        |  2 |  b | 20 |
-        |  3 |  c | 30 |
+        | id |  city  | age |
+        | -: | -----: | --: |
+        |  1 | Denver |  34 |
+        |  2 | Austin |  52 |
+        |  3 | Boston |  27 |
         <BLANKLINE>
         %% daf rows=3; cols=3; keyfield='id'; name=''
         <BLANKLINE>
-        >>> daf.drop_cols(['v']).columns()
-        ['id', 'n']
+
+        Drop a column:
+
+        >>> daf.drop_cols(['city']).columns()
+        ['id', 'age']
     """
 
     if exclude_cols:
@@ -1160,24 +1218,29 @@ def _assign_record(self: 'Daf', record: T_da) -> 'Daf':
         KeysDisabledError: The Daf has no keyfield.
 
     Examples:
-        >>> daf = Daf(lol=[[1, 'a', 10], [2, 'b', 20], [3, 'c', 30]], cols=['id', 'v', 'n'], keyfield='id')
+        Create a small Daf of people, keyed by an int id:
+
+        >>> daf = Daf(cols=['id', 'city', 'age'], lol=[[1, 'Denver', 34], [2, 'Austin', 52], [3, 'Boston', 27]], keyfield='id')
         >>> daf
         <BLANKLINE>
-        | id | v  | n  |
-        | -: | -: | -: |
-        |  1 |  a | 10 |
-        |  2 |  b | 20 |
-        |  3 |  c | 30 |
+        | id |  city  | age |
+        | -: | -----: | --: |
+        |  1 | Denver |  34 |
+        |  2 | Austin |  52 |
+        |  3 | Boston |  27 |
         <BLANKLINE>
         %% daf rows=3; cols=3; keyfield='id'; name=''
         <BLANKLINE>
-        >>> daf.assign_record({'id': 2, 'v': 'new'})
+
+        Replace the row with key 2. Columns the dict lacks become NULL:
+
+        >>> daf.assign_record({'id': 2, 'city': 'Miami'})
         <BLANKLINE>
-        | id |  v  | n  |
-        | -: | --: | -: |
-        |  1 |   a | 10 |
-        |  2 | new |    |
-        |  3 |   c | 30 |
+        | id |  city  | age |
+        | -: | -----: | --: |
+        |  1 | Denver |  34 |
+        |  2 |  Miami |     |
+        |  3 | Boston |  27 |
         <BLANKLINE>
         %% daf rows=3; cols=3; keyfield='id'; name=''
         <BLANKLINE>
@@ -1229,54 +1292,65 @@ def _assign_record_irow(self: 'Daf', irow: int | None = None, record: T_da | Non
         IndexError: A negative position is before the first row, for a Daf that has rows.
 
     Examples:
-        >>> daf = Daf(lol=[[1, 'a', 10], [2, 'b', 20], [3, 'c', 30]], cols=['id', 'v', 'n'], keyfield='id')
+        Create a small Daf of people:
+
+        >>> daf = Daf(cols=['id', 'city', 'age'], lol=[[1, 'Denver', 34], [2, 'Austin', 52], [3, 'Boston', 27]], keyfield='id')
         >>> daf
         <BLANKLINE>
-        | id | v  | n  |
-        | -: | -: | -: |
-        |  1 |  a | 10 |
-        |  2 |  b | 20 |
-        |  3 |  c | 30 |
+        | id |  city  | age |
+        | -: | -----: | --: |
+        |  1 | Denver |  34 |
+        |  2 | Austin |  52 |
+        |  3 | Boston |  27 |
         <BLANKLINE>
         %% daf rows=3; cols=3; keyfield='id'; name=''
         <BLANKLINE>
-        >>> daf.assign_record_irow(1, {'v': 'q'})
+
+        Replace the row at position 1. Columns the dict lacks become NULL:
+
+        >>> daf.assign_record_irow(1, {'city': 'Miami'})
         <BLANKLINE>
-        | id | v  | n  |
-        | -: | -: | -: |
-        |  1 |  a | 10 |
-        |    |  q |    |
-        |  3 |  c | 30 |
+        | id |  city  | age |
+        | -: | -----: | --: |
+        |  1 | Denver |  34 |
+        |    |  Miami |     |
+        |  3 | Boston |  27 |
         <BLANKLINE>
         %% daf rows=3; cols=3; keyfield='id'; name=''
         <BLANKLINE>
         >>> daf.iloc(1)
-        {'id': '', 'v': 'q', 'n': ''}
+        {'id': '', 'city': 'Miami', 'age': ''}
+
+        Replace the last row:
+
         >>> daf.assign_record_irow(-1, {'id': 9})
         <BLANKLINE>
-        | id | v  | n  |
-        | -: | -: | -: |
-        |  1 |  a | 10 |
-        |    |  q |    |
-        |  9 |    |    |
+        | id |  city  | age |
+        | -: | -----: | --: |
+        |  1 | Denver |  34 |
+        |    |  Miami |     |
+        |  9 |        |     |
         <BLANKLINE>
         %% daf rows=3; cols=3; keyfield='id'; name=''
         <BLANKLINE>
         >>> daf.iloc(-1)
-        {'id': 9, 'v': '', 'n': ''}
+        {'id': 9, 'city': '', 'age': ''}
+
+        With no position, add a row at the end:
+
         >>> daf.assign_record_irow(record={'id': 10})
         <BLANKLINE>
-        | id | v  | n  |
-        | -: | -: | -: |
-        |  1 |  a | 10 |
-        |    |  q |    |
-        |  9 |    |    |
-        | 10 |    |    |
+        | id |  city  | age |
+        | -: | -----: | --: |
+        |  1 | Denver |  34 |
+        |    |  Miami |     |
+        |  9 |        |     |
+        | 10 |        |     |
         <BLANKLINE>
         %% daf rows=4; cols=3; keyfield='id'; name=''
         <BLANKLINE>
         >>> daf.iloc(-1), len(daf)
-        ({'id': 10, 'v': '', 'n': ''}, 4)
+        ({'id': 10, 'city': '', 'age': ''}, 4)
     """
 
     if record is None:
@@ -1313,24 +1387,29 @@ def _update_by_keylist(self: 'Daf', keylist: T_ls | None = None, record: T_da | 
         This Daf, which has been changed. With no keyfield, rows, keys or record, nothing happens.
 
     Examples:
-        >>> daf = Daf(lol=[[1, 'a', 10], [2, 'b', 20], [3, 'c', 30]], cols=['id', 'v', 'n'], keyfield='id')
+        Create a small Daf of people, keyed by an int id:
+
+        >>> daf = Daf(cols=['id', 'city', 'age'], lol=[[1, 'Denver', 34], [2, 'Austin', 52], [3, 'Boston', 27]], keyfield='id')
         >>> daf
         <BLANKLINE>
-        | id | v  | n  |
-        | -: | -: | -: |
-        |  1 |  a | 10 |
-        |  2 |  b | 20 |
-        |  3 |  c | 30 |
+        | id |  city  | age |
+        | -: | -----: | --: |
+        |  1 | Denver |  34 |
+        |  2 | Austin |  52 |
+        |  3 | Boston |  27 |
         <BLANKLINE>
         %% daf rows=3; cols=3; keyfield='id'; name=''
         <BLANKLINE>
-        >>> daf.update_by_keylist([1, 3, 9], {'v': 'q'})
+
+        Change the city of the people with keys 1 and 3. Key 9 is not found and is skipped:
+
+        >>> daf.update_by_keylist([1, 3, 9], {'city': 'Miami'})
         <BLANKLINE>
-        | id | v  | n  |
-        | -: | -: | -: |
-        |  1 |  q | 10 |
-        |  2 |  b | 20 |
-        |  3 |  q | 30 |
+        | id |  city  | age |
+        | -: | -----: | --: |
+        |  1 |  Miami |  34 |
+        |  2 | Austin |  52 |
+        |  3 |  Miami |  27 |
         <BLANKLINE>
         %% daf rows=3; cols=3; keyfield='id'; name=''
         <BLANKLINE>
@@ -1373,41 +1452,49 @@ def _update_record_irow(self: 'Daf', irow: int=-1, record: T_da | None = None) -
         IndexError: The position is out of range, for a Daf that has rows and columns.
 
     Examples:
-        >>> daf = Daf(lol=[[1, 'a', 10], [2, 'b', 20], [3, 'c', 30]], cols=['id', 'v', 'n'], keyfield='id')
+        Create a small Daf of people:
+
+        >>> daf = Daf(cols=['id', 'city', 'age'], lol=[[1, 'Denver', 34], [2, 'Austin', 52], [3, 'Boston', 27]], keyfield='id')
         >>> daf
         <BLANKLINE>
-        | id | v  | n  |
-        | -: | -: | -: |
-        |  1 |  a | 10 |
-        |  2 |  b | 20 |
-        |  3 |  c | 30 |
+        | id |  city  | age |
+        | -: | -----: | --: |
+        |  1 | Denver |  34 |
+        |  2 | Austin |  52 |
+        |  3 | Boston |  27 |
         <BLANKLINE>
         %% daf rows=3; cols=3; keyfield='id'; name=''
         <BLANKLINE>
-        >>> daf.update_record_irow(1, {'v': 'q'})
+
+        Change some cells of the row at position 1:
+
+        >>> daf.update_record_irow(1, {'city': 'Miami'})
         <BLANKLINE>
-        | id | v  | n  |
-        | -: | -: | -: |
-        |  1 |  a | 10 |
-        |  2 |  q | 20 |
-        |  3 |  c | 30 |
+        | id |  city  | age |
+        | -: | -----: | --: |
+        |  1 | Denver |  34 |
+        |  2 |  Miami |  52 |
+        |  3 | Boston |  27 |
         <BLANKLINE>
         %% daf rows=3; cols=3; keyfield='id'; name=''
         <BLANKLINE>
         >>> daf.iloc(1)
-        {'id': 2, 'v': 'q', 'n': 20}
-        >>> daf.update_record_irow(record={'n': 99})
+        {'id': 2, 'city': 'Miami', 'age': 52}
+
+        With no position, change the last row:
+
+        >>> daf.update_record_irow(record={'age': 61})
         <BLANKLINE>
-        | id | v  | n  |
-        | -: | -: | -: |
-        |  1 |  a | 10 |
-        |  2 |  q | 20 |
-        |  3 |  c | 99 |
+        | id |  city  | age |
+        | -: | -----: | --: |
+        |  1 | Denver |  34 |
+        |  2 |  Miami |  52 |
+        |  3 | Boston |  61 |
         <BLANKLINE>
         %% daf rows=3; cols=3; keyfield='id'; name=''
         <BLANKLINE>
         >>> daf.iloc(-1)
-        {'id': 3, 'v': 'c', 'n': 99}
+        {'id': 3, 'city': 'Boston', 'age': 61}
     """
 
     if record is None or not self.lol or not self.hd:
@@ -1456,29 +1543,34 @@ def _update_record_krow(self: 'Daf', key: Any, record: T_da | None = None) -> 'D
         ValueError: The Daf has no keyfield.
 
     Examples:
-        >>> daf = Daf(lol=[[1, 'a', 10], [2, 'b', 20], [3, 'c', 30]], cols=['id', 'v', 'n'], keyfield='id')
+        Create a small Daf of people, keyed by an int id:
+
+        >>> daf = Daf(cols=['id', 'city', 'age'], lol=[[1, 'Denver', 34], [2, 'Austin', 52], [3, 'Boston', 27]], keyfield='id')
         >>> daf
         <BLANKLINE>
-        | id | v  | n  |
-        | -: | -: | -: |
-        |  1 |  a | 10 |
-        |  2 |  b | 20 |
-        |  3 |  c | 30 |
+        | id |  city  | age |
+        | -: | -----: | --: |
+        |  1 | Denver |  34 |
+        |  2 | Austin |  52 |
+        |  3 | Boston |  27 |
         <BLANKLINE>
         %% daf rows=3; cols=3; keyfield='id'; name=''
         <BLANKLINE>
-        >>> daf.update_record_krow(2, {'v': 'q'})
+
+        Change some cells of the row with key 2. An int here is a key:
+
+        >>> daf.update_record_krow(2, {'city': 'Miami'})
         <BLANKLINE>
-        | id | v  | n  |
-        | -: | -: | -: |
-        |  1 |  a | 10 |
-        |  2 |  q | 20 |
-        |  3 |  c | 30 |
+        | id |  city  | age |
+        | -: | -----: | --: |
+        |  1 | Denver |  34 |
+        |  2 |  Miami |  52 |
+        |  3 | Boston |  27 |
         <BLANKLINE>
         %% daf rows=3; cols=3; keyfield='id'; name=''
         <BLANKLINE>
         >>> daf.select_record(2)
-        {'id': 2, 'v': 'q', 'n': 20}
+        {'id': 2, 'city': 'Miami', 'age': 52}
     """
 
     if record is None:
@@ -1523,29 +1615,34 @@ def _assign_icol(
         This Daf, which has been changed.
 
     Examples:
-        >>> daf = Daf(lol=[[1, 'a', 10], [2, 'b', 20], [3, 'c', 30]], cols=['id', 'v', 'n'], keyfield='id')
+        Create a small Daf of people:
+
+        >>> daf = Daf(cols=['id', 'city', 'age'], lol=[[1, 'Denver', 34], [2, 'Austin', 52], [3, 'Boston', 27]], keyfield='id')
         >>> daf
         <BLANKLINE>
-        | id | v  | n  |
-        | -: | -: | -: |
-        |  1 |  a | 10 |
-        |  2 |  b | 20 |
-        |  3 |  c | 30 |
+        | id |  city  | age |
+        | -: | -----: | --: |
+        |  1 | Denver |  34 |
+        |  2 | Austin |  52 |
+        |  3 | Boston |  27 |
         <BLANKLINE>
         %% daf rows=3; cols=3; keyfield='id'; name=''
         <BLANKLINE>
-        >>> daf.assign_icol(1, ['x', 'y'], default='D')
+
+        Fill the column at position 1 from a list. A short list is filled out with `default`:
+
+        >>> daf.assign_icol(1, ['Miami', 'Reno'], default='unknown')
         <BLANKLINE>
-        | id | v  | n  |
-        | -: | -: | -: |
-        |  1 |  x | 10 |
-        |  2 |  y | 20 |
-        |  3 |  D | 30 |
+        | id |  city   | age |
+        | -: | ------: | --: |
+        |  1 |   Miami |  34 |
+        |  2 |    Reno |  52 |
+        |  3 | unknown |  27 |
         <BLANKLINE>
         %% daf rows=3; cols=3; keyfield='id'; name=''
         <BLANKLINE>
-        >>> daf.col('v')
-        ['x', 'y', 'D']
+        >>> daf.col('city')
+        ['Miami', 'Reno', 'unknown']
     """
     # from utilities import daf_utils
 
@@ -1617,19 +1714,24 @@ def _insert_icol(
         This Daf, which has been changed.
 
     Examples:
-        >>> daf = Daf(lol=[[1, 'a', 10], [2, 'b', 20], [3, 'c', 30]], cols=['id', 'v', 'n'], keyfield='id')
+        Create a small Daf of people:
+
+        >>> daf = Daf(cols=['id', 'city', 'age'], lol=[[1, 'Denver', 34], [2, 'Austin', 52], [3, 'Boston', 27]], keyfield='id')
         >>> daf
         <BLANKLINE>
-        | id | v  | n  |
-        | -: | -: | -: |
-        |  1 |  a | 10 |
-        |  2 |  b | 20 |
-        |  3 |  c | 30 |
+        | id |  city  | age |
+        | -: | -----: | --: |
+        |  1 | Denver |  34 |
+        |  2 | Austin |  52 |
+        |  3 | Boston |  27 |
         <BLANKLINE>
         %% daf rows=3; cols=3; keyfield='id'; name=''
         <BLANKLINE>
-        >>> daf.insert_icol(1, ['x', 'y', 'z'], colname='new').columns()
-        ['id', 'new', 'v', 'n']
+
+        Insert a new column at position 1:
+
+        >>> daf.insert_icol(1, [5, 3, 8], colname='visits').columns()
+        ['id', 'visits', 'city', 'age']
 
         A list shorter than the rows is filled out with `default`:
 
@@ -1690,25 +1792,30 @@ def _insert_irow(self: 'Daf', irow: int | None = None, row: T_la | T_da | None =
         TypeError: The row is not a list or a dict. This includes the default, None.
 
     Examples:
-        >>> daf = Daf(lol=[[1, 'a', 10], [2, 'b', 20], [3, 'c', 30]], cols=['id', 'v', 'n'], keyfield='id')
+        Create a small Daf of people:
+
+        >>> daf = Daf(cols=['id', 'city', 'age'], lol=[[1, 'Denver', 34], [2, 'Austin', 52], [3, 'Boston', 27]], keyfield='id')
         >>> daf
         <BLANKLINE>
-        | id | v  | n  |
-        | -: | -: | -: |
-        |  1 |  a | 10 |
-        |  2 |  b | 20 |
-        |  3 |  c | 30 |
+        | id |  city  | age |
+        | -: | -----: | --: |
+        |  1 | Denver |  34 |
+        |  2 | Austin |  52 |
+        |  3 | Boston |  27 |
         <BLANKLINE>
         %% daf rows=3; cols=3; keyfield='id'; name=''
         <BLANKLINE>
-        >>> daf.insert_irow(1, {'id': 9, 'v': 'z'})
+
+        Insert a row at position 1, from a dict:
+
+        >>> daf.insert_irow(1, {'id': 9, 'city': 'Reno'})
         <BLANKLINE>
-        | id | v  | n  |
-        | -: | -: | -: |
-        |  1 |  a | 10 |
-        |  9 |  z |    |
-        |  2 |  b | 20 |
-        |  3 |  c | 30 |
+        | id |  city  | age |
+        | -: | -----: | --: |
+        |  1 | Denver |  34 |
+        |  9 |   Reno |     |
+        |  2 | Austin |  52 |
+        |  3 | Boston |  27 |
         <BLANKLINE>
         %% daf rows=4; cols=3; keyfield='id'; name=''
         <BLANKLINE>
@@ -1768,20 +1875,25 @@ def _assign_col(self: 'Daf', colname: str, la: T_la | None = None, default: Any=
         This Daf, which has been changed.
 
     Examples:
-        >>> daf = Daf(lol=[[1, 'a', 10], [2, 'b', 20], [3, 'c', 30]], cols=['id', 'v', 'n'], keyfield='id')
+        Create a small Daf of people:
+
+        >>> daf = Daf(cols=['id', 'city', 'age'], lol=[[1, 'Denver', 34], [2, 'Austin', 52], [3, 'Boston', 27]], keyfield='id')
         >>> daf
         <BLANKLINE>
-        | id | v  | n  |
-        | -: | -: | -: |
-        |  1 |  a | 10 |
-        |  2 |  b | 20 |
-        |  3 |  c | 30 |
+        | id |  city  | age |
+        | -: | -----: | --: |
+        |  1 | Denver |  34 |
+        |  2 | Austin |  52 |
+        |  3 | Boston |  27 |
         <BLANKLINE>
         %% daf rows=3; cols=3; keyfield='id'; name=''
         <BLANKLINE>
-        >>> daf.assign_col('w', default=0).columns()
-        ['id', 'v', 'n', 'w']
-        >>> daf.col('w')
+
+        Add a column with a default in every row:
+
+        >>> daf.assign_col('visits', default=0).columns()
+        ['id', 'city', 'age', 'visits']
+        >>> daf.col('visits')
         [0, 0, 0]
 
         A list shorter than the rows is filled out with `default`. A new name adds a column at the right:
@@ -1847,21 +1959,26 @@ def _insert_col(
         This Daf, which has been changed.
 
     Examples:
-        >>> daf = Daf(lol=[[1, 'a', 10], [2, 'b', 20], [3, 'c', 30]], cols=['id', 'v', 'n'], keyfield='id')
+        Create a small Daf of people:
+
+        >>> daf = Daf(cols=['id', 'city', 'age'], lol=[[1, 'Denver', 34], [2, 'Austin', 52], [3, 'Boston', 27]], keyfield='id')
         >>> daf
         <BLANKLINE>
-        | id | v  | n  |
-        | -: | -: | -: |
-        |  1 |  a | 10 |
-        |  2 |  b | 20 |
-        |  3 |  c | 30 |
+        | id |  city  | age |
+        | -: | -----: | --: |
+        |  1 | Denver |  34 |
+        |  2 | Austin |  52 |
+        |  3 | Boston |  27 |
         <BLANKLINE>
         %% daf rows=3; cols=3; keyfield='id'; name=''
         <BLANKLINE>
-        >>> daf.insert_col('w', ['x', 'y', 'z'], icol=1).columns()
-        ['id', 'w', 'v', 'n']
-        >>> daf.insert_col('k', default=5).col('k')
-        [5, 5, 5]
+
+        Insert a column at position 1, from a list, and another at the end with a default:
+
+        >>> daf.insert_col('visits', [5, 3, 8], icol=1).columns()
+        ['id', 'visits', 'city', 'age']
+        >>> daf.insert_col('score', default=100).col('score')
+        [100, 100, 100]
     """
 
     if not colname:
@@ -1895,30 +2012,35 @@ def _insert_idx_col(self: 'Daf', colname: str='idx', icol:int=0, startat:int=0) 
         This Daf, which has been changed.
 
     Examples:
-        >>> daf = Daf(lol=[[1, 'a', 10], [2, 'b', 20], [3, 'c', 30]], cols=['id', 'v', 'n'], keyfield='id')
+        Create a small Daf of people:
+
+        >>> daf = Daf(cols=['id', 'city', 'age'], lol=[[1, 'Denver', 34], [2, 'Austin', 52], [3, 'Boston', 27]], keyfield='id')
         >>> daf
         <BLANKLINE>
-        | id | v  | n  |
-        | -: | -: | -: |
-        |  1 |  a | 10 |
-        |  2 |  b | 20 |
-        |  3 |  c | 30 |
+        | id |  city  | age |
+        | -: | -----: | --: |
+        |  1 | Denver |  34 |
+        |  2 | Austin |  52 |
+        |  3 | Boston |  27 |
         <BLANKLINE>
         %% daf rows=3; cols=3; keyfield='id'; name=''
         <BLANKLINE>
+
+        Insert a column of row numbers, from 0:
+
         >>> daf.insert_idx_col().col('idx')
         [0, 1, 2]
 
         Another name, in another place, numbered from 1:
 
         >>> stock = Daf(cols=['id', 'qty'], lol=[['a1', 3], ['b2', 10], ['c3', 7]], keyfield='id')
-        >>> stock.insert_idx_col('n', icol=1, startat=1)
+        >>> stock.insert_idx_col('row_no', icol=1, startat=1)
         <BLANKLINE>
-        | id | n  | qty |
-        | -: | -: | --: |
-        | a1 |  1 |   3 |
-        | b2 |  2 |  10 |
-        | c3 |  3 |   7 |
+        | id | row_no | qty |
+        | -: | -----: | --: |
+        | a1 |      1 |   3 |
+        | b2 |      2 |  10 |
+        | c3 |      3 |   7 |
         <BLANKLINE>
         %% daf rows=3; cols=3; keyfield='id'; name=''
         <BLANKLINE>
@@ -1952,19 +2074,24 @@ def _set_col_irows(self: 'Daf', colname: str, irows: T_li, val: Any) -> 'Daf':
         KeyError: The column name is not found.
 
     Examples:
-        >>> daf = Daf(lol=[[1, 'a', 10], [2, 'b', 20], [3, 'c', 30]], cols=['id', 'v', 'n'], keyfield='id')
+        Create a small Daf of people:
+
+        >>> daf = Daf(cols=['id', 'city', 'age'], lol=[[1, 'Denver', 34], [2, 'Austin', 52], [3, 'Boston', 27]], keyfield='id')
         >>> daf
         <BLANKLINE>
-        | id | v  | n  |
-        | -: | -: | -: |
-        |  1 |  a | 10 |
-        |  2 |  b | 20 |
-        |  3 |  c | 30 |
+        | id |  city  | age |
+        | -: | -----: | --: |
+        |  1 | Denver |  34 |
+        |  2 | Austin |  52 |
+        |  3 | Boston |  27 |
         <BLANKLINE>
         %% daf rows=3; cols=3; keyfield='id'; name=''
         <BLANKLINE>
-        >>> daf.set_col_irows('v', [0, 2], 'Z').col('v')
-        ['Z', 'b', 'Z']
+
+        Set the city of the rows at positions 0 and 2:
+
+        >>> daf.set_col_irows('city', [0, 2], 'unknown').col('city')
+        ['unknown', 'Austin', 'unknown']
     """
 
     icol = self.hd[colname]
@@ -1993,19 +2120,24 @@ def _set_icol(self: 'Daf', icol: int, val: Any) -> 'Daf':
         IndexError: The position is beyond the end of a row.
 
     Examples:
-        >>> daf = Daf(lol=[[1, 'a', 10], [2, 'b', 20], [3, 'c', 30]], cols=['id', 'v', 'n'], keyfield='id')
+        Create a small Daf of people:
+
+        >>> daf = Daf(cols=['id', 'city', 'age'], lol=[[1, 'Denver', 34], [2, 'Austin', 52], [3, 'Boston', 27]], keyfield='id')
         >>> daf
         <BLANKLINE>
-        | id | v  | n  |
-        | -: | -: | -: |
-        |  1 |  a | 10 |
-        |  2 |  b | 20 |
-        |  3 |  c | 30 |
+        | id |  city  | age |
+        | -: | -----: | --: |
+        |  1 | Denver |  34 |
+        |  2 | Austin |  52 |
+        |  3 | Boston |  27 |
         <BLANKLINE>
         %% daf rows=3; cols=3; keyfield='id'; name=''
         <BLANKLINE>
-        >>> daf.set_icol(1, 'Z').col('v')
-        ['Z', 'Z', 'Z']
+
+        Set every value of the column at position 1:
+
+        >>> daf.set_icol(1, 'unknown').col('city')
+        ['unknown', 'unknown', 'unknown']
     """
 
 
@@ -2021,8 +2153,8 @@ def _set_icol_irows(self: 'Daf', icol: int, irows: T_li, val: Any) -> 'Daf':
     """
     Set one value in the given rows of a column, by position.
 
-    This is `my_daf[irows, icol] = value`. Row positions that are out of range
-    are skipped.
+    It is like `daf[irows, icol] = value`, with one difference. A row position past the end, or a
+    negative one, is skipped. A negative position is not counted from the end, as in brackets.
 
     Args:
         icol: The column position.
@@ -2033,29 +2165,34 @@ def _set_icol_irows(self: 'Daf', icol: int, irows: T_li, val: Any) -> 'Daf':
         This Daf, which has been changed.
 
     Examples:
-        >>> daf = Daf(lol=[[1, 'a', 10], [2, 'b', 20], [3, 'c', 30]], cols=['id', 'v', 'n'], keyfield='id')
+        Create a small Daf of people:
+
+        >>> daf = Daf(cols=['id', 'city', 'age'], lol=[[1, 'Denver', 34], [2, 'Austin', 52], [3, 'Boston', 27]], keyfield='id')
         >>> daf
         <BLANKLINE>
-        | id | v  | n  |
-        | -: | -: | -: |
-        |  1 |  a | 10 |
-        |  2 |  b | 20 |
-        |  3 |  c | 30 |
+        | id |  city  | age |
+        | -: | -----: | --: |
+        |  1 | Denver |  34 |
+        |  2 | Austin |  52 |
+        |  3 | Boston |  27 |
         <BLANKLINE>
         %% daf rows=3; cols=3; keyfield='id'; name=''
         <BLANKLINE>
-        >>> daf.set_icol_irows(1, [0, 9, -1], 'Z')
+
+        Set the column at position 1 in some rows. Position 9 is past the end, and -1 is negative, so both are skipped:
+
+        >>> daf.set_icol_irows(1, [0, 9, -1], 'unknown')
         <BLANKLINE>
-        | id | v  | n  |
-        | -: | -: | -: |
-        |  1 |  Z | 10 |
-        |  2 |  b | 20 |
-        |  3 |  c | 30 |
+        | id |  city   | age |
+        | -: | ------: | --: |
+        |  1 | unknown |  34 |
+        |  2 |  Austin |  52 |
+        |  3 |  Boston |  27 |
         <BLANKLINE>
         %% daf rows=3; cols=3; keyfield='id'; name=''
         <BLANKLINE>
-        >>> daf.col('v')
-        ['Z', 'b', 'c']
+        >>> daf.col('city')
+        ['unknown', 'Austin', 'Boston']
     """
 
     for irow in irows:
@@ -2087,29 +2224,34 @@ def _find_replace(self: 'Daf', find_pat: str, replace_val: Any) -> 'Daf':
         This Daf, which has been changed.
 
     Examples:
-        >>> daf = Daf(lol=[[1, 'a', 10], [2, 'b', 20], [3, 'c', 30]], cols=['id', 'v', 'n'], keyfield='id')
+        Create a small Daf of people:
+
+        >>> daf = Daf(cols=['id', 'city', 'age'], lol=[[1, 'Denver', 34], [2, 'Austin', 52], [3, 'Boston', 27]], keyfield='id')
         >>> daf
         <BLANKLINE>
-        | id | v  | n  |
-        | -: | -: | -: |
-        |  1 |  a | 10 |
-        |  2 |  b | 20 |
-        |  3 |  c | 30 |
+        | id |  city  | age |
+        | -: | -----: | --: |
+        |  1 | Denver |  34 |
+        |  2 | Austin |  52 |
+        |  3 | Boston |  27 |
         <BLANKLINE>
         %% daf rows=3; cols=3; keyfield='id'; name=''
         <BLANKLINE>
-        >>> daf.find_replace(r'^[ab]$', 'HIT')
+
+        Replace every cell that matches a regular expression:
+
+        >>> daf.find_replace(r'^(Denver|Austin)$', 'West')
         <BLANKLINE>
-        | id |  v  | n  |
-        | -: | --: | -: |
-        |  1 | HIT | 10 |
-        |  2 | HIT | 20 |
-        |  3 |   c | 30 |
+        | id |  city  | age |
+        | -: | -----: | --: |
+        |  1 |   West |  34 |
+        |  2 |   West |  52 |
+        |  3 | Boston |  27 |
         <BLANKLINE>
         %% daf rows=3; cols=3; keyfield='id'; name=''
         <BLANKLINE>
-        >>> daf.col('v')
-        ['HIT', 'HIT', 'c']
+        >>> daf.col('city')
+        ['West', 'West', 'Boston']
     """
 
     for row_la in self.lol:
@@ -2150,19 +2292,24 @@ def _replace_in_columns(
         TypeError: A column is neither a name nor a position.
 
     Examples:
-        >>> daf = Daf(lol=[[1, 'a', 10], [2, 'b', 20], [3, 'c', 30]], cols=['id', 'v', 'n'], keyfield='id')
+        Create a small Daf of people:
+
+        >>> daf = Daf(cols=['id', 'city', 'age'], lol=[[1, 'Denver', 34], [2, 'Austin', 52], [3, 'Boston', 27]], keyfield='id')
         >>> daf
         <BLANKLINE>
-        | id | v  | n  |
-        | -: | -: | -: |
-        |  1 |  a | 10 |
-        |  2 |  b | 20 |
-        |  3 |  c | 30 |
+        | id |  city  | age |
+        | -: | -----: | --: |
+        |  1 | Denver |  34 |
+        |  2 | Austin |  52 |
+        |  3 | Boston |  27 |
         <BLANKLINE>
         %% daf rows=3; cols=3; keyfield='id'; name=''
         <BLANKLINE>
-        >>> daf.replace_in_columns(['v'], ['a', 'c'], '-').col('v')
-        ['-', 'b', '-']
+
+        Replace some values in a column:
+
+        >>> daf.replace_in_columns(['city'], ['Denver', 'Boston'], 'unknown').col('city')
+        ['unknown', 'Austin', 'unknown']
     """
 
     if find_values is None:
@@ -2220,32 +2367,37 @@ def _split_daf_into_ranges(self: 'Daf', chunk_ranges: List[Tuple[int, int]]) -> 
         A list of Daf instances, one for each range.
 
     Examples:
-        >>> daf = Daf(lol=[[1, 'a', 10], [2, 'b', 20], [3, 'c', 30]], cols=['id', 'v', 'n'], keyfield='id')
+        Create a small Daf of people:
+
+        >>> daf = Daf(cols=['id', 'city', 'age'], lol=[[1, 'Denver', 34], [2, 'Austin', 52], [3, 'Boston', 27]], keyfield='id')
         >>> daf
         <BLANKLINE>
-        | id | v  | n  |
-        | -: | -: | -: |
-        |  1 |  a | 10 |
-        |  2 |  b | 20 |
-        |  3 |  c | 30 |
+        | id |  city  | age |
+        | -: | -----: | --: |
+        |  1 | Denver |  34 |
+        |  2 | Austin |  52 |
+        |  3 | Boston |  27 |
         <BLANKLINE>
         %% daf rows=3; cols=3; keyfield='id'; name=''
         <BLANKLINE>
+
+        Split it into two Daf objects, by ranges of rows:
+
         >>> parts = daf.split_daf_into_ranges([(0, 2), (2, 3)])
         >>> parts[0]
         <BLANKLINE>
-        | id | v  | n  |
-        | -: | -: | -: |
-        |  1 |  a | 10 |
-        |  2 |  b | 20 |
+        | id |  city  | age |
+        | -: | -----: | --: |
+        |  1 | Denver |  34 |
+        |  2 | Austin |  52 |
         <BLANKLINE>
         %% daf rows=2; cols=3; keyfield='id'; name=''
         <BLANKLINE>
         >>> parts[1]
         <BLANKLINE>
-        | id | v  | n  |
-        | -: | -: | -: |
-        |  3 |  c | 30 |
+        | id |  city  | age |
+        | -: | -----: | --: |
+        |  3 | Boston |  27 |
         <BLANKLINE>
         %% daf rows=1; cols=3; keyfield='id'; name=''
         <BLANKLINE>
@@ -2270,21 +2422,26 @@ def _split_daf_into_chunks_lodaf(self: 'Daf', max_chunk_size: int) -> List['Daf'
         A list of Daf instances.
 
     Examples:
-        >>> daf = Daf(lol=[[i] for i in range(7)], cols=['a'])
+        Create a Daf of seven order numbers:
+
+        >>> daf = Daf(cols=['order_no'], lol=[[1001 + i] for i in range(7)])
         >>> daf
         <BLANKLINE>
-        | a  |
-        | -: |
-        |  0 |
-        |  1 |
-        |  2 |
-        |  3 |
-        |  4 |
-        |  5 |
-        |  6 |
+        | order_no |
+        | -------: |
+        |     1001 |
+        |     1002 |
+        |     1003 |
+        |     1004 |
+        |     1005 |
+        |     1006 |
+        |     1007 |
         <BLANKLINE>
         %% daf rows=7; cols=1; keyfield=''; name=''
         <BLANKLINE>
+
+        Split it into chunks of at most three rows:
+
         >>> [len(part) for part in daf.split_daf_into_chunks_lodaf(3)]
         [3, 2, 2]
     """
@@ -2326,34 +2483,42 @@ def _sort_by_colname(self: 'Daf', colname:str, *, reverse: bool=False, length_pr
         TypeError: The column holds values that cannot be compared, and `as_str` is False.
 
     Examples:
-        >>> daf = Daf(lol=[['10'], ['99'], ['8'], ['100']], cols=['a'])
+        Create a small Daf of codes, text of digits:
+
+        >>> daf = Daf(cols=['code'], lol=[['10'], ['99'], ['8'], ['100']])
         >>> daf
         <BLANKLINE>
-        |  a  |
-        | --: |
-        |  10 |
-        |  99 |
-        |   8 |
-        | 100 |
+        | code |
+        | ---: |
+        |   10 |
+        |   99 |
+        |    8 |
+        |  100 |
         <BLANKLINE>
         %% daf rows=4; cols=1; keyfield=''; name=''
         <BLANKLINE>
-        >>> daf.sort_by_colname('a', length_priority=True).col('a')
+
+        Sort with shorter text first, so '8' comes before '10':
+
+        >>> daf.sort_by_colname('code', length_priority=True).col('code')
         ['8', '10', '99', '100']
-        >>> daf = Daf(lol=[[10], [None], [2], ['']], cols=['n'])
+
+        A column of numbers with None and an empty cell sorts as text, with `as_str=True`:
+
+        >>> daf = Daf(cols=['age'], lol=[[34], [None], [7], ['']])
         >>> daf
         <BLANKLINE>
-        |  n   |
+        | age  |
         | ---: |
-        |   10 |
+        |   34 |
         | None |
-        |    2 |
+        |    7 |
         |      |
         <BLANKLINE>
         %% daf rows=4; cols=1; keyfield=''; name=''
         <BLANKLINE>
-        >>> daf.sort_by_colname('n', as_str=True, length_priority=True).col('n')
-        [None, '', 2, 10]
+        >>> daf.sort_by_colname('age', as_str=True, length_priority=True).col('age')
+        [None, '', 7, 34]
 
         From high to low:
 
@@ -2401,48 +2566,53 @@ def _sort_by_colnames(self: 'Daf', colnames:T_ls, reverse: bool=False, length_pr
         TypeError: A column holds values that cannot be compared, and `as_str` is False.
 
     Examples:
-        >>> daf = Daf(lol=[[2, 'b'], [1, 'z'], [1, 'a']], cols=['p', 'q'])
+        Create a small Daf of people, by floor:
+
+        >>> daf = Daf(cols=['floor', 'name'], lol=[[2, 'Ben Okafor'], [1, 'Zoe Hart'], [1, 'Ana Lopez']])
         >>> daf
         <BLANKLINE>
-        | p  | q  |
-        | -: | -: |
-        |  2 |  b |
-        |  1 |  z |
-        |  1 |  a |
+        | floor |    name    |
+        | ----: | ---------: |
+        |     2 | Ben Okafor |
+        |     1 |   Zoe Hart |
+        |     1 |  Ana Lopez |
         <BLANKLINE>
         %% daf rows=3; cols=2; keyfield=''; name=''
         <BLANKLINE>
-        >>> daf.sort_by_colnames(['p', 'q'])
+
+        Sort by floor, then by name within each floor:
+
+        >>> daf.sort_by_colnames(['floor', 'name'])
         <BLANKLINE>
-        | p  | q  |
-        | -: | -: |
-        |  1 |  a |
-        |  1 |  z |
-        |  2 |  b |
+        | floor |    name    |
+        | ----: | ---------: |
+        |     1 |  Ana Lopez |
+        |     1 |   Zoe Hart |
+        |     2 | Ben Okafor |
         <BLANKLINE>
         %% daf rows=3; cols=2; keyfield=''; name=''
         <BLANKLINE>
 
         The options, on a column of names:
 
-        >>> names = Daf(cols=['id', 'name'], lol=[['a', 'bb'], ['b', 'a'], ['c', 'ccc'], ['d', 'b']])
+        >>> names = Daf(cols=['id', 'name'], lol=[['p1', 'Bea'], ['p2', 'Al'], ['p3', 'Cyrus'], ['p4', 'Bo']])
         >>> names.sort_by_colnames(['name']).col('name')
-        ['a', 'b', 'bb', 'ccc']
+        ['Al', 'Bea', 'Bo', 'Cyrus']
         >>> names.sort_by_colnames(['name'], reverse=True).col('name')
-        ['ccc', 'bb', 'b', 'a']
+        ['Cyrus', 'Bo', 'Bea', 'Al']
 
         With `length_priority=True`, shorter values come first, and values of one length by value:
 
         >>> names.sort_by_colnames(['name'], length_priority=True).col('name')
-        ['a', 'b', 'bb', 'ccc']
+        ['Al', 'Bo', 'Bea', 'Cyrus']
 
         A column of numbers mixed with text, or with None, cannot be compared, and raises TypeError.
         With `as_str=True` it sorts by text, where `'10'` comes before `'9'`, and None sorts as an
         empty cell:
 
-        >>> mixed = Daf(cols=['id', 'v'], lol=[['a', 10], ['b', 9], ['c', 'x'], ['d', None]])
-        >>> mixed.sort_by_colnames(['v'], as_str=True).col('v')
-        [None, 10, 9, 'x']
+        >>> mixed = Daf(cols=['id', 'qty'], lol=[['o1', 10], ['o2', 9], ['o3', 'n/a'], ['o4', None]])
+        >>> mixed.sort_by_colnames(['qty'], as_str=True).col('qty')
+        [None, 10, 9, 'n/a']
     """
     if not self or len(self) <= 1:
         return self
@@ -2489,22 +2659,27 @@ def _transpose(self: 'Daf', new_keyfield:str='', new_cols:T_la | None = None, in
         ValueError: A row is not as long as the columns.
 
     Examples:
-        >>> daf = Daf(lol=[[1, 'a'], [2, 'b']], cols=['id', 'v'])
+        Create a small Daf of people:
+
+        >>> daf = Daf(cols=['id', 'name'], lol=[[1, 'Ana Lopez'], [2, 'Ben Okafor']])
         >>> daf
         <BLANKLINE>
-        | id | v  |
-        | -: | -: |
-        |  1 |  a |
-        |  2 |  b |
+        | id |    name    |
+        | -: | ---------: |
+        |  1 |  Ana Lopez |
+        |  2 | Ben Okafor |
         <BLANKLINE>
         %% daf rows=2; cols=2; keyfield=''; name=''
         <BLANKLINE>
+
+        Turn the rows into columns, with the column names as the first column:
+
         >>> daf.transpose(include_header=True)
         <BLANKLINE>
-        | key | A  | B  |
-        | --: | -: | -: |
-        |  id |  1 |  2 |
-        |   v |  a |  b |
+        | key  |     A     |     B      |
+        | ---: | --------: | ---------: |
+        |   id |         1 |          2 |
+        | name | Ana Lopez | Ben Okafor |
         <BLANKLINE>
         %% daf rows=2; cols=3; keyfield=''; name=''
         <BLANKLINE>
@@ -2517,10 +2692,10 @@ def _transpose(self: 'Daf', new_keyfield:str='', new_cols:T_la | None = None, in
         column names, so they become the keys:
 
         >>> stock = Daf(cols=['id', 'item', 'qty'], lol=[['a1', 'pen', 3], ['b2', 'ink', 10]])
-        >>> by_field = stock.transpose(include_header=True, new_cols=['field', 'r1', 'r2'], new_keyfield='field')
+        >>> by_field = stock.transpose(include_header=True, new_cols=['field', 'a1', 'b2'], new_keyfield='field')
         >>> by_field
         <BLANKLINE>
-        | field | r1  | r2  |
+        | field | a1  | b2  |
         | ----: | --: | --: |
         |    id |  a1 |  b2 |
         |  item | pen | ink |
@@ -2529,7 +2704,7 @@ def _transpose(self: 'Daf', new_keyfield:str='', new_cols:T_la | None = None, in
         %% daf rows=3; cols=3; keyfield='field'; name=''
         <BLANKLINE>
         >>> by_field.select_record('qty')
-        {'field': 'qty', 'r1': 3, 'r2': 10}
+        {'field': 'qty', 'a1': 3, 'b2': 10}
     """
 
     if not self.is_rectangular():
@@ -2585,44 +2760,49 @@ def _wide_to_narrow(self: 'Daf',
         TypeError: `id_cols` is not a list.
 
     Examples:
-        >>> daf = Daf(lol=[['x', 1, 2], ['y', 3, 4]], cols=['id', 'a', 'b'])
+        Create a small Daf of sales by city, one column for each quarter:
+
+        >>> daf = Daf(cols=['city', 'q1', 'q2'], lol=[['Denver', 1200, 1450], ['Austin', 980, 1105]])
         >>> daf
         <BLANKLINE>
-        | id | a  | b  |
-        | -: | -: | -: |
-        |  x |  1 |  2 |
-        |  y |  3 |  4 |
+        |  city  |  q1  |  q2  |
+        | -----: | ---: | ---: |
+        | Denver | 1200 | 1450 |
+        | Austin |  980 | 1105 |
         <BLANKLINE>
         %% daf rows=2; cols=3; keyfield=''; name=''
         <BLANKLINE>
-        >>> daf.wide_to_narrow(['id'])
+
+        Turn it into one row for each city and quarter:
+
+        >>> daf.wide_to_narrow(['city'])
         <BLANKLINE>
-        | id | variable | value |
-        | -: | -------: | ----: |
-        |  x |        a |     1 |
-        |  x |        b |     2 |
-        |  y |        a |     3 |
-        |  y |        b |     4 |
+        |  city  | variable | value |
+        | -----: | -------: | ----: |
+        | Denver |       q1 |  1200 |
+        | Denver |       q2 |  1450 |
+        | Austin |       q1 |   980 |
+        | Austin |       q2 |  1105 |
         <BLANKLINE>
         %% daf rows=4; cols=3; keyfield=''; name=''
         <BLANKLINE>
 
         A round trip:
 
-        >>> daf.wide_to_narrow(['id']).narrow_to_wide(['id']).lol
-        [['x', 1, 2], ['y', 3, 4]]
+        >>> daf.wide_to_narrow(['city']).narrow_to_wide(['city']).lol
+        [['Denver', 1200, 1450], ['Austin', 980, 1105]]
 
         Name the two new columns:
 
-        >>> votes = Daf(cols=['ballot', 'mayor', 'council'], lol=[['b1', 1, 0], ['b2', 0, 1]])
-        >>> votes.wide_to_narrow(['ballot'], varname_colname='contest', value_colname='vote')
+        >>> sales = Daf(cols=['store', 'apples', 'pears'], lol=[['s1', 30, 12], ['s2', 25, 40]])
+        >>> sales.wide_to_narrow(['store'], varname_colname='item', value_colname='qty')
         <BLANKLINE>
-        | ballot | contest | vote |
-        | -----: | ------: | ---: |
-        |     b1 |   mayor |    1 |
-        |     b1 | council |    0 |
-        |     b2 |   mayor |    0 |
-        |     b2 | council |    1 |
+        | store |  item  | qty |
+        | ----: | -----: | --: |
+        |    s1 | apples |  30 |
+        |    s1 |  pears |  12 |
+        |    s2 | apples |  25 |
+        |    s2 |  pears |  40 |
         <BLANKLINE>
         %% daf rows=4; cols=3; keyfield=''; name=''
         <BLANKLINE>
@@ -2679,56 +2859,61 @@ def _narrow_to_wide(self: 'Daf',
         The new Daf.
 
     Examples:
-        >>> daf = Daf(lol=[['x', 'a', 1], ['y', 'a', 3], ['x', 'b', 2], ['y', 'b', 4]], cols=['id', 'variable', 'value'])
+        Create a small Daf of sales, one row for each city and quarter:
+
+        >>> daf = Daf(cols=['city', 'variable', 'value'], lol=[['Denver', 'q1', 1200], ['Austin', 'q1', 980], ['Denver', 'q2', 1450], ['Austin', 'q2', 1105]])
         >>> daf
         <BLANKLINE>
-        | id | variable | value |
-        | -: | -------: | ----: |
-        |  x |        a |     1 |
-        |  y |        a |     3 |
-        |  x |        b |     2 |
-        |  y |        b |     4 |
+        |  city  | variable | value |
+        | -----: | -------: | ----: |
+        | Denver |       q1 |  1200 |
+        | Austin |       q1 |   980 |
+        | Denver |       q2 |  1450 |
+        | Austin |       q2 |  1105 |
         <BLANKLINE>
         %% daf rows=4; cols=3; keyfield=''; name=''
         <BLANKLINE>
-        >>> daf.narrow_to_wide(['id'])
+
+        Turn it into one row for each city, with a column for each quarter. Choose the columns and their order with `wide_cols`:
+
+        >>> daf.narrow_to_wide(['city'])
         <BLANKLINE>
-        | id | a  | b  |
-        | -: | -: | -: |
-        |  x |  1 |  2 |
-        |  y |  3 |  4 |
+        |  city  |  q1  |  q2  |
+        | -----: | ---: | ---: |
+        | Denver | 1200 | 1450 |
+        | Austin |  980 | 1105 |
         <BLANKLINE>
         %% daf rows=2; cols=3; keyfield=''; name=''
         <BLANKLINE>
-        >>> daf.narrow_to_wide(['id'], wide_cols=['b', 'a'])
+        >>> daf.narrow_to_wide(['city'], wide_cols=['q2', 'q1'])
         <BLANKLINE>
-        | id | b  | a  |
-        | -: | -: | -: |
-        |  x |  2 |  1 |
-        |  y |  4 |  3 |
+        |  city  |  q2  |  q1  |
+        | -----: | ---: | ---: |
+        | Denver | 1450 | 1200 |
+        | Austin | 1105 |  980 |
         <BLANKLINE>
         %% daf rows=2; cols=3; keyfield=''; name=''
         <BLANKLINE>
 
         Name the two columns to read, and keep only some of the new columns:
 
-        >>> narrow = Daf(cols=['ballot', 'contest', 'vote'], lol=[
-        ...     ['b1', 'mayor', 1], ['b1', 'council', 0], ['b2', 'mayor', 0], ['b2', 'council', 1]])
-        >>> narrow.narrow_to_wide(['ballot'], varname_col='contest', value_col='vote')
+        >>> narrow = Daf(cols=['store', 'item', 'qty'], lol=[
+        ...     ['s1', 'apples', 30], ['s1', 'pears', 12], ['s2', 'apples', 25], ['s2', 'pears', 40]])
+        >>> narrow.narrow_to_wide(['store'], varname_col='item', value_col='qty')
         <BLANKLINE>
-        | ballot | mayor | council |
-        | -----: | ----: | ------: |
-        |     b1 |     1 |       0 |
-        |     b2 |     0 |       1 |
+        | store | apples | pears |
+        | ----: | -----: | ----: |
+        |    s1 |     30 |    12 |
+        |    s2 |     25 |    40 |
         <BLANKLINE>
         %% daf rows=2; cols=3; keyfield=''; name=''
         <BLANKLINE>
-        >>> narrow.narrow_to_wide(['ballot'], varname_col='contest', value_col='vote', wide_cols=['council'])
+        >>> narrow.narrow_to_wide(['store'], varname_col='item', value_col='qty', wide_cols=['pears'])
         <BLANKLINE>
-        | ballot | council |
-        | -----: | ------: |
-        |     b1 |       0 |
-        |     b2 |       1 |
+        | store | pears |
+        | ----: | ----: |
+        |    s1 |    12 |
+        |    s2 |    40 |
         <BLANKLINE>
         %% daf rows=2; cols=2; keyfield=''; name=''
         <BLANKLINE>
