@@ -105,6 +105,8 @@ def _apply_formulas(self: 'Daf', formulas_daf: 'Daf') -> 'Daf':
         RuntimeError: The shapes differ, or the formulas never settle.
 
     Examples:
+        Create a small Daf of numbers, with an empty column and an empty row for totals:
+
         >>> daf = Daf(cols=['A', 'B', 'C'], lol=[[1, 2, 0], [4, 5, 0], [7, 8, 0], [0, 0, 0]])
         >>> daf
         <BLANKLINE>
@@ -117,6 +119,9 @@ def _apply_formulas(self: 'Daf', formulas_daf: 'Daf') -> 'Daf':
         <BLANKLINE>
         %% daf rows=4; cols=3; keyfield=''; name=''
         <BLANKLINE>
+
+        Make a Daf of formulas, the same shape. Each row is summed into column C, and each column into the last row:
+
         >>> f_daf = Daf(cols=['A', 'B', 'C'], lol=[
         ...     ['', '', 'sum($d[$r,:$c])'],
         ...     ['', '', 'sum($d[$r,:$c])'],
@@ -133,6 +138,9 @@ def _apply_formulas(self: 'Daf', formulas_daf: 'Daf') -> 'Daf':
         <BLANKLINE>
         %% daf rows=4; cols=3; keyfield=''; name=''
         <BLANKLINE>
+
+        Apply the formulas, to fill in the totals:
+
         >>> daf.apply_formulas(f_daf)
         <BLANKLINE>
         | A  | B  | C  |
@@ -239,20 +247,25 @@ def _cols_to_dol(self: 'Daf', colname1: str, colname2: str) -> T_dola:
         A dict that maps each value of the first column to a list of values of the second.
 
     Examples:
-        >>> daf = Daf(lol=[['a', 'b'], ['b', 'd'], ['a', 'f'], ['b', 'd']], cols=['c1', 'c2'])
+        Create a small Daf of people by city. One row repeats:
+
+        >>> daf = Daf(cols=['city', 'name'], lol=[['Denver', 'Ana Lopez'], ['Austin', 'Ben Okafor'], ['Denver', 'Chen Wu'], ['Austin', 'Ben Okafor']])
         >>> daf
         <BLANKLINE>
-        | c1 | c2 |
-        | -: | -: |
-        |  a |  b |
-        |  b |  d |
-        |  a |  f |
-        |  b |  d |
+        |  city  |    name    |
+        | -----: | ---------: |
+        | Denver |  Ana Lopez |
+        | Austin | Ben Okafor |
+        | Denver |    Chen Wu |
+        | Austin | Ben Okafor |
         <BLANKLINE>
         %% daf rows=4; cols=2; keyfield=''; name=''
         <BLANKLINE>
-        >>> daf.cols_to_dol('c1', 'c2')
-        {'a': ['b', 'f'], 'b': ['d']}
+
+        List the people in each city. A repeated name is kept once:
+
+        >>> daf.cols_to_dol('city', 'name')
+        {'Denver': ['Ana Lopez', 'Chen Wu'], 'Austin': ['Ben Okafor']}
     """
 
     if colname1 not in self.hd or colname2 not in self.hd or not self.lol:
@@ -306,25 +319,30 @@ def _insert_dif_row(self: 'Daf',
         This Daf, which has been changed.
 
     Examples:
-        >>> daf = Daf(lol=[[1, 10], [3, 14], [6, 20]], cols=['a', 'n'])
+        Create a small Daf of sales by month:
+
+        >>> daf = Daf(cols=['month', 'sales'], lol=[[1, 1200], [2, 1450], [3, 1610]])
         >>> daf
         <BLANKLINE>
-        | a  | n  |
-        | -: | -: |
-        |  1 | 10 |
-        |  3 | 14 |
-        |  6 | 20 |
+        | month | sales |
+        | ----: | ----: |
+        |     1 |  1200 |
+        |     2 |  1450 |
+        |     3 |  1610 |
         <BLANKLINE>
         %% daf rows=3; cols=2; keyfield=''; name=''
         <BLANKLINE>
+
+        Insert a row with the difference of the first two rows:
+
         >>> daf.insert_dif_row(0)
         <BLANKLINE>
-        | a  | n  |
-        | -: | -: |
-        |  1 | 10 |
-        | -2 | -4 |
-        |  3 | 14 |
-        |  6 | 20 |
+        | month | sales |
+        | ----: | ----: |
+        |     1 |  1200 |
+        |    -1 |  -250 |
+        |     2 |  1450 |
+        |     3 |  1610 |
         <BLANKLINE>
         %% daf rows=4; cols=2; keyfield=''; name=''
         <BLANKLINE>
@@ -332,15 +350,15 @@ def _insert_dif_row(self: 'Daf',
         The difference is the first row minus the second. Choose the two rows, where the new row goes,
         and the columns to subtract. The other columns are empty:
 
-        >>> series = Daf(cols=['t', 'n'], lol=[[1, 10], [2, 15], [4, 30]])
-        >>> series.insert_dif_row(0, 2, irow_insert=3, cols=['n'])
+        >>> series = Daf(cols=['week', 'visits'], lol=[[1, 310], [2, 345], [4, 402]])
+        >>> series.insert_dif_row(0, 2, irow_insert=3, cols=['visits'])
         <BLANKLINE>
-        | t  |  n  |
-        | -: | --: |
-        |  1 |  10 |
-        |  2 |  15 |
-        |  4 |  30 |
-        |    | -20 |
+        | week | visits |
+        | ---: | -----: |
+        |    1 |    310 |
+        |    2 |    345 |
+        |    4 |    402 |
+        |      |    -92 |
         <BLANKLINE>
         %% daf rows=4; cols=2; keyfield=''; name=''
         <BLANKLINE>
@@ -384,26 +402,31 @@ def _insert_dif_rows(self: 'Daf',
         This Daf, which has been changed.
 
     Examples:
-        >>> daf = Daf(lol=[[1, 10], [3, 14], [6, 20]], cols=['a', 'n'])
+        Create a small Daf of sales by month:
+
+        >>> daf = Daf(cols=['month', 'sales'], lol=[[1, 1200], [2, 1450], [3, 1610]])
         >>> daf
         <BLANKLINE>
-        | a  | n  |
-        | -: | -: |
-        |  1 | 10 |
-        |  3 | 14 |
-        |  6 | 20 |
+        | month | sales |
+        | ----: | ----: |
+        |     1 |  1200 |
+        |     2 |  1450 |
+        |     3 |  1610 |
         <BLANKLINE>
         %% daf rows=3; cols=2; keyfield=''; name=''
         <BLANKLINE>
+
+        Insert a row after each pair of rows, with their difference:
+
         >>> daf.insert_dif_rows()
         <BLANKLINE>
-        | a  | n  |
-        | -: | -: |
-        |  1 | 10 |
-        | -2 | -4 |
-        |  3 | 14 |
-        | -3 | -6 |
-        |  6 | 20 |
+        | month | sales |
+        | ----: | ----: |
+        |     1 |  1200 |
+        |    -1 |  -250 |
+        |     2 |  1450 |
+        |    -1 |  -160 |
+        |     3 |  1610 |
         <BLANKLINE>
         %% daf rows=5; cols=2; keyfield=''; name=''
         <BLANKLINE>
@@ -411,27 +434,27 @@ def _insert_dif_rows(self: 'Daf',
         Only after some rows, with `irows_rli`, and only some columns, with `cols`. With `offset=1`, each
         difference goes after the second row of its pair:
 
-        >>> series = Daf(cols=['t', 'n'], lol=[[1, 10], [2, 15], [4, 30]])
-        >>> series.insert_dif_rows(cols=['n'], offset=1)
+        >>> series = Daf(cols=['week', 'visits'], lol=[[1, 310], [2, 345], [4, 402]])
+        >>> series.insert_dif_rows(cols=['visits'], offset=1)
         <BLANKLINE>
-        | t  |  n  |
-        | -: | --: |
-        |  1 |  10 |
-        |  2 |  15 |
-        |    |  -5 |
-        |  4 |  30 |
-        |    | -15 |
+        | week | visits |
+        | ---: | -----: |
+        |    1 |    310 |
+        |    2 |    345 |
+        |      |    -35 |
+        |    4 |    402 |
+        |      |    -57 |
         <BLANKLINE>
         %% daf rows=5; cols=2; keyfield=''; name=''
         <BLANKLINE>
-        >>> Daf(cols=['t', 'n'], lol=[[1, 10], [2, 15], [4, 30]]).insert_dif_rows([1])
+        >>> Daf(cols=['week', 'visits'], lol=[[1, 310], [2, 345], [4, 402]]).insert_dif_rows([1])
         <BLANKLINE>
-        | t  |  n  |
-        | -: | --: |
-        |  1 |  10 |
-        |  2 |  15 |
-        | -2 | -15 |
-        |  4 |  30 |
+        | week | visits |
+        | ---: | -----: |
+        |    1 |    310 |
+        |    2 |    345 |
+        |   -2 |    -57 |
+        |    4 |    402 |
         <BLANKLINE>
         %% daf rows=4; cols=2; keyfield=''; name=''
         <BLANKLINE>
@@ -502,42 +525,53 @@ def _apply(
         NotImplementedError: `by` is `col`, or is not recognized.
 
     Examples:
-        >>> daf = Daf(lol=[['a', 1, 10], ['b', 2, 20], ['a', 3, 30]], cols=['g', 'x', 'y'])
+        Create a small Daf of orders, with the city they went to, a quantity and an amount:
+
+        >>> daf = Daf(cols=['city', 'qty', 'amount'], lol=[['Denver', 2, 25.0], ['Austin', 6, 24.0], ['Denver', 1, 30.5]])
         >>> daf
         <BLANKLINE>
-        | g  | x  | y  |
-        | -: | -: | -: |
-        |  a |  1 | 10 |
-        |  b |  2 | 20 |
-        |  a |  3 | 30 |
+        |  city  | qty | amount |
+        | -----: | --: | -----: |
+        | Denver |   2 |   25.0 |
+        | Austin |   6 |   24.0 |
+        | Denver |   1 |   30.5 |
         <BLANKLINE>
         %% daf rows=3; cols=3; keyfield=''; name=''
         <BLANKLINE>
-        >>> daf.apply(lambda row: {'g': row['g'].upper(), 'z': row['y'] * 2})
+
+        Make a new table, with a row of new values for each row:
+
+        >>> daf.apply(lambda row: {'city': row['city'].upper(), 'amount_x2': row['amount'] * 2})
         <BLANKLINE>
-        | g  | z  |
-        | -: | -: |
-        |  A | 20 |
-        |  B | 40 |
-        |  A | 60 |
+        |  city  | amount_x2 |
+        | -----: | --------: |
+        | DENVER |      50.0 |
+        | AUSTIN |      48.0 |
+        | DENVER |      61.0 |
         <BLANKLINE>
         %% daf rows=3; cols=2; keyfield=''; name=''
         <BLANKLINE>
-        >>> daf.apply(lambda row: row if row['y'] > 15 else None)
+
+        Keep only some rows. A function that returns None drops the row:
+
+        >>> daf.apply(lambda row: row if row['amount'] > 24.5 else None)
         <BLANKLINE>
-        | g  | x  | y  |
-        | -: | -: | -: |
-        |  b |  2 | 20 |
-        |  a |  3 | 30 |
+        |  city  | qty | amount |
+        | -----: | --: | -----: |
+        | Denver |   2 |   25.0 |
+        | Denver |   1 |   30.5 |
         <BLANKLINE>
         %% daf rows=2; cols=3; keyfield=''; name=''
         <BLANKLINE>
-        >>> daf.apply(lambda row: [{'g': row['g'], 'part': 1}, {'g': row['g'], 'part': 2}] if row['x'] == 2 else None)
+
+        Make several rows from one row, by returning a list:
+
+        >>> daf.apply(lambda row: [{'city': row['city'], 'part': 1}, {'city': row['city'], 'part': 2}] if row['qty'] == 2 else None)
         <BLANKLINE>
-        | g  | part |
-        | -: | ---: |
-        |  b |    1 |
-        |  b |    2 |
+        |  city  | part |
+        | -----: | ---: |
+        | Denver |    1 |
+        | Denver |    2 |
         <BLANKLINE>
         %% daf rows=2; cols=2; keyfield=''; name=''
         <BLANKLINE>
@@ -624,8 +658,10 @@ def _update_row(row: T_rma, da: T_da) -> T_rma:
         The same row.
 
     Examples:
-        >>> Daf.update_row({'a': 1}, {'b': 2})
-        {'a': 1, 'b': 2}
+        Merge new values into a row, here a dict:
+
+        >>> Daf.update_row({'name': 'Ana Lopez'}, {'age': 34})
+        {'name': 'Ana Lopez', 'age': 34}
     """
 
     row.update(da)
@@ -675,40 +711,48 @@ def _apply_in_place(
         NotImplementedError: `by` is not `row` or `row_klist`.
 
     Examples:
-        >>> daf = Daf(lol=[['a', 1, 10], ['b', 2, 20], ['a', 3, 30]], cols=['g', 'x', 'y'])
+        Create a small Daf of orders:
+
+        >>> daf = Daf(cols=['city', 'qty', 'amount'], lol=[['Denver', 2, 25.0], ['Austin', 6, 24.0], ['Denver', 1, 30.5]])
         >>> daf
         <BLANKLINE>
-        | g  | x  | y  |
-        | -: | -: | -: |
-        |  a |  1 | 10 |
-        |  b |  2 | 20 |
-        |  a |  3 | 30 |
+        |  city  | qty | amount |
+        | -----: | --: | -----: |
+        | Denver |   2 |   25.0 |
+        | Austin |   6 |   24.0 |
+        | Denver |   1 |   30.5 |
         <BLANKLINE>
         %% daf rows=3; cols=3; keyfield=''; name=''
         <BLANKLINE>
-        >>> daf.apply_in_place(lambda row: {**row, 'y': row['y'] + 1})
+
+        Add 1 to every amount, in place. With `by='row'`, the function returns the changed row:
+
+        >>> daf.apply_in_place(lambda row: {**row, 'amount': row['amount'] + 1})
         <BLANKLINE>
-        | g  | x  | y  |
-        | -: | -: | -: |
-        |  a |  1 | 11 |
-        |  b |  2 | 21 |
-        |  a |  3 | 31 |
-        <BLANKLINE>
-        %% daf rows=3; cols=3; keyfield=''; name=''
-        <BLANKLINE>
-        >>> daf.col('y')
-        [11, 21, 31]
-        >>> daf.apply_in_place(lambda row: row.__setitem__('y', 0), by='row_klist')
-        <BLANKLINE>
-        | g  | x  | y  |
-        | -: | -: | -: |
-        |  a |  1 |  0 |
-        |  b |  2 |  0 |
-        |  a |  3 |  0 |
+        |  city  | qty | amount |
+        | -----: | --: | -----: |
+        | Denver |   2 |   26.0 |
+        | Austin |   6 |   25.0 |
+        | Denver |   1 |   31.5 |
         <BLANKLINE>
         %% daf rows=3; cols=3; keyfield=''; name=''
         <BLANKLINE>
-        >>> daf.col('y')
+        >>> daf.col('amount')
+        [26.0, 25.0, 31.5]
+
+        Set every amount to 0. With `by='row_klist'`, the function changes the row and returns nothing:
+
+        >>> daf.apply_in_place(lambda row: row.__setitem__('amount', 0), by='row_klist')
+        <BLANKLINE>
+        |  city  | qty | amount |
+        | -----: | --: | -----: |
+        | Denver |   2 |      0 |
+        | Austin |   6 |      0 |
+        | Denver |   1 |      0 |
+        <BLANKLINE>
+        %% daf rows=3; cols=3; keyfield=''; name=''
+        <BLANKLINE>
+        >>> daf.col('amount')
         [0, 0, 0]
 
         Only the rows of some keys:
@@ -795,16 +839,21 @@ def _manifest_apply(
         The manifest of the result chunks.
 
     Examples:
-        >>> chunks = {'a': Daf(cols=['n'], lol=[[1], [2]]), 'b': Daf(cols=['n'], lol=[[10]])}
+        Keep two chunks of a table, here in a dict. In real use they would be files:
+
+        >>> chunks = {'a': Daf(cols=['qty'], lol=[[2], [6]]), 'b': Daf(cols=['qty'], lol=[[1]])}
         >>> saved = []
         >>> def load(spec):
         ...     return chunks[spec['chunk']]
         >>> def double(daf, cols=None):
-        ...     new = Daf(cols=['n'], lol=[[row['n'] * 2] for row in daf])
+        ...     new = Daf(cols=['qty'], lol=[[row['qty'] * 2] for row in daf])
         ...     return {'rows': len(new)}, new
         >>> def save(spec, daf):
         ...     saved.append(daf.to_lod())
         ...     return 'saved'
+
+        Make a manifest, a Daf with one row for each chunk:
+
         >>> manifest = Daf(cols=['chunk'], lol=[['a'], ['b']])
         >>> manifest
         <BLANKLINE>
@@ -815,6 +864,9 @@ def _manifest_apply(
         <BLANKLINE>
         %% daf rows=2; cols=1; keyfield=''; name=''
         <BLANKLINE>
+
+        Load each chunk, double it, and save it. The result has a row of status for each chunk:
+
         >>> result = manifest.manifest_apply(double, load, save, by='table')
         >>> result
         <BLANKLINE>
@@ -826,7 +878,7 @@ def _manifest_apply(
         %% daf rows=2; cols=1; keyfield=''; name=''
         <BLANKLINE>
         >>> saved
-        [[{'n': 2}, {'n': 4}], [{'n': 20}]]
+        [[{'qty': 4}, {'qty': 12}], [{'qty': 2}]]
     """
 
     result_manifest_daf = Daf()
@@ -882,7 +934,9 @@ def _manifest_reduce(
         ValueError: No `load_func` is given.
 
     Examples:
-        >>> store = {'c1': Daf(lol=[[1, 2], [3, 4]], cols=['a', 'b']), 'c2': Daf(lol=[[10, 20]], cols=['a', 'b'])}
+        Keep two chunks of a table, here in a dict, and a manifest with a row for each:
+
+        >>> store = {'c1': Daf(cols=['qty', 'amount'], lol=[[2, 25.0], [6, 24.0]]), 'c2': Daf(cols=['qty', 'amount'], lol=[[1, 30.5]])}
         >>> manifest = Daf(lol=[['c1'], ['c2']], cols=['chunk'])
         >>> manifest
         <BLANKLINE>
@@ -893,8 +947,11 @@ def _manifest_reduce(
         <BLANKLINE>
         %% daf rows=2; cols=1; keyfield=''; name=''
         <BLANKLINE>
+
+        Total the columns over every chunk, one chunk at a time:
+
         >>> manifest.manifest_reduce(Daf.sum_da, load_func=lambda spec: store[spec['chunk']])
-        {'a': 14, 'b': 26}
+        {'qty': 9, 'amount': 79.5}
     """
     if load_func is None:
         raise ValueError("manifest_reduce: load_func is required")
@@ -937,6 +994,8 @@ def _manifest_process(
         A Daf with one row for each returned dict.
 
     Examples:
+        Make a manifest with a row for each chunk:
+
         >>> manifest = Daf(lol=[['c1'], ['c2']], cols=['chunk'])
         >>> manifest
         <BLANKLINE>
@@ -947,6 +1006,9 @@ def _manifest_process(
         <BLANKLINE>
         %% daf rows=2; cols=1; keyfield=''; name=''
         <BLANKLINE>
+
+        Call a function for each row of the manifest, and collect the results:
+
         >>> manifest.manifest_process(lambda spec: {'chunk': spec['chunk'], 'seen': True})
         <BLANKLINE>
         | chunk | seen |
@@ -1073,52 +1135,60 @@ def _groupby(
         KeyError: The group column, or a name in `cols`, is not a column.
 
     Examples:
-        >>> daf = Daf(lol=[['a', 1, 10], ['b', 2, 20], ['a', 3, 30]], cols=['g', 'x', 'y'])
+        Create a small Daf of orders:
+
+        >>> daf = Daf(cols=['city', 'qty', 'amount'], lol=[['Denver', 2, 25.0], ['Austin', 6, 24.0], ['Denver', 1, 30.5]])
         >>> daf
         <BLANKLINE>
-        | g  | x  | y  |
-        | -: | -: | -: |
-        |  a |  1 | 10 |
-        |  b |  2 | 20 |
-        |  a |  3 | 30 |
+        |  city  | qty | amount |
+        | -----: | --: | -----: |
+        | Denver |   2 |   25.0 |
+        | Austin |   6 |   24.0 |
+        | Denver |   1 |   30.5 |
         <BLANKLINE>
         %% daf rows=3; cols=3; keyfield=''; name=''
         <BLANKLINE>
-        >>> groups = daf.groupby('g')
+
+        Group the orders by city. Each group is a Daf:
+
+        >>> groups = daf.groupby('city')
         >>> list(groups)
-        ['a', 'b']
-        >>> groups['a']
+        ['Denver', 'Austin']
+        >>> groups['Denver']
         <BLANKLINE>
-        | g  | x  | y  |
-        | -: | -: | -: |
-        |  a |  1 | 10 |
-        |  a |  3 | 30 |
+        |  city  | qty | amount |
+        | -----: | --: | -----: |
+        | Denver |   2 |   25.0 |
+        | Denver |   1 |   30.5 |
         <BLANKLINE>
         %% daf rows=2; cols=3; keyfield=''; name=''
         <BLANKLINE>
-        >>> daf.groupby('g', cols=['y'])['a']
+
+        Keep only some columns in each group, with `cols`:
+
+        >>> daf.groupby('city', cols=['amount'])['Denver']
         <BLANKLINE>
-        | y  |
-        | -: |
-        | 10 |
-        | 30 |
+        | amount |
+        | -----: |
+        |   25.0 |
+        |   30.5 |
         <BLANKLINE>
         %% daf rows=2; cols=1; keyfield=''; name=''
         <BLANKLINE>
 
         Group by two columns together. Each key is then a tuple:
 
-        >>> ballots = Daf(cols=['id', 'precinct', 'party'], keyfield='id', lol=[
-        ...     ['b1', 'P1', 'D'], ['b2', 'P1', 'R'], ['b3', 'P2', 'D'], ['b4', 'P1', 'D'], ['b5', '', 'R']])
-        >>> list(ballots.groupby(colnames=['precinct', 'party']).keys())
-        [('P1', 'D'), ('P1', 'R'), ('P2', 'D'), ('', 'R')]
+        >>> customers = Daf(cols=['id', 'city', 'plan'], keyfield='id', lol=[
+        ...     ['c1', 'Denver', 'basic'], ['c2', 'Denver', 'pro'], ['c3', 'Austin', 'basic'], ['c4', 'Denver', 'basic'], ['c5', '', 'pro']])
+        >>> list(customers.groupby(colnames=['city', 'plan']).keys())
+        [('Denver', 'basic'), ('Denver', 'pro'), ('Austin', 'basic'), ('', 'pro')]
 
         Leave out the rows with an empty value in the column:
 
-        >>> list(ballots.groupby('precinct').keys())
-        ['P1', 'P2', '']
-        >>> list(ballots.groupby('precinct', omit_nulls=True).keys())
-        ['P1', 'P2']
+        >>> list(customers.groupby('city').keys())
+        ['Denver', 'Austin', '']
+        >>> list(customers.groupby('city', omit_nulls=True).keys())
+        ['Denver', 'Austin']
     """
 
     if isinstance(colname, list) and not colnames:
@@ -1175,25 +1245,33 @@ def _groupby_cols(self: 'Daf', colnames: T_ls, cols: T_cs | None = None) -> T_kl
         KeyError: A name in `colnames` or `cols` is not a column.
 
     Examples:
-        >>> daf = Daf(lol=[['a', 1, 10], ['b', 2, 20], ['a', 3, 30]], cols=['g', 'x', 'y'])
+        Create a small Daf of orders:
+
+        >>> daf = Daf(cols=['city', 'qty', 'amount'], lol=[['Denver', 2, 25.0], ['Austin', 6, 24.0], ['Denver', 1, 30.5]])
         >>> daf
         <BLANKLINE>
-        | g  | x  | y  |
-        | -: | -: | -: |
-        |  a |  1 | 10 |
-        |  b |  2 | 20 |
-        |  a |  3 | 30 |
+        |  city  | qty | amount |
+        | -----: | --: | -----: |
+        | Denver |   2 |   25.0 |
+        | Austin |   6 |   24.0 |
+        | Denver |   1 |   30.5 |
         <BLANKLINE>
         %% daf rows=3; cols=3; keyfield=''; name=''
         <BLANKLINE>
-        >>> list(daf.groupby_cols(['g']))
-        [('a',), ('b',)]
-        >>> daf.groupby_cols(['g'], cols=['y'])[('a',)]
+
+        Group the orders by city. Each key is a tuple:
+
+        >>> list(daf.groupby_cols(['city']))
+        [('Denver',), ('Austin',)]
+
+        Keep only some columns in each group, with `cols`:
+
+        >>> daf.groupby_cols(['city'], cols=['amount'])[('Denver',)]
         <BLANKLINE>
-        | y  |
-        | -: |
-        | 10 |
-        | 30 |
+        | amount |
+        | -----: |
+        |   25.0 |
+        |   30.5 |
         <BLANKLINE>
         %% daf rows=2; cols=1; keyfield=''; name=''
         <BLANKLINE>
@@ -1243,29 +1321,34 @@ def _group_where(
         A KeyedList that maps each key to a Daf.
 
     Examples:
-        >>> daf = Daf(lol=[['a', 1, 10], ['b', 2, 20], ['a', 3, 30]], cols=['g', 'x', 'y'])
+        Create a small Daf of orders:
+
+        >>> daf = Daf(cols=['city', 'qty', 'amount'], lol=[['Denver', 2, 25.0], ['Austin', 6, 24.0], ['Denver', 1, 30.5]])
         >>> daf
         <BLANKLINE>
-        | g  | x  | y  |
-        | -: | -: | -: |
-        |  a |  1 | 10 |
-        |  b |  2 | 20 |
-        |  a |  3 | 30 |
+        |  city  | qty | amount |
+        | -----: | --: | -----: |
+        | Denver |   2 |   25.0 |
+        | Austin |   6 |   24.0 |
+        | Denver |   1 |   30.5 |
         <BLANKLINE>
         %% daf rows=3; cols=3; keyfield=''; name=''
         <BLANKLINE>
-        >>> groups = daf.group_where(lambda row: [row['g'], 'all'])
+
+        Put each order in two groups, its city and 'all'. The function returns the groups of a row:
+
+        >>> groups = daf.group_where(lambda row: [row['city'], 'all'])
         >>> {key: len(group) for key, group in groups.items()}
-        {'a': 2, 'all': 3, 'b': 1}
+        {'Denver': 2, 'all': 3, 'Austin': 1}
 
         With `indirect_col`, the function reads the keys of the dict in that column as columns. Here
-        each ballot that has a vote for mayor goes into one group:
+        each cart that has apples goes into one group:
 
-        >>> ballots = Daf(cols=['id', 'votes'], lol=[
-        ...     ['b1', {'mayor': 1}], ['b2', {'council': 1}], ['b3', {'mayor': 1, 'council': 1}]])
-        >>> groups = ballots.group_where(lambda row: 'mayor' if row['mayor'] else None, indirect_col='votes')
-        >>> groups['mayor'].col('id')
-        ['b1', 'b3']
+        >>> customers = Daf(cols=['id', 'cart'], lol=[
+        ...     ['c1', {'apples': 1}], ['c2', {'pears': 1}], ['c3', {'apples': 1, 'pears': 1}]])
+        >>> groups = customers.group_where(lambda row: 'apples' if row['apples'] else None, indirect_col='cart')
+        >>> groups['apples'].col('id')
+        ['c1', 'c3']
     """
 
     # --- helpers ---
@@ -1360,25 +1443,30 @@ def _groupby_repeated_cols(
         KeyError: A name in `colnames` or `exclude` is not a column.
 
     Examples:
-        >>> daf = Daf(cols=['ballot_id', 'crc', 'size'],
-        ...           lol=[['b1', 7, 10], ['b2', 0, 10], ['b3', 7, 10], ['b4', 0, 10], ['b5', 8, 10]])
+        Create a small Daf of files, with a checksum and a size. A checksum of 0 means none was made:
+
+        >>> daf = Daf(cols=['file_id', 'checksum', 'size'],
+        ...           lol=[['f1', 7301, 2048], ['f2', 0, 2048], ['f3', 7301, 2048], ['f4', 0, 2048], ['f5', 8842, 2048]])
         >>> daf
         <BLANKLINE>
-        | ballot_id | crc | size |
-        | --------: | --: | ---: |
-        |        b1 |   7 |   10 |
-        |        b2 |   0 |   10 |
-        |        b3 |   7 |   10 |
-        |        b4 |   0 |   10 |
-        |        b5 |   8 |   10 |
+        | file_id | checksum | size |
+        | ------: | -------: | ---: |
+        |      f1 |     7301 | 2048 |
+        |      f2 |        0 | 2048 |
+        |      f3 |     7301 | 2048 |
+        |      f4 |        0 | 2048 |
+        |      f5 |     8842 | 2048 |
         <BLANKLINE>
         %% daf rows=5; cols=3; keyfield=''; name=''
         <BLANKLINE>
-        >>> repeats_klodaf = daf.groupby_repeated_cols(['crc', 'size'], exclude={'crc': [0, '']})
+
+        Find the files whose checksum and size repeat, leaving out the files with no checksum:
+
+        >>> repeats_klodaf = daf.groupby_repeated_cols(['checksum', 'size'], exclude={'checksum': [0, '']})
         >>> list(repeats_klodaf.keys())
-        [(7, 10)]
-        >>> repeats_klodaf[(7, 10)].col('ballot_id')
-        ['b1', 'b3']
+        [(7301, 2048)]
+        >>> repeats_klodaf[(7301, 2048)].col('file_id')
+        ['f1', 'f3']
     """
     key_idx_li: T_li = [self.hd[col] for col in colnames]
     exclude_lot: List[Tuple[int, set]] = [(self.hd[col], set(vals_la)) for col, vals_la in (exclude or {}).items()]
@@ -1436,23 +1524,28 @@ def _groupby_cols_reduce(
         The Daf with one row for each group.
 
     Examples:
-        >>> daf = Daf(lol=[['a', 1, 10], ['b', 2, 20], ['a', 3, 30]], cols=['g', 'x', 'y'])
+        Create a small Daf of orders:
+
+        >>> daf = Daf(cols=['city', 'qty', 'amount'], lol=[['Denver', 2, 25.0], ['Austin', 6, 24.0], ['Denver', 1, 30.5]])
         >>> daf
         <BLANKLINE>
-        | g  | x  | y  |
-        | -: | -: | -: |
-        |  a |  1 | 10 |
-        |  b |  2 | 20 |
-        |  a |  3 | 30 |
+        |  city  | qty | amount |
+        | -----: | --: | -----: |
+        | Denver |   2 |   25.0 |
+        | Austin |   6 |   24.0 |
+        | Denver |   1 |   30.5 |
         <BLANKLINE>
         %% daf rows=3; cols=3; keyfield=''; name=''
         <BLANKLINE>
-        >>> daf.groupby_cols_reduce(['g'], Daf.sum_da, reduce_cols=['y'])
+
+        Total the amount for each city. The other columns are empty:
+
+        >>> daf.groupby_cols_reduce(['city'], Daf.sum_da, reduce_cols=['amount'])
         <BLANKLINE>
-        | g  | y  |
-        | -: | -: |
-        |  a | 40 |
-        |  b | 20 |
+        |  city  | amount |
+        | -----: | -----: |
+        | Denver |   55.5 |
+        | Austin |   24.0 |
         <BLANKLINE>
         %% daf rows=2; cols=2; keyfield=''; name=''
         <BLANKLINE>
@@ -1684,39 +1777,44 @@ def _groupby_reduce(
         The Daf with one row for each group.
 
     Examples:
-        >>> daf = Daf(lol=[['a', 1, 10], ['b', 2, 20], ['a', 3, 30]], cols=['g', 'x', 'y'])
+        Create a small Daf of orders:
+
+        >>> daf = Daf(cols=['city', 'qty', 'amount'], lol=[['Denver', 2, 25.0], ['Austin', 6, 24.0], ['Denver', 1, 30.5]])
         >>> daf
         <BLANKLINE>
-        | g  | x  | y  |
-        | -: | -: | -: |
-        |  a |  1 | 10 |
-        |  b |  2 | 20 |
-        |  a |  3 | 30 |
+        |  city  | qty | amount |
+        | -----: | --: | -----: |
+        | Denver |   2 |   25.0 |
+        | Austin |   6 |   24.0 |
+        | Denver |   1 |   30.5 |
         <BLANKLINE>
         %% daf rows=3; cols=3; keyfield=''; name=''
         <BLANKLINE>
-        >>> daf.groupby_reduce('g', Daf.sum_da, reduce_cols=['y'])
+
+        Total the amount for each city:
+
+        >>> daf.groupby_reduce('city', Daf.sum_da, reduce_cols=['amount'])
         <BLANKLINE>
-        | g  | x  | y  |
-        | -: | -: | -: |
-        |  a |    | 40 |
-        |  b |    | 20 |
+        |  city  | qty | amount |
+        | -----: | --: | -----: |
+        | Denver |     |   55.5 |
+        | Austin |     |   24.0 |
         <BLANKLINE>
-        %% daf rows=2; cols=3; keyfield='g'; name=''
+        %% daf rows=2; cols=3; keyfield='city'; name=''
         <BLANKLINE>
 
         For sparse rows, give `indirect_col`. Each group's dicts are added into one dict, in one cell:
 
-        >>> ballots = Daf(cols=['id', 'precinct', 'votes'], lol=[
-        ...     ['b1', 'P1', {'mayor': 1}], ['b2', 'P1', {'council': 1}], ['b3', 'P2', {'mayor': 1, 'council': 1}]])
-        >>> ballots.groupby_reduce('precinct', Daf.sum_da, indirect_col='votes')
+        >>> customers = Daf(cols=['id', 'city', 'cart'], lol=[
+        ...     ['c1', 'Denver', {'apples': 1}], ['c2', 'Denver', {'pears': 1}], ['c3', 'Austin', {'apples': 1, 'pears': 1}]])
+        >>> customers.groupby_reduce('city', Daf.sum_da, indirect_col='cart')
         <BLANKLINE>
-        | precinct |           votes            |
-        | -------: | -------------------------: |
-        |       P1 | {'mayor': 1, 'council': 1} |
-        |       P2 | {'mayor': 1, 'council': 1} |
+        |  city  |           cart            |
+        | -----: | ------------------------: |
+        | Denver | {'apples': 1, 'pears': 1} |
+        | Austin | {'apples': 1, 'pears': 1} |
         <BLANKLINE>
-        %% daf rows=2; cols=2; keyfield='precinct'; name=''
+        %% daf rows=2; cols=2; keyfield='city'; name=''
         <BLANKLINE>
     """
 
@@ -1777,36 +1875,44 @@ def _multi_groupby(
         KeyError: A group column, or a name in `colnames`, is not a column.
 
     Examples:
-        >>> daf = Daf(lol=[['a', 1, 10], ['b', 2, 20], ['a', 3, 30]], cols=['g', 'x', 'y'])
+        Create a small Daf of orders:
+
+        >>> daf = Daf(cols=['city', 'qty', 'amount'], lol=[['Denver', 2, 25.0], ['Austin', 6, 24.0], ['Denver', 1, 30.5]])
         >>> daf
         <BLANKLINE>
-        | g  | x  | y  |
-        | -: | -: | -: |
-        |  a |  1 | 10 |
-        |  b |  2 | 20 |
-        |  a |  3 | 30 |
+        |  city  | qty | amount |
+        | -----: | --: | -----: |
+        | Denver |   2 |   25.0 |
+        | Austin |   6 |   24.0 |
+        | Denver |   1 |   30.5 |
         <BLANKLINE>
         %% daf rows=3; cols=3; keyfield=''; name=''
         <BLANKLINE>
-        >>> groups = daf.multi_groupby(['g', 'x'])
-        >>> list(groups), list(groups['g'])
-        (['g', 'x'], ['a', 'b'])
-        >>> daf.multi_groupby(['g'], colnames=['y'])['g']['a']
+
+        Group the orders by city, and separately by quantity:
+
+        >>> groups = daf.multi_groupby(['city', 'qty'])
+        >>> list(groups), list(groups['city'])
+        (['city', 'qty'], ['Denver', 'Austin'])
+
+        Keep only some columns in each group:
+
+        >>> daf.multi_groupby(['city'], colnames=['amount'])['city']['Denver']
         <BLANKLINE>
-        | y  |
-        | -: |
-        | 10 |
-        | 30 |
+        | amount |
+        | -----: |
+        |   25.0 |
+        |   30.5 |
         <BLANKLINE>
         %% daf rows=2; cols=1; keyfield=''; name=''
         <BLANKLINE>
 
         Leave out the rows with an empty value, in each grouping:
 
-        >>> ballots = Daf(cols=['id', 'precinct', 'party'], lol=[
-        ...     ['b1', 'P1', 'D'], ['b2', 'P1', ''], ['b3', '', 'D']])
-        >>> {name: list(groups.keys()) for name, groups in ballots.multi_groupby(['precinct', 'party'], omit_nulls=True).items()}
-        {'precinct': ['P1'], 'party': ['D']}
+        >>> customers = Daf(cols=['id', 'city', 'plan'], lol=[
+        ...     ['c1', 'Denver', 'basic'], ['c2', 'Denver', ''], ['c3', '', 'basic']])
+        >>> {name: list(groups.keys()) for name, groups in customers.multi_groupby(['city', 'plan'], omit_nulls=True).items()}
+        {'city': ['Denver'], 'plan': ['basic']}
     """
 
     if isinstance(groupby_colnames, str):
@@ -1872,41 +1978,43 @@ def _reduce_dodaf_to_daf(
         The Daf with one row for each group.
 
     Examples:
-        >>> groups = {'a': Daf(lol=[[1], [2]], cols=['n']), 'b': Daf(lol=[[3]], cols=['n'])}
-        >>> result = Daf.reduce_dodaf_to_daf('g', Daf.sum_da, groups)
+        Reduce a dict of Daf objects, one for each city, to one row each:
+
+        >>> groups = {'Denver': Daf(cols=['qty'], lol=[[2], [1]]), 'Austin': Daf(cols=['qty'], lol=[[6]])}
+        >>> result = Daf.reduce_dodaf_to_daf('city', Daf.sum_da, groups)
         >>> result
         <BLANKLINE>
-        | n  | g  |
-        | -: | -: |
-        |  3 |  a |
-        |  3 |  b |
+        | qty |  city  |
+        | --: | -----: |
+        |   3 | Denver |
+        |   6 | Austin |
         <BLANKLINE>
-        %% daf rows=2; cols=2; keyfield='g'; name=''
+        %% daf rows=2; cols=2; keyfield='city'; name=''
         <BLANKLINE>
 
         Reduce only some columns, with `reduce_cols`. The others are empty:
 
-        >>> parts = {'x': Daf(cols=['qty', 'n'], lol=[[3, 1], [7, 1]])}
-        >>> Daf.reduce_dodaf_to_daf('g', Daf.sum_da, parts, reduce_cols=['qty'])
+        >>> parts = {'Denver': Daf(cols=['qty', 'visits'], lol=[[3, 4], [7, 9]])}
+        >>> Daf.reduce_dodaf_to_daf('city', Daf.sum_da, parts, reduce_cols=['qty'])
         <BLANKLINE>
-        | qty | n  | g  |
-        | --: | -: | -: |
-        |  10 |    |  x |
+        | qty | visits |  city  |
+        | --: | -----: | -----: |
+        |  10 |        | Denver |
         <BLANKLINE>
-        %% daf rows=1; cols=3; keyfield='g'; name=''
+        %% daf rows=1; cols=3; keyfield='city'; name=''
         <BLANKLINE>
 
         Give the columns of the result with `all_cols`, when the groups hold only some of them:
 
-        >>> parts = {'x': Daf(cols=['qty'], lol=[[3], [7]]), 'y': Daf(cols=['qty'], lol=[[10]])}
-        >>> Daf.reduce_dodaf_to_daf('g', Daf.sum_da, parts, all_cols=['g', 'qty', 'note'])
+        >>> parts = {'Denver': Daf(cols=['qty'], lol=[[3], [7]]), 'Austin': Daf(cols=['qty'], lol=[[10]])}
+        >>> Daf.reduce_dodaf_to_daf('city', Daf.sum_da, parts, all_cols=['city', 'qty', 'note'])
         <BLANKLINE>
-        | g  | qty | note |
-        | -: | --: | ---: |
-        |  x |  10 |      |
-        |  y |  10 |      |
+        |  city  | qty | note |
+        | -----: | --: | ---: |
+        | Denver |  10 |      |
+        | Austin |  10 |      |
         <BLANKLINE>
-        %% daf rows=2; cols=3; keyfield='g'; name=''
+        %% daf rows=2; cols=3; keyfield='city'; name=''
         <BLANKLINE>
     """
 
@@ -2004,25 +2112,30 @@ def _multi_groupby_reduce(
         A dict that maps each column to its Daf.
 
     Examples:
-        >>> daf = Daf(lol=[['a', 1, 10], ['b', 2, 20], ['a', 3, 30]], cols=['g', 'x', 'y'])
+        Create a small Daf of orders:
+
+        >>> daf = Daf(cols=['city', 'qty', 'amount'], lol=[['Denver', 2, 25.0], ['Austin', 6, 24.0], ['Denver', 1, 30.5]])
         >>> daf
         <BLANKLINE>
-        | g  | x  | y  |
-        | -: | -: | -: |
-        |  a |  1 | 10 |
-        |  b |  2 | 20 |
-        |  a |  3 | 30 |
+        |  city  | qty | amount |
+        | -----: | --: | -----: |
+        | Denver |   2 |   25.0 |
+        | Austin |   6 |   24.0 |
+        | Denver |   1 |   30.5 |
         <BLANKLINE>
         %% daf rows=3; cols=3; keyfield=''; name=''
         <BLANKLINE>
-        >>> daf.multi_groupby_reduce(['g'], Daf.sum_da, reduce_cols=['y'])['g']
+
+        Total the amount for each city:
+
+        >>> daf.multi_groupby_reduce(['city'], Daf.sum_da, reduce_cols=['amount'])['city']
         <BLANKLINE>
-        | g  | x  | y  |
-        | -: | -: | -: |
-        |  a |    | 40 |
-        |  b |    | 20 |
+        |  city  | qty | amount |
+        | -----: | --: | -----: |
+        | Denver |     |   55.5 |
+        | Austin |     |   24.0 |
         <BLANKLINE>
-        %% daf rows=2; cols=3; keyfield='g'; name=''
+        %% daf rows=2; cols=3; keyfield='city'; name=''
         <BLANKLINE>
     """
 
@@ -2081,22 +2194,27 @@ def _apply_colwise(
         This Daf, which has been changed.
 
     Examples:
-        >>> daf = Daf(lol=[[1, 2], [3, 0]], cols=['a', 'b'])
+        Create a small Daf of profit and cost. One cost is 0:
+
+        >>> daf = Daf(cols=['profit', 'cost'], lol=[[450, 1500], [120, 0]])
         >>> daf
         <BLANKLINE>
-        | a  | b  |
-        | -: | -: |
-        |  1 |  2 |
-        |  3 |  0 |
+        | profit | cost |
+        | -----: | ---: |
+        |    450 | 1500 |
+        |    120 |    0 |
         <BLANKLINE>
         %% daf rows=2; cols=2; keyfield=''; name=''
         <BLANKLINE>
-        >>> daf.apply_colwise('ratio', lambda row: row['a'] / row['b'], default=-1.0)
+
+        Add a column of profit over cost. A row where the function fails gets the default:
+
+        >>> daf.apply_colwise('margin', lambda row: row['profit'] / row['cost'], default=-1.0)
         <BLANKLINE>
-        | a  | b  | ratio |
-        | -: | -: | ----: |
-        |  1 |  2 |   0.5 |
-        |  3 |  0 |  -1.0 |
+        | profit | cost | margin |
+        | -----: | ---: | -----: |
+        |    450 | 1500 |    0.3 |
+        |    120 |    0 |   -1.0 |
         <BLANKLINE>
         %% daf rows=2; cols=3; keyfield=''; name=''
         <BLANKLINE>
@@ -2145,26 +2263,31 @@ def _daf_sum(
         A dict with a total for each column.
 
     Examples:
-        >>> daf = Daf(lol=[['a', 1, 10], ['b', 2, 20], ['a', 3, 30]], cols=['g', 'x', 'y'])
+        Create a small Daf of orders:
+
+        >>> daf = Daf(cols=['city', 'qty', 'amount'], lol=[['Denver', 2, 25.0], ['Austin', 6, 24.0], ['Denver', 1, 30.5]])
         >>> daf
         <BLANKLINE>
-        | g  | x  | y  |
-        | -: | -: | -: |
-        |  a |  1 | 10 |
-        |  b |  2 | 20 |
-        |  a |  3 | 30 |
+        |  city  | qty | amount |
+        | -----: | --: | -----: |
+        | Denver |   2 |   25.0 |
+        | Austin |   6 |   24.0 |
+        | Denver |   1 |   30.5 |
         <BLANKLINE>
         %% daf rows=3; cols=3; keyfield=''; name=''
         <BLANKLINE>
-        >>> daf.daf_sum(cols=['y'])
-        {'g': '', 'x': '', 'y': 60}
+
+        Total one column:
+
+        >>> daf.daf_sum(cols=['amount'])
+        {'city': '', 'qty': '', 'amount': 79.5}
 
         Sum the dict in each row, with `by='sparse_row'`:
 
-        >>> ballots = Daf(cols=['id', 'votes'], lol=[
-        ...     ['b1', {'mayor': 1}], ['b2', {'council': 1}], ['b3', {'mayor': 1, 'council': 1}]])
-        >>> ballots.daf_sum(by='sparse_row', indirect_col='votes')
-        {'mayor': 2, 'council': 2}
+        >>> customers = Daf(cols=['id', 'cart'], lol=[
+        ...     ['c1', {'apples': 1}], ['c2', {'pears': 1}], ['c3', {'apples': 1, 'pears': 1}]])
+        >>> customers.daf_sum(by='sparse_row', indirect_col='cart')
+        {'apples': 2, 'pears': 2}
     """
 
     return cast(T_da, self.reduce(func=Daf.sum_kl, by=by, cols=cols, indirect_col=indirect_col, **kwargs))
@@ -2261,45 +2384,50 @@ def _reduce(
         NotImplementedError: `by` is not recognized.
 
     Examples:
-        >>> daf = Daf(lol=[['a', 1, 10], ['b', 2, 20], ['a', 3, 30]], cols=['g', 'x', 'y'])
+        Create a small Daf of orders:
+
+        >>> daf = Daf(cols=['city', 'qty', 'amount'], lol=[['Denver', 2, 25.0], ['Austin', 6, 24.0], ['Denver', 1, 30.5]])
         >>> daf
         <BLANKLINE>
-        | g  | x  | y  |
-        | -: | -: | -: |
-        |  a |  1 | 10 |
-        |  b |  2 | 20 |
-        |  a |  3 | 30 |
+        |  city  | qty | amount |
+        | -----: | --: | -----: |
+        | Denver |   2 |   25.0 |
+        | Austin |   6 |   24.0 |
+        | Denver |   1 |   30.5 |
         <BLANKLINE>
         %% daf rows=3; cols=3; keyfield=''; name=''
         <BLANKLINE>
-        >>> daf.reduce(Daf.sum_da, cols=['x', 'y'])
-        {'g': '', 'x': 6, 'y': 60}
+
+        Total two columns:
+
+        >>> daf.reduce(Daf.sum_da, cols=['qty', 'amount'])
+        {'city': '', 'qty': 9, 'amount': 79.5}
 
         A sparse sum, of the dict in each row:
 
-        >>> votes_daf = Daf(lol=[['b1', {'c1v': 1, 'c0b': 1}], ['b2', {'c0b': 1, 'c2v': 1}]], cols=['ballot_id', 'cv'])
-        >>> votes_daf
+        >>> carts_daf = Daf(cols=['id', 'cart'], lol=[['c1', {'apples': 3, 'pears': 2}], ['c2', {'pears': 4, 'plums': 6}]])
+        >>> carts_daf
         <BLANKLINE>
-        | ballot_id |          cv          |
-        | --------: | -------------------: |
-        |        b1 | {'c1v': 1, 'c0b': 1} |
-        |        b2 | {'c0b': 1, 'c2v': 1} |
+        | id |           cart            |
+        | -: | ------------------------: |
+        | c1 | {'apples': 3, 'pears': 2} |
+        | c2 |  {'pears': 4, 'plums': 6} |
         <BLANKLINE>
         %% daf rows=2; cols=2; keyfield=''; name=''
         <BLANKLINE>
-        >>> votes_daf.reduce(Daf.sum_da, by='sparse_row', indirect_col='cv')
-        {'c1v': 1, 'c0b': 2, 'c2v': 1}
-        >>> votes_daf.reduce(Daf.sum_da, by='sparse_row', indirect_col='cv', cols=['c2v', 'c0b'])
-        {'c2v': 1, 'c0b': 2}
+        >>> carts_daf.reduce(Daf.sum_da, by='sparse_row', indirect_col='cart')
+        {'apples': 3, 'pears': 6, 'plums': 6}
+        >>> carts_daf.reduce(Daf.sum_da, by='sparse_row', indirect_col='cart', cols=['plums', 'pears'])
+        {'plums': 6, 'pears': 6}
 
         Start from a result other than zeros, with `initial_da`:
 
-        >>> daf.reduce(Daf.sum_da, cols=['x'], initial_da={'g': '', 'x': 100, 'y': ''})
-        {'g': '', 'x': 106, 'y': ''}
+        >>> daf.reduce(Daf.sum_da, cols=['qty'], initial_da={'city': '', 'qty': 100, 'amount': ''})
+        {'city': '', 'qty': 109, 'amount': ''}
 
         `sum_da` adds only numbers. Text in a column is skipped, with no error:
 
-        >>> mixed = Daf(cols=['id', 'qty'], lol=[['a', 3], ['b', 'x'], ['c', 7]])
+        >>> mixed = Daf(cols=['id', 'qty'], lol=[['o1', 3], ['o2', 'unknown'], ['o3', 7]])
         >>> mixed.reduce(Daf.sum_da, cols=['qty'])
         {'id': '', 'qty': 10}
 
@@ -2521,21 +2649,23 @@ def _sum_da( row_da:         T_ma,                       # the current row from 
         The running total.
 
     Examples:
-        >>> Daf.sum_da({'x': 1, 'y': 2}, {'x': 10, 'y': 0}, cols=['x', 'y'])
-        {'x': 11, 'y': 2}
+        Add the values of a row to a running total:
+
+        >>> Daf.sum_da({'qty': 2, 'amount': 25.0}, {'qty': 10, 'amount': 100.0}, cols=['qty', 'amount'])
+        {'qty': 12, 'amount': 125.0}
 
         Convert each value before adding, with `astype`. A value that cannot be converted is skipped:
 
-        >>> Daf.sum_da({'a': '3', 'b': 'x'}, {'a': 0, 'b': 0}, cols=['a', 'b'], astype=int)
-        {'a': 3, 'b': 0}
-        >>> Daf.sum_da({'a': '3', 'b': '1.5'}, {'a': 0, 'b': 0}, astype=float)
-        {'a': 3.0, 'b': 1.5}
+        >>> Daf.sum_da({'qty': '3', 'note': 'rush'}, {'qty': 10, 'note': 0}, cols=['qty', 'note'], astype=int)
+        {'qty': 13, 'note': 0}
+        >>> Daf.sum_da({'qty': '3', 'amount': '12.5'}, {'qty': 10, 'amount': 100.0}, astype=float)
+        {'qty': 13.0, 'amount': 112.5}
 
         With `is_sparse=True`, the loop runs over the row's own keys, not over `cols`. That is faster
         when a row holds few of many columns. The total is the same:
 
-        >>> Daf.sum_da({'a': 2}, {'a': 1, 'b': 5}, cols=['a', 'b'], is_sparse=True)
-        {'a': 3, 'b': 5}
+        >>> Daf.sum_da({'apples': 2}, {'apples': 3, 'pears': 5}, cols=['apples', 'pears'], is_sparse=True)
+        {'apples': 5, 'pears': 5}
     """
     # def sum_da         (row_da: T_da, reduction_da: T_da, cols: Iterable, astype: Type | None = None, diagnose:bool=False
 
@@ -2809,9 +2939,11 @@ def _sum_kl( row_kl:         Any,                        # the current row, a Ke
         The running total.
 
     Examples:
+        Add the values of a KeyedList row to a running total. Text is skipped:
+
         >>> from daffodil.keyedlist import KeyedList
-        >>> Daf.sum_kl(KeyedList(['x', 'y'], [1, 'abc']), {'x': 10, 'y': 0}, cols=['x', 'y'])
-        {'x': 11, 'y': 0}
+        >>> Daf.sum_kl(KeyedList(['qty', 'note'], [2, 'rush']), {'qty': 10, 'note': 0}, cols=['qty', 'note'])
+        {'qty': 12, 'note': 0}
 
         `astype` and `is_sparse` work as in [sum_da()][daffodil.daf_apply._sum_da], which has an
         example of each.
@@ -2863,25 +2995,30 @@ def _groupsum_daf(
         The Daf with one row for each group.
 
     Examples:
-        >>> daf = Daf(lol=[['a', 1, 10], ['b', 2, 20], ['a', 3, 30]], cols=['g', 'x', 'y'])
+        Create a small Daf of orders:
+
+        >>> daf = Daf(cols=['city', 'qty', 'amount'], lol=[['Denver', 2, 25.0], ['Austin', 6, 24.0], ['Denver', 1, 30.5]])
         >>> daf
         <BLANKLINE>
-        | g  | x  | y  |
-        | -: | -: | -: |
-        |  a |  1 | 10 |
-        |  b |  2 | 20 |
-        |  a |  3 | 30 |
+        |  city  | qty | amount |
+        | -----: | --: | -----: |
+        | Denver |   2 |   25.0 |
+        | Austin |   6 |   24.0 |
+        | Denver |   1 |   30.5 |
         <BLANKLINE>
         %% daf rows=3; cols=3; keyfield=''; name=''
         <BLANKLINE>
-        >>> daf.groupsum_daf('g', reduce_cols=['y'])
+
+        Total the amount for each city:
+
+        >>> daf.groupsum_daf('city', reduce_cols=['amount'])
         <BLANKLINE>
-        | g  | x  | y  |
-        | -: | -: | -: |
-        |  a |    | 40 |
-        |  b |    | 20 |
+        |  city  | qty | amount |
+        | -----: | --: | -----: |
+        | Denver |     |   55.5 |
+        | Austin |     |   24.0 |
         <BLANKLINE>
-        %% daf rows=2; cols=3; keyfield='g'; name=''
+        %% daf rows=2; cols=3; keyfield='city'; name=''
         <BLANKLINE>
     """
 
@@ -2906,7 +3043,7 @@ def _multi_groupsum(
 
     This is `multi_groupby_reduce()` with `sum_da()`. Each column gets a Daf of its own, with one
     row for each of its values, and that column as the keyfield. The other columns grouped by are
-    Python NULL in it. Use it to total the same columns by precinct, by style and so on, in one call.
+    Python NULL in it. Use it to total the same columns by city, by plan and so on, in one call.
 
     Args:
         colnames: The columns to group by. These are required.
@@ -2921,36 +3058,44 @@ def _multi_groupsum(
         ValueError: No `colnames` are given.
 
     Examples:
-        >>> daf = Daf(lol=[['a', 'x', 1], ['a', 'y', 2], ['b', 'x', 3]], cols=['g', 'k', 'n'])
+        Create a small Daf of orders, with a city and a plan:
+
+        >>> daf = Daf(cols=['city', 'plan', 'qty'], lol=[['Denver', 'basic', 2], ['Denver', 'pro', 6], ['Austin', 'basic', 1]])
         >>> daf
         <BLANKLINE>
-        | g  | k  | n  |
-        | -: | -: | -: |
-        |  a |  x |  1 |
-        |  a |  y |  2 |
-        |  b |  x |  3 |
+        |  city  | plan  | qty |
+        | -----: | ----: | --: |
+        | Denver | basic |   2 |
+        | Denver |   pro |   6 |
+        | Austin | basic |   1 |
         <BLANKLINE>
         %% daf rows=3; cols=3; keyfield=''; name=''
         <BLANKLINE>
-        >>> sums = daf.multi_groupsum(colnames=['g', 'k'], reduce_cols=['n'])
-        >>> sums['g']
+
+        Total the quantity by city, and separately by plan:
+
+        >>> sums = daf.multi_groupsum(colnames=['city', 'plan'], reduce_cols=['qty'])
+        >>> sums['city']
         <BLANKLINE>
-        | g  | k  | n  |
-        | -: | -: | -: |
-        |  a |    |  3 |
-        |  b |    |  3 |
+        |  city  | plan | qty |
+        | -----: | ---: | --: |
+        | Denver |      |   8 |
+        | Austin |      |   1 |
         <BLANKLINE>
-        %% daf rows=2; cols=3; keyfield='g'; name=''
+        %% daf rows=2; cols=3; keyfield='city'; name=''
         <BLANKLINE>
-        >>> sums['k']
+        >>> sums['plan']
         <BLANKLINE>
-        | g  | k  | n  |
-        | -: | -: | -: |
-        |    |  x |  4 |
-        |    |  y |  2 |
+        | city | plan  | qty |
+        | ---: | ----: | --: |
+        |      | basic |   3 |
+        |      |   pro |   6 |
         <BLANKLINE>
-        %% daf rows=2; cols=3; keyfield='k'; name=''
+        %% daf rows=2; cols=3; keyfield='plan'; name=''
         <BLANKLINE>
+
+        The columns to group by are required:
+
         >>> daf.multi_groupsum()
         Traceback (most recent call last):
             ...
@@ -2984,27 +3129,32 @@ def _set_col2_from_col1_using_regex_select(self: 'Daf', col1: str, col2: str='',
         This Daf, which has been changed.
 
     Examples:
-        >>> daf = Daf(lol=[[1, 'ab12'], [2, 'cd34']], cols=['id', 's'])
+        Create a small Daf of people, each with a zip code with a prefix:
+
+        >>> daf = Daf(cols=['id', 'code'], lol=[['p1', 'ZIP80202'], ['p2', 'ZIP73301']])
         >>> daf
         <BLANKLINE>
-        | id |  s   |
-        | -: | ---: |
-        |  1 | ab12 |
-        |  2 | cd34 |
+        | id |   code   |
+        | -: | -------: |
+        | p1 | ZIP80202 |
+        | p2 | ZIP73301 |
         <BLANKLINE>
         %% daf rows=2; cols=2; keyfield=''; name=''
         <BLANKLINE>
-        >>> daf.set_col2_from_col1_using_regex_select('s', regex=r'(\d+)')
+
+        Keep only the digits, in place, with the group of a regular expression:
+
+        >>> daf.set_col2_from_col1_using_regex_select('code', regex=r'(\d+)')
         <BLANKLINE>
-        | id | s  |
-        | -: | -: |
-        |  1 | 12 |
-        |  2 | 34 |
+        | id | code  |
+        | -: | ----: |
+        | p1 | 80202 |
+        | p2 | 73301 |
         <BLANKLINE>
         %% daf rows=2; cols=2; keyfield=''; name=''
         <BLANKLINE>
-        >>> daf.col('s')
-        ['12', '34']
+        >>> daf.col('code')
+        ['80202', '73301']
 
         Write the result to another column, here a new one:
 
@@ -3063,17 +3213,22 @@ def _apply_replace_regex(self: 'Daf', col: str, col2: str='', replace_regex: str
         This Daf, which has been changed.
 
     Examples:
-        >>> daf = Daf(lol=[[1, 'ab12']], cols=['id', 's'])
+        Create a small Daf of people, with a zip code with a prefix:
+
+        >>> daf = Daf(cols=['id', 'code'], lol=[['p1', 'ZIP80202']])
         >>> daf
         <BLANKLINE>
-        | id |  s   |
-        | -: | ---: |
-        |  1 | ab12 |
+        | id |   code   |
+        | -: | -------: |
+        | p1 | ZIP80202 |
         <BLANKLINE>
         %% daf rows=1; cols=2; keyfield=''; name=''
         <BLANKLINE>
-        >>> daf.apply_replace_regex('s', replace_regex='/ab//').col('s')
-        ['12']
+
+        Remove the prefix, with a find and replace pattern:
+
+        >>> daf.apply_replace_regex('code', replace_regex='/ZIP//').col('code')
+        ['80202']
 
         Write the result to another column, here a new one. The pattern has the form
         `/find/replace/`, where the first character is the separator:
@@ -3139,18 +3294,23 @@ def _alter_daf_per_setting(
         KeyError: The setting is missing and `silent_error` is False.
 
     Examples:
-        >>> daf = Daf(lol=[['04_1'], ['05_2']], cols=['ballot_id'])
+        Create a small Daf of order numbers, some with an old prefix:
+
+        >>> daf = Daf(lol=[['04_1'], ['05_2']], cols=['order_id'])
         >>> daf
         <BLANKLINE>
-        | ballot_id |
-        | --------: |
-        |      04_1 |
-        |      05_2 |
+        | order_id |
+        | -------: |
+        |     04_1 |
+        |     05_2 |
         <BLANKLINE>
         %% daf rows=2; cols=1; keyfield=''; name=''
         <BLANKLINE>
-        >>> spec = {'spec_name': 'a.zip', 'colname': 'ballot_id', 'replace_regex': r'/^04_/14_/'}
-        >>> daf.alter_daf_per_setting({'fix': [spec]}, 'fix', {'spec_name': 'a.zip'}).col('ballot_id')
+
+        Change the prefix by a setting that names the file it applies to:
+
+        >>> spec = {'spec_name': 'a.zip', 'colname': 'order_id', 'replace_regex': r'/^04_/14_/'}
+        >>> daf.alter_daf_per_setting({'fix': [spec]}, 'fix', {'spec_name': 'a.zip'}).col('order_id')
         ['14_1', '05_2']
 
         A setting that is not in the dict raises KeyError, or changes nothing with `silent_error=True`:
@@ -3204,26 +3364,34 @@ def _alter_daf_per_alter_specs_daf(
         This Daf, which has been changed.
 
     Examples:
-        >>> daf = Daf(lol=[['04_1'], ['05_2']], cols=['ballot_id'])
+        Create a small Daf of order numbers, some with an old prefix:
+
+        >>> daf = Daf(lol=[['04_1'], ['05_2']], cols=['order_id'])
         >>> daf
         <BLANKLINE>
-        | ballot_id |
-        | --------: |
-        |      04_1 |
-        |      05_2 |
+        | order_id |
+        | -------: |
+        |     04_1 |
+        |     05_2 |
         <BLANKLINE>
         %% daf rows=2; cols=1; keyfield=''; name=''
         <BLANKLINE>
-        >>> specs = Daf.from_lod([{'colname': 'ballot_id', 'replace_regex': r'/^04_/14_/'}])
+
+        Make a Daf of the changes, one row for each:
+
+        >>> specs = Daf.from_lod([{'colname': 'order_id', 'replace_regex': r'/^04_/14_/'}])
         >>> specs
         <BLANKLINE>
-        |  colname  | replace_regex |
-        | --------: | ------------: |
-        | ballot_id |    /^04_/14_/ |
+        | colname  | replace_regex |
+        | -------: | ------------: |
+        | order_id |    /^04_/14_/ |
         <BLANKLINE>
         %% daf rows=1; cols=2; keyfield=''; name=''
         <BLANKLINE>
-        >>> daf.alter_daf_per_alter_specs_daf(specs).col('ballot_id')
+
+        Apply them:
+
+        >>> daf.alter_daf_per_alter_specs_daf(specs).col('order_id')
         ['14_1', '05_2']
     """
     for alter_spec_da in alter_specs_daf:
@@ -3251,38 +3419,46 @@ def _apply_to_col(self: 'Daf', col: str, func: Callable, **kwargs: Any) -> 'Daf'
         This Daf, which has been changed.
 
     Examples:
-        >>> daf = Daf(lol=[[1, 5], [2, 6]], cols=['a', 'b'])
+        Create a small Daf of orders and their prices:
+
+        >>> daf = Daf(cols=['id', 'price'], lol=[['o1', 12.5], ['o2', 4.0]])
         >>> daf
         <BLANKLINE>
-        | a  | b  |
-        | -: | -: |
-        |  1 |  5 |
-        |  2 |  6 |
+        | id | price |
+        | -: | ----: |
+        | o1 |  12.5 |
+        | o2 |   4.0 |
         <BLANKLINE>
         %% daf rows=2; cols=2; keyfield=''; name=''
         <BLANKLINE>
-        >>> daf.apply_to_col('b', lambda value: value * 2)
+
+        Double each price, in place:
+
+        >>> daf.apply_to_col('price', lambda value: value * 2)
         <BLANKLINE>
-        | a  | b  |
-        | -: | -: |
-        |  1 | 10 |
-        |  2 | 12 |
-        <BLANKLINE>
-        %% daf rows=2; cols=2; keyfield=''; name=''
-        <BLANKLINE>
-        >>> daf.col('b')
-        [10, 12]
-        >>> daf.apply_to_col('b', lambda value, factor: value * factor, factor=10)
-        <BLANKLINE>
-        | a  |  b  |
-        | -: | --: |
-        |  1 | 100 |
-        |  2 | 120 |
+        | id | price |
+        | -: | ----: |
+        | o1 |  25.0 |
+        | o2 |   8.0 |
         <BLANKLINE>
         %% daf rows=2; cols=2; keyfield=''; name=''
         <BLANKLINE>
-        >>> daf.col('b')
-        [100, 120]
+        >>> daf.col('price')
+        [25.0, 8.0]
+
+        Pass more arguments to the function as keywords:
+
+        >>> daf.apply_to_col('price', lambda value, factor: value * factor, factor=10)
+        <BLANKLINE>
+        | id | price |
+        | -: | ----: |
+        | o1 | 250.0 |
+        | o2 |  80.0 |
+        <BLANKLINE>
+        %% daf rows=2; cols=2; keyfield=''; name=''
+        <BLANKLINE>
+        >>> daf.col('price')
+        [250.0, 80.0]
     """
 
     if kwargs:
@@ -3312,8 +3488,10 @@ def _diff_da(d1_da: T_ma, d2_da: T_ma, keys: T_ls | str | None = None) -> T_da: 
         A dict of the differences.
 
     Examples:
-        >>> Daf.diff_da({'a': 5, 't': 'x'}, {'a': 2, 't': 'y'}, keys=['a'])
-        {'a': 3}
+        Subtract one row from another, in the key columns given:
+
+        >>> Daf.diff_da({'qty': 5, 'city': 'Denver'}, {'qty': 2, 'city': 'Austin'}, keys=['qty'])
+        {'qty': 3}
     """
 
     keys_ca: T_ls
@@ -3368,15 +3546,17 @@ def _count_values_da(
         TypeError: A cell holds a value that cannot be counted, such as a list.
 
     Examples:
-        >>> Daf.count_values_da({'g': 'a'}, {}, ['g'])
-        {'g': {'a': 1}}
+        Count the value of a row into a running count:
+
+        >>> Daf.count_values_da({'city': 'Denver'}, {}, ['city'])
+        {'city': {'Denver': 1}}
 
         Empty cells are counted as `''`, unless `omit_nulls=True`:
 
-        >>> Daf.count_values_da({'g': ''}, {'g': {}}, cols=['g'])
-        {'g': {'': 1}}
-        >>> Daf.count_values_da({'g': ''}, {'g': {}}, cols=['g'], omit_nulls=True)
-        {'g': {}}
+        >>> Daf.count_values_da({'city': ''}, {'city': {}}, cols=['city'])
+        {'city': {'': 1}}
+        >>> Daf.count_values_da({'city': ''}, {'city': {}}, cols=['city'], omit_nulls=True)
+        {'city': {}}
     """
 
     # if cols is None:
@@ -3453,17 +3633,19 @@ def _count_values_kl(
         TypeError: A cell holds a value that cannot be counted, such as a list.
 
     Examples:
+        Count the value of a KeyedList row into a running count:
+
         >>> from daffodil.keyedlist import KeyedList
-        >>> Daf.count_values_kl(KeyedList(['g'], ['a']), {'g': {'a': 2}}, ['g'])
-        {'g': {'a': 3}}
+        >>> Daf.count_values_kl(KeyedList(['city'], ['Denver']), {'city': {'Denver': 2}}, ['city'])
+        {'city': {'Denver': 3}}
 
         Empty cells are counted as `''`, unless `omit_nulls=True`:
 
-        >>> row = KeyedList({'g': ''})
-        >>> Daf.count_values_kl(row, {'g': {}}, cols=['g'])
-        {'g': {'': 1}}
-        >>> Daf.count_values_kl(row, {'g': {}}, cols=['g'], omit_nulls=True)
-        {'g': {}}
+        >>> row = KeyedList({'city': ''})
+        >>> Daf.count_values_kl(row, {'city': {}}, cols=['city'])
+        {'city': {'': 1}}
+        >>> Daf.count_values_kl(row, {'city': {}}, cols=['city'], omit_nulls=True)
+        {'city': {}}
     """
     if row_kl.__class__ is not KeyedList:
         return Daf.count_values_da(row_kl, reduction_da, cols, omit_nulls=omit_nulls)
@@ -3508,10 +3690,12 @@ def _sum_dodis(this_dodi: T_dodi, accum_dodi: T_dodi) -> None:
         accum_dodi: The running totals. They are changed.
 
     Examples:
-        >>> total = {'c': {'x': 2, 'y': 1}}
-        >>> Daf.sum_dodis({'c': {'x': 1}}, total)
+        Add a dict of counts into a running total of counts, in place:
+
+        >>> total = {'cart': {'apples': 2, 'pears': 1}}
+        >>> Daf.sum_dodis({'cart': {'apples': 1}}, total)
         >>> total
-        {'c': {'x': 3, 'y': 1}}
+        {'cart': {'apples': 3, 'pears': 1}}
     """
 
     for key, this_di in this_dodi.items():
@@ -3548,22 +3732,27 @@ def _sum(
         ValueError: A cell cannot be converted to a number.
 
     Examples:
-        >>> Daf(lol=[[1, 10], [2, 20]], cols=['x', 'y']).sum()
-        {'x': 3.0, 'y': 30.0}
-        >>> mixed = Daf(cols=['n'], lol=[[1], ['2'], [''], [3.5]])
+        Total every column of a small Daf of orders:
+
+        >>> Daf(cols=['qty', 'amount'], lol=[[2, 25.0], [6, 24.0]]).sum()
+        {'qty': 8.0, 'amount': 49.0}
+
+        A column with text of digits and an empty cell. `sum()` raises on text, so check it first:
+
+        >>> mixed = Daf(cols=['qty'], lol=[[2], ['6'], [''], [1.5]])
         >>> mixed
         <BLANKLINE>
-        |  n  |
+        | qty |
         | --: |
-        |   1 |
         |   2 |
+        |   6 |
         |     |
-        | 3.5 |
+        | 1.5 |
         <BLANKLINE>
         %% daf rows=4; cols=1; keyfield=''; name=''
         <BLANKLINE>
-        >>> mixed.sum(['n']), mixed.reduce(Daf.sum_da, cols=['n'])
-        ({'n': 6.5}, {'n': 4.5})
+        >>> mixed.sum(['qty']), mixed.reduce(Daf.sum_da, cols=['qty'])
+        ({'qty': 9.5}, {'qty': 3.5})
     """
 
 
@@ -3609,15 +3798,17 @@ def _sum_np(
         TypeError: A column holds text or other values that cannot be added.
 
     Examples:
-        >>> Daf(lol=[[1, 10], [2, 20]], cols=['x', 'y']).sum_np()
-        {'x': 3, 'y': 30}
-        >>> Daf(lol=[[1, 10], [2, '']], cols=['x', 'y']).sum_np()
-        {'x': 3, 'y': 10}
+        Total every column with numpy:
+
+        >>> Daf(cols=['qty', 'amount'], lol=[[2, 25.0], [6, 24.0]]).sum_np()
+        {'qty': 8, 'amount': 49.0}
+        >>> Daf(cols=['qty', 'amount'], lol=[[2, 25.0], [6, '']]).sum_np()
+        {'qty': 8, 'amount': 25.0}
 
         Only some columns:
 
-        >>> Daf(cols=['a', 'b'], lol=[[1, 2], [3, 4]]).sum_np(['b'])
-        {'b': 6}
+        >>> Daf(cols=['qty', 'amount'], lol=[[2, 25.0], [6, 24.0]]).sum_np(['amount'])
+        {'amount': 49.0}
     """
     # unit tests exist
 
