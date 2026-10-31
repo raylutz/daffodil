@@ -90,39 +90,47 @@ class KeyedList(Generic[K, V]):
     need a copy, use `to_dict()`, or loop with `iter_dict()` on the Daf.
 
     Examples:
-        >>> values = [1, 2, 3]
-        >>> klist = KeyedList(['a', 'b', 'c'], values)
-        >>> klist['b']
-        2
-        >>> klist['b'] = 20
+        Make a KeyedList over a list of values, one key for each:
+
+        >>> values = ['Ana Lopez', 'Denver', 34]
+        >>> klist = KeyedList(['name', 'city', 'age'], values)
+
+        Read a value by its key, and set one. The change goes into the list itself:
+
+        >>> klist['city']
+        'Denver'
+        >>> klist['city'] = 'Boulder'
         >>> values
-        [1, 20, 3]
+        ['Ana Lopez', 'Boulder', 34]
+
+        Make a dict of it, and read a key that is not there with a default:
+
         >>> klist.to_dict()
-        {'a': 1, 'b': 20, 'c': 3}
-        >>> klist.get('z', 0)
-        0
+        {'name': 'Ana Lopez', 'city': 'Boulder', 'age': 34}
+        >>> klist.get('email', 'none')
+        'none'
 
         A row of a Daf is a KeyedList that points at the row in the table:
 
         >>> from daffodil.daf import Daf
-        >>> daf = Daf(cols=['x', 'y'], lol=[[1, 2], [3, 4]])
+        >>> daf = Daf(cols=['name', 'age'], lol=[['Ana Lopez', 34], ['Ben Okafor', 52]])
         >>> daf
         <BLANKLINE>
-        | x  | y  |
-        | -: | -: |
-        |  1 |  2 |
-        |  3 |  4 |
+        |    name    | age |
+        | ---------: | --: |
+        |  Ana Lopez |  34 |
+        | Ben Okafor |  52 |
         <BLANKLINE>
         %% daf rows=2; cols=2; keyfield=''; name=''
         <BLANKLINE>
         >>> for row in daf.iter_klist():
-        ...     row['y'] = 0
+        ...     row['age'] = 0
         >>> daf
         <BLANKLINE>
-        | x  | y  |
-        | -: | -: |
-        |  1 |  0 |
-        |  3 |  0 |
+        |    name    | age |
+        | ---------: | --: |
+        |  Ana Lopez |   0 |
+        | Ben Okafor |   0 |
         <BLANKLINE>
         %% daf rows=2; cols=2; keyfield=''; name=''
         <BLANKLINE>
@@ -306,13 +314,18 @@ class KeyedList(Generic[K, V]):
             ValueError: The key is not a list and cannot be hashed.
 
         Examples:
-            >>> klist = KeyedList(['a', 'b', 'c'], [1, 2, 3])
-            >>> klist['b']
-            2
-            >>> klist[['c', 'a']]
-            [3, 1]
-            >>> klist[['a', 'zz']]
-            [1]
+            Make a KeyedList of a person:
+
+            >>> klist = KeyedList(['name', 'city', 'age'], ['Ana Lopez', 'Denver', 34])
+
+            Read one value by key, and several by a list of keys. A key in the list that is not there is left out:
+
+            >>> klist['city']
+            'Denver'
+            >>> klist[['age', 'name']]
+            [34, 'Ana Lopez']
+            >>> klist[['name', 'email']]
+            ['Ana Lopez']
         """
         
         try:
@@ -344,14 +357,19 @@ class KeyedList(Generic[K, V]):
             value: The value.
 
         Examples:
-            >>> row = [1, 2]
-            >>> klist = KeyedList(['a', 'b'], row)
-            >>> klist['b'] = 20
-            >>> klist['c'] = 30
+            Make a KeyedList over a list of values:
+
+            >>> row = ['Ana Lopez', 34]
+            >>> klist = KeyedList(['name', 'age'], row)
+
+            Set a value by key, which changes the list. A new key adds a value at the end:
+
+            >>> klist['age'] = 35
+            >>> klist['city'] = 'Denver'
             >>> row
-            [1, 20, 30]
+            ['Ana Lopez', 35, 'Denver']
             >>> list(klist)
-            ['a', 'b', 'c']
+            ['name', 'age', 'city']
         """
         if key not in self.hd:
             if self._hd_shared:
@@ -379,11 +397,16 @@ class KeyedList(Generic[K, V]):
             KeyError: The key is not found.
 
         Examples:
-            >>> row = [1, 2, 3]
-            >>> klist = KeyedList(['a', 'b', 'c'], row)
-            >>> del klist['b']
+            Make a KeyedList over a list of values:
+
+            >>> row = ['Ana Lopez', 'Denver', 34]
+            >>> klist = KeyedList(['name', 'city', 'age'], row)
+
+            Delete a key and its value, from the list too:
+
+            >>> del klist['city']
             >>> row, list(klist)
-            ([1, 3], ['a', 'c'])
+            (['Ana Lopez', 34], ['name', 'age'])
         """
         index = self.hd[key]
         del self._values[index]
@@ -403,7 +426,9 @@ class KeyedList(Generic[K, V]):
             The number of values in the list that this KeyedList points at.
 
         Examples:
-            >>> len(KeyedList(['a', 'b'], [1, 2]))
+            Count the keys:
+
+            >>> len(KeyedList(['name', 'age'], ['Ana Lopez', 34]))
             2
         """
         return len(self._values)
@@ -416,8 +441,10 @@ class KeyedList(Generic[K, V]):
             An iterator of the keys, in the order of their values.
 
         Examples:
-            >>> list(KeyedList(['a', 'b'], [1, 2]))
-            ['a', 'b']
+            Loop over the keys:
+
+            >>> list(KeyedList(['name', 'age'], ['Ana Lopez', 34]))
+            ['name', 'age']
         """
         return iter(self.hd)
 
@@ -432,9 +459,11 @@ class KeyedList(Generic[K, V]):
             True if the key is found.
 
         Examples:
-            >>> 'a' in KeyedList(['a', 'b'], [1, 2])
+            Ask whether a key is there:
+
+            >>> 'name' in KeyedList(['name', 'age'], ['Ana Lopez', 34])
             True
-            >>> 'z' in KeyedList(['a', 'b'], [1, 2])
+            >>> 'email' in KeyedList(['name', 'age'], ['Ana Lopez', 34])
             False
         """
         return key in self.hd
@@ -451,8 +480,10 @@ class KeyedList(Generic[K, V]):
             The keys.
 
         Examples:
-            >>> KeyedList(['a', 'b'], [1, 2]).keys()
-            dict_keys(['a', 'b'])
+            Read the keys, as a view:
+
+            >>> KeyedList(['name', 'age'], ['Ana Lopez', 34]).keys()
+            dict_keys(['name', 'age'])
         """
         return self.hd.keys()
 
@@ -473,12 +504,20 @@ class KeyedList(Generic[K, V]):
             ValueError: The list does not have one value for each key.
 
         Examples:
-            >>> row = [1, 2]
-            >>> klist = KeyedList(['a', 'b'], row)
-            >>> klist.set_values([10, 20])
+            Make a KeyedList over a list of values:
+
+            >>> row = ['Ana Lopez', 34]
+            >>> klist = KeyedList(['name', 'age'], row)
+
+            Replace all the values at once. The list given becomes the values:
+
+            >>> klist.set_values(['Ben Okafor', 52])
             >>> klist.values(), row
-            ([10, 20], [1, 2])
-            >>> klist.set_values([1])
+            (['Ben Okafor', 52], ['Ana Lopez', 34])
+
+            A list of the wrong length raises:
+
+            >>> klist.set_values(['Chen Wu'])
             Traceback (most recent call last):
                 ...
             ValueError: values length must match keys
@@ -518,15 +557,20 @@ class KeyedList(Generic[K, V]):
                 converted by `int` or `float`. Another converter raises its own error.
 
         Examples:
-            >>> klist = KeyedList(['a', 'b'], ['1', '2'])
+            Make a KeyedList of values read as text:
+
+            >>> klist = KeyedList(['age', 'visits'], ['34', '7'])
+
+            Read the values, as they are or converted to a type:
+
             >>> klist.values()
-            ['1', '2']
+            ['34', '7']
             >>> klist.values(int)
-            [1, 2]
+            [34, 7]
             >>> klist.values('float')
-            [1.0, 2.0]
-            >>> KeyedList(['a', 'b'], ['1', '']).values(int)
-            [1, '']
+            [34.0, 7.0]
+            >>> KeyedList(['age', 'visits'], ['34', '']).values(int)
+            [34, '']
             >>> klist.values() is klist.values()
             True
             >>> klist.values(int) is klist.values(int)
@@ -554,11 +598,13 @@ class KeyedList(Generic[K, V]):
             An iterator of (key, value) tuples.
 
         Examples:
-            >>> list(KeyedList(['a', 'b'], [1, 2]).items())
-            [('a', 1), ('b', 2)]
-            >>> pairs = KeyedList(['a'], [1]).items()
+            Read the keys and values as pairs. Each call gives a new iterator:
+
+            >>> list(KeyedList(['name', 'age'], ['Ana Lopez', 34]).items())
+            [('name', 'Ana Lopez'), ('age', 34)]
+            >>> pairs = KeyedList(['name'], ['Ana Lopez']).items()
             >>> list(pairs), list(pairs)
-            ([('a', 1)], [])
+            ([('name', 'Ana Lopez')], [])
         """
         return zip(self.hd, self._values)
 
@@ -579,9 +625,11 @@ class KeyedList(Generic[K, V]):
                 of keys is not accepted here.
 
         Examples:
-            >>> klist = KeyedList(['a'], [1])
-            >>> klist.get('a'), klist.get('z'), klist.get('z', 0)
-            (1, None, 0)
+            Read a value by key, with a default for a key that is not there:
+
+            >>> klist = KeyedList(['age'], [34])
+            >>> klist.get('age'), klist.get('email'), klist.get('email', 'none')
+            (34, None, 'none')
         """
         try:
             return self._values[self.hd[key]]
@@ -602,10 +650,15 @@ class KeyedList(Generic[K, V]):
             other: A dict or a KeyedList.
 
         Examples:
-            >>> klist = KeyedList(['a', 'b'], [1, 2])
-            >>> klist.update({'b': 20, 'c': 30})
+            Make a KeyedList of a person:
+
+            >>> klist = KeyedList(['name', 'age'], ['Ana Lopez', 34])
+
+            Set several values from a dict. A new key adds a value:
+
+            >>> klist.update({'age': 35, 'city': 'Denver'})
             >>> klist.to_dict()
-            {'a': 1, 'b': 20, 'c': 30}
+            {'name': 'Ana Lopez', 'age': 35, 'city': 'Denver'}
         """
         # this could allow direct updating.
         for key, value in other.items():
@@ -623,11 +676,16 @@ class KeyedList(Generic[K, V]):
             A new dict.
 
         Examples:
-            >>> klist = KeyedList(['a', 'b'], [1, 2])
+            Make a KeyedList of a person:
+
+            >>> klist = KeyedList(['name', 'age'], ['Ana Lopez', 34])
+
+            Make a dict of it. The dict is a copy, so a later change to the KeyedList does not reach it:
+
             >>> as_dict = klist.to_dict()
-            >>> klist['a'] = 99
+            >>> klist['name'] = 'Ana L. Lopez'
             >>> as_dict
-            {'a': 1, 'b': 2}
+            {'name': 'Ana Lopez', 'age': 34}
         """
         return dict(self.items())
     
@@ -639,8 +697,10 @@ class KeyedList(Generic[K, V]):
             The text of the dict.
 
         Examples:
-            >>> KeyedList(['a', 'b'], [1, 2])
-            {'a': 1, 'b': 2}
+            Echo a KeyedList at the prompt to see its keys and values:
+
+            >>> KeyedList(['name', 'age'], ['Ana Lopez', 34])
+            {'name': 'Ana Lopez', 'age': 34}
         """
         return repr(dict(self.items()))
         
@@ -678,8 +738,10 @@ class KeyedList(Generic[K, V]):
             TypeError: A value cannot be written as JSON.
 
         Examples:
-            >>> KeyedList(['a', 'b'], [1, 'x']).to_json()
-            '{"__KeyedList__": true, "hd": {"a": 0, "b": 1}, "values": [1, "x"]}'
+            Make JSON text of a KeyedList:
+
+            >>> KeyedList(['age', 'name'], [34, 'Ana Lopez']).to_json()
+            '{"__KeyedList__": true, "hd": {"age": 0, "name": 1}, "values": [34, "Ana Lopez"]}'
         """
         # Serialize KeyedList object to a JSON-compatible dictionary
         # NOTE: to_json/from_json appear unused elsewhere in daffodil (Daf.to_json/from_json
@@ -702,10 +764,15 @@ class KeyedList(Generic[K, V]):
                 marker.
 
         Examples:
-            >>> klist = KeyedList(['a', 'b'], [1, 'x'])
+            Make a KeyedList, write it as JSON, and read it back:
+
+            >>> klist = KeyedList(['age', 'name'], [34, 'Ana Lopez'])
             >>> KeyedList.from_json(klist.to_json()).to_dict()
-            {'a': 1, 'b': 'x'}
-            >>> KeyedList.from_json('{"a": 1}')
+            {'age': 34, 'name': 'Ana Lopez'}
+
+            The text must be what `to_json()` writes:
+
+            >>> KeyedList.from_json('{"age": 34}')
             Traceback (most recent call last):
                 ...
             ValueError: Invalid JSON string for KeyedList
@@ -742,6 +809,8 @@ def _astype_la(la: T_la, astype: Callable | str | type | None = None) -> T_la:
         ValueError: `astype` is a name that is not supported, or is not callable.
 
     Examples:
+        Convert each value of a list to a type. NULL stays NULL:
+
         >>> _astype_la(['1', '', '3'], int)
         [1, '', 3]
         >>> _astype_la(['1.5'], 'float')
