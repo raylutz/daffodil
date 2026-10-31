@@ -46,20 +46,34 @@ def _select_where_sql(self: 'SqlDaf', where_sql: str, params: Iterable[Any] = ()
         A selection.
 
     Examples:
+        Create a small SqlDaf table of people. It is stored on disk, so its size is not limited by memory:
+
         >>> import tempfile
         >>> SqlDaf.db_path = tempfile.mkdtemp() + '/job.db'
-        >>> marks_sdaf = SqlDaf.from_daf(Daf(lol=[['b1', 1], ['b2', 0]], cols=['ballot_id', 'v']), name='marks')
-        >>> marks_sdaf
+        >>> people_sdaf = SqlDaf('people', cols=['id', 'name', 'city', 'age'], keyfield='id', lol=[
+        ...     ['p1', 'Ana Lopez', 'Denver', 34], ['p2', 'Ben Okafor', 'Austin', 52], ['p3', 'Chen Wu', 'Boston', 27]])
+        >>> people_sdaf
         <BLANKLINE>
-        | ballot_id | v  |
-        | --------: | -: |
-        |        b1 |  1 |
-        |        b2 |  0 |
+        | id |    name    |  city  | age |
+        | -: | ---------: | -----: | --: |
+        | p1 |  Ana Lopez | Denver |  34 |
+        | p2 | Ben Okafor | Austin |  52 |
+        | p3 |    Chen Wu | Boston |  27 |
         <BLANKLINE>
-        %% daf rows=2; cols=2; keyfield=''; name='marks'
+        %% daf rows=3; cols=4; keyfield='id'; name='people'
         <BLANKLINE>
-        >>> marks_sdaf.select_where_sql('"v" = ?', [0]).to_list()
-        ['b2', 0]
+
+        Select the people over 30 with a SQL condition, the value passed as a parameter:
+
+        >>> people_sdaf.select_where_sql('age > ?', [30])
+        <BLANKLINE>
+        | id |    name    |  city  | age |
+        | -: | ---------: | -----: | --: |
+        | p1 |  Ana Lopez | Denver |  34 |
+        | p2 | Ben Okafor | Austin |  52 |
+        <BLANKLINE>
+        %% daf rows=2; cols=4; keyfield='id'; name='daf_tmp_people_v1'
+        <BLANKLINE>
     """
     self._resolve_parent()
     parent_sql, parent_params = self._rows_sql()
@@ -98,20 +112,35 @@ def _select_where(
         NotImplementedError: `indirect_col` is given.
 
     Examples:
+        Create a small SqlDaf table of people:
+
         >>> import tempfile
         >>> SqlDaf.db_path = tempfile.mkdtemp() + '/job.db'
-        >>> marks_sdaf = SqlDaf.from_daf(Daf(lol=[['b1', 1], ['b2', 0]], cols=['ballot_id', 'v']), name='marks')
-        >>> marks_sdaf
+        >>> people_sdaf = SqlDaf('people', cols=['id', 'name', 'city', 'age'], keyfield='id', lol=[
+        ...     ['p1', 'Ana Lopez', 'Denver', 34], ['p2', 'Ben Okafor', 'Austin', 52], ['p3', 'Chen Wu', 'Boston', 27]])
+        >>> people_sdaf
         <BLANKLINE>
-        | ballot_id | v  |
-        | --------: | -: |
-        |        b1 |  1 |
-        |        b2 |  0 |
+        | id |    name    |  city  | age |
+        | -: | ---------: | -----: | --: |
+        | p1 |  Ana Lopez | Denver |  34 |
+        | p2 | Ben Okafor | Austin |  52 |
+        | p3 |    Chen Wu | Boston |  27 |
         <BLANKLINE>
-        %% daf rows=2; cols=2; keyfield=''; name='marks'
+        %% daf rows=3; cols=4; keyfield='id'; name='people'
         <BLANKLINE>
-        >>> marks_sdaf.select_where(lambda row: row['v'] == 1, cols=['v']).to_list()
-        ['b1', 1]
+
+        Select the people who live in Austin or Boston, with a Python function. `cols` names the columns the
+        function reads, so only those are read:
+
+        >>> people_sdaf.select_where(lambda row: row['city'] in ('Austin', 'Boston'), cols=['city'])
+        <BLANKLINE>
+        | id |    name    |  city  | age |
+        | -: | ---------: | -----: | --: |
+        | p2 | Ben Okafor | Austin |  52 |
+        | p3 |    Chen Wu | Boston |  27 |
+        <BLANKLINE>
+        %% daf rows=2; cols=4; keyfield='id'; name='daf_tmp_people_v1'
+        <BLANKLINE>
     """
     if indirect_col is not None:
         raise NotImplementedError("select_where(indirect_col=) is not supported on a SqlDaf yet.")
@@ -164,33 +193,58 @@ def _select_by_dict(
         TypeError: `selector_da` is not a dict, or a list or tuple of dicts.
 
     Examples:
+        Create a small SqlDaf table of people, one with no city given:
+
         >>> import tempfile
         >>> SqlDaf.db_path = tempfile.mkdtemp() + '/job.db'
-        >>> marks_sdaf = SqlDaf.from_daf(Daf(lol=[['b1', 1], ['b2', '']], cols=['ballot_id', 'v']), name='marks')
-        >>> marks_sdaf
+        >>> people_sdaf = SqlDaf('people', cols=['id', 'name', 'city', 'age'], keyfield='id', lol=[
+        ...     ['p1', 'Ana Lopez', 'Denver', 34], ['p2', 'Ben Okafor', 'Austin', 52],
+        ...     ['p3', 'Chen Wu', 'Austin', 27], ['p4', 'Dana Smith', '', 41]])
+        >>> people_sdaf
         <BLANKLINE>
-        | ballot_id | v  |
-        | --------: | -: |
-        |        b1 |  1 |
-        |        b2 |    |
+        | id |    name    |  city  | age |
+        | -: | ---------: | -----: | --: |
+        | p1 |  Ana Lopez | Denver |  34 |
+        | p2 | Ben Okafor | Austin |  52 |
+        | p3 |    Chen Wu | Austin |  27 |
+        | p4 | Dana Smith |        |  41 |
         <BLANKLINE>
-        %% daf rows=2; cols=2; keyfield=''; name='marks'
+        %% daf rows=4; cols=4; keyfield='id'; name='people'
         <BLANKLINE>
-        >>> marks_sdaf.select_by_dict({'v': ''}).to_list()
-        ['b2', '']
 
-        The rows that do not match, a new keyfield, and a check of how many match:
+        Select the rows whose city is Austin:
 
-        >>> ballots_sdaf = SqlDaf.from_daf(Daf(cols=['id', 'party', 'precinct'], keyfield='id', lol=[
-        ...     ['b1', 'D', 'P1'], ['b2', 'R', 'P1'], ['b3', 'D', 'P2']]), name='sbd_ballots')
-        >>> ballots_sdaf.select_by_dict({'party': 'D'}, inverse=True).keys()
-        ['b2']
-        >>> ballots_sdaf.select_by_dict({'party': 'D'}, keyfield='precinct').keys()
-        ['P1', 'P2']
-        >>> ballots_sdaf.select_by_dict({'party': 'D'}, expectmax=1)
+        >>> people_sdaf.select_by_dict({'city': 'Austin'})
+        <BLANKLINE>
+        | id |    name    |  city  | age |
+        | -: | ---------: | -----: | --: |
+        | p2 | Ben Okafor | Austin |  52 |
+        | p3 |    Chen Wu | Austin |  27 |
+        <BLANKLINE>
+        %% daf rows=2; cols=4; keyfield='id'; name='daf_tmp_people_v1'
+        <BLANKLINE>
+
+        Select the row with no city. Python NULL matches an empty cell:
+
+        >>> people_sdaf.select_by_dict({'city': ''}).keys()
+        ['p4']
+
+        Select the rows that do not match, with `inverse=True`:
+
+        >>> people_sdaf.select_by_dict({'city': 'Austin'}, inverse=True).keys()
+        ['p1', 'p4']
+
+        Give the selection another keyfield, here the name:
+
+        >>> people_sdaf.select_by_dict({'city': 'Austin'}, keyfield='name').keys()
+        ['Ben Okafor', 'Chen Wu']
+
+        Check how many rows match, with `expectmax`. More than that raises:
+
+        >>> people_sdaf.select_by_dict({'city': 'Austin'}, expectmax=1)
         Traceback (most recent call last):
         ...
-        LookupError: select_by_dict: more than 1 rows match {'party': 'D'}.
+        LookupError: select_by_dict: more than 1 rows match {'city': 'Austin'}.
     """
     dicts_lda: List[T_da]
     if isinstance(selector_da, dict):
@@ -262,22 +316,33 @@ def _split_where(
         NotImplementedError: `indirect_col` is given.
 
     Examples:
+        Create a small SqlDaf table of people:
+
         >>> import tempfile
         >>> SqlDaf.db_path = tempfile.mkdtemp() + '/job.db'
-        >>> marks_sdaf = SqlDaf.from_daf(Daf(lol=[['b1', 10], ['b2', 20], ['b3', 30]], cols=['ballot_id', 'n']), name='marks')
-        >>> marks_sdaf
+        >>> people_sdaf = SqlDaf('people', cols=['id', 'name', 'city', 'age'], keyfield='id', lol=[
+        ...     ['p1', 'Ana Lopez', 'Denver', 34], ['p2', 'Ben Okafor', 'Austin', 52], ['p3', 'Chen Wu', 'Boston', 27]])
+
+        Split the people into those over 30 and the rest, in one call:
+
+        >>> older_sdaf, younger_sdaf = people_sdaf.split_where(lambda row: row['age'] > 30, cols=['age'])
+        >>> older_sdaf
         <BLANKLINE>
-        | ballot_id | n  |
-        | --------: | -: |
-        |        b1 | 10 |
-        |        b2 | 20 |
-        |        b3 | 30 |
+        | id |    name    |  city  | age |
+        | -: | ---------: | -----: | --: |
+        | p1 |  Ana Lopez | Denver |  34 |
+        | p2 | Ben Okafor | Austin |  52 |
         <BLANKLINE>
-        %% daf rows=3; cols=2; keyfield=''; name='marks'
+        %% daf rows=2; cols=4; keyfield='id'; name='daf_tmp_people_v1'
         <BLANKLINE>
-        >>> big_sdaf, small_sdaf = marks_sdaf.split_where(lambda row: row['n'] > 10, cols=['n'])
-        >>> big_sdaf.to_daf().lol, small_sdaf.to_daf().lol
-        ([['b2', 20], ['b3', 30]], [['b1', 10]])
+        >>> younger_sdaf
+        <BLANKLINE>
+        | id |  name   |  city  | age |
+        | -: | ------: | -----: | --: |
+        | p3 | Chen Wu | Boston |  27 |
+        <BLANKLINE>
+        %% daf rows=1; cols=4; keyfield='id'; name='daf_tmp_people_v2'
+        <BLANKLINE>
     """
     return (self.select_where(where, indirect_col=indirect_col, cols=cols),
             self.select_where(lambda row: not where(row), indirect_col=indirect_col, cols=cols))
@@ -297,14 +362,26 @@ def _select_first_row_by_dict(self: 'SqlDaf', selector_da: T_da, inverse: bool =
         The row as a dict, or an empty dict if none matches.
 
     Examples:
+        Create a small SqlDaf table of people:
+
         >>> import tempfile
         >>> SqlDaf.db_path = tempfile.mkdtemp() + '/job.db'
-        >>> items_sdaf = SqlDaf.from_daf(Daf(cols=['id', 'g', 'qty'], keyfield='id', lol=[['a1', 'x', 3], ['b2', 'y', 10], ['c3', 'x', 7]]), name='items')
-        >>> items_sdaf.select_first_row_by_dict({'g': 'x'})
-        {'id': 'a1', 'g': 'x', 'qty': 3}
-        >>> items_sdaf.select_first_row_by_dict({'g': 'x'}, inverse=True)
-        {'id': 'b2', 'g': 'y', 'qty': 10}
-        >>> items_sdaf.select_first_row_by_dict({'g': 'z'})
+        >>> people_sdaf = SqlDaf('people', cols=['id', 'name', 'city', 'age'], keyfield='id', lol=[
+        ...     ['p1', 'Ana Lopez', 'Denver', 34], ['p2', 'Ben Okafor', 'Austin', 52], ['p3', 'Chen Wu', 'Austin', 27]])
+
+        Find the first person in Austin, as a dict:
+
+        >>> people_sdaf.select_first_row_by_dict({'city': 'Austin'})
+        {'id': 'p2', 'name': 'Ben Okafor', 'city': 'Austin', 'age': 52}
+
+        Find the first person not in Austin, with `inverse=True`:
+
+        >>> people_sdaf.select_first_row_by_dict({'city': 'Austin'}, inverse=True)
+        {'id': 'p1', 'name': 'Ana Lopez', 'city': 'Denver', 'age': 34}
+
+        No match gives an empty dict:
+
+        >>> people_sdaf.select_first_row_by_dict({'city': 'Miami'})
         {}
     """
     found_sdaf: SqlDaf = self.select_by_dict(selector_da, inverse=inverse)
@@ -345,27 +422,43 @@ def _select_krows(
         ValueError: There is no keyfield.
 
     Examples:
+        Create a small SqlDaf table of people:
+
         >>> import tempfile
         >>> SqlDaf.db_path = tempfile.mkdtemp() + '/job.db'
-        >>> items_sdaf = SqlDaf.from_daf(Daf(cols=['id', 'qty'], keyfield='id', lol=[['a1', 3], ['b2', 10], ['c3', 7], ['d4', 1]]), name='items')
+        >>> people_sdaf = SqlDaf('people', cols=['id', 'name', 'age'], keyfield='id', lol=[
+        ...     ['p1', 'Ana Lopez', 34], ['p2', 'Ben Okafor', 52], ['p3', 'Chen Wu', 27], ['p4', 'Dana Smith', 41]])
 
-        A list of keys, in the order given, or a range of keys, in row order:
+        Select by a list of keys, in the order given:
 
-        >>> items_sdaf.select_krows(['c3', 'a1']).keys()
-        ['c3', 'a1']
-        >>> items_sdaf.select_krows(('b2', 'c3')).keys()
-        ['b2', 'c3']
-        >>> items_sdaf.select_krows(('c3',)).keys()
-        ['c3', 'd4']
-        >>> items_sdaf.select_krows((None, 'b2')).keys()
-        ['a1', 'b2']
+        >>> people_sdaf.select_krows(['p3', 'p1'])
+        <BLANKLINE>
+        | id |   name    | age |
+        | -: | --------: | --: |
+        | p3 |   Chen Wu |  27 |
+        | p1 | Ana Lopez |  34 |
+        <BLANKLINE>
+        %% daf rows=2; cols=3; keyfield='id'; name='daf_tmp_people_v2'
+        <BLANKLINE>
 
-        The rows not selected, and keys not found ignored:
+        Select a range of keys, in row order. One end may be left open:
 
-        >>> items_sdaf.select_krows(['a1', 'b2'], inverse=True).keys()
-        ['c3', 'd4']
-        >>> items_sdaf.select_krows(['a1', 'z9'], silent_error=True).keys()
-        ['a1']
+        >>> people_sdaf.select_krows(('p2', 'p3')).keys()
+        ['p2', 'p3']
+        >>> people_sdaf.select_krows(('p3',)).keys()
+        ['p3', 'p4']
+        >>> people_sdaf.select_krows((None, 'p2')).keys()
+        ['p1', 'p2']
+
+        Select the rows not listed, with `inverse=True`:
+
+        >>> people_sdaf.select_krows(['p1', 'p2'], inverse=True).keys()
+        ['p3', 'p4']
+
+        Ignore keys that are not found, with `silent_error=True`:
+
+        >>> people_sdaf.select_krows(['p1', 'p9'], silent_error=True).keys()
+        ['p1']
     """
     if krows is None:
         raise TypeError("None is not a valid key selector.")
@@ -432,38 +525,41 @@ def _select_records_daf(
         ValueError: This SqlDaf, or a SqlDaf given as the keys, has no keyfield.
 
     Examples:
+        Create a small SqlDaf table of people, from a Daf in memory:
+
         >>> import tempfile
         >>> SqlDaf.db_path = tempfile.mkdtemp() + '/job.db'
-        >>> marks_daf = Daf(lol=[['b1', 1], ['b2', 0], ['b3', 1]], cols=['ballot_id', 'v'], keyfield='ballot_id')
-        >>> marks_daf
+        >>> people_daf = Daf(cols=['id', 'name', 'age'], keyfield='id', lol=[
+        ...     ['p1', 'Ana Lopez', 34], ['p2', 'Ben Okafor', 52], ['p3', 'Chen Wu', 27]])
+        >>> people_sdaf = SqlDaf.from_daf(people_daf, name='people')
+
+        Select the rows with these keys, in the order given:
+
+        >>> people_sdaf.select_records_daf(['p3', 'p1'])
         <BLANKLINE>
-        | ballot_id | v  |
-        | --------: | -: |
-        |        b1 |  1 |
-        |        b2 |  0 |
-        |        b3 |  1 |
+        | id |   name    | age |
+        | -: | --------: | --: |
+        | p3 |   Chen Wu |  27 |
+        | p1 | Ana Lopez |  34 |
         <BLANKLINE>
-        %% daf rows=3; cols=2; keyfield='ballot_id'; name=''
-        <BLANKLINE>
-        >>> marks_sdaf = SqlDaf.from_daf(marks_daf, name='marks')
-        >>> marks_sdaf.select_records_daf(['b3', 'b1'])
-        <BLANKLINE>
-        | ballot_id | v  |
-        | --------: | -: |
-        |        b3 |  1 |
-        |        b1 |  1 |
-        <BLANKLINE>
-        %% daf rows=2; cols=2; keyfield='ballot_id'; name='daf_tmp_marks_v2'
+        %% daf rows=2; cols=3; keyfield='id'; name='daf_tmp_people_v2'
         <BLANKLINE>
 
-        The rows whose keys are not listed, with `inverse=True`. A key that is not found raises
-        KeyError, or is left out with `silent_error=True`:
+        Select the rows whose keys are not listed, with `inverse=True`:
 
-        >>> stock_sdaf = SqlDaf.from_daf(Daf(cols=['id', 'qty'], keyfield='id', lol=[['a1', 3], ['b2', 10], ['c3', 7]]), name='srd_stock')
-        >>> stock_sdaf.select_records_daf(['a1'], inverse=True).keys()
-        ['b2', 'c3']
-        >>> stock_sdaf.select_records_daf(['a1', 'z9'], silent_error=True).keys()
-        ['a1']
+        >>> people_sdaf.select_records_daf(['p1'], inverse=True).keys()
+        ['p2', 'p3']
+
+        A key that is not found raises. With `silent_error=True` it is ignored:
+
+        >>> people_sdaf.select_records_daf(['p1', 'p9'], silent_error=True).keys()
+        ['p1']
+
+        The keys may come from another table, as its keyfield:
+
+        >>> visits_sdaf = SqlDaf('visits', cols=['id', 'visits'], keyfield='id', lol=[['p2', 7], ['p3', 12]])
+        >>> people_sdaf.select_records_daf(visits_sdaf).keys()
+        ['p2', 'p3']
     """
     self._resolve_parent()
     key_col: str = self._need_keyfield('select_records_daf')
@@ -507,16 +603,27 @@ def _calc_cols(
         The chosen column names, in column order.
 
     Examples:
+        Create a small SqlDaf table of people, with a type for each column:
+
         >>> import tempfile
         >>> SqlDaf.db_path = tempfile.mkdtemp() + '/job.db'
-        >>> items_sdaf = SqlDaf.from_daf(Daf(cols=['id', 'item', 'qty', 'price'], keyfield='id', dtypes={'id': str, 'item': str, 'qty': int, 'price': float},
-        ...     lol=[['a1', 'pen', 3, 1.5]]), name='items')
-        >>> items_sdaf.calc_cols(include_types=[int, float])
-        ['qty', 'price']
-        >>> items_sdaf.calc_cols(exclude_types=[str])
-        ['qty', 'price']
-        >>> items_sdaf.calc_cols(include_cols=['id', 'qty', 'price'], exclude_cols=['price'])
-        ['id', 'qty']
+        >>> people_sdaf = SqlDaf('people', cols=['id', 'name', 'age', 'height_m'], keyfield='id',
+        ...     dtypes={'id': str, 'name': str, 'age': int, 'height_m': float}, lol=[['p1', 'Ana Lopez', 34, 1.68]])
+
+        Choose the columns of numbers, by type:
+
+        >>> people_sdaf.calc_cols(include_types=[int, float])
+        ['age', 'height_m']
+
+        Choose every column that is not text:
+
+        >>> people_sdaf.calc_cols(exclude_types=[str])
+        ['age', 'height_m']
+
+        Choose from a list of names, leaving some out:
+
+        >>> people_sdaf.calc_cols(include_cols=['id', 'age', 'height_m'], exclude_cols=['height_m'])
+        ['id', 'age']
     """
     return Daf.calc_cols(self, include_cols=include_cols, exclude_cols=exclude_cols,          # type: ignore[return-value]
                          include_types=include_types, exclude_types=exclude_types)
@@ -550,29 +657,29 @@ def _select_cols(
         KeyError: A name in `cols` is not a column.
 
     Examples:
+        Create a small SqlDaf table of people:
+
         >>> import tempfile
         >>> SqlDaf.db_path = tempfile.mkdtemp() + '/job.db'
-        >>> marks_sdaf = SqlDaf('marks', cols=['ballot_id', 'v', 'n'], lol=[['b1', 1, 10], ['b2', 0, 20]], keyfield='ballot_id')
-        >>> marks_sdaf
+        >>> people_sdaf = SqlDaf('people', cols=['id', 'name', 'city', 'age'], keyfield='id', lol=[
+        ...     ['p1', 'Ana Lopez', 'Denver', 34], ['p2', 'Ben Okafor', 'Austin', 52]])
+
+        Select some columns, in the order given:
+
+        >>> people_sdaf.select_cols(['age', 'name'])
         <BLANKLINE>
-        | ballot_id | v  | n  |
-        | --------: | -: | -: |
-        |        b1 |  1 | 10 |
-        |        b2 |  0 | 20 |
+        | age |    name    |
+        | --: | ---------: |
+        |  34 |  Ana Lopez |
+        |  52 | Ben Okafor |
         <BLANKLINE>
-        %% daf rows=2; cols=3; keyfield='ballot_id'; name='marks'
+        %% daf rows=2; cols=2; keyfield=''; name='daf_tmp_people_v1'
         <BLANKLINE>
-        >>> marks_sdaf.select_cols(['n', 'ballot_id'])
-        <BLANKLINE>
-        | n  | ballot_id |
-        | -: | --------: |
-        | 10 |        b1 |
-        | 20 |        b2 |
-        <BLANKLINE>
-        %% daf rows=2; cols=2; keyfield='ballot_id'; name='daf_tmp_marks_v1'
-        <BLANKLINE>
-        >>> marks_sdaf.select_cols(exclude_cols=['v']).columns()
-        ['ballot_id', 'n']
+
+        Select every column but some:
+
+        >>> people_sdaf.select_cols(exclude_cols=['city']).columns()
+        ['id', 'name', 'age']
     """
     if isinstance(cols, str):
         cols = [cols]
