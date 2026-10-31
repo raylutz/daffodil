@@ -917,7 +917,8 @@ def _daf_to_lol_summary(
         >>> daf.daf_to_lol_summary(max_rows=2)
         [['id', 'item', 'qty'], ['a1', 'pen', 3], ['...', '...', '...'], ['c3', 'pad', 7]]
 
-        Keep 2 columns, the first and the last. With only `max_cols`, every row is kept:
+        Keep 2 columns, the first and the last. The limits default to 10, and `max_rows=0` means no
+        limit, so every row is kept:
 
         >>> daf.daf_to_lol_summary(max_rows=0, max_cols=2)
         [['id', '...', 'qty'], ['a1', '...', 3], ['b2', '...', 10], ['c3', '...', 7]]

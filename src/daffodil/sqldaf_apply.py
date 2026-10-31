@@ -1468,12 +1468,13 @@ def _group_where(
     order of this SqlDaf. Nothing more is read until a group is read. The result is a
     KeyedList of selections, in the order the keys were first returned.
 
-    Name the columns the function reads in `cols`, as in `select_where()`.
+    `cols` optionally names the columns the function reads, to save time on a large table, as
+    `select_where()` explains.
 
     Args:
         where: A function of a row: a key, a list of keys, or None.
         indirect_col: Not supported on a SqlDaf. It raises NotImplementedError.
-        cols: The columns the function reads. All if None.
+        cols: The columns the function reads, so only those are read. Optional. All if None.
 
     Returns:
         A KeyedList that maps each key to a selection.
@@ -1489,9 +1490,10 @@ def _group_where(
         >>> SqlDaf.db_path = tempfile.mkdtemp() + '/job.db'
         >>> people_sdaf = SqlDaf('people', cols=['id', 'city'], lol=[['p1', 'Denver'], ['p2', 'Austin'], ['p3', 'Denver']])
 
-        Put each person in two groups, their city and 'all'. The function returns the groups of a row:
+        Put each person in two groups, their city and 'all'. The function returns the groups of a row.
+        On a large table, add `cols=['city']`, the column the function reads, to save time:
 
-        >>> groups = people_sdaf.group_where(lambda row: [row['city'], 'all'], cols=['city'])
+        >>> groups = people_sdaf.group_where(lambda row: [row['city'], 'all'])
         >>> {key: len(group_sdaf) for key, group_sdaf in groups.items()}
         {'Denver': 2, 'all': 3, 'Austin': 1}
     """
@@ -1796,7 +1798,7 @@ def _join_with_residue(
 
         >>> pay_path = tempfile.mkdtemp() + '/pay.db'
         >>> far_sdaf = pay_sdaf.copy().save('pay_far', db_path=pay_path)
-        >>> [result_sdaf.keys() for result_sdaf in people_sdaf.join_with_residue(far_sdaf, tag_other=True)]
+        >>> [result_sdaf.keys() for result_sdaf in people_sdaf.join_with_residue(far_sdaf, shared_fields=['city'])]
         [['p2', 'p3'], ['p1'], ['p9']]
     """
     if custom_translator_daf is not None:

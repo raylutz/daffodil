@@ -196,7 +196,8 @@ def _to_csv_file(
         >>> people_sdaf = SqlDaf('people', cols=['id', 'name', 'age'], keyfield='id', lol=[
         ...     ['p1', 'Ana Lopez', 34], ['p2', 'Ben Okafor', '']])
 
-        Write it to a CSV file, and read the file back as text. The unknown age is an empty cell:
+        Write it to a CSV file, and read the file back as text. The unknown age is an empty cell.
+        `newline=''` keeps the line endings as written, `\r\n` by default:
 
         >>> csv_path = people_sdaf.to_csv_file(os.path.join(tempfile.mkdtemp(), 'people.csv'))
         >>> open(csv_path, newline='').read()
@@ -899,17 +900,18 @@ def _daf_to_lol_summary(
         >>> people_sdaf = SqlDaf('people', cols=['id', 'age', 'visits', 'points'], lol=[
         ...     [f'p{i}', 20 + i, 3 * i, 100 * i] for i in range(1, 7)])
 
-        Keep four rows, the first and the last, around a row of '...':
+        Keep four rows, the first and the last, around a row of '...'. The limits default to 10, and
+        0 means no limit, so `max_cols=0` keeps every column:
 
         >>> people_sdaf.daf_to_lol_summary(max_rows=4, max_cols=0)
         [['id', 'age', 'visits', 'points'], ['p1', 21, 3, 100], ['p2', 22, 6, 200], ['...', '...', '...', '...'], ['p5', 25, 15, 500], ['p6', 26, 18, 600]]
 
-        Keep two columns, the first and the last, with every row:
+        Keep two columns, the first and the last. `max_rows=0` keeps every row:
 
         >>> people_sdaf.daf_to_lol_summary(max_rows=0, max_cols=2)
         [['id', '...', 'points'], ['p1', '...', 100], ['p2', '...', 200], ['p3', '...', 300], ['p4', '...', 400], ['p5', '...', 500], ['p6', '...', 600]]
 
-        Show another name in the header for one column:
+        Show another name in the header for one column, with every column kept:
 
         >>> people_sdaf.daf_to_lol_summary(max_rows=2, max_cols=0, disp_cols={'age': 'Age'})
         [['id', 'Age', 'visits', 'points'], ['p1', 21, 3, 100], ['...', '...', '...', '...'], ['p6', 26, 18, 600]]
