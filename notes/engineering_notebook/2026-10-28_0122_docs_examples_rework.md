@@ -107,3 +107,24 @@ and keeps the examples. add_raises.py adds a Raises entry. link_daf.py adds the 
     `daf_tmp_items_v1`. A Daf selection has an empty name. Shown in the `to_daf()` example.
 11. The class attributes on the API pages, such as `RETMODE_VAL` and `SqlDaf.engine`, have no
     examples. They are constants, described in words.
+
+## Third round, 2026-10-31: headers and general data
+
+Ray asked that every example have a header, a plain line before it that says what it does, and that
+the examples move away from election data to general data, with distinctive numbers. The rules are in
+CLAUDE.md, under Writing a docstring.
+
+- Every docstring with examples, 320 of them, and the Guide pages. A header-gap tool finds an example
+  group with no prose line before it. It reports 0 in every module.
+- Data: people with ids, names, cities and ages. Orders with a city, a quantity and an amount. Carts,
+  a dict of item to count, for sparse rows. Customers with a plan. Election words are gone from the
+  examples. The scope script still matches "selection" and "sheet", which are false positives.
+- SqlDaf examples echo the SqlDaf at the prompt. A selection's last line shows its made-up name.
+- Headers that state behavior were checked against the outputs. Six were wrong when first written and
+  were fixed. Five docstrings were wrong about the code: `set_icol_irows()` skips a negative position,
+  `to_donpa()` gives a text array for a column with an empty cell, `sum()` converts text of digits,
+  `keys()` lists a repeated key once, `groupby_cols_reduce()` keeps only the grouped column and totals.
+- Tools in the job folder: retheme.py swaps text inside chosen docstrings and marks their outputs for
+  refilling. gaps.py lists or inserts headers. blank_before.py puts a blank line before an inserted
+  header. md_mark.py marks outputs on a Guide page. fill_prop.py fills a property docstring, whose line
+  numbers confuse the filler.

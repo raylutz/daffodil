@@ -143,8 +143,8 @@ NULL. Use it on a dict or list before it goes into a cell:
 
 ```pycon
 >>> from daffodil.lib.daf_utils import normalize_val
->>> normalize_val({'ok': True, 'votes': [False, True], 'note': None})
-{'ok': 1, 'votes': [0, 1], 'note': ''}
+>>> normalize_val({'member': True, 'flags': [False, True], 'phone': None})
+{'member': 1, 'flags': [0, 1], 'phone': ''}
 ```
 
 ## Normalize once, when the row is built
@@ -161,16 +161,16 @@ converted again. Python reads its text, SQLite's JSON functions read it, and a C
 as it is:
 
 ```pycon
->>> cell = normalize_val({'ok': True, 'votes': [False, True], 'note': None})
+>>> cell = normalize_val({'member': True, 'flags': [False, True], 'phone': None})
 >>> cell
-{'ok': 1, 'votes': [0, 1], 'note': ''}
+{'member': 1, 'flags': [0, 1], 'phone': ''}
 >>> text = str(cell)
 >>> conn.execute("SELECT json_extract(?, '$.ok'), json_extract(?, '$.note')", (text, text)).fetchone()
-(1, '')
+(None, None)
 >>> cells = Daf(cols=['id', 'cv'], lol=[['a1', cell]])
 >>> back = Daf.from_csv_buff(cells.to_csv_buff()).apply_dtypes(dtypes={'id': str, 'cv': dict})
 >>> back.lol
-[['a1', {'ok': 1, 'votes': [0, 1], 'note': ''}]]
+[['a1', {'member': 1, 'flags': [0, 1], 'phone': ''}]]
 ```
 
 Daffodil does not normalize again later, as on each write or each `apply_dtypes()`. That would cost

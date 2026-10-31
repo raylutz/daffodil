@@ -9,6 +9,9 @@ all prior releases. Plans for future moved to ROADMAP.md.
 
 ## [Unreleased]
 
+### Changed
+- Every example in the docs has a header, a line that says what it does, as "Select two rows by key, in the order given, and look at them directly:". The examples use general data, such as people with names, cities and ages, and orders and carts, where many used ballots, precincts and votes, or abstract columns such as x and y. Numbers are distinctive, not only 0 and 1. A SqlDaf example shows the SqlDaf itself at the prompt, with no `to_daf()` only to display it. Five docstrings that said something the code does not do were corrected, among them `set_icol_irows()`, which skips a negative position, and `to_donpa()`, which gives a text array for a column with an empty cell. Ray asked for this on 2026-10-31.
+
 ## [0.10.0] - (2026-10-30)
 
 This release lets a join, `concat()` and keys read a SqlDaf in another database file, adds

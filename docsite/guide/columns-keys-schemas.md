@@ -129,19 +129,21 @@ The keyfield values must be hashable, and should be unique. Several columns can 
 key together, as a tuple:
 
 ```pycon
->>> votes = Daf(cols=['precinct', 'contest', 'n'], lol=[['p1', 'mayor', 40], ['p1', 'council', 31]],
-...             keyfield=('precinct', 'contest'))
->>> votes
+>>> # Create a table of sales by store and item, keyed by both columns.
+>>> sales = Daf(cols=['store', 'item', 'qty'], lol=[['s1', 'apples', 40], ['s1', 'pears', 31]],
+...             keyfield=('store', 'item'))
+>>> sales
 <BLANKLINE>
-| precinct | contest | n  |
-| -------: | ------: | -: |
-|       p1 |   mayor | 40 |
-|       p1 | council | 31 |
+| store |  item  | qty |
+| ----: | -----: | --: |
+|    s1 | apples |  40 |
+|    s1 |  pears |  31 |
 <BLANKLINE>
-%% daf rows=2; cols=3; keyfield='('precinct', 'contest')'; name=''
+%% daf rows=2; cols=3; keyfield='('store', 'item')'; name=''
 <BLANKLINE>
->>> votes.select_record(('p1', 'council'))
-{'precinct': 'p1', 'contest': 'council', 'n': 31}
+>>> # A key of two columns is a tuple.
+>>> sales.select_record(('s1', 'pears'))
+{'store': 's1', 'item': 'pears', 'qty': 31}
 ```
 
 ### A key column with repeated values
@@ -205,21 +207,21 @@ as a class with type annotations, decorated with `@schemaclass`:
 ```pycon
 >>> from daffodil.lib.schemaclass import schemaclass
 >>> @schemaclass
-... class Ballot:
-...     __keyfield__ = 'ballot_id'
-...     ballot_id: str = ''
-...     contest: str = ''
-...     page: int = 0
->>> ballot_daf = Daf(schema=Ballot)
->>> ballot_daf
+... class Order:
+...     __keyfield__ = 'order_id'
+...     order_id: str = ''
+...     item: str = ''
+...     qty: int = 1
+>>> order_daf = Daf(schema=Order)
+>>> order_daf
 <BLANKLINE>
 <BLANKLINE>
-%% daf rows=0; cols=0; keyfield='ballot_id'; name=''
+%% daf rows=0; cols=0; keyfield='order_id'; name=''
 <BLANKLINE>
->>> ballot_daf.columns(), ballot_daf.keyfield
-(['ballot_id', 'contest', 'page'], 'ballot_id')
->>> ballot_daf.dtypes
-{'ballot_id': <class 'str'>, 'contest': <class 'str'>, 'page': <class 'int'>}
+>>> order_daf.columns(), order_daf.keyfield
+(['order_id', 'item', 'qty'], 'order_id')
+>>> order_daf.dtypes
+{'order_id': <class 'str'>, 'item': <class 'str'>, 'qty': <class 'int'>}
 ```
 
 A schema fills only what the Daf does not already have: the columns, the dtypes and the
@@ -228,10 +230,10 @@ keyfield. It does not check or convert the cells.
 `default_record()` makes a new record with the defaults, for the Daf's own columns:
 
 ```pycon
->>> ballot_daf.default_record()
-{'ballot_id': '', 'contest': '', 'page': 0}
->>> Daf(cols=['page', 'ballot_id'], schema=Ballot).default_record()
-{'page': 0, 'ballot_id': ''}
+>>> order_daf.default_record()
+{'order_id': '', 'item': '', 'qty': 1}
+>>> Daf(cols=['qty', 'order_id'], schema=Order).default_record()
+{'qty': 1, 'order_id': ''}
 ```
 
 A Daf that keeps only some of the schema's columns gets records that fit it. See

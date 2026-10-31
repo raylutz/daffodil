@@ -128,21 +128,22 @@ you fill it does not matter. And `append()` knows that its keys are the columns,
 the check of its columns.
 
 ```pycon
+>>> # Build a table of order lines in a loop, filling each row by name, in any order.
 >>> from daffodil.keyedlist import KeyedList
->>> def read_marks(readings):
-...     marks = Daf(cols=['ballot', 'contest', 'x', 'y'])
-...     for ballot, contest, x, y in readings:
-...         row = marks.default_record(astype=KeyedList)
-...         row['y'], row['x'] = y, x                   # by name, in any order
-...         row['ballot'], row['contest'] = ballot, contest
-...         marks.append(row)
-...     return marks
->>> read_marks([('b1', 'mayor', 10, 20), ('b2', 'mayor', 11, 21)])
+>>> def read_orders(lines):
+...     orders = Daf(cols=['order_id', 'item', 'qty', 'price'])
+...     for order_id, item, qty, price in lines:
+...         row = orders.default_record(astype=KeyedList)
+...         row['price'], row['qty'] = price, qty           # by name, in any order
+...         row['order_id'], row['item'] = order_id, item
+...         orders.append(row)
+...     return orders
+>>> read_orders([('o1', 'apples', 3, 1.25), ('o2', 'pears', 5, 0.9)])
 <BLANKLINE>
-| ballot | contest | x  | y  |
-| -----: | ------: | -: | -: |
-|     b1 |   mayor | 10 | 20 |
-|     b2 |   mayor | 11 | 21 |
+| order_id |  item  | qty | price |
+| -------: | -----: | --: | ----: |
+|       o1 | apples |   3 |  1.25 |
+|       o2 |  pears |   5 |   0.9 |
 <BLANKLINE>
 %% daf rows=2; cols=4; keyfield=''; name=''
 <BLANKLINE>
@@ -162,24 +163,26 @@ the row to the table: nothing is copied. A few checks remain, and a row that fai
 | list | Its number of values must be the number of columns. |
 
 ```pycon
->>> def read_fast(readings):
-...     fast = Daf(cols=['ballot', 'x'])
-...     for ballot, x in readings:
+>>> # Build a table with fast=True. Each row is given to the table as it is, with no copy.
+>>> def read_fast(lines):
+...     fast = Daf(cols=['order_id', 'qty'])
+...     for order_id, qty in lines:
 ...         row = fast.default_record(astype=KeyedList)
-...         row['ballot'], row['x'] = ballot, x
+...         row['order_id'], row['qty'] = order_id, qty
 ...         fast.append(row, fast=True)
 ...     return fast
->>> fast = read_fast([('b1', 10), ('b2', 11)])
+>>> fast = read_fast([('o1', 3), ('o2', 5)])
 >>> fast
 <BLANKLINE>
-| ballot | x  |
-| -----: | -: |
-|     b1 | 10 |
-|     b2 | 11 |
+| order_id | qty |
+| -------: | --: |
+|       o1 |   3 |
+|       o2 |   5 |
 <BLANKLINE>
 %% daf rows=2; cols=2; keyfield=''; name=''
 <BLANKLINE>
->>> fast.append(['b3'], fast=True)
+>>> # A list of the wrong length still raises, with a message that says what is wrong.
+>>> fast.append(['o3'], fast=True)
 Traceback (most recent call last):
     ...
 ValueError: append(fast=True): row 2 has 1 values for 2 columns. With fast=True a list must have one value for each column, in column order. Leave out fast to pad a short list with NULL.
