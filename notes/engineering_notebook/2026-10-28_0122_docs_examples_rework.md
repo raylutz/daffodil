@@ -128,3 +128,15 @@ CLAUDE.md, under Writing a docstring.
   refilling. gaps.py lists or inserts headers. blank_before.py puts a blank line before an inserted
   header. md_mark.py marks outputs on a Guide page. fill_prop.py fills a property docstring, whose line
   numbers confuse the filler.
+
+## cols of the where methods, Q323, 2026-10-31
+
+Ray read `cols` of SqlDaf `select_where()` as making an index. It does not. It names the columns
+passed to the Python function, so only those cells are read for each row. SQLite still scans every
+row, since it cannot see inside a Python function. Measured on 100,000 rows: 6 short columns, 0.13 s
+against 0.10 s; 30 short columns, 0.28 s against 0.11 s; 6 columns of dict text, 0.41 s against 0.33 s.
+
+Names weighed: `func_cols`, `cols_passed_to_func`, and Ray's `add_indexes_to_cols`, which would say it
+makes an index. Ray chose to deprecate it: not documented, still accepted and used, no error either
+way. A Daf has no `cols` on these methods and still raises TypeError if given one. Q321, a Daf that
+accepts and ignores it, was not taken up.

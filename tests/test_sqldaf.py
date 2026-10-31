@@ -3025,6 +3025,16 @@ def test_to_daf_name_is_the_table_name_unless_given():
     assert read_sdaf.to_daf(name='').name == ''
     assert read_daf.to_daf(name='mine') is read_daf and read_daf.name == 'mine'
 
+
+def test_deprecated_cols_of_the_where_methods_still_work():
+    """ cols is deprecated and not documented. Given or left out, the rows are the same. """
+    read_daf: Daf = make_read_daf()
+    read_sdaf: SqlDaf = SqlDaf.from_daf(read_daf, name='t')
+    where = lambda row: row['p'] == 'P1'
+    assert read_sdaf.select_where(where).keys() == read_sdaf.select_where(where, cols=['p']).keys() == ['b1', 'b3', 'b5']
+    assert [side.keys() for side in read_sdaf.split_where(where, cols=['p'])] == [side.keys() for side in read_sdaf.split_where(where)]
+    assert list(read_sdaf.group_where(lambda row: row['p'], cols=['p']).keys()) == list(read_sdaf.group_where(lambda row: row['p']).keys())
+
 def test_exports_match_mdaf():
     read_daf: Daf = make_read_daf()
     read_sdaf: SqlDaf = SqlDaf.from_daf(read_daf, name='t')

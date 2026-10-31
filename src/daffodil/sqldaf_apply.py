@@ -1452,7 +1452,7 @@ def _group_where(
         where:          Callable[[Any], Any],       # a function of a row: a key, a list of keys, or None.
         *,
         indirect_col:   str | None = None,          # not supported on a SqlDaf.
-        cols:           T_ls | None = None,         # the columns the function reads. All if None.
+        cols:           T_ls | None = None,         # deprecated, not documented: the columns given to the function.
         ) -> KeyedList:
     """
     Group the rows by the keys a Python function returns, as [`Daf.group_where()`][daffodil.daf_apply._group_where] does.
@@ -1468,19 +1468,14 @@ def _group_where(
     order of this SqlDaf. Nothing more is read until a group is read. The result is a
     KeyedList of selections, in the order the keys were first returned.
 
-    `cols` optionally names the columns the function reads, to save time on a large table, as
-    `select_where()` explains.
-
     Args:
         where: A function of a row: a key, a list of keys, or None.
         indirect_col: Not supported on a SqlDaf. It raises NotImplementedError.
-        cols: The columns the function reads, so only those are read. Optional. All if None.
 
     Returns:
         A KeyedList that maps each key to a selection.
 
     Raises:
-        KeyError: A name in `cols` is not a column.
         NotImplementedError: `indirect_col` is given.
 
     Examples:
@@ -1490,8 +1485,7 @@ def _group_where(
         >>> SqlDaf.db_path = tempfile.mkdtemp() + '/job.db'
         >>> people_sdaf = SqlDaf('people', cols=['id', 'city'], lol=[['p1', 'Denver'], ['p2', 'Austin'], ['p3', 'Denver']])
 
-        Put each person in two groups, their city and 'all'. The function returns the groups of a row.
-        On a large table, add `cols=['city']`, the column the function reads, to save time:
+        Put each person in two groups, their city and 'all'. The function returns the groups of a row:
 
         >>> groups = people_sdaf.group_where(lambda row: [row['city'], 'all'])
         >>> {key: len(group_sdaf) for key, group_sdaf in groups.items()}

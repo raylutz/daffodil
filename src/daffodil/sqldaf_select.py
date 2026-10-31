@@ -85,7 +85,7 @@ def _select_where(
         self: 'SqlDaf',
         where:          Callable[[Any], Any],       # a function of a row that is true for the rows to keep.
         indirect_col:   str | None = None,          # not supported on a SqlDaf.
-        cols:           T_ls | None = None,         # the columns the function reads. All if None.
+        cols:           T_ls | None = None,         # deprecated, not documented: the columns given to the function.
         ) -> 'SqlDaf':
     """
     Select the rows for which a Python function is true, as [`Daf.select_where()`][daffodil.daf_select._select_where] does.
@@ -95,23 +95,17 @@ def _select_where(
     and called for each row when the selection is first read. If it raises, that error is
     raised, as itself.
 
-    `cols` is optional. It names the columns the function reads, and the function is then given
-    only those. That saves time on a large table, since each column of each row is read and
-    passed to Python. Leave it out of a small or one-off selection. A function that reads a
-    column `cols` leaves out raises KeyError. A Daf has no `cols`, since its rows are in memory
-    already, and passing it to a Daf raises TypeError. If the test only compares columns to values, use
-    `select_by_dict()` or `select_where_sql()`, which call no Python function.
+    If the test only compares columns to values, use `select_by_dict()` or `select_where_sql()`,
+    which call no Python function and are much faster.
 
     Args:
         where: A function of a row, true for the rows to keep.
         indirect_col: Not supported on a SqlDaf. It raises NotImplementedError.
-        cols: The columns the function reads, so only those are read. Optional. All if None.
 
     Returns:
         A selection.
 
     Raises:
-        KeyError: A name in `cols` is not a column.
         NotImplementedError: `indirect_col` is given.
 
     Examples:
@@ -143,19 +137,6 @@ def _select_where(
         <BLANKLINE>
         %% daf rows=2; cols=4; keyfield='id'; name='daf_tmp_people_v1'
         <BLANKLINE>
-
-        On a large table, name the columns the function reads, with `cols`. Then only those are read
-        and passed to it. On 200,000 rows of 6 columns this selection took 0.22 s with `cols=['city']`,
-        and 0.29 s without it. The result is the same:
-
-        >>> people_sdaf.select_where(lambda row: row['city'] in ('Austin', 'Boston'), cols=['city']).keys()
-        ['p2', 'p3']
-
-        A column the function reads must be in `cols`. Here it reads the age, which `cols` leaves out:
-
-        >>> people_sdaf.select_where(lambda row: row['age'] > 30, cols=['city']).keys()
-        Traceback (most recent call last):
-        KeyError: 'age'
     """
     if indirect_col is not None:
         raise NotImplementedError("select_where(indirect_col=) is not supported on a SqlDaf yet.")
@@ -300,7 +281,7 @@ def _split_where(
         where:          Callable[[Any], Any],       # a function of a row that is true for the first side.
         *,
         indirect_col:   str | None = None,          # not supported on a SqlDaf.
-        cols:           T_ls | None = None,         # the columns the function reads. All if None.
+        cols:           T_ls | None = None,         # deprecated, not documented: the columns given to the function.
         ) -> Tuple['SqlDaf', 'SqlDaf']:
     """
     Split the rows in two, by a Python function that is true or false for each row.
@@ -313,21 +294,18 @@ def _split_where(
     the rest. Nothing runs yet. Each side is found when it is first read, and the function is
     called again for each side that is read. So it should give the same answer each time.
 
-    Name the columns the function reads in `cols`, as in `select_where()`. If the test is
-    that columns equal values, two calls of `select_by_dict()`, the second with `inverse=True`,
+    If the test is that columns equal values, two calls of `select_by_dict()`, the second with `inverse=True`,
     are much faster, since they call no function. On 1,000,000 rows, reading both sides took
     1.79 s here, and 0.21 s that way.
 
     Args:
         where: A function of a row, true for the rows of the first side.
         indirect_col: Not supported on a SqlDaf. It raises NotImplementedError.
-        cols: The columns the function reads, so only those are read. Optional. All if None.
 
     Returns:
         A tuple of the selection of the rows where the function is true and the selection of the others.
 
     Raises:
-        KeyError: A name in `cols` is not a column.
         NotImplementedError: `indirect_col` is given.
 
     Examples:
@@ -338,8 +316,7 @@ def _split_where(
         >>> people_sdaf = SqlDaf('people', cols=['id', 'name', 'city', 'age'], keyfield='id', lol=[
         ...     ['p1', 'Ana Lopez', 'Denver', 34], ['p2', 'Ben Okafor', 'Austin', 52], ['p3', 'Chen Wu', 'Boston', 27]])
 
-        Split the people into those over 30 and the rest, in one call. On a large table, add
-        `cols=['age']`, the column the function reads, to save time, as `select_where()` explains:
+        Split the people into those over 30 and the rest, in one call:
 
         >>> older_sdaf, younger_sdaf = people_sdaf.split_where(lambda row: row['age'] > 30)
         >>> older_sdaf
