@@ -1187,7 +1187,7 @@ def _select_record(self: 'Daf', key: str | int | T_ta, silent_error: bool=True) 
         %% daf rows=3; cols=3; keyfield='id'; name=''
         <BLANKLINE>
 
-        Read the row with key 2 as a dict. A key that is not there gives an empty dict:
+        Read the row with key 2 as a dict:
 
         >>> daf.select_record(2)
         {'id': 2, 'city': 'Austin', 'age': 52}

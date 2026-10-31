@@ -1538,7 +1538,7 @@ def _groupby_cols_reduce(
         %% daf rows=3; cols=3; keyfield=''; name=''
         <BLANKLINE>
 
-        Total the amount for each city. The other columns are empty:
+        Total the amount for each city. Only the column grouped by and the totals are kept:
 
         >>> daf.groupby_cols_reduce(['city'], Daf.sum_da, reduce_cols=['amount'])
         <BLANKLINE>
@@ -3737,7 +3737,8 @@ def _sum(
         >>> Daf(cols=['qty', 'amount'], lol=[[2, 25.0], [6, 24.0]]).sum()
         {'qty': 8.0, 'amount': 49.0}
 
-        A column with text of digits and an empty cell. `sum()` raises on text, so check it first:
+        A column with text of digits and an empty cell. `sum()` converts the text '6' and adds it.
+        `reduce(Daf.sum_da)` skips it, so the totals differ:
 
         >>> mixed = Daf(cols=['qty'], lol=[[2], ['6'], [''], [1.5]])
         >>> mixed
