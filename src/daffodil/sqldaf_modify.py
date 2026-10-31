@@ -76,29 +76,32 @@ def _delete_records(
         ValueError: This SqlDaf, or a SqlDaf given as the keys, has no keyfield.
 
     Examples:
+        Create a small SqlDaf table of people:
+
         >>> import tempfile
         >>> SqlDaf.db_path = tempfile.mkdtemp() + '/job.db'
-        >>> items_sdaf = SqlDaf.from_daf(Daf(cols=['id', 'qty'], keyfield='id', lol=[['a1', 3], ['b2', 10], ['c3', 7]]), name='items')
+        >>> people_sdaf = SqlDaf('people', cols=['id', 'name', 'age'], keyfield='id', lol=[
+        ...     ['p1', 'Ana Lopez', 34], ['p2', 'Ben Okafor', 52], ['p3', 'Chen Wu', 27]])
 
-        By default, a selection without the rows is returned, and the table keeps them:
+        By default, get a selection without the rows. The table keeps them:
 
-        >>> items_sdaf.delete_records(['b2']).keys()
-        ['a1', 'c3']
-        >>> items_sdaf.keys()
-        ['a1', 'b2', 'c3']
+        >>> people_sdaf.delete_records(['p2']).keys()
+        ['p1', 'p3']
+        >>> people_sdaf.keys()
+        ['p1', 'p2', 'p3']
 
         A key that is not found raises, unless `silent_error=True`:
 
-        >>> items_sdaf.delete_records(['z9'])
+        >>> people_sdaf.delete_records(['p9'])
         Traceback (most recent call last):
-        KeyError: 'z9'
-        >>> items_sdaf.delete_records(['z9', 'c3'], silent_error=True).keys()
-        ['a1', 'b2']
+        KeyError: 'p9'
+        >>> people_sdaf.delete_records(['p9', 'p3'], silent_error=True).keys()
+        ['p1', 'p2']
 
-        With `inplace=True`, the rows are deleted from the table:
+        Delete the rows from the table itself, with `inplace=True`:
 
-        >>> items_sdaf.delete_records(['b2'], inplace=True).keys()
-        ['a1', 'c3']
+        >>> people_sdaf.delete_records(['p2'], inplace=True).keys()
+        ['p1', 'p3']
     """
     if not inplace:
         return self.select_records_daf(keys_ls, inverse=True, silent_error=silent_error)
@@ -161,22 +164,33 @@ def _remove_dups(self: 'SqlDaf', keyfield: str = '') -> Tuple['SqlDaf', 'SqlDaf'
         NotImplementedError: The key is several columns.
 
     Examples:
+        Create a small SqlDaf table of sign-ups, where one email appears twice:
+
         >>> import tempfile
         >>> SqlDaf.db_path = tempfile.mkdtemp() + '/job.db'
-        >>> marks_sdaf = SqlDaf('marks', cols=['id', 'v'], lol=[[1, 'a'], [2, 'b'], [1, 'c']])
-        >>> marks_sdaf
+        >>> signups_sdaf = SqlDaf('signups', cols=['email', 'name'], lol=[
+        ...     ['ana@example.com', 'Ana Lopez'], ['ben@example.com', 'Ben Okafor'], ['ana@example.com', 'Ana L.']])
+
+        Split it into the first row for each email, and the repeats:
+
+        >>> unique_sdaf, dups_sdaf = signups_sdaf.remove_dups('email')
+        >>> unique_sdaf
         <BLANKLINE>
-        | id | v  |
-        | -: | -: |
-        |  1 |  a |
-        |  2 |  b |
-        |  1 |  c |
+        |      email      |    name    |
+        | --------------: | ---------: |
+        | ana@example.com |     Ana L. |
+        | ben@example.com | Ben Okafor |
         <BLANKLINE>
-        %% daf rows=3; cols=2; keyfield=''; name='marks'
+        %% daf rows=2; cols=2; keyfield='email'; name='daf_tmp_signups_v1'
         <BLANKLINE>
-        >>> unique_sdaf, dups_sdaf = marks_sdaf.remove_dups('id')
-        >>> unique_sdaf.to_daf().lol, dups_sdaf.to_daf().lol
-        ([[1, 'c'], [2, 'b']], [[1, 'a']])
+        >>> dups_sdaf
+        <BLANKLINE>
+        |      email      |   name    |
+        | --------------: | --------: |
+        | ana@example.com | Ana Lopez |
+        <BLANKLINE>
+        %% daf rows=1; cols=2; keyfield='email'; name='daf_tmp_signups_v2'
+        <BLANKLINE>
     """
     key_col: Any = keyfield or self.keyfield
     if not key_col:
@@ -232,24 +246,37 @@ def _concat(self: 'SqlDaf', other_instance: Daf, respect_kd: bool = False) -> 'S
         NotImplementedError: The other is a selection or TEMP table of another thread's connection.
 
     Examples:
+        Create two small SqlDaf tables of people, with one key in both:
+
         >>> import tempfile
         >>> SqlDaf.db_path = tempfile.mkdtemp() + '/job.db'
-        >>> items_sdaf = SqlDaf.from_daf(Daf(cols=['id', 'qty'], keyfield='id', lol=[['a1', 3], ['b2', 10]]), name='items')
-        >>> more_sdaf = SqlDaf.from_daf(Daf(cols=['id', 'qty'], keyfield='id', lol=[['b2', 0], ['c3', 7]]), name='more')
-        >>> items_sdaf.concat(more_sdaf)
+        >>> people_sdaf = SqlDaf('people', cols=['id', 'name', 'age'], keyfield='id', lol=[['p1', 'Ana Lopez', 34], ['p2', 'Ben Okafor', 52]])
+        >>> more_sdaf = SqlDaf('more', cols=['id', 'name', 'age'], keyfield='id', lol=[['p2', 'Ben Okafor', 53], ['p3', 'Chen Wu', 27]])
+
+        Adding a key that is already there raises, and nothing is added:
+
+        >>> people_sdaf.concat(more_sdaf)
         Traceback (most recent call last):
-        sqlite3.IntegrityError: UNIQUE constraint failed: items.id
+        sqlite3.IntegrityError: UNIQUE constraint failed: people.id
 
         With `respect_kd=True`, a row whose key is there replaces that row, in its place:
 
-        >>> items_sdaf.concat(more_sdaf, respect_kd=True).to_lod()
-        [{'id': 'a1', 'qty': 3}, {'id': 'b2', 'qty': 0}, {'id': 'c3', 'qty': 7}]
+        >>> people_sdaf.concat(more_sdaf, respect_kd=True)
+        <BLANKLINE>
+        | id |    name    | age |
+        | -: | ---------: | --: |
+        | p1 |  Ana Lopez |  34 |
+        | p2 | Ben Okafor |  53 |
+        | p3 |    Chen Wu |  27 |
+        <BLANKLINE>
+        %% daf rows=3; cols=3; keyfield='id'; name='people'
+        <BLANKLINE>
 
         The columns must match, in name and order:
 
-        >>> items_sdaf.concat(Daf(cols=['id', 'price'], lol=[['d4', 1.5]]))
+        >>> people_sdaf.concat(Daf(cols=['id', 'name', 'city'], lol=[['p4', 'Dana Smith', 'Austin']]))
         Traceback (most recent call last):
-        KeyError: "concat() into 'items': the columns differ. Only in this table: ['qty']. Only in the other: ['price']."
+        KeyError: "concat() into 'people': the columns differ. Only in this table: ['age']. Only in the other: ['city']."
     """
     # Rows are counted only when the columns differ, so a normal concat costs nothing more.
     if other_instance.columns() != self.columns():
@@ -365,49 +392,48 @@ def _append(
         sqlite3.IntegrityError: A key would be repeated. Nothing is added.
 
     Examples:
+        Create a small SqlDaf table of people:
+
         >>> import tempfile
         >>> SqlDaf.db_path = tempfile.mkdtemp() + '/job.db'
-        >>> items_sdaf = SqlDaf.from_daf(Daf(cols=['id', 'item', 'qty'], keyfield='id', lol=[['a1', 'pen', 3], ['b2', 'ink', 10]]), name='items')
-        >>> items_sdaf
-        <BLANKLINE>
-        | id | item | qty |
-        | -: | ---: | --: |
-        | a1 |  pen |   3 |
-        | b2 |  ink |  10 |
-        <BLANKLINE>
-        %% daf rows=2; cols=3; keyfield='id'; name='items'
-        <BLANKLINE>
+        >>> people_sdaf = SqlDaf('people', cols=['id', 'name', 'age'], keyfield='id', lol=[['p1', 'Ana Lopez', 34], ['p2', 'Ben Okafor', 52]])
 
-        One row as a dict, placed by name, or as a list in column order. A short list is padded:
+        Add one row as a dict, placed by column name:
 
-        >>> items_sdaf.append({'qty': 7, 'id': 'c3', 'item': 'pad'}).select_record('c3')
-        {'id': 'c3', 'item': 'pad', 'qty': 7}
-        >>> items_sdaf.append(['d4', 'cap']).select_record('d4')
-        {'id': 'd4', 'item': 'cap', 'qty': ''}
+        >>> people_sdaf.append({'age': 27, 'id': 'p3', 'name': 'Chen Wu'}).select_record('p3')
+        {'id': 'p3', 'name': 'Chen Wu', 'age': 27}
 
-        Several rows, as lists, or one row with `la=`:
+        Add one row as a list, in column order. A short list is padded with Python NULL:
 
-        >>> items_sdaf.append(lol=[['e5', 'tag', 2], ['f6', 'clip', 5]]).keys()
-        ['a1', 'b2', 'c3', 'd4', 'e5', 'f6']
-        >>> items_sdaf.append(la=['g7', 'tape', 1]).len()
+        >>> people_sdaf.append(['p4', 'Dana Smith']).select_record('p4')
+        {'id': 'p4', 'name': 'Dana Smith', 'age': ''}
+
+        Add several rows as lists, or one row with `la=`:
+
+        >>> people_sdaf.append(lol=[['p5', 'Eva Novak', 45], ['p6', 'Femi Ade', 38]]).keys()
+        ['p1', 'p2', 'p3', 'p4', 'p5', 'p6']
+        >>> people_sdaf.append(la=['p7', 'Gus Berg', 61]).len()
         7
 
-        A key that is there raises, and nothing is added. With `respect_kd=True` the row is replaced, in its place:
+        A key that is there raises, and nothing is added:
 
-        >>> items_sdaf.append({'id': 'a1', 'item': 'pen', 'qty': 0})
+        >>> people_sdaf.append({'id': 'p1', 'name': 'Ana Lopez', 'age': 35})
         Traceback (most recent call last):
-        sqlite3.IntegrityError: UNIQUE constraint failed: items.id
-        >>> items_sdaf.append({'id': 'a1', 'item': 'pen', 'qty': 0}, respect_kd=True).iloc(0)
-        {'id': 'a1', 'item': 'pen', 'qty': 0}
+        sqlite3.IntegrityError: UNIQUE constraint failed: people.id
 
-        The rows of a Daf, with the same columns:
+        Replace that row instead, in its place, with `respect_kd=True`:
 
-        >>> items_sdaf.append(Daf(cols=['id', 'item', 'qty'], lol=[['h8', 'pin', 9]])).iloc(-1)
-        {'id': 'h8', 'item': 'pin', 'qty': 9}
+        >>> people_sdaf.append({'id': 'p1', 'name': 'Ana Lopez', 'age': 35}, respect_kd=True).iloc(0)
+        {'id': 'p1', 'name': 'Ana Lopez', 'age': 35}
+
+        Add the rows of a Daf with the same columns:
+
+        >>> people_sdaf.append(Daf(cols=['id', 'name', 'age'], lol=[['p8', 'Hana Sato', 29]])).iloc(-1)
+        {'id': 'p8', 'name': 'Hana Sato', 'age': 29}
 
         `fast=True` is accepted, so code written for a Daf runs. Every row is checked anyway:
 
-        >>> items_sdaf.append(['i9', 'tack', 4], fast=True).len()
+        >>> people_sdaf.append(['p9', 'Ivan Petrov', 50], fast=True).len()
         9
     """
     if sum(item is not None for item in (data_item, lol, la)) > 1:
@@ -449,19 +475,35 @@ def _record_append(self: 'SqlDaf', record: T_da | KeyedList, respect_kd: bool = 
         sqlite3.IntegrityError: The key is there, and `respect_kd` is False. Nothing is added.
 
     Examples:
+        Create a small SqlDaf table of people:
+
         >>> import tempfile
         >>> SqlDaf.db_path = tempfile.mkdtemp() + '/job.db'
-        >>> items_sdaf = SqlDaf.from_daf(Daf(cols=['id', 'item', 'qty'], keyfield='id', lol=[['a1', 'pen', 3], ['b2', 'ink', 10]]), name='items')
+        >>> people_sdaf = SqlDaf('people', cols=['id', 'name', 'age'], keyfield='id', lol=[['p1', 'Ana Lopez', 34], ['p2', 'Ben Okafor', 52]])
 
-        A new key adds a row. A key that is there replaces its row, by default:
+        Add a row with a new key:
 
-        >>> items_sdaf.record_append({'id': 'c3', 'item': 'pad', 'qty': 7}).len()
+        >>> people_sdaf.record_append({'id': 'p3', 'name': 'Chen Wu', 'age': 27}).len()
         3
-        >>> items_sdaf.record_append({'id': 'a1', 'item': 'pen', 'qty': 0}).to_lod()
-        [{'id': 'a1', 'item': 'pen', 'qty': 0}, {'id': 'b2', 'item': 'ink', 'qty': 10}, {'id': 'c3', 'item': 'pad', 'qty': 7}]
-        >>> items_sdaf.record_append({'id': 'a1', 'item': 'pen', 'qty': 1}, respect_kd=False)
+
+        A key that is there replaces its row, by default:
+
+        >>> people_sdaf.record_append({'id': 'p1', 'name': 'Ana Lopez', 'age': 35})
+        <BLANKLINE>
+        | id |    name    | age |
+        | -: | ---------: | --: |
+        | p1 |  Ana Lopez |  35 |
+        | p2 | Ben Okafor |  52 |
+        | p3 |    Chen Wu |  27 |
+        <BLANKLINE>
+        %% daf rows=3; cols=3; keyfield='id'; name='people'
+        <BLANKLINE>
+
+        With `respect_kd=False`, a key that is there raises instead:
+
+        >>> people_sdaf.record_append({'id': 'p1', 'name': 'Ana Lopez', 'age': 36}, respect_kd=False)
         Traceback (most recent call last):
-        sqlite3.IntegrityError: UNIQUE constraint failed: items.id
+        sqlite3.IntegrityError: UNIQUE constraint failed: people.id
     """
     if not isinstance(record, (dict, KeyedList)):
         raise TypeError(f"record_append(): the record must be a dict or a KeyedList, not {type(record).__name__}.")
@@ -497,21 +539,29 @@ def _extend(
         sqlite3.IntegrityError: A key would be repeated. Nothing is added.
 
     Examples:
+        Create a small SqlDaf table of people:
+
         >>> import tempfile
         >>> SqlDaf.db_path = tempfile.mkdtemp() + '/job.db'
-        >>> items_sdaf = SqlDaf.from_daf(Daf(cols=['id', 'qty'], keyfield='id', lol=[['a1', 3]]), name='items')
-        >>> items_sdaf.extend([{'id': 'b2', 'qty': 10}, {'qty': 7, 'id': 'c3'}]).to_lod()
-        [{'id': 'a1', 'qty': 3}, {'id': 'b2', 'qty': 10}, {'id': 'c3', 'qty': 7}]
-        >>> items_sdaf.extend(lol=[['d4', 1], ['a1', 0]], respect_kd=True).to_lod()
-        [{'id': 'a1', 'qty': 0}, {'id': 'b2', 'qty': 10}, {'id': 'c3', 'qty': 7}, {'id': 'd4', 'qty': 1}]
+        >>> people_sdaf = SqlDaf('people', cols=['id', 'age'], keyfield='id', lol=[['p1', 34]])
+
+        Add several rows as dicts, each placed by column name:
+
+        >>> people_sdaf.extend([{'id': 'p2', 'age': 52}, {'age': 27, 'id': 'p3'}]).to_lod()
+        [{'id': 'p1', 'age': 34}, {'id': 'p2', 'age': 52}, {'id': 'p3', 'age': 27}]
+
+        Add rows as lists. With `respect_kd=True`, a key that is there replaces its row:
+
+        >>> people_sdaf.extend(lol=[['p4', 41], ['p1', 35]], respect_kd=True).to_lod()
+        [{'id': 'p1', 'age': 35}, {'id': 'p2', 'age': 52}, {'id': 'p3', 'age': 27}, {'id': 'p4', 'age': 41}]
 
         If one row fails, none is added:
 
-        >>> items_sdaf.extend(lol=[['e5', 2], ['b2', 0]])
+        >>> people_sdaf.extend(lol=[['p5', 45], ['p2', 53]])
         Traceback (most recent call last):
-        sqlite3.IntegrityError: UNIQUE constraint failed: items.id
-        >>> items_sdaf.keys()
-        ['a1', 'b2', 'c3', 'd4']
+        sqlite3.IntegrityError: UNIQUE constraint failed: people.id
+        >>> people_sdaf.keys()
+        ['p1', 'p2', 'p3', 'p4']
     """
     if records_lod is not None and lol is not None:
         raise TypeError("extend(): give records_lod or lol, not both.")
@@ -545,16 +595,28 @@ def _assign_record(self: 'SqlDaf', record: T_da) -> 'SqlDaf':
         ValueError: There is no keyfield, or the key is a Python NULL.
 
     Examples:
+        Create a small SqlDaf table of people:
+
         >>> import tempfile
         >>> SqlDaf.db_path = tempfile.mkdtemp() + '/job.db'
-        >>> items_sdaf = SqlDaf.from_daf(Daf(cols=['id', 'item', 'qty'], keyfield='id', lol=[['a1', 'pen', 3], ['b2', 'ink', 10]]), name='items')
+        >>> people_sdaf = SqlDaf('people', cols=['id', 'name', 'age'], keyfield='id', lol=[['p1', 'Ana Lopez', 34], ['p2', 'Ben Okafor', 52]])
 
-        The whole row is replaced. Columns the dict lacks become Python NULL. A new key is added at the end:
+        Replace a whole row by its key. Columns the dict lacks become Python NULL:
 
-        >>> items_sdaf.assign_record({'id': 'a1', 'qty': 4}).to_lod()
-        [{'id': 'a1', 'item': '', 'qty': 4}, {'id': 'b2', 'item': 'ink', 'qty': 10}]
-        >>> items_sdaf.assign_record({'id': 'c3', 'item': 'pad', 'qty': 7}).keys()
-        ['a1', 'b2', 'c3']
+        >>> people_sdaf.assign_record({'id': 'p1', 'age': 35})
+        <BLANKLINE>
+        | id |    name    | age |
+        | -: | ---------: | --: |
+        | p1 |            |  35 |
+        | p2 | Ben Okafor |  52 |
+        <BLANKLINE>
+        %% daf rows=2; cols=3; keyfield='id'; name='people'
+        <BLANKLINE>
+
+        A new key is added at the end:
+
+        >>> people_sdaf.assign_record({'id': 'p3', 'name': 'Chen Wu', 'age': 27}).keys()
+        ['p1', 'p2', 'p3']
     """
     key_col: str = self._need_keyfield('assign_record')
     if key_col not in record:
@@ -582,11 +644,25 @@ def _update_by_keylist(self: 'SqlDaf', keylist: T_la | None = None, record: T_da
         sqlite3.IntegrityError: The change gives a repeated key. Nothing changes.
 
     Examples:
+        Create a small SqlDaf table of people:
+
         >>> import tempfile
         >>> SqlDaf.db_path = tempfile.mkdtemp() + '/job.db'
-        >>> items_sdaf = SqlDaf.from_daf(Daf(cols=['id', 'g', 'qty'], keyfield='id', lol=[['a1', 'x', 3], ['b2', 'y', 10], ['c3', 'x', 7]]), name='items')
-        >>> items_sdaf.update_by_keylist(['a1', 'c3', 'z9'], {'g': 'z', 'note': 'ignored'}).to_lod()
-        [{'id': 'a1', 'g': 'z', 'qty': 3}, {'id': 'b2', 'g': 'y', 'qty': 10}, {'id': 'c3', 'g': 'z', 'qty': 7}]
+        >>> people_sdaf = SqlDaf('people', cols=['id', 'name', 'city'], keyfield='id', lol=[
+        ...     ['p1', 'Ana Lopez', 'Denver'], ['p2', 'Ben Okafor', 'Austin'], ['p3', 'Chen Wu', 'Denver']])
+
+        Change the city of two people. A key that is not found, and a name that is not a column, are ignored:
+
+        >>> people_sdaf.update_by_keylist(['p1', 'p3', 'p9'], {'city': 'Boulder', 'email': 'ignored'})
+        <BLANKLINE>
+        | id |    name    |  city   |
+        | -: | ---------: | ------: |
+        | p1 |  Ana Lopez | Boulder |
+        | p2 | Ben Okafor |  Austin |
+        | p3 |    Chen Wu | Boulder |
+        <BLANKLINE>
+        %% daf rows=3; cols=3; keyfield='id'; name='people'
+        <BLANKLINE>
     """
     cols_ls: T_ls = [col for col in (record or {}) if col in self.hd]
     if not self.keyfield or not keylist or not cols_ls:
@@ -625,29 +701,24 @@ def _update_record_krow(self: 'SqlDaf', key: Any, record: T_da | None = None) ->
         sqlite3.IntegrityError: The change gives a repeated key. Nothing changes.
 
     Examples:
+        Create a small SqlDaf table whose keys are ints, as employee numbers:
+
         >>> import tempfile
         >>> SqlDaf.db_path = tempfile.mkdtemp() + '/job.db'
-        >>> ids_sdaf = SqlDaf('ids', cols=['id', 'v'], lol=[[10, 'a'], [20, 'b']], keyfield='id')
-        >>> ids_sdaf
+        >>> staff_sdaf = SqlDaf('staff', cols=['emp_no', 'name', 'title'], keyfield='emp_no', lol=[
+        ...     [1042, 'Ana Lopez', 'Analyst'], [2071, 'Ben Okafor', 'Engineer']])
+
+        Change some cells of the row with key 2071. An int here is a key, not a position:
+
+        >>> staff_sdaf.update_record_krow(2071, {'title': 'Lead Engineer'})
         <BLANKLINE>
-        | id | v  |
-        | -: | -: |
-        | 10 |  a |
-        | 20 |  b |
+        | emp_no |    name    |     title     |
+        | -----: | ---------: | ------------: |
+        |   1042 |  Ana Lopez |       Analyst |
+        |   2071 | Ben Okafor | Lead Engineer |
         <BLANKLINE>
-        %% daf rows=2; cols=2; keyfield='id'; name='ids'
+        %% daf rows=2; cols=3; keyfield='emp_no'; name='staff'
         <BLANKLINE>
-        >>> ids_sdaf.update_record_krow(20, {'v': 'q'})
-        <BLANKLINE>
-        | id | v  |
-        | -: | -: |
-        | 10 |  a |
-        | 20 |  q |
-        <BLANKLINE>
-        %% daf rows=2; cols=2; keyfield='id'; name='ids'
-        <BLANKLINE>
-        >>> ids_sdaf.select_record(20)
-        {'id': 20, 'v': 'q'}
     """
     if record is None:
         return self
@@ -690,18 +761,34 @@ def _assign_col(self: 'SqlDaf', colname: str, la: T_la | None = None, default: A
         sqlite3.IntegrityError: The change gives a repeated key. Nothing changes.
 
     Examples:
+        Create a small SqlDaf table of people:
+
         >>> import tempfile
         >>> SqlDaf.db_path = tempfile.mkdtemp() + '/job.db'
-        >>> items_sdaf = SqlDaf.from_daf(Daf(cols=['id', 'qty'], keyfield='id', lol=[['a1', 3], ['b2', 10], ['c3', 7]]), name='items')
-        >>> items_sdaf.assign_col('qty', [1, 2, 3]).col('qty')
-        [1, 2, 3]
+        >>> people_sdaf = SqlDaf('people', cols=['id', 'age'], keyfield='id', lol=[['p1', 34], ['p2', 52], ['p3', 27]])
 
-        A short list is filled out with `default`. A new column is added at the end:
+        Fill a column from a list, in row order:
 
-        >>> items_sdaf.assign_col('qty', [5], default=0).col('qty')
-        [5, 0, 0]
-        >>> items_sdaf.assign_col('note', default='new').to_lod()
-        [{'id': 'a1', 'qty': 5, 'note': 'new'}, {'id': 'b2', 'qty': 0, 'note': 'new'}, {'id': 'c3', 'qty': 0, 'note': 'new'}]
+        >>> people_sdaf.assign_col('age', [35, 53, 28]).col('age')
+        [35, 53, 28]
+
+        A short list is filled out with `default`:
+
+        >>> people_sdaf.assign_col('age', [40], default=0).col('age')
+        [40, 0, 0]
+
+        A new column is added at the end, here with the default in every row:
+
+        >>> people_sdaf.assign_col('city', default='unknown')
+        <BLANKLINE>
+        | id | age |  city   |
+        | -: | --: | ------: |
+        | p1 |  40 | unknown |
+        | p2 |   0 | unknown |
+        | p3 |   0 | unknown |
+        <BLANKLINE>
+        %% daf rows=3; cols=3; keyfield='id'; name='people'
+        <BLANKLINE>
     """
     if colname not in self.hd:
         if self.parent_sdaf is not None:
@@ -738,21 +825,26 @@ def _apply_to_col(self: 'SqlDaf', col: str, func: Callable, **kwargs: Any) -> 'S
         sqlite3.IntegrityError: The change gives a repeated key. Nothing changes.
 
     Examples:
+        Create a small SqlDaf table of people, with heights in centimeters. One is not known:
+
         >>> import tempfile
         >>> SqlDaf.db_path = tempfile.mkdtemp() + '/job.db'
-        >>> items_sdaf = SqlDaf.from_daf(Daf(cols=['id', 'qty'], keyfield='id', lol=[['a1', 3], ['b2', ''], ['c3', 7]]), name='items')
-        >>> def scale(val, factor=1):
-        ...     return val * factor if val != '' else 0
-        >>> items_sdaf.apply_to_col('qty', scale, factor=10).col('qty')
-        [30, 0, 70]
+        >>> people_sdaf = SqlDaf('people', cols=['id', 'height'], keyfield='id', lol=[['p1', 168], ['p2', ''], ['p3', 175]])
+
+        Convert each height to meters. Keyword arguments go to the function:
+
+        >>> def to_meters(height, per_meter=100):
+        ...     return height / per_meter if height != '' else ''
+        >>> people_sdaf.apply_to_col('height', to_meters, per_meter=100).col('height')
+        [1.68, '', 1.75]
 
         If the function raises, nothing changes:
 
-        >>> items_sdaf.apply_to_col('qty', lambda val: 100 // (val - 30))
+        >>> people_sdaf.apply_to_col('height', lambda height: 1 / (height - 1.68))
         Traceback (most recent call last):
-        ZeroDivisionError: integer division or modulo by zero
-        >>> items_sdaf.col('qty')
-        [30, 0, 70]
+        ZeroDivisionError: float division by zero
+        >>> people_sdaf.col('height')
+        [1.68, '', 1.75]
     """
     if col not in self.hd:
         raise ColumnNotFoundError(col)
@@ -804,28 +896,39 @@ def _apply_in_place(
         sqlite3.IntegrityError: A key became repeated. Nothing changes.
 
     Examples:
+        Create a small SqlDaf table of orders, with a price and a quantity, and a total to fill in:
+
         >>> import tempfile
         >>> SqlDaf.db_path = tempfile.mkdtemp() + '/job.db'
-        >>> items_sdaf = SqlDaf.from_daf(Daf(cols=['id', 'price', 'qty', 'total'], keyfield='id', lol=[['a1', 1.5, 2, ''], ['b2', 4.0, 3, ''], ['c3', 2.0, 5, '']]), name='items')
+        >>> orders_sdaf = SqlDaf('orders', cols=['id', 'price', 'qty', 'total'], keyfield='id', lol=[
+        ...     ['o1', 12.5, 2, ''], ['o2', 4.0, 6, ''], ['o3', 30.0, 1, '']])
 
         With `by='row'`, the function returns the cells to change, by name:
 
         >>> def add_total(row, tax=0.0):
         ...     return {'total': row['price'] * row['qty'] * (1 + tax)}
-        >>> items_sdaf.apply_in_place(add_total).col('total')
-        [3.0, 12.0, 10.0]
+        >>> orders_sdaf.apply_in_place(add_total)
+        <BLANKLINE>
+        | id | price | qty | total |
+        | -: | ----: | --: | ----: |
+        | o1 |  12.5 |   2 |  25.0 |
+        | o2 |   4.0 |   6 |  24.0 |
+        | o3 |  30.0 |   1 |  30.0 |
+        <BLANKLINE>
+        %% daf rows=3; cols=4; keyfield='id'; name='orders'
+        <BLANKLINE>
 
-        Only some rows, with `rowkeys`. Other keywords go to the function:
+        Change only some rows, with `rowkeys`. Other keywords go to the function:
 
-        >>> items_sdaf.apply_in_place(add_total, rowkeys=['b2'], tax=0.5).col('total')
-        [3.0, 18.0, 10.0]
+        >>> orders_sdaf.apply_in_place(add_total, rowkeys=['o2'], tax=0.25).col('total')
+        [25.0, 30.0, 30.0]
 
         With `by='row_klist'`, the function changes a KeyedList and returns nothing:
 
-        >>> def zero_qty(row):
-        ...     row['qty'] = 0
-        >>> items_sdaf.apply_in_place(zero_qty, by='row_klist').col('qty')
-        [0, 0, 0]
+        >>> def double_qty(row):
+        ...     row['qty'] = row['qty'] * 2
+        >>> orders_sdaf.apply_in_place(double_qty, by='row_klist').col('qty')
+        [4, 12, 2]
     """
     if by not in ('row', 'row_klist'):
         raise NotImplementedError(f"apply_in_place(by={by!r}) is not supported on a SqlDaf.")
@@ -919,41 +1022,29 @@ def _insert_col(
         NotImplementedError: A new column at a position other than the end, or on a selection.
 
     Examples:
+        Create a small SqlDaf table of people:
+
         >>> import tempfile
         >>> SqlDaf.db_path = tempfile.mkdtemp() + '/job.db'
-        >>> marks_sdaf = SqlDaf('marks', cols=['ballot_id', 'v'], lol=[['b1', 1], ['b2', 0]], keyfield='ballot_id')
-        >>> marks_sdaf
+        >>> people_sdaf = SqlDaf('people', cols=['id', 'name'], keyfield='id', lol=[['p1', 'Ana Lopez'], ['p2', 'Ben Okafor']])
+
+        Add a column at the end, from a list. A short list is filled out with `default`:
+
+        >>> people_sdaf.insert_col('city', ['Denver'], default='unknown')
         <BLANKLINE>
-        | ballot_id | v  |
-        | --------: | -: |
-        |        b1 |  1 |
-        |        b2 |  0 |
+        | id |    name    |  city   |
+        | -: | ---------: | ------: |
+        | p1 |  Ana Lopez |  Denver |
+        | p2 | Ben Okafor | unknown |
         <BLANKLINE>
-        %% daf rows=2; cols=2; keyfield='ballot_id'; name='marks'
-        <BLANKLINE>
-        >>> marks_sdaf.insert_col('w', ['x'])
-        <BLANKLINE>
-        | ballot_id | v  | w  |
-        | --------: | -: | -: |
-        |        b1 |  1 |  x |
-        |        b2 |  0 |    |
-        <BLANKLINE>
-        %% daf rows=2; cols=3; keyfield='ballot_id'; name='marks'
+        %% daf rows=2; cols=3; keyfield='id'; name='people'
         <BLANKLINE>
 
-        A list shorter than the rows is filled out with `default`. The column goes at the end. Another
-        position raises NotImplementedError:
+        A column at another position is not supported on a SqlDaf:
 
-        >>> stock_sdaf = SqlDaf.from_daf(Daf(cols=['id', 'qty'], lol=[['a1', 3], ['b2', 10]]), name='ins_stock')
-        >>> stock_sdaf.insert_col('color', ['red'], default='none')
-        <BLANKLINE>
-        | id | qty | color |
-        | -: | --: | ----: |
-        | a1 |   3 |   red |
-        | b2 |  10 |  none |
-        <BLANKLINE>
-        %% daf rows=2; cols=3; keyfield=''; name='ins_stock'
-        <BLANKLINE>
+        >>> people_sdaf.insert_col('age', icol=1)
+        Traceback (most recent call last):
+        NotImplementedError: ...
     """
     if not colname:
         return self
@@ -984,42 +1075,38 @@ def _insert_idx_col(self: 'SqlDaf', colname: str = 'idx', icol: int = 0, startat
         This SqlDaf, which now refers to the TEMP copy.
 
     Examples:
+        Create a small SqlDaf table of people:
+
         >>> import tempfile
         >>> SqlDaf.db_path = tempfile.mkdtemp() + '/job.db'
-        >>> marks_sdaf = SqlDaf('marks', cols=['ballot_id', 'v'], lol=[['b1', 1], ['b2', 0], ['b3', 1]], keyfield='ballot_id')
-        >>> marks_sdaf
-        <BLANKLINE>
-        | ballot_id | v  |
-        | --------: | -: |
-        |        b1 |  1 |
-        |        b2 |  0 |
-        |        b3 |  1 |
-        <BLANKLINE>
-        %% daf rows=3; cols=2; keyfield='ballot_id'; name='marks'
-        <BLANKLINE>
-        >>> marks_sdaf.select_by_dict({'v': 1}).insert_idx_col(startat=1)
-        <BLANKLINE>
-        | idx | ballot_id | v  |
-        | --: | --------: | -: |
-        |   1 |        b1 |  1 |
-        |   2 |        b3 |  1 |
-        <BLANKLINE>
-        %% daf rows=2; cols=3; keyfield='ballot_id'; name='daf_tmp_marks_v2'
-        <BLANKLINE>
-        >>> marks_sdaf.columns()
-        ['ballot_id', 'v']
+        >>> people_sdaf = SqlDaf('people', cols=['id', 'name', 'city'], keyfield='id', lol=[
+        ...     ['p1', 'Ana Lopez', 'Denver'], ['p2', 'Ben Okafor', 'Austin'], ['p3', 'Chen Wu', 'Denver']])
 
-        Another name, in another place:
+        Number the people in Denver, from 1. The selection gets rows of its own first, so the table is not changed:
 
-        >>> stock_sdaf = SqlDaf.from_daf(Daf(cols=['id', 'qty'], lol=[['a1', 3], ['b2', 10]]), name='idx_stock')
-        >>> stock_sdaf.insert_idx_col('n', icol=1)
+        >>> people_sdaf.select_by_dict({'city': 'Denver'}).insert_idx_col(startat=1)
         <BLANKLINE>
-        | id | n  | qty |
-        | -: | -: | --: |
-        | a1 |  0 |   3 |
-        | b2 |  1 |  10 |
+        | idx | id |   name    |  city  |
+        | --: | -: | --------: | -----: |
+        |   1 | p1 | Ana Lopez | Denver |
+        |   2 | p3 |   Chen Wu | Denver |
         <BLANKLINE>
-        %% daf rows=2; cols=3; keyfield=''; name='daf_tmp_idx_stock_v3'
+        %% daf rows=2; cols=4; keyfield='id'; name='daf_tmp_people_v2'
+        <BLANKLINE>
+        >>> people_sdaf.columns()
+        ['id', 'name', 'city']
+
+        Give the column another name, and put it in another place:
+
+        >>> people_sdaf.insert_idx_col('row_no', icol=1)
+        <BLANKLINE>
+        | id | row_no |    name    |  city  |
+        | -: | -----: | ---------: | -----: |
+        | p1 |      0 |  Ana Lopez | Denver |
+        | p2 |      1 | Ben Okafor | Austin |
+        | p3 |      2 |    Chen Wu | Denver |
+        <BLANKLINE>
+        %% daf rows=3; cols=4; keyfield='id'; name='daf_tmp_people_v3'
         <BLANKLINE>
     """
     if not colname:
@@ -1082,19 +1169,22 @@ def _drop_cols(self: 'SqlDaf', exclude_cols: T_ls | None = None) -> 'SqlDaf':
         sqlite3.OperationalError: An index of your own is on a column dropped. Nothing changes.
 
     Examples:
+        Create a small SqlDaf table of people:
+
         >>> import tempfile
         >>> SqlDaf.db_path = tempfile.mkdtemp() + '/job.db'
-        >>> marks_sdaf = SqlDaf('marks', cols=['ballot_id', 'v', 'n'], lol=[['b1', 1, 10]], keyfield='ballot_id')
-        >>> marks_sdaf
+        >>> people_sdaf = SqlDaf('people', cols=['id', 'name', 'city', 'age'], keyfield='id', lol=[['p1', 'Ana Lopez', 'Denver', 34]])
+
+        Drop a column from the table:
+
+        >>> people_sdaf.drop_cols(['city'])
         <BLANKLINE>
-        | ballot_id | v  | n  |
-        | --------: | -: | -: |
-        |        b1 |  1 | 10 |
+        | id |   name    | age |
+        | -: | --------: | --: |
+        | p1 | Ana Lopez |  34 |
         <BLANKLINE>
-        %% daf rows=1; cols=3; keyfield='ballot_id'; name='marks'
+        %% daf rows=1; cols=3; keyfield='id'; name='people'
         <BLANKLINE>
-        >>> marks_sdaf.drop_cols(['v']).columns()
-        ['ballot_id', 'n']
     """
     if not exclude_cols:
         return self
@@ -1149,19 +1239,22 @@ def _rename_cols(self: 'SqlDaf', from_to_dict: T_ds) -> 'SqlDaf':
         sqlite3.OperationalError: Two columns would have the same name. Nothing changes.
 
     Examples:
+        Create a small SqlDaf table of people, keyed by id:
+
         >>> import tempfile
         >>> SqlDaf.db_path = tempfile.mkdtemp() + '/job.db'
-        >>> marks_sdaf = SqlDaf('marks', cols=['id', 'v'], lol=[['b1', 1]], keyfield='id')
-        >>> marks_sdaf
+        >>> people_sdaf = SqlDaf('people', cols=['id', 'name'], keyfield='id', lol=[['p1', 'Ana Lopez']])
+
+        Rename the key column. The keyfield follows the new name:
+
+        >>> people_sdaf.rename_cols({'id': 'person_id'})
         <BLANKLINE>
-        | id | v  |
-        | -: | -: |
-        | b1 |  1 |
+        | person_id |   name    |
+        | --------: | --------: |
+        |        p1 | Ana Lopez |
         <BLANKLINE>
-        %% daf rows=1; cols=2; keyfield='id'; name='marks'
+        %% daf rows=1; cols=2; keyfield='person_id'; name='people'
         <BLANKLINE>
-        >>> marks_sdaf.rename_cols({'id': 'ballot_id'}).columns(), marks_sdaf.keyfield
-        (['ballot_id', 'v'], 'ballot_id')
     """
     self._check_layout_change('rename_cols')
     self._rename_by_map({old: new for old, new in from_to_dict.items() if old in self.hd and new != old})
@@ -1225,20 +1318,23 @@ def _set_cols(
         NotImplementedError: This is a selection.
 
     Examples:
+        Create a small SqlDaf table with plain column names:
+
         >>> import tempfile
         >>> SqlDaf.db_path = tempfile.mkdtemp() + '/job.db'
-        >>> SqlDaf('t', cols=['a', 'b', 'c'], lol=[[1, 2, 3]]).set_cols(['x', 'x', '']).columns()
-        ['x', 'x_1', 'col2']
 
-        With `sanitize_cols=True`, an empty name gets one made from `unnamed_prefix`, and a repeated
-        name gets a number:
+        Set all the names at once. Repeated and empty names are taken as given:
 
-        >>> grid_sdaf = SqlDaf.from_daf(Daf(cols=['a', 'b', 'c'], lol=[[1, 2, 3]]), name='setcols_grid')
-        >>> grid_sdaf.set_cols(['a', '', 'a'], sanitize_cols=True).columns()
-        ['a', 'col1', 'a_2']
-        >>> grid2_sdaf = SqlDaf.from_daf(Daf(cols=['a', 'b', 'c'], lol=[[1, 2, 3]]), name='setcols_grid2')
-        >>> grid2_sdaf.set_cols(['k', '', 'q'], sanitize_cols=True, unnamed_prefix='unnamed').columns()
-        ['k', 'unnamed1', 'q']
+        >>> SqlDaf('t1', cols=['a', 'b', 'c'], lol=[['Ana Lopez', 'Denver', 34]]).set_cols(['name', 'name', '']).columns()
+        ['name', 'name_1', 'col2']
+
+        With `sanitize_cols=True`, an empty name gets one made from `unnamed_prefix`, and a repeated name gets
+        a number:
+
+        >>> SqlDaf('t2', cols=['a', 'b', 'c'], lol=[['Ana Lopez', 'Denver', 34]]).set_cols(['name', '', 'name'], sanitize_cols=True).columns()
+        ['name', 'col1', 'name_2']
+        >>> SqlDaf('t3', cols=['a', 'b', 'c'], lol=[['Ana Lopez', 'Denver', 34]]).set_cols(['name', '', 'age'], sanitize_cols=True, unnamed_prefix='col').columns()
+        ['name', 'col1', 'age']
     """
     self._check_layout_change('set_cols')
     if new_cols is None:
@@ -1274,10 +1370,16 @@ def _set_dtypes(
         NotImplementedError: A type the record cannot hold, on a table with a record. Nothing changes.
 
     Examples:
+        Create a small SqlDaf table of people, loaded as text:
+
         >>> import tempfile
         >>> SqlDaf.db_path = tempfile.mkdtemp() + '/job.db'
-        >>> SqlDaf('t', cols=['a', 'b'], lol=[['1', 'x']]).set_dtypes(str, {int: ['a']}).dtypes
-        {'a': <class 'int'>, 'b': <class 'str'>}
+        >>> people_sdaf = SqlDaf('people', cols=['id', 'name', 'age'], lol=[['p1', 'Ana Lopez', '34']])
+
+        Record str as the type of every column, and int for the age. Nothing is converted:
+
+        >>> people_sdaf.set_dtypes(str, {int: ['age']}).dtypes
+        {'id': <class 'str'>, 'name': <class 'str'>, 'age': <class 'int'>}
     """
     old_dtypes: T_dtype_dict = self.dtypes
     Daf.set_dtypes(self, default_type, typ_to_cols_dict)
@@ -1316,21 +1418,37 @@ def _sort_by_colname(
         KeyError: The column name is not found.
 
     Examples:
+        Create a small SqlDaf table of people:
+
         >>> import tempfile
         >>> SqlDaf.db_path = tempfile.mkdtemp() + '/job.db'
-        >>> SqlDaf('t', cols=['a'], lol=[['10'], ['99'], ['8']]).sort_by_colname('a', length_priority=True).col('a')
-        ['8', '10', '99']
+        >>> people_sdaf = SqlDaf('people', cols=['id', 'name', 'age'], lol=[
+        ...     ['p1', 'Ana Lopez', 34], ['p2', 'Ben Okafor', 52], ['p3', 'Chen Wu', 27]])
 
-        From high to low:
+        Sort by age, from low to high, and from high to low:
 
-        >>> stock_sdaf = SqlDaf.from_daf(Daf(cols=['id', 'qty'], lol=[['a1', 3], ['b2', 1], ['c3', 2]]), name='sort1_stock')
-        >>> stock_sdaf.sort_by_colname('qty', reverse=True).col('id')
-        ['a1', 'c3', 'b2']
+        >>> people_sdaf.sort_by_colname('age')
+        <BLANKLINE>
+        | id |    name    | age |
+        | -: | ---------: | --: |
+        | p3 |    Chen Wu |  27 |
+        | p1 |  Ana Lopez |  34 |
+        | p2 | Ben Okafor |  52 |
+        <BLANKLINE>
+        %% daf rows=3; cols=3; keyfield=''; name='daf_tmp_people_v1'
+        <BLANKLINE>
+        >>> people_sdaf.sort_by_colname('age', reverse=True).col('name')
+        ['Ben Okafor', 'Ana Lopez', 'Chen Wu']
+
+        Sort text of digits with shorter values first, with `length_priority=True`, so '9' comes before '10':
+
+        >>> SqlDaf('codes', cols=['code'], lol=[['10'], ['9'], ['100']]).sort_by_colname('code', length_priority=True).col('code')
+        ['9', '10', '100']
 
         A column of numbers mixed with text sorts in SQLite's order, numbers first, with no error. With
-        `as_str=True` it sorts by text, where `'10'` comes before `'9'`:
+        `as_str=True` it sorts by text, where '10' comes before '9':
 
-        >>> mixed_sdaf = SqlDaf.from_daf(Daf(cols=['id', 'v'], lol=[['a', 10], ['b', 9], ['c', 'x']]), name='sort1_mixed')
+        >>> mixed_sdaf = SqlDaf('mixed', cols=['id', 'v'], lol=[['a', 10], ['b', 9], ['c', 'x']])
         >>> mixed_sdaf.sort_by_colname('v').col('v')
         [9, 10, 'x']
         >>> mixed_sdaf.sort_by_colname('v', as_str=True).col('v')
@@ -1385,23 +1503,36 @@ def _sort_by_colnames(
         KeyError: A column name is not found.
 
     Examples:
+        Create a small SqlDaf table of people:
+
         >>> import tempfile
         >>> SqlDaf.db_path = tempfile.mkdtemp() + '/job.db'
-        >>> SqlDaf('t', cols=['p', 'q'], lol=[[2, 'b'], [1, 'z'], [1, 'a']]).sort_by_colnames(['p', 'q']).to_daf().lol
-        [[1, 'a'], [1, 'z'], [2, 'b']]
+        >>> people_sdaf = SqlDaf('people', cols=['id', 'city', 'name'], lol=[
+        ...     ['p1', 'Denver', 'Chen Wu'], ['p2', 'Austin', 'Ben Okafor'], ['p3', 'Denver', 'Ana Lopez']])
 
-        From high to low, and shorter values first with `length_priority=True`:
+        Sort by city, then by name within each city:
 
-        >>> names_sdaf = SqlDaf.from_daf(Daf(cols=['id', 'name'], lol=[['a', 'bb'], ['b', 'a'], ['c', 'ccc']]), name='sort2_names')
-        >>> names_sdaf.sort_by_colnames(['name'], reverse=True).col('name')
-        ['ccc', 'bb', 'a']
-        >>> names_sdaf.sort_by_colnames(['name'], length_priority=True).col('name')
-        ['a', 'bb', 'ccc']
+        >>> people_sdaf.sort_by_colnames(['city', 'name'])
+        <BLANKLINE>
+        | id |  city  |    name    |
+        | -: | -----: | ---------: |
+        | p2 | Austin | Ben Okafor |
+        | p3 | Denver |  Ana Lopez |
+        | p1 | Denver |    Chen Wu |
+        <BLANKLINE>
+        %% daf rows=3; cols=3; keyfield=''; name='daf_tmp_people_v1'
+        <BLANKLINE>
 
-        With `as_str=True`, by text:
+        Sort by name from high to low, or with shorter names first:
 
-        >>> mixed_sdaf = SqlDaf.from_daf(Daf(cols=['id', 'v'], lol=[['a', 10], ['b', 9], ['c', 'x']]), name='sort2_mixed')
-        >>> mixed_sdaf.sort_by_colnames(['v'], as_str=True).col('v')
+        >>> people_sdaf.sort_by_colnames(['name'], reverse=True).col('name')
+        ['Chen Wu', 'Ben Okafor', 'Ana Lopez']
+        >>> people_sdaf.sort_by_colnames(['name'], length_priority=True).col('name')
+        ['Chen Wu', 'Ana Lopez', 'Ben Okafor']
+
+        Sort numbers mixed with text by their text, with `as_str=True`:
+
+        >>> SqlDaf('mixed', cols=['id', 'v'], lol=[['a', 10], ['b', 9], ['c', 'x']]).sort_by_colnames(['v'], as_str=True).col('v')
         [10, 9, 'x']
     """
     col: str
@@ -1463,25 +1594,26 @@ def _attach_schema(self: 'SqlDaf', schema: type) -> 'SqlDaf':
         NotImplementedError: This SqlDaf has no columns, or a dtype the record cannot hold.
 
     Examples:
+        Describe a table of people with a schema class: its columns, their types and its keyfield:
+
         >>> import tempfile
         >>> from daffodil.lib.schemaclass import schemaclass
         >>> @schemaclass
-        ... class Mark:
-        ...     __keyfield__ = 'ballot_id'
-        ...     ballot_id: str = ''
-        ...     v: int = 0
+        ... class Person:
+        ...     __keyfield__ = 'id'
+        ...     id: str = ''
+        ...     name: str = ''
+        ...     age: int = 0
+
+        Create a small SqlDaf table, loaded as text, and attach the schema to it:
+
         >>> SqlDaf.db_path = tempfile.mkdtemp() + '/job.db'
-        >>> marks_sdaf = SqlDaf('marks', cols=['ballot_id', 'v'], lol=[['b1', '1']]).attach_schema(Mark)
-        >>> marks_sdaf
-        <BLANKLINE>
-        | ballot_id | v  |
-        | --------: | -: |
-        |        b1 |  1 |
-        <BLANKLINE>
-        %% daf rows=1; cols=2; keyfield='ballot_id'; name='marks'
-        <BLANKLINE>
-        >>> marks_sdaf.keyfield, marks_sdaf.dtypes
-        ('ballot_id', {'ballot_id': <class 'str'>, 'v': <class 'int'>})
+        >>> people_sdaf = SqlDaf('people', cols=['id', 'name', 'age'], lol=[['p1', 'Ana Lopez', '34']]).attach_schema(Person)
+
+        The keyfield and the dtypes now come from the schema:
+
+        >>> people_sdaf.keyfield, people_sdaf.dtypes
+        ('id', {'id': <class 'str'>, 'name': <class 'str'>, 'age': <class 'int'>})
     """
     if not getattr(schema, '__is_schemaclass__', False):
         raise TypeError("schema must be a @schemaclass")
