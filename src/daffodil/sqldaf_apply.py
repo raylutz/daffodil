@@ -113,34 +113,30 @@ def _apply(
         TypeError: The function returns something other than a dict, a KeyedList, a list of them, or nothing.
 
     Examples:
+        Create a small SqlDaf table of people, each with a list of hobbies in one cell:
+
         >>> import tempfile
         >>> SqlDaf.db_path = tempfile.mkdtemp() + '/job.db'
-        >>> votes_sdaf = SqlDaf.from_daf(Daf(lol=[['b1', 'c0,c1'], ['b2', '']], cols=['ballot_id', 'contests']), name='votes')
-        >>> votes_sdaf
+        >>> people_sdaf = SqlDaf('people', cols=['id', 'name', 'hobbies'], lol=[
+        ...     ['p1', 'Ana Lopez', 'chess,hiking'], ['p2', 'Ben Okafor', '']])
+
+        Make a new table with one row for each person and hobby. The function may return several rows, or none:
+
+        >>> def split_hobbies(row):
+        ...     return [{'id': row['id'], 'hobby': hobby} for hobby in row['hobbies'].split(',') if hobby]
+        >>> people_sdaf.apply(split_hobbies)
         <BLANKLINE>
-        | ballot_id | contests |
-        | --------: | -------: |
-        |        b1 |    c0,c1 |
-        |        b2 |          |
+        | id | hobby  |
+        | -: | -----: |
+        | p1 |  chess |
+        | p1 | hiking |
         <BLANKLINE>
-        %% daf rows=2; cols=2; keyfield=''; name='votes'
-        <BLANKLINE>
-        >>> def split(row):
-        ...     return [{'ballot_id': row['ballot_id'], 'contest': c} for c in row['contests'].split(',') if c]
-        >>> votes_sdaf.apply(split)
-        <BLANKLINE>
-        | ballot_id | contest |
-        | --------: | ------: |
-        |        b1 |      c0 |
-        |        b1 |      c1 |
-        <BLANKLINE>
-        %% daf rows=2; cols=2; keyfield=''; name='daf_tmp_votes_v1'
+        %% daf rows=2; cols=2; keyfield=''; name='daf_tmp_people_v1'
         <BLANKLINE>
 
         With `by='table'`, the function gets the whole SqlDaf, and its result is returned as it is:
 
-        >>> stock_sdaf = SqlDaf.from_daf(Daf(cols=['id', 'qty'], lol=[['a1', 3], ['b2', 10]]), name='apply_stock')
-        >>> stock_sdaf.apply(lambda table: len(table), by='table')
+        >>> people_sdaf.apply(lambda table: len(table), by='table')
         2
     """
     if by == 'table':
@@ -227,35 +223,45 @@ def _reduce(
         NotImplementedError: `by` is `col`, or not recognized.
 
     Examples:
+        Create a small SqlDaf table of customers, with a count of visits and a cart that maps each item to how many:
+
         >>> import tempfile
         >>> SqlDaf.db_path = tempfile.mkdtemp() + '/job.db'
-        >>> votes_sdaf = SqlDaf('votes', cols=['ballot_id', 'v', 'concise_votes'],
-        ...                     lol=[['b1', 1, "{'c0b': 1, 'c0v': 1}"], ['b2', 2, '{"c0b": 1, "c1b": 1}']])
-        >>> votes_sdaf
+        >>> carts_sdaf = SqlDaf('carts', cols=['id', 'visits', 'cart'], lol=[
+        ...     ['c1', 4, {'apples': 3, 'pears': 2}], ['c2', 7, {'apples': 5, 'plums': 6}]])
+        >>> carts_sdaf
         <BLANKLINE>
-        | ballot_id | v  |    concise_votes     |
-        | --------: | -: | -------------------: |
-        |        b1 |  1 | {'c0b': 1, 'c0v': 1} |
-        |        b2 |  2 | {"c0b": 1, "c1b": 1} |
+        | id | visits |           cart            |
+        | -: | -----: | ------------------------: |
+        | c1 |      4 | {'apples': 3, 'pears': 2} |
+        | c2 |      7 | {'apples': 5, 'plums': 6} |
         <BLANKLINE>
-        %% daf rows=2; cols=3; keyfield=''; name='votes'
+        %% daf rows=2; cols=3; keyfield=''; name='carts'
         <BLANKLINE>
-        >>> votes_sdaf.reduce(Daf.sum_da, cols=['v'])
-        {'ballot_id': '', 'v': 3, 'concise_votes': ''}
-        >>> votes_sdaf.reduce(Daf.sum_da, by='sparse_row', indirect_col='concise_votes')
-        {'c0b': 2, 'c0v': 1, 'c1b': 1}
 
-        Start from a result other than zeros, with `initial_da`. A function of your own that fails on a
-        row stops the reduction, unless `silent_error=True`, which skips that row:
+        Total the visits:
 
-        >>> mixed_sdaf = SqlDaf.from_daf(Daf(cols=['id', 'qty'], lol=[['a', 3], ['b', 'x'], ['c', 7]]), name='reduce_mixed')
-        >>> mixed_sdaf.reduce(Daf.sum_da, cols=['qty'], initial_da={'id': '', 'qty': 100})
-        {'id': '', 'qty': 110}
-        >>> def add_qty(row, result, cols=None):
-        ...     result['qty'] = result['qty'] + row['qty']
+        >>> carts_sdaf.reduce(Daf.sum_da, cols=['visits'])
+        {'id': '', 'visits': 11, 'cart': ''}
+
+        Total the items in all the carts. Each cart holds only the items bought, so it is a sparse row:
+
+        >>> carts_sdaf.reduce(Daf.sum_da, indirect_col='cart')
+        {'apples': 8, 'pears': 2, 'plums': 6}
+
+        Start from a total other than zero, with `initial_da`:
+
+        >>> carts_sdaf.reduce(Daf.sum_da, cols=['visits'], initial_da={'visits': 100})
+        {'id': '', 'visits': 111, 'cart': ''}
+
+        A function of your own that fails on a row stops the reduction, unless `silent_error=True`, which skips that row:
+
+        >>> mixed_sdaf = SqlDaf('mixed', cols=['id', 'visits'], lol=[['c1', 4], ['c2', 'unknown'], ['c3', 7]])
+        >>> def add_visits(row, result, cols=None):
+        ...     result['visits'] = result['visits'] + row['visits']
         ...     return result
-        >>> mixed_sdaf.reduce(add_qty, cols=['qty'], silent_error=True)
-        {'id': '', 'qty': 10}
+        >>> mixed_sdaf.reduce(add_visits, cols=['visits'], silent_error=True)
+        {'id': '', 'visits': 11}
     """
     # indirect_col names the column that holds each row's dict, so it means sparse rows, as in Daf.reduce().
     if indirect_col and by == 'row':
@@ -351,30 +357,27 @@ def _valuecounts_for_colname(
         A dict that maps each value to its count.
 
     Examples:
+        Create a small SqlDaf table of people. One city is not known:
+
         >>> import tempfile
         >>> SqlDaf.db_path = tempfile.mkdtemp() + '/job.db'
-        >>> bif_sdaf = SqlDaf.from_daf(Daf(lol=[['b1', 'P1'], ['b2', 'P2'], ['b3', 'P1']], cols=['ballot_id', 'precinct']), name='bif')
-        >>> bif_sdaf
-        <BLANKLINE>
-        | ballot_id | precinct |
-        | --------: | -------: |
-        |        b1 |       P1 |
-        |        b2 |       P2 |
-        |        b3 |       P1 |
-        <BLANKLINE>
-        %% daf rows=3; cols=2; keyfield=''; name='bif'
-        <BLANKLINE>
-        >>> bif_sdaf.valuecounts_for_colname('precinct', sort=True)
-        {'P1': 2, 'P2': 1}
+        >>> people_sdaf = SqlDaf('people', cols=['id', 'city'], lol=[
+        ...     ['p1', 'Denver'], ['p2', 'Austin'], ['p3', 'Denver'], ['p4', ''], ['p5', 'Denver']])
 
-        Least common first, and without the empty cells:
+        Count the people in each city, the most common first:
 
-        >>> parties_sdaf = SqlDaf.from_daf(Daf(cols=['id', 'party'], lol=[
-        ...     ['b1', 'R'], ['b2', 'D'], ['b3', 'D'], ['b4', '']]), name='vc_parties')
-        >>> parties_sdaf.valuecounts_for_colname('party', sort=True, reverse=False)
-        {'R': 1, '': 1, 'D': 2}
-        >>> parties_sdaf.valuecounts_for_colname('party', omit_nulls=True)
-        {'R': 1, 'D': 2}
+        >>> people_sdaf.valuecounts_for_colname('city', sort=True)
+        {'Denver': 3, 'Austin': 1, '': 1}
+
+        Count them with the least common first:
+
+        >>> people_sdaf.valuecounts_for_colname('city', sort=True, reverse=False)
+        {'Austin': 1, '': 1, 'Denver': 3}
+
+        Leave out the unknown city:
+
+        >>> people_sdaf.valuecounts_for_colname('city', omit_nulls=True)
+        {'Denver': 3, 'Austin': 1}
     """
     if colname not in self.hd:
         return {}
@@ -408,14 +411,22 @@ def _valuecounts_for_colnames_ls(
         A dict that maps each column to a dict of value and count.
 
     Examples:
+        Create a small SqlDaf table of customers, with a city and a plan. One plan is not known:
+
         >>> import tempfile
         >>> SqlDaf.db_path = tempfile.mkdtemp() + '/job.db'
-        >>> sales_sdaf = SqlDaf.from_daf(Daf(cols=['id', 'g', 'color', 'size'], keyfield='id', lol=[
-        ...     ['a1', 'x', 'red', 'S'], ['b2', 'y', 'blue', 'M'], ['c3', 'x', 'red', 'M'], ['d4', 'x', 'blue', 'S'], ['e5', 'x', 'red', '']]), name='sales')
-        >>> sales_sdaf.valuecounts_for_colnames_ls(['g', 'size'])
-        {'g': {'x': 4, 'y': 1}, 'size': {'S': 2, 'M': 2, '': 1}}
-        >>> sales_sdaf.valuecounts_for_colnames_ls(['g', 'size'], sort=True, reverse=False, omit_nulls=True)
-        {'g': {'y': 1, 'x': 4}, 'size': {'S': 2, 'M': 2}}
+        >>> customers_sdaf = SqlDaf('customers', cols=['id', 'city', 'plan'], lol=[
+        ...     ['c1', 'Denver', 'basic'], ['c2', 'Austin', 'pro'], ['c3', 'Denver', 'pro'], ['c4', 'Denver', 'basic'], ['c5', 'Denver', '']])
+
+        Count the values of two columns:
+
+        >>> customers_sdaf.valuecounts_for_colnames_ls(['city', 'plan'])
+        {'city': {'Denver': 4, 'Austin': 1}, 'plan': {'basic': 2, 'pro': 2, '': 1}}
+
+        Count them least common first, leaving out the unknown plan:
+
+        >>> customers_sdaf.valuecounts_for_colnames_ls(['city', 'plan'], sort=True, reverse=False, omit_nulls=True)
+        {'city': {'Austin': 1, 'Denver': 4}, 'plan': {'basic': 2, 'pro': 2}}
     """
     return {colname: self.valuecounts_for_colname(colname, sort=sort, reverse=reverse, omit_nulls=omit_nulls)
             for colname in (colnames_ls or self.columns())}
@@ -443,26 +454,34 @@ def _valuecounts_for_colname_selectedby_colname(
         A dict that maps each value to its count. It is empty if a column does not exist.
 
     Examples:
+        Create a small SqlDaf table of customers, with a city and a plan:
+
         >>> import tempfile
         >>> SqlDaf.db_path = tempfile.mkdtemp() + '/job.db'
-        >>> sales_sdaf = SqlDaf.from_daf(Daf(cols=['id', 'g', 'color', 'size'], keyfield='id', lol=[
-        ...     ['a1', 'x', 'red', 'S'], ['b2', 'y', 'blue', 'M'], ['c3', 'x', 'red', 'M'], ['d4', 'x', 'blue', 'S'], ['e5', 'x', 'red', '']]), name='sales')
-        >>> sales_sdaf
+        >>> customers_sdaf = SqlDaf('customers', cols=['id', 'city', 'plan'], lol=[
+        ...     ['c1', 'Denver', 'basic'], ['c2', 'Austin', 'pro'], ['c3', 'Denver', 'pro'], ['c4', 'Denver', 'basic'], ['c5', 'Denver', 'basic']])
+        >>> customers_sdaf
         <BLANKLINE>
-        | id | g  | color | size |
-        | -: | -: | ----: | ---: |
-        | a1 |  x |   red |    S |
-        | b2 |  y |  blue |    M |
-        | c3 |  x |   red |    M |
-        | d4 |  x |  blue |    S |
-        | e5 |  x |   red |      |
+        | id |  city  | plan  |
+        | -: | -----: | ----: |
+        | c1 | Denver | basic |
+        | c2 | Austin |   pro |
+        | c3 | Denver |   pro |
+        | c4 | Denver | basic |
+        | c5 | Denver | basic |
         <BLANKLINE>
-        %% daf rows=5; cols=4; keyfield='id'; name='sales'
+        %% daf rows=5; cols=3; keyfield=''; name='customers'
         <BLANKLINE>
-        >>> sales_sdaf.valuecounts_for_colname_selectedby_colname('color', 'g', 'x')
-        {'red': 3, 'blue': 1}
-        >>> sales_sdaf.valuecounts_for_colname_selectedby_colname('color', 'g', 'x', sort=True, reverse=False)
-        {'blue': 1, 'red': 3}
+
+        Count the plans of the customers in Denver only:
+
+        >>> customers_sdaf.valuecounts_for_colname_selectedby_colname('plan', 'city', 'Denver')
+        {'basic': 3, 'pro': 1}
+
+        Count them least common first:
+
+        >>> customers_sdaf.valuecounts_for_colname_selectedby_colname('plan', 'city', 'Denver', sort=True, reverse=False)
+        {'pro': 1, 'basic': 3}
     """
     if colname not in self.hd or selectedby_colname not in self.hd:
         return {}
@@ -495,14 +514,23 @@ def _valuecounts_for_colnames_ls_selectedby_colname(
         A dict that maps each column to a dict of value and count.
 
     Examples:
+        Create a small SqlDaf table of customers, with a city, a plan and a size of company:
+
         >>> import tempfile
         >>> SqlDaf.db_path = tempfile.mkdtemp() + '/job.db'
-        >>> sales_sdaf = SqlDaf.from_daf(Daf(cols=['id', 'g', 'color', 'size'], keyfield='id', lol=[
-        ...     ['a1', 'x', 'red', 'S'], ['b2', 'y', 'blue', 'M'], ['c3', 'x', 'red', 'M'], ['d4', 'x', 'blue', 'S'], ['e5', 'x', 'red', '']]), name='sales')
-        >>> sales_sdaf.valuecounts_for_colnames_ls_selectedby_colname(['color', 'size'], 'g', 'x')
-        {'color': {'red': 3, 'blue': 1}, 'size': {'S': 2, 'M': 1, '': 1}}
-        >>> sales_sdaf.valuecounts_for_colnames_ls_selectedby_colname(['color', 'size'], 'g', 'x', sort=True, reverse=False)
-        {'color': {'blue': 1, 'red': 3}, 'size': {'M': 1, '': 1, 'S': 2}}
+        >>> customers_sdaf = SqlDaf('customers', cols=['id', 'city', 'plan', 'size'], lol=[
+        ...     ['c1', 'Denver', 'basic', 'small'], ['c2', 'Austin', 'pro', 'large'], ['c3', 'Denver', 'pro', 'large'],
+        ...     ['c4', 'Denver', 'basic', 'small'], ['c5', 'Denver', 'basic', 'large']])
+
+        Count the plans and sizes of the customers in Denver only:
+
+        >>> customers_sdaf.valuecounts_for_colnames_ls_selectedby_colname(['plan', 'size'], 'city', 'Denver')
+        {'plan': {'basic': 3, 'pro': 1}, 'size': {'small': 2, 'large': 2}}
+
+        Count them least common first:
+
+        >>> customers_sdaf.valuecounts_for_colnames_ls_selectedby_colname(['plan', 'size'], 'city', 'Denver', sort=True, reverse=False)
+        {'plan': {'pro': 1, 'basic': 3}, 'size': {'small': 2, 'large': 2}}
     """
     return {colname: self.valuecounts_for_colname_selectedby_colname(
                 colname, selectedby_colname, selectedby_colvalue, sort=sort, reverse=reverse)
@@ -533,25 +561,24 @@ def _valuecounts_for_colname1_groupedby_colname2(
         A dict that maps each value of the second column to a dict of value and count.
 
     Examples:
+        Create a small SqlDaf table of customers, with a city and a plan:
+
         >>> import tempfile
         >>> SqlDaf.db_path = tempfile.mkdtemp() + '/job.db'
-        >>> ballots_sdaf = SqlDaf.from_daf(Daf(cols=['precinct', 'party'], lol=[
-        ...     ['P1', 'R'], ['P1', 'D'], ['P2', 'D'], ['P1', 'D']]), name='vc12_ballots')
+        >>> customers_sdaf = SqlDaf('customers', cols=['city', 'plan'], lol=[
+        ...     ['Denver', 'pro'], ['Denver', 'basic'], ['Austin', 'basic'], ['Denver', 'basic']])
 
-        The parties counted in each precinct, as a Daf counts them:
+        Count the plans in each city:
 
-        >>> ballots_sdaf.valuecounts_for_colname1_groupedby_colname2('party', 'precinct')
-        {'P1': {'R': 1, 'D': 2}, 'P2': {'D': 1}}
+        >>> customers_sdaf.valuecounts_for_colname1_groupedby_colname2('plan', 'city')
+        {'Denver': {'pro': 1, 'basic': 2}, 'Austin': {'basic': 1}}
 
-        With each count sorted, the most common first:
+        Sort each count, the most common first, or the least common first:
 
-        >>> ballots_sdaf.valuecounts_for_colname1_groupedby_colname2('party', 'precinct', sort=True)
-        {'P1': {'D': 2, 'R': 1}, 'P2': {'D': 1}}
-
-        With `reverse=False`, the least common comes first:
-
-        >>> ballots_sdaf.valuecounts_for_colname1_groupedby_colname2('party', 'precinct', sort=True, reverse=False)
-        {'P1': {'R': 1, 'D': 2}, 'P2': {'D': 1}}
+        >>> customers_sdaf.valuecounts_for_colname1_groupedby_colname2('plan', 'city', sort=True)
+        {'Denver': {'basic': 2, 'pro': 1}, 'Austin': {'basic': 1}}
+        >>> customers_sdaf.valuecounts_for_colname1_groupedby_colname2('plan', 'city', sort=True, reverse=False)
+        {'Denver': {'pro': 1, 'basic': 2}, 'Austin': {'basic': 1}}
     """
     if colname1 not in self.hd or groupedby_colname2 not in self.hd:
         return {}
@@ -589,41 +616,52 @@ def _value_counts_daf(
         A Daf in memory, with a row for each value.
 
     Examples:
+        Create a small SqlDaf table of customers. One plan is not known:
+
         >>> import tempfile
         >>> SqlDaf.db_path = tempfile.mkdtemp() + '/job.db'
-        >>> sales_sdaf = SqlDaf.from_daf(Daf(cols=['id', 'g', 'color', 'size'], keyfield='id', lol=[
-        ...     ['a1', 'x', 'red', 'S'], ['b2', 'y', 'blue', 'M'], ['c3', 'x', 'red', 'M'], ['d4', 'x', 'blue', 'S'], ['e5', 'x', 'red', '']]), name='sales')
-        >>> sales_sdaf.value_counts_daf('size')
+        >>> customers_sdaf = SqlDaf('customers', cols=['id', 'plan'], lol=[
+        ...     ['c1', 'basic'], ['c2', 'pro'], ['c3', 'basic'], ['c4', 'team'], ['c5', 'basic'], ['c6', '']])
+
+        Count the plans into a Daf, one row for each:
+
+        >>> customers_sdaf.value_counts_daf('plan')
         <BLANKLINE>
-        | size | counts |
-        | ---: | -----: |
-        |    S |      2 |
-        |    M |      2 |
-        |      |      1 |
+        | plan  | counts |
+        | ----: | -----: |
+        | basic |      3 |
+        |   pro |      1 |
+        |  team |      1 |
+        |       |      1 |
         <BLANKLINE>
-        %% daf rows=3; cols=2; keyfield=''; name=''
+        %% daf rows=4; cols=2; keyfield=''; name=''
         <BLANKLINE>
-        >>> sales_sdaf.value_counts_daf('size', sort=True, include_total=True, omit_nulls=True)
+
+        Sort it, leave out the unknown plan, and add a total:
+
+        >>> customers_sdaf.value_counts_daf('plan', sort=True, include_total=True, omit_nulls=True)
         <BLANKLINE>
-        |   size    | counts |
+        |   plan    | counts |
         | --------: | -----: |
-        |         S |      2 |
-        |         M |      2 |
-        | **Total** |      4 |
+        |     basic |      3 |
+        |       pro |      1 |
+        |      team |      1 |
+        | **Total** |      5 |
+        <BLANKLINE>
+        %% daf rows=4; cols=2; keyfield=''; name=''
+        <BLANKLINE>
+
+        Sort it with the least common first:
+
+        >>> customers_sdaf.value_counts_daf('plan', sort=True, reverse=False, omit_nulls=True)
+        <BLANKLINE>
+        | plan  | counts |
+        | ----: | -----: |
+        |   pro |      1 |
+        |  team |      1 |
+        | basic |      3 |
         <BLANKLINE>
         %% daf rows=3; cols=2; keyfield=''; name=''
-        <BLANKLINE>
-
-        With `reverse=False`, the least common comes first:
-
-        >>> sales_sdaf.value_counts_daf('g', sort=True, reverse=False)
-        <BLANKLINE>
-        | g  | counts |
-        | -: | -----: |
-        |  y |      1 |
-        |  x |      4 |
-        <BLANKLINE>
-        %% daf rows=2; cols=2; keyfield=''; name=''
         <BLANKLINE>
     """
     value_counts_daf: Daf = Daf.from_lod_to_cols(
@@ -656,12 +694,17 @@ def _daf_valuecount(
         NotImplementedError: `by` is not `row`.
 
     Examples:
+        Create a small SqlDaf table of customers:
+
         >>> import tempfile
         >>> SqlDaf.db_path = tempfile.mkdtemp() + '/job.db'
-        >>> sales_sdaf = SqlDaf.from_daf(Daf(cols=['id', 'g', 'color'], keyfield='id', lol=[
-        ...     ['a1', 'x', 'red'], ['b2', 'y', 'blue'], ['c3', 'x', 'red']]), name='sales')
-        >>> sales_sdaf.daf_valuecount(cols=['g', 'color'])
-        {'id': '', 'g': {'x': 2, 'y': 1}, 'color': {'red': 2, 'blue': 1}}
+        >>> customers_sdaf = SqlDaf('customers', cols=['id', 'city', 'plan'], lol=[
+        ...     ['c1', 'Denver', 'basic'], ['c2', 'Austin', 'pro'], ['c3', 'Denver', 'basic']])
+
+        Count the values of two columns. A column not counted maps to Python NULL:
+
+        >>> customers_sdaf.daf_valuecount(cols=['city', 'plan'])
+        {'id': '', 'city': {'Denver': 2, 'Austin': 1}, 'plan': {'basic': 2, 'pro': 1}}
     """
     if by != 'row':
         raise NotImplementedError(f"daf_valuecount(by={by!r}) is not supported on a SqlDaf.")
@@ -694,17 +737,23 @@ def _sum(
         ValueError: A text cell cannot be converted to a number.
 
     Examples:
+        Create a small SqlDaf table of orders:
+
         >>> import tempfile
         >>> SqlDaf.db_path = tempfile.mkdtemp() + '/job.db'
-        >>> SqlDaf.from_daf(Daf(lol=[[1, 10], [2, 20]], cols=['x', 'y']), name='nums').sum()
-        {'x': 3.0, 'y': 30.0}
+        >>> orders_sdaf = SqlDaf('orders', cols=['qty', 'amount'], lol=[[2, 25.0], [6, 24.0], [1, 30.5]])
 
-        Only some columns:
+        Total every column:
 
-        >>> stock_sdaf = SqlDaf.from_daf(Daf(cols=['id', 'qty', 'n'], lol=[['a1', 3, 1], ['b2', 10, 2]],
-        ...                                  dtypes={'id': str, 'qty': int, 'n': int}), name='sum_stock')
-        >>> stock_sdaf.sum(['qty'])
-        {'qty': 13}
+        >>> orders_sdaf.sum()
+        {'qty': 9.0, 'amount': 79.5}
+
+        Total only some columns. A table with a text column needs them named:
+
+        >>> named_sdaf = SqlDaf('named', cols=['id', 'qty', 'amount'], lol=[['o1', 2, 25.0], ['o2', 6, 24.0]],
+        ...                     dtypes={'id': str, 'qty': int, 'amount': float})
+        >>> named_sdaf.sum(['qty'])
+        {'qty': 8}
     """
     sum_cols_ls: T_ls
     if colnames_ls is None:
@@ -767,28 +816,38 @@ def _groupsum_daf(
         NotImplementedError: `by` is not `row` or `sparse_row`.
 
     Examples:
+        Create a small SqlDaf table of orders, with the city they were shipped to:
+
         >>> import tempfile
         >>> SqlDaf.db_path = tempfile.mkdtemp() + '/job.db'
-        >>> nums_sdaf = SqlDaf.from_daf(Daf(lol=[['a', 1, 10], ['b', 2, 20], ['a', 3, 30]], cols=['g', 'x', 'y']), name='nums')
-        >>> nums_sdaf
-        <BLANKLINE>
-        | g  | x  | y  |
-        | -: | -: | -: |
-        |  a |  1 | 10 |
-        |  b |  2 | 20 |
-        |  a |  3 | 30 |
-        <BLANKLINE>
-        %% daf rows=3; cols=3; keyfield=''; name='nums'
-        <BLANKLINE>
-        >>> nums_sdaf.groupsum_daf('g', reduce_cols=['y']).lol
-        [['a', '', 40], ['b', '', 20]]
+        >>> orders_sdaf = SqlDaf('orders', cols=['city', 'qty', 'amount'], lol=[
+        ...     ['Denver', 2, 25.0], ['Austin', 6, 24.0], ['Denver', 1, 30.5]])
 
-        With `indirect_col`, each row holds a dict, and each group's dicts are added into one:
+        Total the amount for each city. A column not totaled is Python NULL:
 
-        >>> votes_sdaf = SqlDaf.from_daf(Daf(cols=['id', 'precinct', 'votes'], lol=[
-        ...     ['b1', 'P1', {'mayor': 1}], ['b2', 'P1', {'mayor': 1, 'council': 1}], ['b3', 'P2', {'council': 1}]]), name='votes')
-        >>> votes_sdaf.groupsum_daf('precinct', indirect_col='votes').lol
-        [['P1', '{"mayor":2,"council":1}'], ['P2', '{"council":1}']]
+        >>> orders_sdaf.groupsum_daf('city', reduce_cols=['amount'])
+        <BLANKLINE>
+        |  city  | qty | amount |
+        | -----: | --: | -----: |
+        | Denver |     |   55.5 |
+        | Austin |     |   24.0 |
+        <BLANKLINE>
+        %% daf rows=2; cols=3; keyfield='city'; name=''
+        <BLANKLINE>
+
+        Total the items in the carts of each city, where each cart is a dict of item to count:
+
+        >>> carts_sdaf = SqlDaf('carts', cols=['id', 'city', 'cart'], lol=[
+        ...     ['c1', 'Denver', {'apples': 3}], ['c2', 'Denver', {'apples': 5, 'pears': 2}], ['c3', 'Austin', {'pears': 4}]])
+        >>> carts_sdaf.groupsum_daf('city', indirect_col='cart')
+        <BLANKLINE>
+        |  city  |          cart          |
+        | -----: | ---------------------: |
+        | Austin |            {"pears":4} |
+        | Denver | {"apples":8,"pears":2} |
+        <BLANKLINE>
+        %% daf rows=2; cols=2; keyfield='city'; name='daf_tmp_carts_v1'
+        <BLANKLINE>
     """
     # Sparse rows are summed by groupby_reduce(), which keeps each group's dict in one cell.
     if indirect_col or by == 'sparse_row':
@@ -852,32 +911,28 @@ def _groupby(
         NotImplementedError: `cols` is given.
 
     Examples:
+        Create a small SqlDaf table of people. One city is not known:
+
         >>> import tempfile
         >>> SqlDaf.db_path = tempfile.mkdtemp() + '/job.db'
-        >>> bif_sdaf = SqlDaf.from_daf(Daf(lol=[['b1', 'P1'], ['b2', 'P2'], ['b3', 'P1']], cols=['ballot_id', 'precinct']), name='bif')
-        >>> bif_sdaf
-        <BLANKLINE>
-        | ballot_id | precinct |
-        | --------: | -------: |
-        |        b1 |       P1 |
-        |        b2 |       P2 |
-        |        b3 |       P1 |
-        <BLANKLINE>
-        %% daf rows=3; cols=2; keyfield=''; name='bif'
-        <BLANKLINE>
-        >>> groups = bif_sdaf.groupby('precinct')
-        >>> {key: group.to_daf().lol for key, group in groups.items()}
-        {'P1': [['b1', 'P1'], ['b3', 'P1']], 'P2': [['b2', 'P2']]}
+        >>> people_sdaf = SqlDaf('people', cols=['id', 'city', 'plan'], keyfield='id', lol=[
+        ...     ['p1', 'Denver', 'basic'], ['p2', 'Austin', 'pro'], ['p3', 'Denver', 'pro'], ['p4', '', 'basic']])
 
-        Group by two columns together, as tuples, and leave out empty values with `omit_nulls`.
-        `cols` is not supported on a SqlDaf. Group, then read the columns you need:
+        Group the people by city. Each group is a selection:
 
-        >>> ballots_sdaf = SqlDaf.from_daf(Daf(cols=['id', 'precinct', 'party'], keyfield='id', lol=[
-        ...     ['b1', 'P1', 'D'], ['b2', 'P1', 'R'], ['b3', '', 'D']]), name='gb_ballots')
-        >>> list(ballots_sdaf.groupby(colnames=['precinct', 'party']).keys())
-        [('P1', 'D'), ('P1', 'R'), ('', 'D')]
-        >>> list(ballots_sdaf.groupby('precinct', omit_nulls=True).keys())
-        ['P1']
+        >>> groups = people_sdaf.groupby('city')
+        >>> {city: group_sdaf.keys() for city, group_sdaf in groups.items()}
+        {'Denver': ['p1', 'p3'], 'Austin': ['p2'], '': ['p4']}
+
+        Group by two columns together, as tuples:
+
+        >>> list(people_sdaf.groupby(colnames=['city', 'plan']).keys())
+        [('Denver', 'basic'), ('Austin', 'pro'), ('Denver', 'pro'), ('', 'basic')]
+
+        Leave out the people with no city, with `omit_nulls=True`:
+
+        >>> list(people_sdaf.groupby('city', omit_nulls=True).keys())
+        ['Denver', 'Austin']
     """
     if isinstance(colname, list) and not colnames:
         return self.groupby_cols(colname, cols=cols)
@@ -949,43 +1004,37 @@ def _groupby_reduce(
         NotImplementedError: `by` is not `row` or `sparse_row`.
 
     Examples:
+        Create a small SqlDaf table of carts, each a dict of item to count, with the city of the customer:
+
         >>> import tempfile
         >>> SqlDaf.db_path = tempfile.mkdtemp() + '/job.db'
-        >>> votes_sdaf = SqlDaf('votes', cols=['precinct', 'concise_votes'],
-        ...                     lol=[['P2', "{'c0v': 1}"], ['P1', "{'c0v': 1, 'c1v': 1}"], ['P2', "{'c1v': 1}"]])
-        >>> votes_sdaf
+        >>> carts_sdaf = SqlDaf('carts', cols=['city', 'cart'], lol=[
+        ...     ['Denver', {'apples': 3}], ['Austin', {'apples': 5, 'pears': 2}], ['Denver', {'pears': 4}]])
+
+        Total the items for each city, into a new table. Each cart is a sparse row:
+
+        >>> carts_sdaf.groupby_reduce('city', Daf.sum_da, indirect_col='cart')
         <BLANKLINE>
-        | precinct |    concise_votes     |
-        | -------: | -------------------: |
-        |       P2 |           {'c0v': 1} |
-        |       P1 | {'c0v': 1, 'c1v': 1} |
-        |       P2 |           {'c1v': 1} |
+        |  city  |          cart          |
+        | -----: | ---------------------: |
+        | Austin | {"apples":5,"pears":2} |
+        | Denver | {"apples":3,"pears":4} |
         <BLANKLINE>
-        %% daf rows=3; cols=2; keyfield=''; name='votes'
-        <BLANKLINE>
-        >>> sums_sdaf = votes_sdaf.groupby_reduce('precinct', Daf.sum_da, by='sparse_row', indirect_col='concise_votes')
-        >>> sums_sdaf
-        <BLANKLINE>
-        | precinct |   concise_votes   |
-        | -------: | ----------------: |
-        |       P1 | {"c0v":1,"c1v":1} |
-        |       P2 | {"c0v":1,"c1v":1} |
-        <BLANKLINE>
-        %% daf rows=2; cols=2; keyfield='precinct'; name='daf_tmp_votes_v1'
+        %% daf rows=2; cols=2; keyfield='city'; name='daf_tmp_carts_v1'
         <BLANKLINE>
 
         Reduce only some columns, with `reduce_cols`. The groups come in sorted order:
 
-        >>> stock_sdaf = SqlDaf.from_daf(Daf(cols=['id', 'g', 'qty'], lol=[
-        ...     ['a1', 'x', 3], ['b2', 'y', 10], ['c3', 'x', 7]], dtypes={'id': str, 'g': str, 'qty': int}), name='gr_stock')
-        >>> stock_sdaf.groupby_reduce('g', Daf.sum_da, reduce_cols=['qty'])
+        >>> orders_sdaf = SqlDaf('orders', cols=['id', 'city', 'qty'], lol=[['o1', 'Denver', 2], ['o2', 'Austin', 6], ['o3', 'Denver', 1]],
+        ...                      dtypes={'id': str, 'city': str, 'qty': int})
+        >>> orders_sdaf.groupby_reduce('city', Daf.sum_da, reduce_cols=['qty'])
         <BLANKLINE>
-        | id | g  | qty |
-        | -: | -: | --: |
-        |    |  x |  10 |
-        |    |  y |  10 |
+        | id |  city  | qty |
+        | -: | -----: | --: |
+        |    | Austin |   6 |
+        |    | Denver |   3 |
         <BLANKLINE>
-        %% daf rows=2; cols=3; keyfield='g'; name='daf_tmp_gr_stock_v2'
+        %% daf rows=2; cols=3; keyfield='city'; name='daf_tmp_orders_v2'
         <BLANKLINE>
     """
     if colname not in self.hd:
@@ -1104,37 +1153,35 @@ def _groupby_aggregate(
         KeyError: A grouping or reduced column is not a column.
 
     Examples:
+        Create a small SqlDaf table of carts, with a count of visits and a cart of items:
+
         >>> import tempfile
         >>> SqlDaf.db_path = tempfile.mkdtemp() + '/job.db'
-        >>> votes_sdaf = SqlDaf('votes', cols=['precinct', 'v', 'concise_votes'],
-        ...                     lol=[['P2', 1, "{'c0v': 1}"], ['P1', 1, "{'c0v': 1, 'c1v': 1}"], ['P2', 0, "{'c1v': 1}"]])
-        >>> votes_sdaf
+        >>> carts_sdaf = SqlDaf('carts', cols=['city', 'visits', 'cart'], lol=[
+        ...     ['Denver', 4, {'apples': 3}], ['Austin', 7, {'apples': 5, 'pears': 2}], ['Denver', 2, {'pears': 4}]])
+
+        Total the carts for each city, inside SQLite:
+
+        >>> carts_sdaf.groupby_aggregate('city', Daf.sum_da, 'cart')
         <BLANKLINE>
-        | precinct | v  |    concise_votes     |
-        | -------: | -: | -------------------: |
-        |       P2 |  1 |           {'c0v': 1} |
-        |       P1 |  1 | {'c0v': 1, 'c1v': 1} |
-        |       P2 |  0 |           {'c1v': 1} |
+        |  city  |          cart          |
+        | -----: | ---------------------: |
+        | Austin | {"apples":5,"pears":2} |
+        | Denver | {"apples":3,"pears":4} |
         <BLANKLINE>
-        %% daf rows=3; cols=3; keyfield=''; name='votes'
+        %% daf rows=2; cols=2; keyfield='city'; name='daf_tmp_carts_v1'
         <BLANKLINE>
-        >>> votes_sdaf.groupby_aggregate('precinct', Daf.sum_da, 'concise_votes')
+
+        Give the function two columns, and keep only the visits in the result:
+
+        >>> carts_sdaf.groupby_aggregate('city', Daf.sum_da, ['visits', 'cart'], result_cols=['visits'])
         <BLANKLINE>
-        | precinct |   concise_votes   |
-        | -------: | ----------------: |
-        |       P1 | {"c0v":1,"c1v":1} |
-        |       P2 | {"c0v":1,"c1v":1} |
+        |  city  | visits |
+        | -----: | -----: |
+        | Austin |      7 |
+        | Denver |      6 |
         <BLANKLINE>
-        %% daf rows=2; cols=2; keyfield='precinct'; name='daf_tmp_votes_v1'
-        <BLANKLINE>
-        >>> votes_sdaf.groupby_aggregate('precinct', Daf.sum_da, ['v', 'concise_votes'], result_cols=['v'])
-        <BLANKLINE>
-        | precinct | v  |
-        | -------: | -: |
-        |       P1 |  1 |
-        |       P2 |  1 |
-        <BLANKLINE>
-        %% daf rows=2; cols=2; keyfield='precinct'; name='daf_tmp_votes_v2'
+        %% daf rows=2; cols=2; keyfield='city'; name='daf_tmp_carts_v2'
         <BLANKLINE>
     """
     group_cols_ls: T_ls = [groupby_cols] if isinstance(groupby_cols, str) else list(groupby_cols)
@@ -1248,18 +1295,23 @@ def _groupby_cols(
         NotImplementedError: `cols` is given.
 
     Examples:
+        Create a small SqlDaf table of customers. One plan is not known:
+
         >>> import tempfile
         >>> SqlDaf.db_path = tempfile.mkdtemp() + '/job.db'
-        >>> sales_sdaf = SqlDaf.from_daf(Daf(cols=['id', 'g', 'color', 'size'], keyfield='id', lol=[
-        ...     ['a1', 'x', 'red', 'S'], ['b2', 'y', 'blue', 'M'], ['c3', 'x', 'red', 'M'], ['d4', 'x', 'blue', 'S'], ['e5', 'x', 'red', '']]), name='sales')
-        >>> groups_klist = sales_sdaf.groupby_cols(['g', 'color'])
+        >>> customers_sdaf = SqlDaf('customers', cols=['id', 'city', 'plan'], keyfield='id', lol=[
+        ...     ['c1', 'Denver', 'basic'], ['c2', 'Austin', 'pro'], ['c3', 'Denver', 'basic'], ['c4', 'Denver', 'pro'], ['c5', 'Denver', '']])
+
+        Group the customers by city and plan. Each key is a tuple:
+
+        >>> groups_klist = customers_sdaf.groupby_cols(['city', 'plan'])
         >>> {key: group_sdaf.keys() for key, group_sdaf in groups_klist.items()}
-        {('x', 'red'): ['a1', 'c3', 'e5'], ('y', 'blue'): ['b2'], ('x', 'blue'): ['d4']}
+        {('Denver', 'basic'): ['c1', 'c3'], ('Austin', 'pro'): ['c2'], ('Denver', 'pro'): ['c4'], ('Denver', ''): ['c5']}
 
-        With `omit_nulls=True`, a row with Python NULL in any of the columns is left out:
+        Leave out a row with Python NULL in any of the columns, with `omit_nulls=True`:
 
-        >>> {key: group_sdaf.keys() for key, group_sdaf in sales_sdaf.groupby_cols(['size'], omit_nulls=True).items()}
-        {('S',): ['a1', 'd4'], ('M',): ['b2', 'c3']}
+        >>> {key: group_sdaf.keys() for key, group_sdaf in customers_sdaf.groupby_cols(['plan'], omit_nulls=True).items()}
+        {('basic',): ['c1', 'c3'], ('pro',): ['c2', 'c4']}
     """
     if cols is not None:
         raise NotImplementedError("groupby(cols=) is not supported on a SqlDaf yet. Group, then read the columns you need.")
@@ -1311,32 +1363,35 @@ def _groupby_repeated_cols(
         KeyError: A name in `colnames` or `exclude` is not a column.
 
     Examples:
+        Create a small SqlDaf table of sign-ups, where some people signed up more than once:
+
         >>> import tempfile
         >>> SqlDaf.db_path = tempfile.mkdtemp() + '/job.db'
-        >>> cards_sdaf = SqlDaf.from_daf(Daf(cols=['id', 'batch', 'seq', 'status'], keyfield='id', lol=[
-        ...     ['r1', 'B1', 1, 'ok'], ['r2', 'B1', 2, 'ok'], ['r3', 'B1', 1, 'void'], ['r4', 'B2', 1, 'ok'], ['r5', 'B1', 2, 'ok']]), name='cards')
-        >>> cards_sdaf
+        >>> signups_sdaf = SqlDaf('signups', cols=['id', 'name', 'birth_year', 'status'], keyfield='id', lol=[
+        ...     ['s1', 'Ana Lopez', 1990, 'ok'], ['s2', 'Ben Okafor', 1972, 'ok'], ['s3', 'Ana Lopez', 1990, 'spam'],
+        ...     ['s4', 'Chen Wu', 1997, 'ok'], ['s5', 'Ben Okafor', 1972, 'ok']])
+        >>> signups_sdaf
         <BLANKLINE>
-        | id | batch | seq | status |
-        | -: | ----: | --: | -----: |
-        | r1 |    B1 |   1 |     ok |
-        | r2 |    B1 |   2 |     ok |
-        | r3 |    B1 |   1 |   void |
-        | r4 |    B2 |   1 |     ok |
-        | r5 |    B1 |   2 |     ok |
+        | id |    name    | birth_year | status |
+        | -: | ---------: | ---------: | -----: |
+        | s1 |  Ana Lopez |       1990 |     ok |
+        | s2 | Ben Okafor |       1972 |     ok |
+        | s3 |  Ana Lopez |       1990 |   spam |
+        | s4 |    Chen Wu |       1997 |     ok |
+        | s5 | Ben Okafor |       1972 |     ok |
         <BLANKLINE>
-        %% daf rows=5; cols=4; keyfield='id'; name='cards'
+        %% daf rows=5; cols=4; keyfield='id'; name='signups'
         <BLANKLINE>
 
-        Only the keys seen more than once make a group:
+        Group the rows whose name and birth year repeat. A pair seen once makes no group:
 
-        >>> {key: group_sdaf.keys() for key, group_sdaf in cards_sdaf.groupby_repeated_cols(['batch', 'seq']).items()}
-        {('B1', 1): ['r1', 'r3'], ('B1', 2): ['r2', 'r5']}
+        >>> {key: group_sdaf.keys() for key, group_sdaf in signups_sdaf.groupby_repeated_cols(['name', 'birth_year']).items()}
+        {('Ana Lopez', 1990): ['s1', 's3'], ('Ben Okafor', 1972): ['s2', 's5']}
 
-        With `exclude`, a row with one of these values is left out first, so its key may no longer repeat:
+        Leave out the rows marked spam first, with `exclude`, so that pair no longer repeats:
 
-        >>> {key: group_sdaf.keys() for key, group_sdaf in cards_sdaf.groupby_repeated_cols(['batch', 'seq'], exclude={'status': ['void']}).items()}
-        {('B1', 2): ['r2', 'r5']}
+        >>> {key: group_sdaf.keys() for key, group_sdaf in signups_sdaf.groupby_repeated_cols(['name', 'birth_year'], exclude={'status': ['spam']}).items()}
+        {('Ben Okafor', 1972): ['s2', 's5']}
     """
     col: str
     for col in list(colnames) + list(exclude or {}):
@@ -1428,22 +1483,17 @@ def _group_where(
         NotImplementedError: `indirect_col` is given.
 
     Examples:
+        Create a small SqlDaf table of people:
+
         >>> import tempfile
         >>> SqlDaf.db_path = tempfile.mkdtemp() + '/job.db'
-        >>> bif_sdaf = SqlDaf.from_daf(Daf(lol=[['b1', 'P1'], ['b2', 'P2'], ['b3', 'P1']], cols=['ballot_id', 'precinct']), name='bif')
-        >>> bif_sdaf
-        <BLANKLINE>
-        | ballot_id | precinct |
-        | --------: | -------: |
-        |        b1 |       P1 |
-        |        b2 |       P2 |
-        |        b3 |       P1 |
-        <BLANKLINE>
-        %% daf rows=3; cols=2; keyfield=''; name='bif'
-        <BLANKLINE>
-        >>> groups = bif_sdaf.group_where(lambda row: [row['precinct'], 'all'], cols=['precinct'])
-        >>> {key: len(group) for key, group in groups.items()}
-        {'P1': 2, 'all': 3, 'P2': 1}
+        >>> people_sdaf = SqlDaf('people', cols=['id', 'city'], lol=[['p1', 'Denver'], ['p2', 'Austin'], ['p3', 'Denver']])
+
+        Put each person in two groups, their city and 'all'. The function returns the groups of a row:
+
+        >>> groups = people_sdaf.group_where(lambda row: [row['city'], 'all'], cols=['city'])
+        >>> {key: len(group_sdaf) for key, group_sdaf in groups.items()}
+        {'Denver': 2, 'all': 3, 'Austin': 1}
     """
     if indirect_col is not None:
         raise NotImplementedError("group_where(indirect_col=) is not supported on a SqlDaf yet.")
@@ -1543,55 +1593,46 @@ def _join(
         NotImplementedError: `custom_translator_daf` or a `fill` other than Python NULL, or a selection or TEMP table of another thread's connection.
 
     Examples:
+        Create two small SqlDaf tables, people and their salaries, keyed by id:
+
         >>> import tempfile
         >>> SqlDaf.db_path = tempfile.mkdtemp() + '/job.db'
-        >>> a_sdaf = SqlDaf.from_daf(Daf(lol=[[1, 'Alice'], [2, 'Bob']], cols=['id', 'name'], keyfield='id'), name='a')
-        >>> a_sdaf
+        >>> people_sdaf = SqlDaf('people', cols=['id', 'name'], keyfield='id', lol=[['p1', 'Ana Lopez'], ['p2', 'Ben Okafor']])
+        >>> pay_sdaf = SqlDaf('pay', cols=['id', 'salary'], keyfield='id', lol=[['p1', 72000], ['p3', 58000]])
+
+        Join them, keeping every person, with a blank salary where there is none:
+
+        >>> people_sdaf.join(pay_sdaf, how='left')
         <BLANKLINE>
-        | id | name  |
-        | -: | ----: |
-        |  1 | Alice |
-        |  2 |   Bob |
+        | id |    name    | salary |
+        | -: | ---------: | -----: |
+        | p1 |  Ana Lopez |  72000 |
+        | p2 | Ben Okafor |        |
         <BLANKLINE>
-        %% daf rows=2; cols=2; keyfield='id'; name='a'
-        <BLANKLINE>
-        >>> b_sdaf = SqlDaf.from_daf(Daf(lol=[[1, 50], [3, 70]], cols=['id', 'salary'], keyfield='id'), name='b')
-        >>> b_sdaf
-        <BLANKLINE>
-        | id | salary |
-        | -: | -----: |
-        |  1 |     50 |
-        |  3 |     70 |
-        <BLANKLINE>
-        %% daf rows=2; cols=2; keyfield='id'; name='b'
-        <BLANKLINE>
-        >>> a_sdaf.join(b_sdaf, how='left')
-        <BLANKLINE>
-        | id | name  | salary |
-        | -: | ----: | -----: |
-        |  1 | Alice |     50 |
-        |  2 |   Bob |        |
-        <BLANKLINE>
-        %% daf rows=2; cols=3; keyfield='id'; name='daf_tmp_a_join_b_v1'
+        %% daf rows=2; cols=3; keyfield='id'; name='daf_tmp_people_join_pay_v1'
         <BLANKLINE>
 
-        `shared_fields`, `tag_other` and `name` work as for a Daf. `fill` other than NULL is not
-        supported on a SqlDaf, and raises NotImplementedError:
+        Both tables have a name column. By default, each gets its table's name as a suffix:
 
-        >>> stock_sdaf = SqlDaf.from_daf(Daf(cols=['id', 'item', 'qty'], keyfield='id', lol=[['a1', 'pen', 3]]), name='join_stock')
-        >>> price_sdaf = SqlDaf.from_daf(Daf(cols=['id', 'item', 'price'], keyfield='id', lol=[['a1', 'pen', 1.5]]), name='join_price')
-        >>> stock_sdaf.join(price_sdaf).columns()
-        ['id', 'item_join_stock', 'qty', 'item_join_price', 'price']
-        >>> stock_sdaf.join(price_sdaf, shared_fields=['item'], name='join_result')
+        >>> staff_sdaf = SqlDaf('staff', cols=['id', 'name', 'salary'], keyfield='id', lol=[['p1', 'Ana Lopez', 72000]])
+        >>> people_sdaf.join(staff_sdaf).columns()
+        ['id', 'name_people', 'name_staff', 'salary']
+
+        Take the name once, with `shared_fields`, and name the result:
+
+        >>> people_sdaf.join(staff_sdaf, shared_fields=['name'], name='people_pay')
         <BLANKLINE>
-        | id | item | qty | price |
-        | -: | ---: | --: | ----: |
-        | a1 |  pen |   3 |   1.5 |
+        | id |   name    | salary |
+        | -: | --------: | -----: |
+        | p1 | Ana Lopez |  72000 |
         <BLANKLINE>
-        %% daf rows=1; cols=4; keyfield='id'; name='join_result'
+        %% daf rows=1; cols=3; keyfield='id'; name='people_pay'
         <BLANKLINE>
-        >>> stock_sdaf.join(price_sdaf, tag_other=True).columns()
-        ['id', 'item_join_stock', 'qty', 'item_join_price', 'price_join_price']
+
+        Give every column of the other table a suffix, with `tag_other=True`:
+
+        >>> people_sdaf.join(staff_sdaf, tag_other=True).columns()
+        ['id', 'name_people', 'name_staff', 'salary_staff']
     """
     if how not in ('inner', 'left', 'right', 'outer'):
         raise ValueError(f"join: how='{how}' is not inner, left, right or outer.")
@@ -1725,33 +1766,38 @@ def _join_with_residue(
         NotImplementedError: `custom_translator_daf` is given.
 
     Examples:
+        Create two small SqlDaf tables, people and their salaries. Each has a key the other lacks:
+
         >>> import tempfile
         >>> SqlDaf.db_path = tempfile.mkdtemp() + '/job.db'
-        >>> bia_sdaf = SqlDaf.from_daf(Daf(cols=['ballot_id', 'sheet', 'style'], keyfield='ballot_id', lol=[
-        ...     ['b1', 0, 'S1'], ['b2', 0, 'S2'], ['b3', 1, 'S1']]), name='bia')
-        >>> cvr_sdaf = SqlDaf.from_daf(Daf(cols=['ballot_id', 'precinct', 'style'], keyfield='ballot_id', lol=[
-        ...     ['b2', 'P1', 'S2'], ['b3', 'P2', 'S1'], ['b9', 'P1', 'S3']]), name='cvr')
-        >>> joined_sdaf, bia_res_sdaf, cvr_res_sdaf = bia_sdaf.join_with_residue(cvr_sdaf, shared_fields=['style'], name='bia_cvr')
+        >>> people_sdaf = SqlDaf('people', cols=['id', 'name', 'city'], keyfield='id', lol=[
+        ...     ['p1', 'Ana Lopez', 'Denver'], ['p2', 'Ben Okafor', 'Austin'], ['p3', 'Chen Wu', 'Boston']])
+        >>> pay_sdaf = SqlDaf('pay', cols=['id', 'salary', 'city'], keyfield='id', lol=[
+        ...     ['p2', 64000, 'Austin'], ['p3', 58000, 'Boston'], ['p9', 81000, 'Denver']])
+
+        Join them, and keep the rows of each that have no partner:
+
+        >>> joined_sdaf, people_res_sdaf, pay_res_sdaf = people_sdaf.join_with_residue(pay_sdaf, shared_fields=['city'], name='people_pay')
         >>> joined_sdaf
         <BLANKLINE>
-        | ballot_id | sheet | style | precinct |
-        | --------: | ----: | ----: | -------: |
-        |        b2 |     0 |    S2 |       P1 |
-        |        b3 |     1 |    S1 |       P2 |
+        | id |    name    |  city  | salary |
+        | -: | ---------: | -----: | -----: |
+        | p2 | Ben Okafor | Austin |  64000 |
+        | p3 |    Chen Wu | Boston |  58000 |
         <BLANKLINE>
-        %% daf rows=2; cols=4; keyfield='ballot_id'; name='bia_cvr'
+        %% daf rows=2; cols=4; keyfield='id'; name='people_pay'
         <BLANKLINE>
-        >>> bia_res_sdaf.to_lod()
-        [{'ballot_id': 'b1', 'sheet': 0, 'style': 'S1'}]
-        >>> cvr_res_sdaf.to_lod()
-        [{'ballot_id': 'b9', 'precinct': 'P1', 'style': 'S3'}]
+        >>> people_res_sdaf.to_lod()
+        [{'id': 'p1', 'name': 'Ana Lopez', 'city': 'Denver'}]
+        >>> pay_res_sdaf.to_lod()
+        [{'id': 'p9', 'salary': 81000, 'city': 'Denver'}]
 
         The other table may be in another file:
 
-        >>> cvr_path = tempfile.mkdtemp() + '/cvr.db'
-        >>> far_sdaf = SqlDaf('cvr', db_path=SqlDaf.db_path).copy().save('cvr_far', db_path=cvr_path)
-        >>> [result_sdaf.keys() for result_sdaf in bia_sdaf.join_with_residue(far_sdaf, tag_other=True)]
-        [['b2', 'b3'], ['b1'], ['b9']]
+        >>> pay_path = tempfile.mkdtemp() + '/pay.db'
+        >>> far_sdaf = pay_sdaf.copy().save('pay_far', db_path=pay_path)
+        >>> [result_sdaf.keys() for result_sdaf in people_sdaf.join_with_residue(far_sdaf, tag_other=True)]
+        [['p2', 'p3'], ['p1'], ['p9']]
     """
     if custom_translator_daf is not None:
         raise NotImplementedError("join_with_residue(custom_translator_daf=) is not supported on a SqlDaf.")
