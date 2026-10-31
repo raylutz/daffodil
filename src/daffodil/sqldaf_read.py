@@ -43,25 +43,30 @@ def _md_daf_table_snippet(self: 'SqlDaf') -> str:
         The Markdown text.
 
     Examples:
+        Create a SqlDaf table of 30 people, more than a snippet shows:
+
         >>> import tempfile
         >>> SqlDaf.db_path = tempfile.mkdtemp() + '/job.db'
-        >>> nums_sdaf = SqlDaf.from_daf(Daf(cols=['id', 'n'], lol=[[f'r{i}', i] for i in range(30)]), name='nums')
-        >>> print(nums_sdaf.md_daf_table_snippet())
-        | id  |  n  |
+        >>> people_sdaf = SqlDaf('people', cols=['id', 'age'], lol=[[f'p{i:02}', 20 + i] for i in range(30)])
+
+        Show a short Markdown table of it, the first and last rows, with a summary line:
+
+        >>> print(people_sdaf.md_daf_table_snippet())
+        | id  | age |
         | --: | --: |
-        |  r0 |   0 |
-        |  r1 |   1 |
-        |  r2 |   2 |
-        |  r3 |   3 |
-        |  r4 |   4 |
+        | p00 |  20 |
+        | p01 |  21 |
+        | p02 |  22 |
+        | p03 |  23 |
+        | p04 |  24 |
         | ... | ... |
-        | r25 |  25 |
-        | r26 |  26 |
-        | r27 |  27 |
-        | r28 |  28 |
-        | r29 |  29 |
+        | p25 |  45 |
+        | p26 |  46 |
+        | p27 |  47 |
+        | p28 |  48 |
+        | p29 |  49 |
         <BLANKLINE>
-        %% daf rows=30; cols=2; keyfield=''; name='nums'
+        %% daf rows=30; cols=2; keyfield=''; name='people'
         <BLANKLINE>
     """
     return Daf.md_daf_table_snippet(self)
@@ -100,42 +105,48 @@ def _to_daf(self: 'SqlDaf', name: str | None = None) -> Daf:
         A Daf of every row.
 
     Examples:
+        Create a small SqlDaf table of people. One age is not known:
+
         >>> import tempfile
         >>> SqlDaf.db_path = tempfile.mkdtemp() + '/job.db'
-        >>> items_sdaf = SqlDaf.from_daf(Daf(cols=['id', 'item', 'qty'], keyfield='id', lol=[['a1', 'pen', 3], ['b2', 'ink', ''], ['c3', 'pad', 7]]), name='items')
-        >>> items_daf = items_sdaf.to_daf()
-        >>> items_daf
+        >>> people_sdaf = SqlDaf('people', cols=['id', 'name', 'age'], keyfield='id', lol=[
+        ...     ['p1', 'Ana Lopez', 34], ['p2', 'Ben Okafor', ''], ['p3', 'Chen Wu', 27]])
+
+        Read every row into a Daf in memory:
+
+        >>> people_daf = people_sdaf.to_daf()
+        >>> people_daf
         <BLANKLINE>
-        | id | item | qty |
-        | -: | ---: | --: |
-        | a1 |  pen |   3 |
-        | b2 |  ink |     |
-        | c3 |  pad |   7 |
+        | id |    name    | age |
+        | -: | ---------: | --: |
+        | p1 |  Ana Lopez |  34 |
+        | p2 | Ben Okafor |     |
+        | p3 |    Chen Wu |  27 |
         <BLANKLINE>
-        %% daf rows=3; cols=3; keyfield='id'; name='items'
+        %% daf rows=3; cols=3; keyfield='id'; name='people'
         <BLANKLINE>
 
         The Daf is a copy. A change to it does not reach the table:
 
-        >>> items_daf['a1', 'qty'] = 99
-        >>> items_sdaf.select_record('a1')
-        {'id': 'a1', 'item': 'pen', 'qty': 3}
+        >>> people_daf['p1', 'age'] = 99
+        >>> people_sdaf.select_record('p1')
+        {'id': 'p1', 'name': 'Ana Lopez', 'age': 34}
 
         Select first, so only the rows needed come into memory:
 
-        >>> items_sdaf.select_where_sql('qty > ?', [5]).to_daf()
+        >>> people_sdaf.select_where_sql('age > ?', [30]).to_daf()
         <BLANKLINE>
-        | id | item | qty |
-        | -: | ---: | --: |
-        | c3 |  pad |   7 |
+        | id |   name    | age |
+        | -: | --------: | --: |
+        | p1 | Ana Lopez |  34 |
         <BLANKLINE>
-        %% daf rows=1; cols=3; keyfield='id'; name='daf_tmp_items_v1'
+        %% daf rows=1; cols=3; keyfield='id'; name='daf_tmp_people_v1'
         <BLANKLINE>
 
-        A selection has a name that SqlDaf made up. Give another with `name`:
+        Give the Daf a name of your own with `name`:
 
-        >>> items_sdaf.select_where_sql('qty > ?', [5]).to_daf(name='big_items').name
-        'big_items'
+        >>> people_sdaf.select_where_sql('age > ?', [30]).to_daf(name='over_30').name
+        'over_30'
     """
     self._resolve()
     lol: T_lola = [none_to_null(row_t) for row_t in self._select_rows()]
@@ -178,29 +189,24 @@ def _to_csv_file(
         The path that was written.
 
     Examples:
+        Create a small SqlDaf table of people. One age is not known:
+
         >>> import os, tempfile
         >>> SqlDaf.db_path = tempfile.mkdtemp() + '/job.db'
-        >>> marks_sdaf = SqlDaf.from_daf(Daf(lol=[['b1', 1], ['b2', '']], cols=['ballot_id', 'v']), name='marks')
-        >>> marks_sdaf
-        <BLANKLINE>
-        | ballot_id | v  |
-        | --------: | -: |
-        |        b1 |  1 |
-        |        b2 |    |
-        <BLANKLINE>
-        %% daf rows=2; cols=2; keyfield=''; name='marks'
-        <BLANKLINE>
-        >>> path = marks_sdaf.to_csv_file(os.path.dirname(SqlDaf.db_path) + '/marks.csv')
-        >>> open(path, newline='').read()
-        'ballot_id,v\r\nb1,1\r\nb2,\r\n'
+        >>> people_sdaf = SqlDaf('people', cols=['id', 'name', 'age'], keyfield='id', lol=[
+        ...     ['p1', 'Ana Lopez', 34], ['p2', 'Ben Okafor', '']])
 
-        Without the header line, and with another line ending:
+        Write it to a CSV file, and read the file back as text. The unknown age is an empty cell:
 
-        >>> import os, tempfile
-        >>> csv_sdaf = SqlDaf.from_daf(Daf(cols=['id', 'qty'], lol=[['a1', 3], ['b2', 10]]), name='csv_out')
-        >>> csv_path = csv_sdaf.to_csv_file(os.path.join(tempfile.mkdtemp(), 'out.csv'), line_terminator='\n', include_header=False)
+        >>> csv_path = people_sdaf.to_csv_file(os.path.join(tempfile.mkdtemp(), 'people.csv'))
+        >>> open(csv_path, newline='').read()
+        'id,name,age\r\np1,Ana Lopez,34\r\np2,Ben Okafor,\r\n'
+
+        Write it without the header line, and with another line ending:
+
+        >>> csv_path = people_sdaf.to_csv_file(os.path.join(tempfile.mkdtemp(), 'people.csv'), line_terminator='\n', include_header=False)
         >>> open(csv_path).read()
-        'a1,3\nb2,10\n'
+        'p1,Ana Lopez,34\np2,Ben Okafor,\n'
     """
     file_path = str(file_path)
     if file_path.startswith('s3'):
@@ -230,16 +236,22 @@ def _to_csv_buff(
         The CSV text.
 
     Examples:
+        Create a small SqlDaf table of people. One age is not known:
+
         >>> import tempfile
         >>> SqlDaf.db_path = tempfile.mkdtemp() + '/job.db'
-        >>> items_sdaf = SqlDaf.from_daf(Daf(cols=['id', 'item', 'qty'], keyfield='id', lol=[['a1', 'pen', 3], ['b2', 'ink', ''], ['c3', 'pad', 7]]), name='items')
-        >>> items_sdaf.to_csv_buff()
-        'id,item,qty\r\na1,pen,3\r\nb2,ink,\r\nc3,pad,7\r\n'
+        >>> people_sdaf = SqlDaf('people', cols=['id', 'name', 'age'], keyfield='id', lol=[
+        ...     ['p1', 'Ana Lopez', 34], ['p2', 'Ben Okafor', '']])
 
-        Without the header, and with another line ending:
+        Make the CSV text in memory:
 
-        >>> items_sdaf.to_csv_buff(line_terminator='\n', include_header=False)
-        'a1,pen,3\nb2,ink,\nc3,pad,7\n'
+        >>> people_sdaf.to_csv_buff()
+        'id,name,age\r\np1,Ana Lopez,34\r\np2,Ben Okafor,\r\n'
+
+        Make it without the header line, and with another line ending:
+
+        >>> people_sdaf.to_csv_buff(line_terminator='\n', include_header=False)
+        'p1,Ana Lopez,34\np2,Ben Okafor,\n'
     """
     text_f = io.StringIO(newline='')
     self._write_csv(text_f, line_terminator, include_header)
@@ -260,13 +272,22 @@ def _to_dict(self: 'SqlDaf') -> T_da:
         ValueError: There is more than one row.
 
     Examples:
+        Create a small SqlDaf table of people:
+
         >>> import tempfile
         >>> SqlDaf.db_path = tempfile.mkdtemp() + '/job.db'
-        >>> items_sdaf = SqlDaf.from_daf(Daf(cols=['id', 'item', 'qty'], keyfield='id', lol=[['a1', 'pen', 3], ['b2', 'ink', ''], ['c3', 'pad', 7]]), name='items')
-        >>> items_sdaf['b2'].to_dict()
-        {'id': 'b2', 'item': 'ink', 'qty': ''}
-        >>> items_sdaf.select_record('b2')
-        {'id': 'b2', 'item': 'ink', 'qty': ''}
+        >>> people_sdaf = SqlDaf('people', cols=['id', 'name', 'age'], keyfield='id', lol=[
+        ...     ['p1', 'Ana Lopez', 34], ['p2', 'Ben Okafor', 52]])
+
+        Select one row with brackets, and read it as a dict:
+
+        >>> people_sdaf['p2'].to_dict()
+        {'id': 'p2', 'name': 'Ben Okafor', 'age': 52}
+
+        `select_record()` gives the same dict, with no selection made:
+
+        >>> people_sdaf.select_record('p2')
+        {'id': 'p2', 'name': 'Ben Okafor', 'age': 52}
     """
     self._resolve()
     rows_lot: List[Tuple[Any, ...]] = self._select_rows(limit=2)
@@ -291,13 +312,22 @@ def _to_list(self: 'SqlDaf') -> T_la:
         ValueError: There is more than one row and more than one column.
 
     Examples:
+        Create a small SqlDaf table of people:
+
         >>> import tempfile
         >>> SqlDaf.db_path = tempfile.mkdtemp() + '/job.db'
-        >>> items_sdaf = SqlDaf.from_daf(Daf(cols=['id', 'item', 'qty'], keyfield='id', lol=[['a1', 'pen', 3], ['b2', 'ink', ''], ['c3', 'pad', 7]]), name='items')
-        >>> items_sdaf['c3'].to_list()
-        ['c3', 'pad', 7]
-        >>> items_sdaf[:, 'qty'].to_list()
-        [3, '', 7]
+        >>> people_sdaf = SqlDaf('people', cols=['id', 'name', 'age'], keyfield='id', lol=[
+        ...     ['p1', 'Ana Lopez', 34], ['p2', 'Ben Okafor', 52], ['p3', 'Chen Wu', 27]])
+
+        Read one row as a list of its values:
+
+        >>> people_sdaf['p3'].to_list()
+        ['p3', 'Chen Wu', 27]
+
+        Read one column as a list:
+
+        >>> people_sdaf[:, 'age'].to_list()
+        [34, 52, 27]
     """
     self._resolve()
     if len(self.hd) == 1:
@@ -321,15 +351,21 @@ def _to_value(self: 'SqlDaf') -> Any:
         ValueError: The table is not one row and one column.
 
     Examples:
+        Create a small SqlDaf table of people. One age is not known:
+
         >>> import tempfile
         >>> SqlDaf.db_path = tempfile.mkdtemp() + '/job.db'
-        >>> items_sdaf = SqlDaf.from_daf(Daf(cols=['id', 'item', 'qty'], keyfield='id', lol=[['a1', 'pen', 3], ['b2', 'ink', ''], ['c3', 'pad', 7]]), name='items')
-        >>> items_sdaf['c3', 'qty'].to_value()
-        7
+        >>> people_sdaf = SqlDaf('people', cols=['id', 'name', 'age'], keyfield='id', lol=[
+        ...     ['p1', 'Ana Lopez', 34], ['p2', 'Ben Okafor', '']])
 
-        A SQL NULL comes back as Python NULL, the empty string:
+        Read one cell as a value:
 
-        >>> items_sdaf['b2', 'qty'].to_value()
+        >>> people_sdaf['p1', 'age'].to_value()
+        34
+
+        The unknown age, SQL NULL in the table, comes back as Python NULL, the empty string:
+
+        >>> people_sdaf['p2', 'age'].to_value()
         ''
     """
     self._resolve()
@@ -377,38 +413,37 @@ def _iloc(
         ValueError: This is a parent that has had rows deleted. See SqlDaf.
 
     Examples:
+        Create a small SqlDaf table of people:
+
         >>> import tempfile
         >>> SqlDaf.db_path = tempfile.mkdtemp() + '/job.db'
-        >>> items_sdaf = SqlDaf.from_daf(Daf(cols=['id', 'item', 'qty'], keyfield='id', lol=[['a1', 'pen', 3], ['b2', 'ink', ''], ['c3', 'pad', 7]]), name='items')
-        >>> items_sdaf
-        <BLANKLINE>
-        | id | item | qty |
-        | -: | ---: | --: |
-        | a1 |  pen |   3 |
-        | b2 |  ink |     |
-        | c3 |  pad |   7 |
-        <BLANKLINE>
-        %% daf rows=3; cols=3; keyfield='id'; name='items'
-        <BLANKLINE>
-        >>> items_sdaf.iloc(0)
-        {'id': 'a1', 'item': 'pen', 'qty': 3}
+        >>> people_sdaf = SqlDaf('people', cols=['id', 'name', 'city', 'age'], keyfield='id', lol=[
+        ...     ['p1', 'Ana Lopez', 'Denver', 34], ['p2', 'Ben Okafor', 'Austin', 52], ['p3', 'Chen Wu', 'Boston', 27]])
 
-        A negative position counts from the end:
+        Read the first row, by position, as a dict:
 
-        >>> items_sdaf.iloc(-1)
-        {'id': 'c3', 'item': 'pad', 'qty': 7}
+        >>> people_sdaf.iloc(0)
+        {'id': 'p1', 'name': 'Ana Lopez', 'city': 'Denver', 'age': 34}
 
-        Only some columns, in the order given, and as a list:
+        Read the last row. A negative position counts from the end:
 
-        >>> items_sdaf.iloc(1, include_cols=['qty', 'id'])
-        {'qty': '', 'id': 'b2'}
-        >>> items_sdaf.iloc(1, rtype='list')
-        ['b2', 'ink', '']
+        >>> people_sdaf.iloc(-1)
+        {'id': 'p3', 'name': 'Chen Wu', 'city': 'Boston', 'age': 27}
+
+        Read only some columns, in the order given:
+
+        >>> people_sdaf.iloc(1, include_cols=['age', 'name'])
+        {'age': 52, 'name': 'Ben Okafor'}
+
+        Read a row as a list of its values:
+
+        >>> people_sdaf.iloc(1, rtype='list')
+        ['p2', 'Ben Okafor', 'Austin', 52]
 
         On a selection, the position is within its own rows:
 
-        >>> items_sdaf.select_where_sql('qty > ?', [5]).iloc(0)
-        {'id': 'c3', 'item': 'pad', 'qty': 7}
+        >>> people_sdaf.select_where_sql('age < ?', [40]).iloc(1)
+        {'id': 'p3', 'name': 'Chen Wu', 'city': 'Boston', 'age': 27}
     """
     self._check_positions('iloc')
     if rtype not in ('dict', 'list'):
@@ -453,29 +488,25 @@ def _select_record(self: 'SqlDaf', key: Any, silent_error: bool = True) -> T_da:
         ValueError: There is no keyfield.
 
     Examples:
+        Create a small SqlDaf table of people:
+
         >>> import tempfile
         >>> SqlDaf.db_path = tempfile.mkdtemp() + '/job.db'
-        >>> items_sdaf = SqlDaf.from_daf(Daf(cols=['id', 'item', 'qty'], keyfield='id', lol=[['a1', 'pen', 3], ['b2', 'ink', ''], ['c3', 'pad', 7]]), name='items')
-        >>> items_sdaf
-        <BLANKLINE>
-        | id | item | qty |
-        | -: | ---: | --: |
-        | a1 |  pen |   3 |
-        | b2 |  ink |     |
-        | c3 |  pad |   7 |
-        <BLANKLINE>
-        %% daf rows=3; cols=3; keyfield='id'; name='items'
-        <BLANKLINE>
-        >>> items_sdaf.select_record('c3')
-        {'id': 'c3', 'item': 'pad', 'qty': 7}
+        >>> people_sdaf = SqlDaf('people', cols=['id', 'name', 'city', 'age'], keyfield='id', lol=[
+        ...     ['p1', 'Ana Lopez', 'Denver', 34], ['p2', 'Ben Okafor', 'Austin', 52], ['p3', 'Chen Wu', 'Boston', 27]])
 
-        A missing key gives an empty dict, or raises with `silent_error=False`:
+        Read one row by its key, as a dict:
 
-        >>> items_sdaf.select_record('z9')
+        >>> people_sdaf.select_record('p3')
+        {'id': 'p3', 'name': 'Chen Wu', 'city': 'Boston', 'age': 27}
+
+        A key that is not there gives an empty dict, or raises with `silent_error=False`:
+
+        >>> people_sdaf.select_record('p9')
         {}
-        >>> items_sdaf.select_record('z9', silent_error=False)
+        >>> people_sdaf.select_record('p9', silent_error=False)
         Traceback (most recent call last):
-        KeyError: 'z9'
+        KeyError: 'p9'
     """
     key_col: str = self._need_keyfield('select_record')
     rows_lot: List[Tuple[Any, ...]] = self._select_rows(f'{quote_name(key_col)} IS ?', (key,), limit=1)
@@ -530,38 +561,50 @@ def _col(
         ColumnNotFoundError: The name is not a column, and `silent_error` is False.
 
     Examples:
+        Create a small SqlDaf table of people. One age is not known, and each has a dict of contact details:
+
         >>> import tempfile
         >>> SqlDaf.db_path = tempfile.mkdtemp() + '/job.db'
-        >>> sales_sdaf = SqlDaf.from_daf(Daf(cols=['id', 'g', 'qty', 'extra'], keyfield='id', lol=[
-        ...     ['a1', 'x', 3, {'color': 'red'}], ['b2', 'y', '', {}], ['c3', 'x', 7, {'color': 'blue'}]]), name='sales')
-        >>> sales_sdaf
+        >>> people_sdaf = SqlDaf('people', cols=['id', 'city', 'age', 'contact'], keyfield='id', lol=[
+        ...     ['p1', 'Denver', 34, {'phone': '555-0101'}], ['p2', 'Austin', '', {}],
+        ...     ['p3', 'Denver', 27, {'phone': '555-0103'}]])
+        >>> people_sdaf
         <BLANKLINE>
-        | id | g  | qty |       extra       |
-        | -: | -: | --: | ----------------: |
-        | a1 |  x |   3 |  {'color': 'red'} |
-        | b2 |  y |     |                {} |
-        | c3 |  x |   7 | {'color': 'blue'} |
+        | id |  city  | age |        contact        |
+        | -: | -----: | --: | --------------------: |
+        | p1 | Denver |  34 | {'phone': '555-0101'} |
+        | p2 | Austin |     |                    {} |
+        | p3 | Denver |  27 | {'phone': '555-0103'} |
         <BLANKLINE>
-        %% daf rows=3; cols=4; keyfield='id'; name='sales'
+        %% daf rows=3; cols=4; keyfield='id'; name='people'
         <BLANKLINE>
-        >>> sales_sdaf.col('qty')
-        [3, '', 7]
 
-        Each option, as in a Daf:
+        Read one column as a list:
 
-        >>> sales_sdaf.col('g', unique=True)
-        ['x', 'y']
-        >>> sales_sdaf.col('qty', omit_nulls=True)
-        [3, 7]
-        >>> sales_sdaf.col('qty', omit_nulls=True, astype=float)
-        [3.0, 7.0]
-        >>> sales_sdaf.col('price', silent_error=True)
+        >>> people_sdaf.col('age')
+        [34, '', 27]
+
+        Read each city once, in the order first seen:
+
+        >>> people_sdaf.col('city', unique=True)
+        ['Denver', 'Austin']
+
+        Leave out the unknown age, and convert the rest to float:
+
+        >>> people_sdaf.col('age', omit_nulls=True)
+        [34, 27]
+        >>> people_sdaf.col('age', omit_nulls=True, astype=float)
+        [34.0, 27.0]
+
+        A name that is not a column gives an empty list with `silent_error=True`:
+
+        >>> people_sdaf.col('email', silent_error=True)
         []
 
-        A value inside a dict column, with a default for a dict that lacks it:
+        Read a value inside the dict column, with a default for a dict that lacks it:
 
-        >>> sales_sdaf.col('color', indirect_col='extra', default='none')
-        ['red', 'none', 'blue']
+        >>> people_sdaf.col('phone', indirect_col='contact', default='none')
+        ['555-0101', 'none', '555-0103']
     """
     return self.col_to_la(colname, unique=unique, omit_nulls=omit_nulls, silent_error=silent_error,
                           astype=astype, indirect_col=indirect_col, default=default)
@@ -594,11 +637,17 @@ def _col_to_la(
         The values of the column, in row order.
 
     Examples:
+        Create a small SqlDaf table of people. One age is not known:
+
         >>> import tempfile
         >>> SqlDaf.db_path = tempfile.mkdtemp() + '/job.db'
-        >>> items_sdaf = SqlDaf.from_daf(Daf(cols=['id', 'item', 'qty'], keyfield='id', lol=[['a1', 'pen', 3], ['b2', 'ink', ''], ['c3', 'pad', 7]]), name='items')
-        >>> items_sdaf.col_to_la('qty', omit_nulls=True)
-        [3, 7]
+        >>> people_sdaf = SqlDaf('people', cols=['id', 'name', 'age'], keyfield='id', lol=[
+        ...     ['p1', 'Ana Lopez', 34], ['p2', 'Ben Okafor', ''], ['p3', 'Chen Wu', 27]])
+
+        Read the known ages as a list, as `col()` does:
+
+        >>> people_sdaf.col_to_la('age', omit_nulls=True)
+        [34, 27]
     """
     # A plain column is read straight into a list, with the options applied as Daf applies them.
     if colname in self.hd:
@@ -633,13 +682,22 @@ def _icol(self: 'SqlDaf', icol: int) -> T_la:
         IndexError: The place is out of range, and the table has rows.
 
     Examples:
+        Create a small SqlDaf table of people:
+
         >>> import tempfile
         >>> SqlDaf.db_path = tempfile.mkdtemp() + '/job.db'
-        >>> items_sdaf = SqlDaf.from_daf(Daf(cols=['id', 'item', 'qty'], keyfield='id', lol=[['a1', 'pen', 3], ['b2', 'ink', ''], ['c3', 'pad', 7]]), name='items')
-        >>> items_sdaf.icol(1)
-        ['pen', 'ink', 'pad']
-        >>> items_sdaf.icol(-1)
-        [3, '', 7]
+        >>> people_sdaf = SqlDaf('people', cols=['id', 'name', 'age'], keyfield='id', lol=[
+        ...     ['p1', 'Ana Lopez', 34], ['p2', 'Ben Okafor', 52], ['p3', 'Chen Wu', 27]])
+
+        Read the second column, by its place:
+
+        >>> people_sdaf.icol(1)
+        ['Ana Lopez', 'Ben Okafor', 'Chen Wu']
+
+        Read the last column. A negative place counts from the end:
+
+        >>> people_sdaf.icol(-1)
+        [34, 52, 27]
     """
     return self.icol_to_la(icol)
 
@@ -662,13 +720,22 @@ def _icol_to_la(self: 'SqlDaf', icol: int, unique: bool = False, omit_nulls: boo
         IndexError: The place is out of range, and the table has rows.
 
     Examples:
+        Create a small SqlDaf table of people. One age is not known:
+
         >>> import tempfile
         >>> SqlDaf.db_path = tempfile.mkdtemp() + '/job.db'
-        >>> items_sdaf = SqlDaf.from_daf(Daf(cols=['id', 'g', 'qty'], keyfield='id', lol=[['a1', 'x', 3], ['b2', 'y', ''], ['c3', 'x', 7]]), name='items')
-        >>> items_sdaf.icol_to_la(1, unique=True)
-        ['x', 'y']
-        >>> items_sdaf.icol_to_la(2, omit_nulls=True)
-        [3, 7]
+        >>> people_sdaf = SqlDaf('people', cols=['id', 'city', 'age'], keyfield='id', lol=[
+        ...     ['p1', 'Denver', 34], ['p2', 'Austin', ''], ['p3', 'Denver', 27]])
+
+        Read each city once, by the column's place:
+
+        >>> people_sdaf.icol_to_la(1, unique=True)
+        ['Denver', 'Austin']
+
+        Read the known ages, by the column's place:
+
+        >>> people_sdaf.icol_to_la(2, omit_nulls=True)
+        [34, 27]
     """
     cols_ls: T_ls = list(self.hd)
     if not -len(cols_ls) <= icol < len(cols_ls):
@@ -693,11 +760,17 @@ def _cols_to_dol(self: 'SqlDaf', colname1: str, colname2: str) -> Dict[Any, T_la
         A dict from each value of the first column to the values of the second, in the order first seen.
 
     Examples:
+        Create a small SqlDaf table of people:
+
         >>> import tempfile
         >>> SqlDaf.db_path = tempfile.mkdtemp() + '/job.db'
-        >>> items_sdaf = SqlDaf.from_daf(Daf(cols=['id', 'g', 'item'], keyfield='id', lol=[['a1', 'x', 'pen'], ['b2', 'y', 'ink'], ['c3', 'x', 'pad']]), name='items')
-        >>> items_sdaf.cols_to_dol('g', 'item')
-        {'x': ['pen', 'pad'], 'y': ['ink']}
+        >>> people_sdaf = SqlDaf('people', cols=['id', 'city', 'name'], keyfield='id', lol=[
+        ...     ['p1', 'Denver', 'Ana Lopez'], ['p2', 'Austin', 'Ben Okafor'], ['p3', 'Denver', 'Chen Wu']])
+
+        List the people in each city:
+
+        >>> people_sdaf.cols_to_dol('city', 'name')
+        {'Denver': ['Ana Lopez', 'Chen Wu'], 'Austin': ['Ben Okafor']}
     """
     if colname1 not in self.hd or colname2 not in self.hd:
         return {}
@@ -714,11 +787,17 @@ def _to_lod(self: 'SqlDaf') -> List[T_da]:
         The rows as dicts, in order.
 
     Examples:
+        Create a small SqlDaf table of people. One age is not known:
+
         >>> import tempfile
         >>> SqlDaf.db_path = tempfile.mkdtemp() + '/job.db'
-        >>> items_sdaf = SqlDaf.from_daf(Daf(cols=['id', 'item', 'qty'], keyfield='id', lol=[['a1', 'pen', 3], ['b2', 'ink', '']]), name='items')
-        >>> items_sdaf.to_lod()
-        [{'id': 'a1', 'item': 'pen', 'qty': 3}, {'id': 'b2', 'item': 'ink', 'qty': ''}]
+        >>> people_sdaf = SqlDaf('people', cols=['id', 'name', 'age'], keyfield='id', lol=[
+        ...     ['p1', 'Ana Lopez', 34], ['p2', 'Ben Okafor', '']])
+
+        Read the rows as a list of dicts:
+
+        >>> people_sdaf.to_lod()
+        [{'id': 'p1', 'name': 'Ana Lopez', 'age': 34}, {'id': 'p2', 'name': 'Ben Okafor', 'age': ''}]
     """
     return list(self.iter_dict())
 
@@ -739,13 +818,22 @@ def _to_dod(self: 'SqlDaf', remove_keyfield: bool = True) -> Dict[Any, T_da]:
         KeysDisabledError: There is no keyfield, and there are rows.
 
     Examples:
+        Create a small SqlDaf table of people:
+
         >>> import tempfile
         >>> SqlDaf.db_path = tempfile.mkdtemp() + '/job.db'
-        >>> items_sdaf = SqlDaf.from_daf(Daf(cols=['id', 'item', 'qty'], keyfield='id', lol=[['a1', 'pen', 3], ['b2', 'ink', '']]), name='items')
-        >>> items_sdaf.to_dod()
-        {'a1': {'item': 'pen', 'qty': 3}, 'b2': {'item': 'ink', 'qty': ''}}
-        >>> items_sdaf.to_dod(remove_keyfield=False)
-        {'a1': {'id': 'a1', 'item': 'pen', 'qty': 3}, 'b2': {'id': 'b2', 'item': 'ink', 'qty': ''}}
+        >>> people_sdaf = SqlDaf('people', cols=['id', 'name', 'age'], keyfield='id', lol=[
+        ...     ['p1', 'Ana Lopez', 34], ['p2', 'Ben Okafor', 52]])
+
+        Read the rows as a dict of dicts, under each key. The key is left out of each row:
+
+        >>> people_sdaf.to_dod()
+        {'p1': {'name': 'Ana Lopez', 'age': 34}, 'p2': {'name': 'Ben Okafor', 'age': 52}}
+
+        Keep the key in each row too:
+
+        >>> people_sdaf.to_dod(remove_keyfield=False)
+        {'p1': {'id': 'p1', 'name': 'Ana Lopez', 'age': 34}, 'p2': {'id': 'p2', 'name': 'Ben Okafor', 'age': 52}}
     """
     return self.to_daf().to_dod(remove_keyfield=remove_keyfield)
 
@@ -764,13 +852,21 @@ def _to_json(self: 'SqlDaf', concise: bool = True) -> str:
         The JSON text.
 
     Examples:
+        Create a small SqlDaf table of people:
+
         >>> import tempfile
         >>> SqlDaf.db_path = tempfile.mkdtemp() + '/job.db'
-        >>> items_sdaf = SqlDaf.from_daf(Daf(cols=['id', 'qty'], keyfield='id', lol=[['a1', 3], ['b2', '']]), name='items')
-        >>> items_sdaf.to_json()
-        '{"name": "items", "lol": [["a1", 3], ["b2", ""]], "hd": {"id": 0, "qty": 1}, "keyfield": "id"}'
-        >>> items_sdaf.to_json(concise=False)
-        '{"name": "items", "lol": [["a1", 3], ["b2", ""]], "hd": {"id": 0, "qty": 1}, "dtypes": {}, "keyfield": "id", "attrs": {}, "disp_cols": []}'
+        >>> people_sdaf = SqlDaf('people', cols=['id', 'age'], keyfield='id', lol=[['p1', 34], ['p2', 52]])
+
+        Make JSON text of the whole table, leaving out the parts that are empty:
+
+        >>> people_sdaf.to_json()
+        '{"name": "people", "lol": [["p1", 34], ["p2", 52]], "hd": {"id": 0, "age": 1}, "keyfield": "id"}'
+
+        Make it with every part:
+
+        >>> people_sdaf.to_json(concise=False)
+        '{"name": "people", "lol": [["p1", 34], ["p2", 52]], "hd": {"id": 0, "age": 1}, "dtypes": {}, "keyfield": "id", "attrs": {}, "disp_cols": []}'
     """
     return self.to_daf().to_json(concise=concise)
 
@@ -796,15 +892,27 @@ def _daf_to_lol_summary(
         The header, then the rows.
 
     Examples:
+        Create a SqlDaf table of six people, with three numbers each:
+
         >>> import tempfile
         >>> SqlDaf.db_path = tempfile.mkdtemp() + '/job.db'
-        >>> nums_sdaf = SqlDaf.from_daf(Daf(cols=['id', 'a', 'b', 'c'], lol=[[f'r{i}', i, i * 10, i * 100] for i in range(6)]), name='nums')
-        >>> nums_sdaf.daf_to_lol_summary(max_rows=4, max_cols=0)
-        [['id', 'a', 'b', 'c'], ['r0', 0, 0, 0], ['r1', 1, 10, 100], ['...', '...', '...', '...'], ['r4', 4, 40, 400], ['r5', 5, 50, 500]]
-        >>> nums_sdaf.daf_to_lol_summary(max_rows=0, max_cols=2)
-        [['id', '...', 'c'], ['r0', '...', 0], ['r1', '...', 100], ['r2', '...', 200], ['r3', '...', 300], ['r4', '...', 400], ['r5', '...', 500]]
-        >>> nums_sdaf.daf_to_lol_summary(max_rows=2, max_cols=0, disp_cols={'a': 'A'})
-        [['id', 'A', 'b', 'c'], ['r0', 0, 0, 0], ['...', '...', '...', '...'], ['r5', 5, 50, 500]]
+        >>> people_sdaf = SqlDaf('people', cols=['id', 'age', 'visits', 'points'], lol=[
+        ...     [f'p{i}', 20 + i, 3 * i, 100 * i] for i in range(1, 7)])
+
+        Keep four rows, the first and the last, around a row of '...':
+
+        >>> people_sdaf.daf_to_lol_summary(max_rows=4, max_cols=0)
+        [['id', 'age', 'visits', 'points'], ['p1', 21, 3, 100], ['p2', 22, 6, 200], ['...', '...', '...', '...'], ['p5', 25, 15, 500], ['p6', 26, 18, 600]]
+
+        Keep two columns, the first and the last, with every row:
+
+        >>> people_sdaf.daf_to_lol_summary(max_rows=0, max_cols=2)
+        [['id', '...', 'points'], ['p1', '...', 100], ['p2', '...', 200], ['p3', '...', 300], ['p4', '...', 400], ['p5', '...', 500], ['p6', '...', 600]]
+
+        Show another name in the header for one column:
+
+        >>> people_sdaf.daf_to_lol_summary(max_rows=2, max_cols=0, disp_cols={'age': 'Age'})
+        [['id', 'Age', 'visits', 'points'], ['p1', 21, 3, 100], ['...', '...', '...', '...'], ['p6', 26, 18, 600]]
     """
     colnames_ls: T_ls = daf_utils.display_colnames(list(self.hd), disp_cols)
     header_lol: T_lola = [colnames_ls] if colnames_ls else []
@@ -857,50 +965,62 @@ def _to_md(
         The Markdown text.
 
     Examples:
+        Create a small SqlDaf table of people, with a long address and a height in meters:
+
         >>> import tempfile
         >>> SqlDaf.db_path = tempfile.mkdtemp() + '/job.db'
-        >>> items_sdaf = SqlDaf.from_daf(Daf(cols=['id', 'item', 'price', 'note'], keyfield='id', lol=[
-        ...     ['a1', 'pen', 1.5, 'blue, fine tip'], ['b2', 'ink', 4.0, ''], ['c3', 'pad', 2.25, 'lined, 80 sheets of recycled paper']]), name='items')
-        >>> print(items_sdaf.to_md())
-        | id | item | price |                note                |
-        | -: | ---: | ----: | ---------------------------------: |
-        | a1 |  pen |   1.5 |                     blue, fine tip |
-        | b2 |  ink |   4.0 |                                    |
-        | c3 |  pad |  2.25 | lined, 80 sheets of recycled paper |
+        >>> people_sdaf = SqlDaf('people', cols=['id', 'name', 'height_m', 'address'], keyfield='id', lol=[
+        ...     ['p1', 'Ana Lopez', 1.68, '12 Oak St'], ['p2', 'Ben Okafor', 1.8, ''],
+        ...     ['p3', 'Chen Wu', 1.755, '4500 Long Meadow Parkway, Apartment 12B']])
+
+        Make a Markdown table of every row and column:
+
+        >>> print(people_sdaf.to_md())
+        | id |    name    | height_m |                 address                 |
+        | -: | ---------: | -------: | --------------------------------------: |
+        | p1 |  Ana Lopez |     1.68 |                               12 Oak St |
+        | p2 | Ben Okafor |      1.8 |                                         |
+        | p3 |    Chen Wu |    1.755 | 4500 Long Meadow Parkway, Apartment 12B |
         <BLANKLINE>
 
-        Only the first and last rows are read with `max_rows`:
+        Show only the first and last rows and columns. Only those rows are read:
 
-        >>> print(items_sdaf.to_md(max_rows=2, max_cols=3))
-        | id  | item | ... |                note                |
-        | --: | ---: | --: | ---------------------------------: |
-        |  a1 |  pen | ... |                     blue, fine tip |
-        | ... |  ... | ... |                                ... |
-        |  c3 |  pad | ... | lined, 80 sheets of recycled paper |
+        >>> print(people_sdaf.to_md(max_rows=2, max_cols=3))
+        | id  |   name    | ... |                 address                 |
+        | --: | --------: | --: | --------------------------------------: |
+        |  p1 | Ana Lopez | ... |                               12 Oak St |
+        | ... |       ... | ... |                                     ... |
+        |  p3 |   Chen Wu | ... | 4500 Long Meadow Parkway, Apartment 12B |
         <BLANKLINE>
 
-        The other options act as in a Daf:
+        Justify each column, shorten long text, and show numbers with fewer digits:
 
-        >>> print(items_sdaf.to_md(just='<<><', max_text_len=12, smart_fmt=True))
-        | id | item | price |     note     |
-        | :- | :--- | ----: | :----------- |
-        | a1 | pen  |   1.5 | blue,..e tip |
-        | b2 | ink  |   4.0 |              |
-        | c3 | pad  |   2.2 | lined..paper |
+        >>> print(people_sdaf.to_md(just='<<><', max_text_len=16, smart_fmt=True))
+        | id |    name    | height_m |     address      |
+        | :- | :--------- | -------: | :--------------- |
+        | p1 | Ana Lopez  |      1.7 | 12 Oak St        |
+        | p2 | Ben Okafor |      1.8 |                  |
+        | p3 | Chen Wu    |      1.8 | 4500 Lo..ent 12B |
         <BLANKLINE>
-        >>> print(items_sdaf.to_md(shorten_text=False, disp_cols={'item': 'Item'}, include_summary=True))
-        | id | Item | price |                note                |
-        | -: | ---: | ----: | ---------------------------------: |
-        | a1 |  pen |   1.5 |                     blue, fine tip |
-        | b2 |  ink |   4.0 |                                    |
-        | c3 |  pad |  2.25 | lined, 80 sheets of recycled paper |
+
+        Write long text in full, rename one column in the header, and add the summary line:
+
+        >>> print(people_sdaf.to_md(shorten_text=False, disp_cols={'height_m': 'Height (m)'}, include_summary=True))
+        | id |    name    | Height (m) |                 address                 |
+        | -: | ---------: | ---------: | --------------------------------------: |
+        | p1 |  Ana Lopez |       1.68 |                               12 Oak St |
+        | p2 | Ben Okafor |        1.8 |                                         |
+        | p3 |    Chen Wu |      1.755 | 4500 Long Meadow Parkway, Apartment 12B |
         <BLANKLINE>
-        %% daf rows=3; cols=4; keyfield='id'; name='items'
+        %% daf rows=3; cols=4; keyfield='id'; name='people'
         <BLANKLINE>
-        >>> print(items_sdaf[0:1].to_md(header=['ID', 'Item', 'Price', 'Note']))
-        | ID | Item | Price |      Note      |
-        | -: | ---: | ----: | -------------: |
-        | a1 |  pen |   1.5 | blue, fine tip |
+
+        Give a header row of your own:
+
+        >>> print(people_sdaf[0:1].to_md(header=['ID', 'Name', 'Height', 'Address']))
+        | ID |   Name    | Height |  Address  |
+        | -: | --------: | -----: | --------: |
+        | p1 | Ana Lopez |   1.68 | 12 Oak St |
         <BLANKLINE>
     """
     md_str: str = Daf.to_md(self, max_rows=max_rows, max_cols=max_cols, just=just, shorten_text=shorten_text,
@@ -941,26 +1061,38 @@ def _to_md_cols(
         The Markdown text.
 
     Examples:
+        Create a small SqlDaf table of people, with a long address:
+
         >>> import tempfile
         >>> SqlDaf.db_path = tempfile.mkdtemp() + '/job.db'
-        >>> items_sdaf = SqlDaf.from_daf(Daf(cols=['id', 'item', 'price', 'note'], keyfield='id', lol=[
-        ...     ['a1', 'pen', 1.5, 'blue, fine tip'], ['b2', 'ink', 4.0, ''], ['c3', 'pad', 2.25, 'lined, 80 sheets of recycled paper']]), name='items')
-        >>> print(items_sdaf.to_md_cols())
-        |  id   |       a1       | b2  |                 c3                 |
-        | item  |      pen       | ink |                pad                 |
-        | price |      1.5       | 4.0 |                2.25                |
-        | note  | blue, fine tip |     | lined, 80 sheets of recycled paper |
+        >>> people_sdaf = SqlDaf('people', cols=['id', 'name', 'height_m', 'address'], keyfield='id', lol=[
+        ...     ['p1', 'Ana Lopez', 1.68, '12 Oak St'], ['p2', 'Ben Okafor', 1.8, ''],
+        ...     ['p3', 'Chen Wu', 1.755, '4500 Long Meadow Parkway, Apartment 12B']])
+
+        Make a Markdown table with each row as a column:
+
+        >>> print(people_sdaf.to_md_cols())
+        |    id    |    p1     |     p2     |                   p3                    |
+        |   name   | Ana Lopez | Ben Okafor |                 Chen Wu                 |
+        | height_m |   1.68    |    1.8     |                  1.755                  |
+        | address  | 12 Oak St |            | 4500 Long Meadow Parkway, Apartment 12B |
         <BLANKLINE>
-        >>> print(items_sdaf.to_md_cols(max_rows=2, just='<<<', max_text_len=12, smart_fmt=True, disp_cols={'id': 'ID'}))
-        | ID    | a1           | ... | c3           |
-        | item  | pen          | ... | pad          |
-        | price | 1.5          | ... | 2.2          |
-        | note  | blue,..e tip | ... | lined..paper |
+
+        Keep the first and last rows, justify left, shorten text, and rename the first column:
+
+        >>> print(people_sdaf.to_md_cols(max_rows=2, just='<<<', max_text_len=16, smart_fmt=True, disp_cols={'id': 'ID'}))
+        | ID       | p1        | ... | p3               |
+        | name     | Ana Lopez | ... | Chen Wu          |
+        | height_m | 1.7       | ... | 1.8              |
+        | address  | 12 Oak St | ... | 4500 Lo..ent 12B |
         <BLANKLINE>
-        >>> print(items_sdaf.to_md_cols(max_cols=2, shorten_text=False))
-        |  id  |       a1       | b2  |                 c3                 |
-        | ...  |      ...       | ... |                ...                 |
-        | note | blue, fine tip |     | lined, 80 sheets of recycled paper |
+
+        Keep the first and last columns of the table, with long text in full:
+
+        >>> print(people_sdaf.to_md_cols(max_cols=2, shorten_text=False))
+        |   id    |    p1     | p2  |                   p3                    |
+        |   ...   |    ...    | ... |                   ...                   |
+        | address | 12 Oak St |     | 4500 Long Meadow Parkway, Apartment 12B |
         <BLANKLINE>
     """
     return Daf.to_md_cols(self, max_rows=max_rows, max_cols=max_cols, just=just, shorten_text=shorten_text,
@@ -982,10 +1114,15 @@ def _iloc_exists(self: 'SqlDaf', irow: int) -> bool:
         ValueError: This is a parent that has had rows deleted. See SqlDaf.
 
     Examples:
+        Create a small SqlDaf table of two people:
+
         >>> import tempfile
         >>> SqlDaf.db_path = tempfile.mkdtemp() + '/job.db'
-        >>> items_sdaf = SqlDaf.from_daf(Daf(cols=['id', 'qty'], keyfield='id', lol=[['a1', 3], ['b2', '']]), name='items')
-        >>> items_sdaf.iloc_exists(1), items_sdaf.iloc_exists(2)
+        >>> people_sdaf = SqlDaf('people', cols=['id', 'age'], keyfield='id', lol=[['p1', 34], ['p2', 52]])
+
+        Ask whether there is a row at position 1, and at position 2:
+
+        >>> people_sdaf.iloc_exists(1), people_sdaf.iloc_exists(2)
         (True, False)
     """
     self._check_positions('iloc_exists')
