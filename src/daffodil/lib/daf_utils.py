@@ -609,8 +609,10 @@ def normalize_val(val: Any) -> Any:
         The value with each bool, None and NaN replaced.
 
     Examples:
-        >>> normalize_val({'a': True, 'b': False, 'c': None, 'd': [float('nan'), 2, 'x']})
-        {'a': 1, 'b': 0, 'c': '', 'd': ['', 2, 'x']}
+        Put a value into daffodil's form. A bool becomes 0 or 1, and None and NaN become NULL, at any depth:
+
+        >>> normalize_val({'member': True, 'admin': False, 'phone': None, 'scores': [float('nan'), 88, 'n/a']})
+        {'member': 1, 'admin': 0, 'phone': '', 'scores': ['', 88, 'n/a']}
     """
     # An int or a str, the usual cells, is kept with no call.
     # The exact class is tested, since a bool is also an int.
@@ -684,6 +686,8 @@ def columns_mismatch_msg(cols: T_ls, other_cols: T_ls, name: str = '') -> str:
         The message, for a KeyError.
 
     Examples:
+        Make the message for tables whose columns differ, or are in another order:
+
         >>> columns_mismatch_msg(['id', 'qty'], ['id', 'price'])
         "concat(): the columns differ. Only in this table: ['qty']. Only in the other: ['price']."
         >>> columns_mismatch_msg(['id', 'qty'], ['qty', 'id'], name='items')
@@ -714,6 +718,8 @@ def display_colnames(cols: T_ls, disp_cols: Any) -> T_ls:
         The names to show, one for each column of a dict, or the list as given.
 
     Examples:
+        Give the names to show for the columns. A dict renames some, a list names all, and None keeps them:
+
         >>> display_colnames(['id', 'item', 'qty'], {'item': 'Item'})
         ['id', 'Item', 'qty']
         >>> display_colnames(['id', 'item', 'qty'], ['ID', 'Item', 'Qty'])

@@ -64,6 +64,8 @@ def _apply_schema(
         RuntimeError: A `dtype` in a schema Daf is not one of the supported names.
 
     Examples:
+        Describe a person with a schema class, and make an empty Daf from it:
+
         >>> from daffodil.daf import Daf
         >>> from daffodil.lib.schemaclass import schemaclass
         >>> @schemaclass
@@ -81,25 +83,25 @@ def _apply_schema(
 
         On a Daf with rows and no names, it fills the names and dtypes, and converts nothing:
 
-        >>> raw = Daf(lol=[['ann', '7']])
+        >>> raw = Daf(lol=[['Ana Lopez', '34']])
         >>> raw
         <BLANKLINE>
-        |  A  | B  |
-        | --: | -: |
-        | ann |  7 |
+        |     A     | B  |
+        | --------: | -: |
+        | Ana Lopez | 34 |
         <BLANKLINE>
         %% daf rows=1; cols=2; keyfield=''; name=''
         <BLANKLINE>
         >>> raw.apply_schema(Person)
         <BLANKLINE>
-        | name | age |
-        | ---: | --: |
-        |  ann |   7 |
+        |   name    | age |
+        | --------: | --: |
+        | Ana Lopez |  34 |
         <BLANKLINE>
         %% daf rows=1; cols=2; keyfield=''; name=''
         <BLANKLINE>
         >>> raw.columns(), raw.lol
-        (['name', 'age'], [['ann', '7']])
+        (['name', 'age'], [['Ana Lopez', '34']])
         >>> daf.dtypes
         {'name': <class 'str'>, 'age': <class 'int'>}
     """
@@ -227,6 +229,8 @@ def _attach_schema(self: 'Daf', schema: type) -> 'Daf':
         TypeError: The class is not a `@schemaclass`.
 
     Examples:
+        Describe a person with a schema class, and attach it to an empty Daf, which takes its columns:
+
         >>> from daffodil.daf import Daf
         >>> from daffodil.lib.schemaclass import schemaclass
         >>> @schemaclass
@@ -321,6 +325,8 @@ def _default_record(self: 'Daf', astype: type = dict) -> Any:
         TypeError: The attached schema is of an unsupported kind, or `astype` is not dict or KeyedList.
 
     Examples:
+        Describe a person with a schema class, and make a new row with its defaults:
+
         >>> from daffodil.daf import Daf
         >>> from daffodil.keyedlist import KeyedList
         >>> from daffodil.lib.schemaclass import schemaclass
@@ -330,8 +336,14 @@ def _default_record(self: 'Daf', astype: type = dict) -> Any:
         ...     age: int = 0
         >>> Daf(schema=Person).default_record()
         {'name': '', 'age': 0}
+
+        A column the schema does not name gets NULL:
+
         >>> Daf(cols=['age', 'city'], schema=Person).default_record()
         {'age': 0, 'city': ''}
+
+        A KeyedList row shares the Daf's columns, so it can be filled by name and appended with `fast=True`:
+
         >>> daf = Daf(schema=Person)
         >>> daf
         <BLANKLINE>
@@ -478,48 +490,56 @@ def _check_schema(self: 'Daf', max_report: int = 10) -> 'Daf':
             required column is missing.
 
     Examples:
+        Describe the columns in a Markdown table: their names, types and which are required:
+
         >>> from daffodil.daf import Daf
         >>> schema = Daf.from_md('''
         ... | Name | dtype | Required |
         ... |:-----|:------|:---------|
         ... | id   | str   | yes      |
-        ... | n    | int   |          |
+        ... | age  | int   |          |
         ... ''')
         >>> schema
         <BLANKLINE>
         | Name | dtype | Required |
         | ---: | ----: | -------: |
         |   id |   str |      yes |
-        |    n |   int |          |
+        |  age |   int |          |
         <BLANKLINE>
         %% daf rows=2; cols=3; keyfield=''; name=''
         <BLANKLINE>
-        >>> daf = Daf.from_csv_buff('id,n\\na,1\\n,x\\n')
+
+        Read a CSV file with a missing id and an age that is not a number:
+
+        >>> daf = Daf.from_csv_buff('id,age\\np1,34\\n,unknown\\n')
         >>> daf
         <BLANKLINE>
-        | id | n  |
-        | -: | -: |
-        |  a |  1 |
-        |    |  x |
+        | id |   age   |
+        | -: | ------: |
+        | p1 |      34 |
+        |    | unknown |
         <BLANKLINE>
         %% daf rows=2; cols=2; keyfield=''; name=''
         <BLANKLINE>
+
+        Apply the schema, convert, and check. Each bad cell is listed:
+
         >>> daf = daf.apply_schema(schema).apply_dtypes(dtypes=daf.dtypes)
         >>> daf.check_schema()
         Traceback (most recent call last):
         ...
         ValueError: check_schema(): 2 cells do not fit the schema:
           row 1, column 'id': required, but empty
-          row 1, column 'n': 'x' is not int
+          row 1, column 'age': 'unknown' is not int
 
         `max_report` limits how many bad cells the message lists. The count covers them all:
 
-        >>> bad = Daf(cols=['id', 'qty'], lol=[['a', 'x'], ['b', 'y'], ['c', 'z']], dtypes={'id': str, 'qty': int})
+        >>> bad = Daf(cols=['id', 'qty'], lol=[['o1', 'n/a'], ['o2', 'tbd'], ['o3', 'none']], dtypes={'id': str, 'qty': int})
         >>> bad.check_schema(max_report=1)
         Traceback (most recent call last):
         ...
         ValueError: check_schema(): 3 cells do not fit the schema. The first 1:
-          row 0, column 'qty': 'x' is not int
+          row 0, column 'qty': 'n/a' is not int
     """
     from daffodil.lib.daf_utils import test_strbool, NULL
 

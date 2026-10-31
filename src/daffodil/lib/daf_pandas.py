@@ -95,16 +95,18 @@ def _from_pandas_df(
         The new Daf.
 
     Examples:
+        Make a Daf from a pandas DataFrame, with a keyfield:
+
         >>> import pandas as pd
         >>> from daffodil.daf import Daf
-        >>> df = pd.DataFrame({'id': [1, 2], 'v': ['a', 'b']})
+        >>> df = pd.DataFrame({'id': [1, 2], 'name': ['Ana Lopez', 'Ben Okafor']})
         >>> daf = Daf.from_pandas_df(df, keyfield='id')
         >>> daf
         <BLANKLINE>
-        | id | v  |
-        | -: | -: |
-        |  1 |  a |
-        |  2 |  b |
+        | id |    name    |
+        | -: | ---------: |
+        |  1 |  Ana Lopez |
+        |  2 | Ben Okafor |
         <BLANKLINE>
         %% daf rows=2; cols=2; keyfield='id'; name=''
         <BLANKLINE>
@@ -185,19 +187,24 @@ def _to_pandas_df(
         NotImplementedError: `default` is given with `use_csv=True`.
 
     Examples:
+        Make a pandas DataFrame from a small Daf of people:
+
         >>> from daffodil.daf import Daf
-        >>> daf = Daf(lol=[[1, 'a'], [2, 'b']], cols=['id', 'v'])
+        >>> daf = Daf(cols=['id', 'name'], lol=[[1, 'Ana Lopez'], [2, 'Ben Okafor']])
         >>> daf
         <BLANKLINE>
-        | id | v  |
-        | -: | -: |
-        |  1 |  a |
-        |  2 |  b |
+        | id |    name    |
+        | -: | ---------: |
+        |  1 |  Ana Lopez |
+        |  2 | Ben Okafor |
         <BLANKLINE>
         %% daf rows=2; cols=2; keyfield=''; name=''
         <BLANKLINE>
+
+        Make the DataFrame, and read its values as lists:
+
         >>> daf.to_pandas_df().values.tolist()
-        [[1, 'a'], [2, 'b']]
+        [[1, 'Ana Lopez'], [2, 'Ben Okafor']]
     """
     import pandas as pd     # type: ignore
 

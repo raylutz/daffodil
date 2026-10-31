@@ -209,17 +209,19 @@ def dodaf_to_md(
         The Markdown text.
 
     Examples:
+        Make one Markdown report of several Daf tables, each under its own heading:
+
         >>> from daffodil.daf import Daf
-        >>> print(Daf.dodaf_to_md({'first': Daf(lol=[[1]], cols=['a'])}, report_header='Report'))
+        >>> print(Daf.dodaf_to_md({'people': Daf(cols=['age'], lol=[[34]])}, report_header='Report'))
         # Report
         <BLANKLINE>
         <BLANKLINE>
-        ## first
+        ## people
         <BLANKLINE>
         <BLANKLINE>
-        | a  |
-        | -: |
-        |  1 |
+        | age |
+        | --: |
+        |  34 |
         <BLANKLINE>
         <BLANKLINE>
     """
@@ -256,16 +258,18 @@ def _dodaf_from_md(cls: type[Daf], md_str: str, header_level: int = 2) -> Dict[s
         A dict that maps each section title to a Daf.
 
     Examples:
+        Make a report of one table, and read it back into a dict of Daf tables:
+
         >>> from daffodil.daf import Daf
-        >>> report = Daf.dodaf_to_md({'first': Daf(lol=[[1]], cols=['a'])})
+        >>> report = Daf.dodaf_to_md({'people': Daf(cols=['age'], lol=[[34]])})
         >>> back = Daf.dodaf_from_md(report)
-        >>> back['first']
+        >>> back['people']
         <BLANKLINE>
-        | a  |
-        | -: |
-        |  1 |
+        | age |
+        | --: |
+        |  34 |
         <BLANKLINE>
-        %% daf rows=1; cols=1; keyfield=''; name='first'
+        %% daf rows=1; cols=1; keyfield=''; name='people'
         <BLANKLINE>
     """
     if not md_str:
@@ -506,19 +510,24 @@ def _from_md(cls: type[Daf], md_str: str) -> 'Daf': # -> "Daf":
             has a different number of cells than the header.
 
     Examples:
+        Read a Markdown table, with its summary line, back into a Daf:
+
         >>> from daffodil.daf import Daf
-        >>> text = "| id | v |\n| -: | -: |\n|  1 | a |\n|  2 | b |\n\n%% daf rows=2; cols=2; keyfield='id'; name='nm'\n"
+        >>> text = "| id | name |\n| -: | -: |\n|  1 | Ana Lopez |\n|  2 | Ben Okafor |\n\n%% daf rows=2; cols=2; keyfield='id'; name='people'\n"
         >>> daf = Daf.from_md(text)
         >>> daf
         <BLANKLINE>
-        | id | v  |
-        | -: | -: |
-        |  1 |  a |
-        |  2 |  b |
+        | id |    name    |
+        | -: | ---------: |
+        |  1 |  Ana Lopez |
+        |  2 | Ben Okafor |
         <BLANKLINE>
-        %% daf rows=2; cols=2; keyfield='id'; name='nm'
+        %% daf rows=2; cols=2; keyfield='id'; name='people'
         <BLANKLINE>
-        >>> Daf.from_md(Daf(lol=[[1, 'a']]).to_md()).columns()
+
+        A Daf with no column names is written with A, B and so on, which come back as its names:
+
+        >>> Daf.from_md(Daf(lol=[['p1', 'Ana Lopez']]).to_md()).columns()
         ['A', 'B']
     """
 
@@ -835,8 +844,10 @@ def split_md_row(line: str) -> T_ls:
         The text of each cell.
 
     Examples:
-        >>> split_md_row(r'|  a | x\|y |')
-        ['a', 'x|y']
+        Split a Markdown table row into its cells. An escaped bar stays in its cell:
+
+        >>> split_md_row(r'|  Ana Lopez | chess\|hiking |')
+        ['Ana Lopez', 'chess|hiking']
     """
     parts_ls: T_ls = _MD_CELL_DIVIDER_RE.split(line.strip())[1:-1]
     return [cell.strip().replace('\\|', '|') for cell in parts_ls]
