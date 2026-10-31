@@ -63,29 +63,37 @@ def _set_irows_icols(self: 'Daf',
         This Daf, which has been changed.
 
     Examples:
-        >>> daf = Daf(lol=[[1, 'a', 10], [2, 'b', 20], [3, 'c', 30]], cols=['id', 'v', 'n'])
+        Create a small Daf of people, keyed by an int id:
+
+        >>> daf = Daf(cols=['id', 'city', 'age'], lol=[[1, 'Denver', 34], [2, 'Austin', 52], [3, 'Boston', 27]])
         >>> daf
         <BLANKLINE>
-        | id | v  | n  |
-        | -: | -: | -: |
-        |  1 |  a | 10 |
-        |  2 |  b | 20 |
-        |  3 |  c | 30 |
+        | id |  city  | age |
+        | -: | -----: | --: |
+        |  1 | Denver |  34 |
+        |  2 | Austin |  52 |
+        |  3 | Boston |  27 |
         <BLANKLINE>
         %% daf rows=3; cols=3; keyfield=''; name=''
         <BLANKLINE>
-        >>> daf.set_irows_icols([0, 1], [1, 2], 'Z')
+
+        Set the city and age of the first two rows to one value:
+
+        >>> daf.set_irows_icols([0, 1], [1, 2], 'unknown')
         <BLANKLINE>
-        | id | v  | n  |
-        | -: | -: | -: |
-        |  1 |  Z |  Z |
-        |  2 |  Z |  Z |
-        |  3 |  c | 30 |
+        | id |  city   |   age   |
+        | -: | ------: | ------: |
+        |  1 | unknown | unknown |
+        |  2 | unknown | unknown |
+        |  3 |  Boston |      27 |
         <BLANKLINE>
         %% daf rows=3; cols=3; keyfield=''; name=''
         <BLANKLINE>
-        >>> daf.set_irows_icols(2, None, ['x', 'y', 'z']).iloc(2)
-        {'id': 'x', 'v': 'y', 'n': 'z'}
+
+        Set a whole row from a list, with `None` for every column:
+
+        >>> daf.set_irows_icols(2, None, [4, 'Miami', 60]).iloc(2)
+        {'id': 4, 'city': 'Miami', 'age': 60}
     """
     """ set rows and cols in given daf.
 
@@ -263,32 +271,36 @@ def _krows_to_irows(self: 'Daf',
         KeyError: A key is not found and `silent_error` is False.
 
     Examples:
-        >>> daf = Daf(lol=[['r1', 'a', 10], ['r2', 'b', ''], ['r3', 'a', 30]], cols=['id', 'v', 'n'], keyfield='id')
+        Create a small Daf of people, keyed by id. One age is not known:
+
+        >>> daf = Daf(cols=['id', 'city', 'age'], lol=[['p1', 'Denver', 34], ['p2', 'Austin', ''], ['p3', 'Denver', 27]], keyfield='id')
         >>> daf
         <BLANKLINE>
-        | id | v  | n  |
-        | -: | -: | -: |
-        | r1 |  a | 10 |
-        | r2 |  b |    |
-        | r3 |  a | 30 |
+        | id |  city  | age |
+        | -: | -----: | --: |
+        | p1 | Denver |  34 |
+        | p2 | Austin |     |
+        | p3 | Denver |  27 |
         <BLANKLINE>
         %% daf rows=3; cols=3; keyfield='id'; name=''
         <BLANKLINE>
 
-        >>> daf.krows_to_irows('r2')
+        Find the position of one key, of a list of keys, and of a range of keys:
+
+        >>> daf.krows_to_irows('p2')
         [1]
-        >>> daf.krows_to_irows(['r3', 'r1'])
+        >>> daf.krows_to_irows(['p3', 'p1'])
         [2, 0]
-        >>> daf.krows_to_irows(('r1', 'r2'))
+        >>> daf.krows_to_irows(('p1', 'p2'))
         slice(0, 2, 1)
-        >>> daf.krows_to_irows(['r1'], inverse=True)
+        >>> daf.krows_to_irows(['p1'], inverse=True)
         [1, 2]
-        >>> daf.krows_to_irows(['zz'], silent_error=True)
+        >>> daf.krows_to_irows(['p9'], silent_error=True)
         []
-        >>> daf.krows_to_irows(['zz'])
+        >>> daf.krows_to_irows(['p9'])
         Traceback (most recent call last):
             ...
-        KeyError: 'zz'
+        KeyError: 'p9'
     """
     """
         If the keyfield is set, then the rows can be selected by providing a
@@ -351,34 +363,38 @@ def _kcols_to_icols(self: 'Daf',
         KeyError: A name is not found and `silent_error` is False.
 
     Examples:
-        >>> daf = Daf(lol=[['r1', 'a', 10], ['r2', 'b', ''], ['r3', 'a', 30]], cols=['id', 'v', 'n'], keyfield='id')
+        Create a small Daf of people:
+
+        >>> daf = Daf(cols=['id', 'city', 'age'], lol=[['p1', 'Denver', 34], ['p2', 'Austin', ''], ['p3', 'Denver', 27]], keyfield='id')
         >>> daf
         <BLANKLINE>
-        | id | v  | n  |
-        | -: | -: | -: |
-        | r1 |  a | 10 |
-        | r2 |  b |    |
-        | r3 |  a | 30 |
+        | id |  city  | age |
+        | -: | -----: | --: |
+        | p1 | Denver |  34 |
+        | p2 | Austin |     |
+        | p3 | Denver |  27 |
         <BLANKLINE>
         %% daf rows=3; cols=3; keyfield='id'; name=''
         <BLANKLINE>
 
-        >>> daf.kcols_to_icols('v')
+        Find the position of one column, of a list of columns, and of a range of columns:
+
+        >>> daf.kcols_to_icols('city')
         [1]
-        >>> daf.kcols_to_icols(['n', 'id'])
+        >>> daf.kcols_to_icols(['age', 'id'])
         [2, 0]
-        >>> daf.kcols_to_icols(('id', 'v'))
+        >>> daf.kcols_to_icols(('id', 'city'))
         slice(0, 2, 1)
-        >>> daf.kcols_to_icols('v', inverse=True)
+        >>> daf.kcols_to_icols('city', inverse=True)
         [0, 2]
-        >>> daf.kcols_to_icols('zz')
+        >>> daf.kcols_to_icols('email')
         Traceback (most recent call last):
             ...
-        KeyError: 'zz'
+        KeyError: 'email'
 
         A name that is not a column raises KeyError, or is left out with `silent_error=True`:
 
-        >>> daf.kcols_to_icols(['v', 'color'], silent_error=True)
+        >>> daf.kcols_to_icols(['city', 'email'], silent_error=True)
         [1]
     """
     """
@@ -443,23 +459,25 @@ def _gkeys_to_idxs(
         TypeError: The keys are None, or a tuple of a length other than 1 or 2.
 
     Examples:
-        >>> Daf.gkeys_to_idxs({'a': 0, 'b': 1, 'c': 2}, ['c', 'a'])
+        Look up names in a dict of positions, as the column names of a Daf map to their places:
+
+        >>> Daf.gkeys_to_idxs({'id': 0, 'name': 1, 'age': 2}, ['age', 'id'])
         [2, 0]
-        >>> Daf.gkeys_to_idxs({'a': 0, 'b': 1, 'c': 2}, ('a', 'b'))
+        >>> Daf.gkeys_to_idxs({'id': 0, 'name': 1, 'age': 2}, ('id', 'name'))
         slice(0, 2, 1)
 
         With `inverse=True`, the positions that are not selected. With `silent_error=True`, a key that
         is not found is left out:
 
-        >>> positions = {'a': 0, 'b': 1, 'c': 2}
-        >>> Daf.gkeys_to_idxs(positions, ['b'], inverse=True)
+        >>> positions = {'id': 0, 'name': 1, 'age': 2}
+        >>> Daf.gkeys_to_idxs(positions, ['name'], inverse=True)
         [0, 2]
-        >>> Daf.gkeys_to_idxs(positions, ['b', 'z'], silent_error=True)
+        >>> Daf.gkeys_to_idxs(positions, ['name', 'email'], silent_error=True)
         [1]
 
         `axis` names the index in the error for an empty one:
 
-        >>> Daf.gkeys_to_idxs({}, ['a'], axis='rowkeys')
+        >>> Daf.gkeys_to_idxs({}, ['id'], axis='rowkeys')
         Traceback (most recent call last):
         ...
         daffodil.daf.KeysDisabledError: gkeys_to_idxs(): the rowkeys index is empty, so there is nothing to look up. A Daf with no rows has no keys.
@@ -612,39 +630,50 @@ def _select_krows(self: 'Daf',
         KeyError: A key is not found and `silent_error` is False.
 
     Examples:
-        >>> daf = Daf(lol=[[1, 'a', 10], [2, 'b', 20], [3, 'c', 30]], cols=['id', 'v', 'n'], keyfield='id')
+        Create a small Daf of people, keyed by an int id. An int here is a key, not a position:
+
+        >>> daf = Daf(cols=['id', 'city', 'age'], lol=[[1, 'Denver', 34], [2, 'Austin', 52], [3, 'Boston', 27]], keyfield='id')
         >>> daf
         <BLANKLINE>
-        | id | v  | n  |
-        | -: | -: | -: |
-        |  1 |  a | 10 |
-        |  2 |  b | 20 |
-        |  3 |  c | 30 |
+        | id |  city  | age |
+        | -: | -----: | --: |
+        |  1 | Denver |  34 |
+        |  2 | Austin |  52 |
+        |  3 | Boston |  27 |
         <BLANKLINE>
         %% daf rows=3; cols=3; keyfield='id'; name=''
         <BLANKLINE>
+
+        Select the rows with keys 3 and 1, in that order:
+
         >>> daf.select_krows([3, 1])
         <BLANKLINE>
-        | id | v  | n  |
-        | -: | -: | -: |
-        |  3 |  c | 30 |
-        |  1 |  a | 10 |
+        | id |  city  | age |
+        | -: | -----: | --: |
+        |  3 | Boston |  27 |
+        |  1 | Denver |  34 |
         <BLANKLINE>
         %% daf rows=2; cols=3; keyfield='id'; name=''
         <BLANKLINE>
+
+        Select the rows not listed:
+
         >>> daf.select_krows([1, 2], inverse=True)
         <BLANKLINE>
-        | id | v  | n  |
-        | -: | -: | -: |
-        |  3 |  c | 30 |
+        | id |  city  | age |
+        | -: | -----: | --: |
+        |  3 | Boston |  27 |
         <BLANKLINE>
         %% daf rows=1; cols=3; keyfield='id'; name=''
         <BLANKLINE>
+
+        Leave out a key that is not found:
+
         >>> daf.select_krows([1, 9], silent_error=True)
         <BLANKLINE>
-        | id | v  | n  |
-        | -: | -: | -: |
-        |  1 |  a | 10 |
+        | id |  city  | age |
+        | -: | -----: | --: |
+        |  1 | Denver |  34 |
         <BLANKLINE>
         %% daf rows=1; cols=3; keyfield='id'; name=''
         <BLANKLINE>
@@ -695,41 +724,52 @@ def _select_kcols(self: 'Daf',
         KeyError: A name is not found and `silent_error` is False.
 
     Examples:
-        >>> daf = Daf(lol=[[1, 'a', 10], [2, 'b', 20], [3, 'c', 30]], cols=['id', 'v', 'n'], keyfield='id')
+        Create a small Daf of people:
+
+        >>> daf = Daf(cols=['id', 'city', 'age'], lol=[[1, 'Denver', 34], [2, 'Austin', 52], [3, 'Boston', 27]], keyfield='id')
         >>> daf
         <BLANKLINE>
-        | id | v  | n  |
-        | -: | -: | -: |
-        |  1 |  a | 10 |
-        |  2 |  b | 20 |
-        |  3 |  c | 30 |
+        | id |  city  | age |
+        | -: | -----: | --: |
+        |  1 | Denver |  34 |
+        |  2 | Austin |  52 |
+        |  3 | Boston |  27 |
         <BLANKLINE>
         %% daf rows=3; cols=3; keyfield='id'; name=''
         <BLANKLINE>
-        >>> daf.select_kcols(['n', 'id'])
+
+        Select two columns by name, in the order given:
+
+        >>> daf.select_kcols(['age', 'id'])
         <BLANKLINE>
-        | n  | id |
-        | -: | -: |
-        | 10 |  1 |
-        | 20 |  2 |
-        | 30 |  3 |
+        | age | id |
+        | --: | -: |
+        |  34 |  1 |
+        |  52 |  2 |
+        |  27 |  3 |
         <BLANKLINE>
         %% daf rows=3; cols=2; keyfield='id'; name=''
         <BLANKLINE>
-        >>> daf.select_kcols('v', inverse=True).columns()
-        ['id', 'n']
-        >>> daf.select_kcols('v', flip=True)
+
+        Select every column but one:
+
+        >>> daf.select_kcols('city', inverse=True).columns()
+        ['id', 'age']
+
+        Select a column and turn it into a row, with `flip=True`:
+
+        >>> daf.select_kcols('city', flip=True)
         <BLANKLINE>
-        | A  | B  | C  |
-        | -: | -: | -: |
-        |  a |  b |  c |
+        |   A    |   B    |   C    |
+        | -----: | -----: | -----: |
+        | Denver | Austin | Boston |
         <BLANKLINE>
         %% daf rows=1; cols=3; keyfield=''; name=''
         <BLANKLINE>
 
         A name that is not a column raises KeyError, or is left out with `silent_error=True`:
 
-        >>> daf.select_kcols(['id', 'color'], silent_error=True).columns()
+        >>> daf.select_kcols(['id', 'email'], silent_error=True).columns()
         ['id']
     """
     if not self.hd:
@@ -765,49 +805,57 @@ def _select_irows(self: 'Daf', irows: slice | int | T_li | range | T_lor | Itera
         IndexError: A single position is out of range.
 
     Examples:
-        >>> daf = Daf(lol=[[1, 'a', 10], [2, 'b', 20], [3, 'c', 30]], cols=['id', 'v', 'n'], keyfield='id')
+        Create a small Daf of people:
+
+        >>> daf = Daf(cols=['id', 'city', 'age'], lol=[[1, 'Denver', 34], [2, 'Austin', 52], [3, 'Boston', 27]], keyfield='id')
         >>> daf
         <BLANKLINE>
-        | id | v  | n  |
-        | -: | -: | -: |
-        |  1 |  a | 10 |
-        |  2 |  b | 20 |
-        |  3 |  c | 30 |
+        | id |  city  | age |
+        | -: | -----: | --: |
+        |  1 | Denver |  34 |
+        |  2 | Austin |  52 |
+        |  3 | Boston |  27 |
         <BLANKLINE>
         %% daf rows=3; cols=3; keyfield='id'; name=''
         <BLANKLINE>
+
+        Select the row at position 1, and every row but that one:
+
         >>> daf.select_irows(1)
         <BLANKLINE>
-        | id | v  | n  |
-        | -: | -: | -: |
-        |  2 |  b | 20 |
+        | id |  city  | age |
+        | -: | -----: | --: |
+        |  2 | Austin |  52 |
         <BLANKLINE>
         %% daf rows=1; cols=3; keyfield='id'; name=''
         <BLANKLINE>
         >>> daf.select_irows(1, inverse=True)
         <BLANKLINE>
-        | id | v  | n  |
-        | -: | -: | -: |
-        |  1 |  a | 10 |
-        |  3 |  c | 30 |
+        | id |  city  | age |
+        | -: | -----: | --: |
+        |  1 | Denver |  34 |
+        |  3 | Boston |  27 |
         <BLANKLINE>
         %% daf rows=2; cols=3; keyfield='id'; name=''
         <BLANKLINE>
         >>> daf.select_irows(1, invert=True)
         <BLANKLINE>
-        | id | v  | n  |
-        | -: | -: | -: |
-        |  1 |  a | 10 |
-        |  3 |  c | 30 |
+        | id |  city  | age |
+        | -: | -----: | --: |
+        |  1 | Denver |  34 |
+        |  3 | Boston |  27 |
         <BLANKLINE>
         %% daf rows=2; cols=3; keyfield='id'; name=''
         <BLANKLINE>
+
+        Select a slice of rows:
+
         >>> daf.select_irows(slice(1, None))
         <BLANKLINE>
-        | id | v  | n  |
-        | -: | -: | -: |
-        |  2 |  b | 20 |
-        |  3 |  c | 30 |
+        | id |  city  | age |
+        | -: | -----: | --: |
+        |  2 | Austin |  52 |
+        |  3 | Boston |  27 |
         <BLANKLINE>
         %% daf rows=2; cols=3; keyfield='id'; name=''
         <BLANKLINE>
@@ -929,35 +977,46 @@ def _select_icols(self: 'Daf', icols: slice | int | T_li | range | T_lor | None,
         IndexError: A position is beyond the end of some row.
 
     Examples:
-        >>> daf = Daf(lol=[[1, 'a', 10], [2, 'b', 20], [3, 'c', 30]], cols=['id', 'v', 'n'], keyfield='id')
+        Create a small Daf of people:
+
+        >>> daf = Daf(cols=['id', 'city', 'age'], lol=[[1, 'Denver', 34], [2, 'Austin', 52], [3, 'Boston', 27]], keyfield='id')
         >>> daf
         <BLANKLINE>
-        | id | v  | n  |
-        | -: | -: | -: |
-        |  1 |  a | 10 |
-        |  2 |  b | 20 |
-        |  3 |  c | 30 |
+        | id |  city  | age |
+        | -: | -----: | --: |
+        |  1 | Denver |  34 |
+        |  2 | Austin |  52 |
+        |  3 | Boston |  27 |
         <BLANKLINE>
         %% daf rows=3; cols=3; keyfield='id'; name=''
         <BLANKLINE>
+
+        Select columns by position, in the order given:
+
         >>> daf.select_icols([2, 0])
         <BLANKLINE>
-        | n  | id |
-        | -: | -: |
-        | 10 |  1 |
-        | 20 |  2 |
-        | 30 |  3 |
+        | age | id |
+        | --: | -: |
+        |  34 |  1 |
+        |  52 |  2 |
+        |  27 |  3 |
         <BLANKLINE>
         %% daf rows=3; cols=2; keyfield='id'; name=''
         <BLANKLINE>
+
+        Select the last two columns:
+
         >>> daf.select_icols(slice(-2, None)).columns()
-        ['v', 'n']
+        ['city', 'age']
+
+        Select two columns and turn them into rows, with `flip=True`:
+
         >>> daf.select_icols([0, 1], flip=True)
         <BLANKLINE>
-        | A  | B  | C  |
-        | -: | -: | -: |
-        |  1 |  2 |  3 |
-        |  a |  b |  c |
+        |   A    |   B    |   C    |
+        | -----: | -----: | -----: |
+        |      1 |      2 |      3 |
+        | Denver | Austin | Boston |
         <BLANKLINE>
         %% daf rows=2; cols=3; keyfield=''; name=''
         <BLANKLINE>
@@ -1114,19 +1173,24 @@ def _select_record(self: 'Daf', key: str | int | T_ta, silent_error: bool=True) 
         KeyError: The key is not found and `silent_error` is False.
 
     Examples:
-        >>> daf = Daf(lol=[[1, 'a', 10], [2, 'b', 20], [3, 'c', 30]], cols=['id', 'v', 'n'], keyfield='id')
+        Create a small Daf of people, keyed by an int id:
+
+        >>> daf = Daf(cols=['id', 'city', 'age'], lol=[[1, 'Denver', 34], [2, 'Austin', 52], [3, 'Boston', 27]], keyfield='id')
         >>> daf
         <BLANKLINE>
-        | id | v  | n  |
-        | -: | -: | -: |
-        |  1 |  a | 10 |
-        |  2 |  b | 20 |
-        |  3 |  c | 30 |
+        | id |  city  | age |
+        | -: | -----: | --: |
+        |  1 | Denver |  34 |
+        |  2 | Austin |  52 |
+        |  3 | Boston |  27 |
         <BLANKLINE>
         %% daf rows=3; cols=3; keyfield='id'; name=''
         <BLANKLINE>
+
+        Read the row with key 2 as a dict. A key that is not there gives an empty dict:
+
         >>> daf.select_record(2)
-        {'id': 2, 'v': 'b', 'n': 20}
+        {'id': 2, 'city': 'Austin', 'age': 52}
         >>> daf.select_record(9)
         {}
 
@@ -1223,24 +1287,28 @@ def _select_records_daf(self: 'Daf', keys_ls: 'T_ls | Iterable | Daf', inverse:b
         KeyError: A key is not found and `silent_error` is False.
 
     Examples:
-        >>> daf = Daf(lol=[['r1', 'a', 10], ['r2', 'b', ''], ['r3', 'a', 30]], cols=['id', 'v', 'n'], keyfield='id')
+        Create a small Daf of people, keyed by id. One age is not known:
+
+        >>> daf = Daf(cols=['id', 'city', 'age'], lol=[['p1', 'Denver', 34], ['p2', 'Austin', ''], ['p3', 'Denver', 27]], keyfield='id')
         >>> daf
         <BLANKLINE>
-        | id | v  | n  |
-        | -: | -: | -: |
-        | r1 |  a | 10 |
-        | r2 |  b |    |
-        | r3 |  a | 30 |
+        | id |  city  | age |
+        | -: | -----: | --: |
+        | p1 | Denver |  34 |
+        | p2 | Austin |     |
+        | p3 | Denver |  27 |
         <BLANKLINE>
         %% daf rows=3; cols=3; keyfield='id'; name=''
         <BLANKLINE>
 
-        >>> daf.select_records_daf(['r3', 'r1'])
+        Select the rows with these keys, in the order given. No keys selects no rows:
+
+        >>> daf.select_records_daf(['p3', 'p1'])
         <BLANKLINE>
-        | id | v  | n  |
-        | -: | -: | -: |
-        | r3 |  a | 30 |
-        | r1 |  a | 10 |
+        | id |  city  | age |
+        | -: | -----: | --: |
+        | p3 | Denver |  27 |
+        | p1 | Denver |  34 |
         <BLANKLINE>
         %% daf rows=2; cols=3; keyfield='id'; name=''
         <BLANKLINE>
@@ -1252,37 +1320,37 @@ def _select_records_daf(self: 'Daf', keys_ls: 'T_ls | Iterable | Daf', inverse:b
         >>> kept = daf.select_records_daf([], inverse=True)
         >>> kept == daf
         True
-        >>> kept.append(['r4', 'd', 40])
+        >>> kept.append(['p4', 'Boston', 41])
         <BLANKLINE>
-        | id | v  | n  |
-        | -: | -: | -: |
-        | r1 |  a | 10 |
-        | r2 |  b |    |
-        | r3 |  a | 30 |
-        | r4 |  d | 40 |
+        | id |  city  | age |
+        | -: | -----: | --: |
+        | p1 | Denver |  34 |
+        | p2 | Austin |     |
+        | p3 | Denver |  27 |
+        | p4 | Boston |  41 |
         <BLANKLINE>
         %% daf rows=4; cols=3; keyfield='id'; name=''
         <BLANKLINE>
         >>> daf.num_rows(), kept.num_rows()
         (3, 4)
-        >>> kept[0, 'v'] = 'Q'
-        >>> daf.iloc(0)['v']
-        'Q'
+        >>> kept[0, 'city'] = 'Miami'
+        >>> daf.iloc(0)['city']
+        'Miami'
 
         The keys of another Daf, without making a list of them:
 
-        >>> other = Daf(lol=[['r3', 1], ['r9', 2]], cols=['id', 'w'], keyfield='id')
+        >>> other = Daf(cols=['id', 'visits'], lol=[['p3', 7], ['p9', 12]], keyfield='id')
         >>> other
         <BLANKLINE>
-        | id | w  |
-        | -: | -: |
-        | r3 |  1 |
-        | r9 |  2 |
+        | id | visits |
+        | -: | -----: |
+        | p3 |      7 |
+        | p9 |     12 |
         <BLANKLINE>
         %% daf rows=2; cols=2; keyfield='id'; name=''
         <BLANKLINE>
         >>> daf.select_records_daf(other, silent_error=True).to_lod()
-        [{'id': 'r3', 'v': 'a', 'n': 30}]
+        [{'id': 'p3', 'city': 'Denver', 'age': 27}]
     """
 
     """ Select multiple records from daf using the keys and return as a single daf.
@@ -1321,24 +1389,28 @@ def _irow_la(self: 'Daf', irow: int) -> T_la:
         IndexError: The position is out of range.
 
     Examples:
-        >>> daf = Daf(lol=[['r1', 'a', 10], ['r2', 'b', ''], ['r3', 'a', 30]], cols=['id', 'v', 'n'], keyfield='id')
+        Create a small Daf of people:
+
+        >>> daf = Daf(cols=['id', 'city', 'age'], lol=[['p1', 'Denver', 34], ['p2', 'Austin', ''], ['p3', 'Denver', 27]], keyfield='id')
         >>> daf
         <BLANKLINE>
-        | id | v  | n  |
-        | -: | -: | -: |
-        | r1 |  a | 10 |
-        | r2 |  b |    |
-        | r3 |  a | 30 |
+        | id |  city  | age |
+        | -: | -----: | --: |
+        | p1 | Denver |  34 |
+        | p2 | Austin |     |
+        | p3 | Denver |  27 |
         <BLANKLINE>
         %% daf rows=3; cols=3; keyfield='id'; name=''
         <BLANKLINE>
 
+        Read the row at position 1, as the Daf's own list:
+
         >>> daf.irow_la(1)
-        ['r2', 'b', '']
+        ['p2', 'Austin', '']
         >>> row = daf.irow_la(0)
-        >>> row[1] = 'Z'
+        >>> row[1] = 'Miami'
         >>> daf.iloc(0)
-        {'id': 'r1', 'v': 'Z', 'n': 10}
+        {'id': 'p1', 'city': 'Miami', 'age': 34}
         >>> daf.irow_la(9)
         Traceback (most recent call last):
             ...
@@ -1366,19 +1438,24 @@ def _irow(self: 'Daf', irow: int=0, include_cols: T_ls | None = None) -> T_da:
         IndexError: The position is out of range, for a Daf that has rows.
 
     Examples:
-        >>> daf = Daf(lol=[[1, 'a', 10], [2, 'b', 20], [3, 'c', 30]], cols=['id', 'v', 'n'], keyfield='id')
+        Create a small Daf of people:
+
+        >>> daf = Daf(cols=['id', 'city', 'age'], lol=[[1, 'Denver', 34], [2, 'Austin', 52], [3, 'Boston', 27]], keyfield='id')
         >>> daf
         <BLANKLINE>
-        | id | v  | n  |
-        | -: | -: | -: |
-        |  1 |  a | 10 |
-        |  2 |  b | 20 |
-        |  3 |  c | 30 |
+        | id |  city  | age |
+        | -: | -----: | --: |
+        |  1 | Denver |  34 |
+        |  2 | Austin |  52 |
+        |  3 | Boston |  27 |
         <BLANKLINE>
         %% daf rows=3; cols=3; keyfield='id'; name=''
         <BLANKLINE>
-        >>> daf.irow(1, include_cols=['n'])
-        {'n': 20}
+
+        Read the row at position 1 as a dict, with only some columns:
+
+        >>> daf.irow(1, include_cols=['age'])
+        {'age': 52}
     """
     return cast(T_da, self.iloc(irow, include_cols))
 
@@ -1416,35 +1493,40 @@ def _iloc(self: 'Daf', irow: int=0, include_cols: T_ls | None = None, rtype: str
         ValueError: `rtype` is not one of the three names.
 
     Examples:
-        >>> daf = Daf(lol=[[1, 'a', 10], [2, 'b', 20], [3, 'c', 30]], cols=['id', 'v', 'n'], keyfield='id')
+        Create a small Daf of people:
+
+        >>> daf = Daf(cols=['id', 'city', 'age'], lol=[[1, 'Denver', 34], [2, 'Austin', 52], [3, 'Boston', 27]], keyfield='id')
         >>> daf
         <BLANKLINE>
-        | id | v  | n  |
-        | -: | -: | -: |
-        |  1 |  a | 10 |
-        |  2 |  b | 20 |
-        |  3 |  c | 30 |
+        | id |  city  | age |
+        | -: | -----: | --: |
+        |  1 | Denver |  34 |
+        |  2 | Austin |  52 |
+        |  3 | Boston |  27 |
         <BLANKLINE>
         %% daf rows=3; cols=3; keyfield='id'; name=''
         <BLANKLINE>
+
+        Read the row at position 1 as a dict, as a list, and the last row:
+
         >>> daf.iloc(1)
-        {'id': 2, 'v': 'b', 'n': 20}
+        {'id': 2, 'city': 'Austin', 'age': 52}
         >>> daf.iloc(1, rtype='list')
-        [2, 'b', 20]
+        [2, 'Austin', 52]
         >>> daf.iloc(-1)
-        {'id': 3, 'v': 'c', 'n': 30}
+        {'id': 3, 'city': 'Boston', 'age': 27}
 
         Only some columns, in a dict:
 
-        >>> daf.iloc(1, include_cols=['id', 'n'])
-        {'id': 2, 'n': 20}
+        >>> daf.iloc(1, include_cols=['id', 'age'])
+        {'id': 2, 'age': 52}
 
         A KeyedList shares the row with the Daf, so a change to it changes the table:
 
         >>> row = daf.iloc(1, rtype='klist')
-        >>> row['n'] = 25
+        >>> row['age'] = 35
         >>> daf.iloc(1)
-        {'id': 2, 'v': 'b', 'n': 25}
+        {'id': 2, 'city': 'Austin', 'age': 35}
     """
     """ Select one record from daf using the idx and return as a single T_da dict
             test exists in test_daf.py
@@ -1611,73 +1693,87 @@ def _select_by_dict(
         TypeError: `selector_da` is not a dict, or a list or tuple of dicts.
 
     Examples:
-        >>> daf = Daf(lol=[[1, 'a', 10], [2, 'b', 20], [3, 'c', 30]], cols=['id', 'v', 'n'], keyfield='id')
+        Create a small Daf of people:
+
+        >>> daf = Daf(cols=['id', 'city', 'age'], lol=[[1, 'Denver', 34], [2, 'Austin', 52], [3, 'Boston', 27]], keyfield='id')
         >>> daf
         <BLANKLINE>
-        | id | v  | n  |
-        | -: | -: | -: |
-        |  1 |  a | 10 |
-        |  2 |  b | 20 |
-        |  3 |  c | 30 |
+        | id |  city  | age |
+        | -: | -----: | --: |
+        |  1 | Denver |  34 |
+        |  2 | Austin |  52 |
+        |  3 | Boston |  27 |
         <BLANKLINE>
         %% daf rows=3; cols=3; keyfield='id'; name=''
         <BLANKLINE>
-        >>> daf.select_by_dict({'v': 'b'})
+
+        Select the rows whose city is Austin, and the rows whose city is not:
+
+        >>> daf.select_by_dict({'city': 'Austin'})
         <BLANKLINE>
-        | id | v  | n  |
-        | -: | -: | -: |
-        |  2 |  b | 20 |
-        <BLANKLINE>
-        %% daf rows=1; cols=3; keyfield='id'; name=''
-        <BLANKLINE>
-        >>> daf.select_by_dict({'v': 'b'}, inverse=True)
-        <BLANKLINE>
-        | id | v  | n  |
-        | -: | -: | -: |
-        |  1 |  a | 10 |
-        |  3 |  c | 30 |
-        <BLANKLINE>
-        %% daf rows=2; cols=3; keyfield='id'; name=''
-        <BLANKLINE>
-        >>> daf.select_by_dict([{'v': 'a'}, {'v': 'c'}])
-        <BLANKLINE>
-        | id | v  | n  |
-        | -: | -: | -: |
-        |  1 |  a | 10 |
-        |  3 |  c | 30 |
-        <BLANKLINE>
-        %% daf rows=2; cols=3; keyfield='id'; name=''
-        <BLANKLINE>
-        >>> daf.select_by_dict([{'v': 'a', 'n': 10}, {'v': 'c', 'n': 99}])
-        <BLANKLINE>
-        | id | v  | n  |
-        | -: | -: | -: |
-        |  1 |  a | 10 |
+        | id |  city  | age |
+        | -: | -----: | --: |
+        |  2 | Austin |  52 |
         <BLANKLINE>
         %% daf rows=1; cols=3; keyfield='id'; name=''
         <BLANKLINE>
-        >>> names = ['a', 'b']
-        >>> daf.select_by_dict([{'v': name} for name in names], inverse=True)
+        >>> daf.select_by_dict({'city': 'Austin'}, inverse=True)
         <BLANKLINE>
-        | id | v  | n  |
-        | -: | -: | -: |
-        |  3 |  c | 30 |
+        | id |  city  | age |
+        | -: | -----: | --: |
+        |  1 | Denver |  34 |
+        |  3 | Boston |  27 |
+        <BLANKLINE>
+        %% daf rows=2; cols=3; keyfield='id'; name=''
+        <BLANKLINE>
+
+        Select the rows that match any of several dicts:
+
+        >>> daf.select_by_dict([{'city': 'Denver'}, {'city': 'Boston'}])
+        <BLANKLINE>
+        | id |  city  | age |
+        | -: | -----: | --: |
+        |  1 | Denver |  34 |
+        |  3 | Boston |  27 |
+        <BLANKLINE>
+        %% daf rows=2; cols=3; keyfield='id'; name=''
+        <BLANKLINE>
+
+        A dict with several fields matches a row that has all of them:
+
+        >>> daf.select_by_dict([{'city': 'Denver', 'age': 34}, {'city': 'Boston', 'age': 99}])
+        <BLANKLINE>
+        | id |  city  | age |
+        | -: | -----: | --: |
+        |  1 | Denver |  34 |
+        <BLANKLINE>
+        %% daf rows=1; cols=3; keyfield='id'; name=''
+        <BLANKLINE>
+
+        Select the rows whose city is in neither of two cities:
+
+        >>> cities = ['Denver', 'Austin']
+        >>> daf.select_by_dict([{'city': city} for city in cities], inverse=True)
+        <BLANKLINE>
+        | id |  city  | age |
+        | -: | -----: | --: |
+        |  3 | Boston |  27 |
         <BLANKLINE>
         %% daf rows=1; cols=3; keyfield='id'; name=''
         <BLANKLINE>
 
         Give the new Daf another keyfield:
 
-        >>> ballots = Daf(cols=['id', 'party', 'precinct'], keyfield='id', lol=[
-        ...     ['b1', 'D', 'P1'], ['b2', 'R', 'P1'], ['b3', 'D', 'P2']])
-        >>> ballots.select_by_dict({'party': 'D'}, keyfield='precinct').keys()
-        ['P1', 'P2']
+        >>> customers = Daf(cols=['id', 'plan', 'city'], keyfield='id', lol=[
+        ...     ['c1', 'basic', 'Denver'], ['c2', 'pro', 'Denver'], ['c3', 'basic', 'Austin']])
+        >>> customers.select_by_dict({'plan': 'basic'}, keyfield='city').keys()
+        ['Denver', 'Austin']
 
         Check how many rows match, with `expectmax`. More than that raises LookupError:
 
-        >>> ballots.select_by_dict({'party': 'R'}, expectmax=1).keys()
-        ['b2']
-        >>> ballots.select_by_dict({'party': 'D'}, expectmax=1)
+        >>> customers.select_by_dict({'plan': 'pro'}, expectmax=1).keys()
+        ['c2']
+        >>> customers.select_by_dict({'plan': 'basic'}, expectmax=1)
         Traceback (most recent call last):
         ...
         LookupError: select_by_dict(): 2 rows match, more than expectmax=1.
@@ -1740,27 +1836,32 @@ def _select_first_row_by_dict(self: 'Daf', selector_da: T_da, inverse:bool=False
         The row, as a dict or a KeyedList according to `itermode`. An empty dict if none matches.
 
     Examples:
-        >>> daf = Daf(lol=[[1, 'a', 10], [2, 'b', 20], [3, 'c', 30]], cols=['id', 'v', 'n'], keyfield='id')
+        Create a small Daf of people:
+
+        >>> daf = Daf(cols=['id', 'city', 'age'], lol=[[1, 'Denver', 34], [2, 'Austin', 52], [3, 'Boston', 27]], keyfield='id')
         >>> daf
         <BLANKLINE>
-        | id | v  | n  |
-        | -: | -: | -: |
-        |  1 |  a | 10 |
-        |  2 |  b | 20 |
-        |  3 |  c | 30 |
+        | id |  city  | age |
+        | -: | -----: | --: |
+        |  1 | Denver |  34 |
+        |  2 | Austin |  52 |
+        |  3 | Boston |  27 |
         <BLANKLINE>
         %% daf rows=3; cols=3; keyfield='id'; name=''
         <BLANKLINE>
-        >>> daf.select_first_row_by_dict({'v': 'b'})
-        {'id': 2, 'v': 'b', 'n': 20}
-        >>> daf.select_first_row_by_dict({'v': 'zz'})
+
+        Find the first row whose city is Austin. No match gives an empty dict:
+
+        >>> daf.select_first_row_by_dict({'city': 'Austin'})
+        {'id': 2, 'city': 'Austin', 'age': 52}
+        >>> daf.select_first_row_by_dict({'city': 'Miami'})
         {}
 
         With `inverse=True`, the first row that does not match:
 
-        >>> ballots = Daf(cols=['id', 'party'], lol=[['b1', 'D'], ['b2', 'R'], ['b3', 'D']])
-        >>> ballots.select_first_row_by_dict({'party': 'D'}, inverse=True)
-        {'id': 'b2', 'party': 'R'}
+        >>> customers = Daf(cols=['id', 'plan'], lol=[['c1', 'basic'], ['c2', 'pro'], ['c3', 'basic']])
+        >>> customers.select_first_row_by_dict({'plan': 'basic'}, inverse=True)
+        {'id': 'c2', 'plan': 'pro'}
     """
 
     """ Selects the first row in daf which matches the fields specified in selector_da
@@ -1813,110 +1914,121 @@ def _select_where(self: 'Daf', where: Callable, indirect_col: str | None = None)
         The new Daf.
 
     Examples:
-        >>> daf = Daf(lol=[[1, 'a', 10], [2, 'b', 20], [3, 'c', 30]], cols=['id', 'v', 'n'], keyfield='id')
+        Create a small Daf of people:
+
+        >>> daf = Daf(cols=['id', 'city', 'age'], lol=[[1, 'Denver', 34], [2, 'Austin', 52], [3, 'Boston', 27]], keyfield='id')
         >>> daf
         <BLANKLINE>
-        | id | v  | n  |
-        | -: | -: | -: |
-        |  1 |  a | 10 |
-        |  2 |  b | 20 |
-        |  3 |  c | 30 |
+        | id |  city  | age |
+        | -: | -----: | --: |
+        |  1 | Denver |  34 |
+        |  2 | Austin |  52 |
+        |  3 | Boston |  27 |
         <BLANKLINE>
         %% daf rows=3; cols=3; keyfield='id'; name=''
         <BLANKLINE>
-        >>> daf.select_where(lambda row: row['n'] > 10)
+
+        Select the people over 30, with a function of the row:
+
+        >>> daf.select_where(lambda row: row['age'] > 30)
         <BLANKLINE>
-        | id | v  | n  |
-        | -: | -: | -: |
-        |  2 |  b | 20 |
-        |  3 |  c | 30 |
+        | id |  city  | age |
+        | -: | -----: | --: |
+        |  1 | Denver |  34 |
+        |  2 | Austin |  52 |
         <BLANKLINE>
         %% daf rows=2; cols=3; keyfield='id'; name=''
         <BLANKLINE>
-        >>> daf = Daf(lol=[[1, 'a', 10], [2, 'b', 20], [3, 'c', 30], [4, 'a', 40]], cols=['id', 'v', 'n'])
+
+        Create a Daf of four people, to select by a set of cities:
+
+        >>> daf = Daf(cols=['id', 'city', 'age'], lol=[[1, 'Denver', 34], [2, 'Austin', 52], [3, 'Boston', 27], [4, 'Denver', 41]])
         >>> daf
         <BLANKLINE>
-        | id | v  | n  |
-        | -: | -: | -: |
-        |  1 |  a | 10 |
-        |  2 |  b | 20 |
-        |  3 |  c | 30 |
-        |  4 |  a | 40 |
+        | id |  city  | age |
+        | -: | -----: | --: |
+        |  1 | Denver |  34 |
+        |  2 | Austin |  52 |
+        |  3 | Boston |  27 |
+        |  4 | Denver |  41 |
         <BLANKLINE>
         %% daf rows=4; cols=3; keyfield=''; name=''
         <BLANKLINE>
-        >>> keep = {'a', 'c'}
-        >>> daf.select_where(lambda row: row['v'] in keep)
+
+        Select the people in these cities, those not in them, and combine conditions:
+
+        >>> keep = {'Denver', 'Boston'}
+        >>> daf.select_where(lambda row: row['city'] in keep)
         <BLANKLINE>
-        | id | v  | n  |
-        | -: | -: | -: |
-        |  1 |  a | 10 |
-        |  3 |  c | 30 |
-        |  4 |  a | 40 |
+        | id |  city  | age |
+        | -: | -----: | --: |
+        |  1 | Denver |  34 |
+        |  3 | Boston |  27 |
+        |  4 | Denver |  41 |
         <BLANKLINE>
         %% daf rows=3; cols=3; keyfield=''; name=''
         <BLANKLINE>
-        >>> daf.select_where(lambda row: row['v'] not in keep)
+        >>> daf.select_where(lambda row: row['city'] not in keep)
         <BLANKLINE>
-        | id | v  | n  |
-        | -: | -: | -: |
-        |  2 |  b | 20 |
+        | id |  city  | age |
+        | -: | -----: | --: |
+        |  2 | Austin |  52 |
         <BLANKLINE>
         %% daf rows=1; cols=3; keyfield=''; name=''
         <BLANKLINE>
-        >>> daf.select_where(lambda row: row['v'] in keep and row['n'] > 15)
+        >>> daf.select_where(lambda row: row['city'] in keep and row['age'] > 30)
         <BLANKLINE>
-        | id | v  | n  |
-        | -: | -: | -: |
-        |  3 |  c | 30 |
-        |  4 |  a | 40 |
+        | id |  city  | age |
+        | -: | -----: | --: |
+        |  1 | Denver |  34 |
+        |  4 | Denver |  41 |
         <BLANKLINE>
         %% daf rows=2; cols=3; keyfield=''; name=''
         <BLANKLINE>
-        >>> daf.select_where(lambda row: row['id'] % 2 == 0 or row['v'] == 'c')
+        >>> daf.select_where(lambda row: row['id'] % 2 == 0 or row['city'] == 'Boston')
         <BLANKLINE>
-        | id | v  | n  |
-        | -: | -: | -: |
-        |  2 |  b | 20 |
-        |  3 |  c | 30 |
-        |  4 |  a | 40 |
+        | id |  city  | age |
+        | -: | -----: | --: |
+        |  2 | Austin |  52 |
+        |  3 | Boston |  27 |
+        |  4 | Denver |  41 |
         <BLANKLINE>
         %% daf rows=3; cols=3; keyfield=''; name=''
         <BLANKLINE>
 
         The values can come from another Daf. Make the set once, outside the function:
 
-        >>> other = Daf(lol=[['a'], ['c']], cols=['v'], keyfield='v')
+        >>> other = Daf(cols=['city'], lol=[['Denver'], ['Boston']], keyfield='city')
         >>> other
         <BLANKLINE>
-        | v  |
-        | -: |
-        |  a |
-        |  c |
+        |  city  |
+        | -----: |
+        | Denver |
+        | Boston |
         <BLANKLINE>
-        %% daf rows=2; cols=1; keyfield='v'; name=''
+        %% daf rows=2; cols=1; keyfield='city'; name=''
         <BLANKLINE>
         >>> other_keys = set(other.keys())
-        >>> daf.select_where(lambda row: row['v'] in other_keys)
+        >>> daf.select_where(lambda row: row['city'] in other_keys)
         <BLANKLINE>
-        | id | v  | n  |
-        | -: | -: | -: |
-        |  1 |  a | 10 |
-        |  3 |  c | 30 |
-        |  4 |  a | 40 |
+        | id |  city  | age |
+        | -: | -----: | --: |
+        |  1 | Denver |  34 |
+        |  3 | Boston |  27 |
+        |  4 | Denver |  41 |
         <BLANKLINE>
         %% daf rows=3; cols=3; keyfield=''; name=''
         <BLANKLINE>
 
         For a large Daf, the faster form picks the positions from the column:
 
-        >>> daf.select_irows([irow for irow, v in enumerate(daf.col('v')) if v in keep])
+        >>> daf.select_irows([irow for irow, v in enumerate(daf.col('city')) if v in keep])
         <BLANKLINE>
-        | id | v  | n  |
-        | -: | -: | -: |
-        |  1 |  a | 10 |
-        |  3 |  c | 30 |
-        |  4 |  a | 40 |
+        | id |  city  | age |
+        | -: | -----: | --: |
+        |  1 | Denver |  34 |
+        |  3 | Boston |  27 |
+        |  4 | Denver |  41 |
         <BLANKLINE>
         %% daf rows=3; cols=3; keyfield=''; name=''
         <BLANKLINE>
@@ -1925,10 +2037,10 @@ def _select_where(self: 'Daf', where: Callable, indirect_col: str | None = None)
         Then the function can read the dict's keys as if they were columns. A row that lacks a key
         gets NULL:
 
-        >>> ballots = Daf(cols=['id', 'votes'], keyfield='id', lol=[
-        ...     ['b1', {'mayor': 1}], ['b2', {'mayor': 1, 'council': 2}], ['b3', {'council': 1}]])
-        >>> ballots.select_where(lambda row: row['mayor'] == 1, indirect_col='votes').keys()
-        ['b1', 'b2']
+        >>> customers = Daf(cols=['id', 'cart'], keyfield='id', lol=[
+        ...     ['c1', {'apples': 1}], ['c2', {'apples': 1, 'pears': 2}], ['c3', {'pears': 1}]])
+        >>> customers.select_where(lambda row: row['apples'] == 1, indirect_col='cart').keys()
+        ['c1', 'c2']
     """
     """
         Select rows in Daf based on the provided where condition
@@ -1985,19 +2097,24 @@ def _select_where_idxs(self: 'Daf', where: Callable) -> T_li:
         KeysDisabledError: The Daf has rows and no column names.
 
     Examples:
-        >>> daf = Daf(lol=[[1, 'a', 10], [2, 'b', 20], [3, 'c', 30]], cols=['id', 'v', 'n'], keyfield='id')
+        Create a small Daf of people:
+
+        >>> daf = Daf(cols=['id', 'city', 'age'], lol=[[1, 'Denver', 34], [2, 'Austin', 52], [3, 'Boston', 27]], keyfield='id')
         >>> daf
         <BLANKLINE>
-        | id | v  | n  |
-        | -: | -: | -: |
-        |  1 |  a | 10 |
-        |  2 |  b | 20 |
-        |  3 |  c | 30 |
+        | id |  city  | age |
+        | -: | -----: | --: |
+        |  1 | Denver |  34 |
+        |  2 | Austin |  52 |
+        |  3 | Boston |  27 |
         <BLANKLINE>
         %% daf rows=3; cols=3; keyfield='id'; name=''
         <BLANKLINE>
-        >>> daf.select_where_idxs(lambda row: row['n'] > 10)
-        [1, 2]
+
+        Find the positions of the people over 30:
+
+        >>> daf.select_where_idxs(lambda row: row['age'] > 30)
+        [0, 1]
     """
 
     """
@@ -2040,43 +2157,48 @@ def _split_where(
         A tuple of the Daf of the rows where the function is true and the Daf of the others.
 
     Examples:
-        >>> daf = Daf(lol=[[1, 'a', 10], [2, 'b', 20], [3, 'c', 30]], cols=['id', 'v', 'n'], keyfield='id')
+        Create a small Daf of people:
+
+        >>> daf = Daf(cols=['id', 'city', 'age'], lol=[[1, 'Denver', 34], [2, 'Austin', 52], [3, 'Boston', 27]], keyfield='id')
         >>> daf
         <BLANKLINE>
-        | id | v  | n  |
-        | -: | -: | -: |
-        |  1 |  a | 10 |
-        |  2 |  b | 20 |
-        |  3 |  c | 30 |
+        | id |  city  | age |
+        | -: | -----: | --: |
+        |  1 | Denver |  34 |
+        |  2 | Austin |  52 |
+        |  3 | Boston |  27 |
         <BLANKLINE>
         %% daf rows=3; cols=3; keyfield='id'; name=''
         <BLANKLINE>
-        >>> big, small = daf.split_where(lambda row: row['n'] > 10)
-        >>> big
+
+        Split the people into those over 30 and the rest:
+
+        >>> older, younger = daf.split_where(lambda row: row['age'] > 30)
+        >>> older
         <BLANKLINE>
-        | id | v  | n  |
-        | -: | -: | -: |
-        |  2 |  b | 20 |
-        |  3 |  c | 30 |
+        | id |  city  | age |
+        | -: | -----: | --: |
+        |  1 | Denver |  34 |
+        |  2 | Austin |  52 |
         <BLANKLINE>
         %% daf rows=2; cols=3; keyfield='id'; name=''
         <BLANKLINE>
-        >>> small
+        >>> younger
         <BLANKLINE>
-        | id | v  | n  |
-        | -: | -: | -: |
-        |  1 |  a | 10 |
+        | id |  city  | age |
+        | -: | -----: | --: |
+        |  3 | Boston |  27 |
         <BLANKLINE>
         %% daf rows=1; cols=3; keyfield='id'; name=''
         <BLANKLINE>
 
         With `indirect_col`, the function can read the keys of the dict in that column as columns:
 
-        >>> ballots = Daf(cols=['id', 'votes'], keyfield='id', lol=[
-        ...     ['b1', {'mayor': 1}], ['b2', {'mayor': 1, 'council': 2}], ['b3', {'council': 1}]])
-        >>> voted, not_voted = ballots.split_where(lambda row: row['council'] != '', indirect_col='votes')
-        >>> voted.keys(), not_voted.keys()
-        (['b2', 'b3'], ['b1'])
+        >>> customers = Daf(cols=['id', 'cart'], keyfield='id', lol=[
+        ...     ['c1', {'apples': 1}], ['c2', {'apples': 1, 'pears': 2}], ['c3', {'pears': 1}]])
+        >>> with_pears, without_pears = customers.split_where(lambda row: row['pears'] != '', indirect_col='cart')
+        >>> with_pears.keys(), without_pears.keys()
+        (['c2', 'c3'], ['c1'])
     """
     """
         Select rows in Daf based on the provided where condition,
@@ -2163,44 +2285,44 @@ def _col(self: 'Daf',
         RuntimeError: The name is empty.
 
     Examples:
-        The table used in the examples, of ballots, with a dict of votes for each:
+        Create a small Daf of customers, with a plan and a cart of items for each. One plan is not known:
 
-        >>> daf = Daf(cols=['id', 'party', 'votes'], keyfield='id', lol=[
-        ...     ['b1', 'D', {'mayor': 1}],
-        ...     ['b2', 'R', {'mayor': 1, 'council': 2}],
-        ...     ['b3', '',  {}],
-        ...     ['b4', 'D', {'council': 1}]])
-        >>> daf.col('party')
-        ['D', 'R', '', 'D']
+        >>> daf = Daf(cols=['id', 'plan', 'cart'], keyfield='id', lol=[
+        ...     ['c1', 'basic', {'apples': 1}],
+        ...     ['c2', 'pro', {'apples': 1, 'pears': 2}],
+        ...     ['c3', '',  {}],
+        ...     ['c4', 'basic', {'pears': 1}]])
+        >>> daf.col('plan')
+        ['basic', 'pro', '', 'basic']
 
         Each value once, and without the empty ones:
 
-        >>> daf.col('party', unique=True)
-        ['D', 'R', '']
-        >>> daf.col('party', omit_nulls=True)
-        ['D', 'R', 'D']
-        >>> daf.col('party', unique=True, omit_nulls=True)
-        ['D', 'R']
+        >>> daf.col('plan', unique=True)
+        ['basic', 'pro', '']
+        >>> daf.col('plan', omit_nulls=True)
+        ['basic', 'pro', 'basic']
+        >>> daf.col('plan', unique=True, omit_nulls=True)
+        ['basic', 'pro']
 
         Convert each value, here with a function:
 
         >>> daf.col('id', astype=str.upper)
-        ['B1', 'B2', 'B3', 'B4']
+        ['C1', 'C2', 'C3', 'C4']
 
         A column that does not exist raises, or gives an empty list:
 
-        >>> daf.col('color')
+        >>> daf.col('email')
         Traceback (most recent call last):
         ...
-        daffodil.daf.ColumnNotFoundError: 'color'
-        >>> daf.col('color', silent_error=True)
+        daffodil.daf.ColumnNotFoundError: 'email'
+        >>> daf.col('email', silent_error=True)
         []
 
-        Read a key from the dict in the votes column. A row without it gets NULL, or `default`:
+        Read a key from the dict in the cart column. A row without it gets NULL, or `default`:
 
-        >>> daf.col('mayor', indirect_col='votes')
+        >>> daf.col('apples', indirect_col='cart')
         [1, 1, '', '']
-        >>> daf.col('council', indirect_col='votes', default=0)
+        >>> daf.col('pears', indirect_col='cart', default=0)
         [0, 2, 0, 1]
     """
 
@@ -2257,8 +2379,8 @@ def _col_to_la(self: 'Daf',
         `col_to_la()` is the same method as [col()][daffodil.daf_select._col], which has an example
     of each option:
 
-        >>> daf = Daf(cols=['id', 'party'], lol=[['b1', 'D'], ['b2', 'R'], ['b3', 'D']])
-        >>> daf.col_to_la('party', unique=True) == daf.col('party', unique=True)
+        >>> daf = Daf(cols=['id', 'plan'], lol=[['c1', 'basic'], ['c2', 'pro'], ['c3', 'basic']])
+        >>> daf.col_to_la('plan', unique=True) == daf.col('plan', unique=True)
         True
     """
 
@@ -2314,21 +2436,26 @@ def _icol(self: 'Daf', icol: int) -> list:
         IndexError: The position is out of range, for a Daf that has rows.
 
     Examples:
-        >>> daf = Daf(lol=[[1, 'a', 10], [2, 'b', 20], [3, 'c', 30]], cols=['id', 'v', 'n'], keyfield='id')
+        Create a small Daf of people:
+
+        >>> daf = Daf(cols=['id', 'city', 'age'], lol=[[1, 'Denver', 34], [2, 'Austin', 52], [3, 'Boston', 27]], keyfield='id')
         >>> daf
         <BLANKLINE>
-        | id | v  | n  |
-        | -: | -: | -: |
-        |  1 |  a | 10 |
-        |  2 |  b | 20 |
-        |  3 |  c | 30 |
+        | id |  city  | age |
+        | -: | -----: | --: |
+        |  1 | Denver |  34 |
+        |  2 | Austin |  52 |
+        |  3 | Boston |  27 |
         <BLANKLINE>
         %% daf rows=3; cols=3; keyfield='id'; name=''
         <BLANKLINE>
+
+        Read the column at position 1, and the last column:
+
         >>> daf.icol(1)
-        ['a', 'b', 'c']
+        ['Denver', 'Austin', 'Boston']
         >>> daf.icol(-1)
-        [10, 20, 30]
+        [34, 52, 27]
     """
 
     return self.icol_to_la(icol)
@@ -2353,24 +2480,28 @@ def _icol_to_la(self: 'Daf', icol: int, unique: bool=False, omit_nulls: bool=Fal
         IndexError: The position is out of range, for a Daf that has rows.
 
     Examples:
-        >>> daf = Daf(lol=[['r1', 'a', 10], ['r2', 'b', ''], ['r3', 'a', 30]], cols=['id', 'v', 'n'], keyfield='id')
+        Create a small Daf of people. One age is not known:
+
+        >>> daf = Daf(cols=['id', 'city', 'age'], lol=[['p1', 'Denver', 34], ['p2', 'Austin', ''], ['p3', 'Denver', 27]], keyfield='id')
         >>> daf
         <BLANKLINE>
-        | id | v  | n  |
-        | -: | -: | -: |
-        | r1 |  a | 10 |
-        | r2 |  b |    |
-        | r3 |  a | 30 |
+        | id |  city  | age |
+        | -: | -----: | --: |
+        | p1 | Denver |  34 |
+        | p2 | Austin |     |
+        | p3 | Denver |  27 |
         <BLANKLINE>
         %% daf rows=3; cols=3; keyfield='id'; name=''
         <BLANKLINE>
 
+        Read a column by position, the last one, and each value once:
+
         >>> daf.icol_to_la(1)
-        ['a', 'b', 'a']
+        ['Denver', 'Austin', 'Denver']
         >>> daf.icol_to_la(-1)
-        [10, '', 30]
+        [34, '', 27]
         >>> daf.icol_to_la(1, unique=True)
-        ['a', 'b']
+        ['Denver', 'Austin']
         >>> daf.icol_to_la(5)
         Traceback (most recent call last):
             ...
@@ -2378,11 +2509,11 @@ def _icol_to_la(self: 'Daf', icol: int, unique: bool=False, omit_nulls: bool=Fal
 
         Leave out the empty values, and the repeats:
 
-        >>> parties = Daf(cols=['id', 'party'], lol=[['b1', 'D'], ['b2', 'R'], ['b3', ''], ['b4', 'D']])
-        >>> parties.icol_to_la(1, omit_nulls=True)
-        ['D', 'R', 'D']
-        >>> parties.icol_to_la(1, unique=True, omit_nulls=True)
-        ['D', 'R']
+        >>> plans = Daf(cols=['id', 'plan'], lol=[['c1', 'basic'], ['c2', 'pro'], ['c3', ''], ['c4', 'basic']])
+        >>> plans.icol_to_la(1, omit_nulls=True)
+        ['basic', 'pro', 'basic']
+        >>> plans.icol_to_la(1, unique=True, omit_nulls=True)
+        ['basic', 'pro']
     """
 
     if not self:
@@ -2433,21 +2564,26 @@ def _select_cols(self: 'Daf',
         KeyError: A name in `cols` is not a column.
 
     Examples:
-        >>> daf = Daf(lol=[[1, 'a', 10], [2, 'b', 20], [3, 'c', 30]], cols=['id', 'v', 'n'], keyfield='id')
+        Create a small Daf of people:
+
+        >>> daf = Daf(cols=['id', 'city', 'age'], lol=[[1, 'Denver', 34], [2, 'Austin', 52], [3, 'Boston', 27]], keyfield='id')
         >>> daf
         <BLANKLINE>
-        | id | v  | n  |
-        | -: | -: | -: |
-        |  1 |  a | 10 |
-        |  2 |  b | 20 |
-        |  3 |  c | 30 |
+        | id |  city  | age |
+        | -: | -----: | --: |
+        |  1 | Denver |  34 |
+        |  2 | Austin |  52 |
+        |  3 | Boston |  27 |
         <BLANKLINE>
         %% daf rows=3; cols=3; keyfield='id'; name=''
         <BLANKLINE>
-        >>> daf.select_cols(['n', 'id']).columns()
-        ['n', 'id']
-        >>> daf.select_cols(exclude_cols=['v']).columns()
-        ['id', 'n']
+
+        Select some columns, in the order given, or every column but some:
+
+        >>> daf.select_cols(['age', 'id']).columns()
+        ['age', 'id']
+        >>> daf.select_cols(exclude_cols=['city']).columns()
+        ['id', 'age']
     """
 
     if not self.hd:
