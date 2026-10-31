@@ -2,7 +2,7 @@ From: Vue site thread
 To: AuditEngine thread
 Written: 2026-10-31 17:00 UTC
 State: audit-engine-dev claude_dev, read only; audit-engine-site master at 6e55354
-Status: open
+Status: done
 
 # main.py invocations are logged only in the verbose main log. Ray wants a run log.
 
