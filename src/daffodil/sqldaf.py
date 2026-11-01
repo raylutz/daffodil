@@ -3042,24 +3042,75 @@ class SqlDaf(Daf):
             >>> import tempfile
             >>> SqlDaf.db_path = tempfile.mkdtemp() + '/job.db'
             >>> people_sdaf = SqlDaf('people', cols=['id', 'age'], keyfield='id', lol=[['p1', 34], ['p2', 52], ['p3', 27]])
+            >>> people_sdaf
+            <BLANKLINE>
+            | id | age |
+            | -: | --: |
+            | p1 |  34 |
+            | p2 |  52 |
+            | p3 |  27 |
+            <BLANKLINE>
+            %% sdaf rows=3; cols=2; keyfield='id'; name='people'
+            <BLANKLINE>
             >>> over_30_sdaf = people_sdaf.select_where_sql('age > 30')
+            >>> over_30_sdaf
+            <BLANKLINE>
+            | id | age |
+            | -: | --: |
+            | p1 |  34 |
+            | p2 |  52 |
+            <BLANKLINE>
+            %% sdaf rows=2; cols=2; keyfield='id'; name='daf_tmp_people_v1'
+            <BLANKLINE>
 
             Give the selection rows of its own, with `inplace=True`. It is then no longer a child:
 
-            >>> over_30_sdaf.copy(inplace=True).is_child
+            >>> over_30_sdaf.copy(inplace=True)
+            <BLANKLINE>
+            | id | age |
+            | -: | --: |
+            | p1 |  34 |
+            | p2 |  52 |
+            <BLANKLINE>
+            %% sdaf rows=2; cols=2; keyfield='id'; name='daf_tmp_people_v2'
+            <BLANKLINE>
+            >>> over_30_sdaf.is_child
             False
 
             A later change to the table no longer shows in it:
 
-            >>> people_sdaf.update_record_krow('p1', {'age': 35}).col('age')
-            [35, 52, 27]
-            >>> over_30_sdaf.col('age')
-            [34, 52]
+            >>> people_sdaf.update_record_krow('p1', {'age': 35})
+            <BLANKLINE>
+            | id | age |
+            | -: | --: |
+            | p1 |  35 |
+            | p2 |  52 |
+            | p3 |  27 |
+            <BLANKLINE>
+            %% sdaf rows=3; cols=2; keyfield='id'; name='people'
+            <BLANKLINE>
+            >>> over_30_sdaf
+            <BLANKLINE>
+            | id | age |
+            | -: | --: |
+            | p1 |  34 |
+            | p2 |  52 |
+            <BLANKLINE>
+            %% sdaf rows=2; cols=2; keyfield='id'; name='daf_tmp_people_v2'
+            <BLANKLINE>
 
             Give a copy a name:
 
-            >>> people_sdaf.copy(name='people_copy').name
-            'people_copy'
+            >>> people_sdaf.copy(name='people_copy')
+            <BLANKLINE>
+            | id | age |
+            | -: | --: |
+            | p1 |  35 |
+            | p2 |  52 |
+            | p3 |  27 |
+            <BLANKLINE>
+            %% sdaf rows=3; cols=2; keyfield='id'; name='people_copy'
+            <BLANKLINE>
 
             A level that copies the rows gives a TEMP table of its own:
 
@@ -3251,10 +3302,28 @@ class SqlDaf(Daf):
             >>> import tempfile
             >>> SqlDaf.db_path = tempfile.mkdtemp() + '/job.db'
             >>> people_sdaf = SqlDaf('people', cols=['id', 'name', 'age'], lol=[['p1', 'Ana Lopez', 34], ['p2', 'Ben Okafor', 52]])
+            >>> people_sdaf
+            <BLANKLINE>
+            | id |    name    | age |
+            | -: | ---------: | --: |
+            | p1 |  Ana Lopez |  34 |
+            | p2 | Ben Okafor |  52 |
+            <BLANKLINE>
+            %% sdaf rows=2; cols=3; keyfield=''; name='people'
+            <BLANKLINE>
 
             Make the name the keyfield, and look a row up by it:
 
-            >>> people_sdaf.set_keyfield('name').select_record('Ben Okafor')
+            >>> people_sdaf.set_keyfield('name')
+            <BLANKLINE>
+            | id |    name    | age |
+            | -: | ---------: | --: |
+            | p1 |  Ana Lopez |  34 |
+            | p2 | Ben Okafor |  52 |
+            <BLANKLINE>
+            %% sdaf rows=2; cols=3; keyfield='name'; name='people'
+            <BLANKLINE>
+            >>> people_sdaf.select_record('Ben Okafor')
             {'id': 'p2', 'name': 'Ben Okafor', 'age': 52}
 
             The keyfield is recorded, so the table opens with it next time:
@@ -3264,8 +3333,15 @@ class SqlDaf(Daf):
 
             Clear the keyfield:
 
-            >>> people_sdaf.set_keyfield('').keyfield
-            ''
+            >>> people_sdaf.set_keyfield('')
+            <BLANKLINE>
+            | id |    name    | age |
+            | -: | ---------: | --: |
+            | p1 |  Ana Lopez |  34 |
+            | p2 | Ben Okafor |  52 |
+            <BLANKLINE>
+            %% sdaf rows=2; cols=3; keyfield=''; name='people'
+            <BLANKLINE>
         """
         if keyfield and keyfield not in self.hd:
             raise KeyError(keyfield)
@@ -3433,10 +3509,19 @@ class SqlDaf(Daf):
             >>> with open(os.path.join(csv_dir, 'people.csv'), 'w') as csv_f:
             ...     n = csv_f.write('id,age,height_m,member\np1,34,1.68,1\np2,unknown,,0\np3,27,1.75,\n')
             >>> people_sdaf = SqlDaf.from_csv(os.path.join(csv_dir, 'people.csv'), keyfield='id')
-            >>> people_sdaf.to_lod()
-            [{'id': 'p1', 'age': '34', 'height_m': '1.68', 'member': '1'}, {'id': 'p2', 'age': 'unknown', 'height_m': '', 'member': '0'}, {'id': 'p3', 'age': '27', 'height_m': '1.75', 'member': ''}]
+            >>> people_sdaf
+            <BLANKLINE>
+            | id |   age   | height_m | member |
+            | -: | ------: | -------: | -----: |
+            | p1 |      34 |     1.68 |      1 |
+            | p2 | unknown |          |      0 |
+            | p3 |      27 |     1.75 |        |
+            <BLANKLINE>
+            %% sdaf rows=3; cols=4; keyfield='id'; name='people'
+            <BLANKLINE>
 
-            Convert only the age. A value that does not convert, such as 'unknown', stays as it is:
+            Convert only the age. A value that does not convert, such as 'unknown', stays as it is.
+            A table prints text and numbers alike, so the examples below show the values as a list:
 
             >>> people_sdaf.apply_dtypes(dtypes={'age': int}, cols='age').col('age')
             [34, 'unknown', 27]
@@ -3549,6 +3634,16 @@ class SqlDaf(Daf):
             >>> SqlDaf.db_path = tempfile.mkdtemp() + '/job.db'
             >>> people_sdaf = SqlDaf('people', cols=['id', 'city', 'age'], keyfield='id', lol=[
             ...     ['p1', 'Denver', 34], ['p2', 'Austin', 52], ['p3', 'Denver', 27]])
+            >>> people_sdaf
+            <BLANKLINE>
+            | id |  city  | age |
+            | -: | -----: | --: |
+            | p1 | Denver |  34 |
+            | p2 | Austin |  52 |
+            | p3 | Denver |  27 |
+            <BLANKLINE>
+            %% sdaf rows=3; cols=3; keyfield='id'; name='people'
+            <BLANKLINE>
 
             Run a SELECT of your own, which gives a Daf. Pass values as `params`, with `?` in the statement:
 
@@ -3566,8 +3661,16 @@ class SqlDaf(Daf):
 
             >>> len(people_sdaf.sql(f'UPDATE {people_sdaf.name} SET age = age + 1 WHERE city = ?', ['Austin']))
             0
-            >>> people_sdaf.col('age')
-            [34, 53, 27]
+            >>> people_sdaf
+            <BLANKLINE>
+            | id |  city  | age |
+            | -: | -----: | --: |
+            | p1 | Denver |  34 |
+            | p2 | Austin |  53 |
+            | p3 | Denver |  27 |
+            <BLANKLINE>
+            %% sdaf rows=3; cols=3; keyfield='id'; name='people'
+            <BLANKLINE>
         """
         changes_before: int = self.conn.total_changes
         try:
