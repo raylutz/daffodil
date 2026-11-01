@@ -54,7 +54,7 @@ A CSV file gives text. `apply_dtypes()` converts the columns in place, and retur
 
 - An empty cell is NULL, the empty string, and stays NULL, except in a `bool` column. See
   Missing values below.
-- A list or dict column is read back from its text, which may be JSON or PYON.
+- A list or dict column is read back from its text, which may be JSON or [PYON](#pyon).
 - Text that does not make an `int` or a `float` is kept as it is.
 - `cols=` converts only the named columns. Converting a column costs time, so convert only
   the columns you use.
@@ -242,7 +242,7 @@ keeps one shared empty string.
 ## Writing a CSV file
 
 `to_csv_file(path)` writes a CSV file, and `to_csv_buff()` returns the text. A list, dict,
-set or tuple in a cell is written as PYON, the Python form of the value, and is read back by
+set or tuple in a cell is written as [PYON](#pyon), the Python form of the value, and is read back by
 `apply_dtypes()`:
 
 ```pycon
@@ -262,7 +262,70 @@ a,"[1, 2]"
 b,"{'k': (1, 2)}"
 ```
 
-PYON is like JSON, but it can hold sets, tuples, and dicts with keys that are not text. See
+## PYON
+
+PYON is the text daffodil uses for a list, dict, set or tuple held in a cell. It is the text
+that Python's `repr()` gives for the value. A CSV file, a Markdown table and a SqlDaf column all
+hold such a cell as this text. The name stands for Python Object Notation.
+
+PYON looks like JSON. These are the differences:
+
+| | JSON | PYON |
+|---|---|---|
+| Quotes around text | `"red"` | `'red'`, or `"it's"` when the text holds a single quote |
+| A boolean | `true`, `false` | `True`, `False`. Daffodil writes 0 and 1 |
+| A missing value | `null` | `None`. Daffodil writes NULL, the empty string |
+| A tuple or a set | not allowed | `(1, 2)`, `{1, 2}` |
+| A dict key | text only | any value a dict accepts, such as `7` |
+
+### Writing and reading PYON
+
+`to_csv_file()` and `to_csv_buff()` write each list or dict cell as its PYON. `apply_dtypes()`
+with the dtype `list` or `dict` reads it back. Here one row has a tuple, an int key and None, which
+JSON cannot hold:
+
+```pycon
+>>> prefs_daf = Daf(cols=['id', 'prefs'], lol=[
+...     ['p1', {'news': 1, 'sms': 0}],
+...     ['p2', {'colors': ('red', 'blue'), 7: 'seven', 'phone': None}]])
+>>> print(prefs_daf.to_csv_buff())
+id,prefs
+p1,"{'news': 1, 'sms': 0}"
+p2,"{'colors': ('red', 'blue'), 7: 'seven', 'phone': None}"
+<BLANKLINE>
+```
+
+Read back, each cell is text until `apply_dtypes()` converts it. The values are shown as lists
+here, since a printed table shows text and a dict alike:
+
+```pycon
+>>> back_daf = Daf.from_csv_buff(prefs_daf.to_csv_buff())
+>>> back_daf.lol
+[['p1', "{'news': 1, 'sms': 0}"], ['p2', "{'colors': ('red', 'blue'), 7: 'seven', 'phone': None}"]]
+>>> back_daf.apply_dtypes(dtypes={'id': str, 'prefs': dict}).lol
+[['p1', {'news': 1, 'sms': 0}], ['p2', {'colors': ('red', 'blue'), 7: 'seven', 'phone': None}]]
+```
+
+- The text is read as data. It is never run as code.
+- Text in JSON is read too, so a column may mix the two.
+- With the optional package pyjson5 installed, as `pip install daffodil[pyjson5]`, a cell is read
+  14 to 18 times faster. Without it, Python's `ast.literal_eval()` reads every cell. pyjson5 cannot
+  read a tuple, a key that is not text, True or None, so those cells go to `ast.literal_eval()`
+  in any case. The values are the same either way.
+- Do not turn PYON into JSON by swapping the quotes. A text value such as `"it's"` breaks, and
+  so does the word None inside a text value.
+
+### Daffodil's form of PYON
+
+Build each dict or list cell in daffodil's form: a boolean as 0 or 1, and a missing value as NULL.
+`normalize_val()` does this at any depth. See [Booleans](booleans.md).
+
+PYON in this form, with text keys and no tuple or set, is also JSON5. JSON5 is JSON that allows
+single quotes, among other things. SQLite's JSON functions read JSON5, so SQL can read inside such
+a cell, as `json_extract()` does on the [SqlDaf](sqldaf.md#how-cells-are-stored) page.
+Python's `json` module reads only strict JSON, so it refuses PYON.
+
+The PYON project describes the format in full. See
 [PYON](https://github.com/raylutz/pyon/blob/main/README.md).
 
 ## To and from other forms

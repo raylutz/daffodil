@@ -368,7 +368,7 @@ position, so `iloc()` and `sdaf[n]` raise ValueError on it.
 
 ## Dict cells and reductions
 
-A dict cell stays as the text that a CSV file holds, as written by Python. Nothing converts
+A dict cell stays as the text that a CSV file holds, its [PYON](types.md#pyon). Nothing converts
 it when it is stored. A reduction by `sparse_row` reads the text of each cell as it goes.
 
 ```pycon
@@ -695,7 +695,7 @@ so both raise ValueError there, and nothing is attached.
 A SqlDaf stores each cell as SQLite holds it: an int as an integer, a float as a real, and a str
 as text. A bool is stored as 0 or 1, as daffodil writes bools. A missing value, NULL, is stored as
 SQL NULL, and reads and prints as NULL again. A dict or a list is stored as its text, the
-`str()` that `to_csv_file()` writes for it.
+[PYON](types.md#pyon) that `to_csv_file()` writes for it.
 
 ```pycon
 >>> # Create a Daf with a cell of each kind: int, float, bool, text, dict and list. The second row is mostly missing.

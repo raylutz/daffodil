@@ -549,7 +549,7 @@ def _flatten(self: 'Daf', convert_bool_to_int: bool=True, use_pyon: bool = True)
     text already, so a separate pass is not needed.
 
     Only the columns whose dtype is `list` or `dict` are changed. Each cell
-    becomes its `str()` text. A column of dtype `bool` becomes 0 and 1. Without
+    becomes its [PYON](../../guide/types.md#pyon) text. A column of dtype `bool` becomes 0 and 1. Without
     dtypes nothing happens.
 
     Leave `convert_bool_to_int` True. In daffodil a boolean is 0 or 1, never True or False. See

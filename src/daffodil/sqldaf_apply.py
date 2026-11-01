@@ -198,7 +198,7 @@ def _reduce(
     - With `by='row'`, each row is a [KeyedList][daffodil.keyedlist.KeyedList] of its
       values. Unlike in a Daf, writing to it does not change the table.
     - With `indirect_col`, or `by='sparse_row'`, the function gets the dict held in `indirect_col`, JSON or
-      PYON text decoded as in a Daf, and the result starts as `initial_da` or an empty dict.
+      [PYON](../../guide/types.md#pyon) text decoded as in a Daf, and the result starts as `initial_da` or an empty dict.
       A plain sum chooses its loop once, from the first 100 rows, as [`Daf.reduce()`][daffodil.daf_apply._reduce] describes.
       With `cols`, the result is in the order of `cols`.
     - With `by='table'`, the function gets this SqlDaf and `cols`.
@@ -1118,7 +1118,7 @@ def _groupby_aggregate(
     There are two forms, by the number of columns:
 
     - **One column.** The function gets the cell as the row, if it holds a dict, as text of
-      JSON or PYON. This merges or totals concise dicts, which SQL cannot read.
+      JSON or [PYON](../../guide/types.md#pyon). This merges or totals concise dicts, which SQL cannot read.
       The result cell is the reduced dict, as compact JSON text.
       A cell that holds a plain value is given as a row of one column, and the result is its
       reduced value. An empty cell is an empty dict.

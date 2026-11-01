@@ -19,7 +19,7 @@ converted each time it moves from one system to the next, and a missed conversio
 0 and 1 are the same in all of them. So a table can be written out, read back and compared with
 its source as text, with no special case for bools.
 
-A dict or list cell is written as PYON, the Python form of the value. With 0 and 1 in it, that
+A dict or list cell is written as [PYON](types.md#pyon), the Python form of the value. With 0 and 1 in it, that
 text is also readable by SQLite's JSON functions. With True in it, it is not:
 
 ```pycon
@@ -156,7 +156,7 @@ every table. Daffodil's form is:
 - a missing value, None included, is NULL, the empty string.
 
 `normalize_val()` does both, at any depth in a dict, list or tuple. Call it on a dict or list
-before it goes into a cell. A cell in this form is already PYON and JSON at once, so it is never
+before it goes into a cell. A cell in this form is already PYON and JSON5 at once, so it is never
 converted again. Python reads its text, SQLite's JSON functions read it, and a CSV file holds it
 as it is:
 

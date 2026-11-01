@@ -10,6 +10,7 @@ all prior releases. Plans for future moved to ROADMAP.md.
 ## [Unreleased]
 
 ### Changed
+- The Types page of the Guide defines PYON, the text of a list or dict cell. It shows how PYON differs from JSON, how daffodil writes and reads it, and why daffodil's form of it is also JSON5, which SQLite's JSON functions read. Other mentions of PYON link to it. The Booleans page said such a cell is also JSON. It is JSON5. Ray asked for this on 2026-11-01.
 - `select_records()` is the new name of `select_records_daf()`, on a Daf and a SqlDaf. The old name still works, and is deprecated. The docs use the new name. Ray decided it on 2026-10-31, Q324.
 - A SqlDaf prints sdaf in its summary line, as `%% sdaf rows=3; ...`, so a printout shows where it came from. A Daf still prints daf. `from_md()` reads both. The word is the class attribute `summary_tag`. Ray decided it on 2026-10-31, Q325.
 - `cols` of SqlDaf `select_where()`, `split_where()` and `group_where()` is deprecated and no longer documented. It still works when given, and leaving it out was always safe. It named the columns passed to the function, and saved 20 to 60% of the time on wide tables. Its name clashed with the `cols` that elsewhere chooses the columns of a result. Ray decided it on 2026-10-31, Q323.
