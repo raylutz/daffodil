@@ -156,8 +156,15 @@ and a change made through the selection shows in the table:
 ```pycon
 >>> first = daf[0]
 >>> first[0, 'qty'] = 30
->>> daf.select_record('a1')
-{'id': 'a1', 'item': 'pen', 'qty': 30}
+>>> daf
+<BLANKLINE>
+| id | item | qty |
+| -: | ---: | --: |
+| a1 |  pen |  30 |
+| b2 |  ink |  10 |
+<BLANKLINE>
+%% daf rows=2; cols=3; keyfield='id'; name=''
+<BLANKLINE>
 >>> first[0, 'qty'] = 3             # back to 3, for the examples below
 ```
 

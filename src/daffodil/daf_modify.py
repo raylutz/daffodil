@@ -107,17 +107,47 @@ def _append(self: 'Daf',
 
         **A dict,** by column name. A missing column gets NULL, and an unknown key is dropped:
 
-        >>> daf.append({'qty': 3, 'id': 'a1', 'item': 'pen'}).select_record('a1')
-        {'id': 'a1', 'item': 'pen', 'qty': 3}
-        >>> daf.append({'id': 'b2', 'color': 'red'}).select_record('b2')
-        {'id': 'b2', 'item': '', 'qty': ''}
+        >>> daf.append({'qty': 3, 'id': 'a1', 'item': 'pen'})
+        <BLANKLINE>
+        | id | item | qty |
+        | -: | ---: | --: |
+        | a1 |  pen |   3 |
+        <BLANKLINE>
+        %% daf rows=1; cols=3; keyfield='id'; name=''
+        <BLANKLINE>
+        >>> daf.append({'id': 'b2', 'color': 'red'})
+        <BLANKLINE>
+        | id | item | qty |
+        | -: | ---: | --: |
+        | a1 |  pen |   3 |
+        | b2 |      |     |
+        <BLANKLINE>
+        %% daf rows=2; cols=3; keyfield='id'; name=''
+        <BLANKLINE>
 
         **A list,** in column order. A short list is padded, and a long one raises:
 
-        >>> daf.append(['c3', 'pad', 7]).select_record('c3')
-        {'id': 'c3', 'item': 'pad', 'qty': 7}
-        >>> daf.append(['d4']).select_record('d4')
-        {'id': 'd4', 'item': '', 'qty': ''}
+        >>> daf.append(['c3', 'pad', 7])
+        <BLANKLINE>
+        | id | item | qty |
+        | -: | ---: | --: |
+        | a1 |  pen |   3 |
+        | b2 |      |     |
+        | c3 |  pad |   7 |
+        <BLANKLINE>
+        %% daf rows=3; cols=3; keyfield='id'; name=''
+        <BLANKLINE>
+        >>> daf.append(['d4'])
+        <BLANKLINE>
+        | id | item | qty |
+        | -: | ---: | --: |
+        | a1 |  pen |   3 |
+        | b2 |      |     |
+        | c3 |  pad |   7 |
+        | d4 |      |     |
+        <BLANKLINE>
+        %% daf rows=4; cols=3; keyfield='id'; name=''
+        <BLANKLINE>
         >>> daf.append(['e5', 'tag', 1, 'extra'])
         Traceback (most recent call last):
         ...
@@ -125,19 +155,63 @@ def _append(self: 'Daf',
 
         **Several rows:** a list of dicts, `lol=`, or another Daf with the same columns:
 
-        >>> daf.append([{'id': 'f6', 'qty': 2}, {'id': 'g7', 'qty': 5}]).keys()
-        ['a1', 'b2', 'c3', 'd4', 'f6', 'g7']
-        >>> daf.append(lol=[['h8', 'cap', 1], ['i9', 'ink', 4]]).keys()
-        ['a1', 'b2', 'c3', 'd4', 'f6', 'g7', 'h8', 'i9']
+        >>> daf.append([{'id': 'f6', 'qty': 2}, {'id': 'g7', 'qty': 5}])
+        <BLANKLINE>
+        | id | item | qty |
+        | -: | ---: | --: |
+        | a1 |  pen |   3 |
+        | b2 |      |     |
+        | c3 |  pad |   7 |
+        | d4 |      |     |
+        | f6 |      |   2 |
+        | g7 |      |   5 |
+        <BLANKLINE>
+        %% daf rows=6; cols=3; keyfield='id'; name=''
+        <BLANKLINE>
+        >>> daf.append(lol=[['h8', 'cap', 1], ['i9', 'ink', 4]])
+        <BLANKLINE>
+        | id | item | qty |
+        | -: | ---: | --: |
+        | a1 |  pen |   3 |
+        | b2 |      |     |
+        | c3 |  pad |   7 |
+        | d4 |      |     |
+        | f6 |      |   2 |
+        | g7 |      |   5 |
+        | h8 |  cap |   1 |
+        | i9 |  ink |   4 |
+        <BLANKLINE>
+        %% daf rows=8; cols=3; keyfield='id'; name=''
+        <BLANKLINE>
         >>> more = Daf(cols=['id', 'item', 'qty'], lol=[['j10', 'pen', 6]])
-        >>> daf.append(more).keys()
-        ['a1', 'b2', 'c3', 'd4', 'f6', 'g7', 'h8', 'i9', 'j10']
+        >>> daf.append(more)
+        <BLANKLINE>
+        | id  | item | qty |
+        | --: | ---: | --: |
+        |  a1 |  pen |   3 |
+        |  b2 |      |     |
+        |  c3 |  pad |   7 |
+        |  d4 |      |     |
+        |  f6 |      |   2 |
+        |  g7 |      |   5 |
+        |  h8 |  cap |   1 |
+        |  i9 |  ink |   4 |
+        | j10 |  pen |   6 |
+        <BLANKLINE>
+        %% daf rows=9; cols=3; keyfield='id'; name=''
+        <BLANKLINE>
 
         **One row whose values are lists,** with `la=`:
 
         >>> tags = Daf(cols=['id', 'tags'], keyfield='id')
-        >>> tags.append(la=['a1', ['red', 'large']]).select_record('a1')
-        {'id': 'a1', 'tags': ['red', 'large']}
+        >>> tags.append(la=['a1', ['red', 'large']])
+        <BLANKLINE>
+        | id |       tags       |
+        | -: | ---------------: |
+        | a1 | ['red', 'large'] |
+        <BLANKLINE>
+        %% daf rows=1; cols=2; keyfield='id'; name=''
+        <BLANKLINE>
 
         **A repeated key** is added again, unless `respect_kd=True`, which replaces the row:
 
@@ -154,16 +228,31 @@ def _append(self: 'Daf',
 
         **Nothing to add,** as None or an empty dict, list or Daf, changes nothing:
 
-        >>> len(stock.append(None).append({}).append([]).append(Daf()))
-        2
+        >>> stock.append(None).append({}).append([]).append(Daf())
+        <BLANKLINE>
+        | id | qty |
+        | -: | --: |
+        | a1 |  30 |
+        | b2 |  10 |
+        <BLANKLINE>
+        %% daf rows=2; cols=2; keyfield='id'; name=''
+        <BLANKLINE>
 
         **fast=True,** with a KeyedList from `default_record()`. A row of the wrong length raises:
 
         >>> from daffodil.keyedlist import KeyedList
         >>> row = stock.default_record(astype=KeyedList)
         >>> row['id'], row['qty'] = 'c3', 7
-        >>> stock.append(row, fast=True).select_record('c3')
-        {'id': 'c3', 'qty': 7}
+        >>> stock.append(row, fast=True)
+        <BLANKLINE>
+        | id | qty |
+        | -: | --: |
+        | a1 |  30 |
+        | b2 |  10 |
+        | c3 |   7 |
+        <BLANKLINE>
+        %% daf rows=3; cols=2; keyfield='id'; name=''
+        <BLANKLINE>
         >>> stock.append(['d4'], fast=True)
         Traceback (most recent call last):
         ...
@@ -1001,10 +1090,25 @@ def _delete_records(
 
         By default, get a Daf without the rows. The table keeps them:
 
-        >>> daf.delete_records(['p2']).to_lod()
-        [{'id': 'p1', 'name': 'Ana Lopez'}, {'id': 'p3', 'name': 'Chen Wu'}]
-        >>> len(daf)
-        3
+        >>> daf.delete_records(['p2'])
+        <BLANKLINE>
+        | id |   name    |
+        | -: | --------: |
+        | p1 | Ana Lopez |
+        | p3 |   Chen Wu |
+        <BLANKLINE>
+        %% daf rows=2; cols=2; keyfield='id'; name=''
+        <BLANKLINE>
+        >>> daf
+        <BLANKLINE>
+        | id |    name    |
+        | -: | ---------: |
+        | p1 |  Ana Lopez |
+        | p2 | Ben Okafor |
+        | p3 |    Chen Wu |
+        <BLANKLINE>
+        %% daf rows=3; cols=2; keyfield='id'; name=''
+        <BLANKLINE>
 
         Delete them from the table itself, ignoring a key that is not found:
 
@@ -1017,8 +1121,6 @@ def _delete_records(
         <BLANKLINE>
         %% daf rows=2; cols=2; keyfield='id'; name=''
         <BLANKLINE>
-        >>> daf.to_lod()
-        [{'id': 'p1', 'name': 'Ana Lopez'}, {'id': 'p3', 'name': 'Chen Wu'}]
     """
     if not inplace:
         return self.select_records(keys_ls, inverse=True, silent_error=silent_error)
@@ -1165,8 +1267,16 @@ def _drop_cols(self: 'Daf', exclude_cols: T_ls | None = None) -> 'Daf':
 
         Drop a column:
 
-        >>> daf.drop_cols(['city']).columns()
-        ['id', 'age']
+        >>> daf.drop_cols(['city'])
+        <BLANKLINE>
+        | id | age |
+        | -: | --: |
+        |  1 |  34 |
+        |  2 |  52 |
+        |  3 |  27 |
+        <BLANKLINE>
+        %% daf rows=3; cols=2; keyfield='id'; name=''
+        <BLANKLINE>
     """
 
     if exclude_cols:
@@ -1318,8 +1428,6 @@ def _assign_record_irow(self: 'Daf', irow: int | None = None, record: T_da | Non
         <BLANKLINE>
         %% daf rows=3; cols=3; keyfield='id'; name=''
         <BLANKLINE>
-        >>> daf.iloc(1)
-        {'id': '', 'city': 'Miami', 'age': ''}
 
         Replace the last row:
 
@@ -1333,8 +1441,6 @@ def _assign_record_irow(self: 'Daf', irow: int | None = None, record: T_da | Non
         <BLANKLINE>
         %% daf rows=3; cols=3; keyfield='id'; name=''
         <BLANKLINE>
-        >>> daf.iloc(-1)
-        {'id': 9, 'city': '', 'age': ''}
 
         With no position, add a row at the end:
 
@@ -1349,8 +1455,6 @@ def _assign_record_irow(self: 'Daf', irow: int | None = None, record: T_da | Non
         <BLANKLINE>
         %% daf rows=4; cols=3; keyfield='id'; name=''
         <BLANKLINE>
-        >>> daf.iloc(-1), len(daf)
-        ({'id': 10, 'city': '', 'age': ''}, 4)
     """
 
     if record is None:
@@ -1478,8 +1582,6 @@ def _update_record_irow(self: 'Daf', irow: int=-1, record: T_da | None = None) -
         <BLANKLINE>
         %% daf rows=3; cols=3; keyfield='id'; name=''
         <BLANKLINE>
-        >>> daf.iloc(1)
-        {'id': 2, 'city': 'Miami', 'age': 52}
 
         With no position, change the last row:
 
@@ -1493,8 +1595,6 @@ def _update_record_irow(self: 'Daf', irow: int=-1, record: T_da | None = None) -
         <BLANKLINE>
         %% daf rows=3; cols=3; keyfield='id'; name=''
         <BLANKLINE>
-        >>> daf.iloc(-1)
-        {'id': 3, 'city': 'Boston', 'age': 61}
     """
 
     if record is None or not self.lol or not self.hd:
@@ -1569,8 +1669,6 @@ def _update_record_krow(self: 'Daf', key: Any, record: T_da | None = None) -> 'D
         <BLANKLINE>
         %% daf rows=3; cols=3; keyfield='id'; name=''
         <BLANKLINE>
-        >>> daf.select_record(2)
-        {'id': 2, 'city': 'Miami', 'age': 52}
     """
 
     if record is None:
@@ -1641,8 +1739,6 @@ def _assign_icol(
         <BLANKLINE>
         %% daf rows=3; cols=3; keyfield='id'; name=''
         <BLANKLINE>
-        >>> daf.col('city')
-        ['Miami', 'Reno', 'unknown']
     """
     # from utilities import daf_utils
 
@@ -1730,8 +1826,16 @@ def _insert_icol(
 
         Insert a new column at position 1:
 
-        >>> daf.insert_icol(1, [5, 3, 8], colname='visits').columns()
-        ['id', 'visits', 'city', 'age']
+        >>> daf.insert_icol(1, [5, 3, 8], colname='visits')
+        <BLANKLINE>
+        | id | visits |  city  | age |
+        | -: | -----: | -----: | --: |
+        |  1 |      5 | Denver |  34 |
+        |  2 |      3 | Austin |  52 |
+        |  3 |      8 | Boston |  27 |
+        <BLANKLINE>
+        %% daf rows=3; cols=4; keyfield='id'; name=''
+        <BLANKLINE>
 
         A list shorter than the rows is filled out with `default`:
 
@@ -1891,16 +1995,30 @@ def _assign_col(self: 'Daf', colname: str, la: T_la | None = None, default: Any=
 
         Add a column with a default in every row:
 
-        >>> daf.assign_col('visits', default=0).columns()
-        ['id', 'city', 'age', 'visits']
-        >>> daf.col('visits')
-        [0, 0, 0]
+        >>> daf.assign_col('visits', default=0)
+        <BLANKLINE>
+        | id |  city  | age | visits |
+        | -: | -----: | --: | -----: |
+        |  1 | Denver |  34 |      0 |
+        |  2 | Austin |  52 |      0 |
+        |  3 | Boston |  27 |      0 |
+        <BLANKLINE>
+        %% daf rows=3; cols=4; keyfield='id'; name=''
+        <BLANKLINE>
 
         A list shorter than the rows is filled out with `default`. A new name adds a column at the right:
 
         >>> stock = Daf(cols=['id', 'qty'], lol=[['a1', 3], ['b2', 10], ['c3', 7]], keyfield='id')
-        >>> stock.assign_col('qty', [1], default=0).col('qty')
-        [1, 0, 0]
+        >>> stock.assign_col('qty', [1], default=0)
+        <BLANKLINE>
+        | id | qty |
+        | -: | --: |
+        | a1 |   1 |
+        | b2 |   0 |
+        | c3 |   0 |
+        <BLANKLINE>
+        %% daf rows=3; cols=2; keyfield='id'; name=''
+        <BLANKLINE>
         >>> stock.assign_col('note', ['n1', 'n2', 'n3'])
         <BLANKLINE>
         | id | qty | note |
@@ -1975,10 +2093,26 @@ def _insert_col(
 
         Insert a column at position 1, from a list, and another at the end with a default:
 
-        >>> daf.insert_col('visits', [5, 3, 8], icol=1).columns()
-        ['id', 'visits', 'city', 'age']
-        >>> daf.insert_col('score', default=100).col('score')
-        [100, 100, 100]
+        >>> daf.insert_col('visits', [5, 3, 8], icol=1)
+        <BLANKLINE>
+        | id | visits |  city  | age |
+        | -: | -----: | -----: | --: |
+        |  1 |      5 | Denver |  34 |
+        |  2 |      3 | Austin |  52 |
+        |  3 |      8 | Boston |  27 |
+        <BLANKLINE>
+        %% daf rows=3; cols=4; keyfield='id'; name=''
+        <BLANKLINE>
+        >>> daf.insert_col('score', default=100)
+        <BLANKLINE>
+        | id | visits |  city  | age | score |
+        | -: | -----: | -----: | --: | ----: |
+        |  1 |      5 | Denver |  34 |   100 |
+        |  2 |      3 | Austin |  52 |   100 |
+        |  3 |      8 | Boston |  27 |   100 |
+        <BLANKLINE>
+        %% daf rows=3; cols=5; keyfield='id'; name=''
+        <BLANKLINE>
     """
 
     if not colname:
@@ -2028,8 +2162,16 @@ def _insert_idx_col(self: 'Daf', colname: str='idx', icol:int=0, startat:int=0) 
 
         Insert a column of row numbers, from 0:
 
-        >>> daf.insert_idx_col().col('idx')
-        [0, 1, 2]
+        >>> daf.insert_idx_col()
+        <BLANKLINE>
+        | idx | id |  city  | age |
+        | --: | -: | -----: | --: |
+        |   0 |  1 | Denver |  34 |
+        |   1 |  2 | Austin |  52 |
+        |   2 |  3 | Boston |  27 |
+        <BLANKLINE>
+        %% daf rows=3; cols=4; keyfield='id'; name=''
+        <BLANKLINE>
 
         Another name, in another place, numbered from 1:
 
@@ -2090,8 +2232,16 @@ def _set_col_irows(self: 'Daf', colname: str, irows: T_li, val: Any) -> 'Daf':
 
         Set the city of the rows at positions 0 and 2:
 
-        >>> daf.set_col_irows('city', [0, 2], 'unknown').col('city')
-        ['unknown', 'Austin', 'unknown']
+        >>> daf.set_col_irows('city', [0, 2], 'unknown')
+        <BLANKLINE>
+        | id |  city   | age |
+        | -: | ------: | --: |
+        |  1 | unknown |  34 |
+        |  2 |  Austin |  52 |
+        |  3 | unknown |  27 |
+        <BLANKLINE>
+        %% daf rows=3; cols=3; keyfield='id'; name=''
+        <BLANKLINE>
     """
 
     icol = self.hd[colname]
@@ -2136,8 +2286,16 @@ def _set_icol(self: 'Daf', icol: int, val: Any) -> 'Daf':
 
         Set every value of the column at position 1:
 
-        >>> daf.set_icol(1, 'unknown').col('city')
-        ['unknown', 'unknown', 'unknown']
+        >>> daf.set_icol(1, 'unknown')
+        <BLANKLINE>
+        | id |  city   | age |
+        | -: | ------: | --: |
+        |  1 | unknown |  34 |
+        |  2 | unknown |  52 |
+        |  3 | unknown |  27 |
+        <BLANKLINE>
+        %% daf rows=3; cols=3; keyfield='id'; name=''
+        <BLANKLINE>
     """
 
 
@@ -2191,8 +2349,6 @@ def _set_icol_irows(self: 'Daf', icol: int, irows: T_li, val: Any) -> 'Daf':
         <BLANKLINE>
         %% daf rows=3; cols=3; keyfield='id'; name=''
         <BLANKLINE>
-        >>> daf.col('city')
-        ['unknown', 'Austin', 'Boston']
     """
 
     for irow in irows:
@@ -2308,8 +2464,16 @@ def _replace_in_columns(
 
         Replace some values in a column:
 
-        >>> daf.replace_in_columns(['city'], ['Denver', 'Boston'], 'unknown').col('city')
-        ['unknown', 'Austin', 'unknown']
+        >>> daf.replace_in_columns(['city'], ['Denver', 'Boston'], 'unknown')
+        <BLANKLINE>
+        | id |  city   | age |
+        | -: | ------: | --: |
+        |  1 | unknown |  34 |
+        |  2 |  Austin |  52 |
+        |  3 | unknown |  27 |
+        <BLANKLINE>
+        %% daf rows=3; cols=3; keyfield='id'; name=''
+        <BLANKLINE>
     """
 
     if find_values is None:
@@ -2500,8 +2664,17 @@ def _sort_by_colname(self: 'Daf', colname:str, *, reverse: bool=False, length_pr
 
         Sort with shorter text first, so '8' comes before '10':
 
-        >>> daf.sort_by_colname('code', length_priority=True).col('code')
-        ['8', '10', '99', '100']
+        >>> daf.sort_by_colname('code', length_priority=True)
+        <BLANKLINE>
+        | code |
+        | ---: |
+        |    8 |
+        |   10 |
+        |   99 |
+        |  100 |
+        <BLANKLINE>
+        %% daf rows=4; cols=1; keyfield=''; name=''
+        <BLANKLINE>
 
         A column of numbers with None and an empty cell sorts as text, with `as_str=True`:
 
@@ -2517,14 +2690,31 @@ def _sort_by_colname(self: 'Daf', colname:str, *, reverse: bool=False, length_pr
         <BLANKLINE>
         %% daf rows=4; cols=1; keyfield=''; name=''
         <BLANKLINE>
-        >>> daf.sort_by_colname('age', as_str=True, length_priority=True).col('age')
-        [None, '', 7, 34]
+        >>> daf.sort_by_colname('age', as_str=True, length_priority=True)
+        <BLANKLINE>
+        | age  |
+        | ---: |
+        | None |
+        |      |
+        |    7 |
+        |   34 |
+        <BLANKLINE>
+        %% daf rows=4; cols=1; keyfield=''; name=''
+        <BLANKLINE>
 
         From high to low:
 
         >>> stock = Daf(cols=['id', 'qty'], lol=[['a1', 3], ['b2', 1], ['c3', 2]])
-        >>> stock.sort_by_colname('qty', reverse=True).col('id')
-        ['a1', 'c3', 'b2']
+        >>> stock.sort_by_colname('qty', reverse=True)
+        <BLANKLINE>
+        | id | qty |
+        | -: | --: |
+        | a1 |   3 |
+        | c3 |   2 |
+        | b2 |   1 |
+        <BLANKLINE>
+        %% daf rows=3; cols=2; keyfield=''; name=''
+        <BLANKLINE>
     """
     if not self or len(self) <= 1:
         return self
@@ -2596,23 +2786,59 @@ def _sort_by_colnames(self: 'Daf', colnames:T_ls, reverse: bool=False, length_pr
         The options, on a column of names:
 
         >>> names = Daf(cols=['id', 'name'], lol=[['p1', 'Bea'], ['p2', 'Al'], ['p3', 'Cyrus'], ['p4', 'Bo']])
-        >>> names.sort_by_colnames(['name']).col('name')
-        ['Al', 'Bea', 'Bo', 'Cyrus']
-        >>> names.sort_by_colnames(['name'], reverse=True).col('name')
-        ['Cyrus', 'Bo', 'Bea', 'Al']
+        >>> names.sort_by_colnames(['name'])
+        <BLANKLINE>
+        | id | name  |
+        | -: | ----: |
+        | p2 |    Al |
+        | p1 |   Bea |
+        | p4 |    Bo |
+        | p3 | Cyrus |
+        <BLANKLINE>
+        %% daf rows=4; cols=2; keyfield=''; name=''
+        <BLANKLINE>
+        >>> names.sort_by_colnames(['name'], reverse=True)
+        <BLANKLINE>
+        | id | name  |
+        | -: | ----: |
+        | p3 | Cyrus |
+        | p4 |    Bo |
+        | p1 |   Bea |
+        | p2 |    Al |
+        <BLANKLINE>
+        %% daf rows=4; cols=2; keyfield=''; name=''
+        <BLANKLINE>
 
         With `length_priority=True`, shorter values come first, and values of one length by value:
 
-        >>> names.sort_by_colnames(['name'], length_priority=True).col('name')
-        ['Al', 'Bo', 'Bea', 'Cyrus']
+        >>> names.sort_by_colnames(['name'], length_priority=True)
+        <BLANKLINE>
+        | id | name  |
+        | -: | ----: |
+        | p2 |    Al |
+        | p4 |    Bo |
+        | p1 |   Bea |
+        | p3 | Cyrus |
+        <BLANKLINE>
+        %% daf rows=4; cols=2; keyfield=''; name=''
+        <BLANKLINE>
 
         A column of numbers mixed with text, or with None, cannot be compared, and raises TypeError.
         With `as_str=True` it sorts by text, where `'10'` comes before `'9'`, and None sorts as an
         empty cell:
 
         >>> mixed = Daf(cols=['id', 'qty'], lol=[['o1', 10], ['o2', 9], ['o3', 'n/a'], ['o4', None]])
-        >>> mixed.sort_by_colnames(['qty'], as_str=True).col('qty')
-        [None, 10, 9, 'n/a']
+        >>> mixed.sort_by_colnames(['qty'], as_str=True)
+        <BLANKLINE>
+        | id | qty  |
+        | -: | ---: |
+        | o4 | None |
+        | o1 |   10 |
+        | o2 |    9 |
+        | o3 |  n/a |
+        <BLANKLINE>
+        %% daf rows=4; cols=2; keyfield=''; name=''
+        <BLANKLINE>
     """
     if not self or len(self) <= 1:
         return self

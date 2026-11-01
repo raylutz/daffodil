@@ -737,8 +737,6 @@ def _apply_in_place(
         <BLANKLINE>
         %% daf rows=3; cols=3; keyfield=''; name=''
         <BLANKLINE>
-        >>> daf.col('amount')
-        [26.0, 25.0, 31.5]
 
         Set every amount to 0. With `by='row_klist'`, the function changes the row and returns nothing:
 
@@ -752,14 +750,20 @@ def _apply_in_place(
         <BLANKLINE>
         %% daf rows=3; cols=3; keyfield=''; name=''
         <BLANKLINE>
-        >>> daf.col('amount')
-        [0, 0, 0]
 
         Only the rows of some keys:
 
         >>> stock = Daf(cols=['id', 'qty'], keyfield='id', lol=[['a1', 3], ['b2', 10], ['c3', 7]])
-        >>> stock.apply_in_place(lambda row: {'qty': row['qty'] * 2}, rowkeys=['b2', 'c3']).col('qty')
-        [3, 20, 14]
+        >>> stock.apply_in_place(lambda row: {'qty': row['qty'] * 2}, rowkeys=['b2', 'c3'])
+        <BLANKLINE>
+        | id | qty |
+        | -: | --: |
+        | a1 |   3 |
+        | b2 |  20 |
+        | c3 |  14 |
+        <BLANKLINE>
+        %% daf rows=3; cols=2; keyfield='id'; name=''
+        <BLANKLINE>
     """
     if rowkeys is None:
         rowkeys = []
@@ -3153,8 +3157,6 @@ def _set_col2_from_col1_using_regex_select(self: 'Daf', col1: str, col2: str='',
         <BLANKLINE>
         %% daf rows=2; cols=2; keyfield=''; name=''
         <BLANKLINE>
-        >>> daf.col('code')
-        ['80202', '73301']
 
         Write the result to another column, here a new one:
 
@@ -3443,8 +3445,6 @@ def _apply_to_col(self: 'Daf', col: str, func: Callable, **kwargs: Any) -> 'Daf'
         <BLANKLINE>
         %% daf rows=2; cols=2; keyfield=''; name=''
         <BLANKLINE>
-        >>> daf.col('price')
-        [25.0, 8.0]
 
         Pass more arguments to the function as keywords:
 
@@ -3457,8 +3457,6 @@ def _apply_to_col(self: 'Daf', col: str, func: Callable, **kwargs: Any) -> 'Daf'
         <BLANKLINE>
         %% daf rows=2; cols=2; keyfield=''; name=''
         <BLANKLINE>
-        >>> daf.col('price')
-        [250.0, 80.0]
     """
 
     if kwargs:

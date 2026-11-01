@@ -293,8 +293,14 @@ def _from_lot(
 
         >>> Daf.from_lot([('p1', 'Ana Lopez')]).columns()
         []
-        >>> Daf.from_lot([('p1', 'Ana Lopez')]).set_cols().columns()
-        ['A', 'B']
+        >>> Daf.from_lot([('p1', 'Ana Lopez')]).set_cols()
+        <BLANKLINE>
+        | A  |     B     |
+        | -: | --------: |
+        | p1 | Ana Lopez |
+        <BLANKLINE>
+        %% daf rows=1; cols=2; keyfield=''; name=''
+        <BLANKLINE>
 
         Give the keyfield, the types and a name:
 
@@ -419,8 +425,15 @@ def _to_lod(self: 'Daf') -> T_loda:
         >>> lod
         [{'id': 'p1', 'tags': 'none'}, {'id': 'p2', 'tags': ['chess']}]
         >>> lod[1]['tags'].append('hiking')
-        >>> daf.iloc(1)
-        {'id': 'p2', 'tags': ['chess', 'hiking']}
+        >>> daf
+        <BLANKLINE>
+        | id |        tags         |
+        | -: | ------------------: |
+        | p1 |                none |
+        | p2 | ['chess', 'hiking'] |
+        <BLANKLINE>
+        %% daf rows=2; cols=2; keyfield=''; name=''
+        <BLANKLINE>
     """
     # test exists in test_daf.py
 

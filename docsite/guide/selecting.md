@@ -201,8 +201,17 @@ A dict given for a row is placed by column name, and a column it lacks becomes N
 >>> daf[0, 'a'] = 100
 >>> daf[1] = ['r2', 40, 50, 60]
 >>> daf[:, 'c'] = 0
->>> daf.lol[:2]
-[['r1', 100, 2, 0], ['r2', 40, 50, 0]]
+>>> daf
+<BLANKLINE>
+| id |  a  | b  | c  |
+| -: | --: | -: | -: |
+| r1 | 100 |  2 |  0 |
+| r2 |  40 | 50 |  0 |
+| r3 |   7 |  8 |  0 |
+| r4 |  10 | 11 |  0 |
+<BLANKLINE>
+%% daf rows=4; cols=4; keyfield='id'; name=''
+<BLANKLINE>
 ```
 
 ## Do selections copy the rows?
@@ -214,8 +223,17 @@ changes the original:
 ```pycon
 >>> sel = daf.select_where(lambda row: row['id'] == 'r1')
 >>> sel[0, 'b'] = 99
->>> daf.select_record('r1')['b']
-99
+>>> daf
+<BLANKLINE>
+| id |  a  | b  | c  |
+| -: | --: | -: | -: |
+| r1 | 100 | 99 |  0 |
+| r2 |  40 | 50 |  0 |
+| r3 |   7 |  8 |  0 |
+| r4 |  10 | 11 |  0 |
+<BLANKLINE>
+%% daf rows=4; cols=4; keyfield='id'; name=''
+<BLANKLINE>
 ```
 
 | Selection | The rows of the result |
@@ -246,12 +264,24 @@ shows everywhere. Only `copy('deep')` copies it:
 <BLANKLINE>
 >>> cols_only = tagged[:, ['tags']]
 >>> cols_only[0, 'tags'].to_value().append('y')
->>> tagged.lol
-[['a', ['x', 'y']]]
+>>> tagged
+<BLANKLINE>
+| id |    tags    |
+| -: | ---------: |
+|  a | ['x', 'y'] |
+<BLANKLINE>
+%% daf rows=1; cols=2; keyfield=''; name=''
+<BLANKLINE>
 >>> deep = tagged.copy('deep')
 >>> deep[0, 'tags'].to_value().append('z')
->>> tagged.lol
-[['a', ['x', 'y']]]
+>>> tagged
+<BLANKLINE>
+| id |    tags    |
+| -: | ---------: |
+|  a | ['x', 'y'] |
+<BLANKLINE>
+%% daf rows=1; cols=2; keyfield=''; name=''
+<BLANKLINE>
 ```
 
 The same holds for `to_lod()`, `to_dict()`, the rows of a loop, and a KeyedList: each is new,

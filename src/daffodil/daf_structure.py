@@ -240,8 +240,14 @@ def _rename_cols(self: 'Daf', from_to_dict: T_ds) -> 'Daf':
 
         Rename a column:
 
-        >>> daf.rename_cols({'yrs': 'age'}).columns()
-        ['name', 'age']
+        >>> daf.rename_cols({'yrs': 'age'})
+        <BLANKLINE>
+        |   name    | age |
+        | --------: | --: |
+        | Ana Lopez |  34 |
+        <BLANKLINE>
+        %% daf rows=1; cols=2; keyfield=''; name=''
+        <BLANKLINE>
 
         Renaming the key column moves the keyfield to the new name:
 
@@ -301,13 +307,25 @@ def _set_cols(self: 'Daf', new_cols: T_ls | None = None, sanitize_cols: bool=Tru
     Examples:
         A Daf made with no column names gets A, B and so on from `set_cols()`:
 
-        >>> Daf(lol=[['Ana Lopez', 'Denver', 34]]).set_cols().columns()
-        ['A', 'B', 'C']
+        >>> Daf(lol=[['Ana Lopez', 'Denver', 34]]).set_cols()
+        <BLANKLINE>
+        |     A     |   B    | C  |
+        | --------: | -----: | -: |
+        | Ana Lopez | Denver | 34 |
+        <BLANKLINE>
+        %% daf rows=1; cols=3; keyfield=''; name=''
+        <BLANKLINE>
 
         Names given are taken as they are, even repeated or empty:
 
-        >>> Daf(lol=[['Ana Lopez', 'Denver', 34]]).set_cols(['name', 'name', '']).columns()
-        ['name', 'name_1', 'col2']
+        >>> Daf(lol=[['Ana Lopez', 'Denver', 34]]).set_cols(['name', 'name', ''])
+        <BLANKLINE>
+        |   name    | name_1 | col2 |
+        | --------: | -----: | ---: |
+        | Ana Lopez | Denver |   34 |
+        <BLANKLINE>
+        %% daf rows=1; cols=3; keyfield=''; name=''
+        <BLANKLINE>
 
         A keyfield given before the names takes effect once a column has that name:
 
@@ -340,10 +358,22 @@ def _set_cols(self: 'Daf', new_cols: T_ls | None = None, sanitize_cols: bool=Tru
         With `sanitize_cols=True`, an empty name gets one made from `unnamed_prefix`, and a repeated
         name gets a number:
 
-        >>> Daf(lol=[['Ana Lopez', 'Denver', 34]]).set_cols(['name', '', 'name'], sanitize_cols=True).columns()
-        ['name', 'col1', 'name_2']
-        >>> Daf(lol=[['Ana Lopez', 'Denver', 34]]).set_cols(['name', '', ''], sanitize_cols=True, unnamed_prefix='col').columns()
-        ['name', 'col1', 'col2']
+        >>> Daf(lol=[['Ana Lopez', 'Denver', 34]]).set_cols(['name', '', 'name'], sanitize_cols=True)
+        <BLANKLINE>
+        |   name    |  col1  | name_2 |
+        | --------: | -----: | -----: |
+        | Ana Lopez | Denver |     34 |
+        <BLANKLINE>
+        %% daf rows=1; cols=3; keyfield=''; name=''
+        <BLANKLINE>
+        >>> Daf(lol=[['Ana Lopez', 'Denver', 34]]).set_cols(['name', '', ''], sanitize_cols=True, unnamed_prefix='col')
+        <BLANKLINE>
+        |   name    |  col1  | col2 |
+        | --------: | -----: | ---: |
+        | Ana Lopez | Denver |   34 |
+        <BLANKLINE>
+        %% daf rows=1; cols=3; keyfield=''; name=''
+        <BLANKLINE>
     """
 
     num_cols = self.num_cols() or len(self.hd)

@@ -50,8 +50,6 @@ A Daf with no names can be given spreadsheet names, or names of your own, with `
 <BLANKLINE>
 %% daf rows=2; cols=2; keyfield=''; name=''
 <BLANKLINE>
->>> raw.columns()
-['A', 'B']
 >>> raw.set_cols(['x', 'y'])
 <BLANKLINE>
 | x  | y  |
@@ -61,8 +59,6 @@ A Daf with no names can be given spreadsheet names, or names of your own, with `
 <BLANKLINE>
 %% daf rows=2; cols=2; keyfield=''; name=''
 <BLANKLINE>
->>> raw.col('y')
-[2, 4]
 ```
 
 ## Column names from a CSV file

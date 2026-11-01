@@ -17,25 +17,55 @@ A dict is placed by column name, in any order:
 ```pycon
 >>> from daffodil.daf import Daf
 >>> daf = Daf(cols=['id', 'qty'], keyfield='id')
->>> daf.append({'qty': 3, 'id': 'a1'}).select_record('a1')
-{'id': 'a1', 'qty': 3}
+>>> daf.append({'qty': 3, 'id': 'a1'})
+<BLANKLINE>
+| id | qty |
+| -: | --: |
+| a1 |   3 |
+<BLANKLINE>
+%% daf rows=1; cols=2; keyfield='id'; name=''
+<BLANKLINE>
 ```
 
 A dict that lacks a column gets NULL there, the empty string. A key that is not a column is
 dropped:
 
 ```pycon
->>> daf.append({'id': 'b2', 'color': 'red'}).select_record('b2')
-{'id': 'b2', 'qty': ''}
+>>> daf.append({'id': 'b2', 'color': 'red'})
+<BLANKLINE>
+| id | qty |
+| -: | --: |
+| a1 |   3 |
+| b2 |     |
+<BLANKLINE>
+%% daf rows=2; cols=2; keyfield='id'; name=''
+<BLANKLINE>
 ```
 
 A list goes in column order. A list shorter than the columns is padded with NULL:
 
 ```pycon
->>> daf.append(['c3', 10]).select_record('c3')
-{'id': 'c3', 'qty': 10}
->>> daf.append(['d4']).select_record('d4')
-{'id': 'd4', 'qty': ''}
+>>> daf.append(['c3', 10])
+<BLANKLINE>
+| id | qty |
+| -: | --: |
+| a1 |   3 |
+| b2 |     |
+| c3 |  10 |
+<BLANKLINE>
+%% daf rows=3; cols=2; keyfield='id'; name=''
+<BLANKLINE>
+>>> daf.append(['d4'])
+<BLANKLINE>
+| id | qty |
+| -: | --: |
+| a1 |   3 |
+| b2 |     |
+| c3 |  10 |
+| d4 |     |
+<BLANKLINE>
+%% daf rows=4; cols=2; keyfield='id'; name=''
+<BLANKLINE>
 ```
 
 A list longer than the columns raises ValueError, since a value would have no column:
@@ -50,11 +80,20 @@ ValueError: append(): the list has 3 values for 2 columns.
 Several rows at once: a list of dicts, or a list of lists with `lol=`:
 
 ```pycon
->>> daf.append([{'id': 'f6', 'qty': 7}, {'id': 'g7', 'qty': 1}]).keys()
-['a1', 'b2', 'c3', 'd4', 'f6', 'g7']
->>> daf.append(lol=[['h8', 2], ['i9', 5]]).keys()
-['a1', 'b2', 'c3', 'd4', 'f6', 'g7', 'h8', 'i9']
->>> daf
+>>> daf.append([{'id': 'f6', 'qty': 7}, {'id': 'g7', 'qty': 1}])
+<BLANKLINE>
+| id | qty |
+| -: | --: |
+| a1 |   3 |
+| b2 |     |
+| c3 |  10 |
+| d4 |     |
+| f6 |   7 |
+| g7 |   1 |
+<BLANKLINE>
+%% daf rows=6; cols=2; keyfield='id'; name=''
+<BLANKLINE>
+>>> daf.append(lol=[['h8', 2], ['i9', 5]])
 <BLANKLINE>
 | id | qty |
 | -: | --: |
@@ -76,11 +115,39 @@ afterwards:
 
 ```pycon
 >>> row = ['j10', 4]
->>> daf.append(row).select_record('j10')
-{'id': 'j10', 'qty': 4}
+>>> daf.append(row)
+<BLANKLINE>
+| id  | qty |
+| --: | --: |
+|  a1 |   3 |
+|  b2 |     |
+|  c3 |  10 |
+|  d4 |     |
+|  f6 |   7 |
+|  g7 |   1 |
+|  h8 |   2 |
+|  i9 |   5 |
+| j10 |   4 |
+<BLANKLINE>
+%% daf rows=9; cols=2; keyfield='id'; name=''
+<BLANKLINE>
 >>> row[1] = 99
->>> daf.select_record('j10')
-{'id': 'j10', 'qty': 4}
+>>> daf
+<BLANKLINE>
+| id  | qty |
+| --: | --: |
+|  a1 |   3 |
+|  b2 |     |
+|  c3 |  10 |
+|  d4 |     |
+|  f6 |   7 |
+|  g7 |   1 |
+|  h8 |   2 |
+|  i9 |   5 |
+| j10 |   4 |
+<BLANKLINE>
+%% daf rows=9; cols=2; keyfield='id'; name=''
+<BLANKLINE>
 ```
 
 The key is not checked, which keeps appending fast. A key that is already there is added
@@ -98,8 +165,6 @@ again, as a second row. A lookup by that key then finds the last one:
 <BLANKLINE>
 %% daf rows=3; cols=2; keyfield='id'; name=''
 <BLANKLINE>
->>> stock.select_record('a1')
-{'id': 'a1', 'qty': 30}
 ```
 
 With `respect_kd=True`, the row that has the same key is replaced instead:

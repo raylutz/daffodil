@@ -83,6 +83,14 @@ is changed, can differ. The notes say how.
 ['b2', 'c3']
 >>> daf.groupby_cols_reduce(['g'], Daf.sum_da, reduce_cols=['qty']).lol
 [['x', 10], ['y', 10]]
->>> daf.sort_by_colname('qty', reverse=True).col('id')
-['b2', 'c3', 'a1']
+>>> daf.sort_by_colname('qty', reverse=True)
+<BLANKLINE>
+| id | g  | qty |
+| -: | -: | --: |
+| b2 |  y |  10 |
+| c3 |  x |   7 |
+| a1 |  x |   3 |
+<BLANKLINE>
+%% daf rows=3; cols=3; keyfield='id'; name=''
+<BLANKLINE>
 ```

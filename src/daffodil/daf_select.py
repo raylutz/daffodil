@@ -92,8 +92,16 @@ def _set_irows_icols(self: 'Daf',
 
         Set a whole row from a list, with `None` for every column:
 
-        >>> daf.set_irows_icols(2, None, [4, 'Miami', 60]).iloc(2)
-        {'id': 4, 'city': 'Miami', 'age': 60}
+        >>> daf.set_irows_icols(2, None, [4, 'Miami', 60])
+        <BLANKLINE>
+        | id |  city   |   age   |
+        | -: | ------: | ------: |
+        |  1 | unknown | unknown |
+        |  2 | unknown | unknown |
+        |  4 |   Miami |      60 |
+        <BLANKLINE>
+        %% daf rows=3; cols=3; keyfield=''; name=''
+        <BLANKLINE>
     """
     """ set rows and cols in given daf.
 
@@ -1336,8 +1344,16 @@ def _select_records(self: 'Daf', keys_ls: 'T_ls | Iterable | Daf', inverse:bool=
         >>> daf.num_rows(), kept.num_rows()
         (3, 4)
         >>> kept[0, 'city'] = 'Miami'
-        >>> daf.iloc(0)['city']
-        'Miami'
+        >>> daf
+        <BLANKLINE>
+        | id |  city  | age |
+        | -: | -----: | --: |
+        | p1 |  Miami |  34 |
+        | p2 | Austin |     |
+        | p3 | Denver |  27 |
+        <BLANKLINE>
+        %% daf rows=3; cols=3; keyfield='id'; name=''
+        <BLANKLINE>
 
         The keys of another Daf, without making a list of them:
 
@@ -1411,8 +1427,16 @@ def _irow_la(self: 'Daf', irow: int) -> T_la:
         ['p2', 'Austin', '']
         >>> row = daf.irow_la(0)
         >>> row[1] = 'Miami'
-        >>> daf.iloc(0)
-        {'id': 'p1', 'city': 'Miami', 'age': 34}
+        >>> daf
+        <BLANKLINE>
+        | id |  city  | age |
+        | -: | -----: | --: |
+        | p1 |  Miami |  34 |
+        | p2 | Austin |     |
+        | p3 | Denver |  27 |
+        <BLANKLINE>
+        %% daf rows=3; cols=3; keyfield='id'; name=''
+        <BLANKLINE>
         >>> daf.irow_la(9)
         Traceback (most recent call last):
             ...
@@ -1527,8 +1551,16 @@ def _iloc(self: 'Daf', irow: int=0, include_cols: T_ls | None = None, rtype: str
 
         >>> row = daf.iloc(1, rtype='klist')
         >>> row['age'] = 35
-        >>> daf.iloc(1)
-        {'id': 2, 'city': 'Austin', 'age': 35}
+        >>> daf
+        <BLANKLINE>
+        | id |  city  | age |
+        | -: | -----: | --: |
+        |  1 | Denver |  34 |
+        |  2 | Austin |  35 |
+        |  3 | Boston |  27 |
+        <BLANKLINE>
+        %% daf rows=3; cols=3; keyfield='id'; name=''
+        <BLANKLINE>
     """
     """ Select one record from daf using the idx and return as a single T_da dict
             test exists in test_daf.py

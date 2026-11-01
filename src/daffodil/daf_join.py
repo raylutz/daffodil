@@ -125,8 +125,18 @@ def _update_with_history(
 
         With `key_order`, the keys come in that order. It must hold every key of both tables:
 
-        >>> prior_daf.update_with_history(new_daf, by='order_id', key_order=['o4', 'o3', 'o2', 'o1'])[0].col('order_id')
-        ['o4', 'o3', 'o2', 'o1', 'o1']
+        >>> prior_daf.update_with_history(new_daf, by='order_id', key_order=['o4', 'o3', 'o2', 'o1'])[0]
+        <BLANKLINE>
+        | order_id | line | qty |
+        | -------: | ---: | --: |
+        |       o4 |    1 |   3 |
+        |       o3 |    1 |   4 |
+        |       o2 |    1 |   8 |
+        |       o1 |    1 |   6 |
+        |       o1 |    2 |   2 |
+        <BLANKLINE>
+        %% daf rows=5; cols=3; keyfield=''; name=''
+        <BLANKLINE>
     """
 
     keyfield_a: Any = self.keyfield

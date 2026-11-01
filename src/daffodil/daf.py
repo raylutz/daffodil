@@ -1380,15 +1380,29 @@ class Daf:
 
             >>> editable = daf.copy('editable')
             >>> editable[0, 'name'] = 'Ben O. Okafor'
-            >>> daf.iloc(0)
-            {'id': 2, 'name': 'Ben Okafor'}
+            >>> daf
+            <BLANKLINE>
+            | id |    name    |
+            | -: | ---------: |
+            |  2 | Ben Okafor |
+            |  1 |  Ana Lopez |
+            <BLANKLINE>
+            %% daf rows=2; cols=2; keyfield=''; name=''
+            <BLANKLINE>
 
             Choose what to copy with the flags. Here the rows are shared, so a changed cell shows in the original:
 
             >>> mixed = daf.copy(Daf.COPY_OUTER | Daf.COPY_HD)
             >>> mixed[0, 'name'] = 'Ben Okafor Jr.'
-            >>> daf.iloc(0)
-            {'id': 2, 'name': 'Ben Okafor Jr.'}
+            >>> daf
+            <BLANKLINE>
+            | id |      name      |
+            | -: | -------------: |
+            |  2 | Ben Okafor Jr. |
+            |  1 |      Ana Lopez |
+            <BLANKLINE>
+            %% daf rows=2; cols=2; keyfield=''; name=''
+            <BLANKLINE>
 
             Give a selection rows of its own, in place, so a later change to the original does not show in it:
 
@@ -1396,8 +1410,14 @@ class Daf:
             >>> sel.copy(inplace=True) is sel
             True
             >>> daf[1, 'name'] = 'Ana L. Lopez'
-            >>> sel.lol
-            [[1, 'Ana Lopez']]
+            >>> sel
+            <BLANKLINE>
+            | id |   name    |
+            | -: | --------: |
+            |  1 | Ana Lopez |
+            <BLANKLINE>
+            %% daf rows=1; cols=2; keyfield=''; name=''
+            <BLANKLINE>
         """
 
         if inplace:
@@ -1735,9 +1755,25 @@ class Daf:
 
             Make id the keyfield. A list of columns makes each key a tuple:
 
-            >>> daf.set_keyfield('id').keys()
-            [1, 2]
-            >>> daf.set_keyfield(['id', 'name']).keys()
+            >>> daf.set_keyfield('id')
+            <BLANKLINE>
+            | id |    name    |
+            | -: | ---------: |
+            |  1 |  Ana Lopez |
+            |  2 | Ben Okafor |
+            <BLANKLINE>
+            %% daf rows=2; cols=2; keyfield='id'; name=''
+            <BLANKLINE>
+            >>> daf.set_keyfield(['id', 'name'])
+            <BLANKLINE>
+            | id |    name    |
+            | -: | ---------: |
+            |  1 |  Ana Lopez |
+            |  2 | Ben Okafor |
+            <BLANKLINE>
+            %% daf rows=2; cols=2; keyfield='['id', 'name']'; name=''
+            <BLANKLINE>
+            >>> daf.keys()
             [(1, 'Ana Lopez'), (2, 'Ben Okafor')]
 
             An empty Daf can have a keyfield, and its keys grow as rows are added:
@@ -1750,8 +1786,14 @@ class Daf:
             <BLANKLINE>
             >>> empty_daf.keyfield
             'id'
-            >>> empty_daf.append({'id': 7, 'name': 'Gus Berg'}).keys()
-            [7]
+            >>> empty_daf.append({'id': 7, 'name': 'Gus Berg'})
+            <BLANKLINE>
+            | id |   name   |
+            | -: | -------: |
+            |  7 | Gus Berg |
+            <BLANKLINE>
+            %% daf rows=1; cols=2; keyfield='id'; name=''
+            <BLANKLINE>
 
             A name that is not a column raises KeyError. With `silent_error=True` it is stored anyway, and
             key lookups find nothing until the column exists:
@@ -2307,8 +2349,15 @@ class Daf:
 
             Replace all the rows. The key index follows the new rows:
 
-            >>> daf.set_lol([[5, 'Eva Novak'], [6, 'Femi Ade']]).keys()
-            [5, 6]
+            >>> daf.set_lol([[5, 'Eva Novak'], [6, 'Femi Ade']])
+            <BLANKLINE>
+            | id |   name    |
+            | -: | --------: |
+            |  5 | Eva Novak |
+            |  6 |  Femi Ade |
+            <BLANKLINE>
+            %% daf rows=2; cols=2; keyfield='id'; name=''
+            <BLANKLINE>
         """
         """ set the lol with the value passed, leaving other settings,
             and recalculating kd if required (i.e. if keyfield is defined).
@@ -2652,8 +2701,17 @@ class Daf:
 
             >>> some = daf[0:2]
             >>> some['a1', 'qty'] = 30
-            >>> daf['a1', 'qty'].to_value()
-            30
+            >>> daf
+            <BLANKLINE>
+            | id | item | qty |
+            | -: | ---: | --: |
+            | a1 |  pen |  30 |
+            | b2 |  ink |  10 |
+            | c3 |  pad |   7 |
+            | d4 |  cap |   1 |
+            <BLANKLINE>
+            %% daf rows=4; cols=3; keyfield='id'; name=''
+            <BLANKLINE>
 
             A key or name that is not there raises KeyError:
 
