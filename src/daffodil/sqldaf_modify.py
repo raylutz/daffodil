@@ -397,23 +397,72 @@ def _append(
         >>> import tempfile
         >>> SqlDaf.db_path = tempfile.mkdtemp() + '/job.db'
         >>> people_sdaf = SqlDaf('people', cols=['id', 'name', 'age'], keyfield='id', lol=[['p1', 'Ana Lopez', 34], ['p2', 'Ben Okafor', 52]])
+        >>> people_sdaf
+        <BLANKLINE>
+        | id |    name    | age |
+        | -: | ---------: | --: |
+        | p1 |  Ana Lopez |  34 |
+        | p2 | Ben Okafor |  52 |
+        <BLANKLINE>
+        %% sdaf rows=2; cols=3; keyfield='id'; name='people'
+        <BLANKLINE>
 
         Add one row as a dict, placed by column name:
 
-        >>> people_sdaf.append({'age': 27, 'id': 'p3', 'name': 'Chen Wu'}).select_record('p3')
-        {'id': 'p3', 'name': 'Chen Wu', 'age': 27}
+        >>> people_sdaf.append({'age': 27, 'id': 'p3', 'name': 'Chen Wu'})
+        <BLANKLINE>
+        | id |    name    | age |
+        | -: | ---------: | --: |
+        | p1 |  Ana Lopez |  34 |
+        | p2 | Ben Okafor |  52 |
+        | p3 |    Chen Wu |  27 |
+        <BLANKLINE>
+        %% sdaf rows=3; cols=3; keyfield='id'; name='people'
+        <BLANKLINE>
 
         Add one row as a list, in column order. A short list is padded with Python NULL:
 
-        >>> people_sdaf.append(['p4', 'Dana Smith']).select_record('p4')
-        {'id': 'p4', 'name': 'Dana Smith', 'age': ''}
+        >>> people_sdaf.append(['p4', 'Dana Smith'])
+        <BLANKLINE>
+        | id |    name    | age |
+        | -: | ---------: | --: |
+        | p1 |  Ana Lopez |  34 |
+        | p2 | Ben Okafor |  52 |
+        | p3 |    Chen Wu |  27 |
+        | p4 | Dana Smith |     |
+        <BLANKLINE>
+        %% sdaf rows=4; cols=3; keyfield='id'; name='people'
+        <BLANKLINE>
 
         Add several rows as lists, or one row with `la=`:
 
-        >>> people_sdaf.append(lol=[['p5', 'Eva Novak', 45], ['p6', 'Femi Ade', 38]]).keys()
-        ['p1', 'p2', 'p3', 'p4', 'p5', 'p6']
-        >>> people_sdaf.append(la=['p7', 'Gus Berg', 61]).len()
-        7
+        >>> people_sdaf.append(lol=[['p5', 'Eva Novak', 45], ['p6', 'Femi Ade', 38]])
+        <BLANKLINE>
+        | id |    name    | age |
+        | -: | ---------: | --: |
+        | p1 |  Ana Lopez |  34 |
+        | p2 | Ben Okafor |  52 |
+        | p3 |    Chen Wu |  27 |
+        | p4 | Dana Smith |     |
+        | p5 |  Eva Novak |  45 |
+        | p6 |   Femi Ade |  38 |
+        <BLANKLINE>
+        %% sdaf rows=6; cols=3; keyfield='id'; name='people'
+        <BLANKLINE>
+        >>> people_sdaf.append(la=['p7', 'Gus Berg', 61])
+        <BLANKLINE>
+        | id |    name    | age |
+        | -: | ---------: | --: |
+        | p1 |  Ana Lopez |  34 |
+        | p2 | Ben Okafor |  52 |
+        | p3 |    Chen Wu |  27 |
+        | p4 | Dana Smith |     |
+        | p5 |  Eva Novak |  45 |
+        | p6 |   Femi Ade |  38 |
+        | p7 |   Gus Berg |  61 |
+        <BLANKLINE>
+        %% sdaf rows=7; cols=3; keyfield='id'; name='people'
+        <BLANKLINE>
 
         A key that is there raises, and nothing is added:
 
@@ -423,18 +472,57 @@ def _append(
 
         Replace that row instead, in its place, with `respect_kd=True`:
 
-        >>> people_sdaf.append({'id': 'p1', 'name': 'Ana Lopez', 'age': 35}, respect_kd=True).iloc(0)
-        {'id': 'p1', 'name': 'Ana Lopez', 'age': 35}
+        >>> people_sdaf.append({'id': 'p1', 'name': 'Ana Lopez', 'age': 35}, respect_kd=True)
+        <BLANKLINE>
+        | id |    name    | age |
+        | -: | ---------: | --: |
+        | p1 |  Ana Lopez |  35 |
+        | p2 | Ben Okafor |  52 |
+        | p3 |    Chen Wu |  27 |
+        | p4 | Dana Smith |     |
+        | p5 |  Eva Novak |  45 |
+        | p6 |   Femi Ade |  38 |
+        | p7 |   Gus Berg |  61 |
+        <BLANKLINE>
+        %% sdaf rows=7; cols=3; keyfield='id'; name='people'
+        <BLANKLINE>
 
         Add the rows of a Daf with the same columns:
 
-        >>> people_sdaf.append(Daf(cols=['id', 'name', 'age'], lol=[['p8', 'Hana Sato', 29]])).iloc(-1)
-        {'id': 'p8', 'name': 'Hana Sato', 'age': 29}
+        >>> people_sdaf.append(Daf(cols=['id', 'name', 'age'], lol=[['p8', 'Hana Sato', 29]]))
+        <BLANKLINE>
+        | id |    name    | age |
+        | -: | ---------: | --: |
+        | p1 |  Ana Lopez |  35 |
+        | p2 | Ben Okafor |  52 |
+        | p3 |    Chen Wu |  27 |
+        | p4 | Dana Smith |     |
+        | p5 |  Eva Novak |  45 |
+        | p6 |   Femi Ade |  38 |
+        | p7 |   Gus Berg |  61 |
+        | p8 |  Hana Sato |  29 |
+        <BLANKLINE>
+        %% sdaf rows=8; cols=3; keyfield='id'; name='people'
+        <BLANKLINE>
 
         `fast=True` is accepted, so code written for a Daf runs. Every row is checked anyway:
 
-        >>> people_sdaf.append(['p9', 'Ivan Petrov', 50], fast=True).len()
-        9
+        >>> people_sdaf.append(['p9', 'Ivan Petrov', 50], fast=True)
+        <BLANKLINE>
+        | id |    name     | age |
+        | -: | ----------: | --: |
+        | p1 |   Ana Lopez |  35 |
+        | p2 |  Ben Okafor |  52 |
+        | p3 |     Chen Wu |  27 |
+        | p4 |  Dana Smith |     |
+        | p5 |   Eva Novak |  45 |
+        | p6 |    Femi Ade |  38 |
+        | p7 |    Gus Berg |  61 |
+        | p8 |   Hana Sato |  29 |
+        | p9 | Ivan Petrov |  50 |
+        <BLANKLINE>
+        %% sdaf rows=9; cols=3; keyfield='id'; name='people'
+        <BLANKLINE>
     """
     if sum(item is not None for item in (data_item, lol, la)) > 1:
         raise TypeError("append(): give only one of data_item, lol and la.")
@@ -480,11 +568,28 @@ def _record_append(self: 'SqlDaf', record: T_da | KeyedList, respect_kd: bool = 
         >>> import tempfile
         >>> SqlDaf.db_path = tempfile.mkdtemp() + '/job.db'
         >>> people_sdaf = SqlDaf('people', cols=['id', 'name', 'age'], keyfield='id', lol=[['p1', 'Ana Lopez', 34], ['p2', 'Ben Okafor', 52]])
+        >>> people_sdaf
+        <BLANKLINE>
+        | id |    name    | age |
+        | -: | ---------: | --: |
+        | p1 |  Ana Lopez |  34 |
+        | p2 | Ben Okafor |  52 |
+        <BLANKLINE>
+        %% sdaf rows=2; cols=3; keyfield='id'; name='people'
+        <BLANKLINE>
 
         Add a row with a new key:
 
-        >>> people_sdaf.record_append({'id': 'p3', 'name': 'Chen Wu', 'age': 27}).len()
-        3
+        >>> people_sdaf.record_append({'id': 'p3', 'name': 'Chen Wu', 'age': 27})
+        <BLANKLINE>
+        | id |    name    | age |
+        | -: | ---------: | --: |
+        | p1 |  Ana Lopez |  34 |
+        | p2 | Ben Okafor |  52 |
+        | p3 |    Chen Wu |  27 |
+        <BLANKLINE>
+        %% sdaf rows=3; cols=3; keyfield='id'; name='people'
+        <BLANKLINE>
 
         A key that is there replaces its row, by default:
 
@@ -544,24 +649,58 @@ def _extend(
         >>> import tempfile
         >>> SqlDaf.db_path = tempfile.mkdtemp() + '/job.db'
         >>> people_sdaf = SqlDaf('people', cols=['id', 'age'], keyfield='id', lol=[['p1', 34]])
+        >>> people_sdaf
+        <BLANKLINE>
+        | id | age |
+        | -: | --: |
+        | p1 |  34 |
+        <BLANKLINE>
+        %% sdaf rows=1; cols=2; keyfield='id'; name='people'
+        <BLANKLINE>
 
         Add several rows as dicts, each placed by column name:
 
-        >>> people_sdaf.extend([{'id': 'p2', 'age': 52}, {'age': 27, 'id': 'p3'}]).to_lod()
-        [{'id': 'p1', 'age': 34}, {'id': 'p2', 'age': 52}, {'id': 'p3', 'age': 27}]
+        >>> people_sdaf.extend([{'id': 'p2', 'age': 52}, {'age': 27, 'id': 'p3'}])
+        <BLANKLINE>
+        | id | age |
+        | -: | --: |
+        | p1 |  34 |
+        | p2 |  52 |
+        | p3 |  27 |
+        <BLANKLINE>
+        %% sdaf rows=3; cols=2; keyfield='id'; name='people'
+        <BLANKLINE>
 
         Add rows as lists. With `respect_kd=True`, a key that is there replaces its row:
 
-        >>> people_sdaf.extend(lol=[['p4', 41], ['p1', 35]], respect_kd=True).to_lod()
-        [{'id': 'p1', 'age': 35}, {'id': 'p2', 'age': 52}, {'id': 'p3', 'age': 27}, {'id': 'p4', 'age': 41}]
+        >>> people_sdaf.extend(lol=[['p4', 41], ['p1', 35]], respect_kd=True)
+        <BLANKLINE>
+        | id | age |
+        | -: | --: |
+        | p1 |  35 |
+        | p2 |  52 |
+        | p3 |  27 |
+        | p4 |  41 |
+        <BLANKLINE>
+        %% sdaf rows=4; cols=2; keyfield='id'; name='people'
+        <BLANKLINE>
 
         If one row fails, none is added:
 
         >>> people_sdaf.extend(lol=[['p5', 45], ['p2', 53]])
         Traceback (most recent call last):
         sqlite3.IntegrityError: UNIQUE constraint failed: people.id
-        >>> people_sdaf.keys()
-        ['p1', 'p2', 'p3', 'p4']
+        >>> people_sdaf
+        <BLANKLINE>
+        | id | age |
+        | -: | --: |
+        | p1 |  35 |
+        | p2 |  52 |
+        | p3 |  27 |
+        | p4 |  41 |
+        <BLANKLINE>
+        %% sdaf rows=4; cols=2; keyfield='id'; name='people'
+        <BLANKLINE>
     """
     if records_lod is not None and lol is not None:
         raise TypeError("extend(): give records_lod or lol, not both.")
@@ -600,6 +739,15 @@ def _assign_record(self: 'SqlDaf', record: T_da) -> 'SqlDaf':
         >>> import tempfile
         >>> SqlDaf.db_path = tempfile.mkdtemp() + '/job.db'
         >>> people_sdaf = SqlDaf('people', cols=['id', 'name', 'age'], keyfield='id', lol=[['p1', 'Ana Lopez', 34], ['p2', 'Ben Okafor', 52]])
+        >>> people_sdaf
+        <BLANKLINE>
+        | id |    name    | age |
+        | -: | ---------: | --: |
+        | p1 |  Ana Lopez |  34 |
+        | p2 | Ben Okafor |  52 |
+        <BLANKLINE>
+        %% sdaf rows=2; cols=3; keyfield='id'; name='people'
+        <BLANKLINE>
 
         Replace a whole row by its key. Columns the dict lacks become Python NULL:
 
@@ -615,8 +763,16 @@ def _assign_record(self: 'SqlDaf', record: T_da) -> 'SqlDaf':
 
         A new key is added at the end:
 
-        >>> people_sdaf.assign_record({'id': 'p3', 'name': 'Chen Wu', 'age': 27}).keys()
-        ['p1', 'p2', 'p3']
+        >>> people_sdaf.assign_record({'id': 'p3', 'name': 'Chen Wu', 'age': 27})
+        <BLANKLINE>
+        | id |    name    | age |
+        | -: | ---------: | --: |
+        | p1 |            |  35 |
+        | p2 | Ben Okafor |  52 |
+        | p3 |    Chen Wu |  27 |
+        <BLANKLINE>
+        %% sdaf rows=3; cols=3; keyfield='id'; name='people'
+        <BLANKLINE>
     """
     key_col: str = self._need_keyfield('assign_record')
     if key_col not in record:
@@ -650,6 +806,16 @@ def _update_by_keylist(self: 'SqlDaf', keylist: T_la | None = None, record: T_da
         >>> SqlDaf.db_path = tempfile.mkdtemp() + '/job.db'
         >>> people_sdaf = SqlDaf('people', cols=['id', 'name', 'city'], keyfield='id', lol=[
         ...     ['p1', 'Ana Lopez', 'Denver'], ['p2', 'Ben Okafor', 'Austin'], ['p3', 'Chen Wu', 'Denver']])
+        >>> people_sdaf
+        <BLANKLINE>
+        | id |    name    |  city  |
+        | -: | ---------: | -----: |
+        | p1 |  Ana Lopez | Denver |
+        | p2 | Ben Okafor | Austin |
+        | p3 |    Chen Wu | Denver |
+        <BLANKLINE>
+        %% sdaf rows=3; cols=3; keyfield='id'; name='people'
+        <BLANKLINE>
 
         Change the city of two people. A key that is not found, and a name that is not a column, are ignored:
 
@@ -707,6 +873,15 @@ def _update_record_krow(self: 'SqlDaf', key: Any, record: T_da | None = None) ->
         >>> SqlDaf.db_path = tempfile.mkdtemp() + '/job.db'
         >>> staff_sdaf = SqlDaf('staff', cols=['emp_no', 'name', 'title'], keyfield='emp_no', lol=[
         ...     [1042, 'Ana Lopez', 'Analyst'], [2071, 'Ben Okafor', 'Engineer']])
+        >>> staff_sdaf
+        <BLANKLINE>
+        | emp_no |    name    |  title   |
+        | -----: | ---------: | -------: |
+        |   1042 |  Ana Lopez |  Analyst |
+        |   2071 | Ben Okafor | Engineer |
+        <BLANKLINE>
+        %% sdaf rows=2; cols=3; keyfield='emp_no'; name='staff'
+        <BLANKLINE>
 
         Change some cells of the row with key 2071. An int here is a key, not a position:
 
@@ -766,16 +941,42 @@ def _assign_col(self: 'SqlDaf', colname: str, la: T_la | None = None, default: A
         >>> import tempfile
         >>> SqlDaf.db_path = tempfile.mkdtemp() + '/job.db'
         >>> people_sdaf = SqlDaf('people', cols=['id', 'age'], keyfield='id', lol=[['p1', 34], ['p2', 52], ['p3', 27]])
+        >>> people_sdaf
+        <BLANKLINE>
+        | id | age |
+        | -: | --: |
+        | p1 |  34 |
+        | p2 |  52 |
+        | p3 |  27 |
+        <BLANKLINE>
+        %% sdaf rows=3; cols=2; keyfield='id'; name='people'
+        <BLANKLINE>
 
         Fill a column from a list, in row order:
 
-        >>> people_sdaf.assign_col('age', [35, 53, 28]).col('age')
-        [35, 53, 28]
+        >>> people_sdaf.assign_col('age', [35, 53, 28])
+        <BLANKLINE>
+        | id | age |
+        | -: | --: |
+        | p1 |  35 |
+        | p2 |  53 |
+        | p3 |  28 |
+        <BLANKLINE>
+        %% sdaf rows=3; cols=2; keyfield='id'; name='people'
+        <BLANKLINE>
 
         A short list is filled out with `default`:
 
-        >>> people_sdaf.assign_col('age', [40], default=0).col('age')
-        [40, 0, 0]
+        >>> people_sdaf.assign_col('age', [40], default=0)
+        <BLANKLINE>
+        | id | age |
+        | -: | --: |
+        | p1 |  40 |
+        | p2 |   0 |
+        | p3 |   0 |
+        <BLANKLINE>
+        %% sdaf rows=3; cols=2; keyfield='id'; name='people'
+        <BLANKLINE>
 
         A new column is added at the end, here with the default in every row:
 
@@ -830,21 +1031,47 @@ def _apply_to_col(self: 'SqlDaf', col: str, func: Callable, **kwargs: Any) -> 'S
         >>> import tempfile
         >>> SqlDaf.db_path = tempfile.mkdtemp() + '/job.db'
         >>> people_sdaf = SqlDaf('people', cols=['id', 'height'], keyfield='id', lol=[['p1', 168], ['p2', ''], ['p3', 175]])
+        >>> people_sdaf
+        <BLANKLINE>
+        | id | height |
+        | -: | -----: |
+        | p1 |    168 |
+        | p2 |        |
+        | p3 |    175 |
+        <BLANKLINE>
+        %% sdaf rows=3; cols=2; keyfield='id'; name='people'
+        <BLANKLINE>
 
         Convert each height to meters. Keyword arguments go to the function:
 
         >>> def to_meters(height, per_meter=100):
         ...     return height / per_meter if height != '' else ''
-        >>> people_sdaf.apply_to_col('height', to_meters, per_meter=100).col('height')
-        [1.68, '', 1.75]
+        >>> people_sdaf.apply_to_col('height', to_meters, per_meter=100)
+        <BLANKLINE>
+        | id | height |
+        | -: | -----: |
+        | p1 |   1.68 |
+        | p2 |        |
+        | p3 |   1.75 |
+        <BLANKLINE>
+        %% sdaf rows=3; cols=2; keyfield='id'; name='people'
+        <BLANKLINE>
 
         If the function raises, nothing changes:
 
         >>> people_sdaf.apply_to_col('height', lambda height: 1 / (height - 1.68))
         Traceback (most recent call last):
         ZeroDivisionError: float division by zero
-        >>> people_sdaf.col('height')
-        [1.68, '', 1.75]
+        >>> people_sdaf
+        <BLANKLINE>
+        | id | height |
+        | -: | -----: |
+        | p1 |   1.68 |
+        | p2 |        |
+        | p3 |   1.75 |
+        <BLANKLINE>
+        %% sdaf rows=3; cols=2; keyfield='id'; name='people'
+        <BLANKLINE>
     """
     if col not in self.hd:
         raise ColumnNotFoundError(col)
@@ -902,6 +1129,16 @@ def _apply_in_place(
         >>> SqlDaf.db_path = tempfile.mkdtemp() + '/job.db'
         >>> orders_sdaf = SqlDaf('orders', cols=['id', 'price', 'qty', 'total'], keyfield='id', lol=[
         ...     ['o1', 12.5, 2, ''], ['o2', 4.0, 6, ''], ['o3', 30.0, 1, '']])
+        >>> orders_sdaf
+        <BLANKLINE>
+        | id | price | qty | total |
+        | -: | ----: | --: | ----: |
+        | o1 |  12.5 |   2 |       |
+        | o2 |   4.0 |   6 |       |
+        | o3 |  30.0 |   1 |       |
+        <BLANKLINE>
+        %% sdaf rows=3; cols=4; keyfield='id'; name='orders'
+        <BLANKLINE>
 
         With `by='row'`, the function returns the cells to change, by name:
 
@@ -920,15 +1157,31 @@ def _apply_in_place(
 
         Change only some rows, with `rowkeys`. Other keywords go to the function:
 
-        >>> orders_sdaf.apply_in_place(add_total, rowkeys=['o2'], tax=0.25).col('total')
-        [25.0, 30.0, 30.0]
+        >>> orders_sdaf.apply_in_place(add_total, rowkeys=['o2'], tax=0.25)
+        <BLANKLINE>
+        | id | price | qty | total |
+        | -: | ----: | --: | ----: |
+        | o1 |  12.5 |   2 |  25.0 |
+        | o2 |   4.0 |   6 |  30.0 |
+        | o3 |  30.0 |   1 |  30.0 |
+        <BLANKLINE>
+        %% sdaf rows=3; cols=4; keyfield='id'; name='orders'
+        <BLANKLINE>
 
         With `by='row_klist'`, the function changes a KeyedList and returns nothing:
 
         >>> def double_qty(row):
         ...     row['qty'] = row['qty'] * 2
-        >>> orders_sdaf.apply_in_place(double_qty, by='row_klist').col('qty')
-        [4, 12, 2]
+        >>> orders_sdaf.apply_in_place(double_qty, by='row_klist')
+        <BLANKLINE>
+        | id | price | qty | total |
+        | -: | ----: | --: | ----: |
+        | o1 |  12.5 |   4 |  25.0 |
+        | o2 |   4.0 |  12 |  30.0 |
+        | o3 |  30.0 |   2 |  30.0 |
+        <BLANKLINE>
+        %% sdaf rows=3; cols=4; keyfield='id'; name='orders'
+        <BLANKLINE>
     """
     if by not in ('row', 'row_klist'):
         raise NotImplementedError(f"apply_in_place(by={by!r}) is not supported on a SqlDaf.")

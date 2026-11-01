@@ -2775,25 +2775,72 @@ class SqlDaf(Daf):
             >>> SqlDaf.db_path = tempfile.mkdtemp() + '/job.db'
             >>> people_sdaf = SqlDaf('people', cols=['id', 'name', 'age'], keyfield='id', lol=[
             ...     ['p1', 'Ana Lopez', 34], ['p2', 'Ben Okafor', 52], ['p3', 'Chen Wu', 27]])
+            >>> people_sdaf
+            <BLANKLINE>
+            | id |    name    | age |
+            | -: | ---------: | --: |
+            | p1 |  Ana Lopez |  34 |
+            | p2 | Ben Okafor |  52 |
+            | p3 |    Chen Wu |  27 |
+            <BLANKLINE>
+            %% sdaf rows=3; cols=3; keyfield='id'; name='people'
+            <BLANKLINE>
 
             Set one cell, by key and column name:
 
             >>> people_sdaf['p2', 'age'] = 53
-            >>> people_sdaf.select_record('p2')
-            {'id': 'p2', 'name': 'Ben Okafor', 'age': 53}
+            >>> people_sdaf
+            <BLANKLINE>
+            | id |    name    | age |
+            | -: | ---------: | --: |
+            | p1 |  Ana Lopez |  34 |
+            | p2 | Ben Okafor |  53 |
+            | p3 |    Chen Wu |  27 |
+            <BLANKLINE>
+            %% sdaf rows=3; cols=3; keyfield='id'; name='people'
+            <BLANKLINE>
 
             Set a whole row, by key. Columns the dict lacks become Python NULL:
 
             >>> people_sdaf['p3'] = {'id': 'p3', 'name': 'Chen Wu'}
-            >>> people_sdaf.select_record('p3')
-            {'id': 'p3', 'name': 'Chen Wu', 'age': ''}
+            >>> people_sdaf
+            <BLANKLINE>
+            | id |    name    | age |
+            | -: | ---------: | --: |
+            | p1 |  Ana Lopez |  34 |
+            | p2 | Ben Okafor |  53 |
+            | p3 |    Chen Wu |     |
+            <BLANKLINE>
+            %% sdaf rows=3; cols=3; keyfield='id'; name='people'
+            <BLANKLINE>
 
-            Set a column. A single value sets every row. A short list leaves the rows past its end as they were:
+            Set a column to one value. Every row gets it:
 
             >>> people_sdaf[:, 'age'] = 40
+            >>> people_sdaf
+            <BLANKLINE>
+            | id |    name    | age |
+            | -: | ---------: | --: |
+            | p1 |  Ana Lopez |  40 |
+            | p2 | Ben Okafor |  40 |
+            | p3 |    Chen Wu |  40 |
+            <BLANKLINE>
+            %% sdaf rows=3; cols=3; keyfield='id'; name='people'
+            <BLANKLINE>
+
+            Set a column from a list. A short list leaves the rows past its end as they were:
+
             >>> people_sdaf[:, 'age'] = [35, 54]
-            >>> people_sdaf.col('age')
-            [35, 54, 40]
+            >>> people_sdaf
+            <BLANKLINE>
+            | id |    name    | age |
+            | -: | ---------: | --: |
+            | p1 |  Ana Lopez |  35 |
+            | p2 | Ben Okafor |  54 |
+            | p3 |    Chen Wu |  40 |
+            <BLANKLINE>
+            %% sdaf rows=3; cols=3; keyfield='id'; name='people'
+            <BLANKLINE>
 
             An int row is a position in a Daf, so it raises here:
 
