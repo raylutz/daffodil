@@ -197,11 +197,27 @@ stands, each time. A negative position in `iloc()` is the exception, since it co
 ```pycon
 >>> big_sdaf = items_sdaf.select_where_sql('qty > ?', [5])
 >>> items_sdaf['a1', 'qty'] = 9
->>> big_sdaf.to_daf().col('id')
-['a1', 'a2', 'a3']
+>>> big_sdaf
+<BLANKLINE>
+| id | grp | qty |
+| -: | --: | --: |
+| a1 |   x |   9 |
+| a2 |   x |  12 |
+| a3 |   y |   7 |
+<BLANKLINE>
+%% sdaf rows=3; cols=3; keyfield='id'; name='daf_tmp_items_v3'
+<BLANKLINE>
 >>> items_sdaf['a1', 'qty'] = 1
->>> big_sdaf.to_daf().col('qty')
-[1, 12, 7]
+>>> big_sdaf
+<BLANKLINE>
+| id | grp | qty |
+| -: | --: | --: |
+| a1 |   x |   1 |
+| a2 |   x |  12 |
+| a3 |   y |   7 |
+<BLANKLINE>
+%% sdaf rows=3; cols=3; keyfield='id'; name='daf_tmp_items_v3'
+<BLANKLINE>
 ```
 
 Here a1 joined the selection, since its value changed before the first read. When it changed
@@ -247,8 +263,17 @@ Rows are added and values set as on a Daf. Each change is written to the file at
 %% sdaf rows=4; cols=3; keyfield='id'; name='items'
 <BLANKLINE>
 >>> items_sdaf['a2', 'qty'] = 13
->>> items_sdaf.select_record('a2')
-{'id': 'a2', 'grp': 'x', 'qty': 13}
+>>> items_sdaf
+<BLANKLINE>
+| id | grp | qty |
+| -: | --: | --: |
+| a1 |   x |   1 |
+| a2 |   x |  13 |
+| a3 |   y |   7 |
+| a4 |   y |   2 |
+<BLANKLINE>
+%% sdaf rows=4; cols=3; keyfield='id'; name='items'
+<BLANKLINE>
 ```
 
 A change made through a selection depends on the operation:
@@ -281,8 +306,6 @@ row with a key, of any type, use `update_record_krow()`.
 <BLANKLINE>
 %% sdaf rows=4; cols=3; keyfield='id'; name='items'
 <BLANKLINE>
->>> items_sdaf.select_record('a3')
-{'id': 'a3', 'grp': 'z', 'qty': 7}
 ```
 
 ### Many small writes
@@ -295,8 +318,17 @@ if the block raises.
 >>> with items_sdaf.transaction():
 ...     for item_id in ('a1', 'a3'):
 ...         items_sdaf[item_id, 'qty'] = 0
->>> items_sdaf.col('qty')
-[0, 13, 0, 2]
+>>> items_sdaf
+<BLANKLINE>
+| id | grp | qty |
+| -: | --: | --: |
+| a1 |   x |   0 |
+| a2 |   x |  13 |
+| a3 |   z |   0 |
+| a4 |   y |   2 |
+<BLANKLINE>
+%% sdaf rows=4; cols=3; keyfield='id'; name='items'
+<BLANKLINE>
 ```
 
 ### Removing rows
@@ -306,8 +338,27 @@ returns a selection of the other rows, and the table is unchanged.
 
 ```pycon
 >>> rest_sdaf = items_sdaf.delete_records(['a4'])
->>> rest_sdaf.to_daf().col('id'), len(items_sdaf)
-(['a1', 'a2', 'a3'], 4)
+>>> rest_sdaf
+<BLANKLINE>
+| id | grp | qty |
+| -: | --: | --: |
+| a1 |   x |   0 |
+| a2 |   x |  13 |
+| a3 |   z |   0 |
+<BLANKLINE>
+%% sdaf rows=3; cols=3; keyfield='id'; name='daf_tmp_items_v6'
+<BLANKLINE>
+>>> items_sdaf
+<BLANKLINE>
+| id | grp | qty |
+| -: | --: | --: |
+| a1 |   x |   0 |
+| a2 |   x |  13 |
+| a3 |   z |   0 |
+| a4 |   y |   2 |
+<BLANKLINE>
+%% sdaf rows=4; cols=3; keyfield='id'; name='items'
+<BLANKLINE>
 ```
 
 `delete_records(keys, inplace=True)` on a parent deletes the rows from the table. Avoid it
@@ -409,8 +460,17 @@ removes TEMP tables, so save what you want to keep first.
 <BLANKLINE>
 %% sdaf rows=4; cols=3; keyfield='id'; name='daf_tmp_items_v10'
 <BLANKLINE>
->>> items_sdaf.col('id')
-['a2', 'a4', 'a1', 'a3']
+>>> items_sdaf
+<BLANKLINE>
+| id | grp | qty |
+| -: | --: | --: |
+| a2 |   x |  13 |
+| a4 |   y |   2 |
+| a1 |   x |   0 |
+| a3 |   z |   0 |
+<BLANKLINE>
+%% sdaf rows=4; cols=3; keyfield='id'; name='daf_tmp_items_v10'
+<BLANKLINE>
 >>> items_sdaf.save('items_by_qty')
 <BLANKLINE>
 | id | grp | qty |
@@ -423,10 +483,28 @@ removes TEMP tables, so save what you want to keep first.
 %% sdaf rows=4; cols=3; keyfield='id'; name='items_by_qty'
 <BLANKLINE>
 >>> SqlDaf.close()
->>> SqlDaf('items_by_qty').col('id')
-['a2', 'a4', 'a1', 'a3']
->>> SqlDaf('items').col('id')
-['a1', 'a2', 'a3', 'a4']
+>>> SqlDaf('items_by_qty')
+<BLANKLINE>
+| id | grp | qty |
+| -: | --: | --: |
+| a2 |   x |  13 |
+| a4 |   y |   2 |
+| a1 |   x |   0 |
+| a3 |   z |   0 |
+<BLANKLINE>
+%% sdaf rows=4; cols=3; keyfield='id'; name='items_by_qty'
+<BLANKLINE>
+>>> SqlDaf('items')
+<BLANKLINE>
+| id | grp | qty |
+| -: | --: | --: |
+| a1 |   x |   0 |
+| a2 |   x |  13 |
+| a3 |   z |   0 |
+| a4 |   y |   2 |
+<BLANKLINE>
+%% sdaf rows=4; cols=3; keyfield='id'; name='items'
+<BLANKLINE>
 ```
 
 `save()` raises ValueError for a name in use. To replace a table with its sorted copy, delete
@@ -466,8 +544,15 @@ Traceback (most recent call last):
 ...
 daffodil.sqldaf.ReadOnlyTableError: A table opened with read_only=True cannot have its data changed. copy() it, and change the copy.
 >>> work_sdaf = ro_sdaf.copy()
->>> work_sdaf.update_record_krow('a1', {'qty': 4}).col('qty')
-[4, 12]
+>>> work_sdaf.update_record_krow('a1', {'qty': 4})
+<BLANKLINE>
+| id | qty |
+| -: | --: |
+| a1 |   4 |
+| a2 |  12 |
+<BLANKLINE>
+%% sdaf rows=2; cols=2; keyfield='id'; name='daf_tmp_items_ro_v1'
+<BLANKLINE>
 ```
 
 Writing a cell, adding or removing rows or columns, renaming a column, converting with
@@ -483,10 +568,24 @@ on the same table without `read_only` can change it. The read-only one then read
 >>> rw_sdaf = SqlDaf('items_ro')
 >>> rw_sdaf.read_only, ro_sdaf.read_only
 (False, True)
->>> rw_sdaf.update_record_krow('a2', {'qty': 13}).col('qty')
-[3, 13]
->>> ro_sdaf.col('qty')
-[3, 13]
+>>> rw_sdaf.update_record_krow('a2', {'qty': 13})
+<BLANKLINE>
+| id | qty |
+| -: | --: |
+| a1 |   3 |
+| a2 |  13 |
+<BLANKLINE>
+%% sdaf rows=2; cols=2; keyfield='id'; name='items_ro'
+<BLANKLINE>
+>>> ro_sdaf
+<BLANKLINE>
+| id | qty |
+| -: | --: |
+| a1 |   3 |
+| a2 |  13 |
+<BLANKLINE>
+%% sdaf rows=2; cols=2; keyfield='id'; name='items_ro'
+<BLANKLINE>
 >>> ro_sdaf.sql("UPDATE items_ro SET qty = 0")
 Traceback (most recent call last):
 ...
@@ -561,11 +660,31 @@ and the SqlDaf then refers to it there.
 <BLANKLINE>
 %% sdaf rows=4; cols=3; keyfield='id'; name='items'
 <BLANKLINE>
->>> SqlDaf('items', db_path=job_dir + '/items.db').col('id')
-['a2', 'a4', 'a1', 'a3']
+>>> SqlDaf('items', db_path=job_dir + '/items.db')
+<BLANKLINE>
+| id | grp | qty |
+| -: | --: | --: |
+| a2 |   x |  13 |
+| a4 |   y |   2 |
+| a1 |   x |   0 |
+| a3 |   z |   0 |
+<BLANKLINE>
+%% sdaf rows=4; cols=3; keyfield='id'; name='items'
+<BLANKLINE>
 >>> back_sdaf = SqlDaf.from_db(job_dir + '/items.db', 'items', new_name='items_back')
->>> back_sdaf.db_path == SqlDaf.db_path, back_sdaf.col('id')
-(True, ['a2', 'a4', 'a1', 'a3'])
+>>> back_sdaf.db_path == SqlDaf.db_path
+True
+>>> back_sdaf
+<BLANKLINE>
+| id | grp | qty |
+| -: | --: | --: |
+| a2 |   x |  13 |
+| a4 |   y |   2 |
+| a1 |   x |   0 |
+| a3 |   z |   0 |
+<BLANKLINE>
+%% sdaf rows=4; cols=3; keyfield='id'; name='items_back'
+<BLANKLINE>
 ```
 
 Neither works inside a transaction. SQLite cannot detach a file used in an open transaction,

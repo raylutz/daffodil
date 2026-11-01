@@ -718,8 +718,14 @@ class SqlDaf(Daf):
             Put a table in another file, with `db_path`:
 
             >>> other_path = tempfile.mkdtemp() + '/other.db'
-            >>> SqlDaf('notes', cols=['id', 'text'], lol=[['n1', 'Call back on Monday']], db_path=other_path).to_lod()
-            [{'id': 'n1', 'text': 'Call back on Monday'}]
+            >>> SqlDaf('notes', cols=['id', 'text'], lol=[['n1', 'Call back on Monday']], db_path=other_path)
+            <BLANKLINE>
+            | id |        text         |
+            | -: | ------------------: |
+            | n1 | Call back on Monday |
+            <BLANKLINE>
+            %% sdaf rows=1; cols=2; keyfield=''; name='notes'
+            <BLANKLINE>
 
             Open a table read-only, with `read_only=True`. Its data cannot be changed, but it can be read and copied:
 
@@ -727,10 +733,24 @@ class SqlDaf(Daf):
             >>> ro_sdaf['p1', 'age'] = 35
             Traceback (most recent call last):
             daffodil.sqldaf.ReadOnlyTableError: ...
-            >>> ro_sdaf.copy().update_record_krow('p1', {'age': 35}).col('age')
-            [35, 52]
-            >>> people_sdaf.col('age')
-            [34, 52]
+            >>> ro_sdaf.copy().update_record_krow('p1', {'age': 35})
+            <BLANKLINE>
+            | id |    name    | age |
+            | -: | ---------: | --: |
+            | p1 |  Ana Lopez |  35 |
+            | p2 | Ben Okafor |  52 |
+            <BLANKLINE>
+            %% sdaf rows=2; cols=3; keyfield='id'; name='daf_tmp_people_v1'
+            <BLANKLINE>
+            >>> people_sdaf
+            <BLANKLINE>
+            | id |    name    | age |
+            | -: | ---------: | --: |
+            | p1 |  Ana Lopez |  34 |
+            | p2 | Ben Okafor |  52 |
+            <BLANKLINE>
+            %% sdaf rows=2; cols=3; keyfield='id'; name='people'
+            <BLANKLINE>
         """
         path: str = db_path or type(self).db_path
         if not path:
@@ -1520,6 +1540,15 @@ class SqlDaf(Daf):
             >>> import tempfile
             >>> SqlDaf.db_path = tempfile.mkdtemp() + '/job.db'
             >>> people_sdaf = SqlDaf('people', cols=['id', 'age'], keyfield='id', lol=[['p1', 34], ['p2', 52]])
+            >>> people_sdaf
+            <BLANKLINE>
+            | id | age |
+            | -: | --: |
+            | p1 |  34 |
+            | p2 |  52 |
+            <BLANKLINE>
+            %% sdaf rows=2; cols=2; keyfield='id'; name='people'
+            <BLANKLINE>
             >>> copy_sdaf = people_sdaf.copy()
 
             Close the file:
@@ -1528,8 +1557,15 @@ class SqlDaf(Daf):
 
             The permanent table opens again. The TEMP copy went with the connection:
 
-            >>> SqlDaf('people').col('age')
-            [34, 52]
+            >>> SqlDaf('people')
+            <BLANKLINE>
+            | id | age |
+            | -: | --: |
+            | p1 |  34 |
+            | p2 |  52 |
+            <BLANKLINE>
+            %% sdaf rows=2; cols=2; keyfield='id'; name='people'
+            <BLANKLINE>
             >>> copy_sdaf.col('age')
             Traceback (most recent call last):
             sqlite3.ProgrammingError: Cannot operate on a closed database.
@@ -1540,8 +1576,14 @@ class SqlDaf(Daf):
             >>> notes_sdaf = SqlDaf('notes', cols=['id'], lol=[['n1']], db_path=other_path)
             >>> SqlDaf.close(db_path=other_path)
             >>> SqlDaf.close(db_path=other_path)
-            >>> SqlDaf('notes', db_path=other_path).col('id')
-            ['n1']
+            >>> SqlDaf('notes', db_path=other_path)
+            <BLANKLINE>
+            | id |
+            | -: |
+            | n1 |
+            <BLANKLINE>
+            %% sdaf rows=1; cols=1; keyfield=''; name='notes'
+            <BLANKLINE>
         """
         path: str = db_path or cls.db_path
         if not path:
@@ -1621,6 +1663,16 @@ class SqlDaf(Daf):
             >>> import tempfile
             >>> SqlDaf.db_path = tempfile.mkdtemp() + '/job.db'
             >>> people_sdaf = SqlDaf('people', cols=['id', 'age'], keyfield='id', lol=[['p1', 34], ['p2', 52], ['p3', 27]])
+            >>> people_sdaf
+            <BLANKLINE>
+            | id | age |
+            | -: | --: |
+            | p1 |  34 |
+            | p2 |  52 |
+            | p3 |  27 |
+            <BLANKLINE>
+            %% sdaf rows=3; cols=2; keyfield='id'; name='people'
+            <BLANKLINE>
 
             Add a year to the age of several people, in one transaction. The changes are committed together at
             the end of the block, which is much faster than a commit for each:
@@ -1630,8 +1682,16 @@ class SqlDaf(Daf):
             ...         for key in keys:
             ...             sdaf.sql(f'UPDATE {sdaf.name} SET age = age + 1 WHERE id = ?', [key])
             >>> add_a_year(people_sdaf, ['p1', 'p2'])
-            >>> people_sdaf.col('age')
-            [35, 53, 27]
+            >>> people_sdaf
+            <BLANKLINE>
+            | id | age |
+            | -: | --: |
+            | p1 |  35 |
+            | p2 |  53 |
+            | p3 |  27 |
+            <BLANKLINE>
+            %% sdaf rows=3; cols=2; keyfield='id'; name='people'
+            <BLANKLINE>
         """
         with _transaction_on(self.conn):
             yield
@@ -2154,6 +2214,15 @@ class SqlDaf(Daf):
             >>> import tempfile
             >>> SqlDaf.db_path = tempfile.mkdtemp() + '/job.db'
             >>> people_sdaf = SqlDaf('people', cols=['id', 'age'], keyfield='id', lol=[['p1', 34], ['p2', 52]])
+            >>> people_sdaf
+            <BLANKLINE>
+            | id | age |
+            | -: | --: |
+            | p1 |  34 |
+            | p2 |  52 |
+            <BLANKLINE>
+            %% sdaf rows=2; cols=2; keyfield='id'; name='people'
+            <BLANKLINE>
 
             Read the rows as dicts:
 
@@ -2164,8 +2233,15 @@ class SqlDaf(Daf):
 
             >>> for row in people_sdaf.iter_dict():
             ...     row['age'] = 0
-            >>> people_sdaf.col('age')
-            [34, 52]
+            >>> people_sdaf
+            <BLANKLINE>
+            | id | age |
+            | -: | --: |
+            | p1 |  34 |
+            | p2 |  52 |
+            <BLANKLINE>
+            %% sdaf rows=2; cols=2; keyfield='id'; name='people'
+            <BLANKLINE>
         """
         cols_ls: T_ls = list(self.hd)
         batch_lot: List[Tuple[Any, ...]]
@@ -2190,6 +2266,15 @@ class SqlDaf(Daf):
             >>> import tempfile
             >>> SqlDaf.db_path = tempfile.mkdtemp() + '/job.db'
             >>> people_sdaf = SqlDaf('people', cols=['id', 'age'], keyfield='id', lol=[['p1', 34], ['p2', 52]])
+            >>> people_sdaf
+            <BLANKLINE>
+            | id | age |
+            | -: | --: |
+            | p1 |  34 |
+            | p2 |  52 |
+            <BLANKLINE>
+            %% sdaf rows=2; cols=2; keyfield='id'; name='people'
+            <BLANKLINE>
 
             Read each row as a KeyedList, by column name:
 
@@ -2200,13 +2285,27 @@ class SqlDaf(Daf):
 
             >>> for row in people_sdaf.iter_klist():
             ...     row['age'] = 0
-            >>> people_sdaf.col('age')
-            [34, 52]
+            >>> people_sdaf
+            <BLANKLINE>
+            | id | age |
+            | -: | --: |
+            | p1 |  34 |
+            | p2 |  52 |
+            <BLANKLINE>
+            %% sdaf rows=2; cols=2; keyfield='id'; name='people'
+            <BLANKLINE>
 
             To change values, use `update_record_krow()` or `apply_in_place()`:
 
-            >>> people_sdaf.update_record_krow('p1', {'age': 35}).col('age')
-            [35, 52]
+            >>> people_sdaf.update_record_krow('p1', {'age': 35})
+            <BLANKLINE>
+            | id | age |
+            | -: | --: |
+            | p1 |  35 |
+            | p2 |  52 |
+            <BLANKLINE>
+            %% sdaf rows=2; cols=2; keyfield='id'; name='people'
+            <BLANKLINE>
         """
         batch_lot: List[Tuple[Any, ...]]
         for batch_lot in self._iter_row_batches():

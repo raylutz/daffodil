@@ -82,26 +82,65 @@ def _delete_records(
         >>> SqlDaf.db_path = tempfile.mkdtemp() + '/job.db'
         >>> people_sdaf = SqlDaf('people', cols=['id', 'name', 'age'], keyfield='id', lol=[
         ...     ['p1', 'Ana Lopez', 34], ['p2', 'Ben Okafor', 52], ['p3', 'Chen Wu', 27]])
+        >>> people_sdaf
+        <BLANKLINE>
+        | id |    name    | age |
+        | -: | ---------: | --: |
+        | p1 |  Ana Lopez |  34 |
+        | p2 | Ben Okafor |  52 |
+        | p3 |    Chen Wu |  27 |
+        <BLANKLINE>
+        %% sdaf rows=3; cols=3; keyfield='id'; name='people'
+        <BLANKLINE>
 
         By default, get a selection without the rows. The table keeps them:
 
-        >>> people_sdaf.delete_records(['p2']).keys()
-        ['p1', 'p3']
-        >>> people_sdaf.keys()
-        ['p1', 'p2', 'p3']
+        >>> people_sdaf.delete_records(['p2'])
+        <BLANKLINE>
+        | id |   name    | age |
+        | -: | --------: | --: |
+        | p1 | Ana Lopez |  34 |
+        | p3 |   Chen Wu |  27 |
+        <BLANKLINE>
+        %% sdaf rows=2; cols=3; keyfield='id'; name='daf_tmp_people_v2'
+        <BLANKLINE>
+        >>> people_sdaf
+        <BLANKLINE>
+        | id |    name    | age |
+        | -: | ---------: | --: |
+        | p1 |  Ana Lopez |  34 |
+        | p2 | Ben Okafor |  52 |
+        | p3 |    Chen Wu |  27 |
+        <BLANKLINE>
+        %% sdaf rows=3; cols=3; keyfield='id'; name='people'
+        <BLANKLINE>
 
         A key that is not found raises, unless `silent_error=True`:
 
         >>> people_sdaf.delete_records(['p9'])
         Traceback (most recent call last):
         KeyError: 'p9'
-        >>> people_sdaf.delete_records(['p9', 'p3'], silent_error=True).keys()
-        ['p1', 'p2']
+        >>> people_sdaf.delete_records(['p9', 'p3'], silent_error=True)
+        <BLANKLINE>
+        | id |    name    | age |
+        | -: | ---------: | --: |
+        | p1 |  Ana Lopez |  34 |
+        | p2 | Ben Okafor |  52 |
+        <BLANKLINE>
+        %% sdaf rows=2; cols=3; keyfield='id'; name='daf_tmp_people_v5'
+        <BLANKLINE>
 
         Delete the rows from the table itself, with `inplace=True`:
 
-        >>> people_sdaf.delete_records(['p2'], inplace=True).keys()
-        ['p1', 'p3']
+        >>> people_sdaf.delete_records(['p2'], inplace=True)
+        <BLANKLINE>
+        | id |   name    | age |
+        | -: | --------: | --: |
+        | p1 | Ana Lopez |  34 |
+        | p3 |   Chen Wu |  27 |
+        <BLANKLINE>
+        %% sdaf rows=2; cols=3; keyfield='id'; name='people'
+        <BLANKLINE>
     """
     if not inplace:
         return self.select_records(keys_ls, inverse=True, silent_error=silent_error)
@@ -1346,8 +1385,16 @@ def _insert_idx_col(self: 'SqlDaf', colname: str = 'idx', icol: int = 0, startat
         <BLANKLINE>
         %% sdaf rows=2; cols=4; keyfield='id'; name='daf_tmp_people_v2'
         <BLANKLINE>
-        >>> people_sdaf.columns()
-        ['id', 'name', 'city']
+        >>> people_sdaf
+        <BLANKLINE>
+        | id |    name    |  city  |
+        | -: | ---------: | -----: |
+        | p1 |  Ana Lopez | Denver |
+        | p2 | Ben Okafor | Austin |
+        | p3 |    Chen Wu | Denver |
+        <BLANKLINE>
+        %% sdaf rows=3; cols=3; keyfield='id'; name='people'
+        <BLANKLINE>
 
         Give the column another name, and put it in another place:
 
@@ -1578,16 +1625,34 @@ def _set_cols(
 
         Set all the names at once. Repeated and empty names are taken as given:
 
-        >>> SqlDaf('t1', cols=['a', 'b', 'c'], lol=[['Ana Lopez', 'Denver', 34]]).set_cols(['name', 'name', '']).columns()
-        ['name', 'name_1', 'col2']
+        >>> SqlDaf('t1', cols=['a', 'b', 'c'], lol=[['Ana Lopez', 'Denver', 34]]).set_cols(['name', 'name', ''])
+        <BLANKLINE>
+        |   name    | name_1 | col2 |
+        | --------: | -----: | ---: |
+        | Ana Lopez | Denver |   34 |
+        <BLANKLINE>
+        %% sdaf rows=1; cols=3; keyfield=''; name='t1'
+        <BLANKLINE>
 
         With `sanitize_cols=True`, an empty name gets one made from `unnamed_prefix`, and a repeated name gets
         a number:
 
-        >>> SqlDaf('t2', cols=['a', 'b', 'c'], lol=[['Ana Lopez', 'Denver', 34]]).set_cols(['name', '', 'name'], sanitize_cols=True).columns()
-        ['name', 'col1', 'name_2']
-        >>> SqlDaf('t3', cols=['a', 'b', 'c'], lol=[['Ana Lopez', 'Denver', 34]]).set_cols(['name', '', 'age'], sanitize_cols=True, unnamed_prefix='col').columns()
-        ['name', 'col1', 'age']
+        >>> SqlDaf('t2', cols=['a', 'b', 'c'], lol=[['Ana Lopez', 'Denver', 34]]).set_cols(['name', '', 'name'], sanitize_cols=True)
+        <BLANKLINE>
+        |   name    |  col1  | name_2 |
+        | --------: | -----: | -----: |
+        | Ana Lopez | Denver |     34 |
+        <BLANKLINE>
+        %% sdaf rows=1; cols=3; keyfield=''; name='t2'
+        <BLANKLINE>
+        >>> SqlDaf('t3', cols=['a', 'b', 'c'], lol=[['Ana Lopez', 'Denver', 34]]).set_cols(['name', '', 'age'], sanitize_cols=True, unnamed_prefix='col')
+        <BLANKLINE>
+        |   name    |  col1  | age |
+        | --------: | -----: | --: |
+        | Ana Lopez | Denver |  34 |
+        <BLANKLINE>
+        %% sdaf rows=1; cols=3; keyfield=''; name='t3'
+        <BLANKLINE>
     """
     self._check_layout_change('set_cols')
     if new_cols is None:
@@ -1677,6 +1742,16 @@ def _sort_by_colname(
         >>> SqlDaf.db_path = tempfile.mkdtemp() + '/job.db'
         >>> people_sdaf = SqlDaf('people', cols=['id', 'name', 'age'], lol=[
         ...     ['p1', 'Ana Lopez', 34], ['p2', 'Ben Okafor', 52], ['p3', 'Chen Wu', 27]])
+        >>> people_sdaf
+        <BLANKLINE>
+        | id |    name    | age |
+        | -: | ---------: | --: |
+        | p1 |  Ana Lopez |  34 |
+        | p2 | Ben Okafor |  52 |
+        | p3 |    Chen Wu |  27 |
+        <BLANKLINE>
+        %% sdaf rows=3; cols=3; keyfield=''; name='people'
+        <BLANKLINE>
 
         Sort by age, from low to high, and from high to low:
 
@@ -1690,22 +1765,64 @@ def _sort_by_colname(
         <BLANKLINE>
         %% sdaf rows=3; cols=3; keyfield=''; name='daf_tmp_people_v1'
         <BLANKLINE>
-        >>> people_sdaf.sort_by_colname('age', reverse=True).col('name')
-        ['Ben Okafor', 'Ana Lopez', 'Chen Wu']
+        >>> people_sdaf.sort_by_colname('age', reverse=True)
+        <BLANKLINE>
+        | id |    name    | age |
+        | -: | ---------: | --: |
+        | p2 | Ben Okafor |  52 |
+        | p1 |  Ana Lopez |  34 |
+        | p3 |    Chen Wu |  27 |
+        <BLANKLINE>
+        %% sdaf rows=3; cols=3; keyfield=''; name='daf_tmp_daf_tmp_people_v1_v2'
+        <BLANKLINE>
 
         Sort text of digits with shorter values first, with `length_priority=True`, so '9' comes before '10':
 
-        >>> SqlDaf('codes', cols=['code'], lol=[['10'], ['9'], ['100']]).sort_by_colname('code', length_priority=True).col('code')
-        ['9', '10', '100']
+        >>> SqlDaf('codes', cols=['code'], lol=[['10'], ['9'], ['100']]).sort_by_colname('code', length_priority=True)
+        <BLANKLINE>
+        | code |
+        | ---: |
+        |    9 |
+        |   10 |
+        |  100 |
+        <BLANKLINE>
+        %% sdaf rows=3; cols=1; keyfield=''; name='daf_tmp_codes_v3'
+        <BLANKLINE>
 
         A column of numbers mixed with text sorts in SQLite's order, numbers first, with no error. With
         `as_str=True` it sorts by text, where '10' comes before '9':
 
         >>> mixed_sdaf = SqlDaf('mixed', cols=['id', 'v'], lol=[['a', 10], ['b', 9], ['c', 'x']])
-        >>> mixed_sdaf.sort_by_colname('v').col('v')
-        [9, 10, 'x']
-        >>> mixed_sdaf.sort_by_colname('v', as_str=True).col('v')
-        [10, 9, 'x']
+        >>> mixed_sdaf
+        <BLANKLINE>
+        | id | v  |
+        | -: | -: |
+        |  a | 10 |
+        |  b |  9 |
+        |  c |  x |
+        <BLANKLINE>
+        %% sdaf rows=3; cols=2; keyfield=''; name='mixed'
+        <BLANKLINE>
+        >>> mixed_sdaf.sort_by_colname('v')
+        <BLANKLINE>
+        | id | v  |
+        | -: | -: |
+        |  b |  9 |
+        |  a | 10 |
+        |  c |  x |
+        <BLANKLINE>
+        %% sdaf rows=3; cols=2; keyfield=''; name='daf_tmp_mixed_v4'
+        <BLANKLINE>
+        >>> mixed_sdaf.sort_by_colname('v', as_str=True)
+        <BLANKLINE>
+        | id | v  |
+        | -: | -: |
+        |  a | 10 |
+        |  b |  9 |
+        |  c |  x |
+        <BLANKLINE>
+        %% sdaf rows=3; cols=2; keyfield=''; name='daf_tmp_daf_tmp_mixed_v4_v5'
+        <BLANKLINE>
     """
     return self.sort_by_colnames([colname], reverse=reverse, length_priority=length_priority, as_str=as_str)
 
@@ -1762,6 +1879,16 @@ def _sort_by_colnames(
         >>> SqlDaf.db_path = tempfile.mkdtemp() + '/job.db'
         >>> people_sdaf = SqlDaf('people', cols=['id', 'city', 'name'], lol=[
         ...     ['p1', 'Denver', 'Chen Wu'], ['p2', 'Austin', 'Ben Okafor'], ['p3', 'Denver', 'Ana Lopez']])
+        >>> people_sdaf
+        <BLANKLINE>
+        | id |  city  |    name    |
+        | -: | -----: | ---------: |
+        | p1 | Denver |    Chen Wu |
+        | p2 | Austin | Ben Okafor |
+        | p3 | Denver |  Ana Lopez |
+        <BLANKLINE>
+        %% sdaf rows=3; cols=3; keyfield=''; name='people'
+        <BLANKLINE>
 
         Sort by city, then by name within each city:
 
@@ -1778,15 +1905,39 @@ def _sort_by_colnames(
 
         Sort by name from high to low, or with shorter names first:
 
-        >>> people_sdaf.sort_by_colnames(['name'], reverse=True).col('name')
-        ['Chen Wu', 'Ben Okafor', 'Ana Lopez']
-        >>> people_sdaf.sort_by_colnames(['name'], length_priority=True).col('name')
-        ['Chen Wu', 'Ana Lopez', 'Ben Okafor']
+        >>> people_sdaf.sort_by_colnames(['name'], reverse=True)
+        <BLANKLINE>
+        | id |  city  |    name    |
+        | -: | -----: | ---------: |
+        | p1 | Denver |    Chen Wu |
+        | p2 | Austin | Ben Okafor |
+        | p3 | Denver |  Ana Lopez |
+        <BLANKLINE>
+        %% sdaf rows=3; cols=3; keyfield=''; name='daf_tmp_daf_tmp_people_v1_v2'
+        <BLANKLINE>
+        >>> people_sdaf.sort_by_colnames(['name'], length_priority=True)
+        <BLANKLINE>
+        | id |  city  |    name    |
+        | -: | -----: | ---------: |
+        | p1 | Denver |    Chen Wu |
+        | p3 | Denver |  Ana Lopez |
+        | p2 | Austin | Ben Okafor |
+        <BLANKLINE>
+        %% sdaf rows=3; cols=3; keyfield=''; name='daf_tmp_daf_tmp_daf_tmp_people_v1_v2_v3'
+        <BLANKLINE>
 
         Sort numbers mixed with text by their text, with `as_str=True`:
 
-        >>> SqlDaf('mixed', cols=['id', 'v'], lol=[['a', 10], ['b', 9], ['c', 'x']]).sort_by_colnames(['v'], as_str=True).col('v')
-        [10, 9, 'x']
+        >>> SqlDaf('mixed', cols=['id', 'v'], lol=[['a', 10], ['b', 9], ['c', 'x']]).sort_by_colnames(['v'], as_str=True)
+        <BLANKLINE>
+        | id | v  |
+        | -: | -: |
+        |  a | 10 |
+        |  b |  9 |
+        |  c |  x |
+        <BLANKLINE>
+        %% sdaf rows=3; cols=2; keyfield=''; name='daf_tmp_mixed_v4'
+        <BLANKLINE>
     """
     col: str
     for col in colnames:
