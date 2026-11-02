@@ -74,4 +74,4 @@ Built on 2026-11-02, Q333, with quoted text, which Ray approved in the same answ
 - `from_md()` uses `split_dtype_header()` and `unquote_md_cell()` in daf_md.py. The header is split
   when a cell matches `name: type` and no other cell holds ': '. A column with no dtype gets str.
 - A quoted cell is marked by `quote_text=1` in the summary line. Without that line, the quotes stay.
-- The ids part of the `show=` idea is still open.
+- The ids part of the `show=` idea is dropped. Ray scrapped it on 2026-11-02.
