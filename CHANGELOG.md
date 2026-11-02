@@ -9,6 +9,9 @@ all prior releases. Plans for future moved to ROADMAP.md.
 
 ## [Unreleased]
 
+### Added
+- `to_md(col_fmt=...)` formats the cells of some columns for display, by a format spec such as '.1%', by 'smart' or 'smart%', or by a function. The Daf is not changed. A missing value stays blank, text a spec cannot format is shown as it is, and `smart_fmt` leaves those columns alone. A SqlDaf takes it too. Ray approved it on 2026-11-02, Q331.
+
 ### Changed
 - The Types page of the Guide defines PYON, the text of a list or dict cell. It shows how PYON differs from JSON, how daffodil writes and reads it, and why daffodil's form of it is also JSON5, which SQLite's JSON functions read. Other mentions of PYON link to it. The Booleans page said such a cell is also JSON. It is JSON5. Ray asked for this on 2026-11-01.
 - `select_records()` is the new name of `select_records_daf()`, on a Daf and a SqlDaf. The old name still works, and is deprecated. The docs use the new name. Ray decided it on 2026-10-31, Q324.

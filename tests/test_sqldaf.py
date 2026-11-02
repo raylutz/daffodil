@@ -3712,3 +3712,13 @@ def test_select_records_daf_is_the_old_name_of_select_records():
     keys_ls: list = marks_sdaf.keys()[:2][::-1]
     assert marks_sdaf.select_records_daf(keys_ls).to_daf().lol == marks_sdaf.select_records(keys_ls).to_daf().lol
     assert marks_sdaf.select_records(keys_ls).keys() == keys_ls
+
+
+def test_to_md_col_fmt_matches_daf():
+    """ A SqlDaf formats its columns as a Daf does, and its table is not changed. """
+    daf: Daf = Daf(cols=['id', 'share', 'amount'], keyfield='id', lol=[['a', 0.3412, 12345.5], ['b', 0.6588, '']])
+    sdaf: SqlDaf = SqlDaf.from_daf(daf, name='shares')
+    col_fmt: dict = {'share': '.1%', 'amount': lambda val: f'${val:,.0f}'}
+    assert sdaf.to_md(col_fmt=col_fmt) == daf.to_md(col_fmt=col_fmt)
+    assert '34.1%' in sdaf.to_md(col_fmt=col_fmt) and '$12,346' in sdaf.to_md(col_fmt=col_fmt)
+    assert sdaf.to_daf().lol == daf.lol

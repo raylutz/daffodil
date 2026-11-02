@@ -560,6 +560,7 @@ def _to_md(
         include_summary: bool   = False,     # include a one-line summary after the table, describing shape, keyfield, name
         disp_cols:      T_cs | None = None,    # use these column names instead of those defined in daf.
         header:         T_cs | None = None,    # use this header instead.
+        col_fmt:        T_da | None = None,    # column name to a format spec, 'smart', 'smart%' or a function, for display only.
         ) -> str:
             
     """
@@ -581,6 +582,13 @@ def _to_md(
     - `smart_fmt=True` shows numbers for people to read. A whole number gets commas, as 12,345. A
       float above 100 is rounded to a whole number. Above 1 it keeps one decimal, above 0.1 two,
       above 0.01 three, and above 0.001 four. Only the text is changed, not the Daf.
+    - `col_fmt` formats the cells of the columns it names, for display only. The Daf is not
+      changed. Each value is a Python format spec, the part after the colon in an f-string, such
+      as `'.1%'` or `',.2f'`. `'smart'` gives the `smart_fmt` form for that column. `'smart%'`
+      gives it as a percent, so a small share such as 0.0001 shows as 0.0100% and not as 0%. A
+      function gets the cell and returns what to show.
+      A missing value stays blank. A value the spec cannot format, such as text in a column of
+      numbers, is shown as it is. `smart_fmt` does not change the columns that `col_fmt` names.
     - `include_summary=True` adds the summary line that `str()` shows, starting with `%%`. With it,
       `from_md()` can read the table back, as text.
     - `disp_cols` names the columns differently in the header. A dict renames the columns it
@@ -602,9 +610,13 @@ def _to_md(
         include_summary: If True, add a line with the size, keyfield and name.
         disp_cols: Names to show in the header: a dict of column name to name shown, for some columns, or a list for every column.
         header: A header row to show in place of the one made from the column names.
+        col_fmt: How to show the cells of some columns: a dict of column name to a format spec, 'smart', 'smart%' or a function.
 
     Returns:
         The Markdown text, ending with a newline.
+
+    Raises:
+        KeyError: A name in `col_fmt` is not a column.
 
     Examples:
         Create a small Daf of items for sale, with a price and a note. Some notes are long:
@@ -724,6 +736,43 @@ def _to_md(
         | a1 | ... | blue, fine tip |
         | b2 | ... |                |
         <BLANKLINE>
+
+        Create a small Daf of sales by city, with a share of the total and a change from last year.
+        One sale is not known, and one change is missing:
+
+        >>> sales = Daf(cols=['city', 'share', 'amount', 'change'], lol=[
+        ...     ['Denver', 0.3412, 12345.5, 0.0001], ['Austin', 0.6588, 'n/a', ''], ['Reno', 0.0, 9876.25, 0.25]])
+        >>> sales
+        <BLANKLINE>
+        |  city  | share  | amount  | change |
+        | -----: | -----: | ------: | -----: |
+        | Denver | 0.3412 | 12345.5 | 0.0001 |
+        | Austin | 0.6588 |     n/a |        |
+        |   Reno |    0.0 | 9876.25 |   0.25 |
+        <BLANKLINE>
+        %% daf rows=3; cols=4; keyfield=''; name=''
+        <BLANKLINE>
+
+        Show some columns in a format of their own. The tiny change still shows with `'smart%'`.
+        The missing change stays blank, and text that does not fit the format is shown as it is:
+
+        >>> print(sales.to_md(col_fmt={'share': '.1%', 'amount': ',.2f', 'change': 'smart%'}))
+        |  city  | share |  amount   | change  |
+        | -----: | ----: | --------: | ------: |
+        | Denver | 34.1% | 12,345.50 | 0.0100% |
+        | Austin | 65.9% |       n/a |         |
+        |   Reno |  0.0% |  9,876.25 |   25.0% |
+        <BLANKLINE>
+
+        Give a function for a format that a spec cannot give. The other columns still get `smart_fmt`:
+
+        >>> print(sales.to_md(col_fmt={'amount': lambda val: f'${val:,.0f}' if isinstance(val, float) else val}, smart_fmt=True))
+        |  city  | share | amount  |  change  |
+        | -----: | ----: | ------: | -------: |
+        | Denver |  0.34 | $12,346 | 0.000100 |
+        | Austin |  0.66 |     n/a |          |
+        |   Reno |   0.0 |  $9,876 |     0.25 |
+        <BLANKLINE>
     """
     daf_lol = self.daf_to_lol_summary(max_rows=max_rows, max_cols=max_cols, disp_cols=disp_cols)
 
@@ -748,6 +797,17 @@ def _to_md(
         data_lol = daf_lol
 
     final_header = header if header is not None else embedded_header
+
+    # ---- Column formats
+    # The cells of the named columns are formatted for display. The other columns get smart_fmt here,
+    # so the writer below does not change a formatted cell again.
+    if col_fmt and data_lol:
+        name: str
+        for name in col_fmt:
+            self.hd[name]                       # a name that is not a column raises KeyError.
+        shown_names_ls: T_ls = list(self.daf_to_lol_summary(max_rows=1, max_cols=max_cols)[0])
+        data_lol = _format_md_rows(data_lol, shown_names_ls, col_fmt, smart_fmt)
+        smart_fmt = False
 
     mdstr = md.md_lol_table(
         data_lol,
@@ -778,6 +838,59 @@ def _to_md(
     #     # (compatible with tuple keys.)
     #     mdstr += f"\n\\[{self.num_rows():,} rows x {self.num_cols():,} cols; keyfield='{self.keyfield}'; {len(self._kd):,} keys ] ({self.name or type(self).__name__})\n"
     return mdstr
+
+
+def _format_md_rows(
+        data_lol:       T_lola,     # the rows to show. They may be the Daf's own rows, so they are not changed.
+        names_ls:       T_ls,       # the column name at each position shown, or '...' for hidden columns.
+        col_fmt:        T_da,       # column name to a format spec, 'smart', 'smart%' or a function.
+        smart_fmt:      bool,       # if True, the other columns get smart formatting.
+        ) -> T_lola:
+    """
+    The rows to show, as new lists, with each cell formatted for `to_md(col_fmt=...)`.
+
+    A column that `col_fmt` names gets its format.
+    The other columns get smart formatting if `smart_fmt` is True, and are kept otherwise.
+    """
+    fmt_la: list = [col_fmt.get(name) for name in names_ls]
+    num_fmts: int = len(fmt_la)
+    out_lol: T_lola = []
+    row_la: list
+    for row_la in data_lol:
+        new_la: list = []
+        icol: int
+        val: Any
+        for icol, val in enumerate(row_la):
+            fmt: Any = fmt_la[icol] if icol < num_fmts else None
+            new_la.append(_format_md_cell(val, fmt, smart_fmt))
+        out_lol.append(new_la)
+    return out_lol
+
+
+def _format_md_cell(val: Any, fmt: Any, smart_fmt: bool) -> Any:
+    """
+    One cell formatted for display, by a format spec, 'smart', 'smart%' or a function.
+
+    NULL and None stay as they are, so a missing value shows as blank.
+    A value that the spec cannot format, such as text in a column of numbers, is shown as it is.
+    A function gets every other value, and its errors are not caught.
+    """
+    if fmt is None:
+        return daf_utils.smart_fmt(val) if smart_fmt else val
+    if val is daf_utils.NULL or val is None:
+        return val
+    if callable(fmt):
+        return fmt(val)
+    if fmt == 'smart':
+        return daf_utils.smart_fmt(val)
+    if fmt == 'smart%':
+        if isinstance(val, (int, float)):
+            return daf_utils.smart_fmt(val * 100) + '%'
+        return val
+    try:
+        return format(val, fmt)
+    except (ValueError, TypeError):
+        return val
 
 
 def _to_md_cols(

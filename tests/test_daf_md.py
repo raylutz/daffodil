@@ -696,3 +696,80 @@ def test_to_md_disp_cols_dict_renames_only_the_named_columns():
     """ A dict maps column names to names shown. Columns it does not name keep their names. """
     lines = _items_daf().to_md(disp_cols={'item': 'Item'}).splitlines()
     assert [name.strip() for name in lines[0].split('|')[1:-1]] == ['id', 'Item', 'price', 'note']
+
+
+# =====================================================================
+# to_md(col_fmt=...): formats for some columns, for display only
+# =====================================================================
+
+def _sales_daf() -> Daf:
+    return Daf(cols=['city', 'share', 'amount', 'change'], lol=[
+        ['Denver', 0.3412, 12345.5, 0.0001], ['Austin', 0.6588, 'n/a', ''], ['Reno', 0.0, 9876.25, None]])
+
+
+def _cells(md_text: str) -> list:
+    """ The cells of each data row of a Markdown table, stripped. """
+    rows: list = [line for line in md_text.splitlines() if line.startswith('|')][2:]
+    return [[cell.strip() for cell in row.strip('|').split('|')] for row in rows]
+
+
+def test_col_fmt_formats_named_columns_and_leaves_the_daf_unchanged():
+    """ A spec formats its column. Missing values stay blank, and text the spec cannot format is shown as it is. """
+    daf: Daf = _sales_daf()
+    before_lol: list = [list(row) for row in daf.lol]
+    cells: list = _cells(daf.to_md(col_fmt={'share': '.1%', 'amount': ',.2f'}))
+    assert cells == [['Denver', '34.1%', '12,345.50', '0.0001'],
+                     ['Austin', '65.9%', 'n/a', ''],
+                     ['Reno', '0.0%', '9,876.25', 'None']]
+    assert daf.lol == before_lol
+
+
+def test_col_fmt_smart_and_smart_percent():
+    """ 'smart' gives the smart_fmt form, and 'smart%' the same as a percent. A tiny value still shows. """
+    daf: Daf = _sales_daf()
+    cells: list = _cells(daf.to_md(col_fmt={'amount': 'smart', 'change': 'smart%'}))
+    assert [row[2:] for row in cells] == [['12,346', '0.0100%'], ['n/a', ''], ['9,876', 'None']]
+
+
+def test_col_fmt_smart_percent_leaves_text_as_it_is():
+    """ Text in a 'smart%' column is shown as it is, and is not repeated as a str times 100. """
+    daf: Daf = Daf(cols=['k', 'pct'], lol=[['a', '12'], ['b', 0.5]])
+    assert _cells(daf.to_md(col_fmt={'pct': 'smart%'})) == [['a', '12'], ['b', '50.0%']]
+
+
+def test_col_fmt_function_gets_each_value_but_null():
+    """ A function gets each cell but NULL and None, and returns what to show. """
+    seen_ls: list = []
+
+    def as_dollars(val):
+        seen_ls.append(val)
+        return f'${val:,.0f}' if isinstance(val, float) else val
+
+    cells: list = _cells(_sales_daf().to_md(col_fmt={'amount': as_dollars}))
+    assert [row[2] for row in cells] == ['$12,346', 'n/a', '$9,876']
+    assert seen_ls == [12345.5, 'n/a', 9876.25]
+
+
+def test_col_fmt_wins_over_smart_fmt_and_smart_fmt_still_applies_elsewhere():
+    """ smart_fmt does not change a column that col_fmt names, and still formats the others. """
+    daf: Daf = Daf(cols=['a', 'b'], lol=[[0.333333, 0.333333], [12345, 12345]])
+    assert _cells(daf.to_md(col_fmt={'a': '.4f'}, smart_fmt=True)) == [['0.3333', '0.33'], ['12345.0000', '12,345']]
+
+
+def test_col_fmt_with_hidden_columns_rows_and_display_names():
+    """ The format follows its column when columns and rows are hidden, and when the header is renamed. """
+    daf: Daf = _sales_daf()
+    text: str = daf.to_md(col_fmt={'change': 'smart%', 'share': '.1%'}, max_rows=2, max_cols=2, disp_cols={'change': 'Change'})
+    assert text.splitlines()[0].split('|')[3].strip() == 'Change'
+    assert _cells(text) == [['Denver', '...', '0.0100%'], ['...', '...', '...'], ['Reno', '...', 'None']]
+
+
+def test_col_fmt_name_that_is_not_a_column_raises_keyerror():
+    with pytest.raises(KeyError, match='shares'):
+        _sales_daf().to_md(col_fmt={'shares': '.1%'})
+
+
+def test_col_fmt_on_ragged_rows():
+    """ A row longer than the header keeps its extra cells, with no format. """
+    daf: Daf = Daf(cols=['a', 'b'], lol=[[0.5, 1], [0.25, 2, 'extra']])
+    assert _cells(daf.to_md(col_fmt={'a': '.0%'})) == [['50%', '1', ''], ['25%', '2', 'extra']]

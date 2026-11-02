@@ -945,6 +945,7 @@ def _to_md(
         include_summary:    bool = False,
         disp_cols:          T_cs | None = None,
         header:             Any = None,
+        col_fmt:            T_da | None = None,
         ) -> str:
     """
     Make a Markdown table, as [`Daf.to_md()`][daffodil.daf_report._to_md] does.
@@ -962,6 +963,7 @@ def _to_md(
         include_summary: If True, add a line with the shape, keyfield and name.
         disp_cols: Names to show in the header: a dict of column name to name shown, for some columns, or a list for every column.
         header: A header to use in place of the column names.
+        col_fmt: How to show the cells of some columns, by column name. See `Daf.to_md()`.
 
     Returns:
         The Markdown text.
@@ -1017,6 +1019,16 @@ def _to_md(
         %% sdaf rows=3; cols=4; keyfield='id'; name='people'
         <BLANKLINE>
 
+        Show the height in centimeters, with a function, and keep the other columns as they are:
+
+        >>> print(people_sdaf.to_md(col_fmt={'height_m': lambda val: f'{val * 100:.0f} cm'}))
+        | id |    name    | height_m |                 address                 |
+        | -: | ---------: | -------: | --------------------------------------: |
+        | p1 |  Ana Lopez |   168 cm |                               12 Oak St |
+        | p2 | Ben Okafor |   180 cm |                                         |
+        | p3 |    Chen Wu |   176 cm | 4500 Long Meadow Parkway, Apartment 12B |
+        <BLANKLINE>
+
         Give a header row of your own:
 
         >>> print(people_sdaf[0:1].to_md(header=['ID', 'Name', 'Height', 'Address']))
@@ -1027,7 +1039,7 @@ def _to_md(
     """
     md_str: str = Daf.to_md(self, max_rows=max_rows, max_cols=max_cols, just=just, shorten_text=shorten_text,
                             max_text_len=max_text_len, smart_fmt=smart_fmt, include_summary=False,
-                            disp_cols=disp_cols, header=header)
+                            disp_cols=disp_cols, header=header, col_fmt=col_fmt)
     if include_summary:
         md_str += f"\n%% {self.summary_tag} rows={len(self)}; cols={len(self.hd)}; keyfield='{self.keyfield}'; name='{self.name}'\n"
     return md_str
