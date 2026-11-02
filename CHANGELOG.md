@@ -23,6 +23,8 @@ all prior releases. Plans for future moved to ROADMAP.md.
 
 ## [0.10.0] - (2026-10-30)
 
+Released on 2026-10-30 at 19:57 UTC, from 8a61ff6. Ray approved the PyPI step himself, on GitHub.
+
 This release lets a join, `concat()` and keys read a SqlDaf in another database file, adds
 `join_with_residue()`, and gives every option of every Daf and SqlDaf method an example in the docs.
 It has one breaking change: `sum()` takes no `numeric_only`. Name the columns to total instead.
@@ -46,6 +48,8 @@ It has one breaking change: `sum()` takes no `numeric_only`. Name the columns to
 
 ## [0.9.1] - (2026-10-26)
 
+Released on 2026-10-26 at 20:21 UTC, from f7887fa. Ray asked for it in the chat. He approved the PyPI step himself, after the permission check refused Claude's approval.
+
 This release splits daf.py and sqldaf.py into modules by topic, with no change to what any method does. Every import works as before. A method's `__name__` is now its function's name, as `_select_where`. `read_only=True` holds only for the SqlDaf that asked for it, where it held for every SqlDaf on the file, and `sql()` raises ReadOnlyTableError for a refused change. The SqlDaf API pages list 11 members they lacked.
 
 ### Changed
@@ -55,6 +59,8 @@ This release splits daf.py and sqldaf.py into modules by topic, with no change t
 - daf.py is split by topic, with no change to what any method does. daf.py keeps the Daf class and its core: construction, copying, the key index, shape, iteration and the dunders, in 3,400 lines where it had 15,600. The other methods are functions in daf_dtypes.py, daf_apply.py, daf_select.py, daf_modify.py, daf_convert.py, daf_structure.py, daf_report.py and daf_join.py, one for each API docs page, assigned in the class by name. Imports, pickling and the docs are unchanged. One difference shows: a moved method's `__name__` is its function's name, as `_select_where`. Calls take the same time: construction, `append()`, `select_record()`, `col()`, `groupby()` and `sum()` timed the same before and after, within noise. Ray chose way A of the plan with refinements on 2026-10-26, Q302 and Q303. The plan is in `notes/engineering_notebook/2026-10-25_1627_addon_hook_and_mixin_split_plan.md`.
 
 ## [0.9.0] - (2026-10-26)
+
+Released on 2026-10-26 at 15:08 UTC, from 79c84c3. Ray approved the whole release in the chat, PyPI included, and Claude approved the PyPI step on his word.
 
 This release has three breaking changes, marked **Breaking** under Changed. SqlDaf needs SQLite 3.48 or later. `groupby_reduce(by='sparse_row')` keeps each group's result as one concise dict. A bool converted to str is `'1'` or `'0'`, where it was the int 1 or 0. It adds `update_with_history()`, add-on namespaces for Daf and SqlDaf, read-only SqlDaf tables, `SqlDaf.from_db()` for tables kept in other files, and Guide pages on add-ons and booleans.
 
@@ -124,6 +130,8 @@ This release has three breaking changes, marked **Breaking** under Changed. SqlD
 
 ## [0.8.1] - (2026-10-16)
 
+Released on 2026-10-16 at 23:15 UTC, from 451008a. Ray chose 0.8.1 over 0.9.0, to group its two breaking changes with 0.8.0, released the same day. He approved PyPI in the chat.
+
 This release has two breaking changes, marked **Breaking** under Changed. `wide_to_narrow()` names a column `variable` by default, where it was `varname`. `from_md()` raises at a row with the wrong number of cells, where it dropped that row and the rest. It also fixes right and outer joins, and `from_md()` with a `|` in a cell.
 
 ### Added
@@ -171,6 +179,8 @@ This release has two breaking changes, marked **Breaking** under Changed. `wide_
 - `tests/test_daf_transform.py`: the two xfails for the outer join pass, and are plain tests. New tests cover a right join, `tag_other`, and inner and left joins. `tests/test_sqldaf.py` compares Daf and SqlDaf joins with `shared_fields` for all four kinds, where it covered inner and left.
 
 ## [0.8.0] - (2026-10-16)
+Released on 2026-10-16 at 17:18 UTC, from d62784c. Ray approved it in the chat, without an AuditEngine test of a release candidate.
+
 ### Added
 - New class SqlDaf, in `sqldaf.py`: a Daf whose rows live in a SQLite table, for tables too large to hold in memory. It is a Daf, with the methods written for SQL: selections that run no query until read, work by key, joins, groups, counts and sums, `apply()` and `reduce()`, adding and changing rows and values, changing columns, sorting, and loading from and writing to CSV files. Every other Daf method raises NotImplementedError, so nothing quietly loads a large table into memory, and `sql()` runs a statement of your own. The docs have a Guide page, Tables in SQLite, and an API reference of five pages. The entries after this one give the steps of its development, in order. The design and the decisions behind it are in notes/sql_backing/design_draft.md.
 - `delete_records(keys, inplace=False, silent_error=False)` removes the rows with these keys. By default it leaves the Daf as it is and returns a new Daf without them, as `select_records_daf(keys, inverse=True)` does, sharing the rows that remain. With `inplace=True` it deletes them from the Daf itself, rebuilding the row list once, and returns it; an earlier selection keeps its rows. The keys may be a list, an iterable or another Daf. A missing key raises KeyError and removes nothing, unless `silent_error=True`. On 1,000,000 rows, deleting 500,000 in place took 0.48 s. SqlDaf will get the same method with the same default, so the same call means the same on both. Ray decided this on 2026-10-14, decision 104 and item 2 of the mdaf review. Tests are in `tests/test_daf_delete_records.py`.
@@ -226,6 +236,8 @@ This release has two breaking changes, marked **Breaking** under Changed. `wide_
 - The `apply()` docstring says what the row function may return: a dict adds one row, a list of dicts adds several, and None or an empty dict or list adds nothing. It says the source is not changed, and that the columns come from the first row returned, so a later key the first row lacks is dropped without an error. A new doctest shows one row becoming two. Docs only.
 
 ## [0.7.2] - (2026-10-11)
+Released on 2026-10-12, from e66b189. AuditEngine tested the release candidate on its editable install before Ray approved PyPI. AuditEngine asked for that test on 2026-10-11.
+
 ### Fixed
 - `import daffodil` no longer needs pandas or numpy. Both are optional in pyproject.toml, but `lib/daf_types.py`, `lib/daf_utils.py` and `lib/daf_pandas.py` imported them at the top, so a plain `pip install daffodil` failed with ModuleNotFoundError. They are now imported inside the functions that use them, and the type aliases name them only for type checkers. The import takes 0.09 s instead of 1.08 s, which shortens a Lambda cold start.
 - `reduce()` with `count_values_da()` failed with AttributeError on a column of dicts. `reduce()` starts each count at 0, and `count_values_da()` then added a dict to that 0. A count that is 0 or empty now starts the dict.

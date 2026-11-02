@@ -137,12 +137,11 @@ Source code is in src/daffodil and tests are in tests.
 
 ## Releasing
 
-- The PyPI classifier stays `Development Status :: 3 - Alpha` until the SqlDaf interface is settled. Then consider `4 - Beta`. Ray, 2026-10-16.
-- Version 0.9.1 was released on 2026-10-26 at 20:21 UTC, from f7887fa. It splits daf.py and sqldaf.py by topic, with no change in behavior, and makes `read_only` hold per SqlDaf. Ray asked for it in the chat and approved the pypi step himself, after the permission check refused Claude's approval.
-- Version 0.9.0 was released on 2026-10-26 at 15:08 UTC, from 79c84c3. It has three breaking changes: SqlDaf needs SQLite 3.48, `groupby_reduce(by='sparse_row')` gives concise dicts, and a bool converted to str is '1' or '0'. Ray approved the whole release in the chat, PyPI included, and Claude approved the pypi step on his word.
-- Version 0.8.1 was released on 2026-10-16 at 23:15 UTC, from 451008a. It has two breaking changes, in `wide_to_narrow()` and `from_md()`. Ray chose 0.8.1 over 0.9.0, to group them with 0.8.0, released the same day. Ray approved PyPI in the chat. Tags look like `v0.8.1`.
-- Version 0.8.0 was released on 2026-10-16 at 17:18 UTC, from d62784c. It is the first release with SqlDaf. Ray approved it in the chat without an AuditEngine test of a release candidate.
-- For 0.7.2, released on 2026-10-12 from e66b189, Ray had AuditEngine test the release candidate on its `-e ../daffodil` install before approving PyPI. When asking for such a test, do not ask it to run `uv sync`: its uv.lock is a stub, so a sync uninstalls most of its venv. The editable install sees a new commit with no sync. AuditEngine asked for this on 2026-10-11.
+- The PyPI classifier stays `Development Status :: 3 - Alpha` until the SqlDaf interface is settled. Then consider `4 - Beta`.
+- To have AuditEngine test a release candidate, as Ray may ask before approving PyPI, ask it to test on its
+  `-e ../daffodil` install. Do not ask it to run `uv sync`: its uv.lock is a stub, so a sync uninstalls
+  most of its venv. The editable install sees a new commit with no sync.
+- Each release's date, commit and approval are noted under its heading in CHANGELOG.md. Tags look like `v0.8.1`.
 - Between releases, `main` carries the next dev version, such as 0.7.2.dev0. A `-e` install then never reads the same as a PyPI release. AuditEngine asked for this on 2026-10-10. The deploy cannot release a dev version, because CHANGELOG.md never has a heading for one.
 - The workflow deploy.yml runs only on a push to the branch `full_deploy`. It checks the version, runs the tests, builds, and deploys the docs. Then it waits for Ray to approve, because he is a required reviewer on the environment `pypi`. After approval it publishes to PyPI and creates the tag and the GitHub Release. The Release notes are the version's section of CHANGELOG.md. The docs header shows the latest GitHub Release.
 - Approval can come from the Actions run page, the GitHub mobile app, or from Claude when Ray says to approve. Never approve without Ray's word in the conversation. With gh:
