@@ -190,7 +190,7 @@ This rule holds for all of daffodil. Ray, 2026-10-26, Q299.
   and False. SQLite, Excel and others use TRUE and FALSE. Any of them makes the data hard to
   work with, and asks for conversions back and forth.
 - 0 and 1 mean the same in all of them. A dict or list cell, written as PYON, is then also valid
-  JSON for its bools, so SQLite's JSON functions can read it.
+  JSON5 for its bools, so SQLite's JSON functions can read it. They read JSON5 since SQLite 3.42.
 - Converting to bool gives 0 or 1. `apply_dtypes()` with dtype bool reads the words, in any case,
   and gives the int.
 - Converting to str gives '0' or '1'. A Python True or False is made an int first, then text.
@@ -202,7 +202,7 @@ This rule holds for all of daffodil. Ray, 2026-10-26, Q299.
 - Never write a test, an example or a doc that shows a bool cell as True or False, unless it shows
   the conversion away from it.
 - Values are put into daffodil's form once, when the row is built: bools as 0 and 1, and None as
-  NULL. `normalize_val()` does both inside a dict or list. A cell in this form is PYON and JSON at
+  NULL. `normalize_val()` does both inside a dict or list. A cell in this form is PYON and JSON5 at
   once, so it is never normalized again. Daffodil does not re-normalize on a write or in
   `apply_dtypes()`, since that would cost a pass over every dict and list cell each time.
   Ray, 2026-10-26, Q300.
