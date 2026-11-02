@@ -183,31 +183,14 @@ Source code is in src/daffodil and tests are in tests.
 
 ## Booleans are 0 and 1
 
-This rule holds for all of daffodil. Ray, 2026-10-26, Q299.
+The public statement is the Guide page docsite/guide/booleans.md. The reasons and the decisions are
+in `notes/engineering_notebook/2026-11-02_2243_booleans_zero_one.md`.
 
-- A boolean in a daffodil table is the int 0 or 1. It is never the word True or False.
-- The words differ from one system to the next. JSON writes true and false. Python writes True
-  and False. SQLite, Excel and others use TRUE and FALSE. Any of them makes the data hard to
-  work with, and asks for conversions back and forth.
-- 0 and 1 mean the same in all of them. A dict or list cell, written as PYON, is then also valid
-  JSON5 for its bools, so SQLite's JSON functions can read it. They read JSON5 since SQLite 3.42.
-- Converting to bool gives 0 or 1. `apply_dtypes()` with dtype bool reads the words, in any case,
-  and gives the int.
-- Converting to str gives '0' or '1'. A Python True or False is made an int first, then text.
-  The text 'True' or 'False' is never produced.
-- So a table written out and read back compares equal to its source as text, with no special case
-  for bools.
-- Code that builds rows puts 0 and 1 in them, not True and False. `normalize_val()` in daf_utils.py
-  turns the bools in a value into 0 and 1, at any depth.
+- A boolean in a daffodil table is the int 0 or 1, never True or False. As str it is '0' or '1'.
+- Code that builds rows puts 0 and 1 in them. `normalize_val()` turns bools into 0 and 1, and None
+  into NULL, at any depth. Do it once, when the row is built. Daffodil never re-normalizes later.
 - Never write a test, an example or a doc that shows a bool cell as True or False, unless it shows
   the conversion away from it.
-- Values are put into daffodil's form once, when the row is built: bools as 0 and 1, and None as
-  NULL. `normalize_val()` does both inside a dict or list. A cell in this form is PYON and JSON5 at
-  once, so it is never normalized again. Daffodil does not re-normalize on a write or in
-  `apply_dtypes()`, since that would cost a pass over every dict and list cell each time.
-  Ray, 2026-10-26, Q300.
-- The Guide page docsite/guide/booleans.md is the public statement of this standard. It also states
-  the accepted risk: a type checker sees an int, which may hold a value other than 0 or 1.
 
 ## Performance over guard rails
 
