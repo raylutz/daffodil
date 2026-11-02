@@ -44,3 +44,23 @@ Ray's idea is to make example tables once and reuse them. A Guide page already r
 Each docstring runs alone, so it would need the tables from a doctest_namespace fixture, made fresh
 for each docstring. Then a change in one example cannot reach another. The cost is that an example
 can no longer be pasted and run alone.
+
+## The dtype in the header: Ray likes it, not built yet
+
+Ray, 2026-11-02: show each column's declared dtype after a colon in the header, as a standard mode.
+Daffodil shows the dtypes nowhere else. `from_md()` could read them back, so a Markdown table would
+bring its dtypes in.
+
+The design brought to Ray, as Q333:
+
+- `to_md(include_dtypes=True)` writes `age: int`. The default header is unchanged.
+- The shown cells are checked. A column whose cells are not its dtype gets the type they hold in
+  parentheses, as `age: int (str)` before `apply_dtypes()`, or `(mixed)`. NULL is not counted.
+- A bool column holds 0 and 1, so int cells match it. Int cells match a float column too.
+- A column with no dtype shows no suffix.
+- `from_md()` splits the header only when every header cell has the form `name: type`, with a type
+  daffodil knows. It sets the dtypes and converts nothing, as `from_csv()` does.
+- Checked 2026-11-02: `from_md()` keeps `id: str` as the whole column name. A bool column
+  of 0 and 1 holds ints. A float column built with 2 holds an int until it is converted.
+
+Ray also likes quoting text cells, and says the two can be used together.
