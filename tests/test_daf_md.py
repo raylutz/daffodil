@@ -728,13 +728,13 @@ def test_col_fmt_smart_and_smart_percent():
     """ 'smart' gives the smart_fmt form, and 'smart%' the same as a percent. A tiny value still shows. """
     daf: Daf = _sales_daf()
     cells: list = _cells(daf.to_md(col_fmt={'amount': 'smart', 'change': 'smart%'}))
-    assert [row[2:] for row in cells] == [['12,346', '0.0100%'], ['n/a', ''], ['9,876', 'None']]
+    assert [row[2:] for row in cells] == [['12,346', '0.01%'], ['n/a', ''], ['9,876', 'None']]
 
 
 def test_col_fmt_smart_percent_leaves_text_as_it_is():
     """ Text in a 'smart%' column is shown as it is, and is not repeated as a str times 100. """
     daf: Daf = Daf(cols=['k', 'pct'], lol=[['a', '12'], ['b', 0.5]])
-    assert _cells(daf.to_md(col_fmt={'pct': 'smart%'})) == [['a', '12'], ['b', '50.0%']]
+    assert _cells(daf.to_md(col_fmt={'pct': 'smart%'})) == [['a', '12'], ['b', '50%']]
 
 
 def test_col_fmt_function_gets_each_value_but_null():
@@ -761,7 +761,7 @@ def test_col_fmt_with_hidden_columns_rows_and_display_names():
     daf: Daf = _sales_daf()
     text: str = daf.to_md(col_fmt={'change': 'smart%', 'share': '.1%'}, max_rows=2, max_cols=2, disp_cols={'change': 'Change'})
     assert text.splitlines()[0].split('|')[3].strip() == 'Change'
-    assert _cells(text) == [['Denver', '...', '0.0100%'], ['...', '...', '...'], ['Reno', '...', 'None']]
+    assert _cells(text) == [['Denver', '...', '0.01%'], ['...', '...', '...'], ['Reno', '...', 'None']]
 
 
 def test_col_fmt_name_that_is_not_a_column_raises_keyerror():

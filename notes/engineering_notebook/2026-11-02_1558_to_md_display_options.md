@@ -9,7 +9,8 @@ Ray approved it on 2026-11-02.
 - `to_md(col_fmt={'share': '.1%', ...})` formats the cells of the named columns, for display only.
 - A value is a Python format spec, `'smart'`, `'smart%'` or a function.
 - `'smart%'` is Ray's request. A plain spec such as `.0%` shows a tiny share as 0%.
-  smart_fmt adapts the decimals to the size, so 10 variants in 100,000 show as 0.0100%.
+  smart_fmt adapts the decimals to the size, so 10 variants in 100,000 show as 0.01%.
+- smart_fmt padded a round value with zeros, as 0.50 and 0.0100. Ray chose on 2026-11-02 to trim them, Q332.
 - NULL and None stay as they are. A value a spec cannot format is shown as it is, with no error.
   A function's own errors are not caught.
 - smart_fmt is applied by col_fmt's code to the other columns, and then turned off for the writer.

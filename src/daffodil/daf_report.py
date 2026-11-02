@@ -581,11 +581,12 @@ def _to_md(
       `shorten_text=False` writes it in full.
     - `smart_fmt=True` shows numbers for people to read. A whole number gets commas, as 12,345. A
       float above 100 is rounded to a whole number. Above 1 it keeps one decimal, above 0.1 two,
-      above 0.01 three, and above 0.001 four. Only the text is changed, not the Daf.
+      above 0.01 three, and above 0.001 four. A trailing zero is dropped, so 0.50 shows as 0.5.
+      Only the text is changed, not the Daf.
     - `col_fmt` formats the cells of the columns it names, for display only. The Daf is not
       changed. Each value is a Python format spec, the part after the colon in an f-string, such
       as `'.1%'` or `',.2f'`. `'smart'` gives the `smart_fmt` form for that column. `'smart%'`
-      gives it as a percent, so a small share such as 0.0001 shows as 0.0100% and not as 0%. A
+      gives it as a percent, so a small share such as 0.0001 shows as 0.01% and not as 0%. A
       function gets the cell and returns what to show.
       A missing value stays blank. A value the spec cannot format, such as text in a column of
       numbers, is shown as it is. `smart_fmt` does not change the columns that `col_fmt` names.
@@ -757,21 +758,21 @@ def _to_md(
         The missing change stays blank, and text that does not fit the format is shown as it is:
 
         >>> print(sales.to_md(col_fmt={'share': '.1%', 'amount': ',.2f', 'change': 'smart%'}))
-        |  city  | share |  amount   | change  |
-        | -----: | ----: | --------: | ------: |
-        | Denver | 34.1% | 12,345.50 | 0.0100% |
-        | Austin | 65.9% |       n/a |         |
-        |   Reno |  0.0% |  9,876.25 |   25.0% |
+        |  city  | share |  amount   | change |
+        | -----: | ----: | --------: | -----: |
+        | Denver | 34.1% | 12,345.50 |  0.01% |
+        | Austin | 65.9% |       n/a |        |
+        |   Reno |  0.0% |  9,876.25 |    25% |
         <BLANKLINE>
 
         Give a function for a format that a spec cannot give. The other columns still get `smart_fmt`:
 
         >>> print(sales.to_md(col_fmt={'amount': lambda val: f'${val:,.0f}' if isinstance(val, float) else val}, smart_fmt=True))
-        |  city  | share | amount  |  change  |
-        | -----: | ----: | ------: | -------: |
-        | Denver |  0.34 | $12,346 | 0.000100 |
-        | Austin |  0.66 |     n/a |          |
-        |   Reno |   0.0 |  $9,876 |     0.25 |
+        |  city  | share | amount  | change |
+        | -----: | ----: | ------: | -----: |
+        | Denver |  0.34 | $12,346 | 0.0001 |
+        | Austin |  0.66 |     n/a |        |
+        |   Reno |     0 |  $9,876 |   0.25 |
         <BLANKLINE>
     """
     daf_lol = self.daf_to_lol_summary(max_rows=max_rows, max_cols=max_cols, disp_cols=disp_cols)
@@ -958,7 +959,7 @@ def _to_md_cols(
         >>> print(daf.to_md_cols(just='<<<<', max_text_len=12, smart_fmt=True, disp_cols=['ID', 'Item', 'Price', 'Note']))
         | ID    | a1           | b2  | c3           |
         | Item  | pen          | ink | pad          |
-        | Price | 1.5          | 4.0 | 2.2          |
+        | Price | 1.5          | 4   | 2.2          |
         | Note  | blue,..e tip |     | lined..paper |
         <BLANKLINE>
 

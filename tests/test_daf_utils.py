@@ -884,8 +884,13 @@ def test_smart_fmt_large_float_rounds():
 
 
 def test_smart_fmt_small_float_decimals():
-    assert utils.smart_fmt(0.5) == '0.50'
-    assert utils.smart_fmt(0.05) == '0.050'
+    assert utils.smart_fmt(0.5) == '0.5'
+    assert utils.smart_fmt(0.05) == '0.05'
+
+
+def test_smart_fmt_drops_trailing_zeros_but_keeps_digits():
+    """ A trailing zero is dropped, and with it a bare point. Other digits are kept. """
+    assert [utils.smart_fmt(val) for val in (0.01, 2.0, 1.0, 0.0123456, -0.5, 2.25)] == ['0.01', '2', '1', '0.012', '-0.5', '2.2']
 
 
 def test_smart_fmt_large_float_over_100_rounds_to_int():
@@ -897,13 +902,13 @@ def test_smart_fmt_float_between_1_and_100():
 
 
 def test_smart_fmt_decreasing_magnitude_decimal_places():
-    assert utils.smart_fmt(0.005) == '0.0050'
-    assert utils.smart_fmt(0.0005) == '0.00050'
-    assert utils.smart_fmt(0.00005) == '0.000050'
+    assert utils.smart_fmt(0.005) == '0.005'
+    assert utils.smart_fmt(0.0005) == '0.0005'
+    assert utils.smart_fmt(0.00005) == '0.00005'
 
 
 def test_smart_fmt_extremely_small_rounds_to_zero():
-    assert utils.smart_fmt(0.000005) == '0.0'
+    assert utils.smart_fmt(0.000005) == '0'
 
 
 def test_smart_fmt_signed_int_strings():
@@ -912,7 +917,7 @@ def test_smart_fmt_signed_int_strings():
 
 
 def test_smart_fmt_scientific_notation_string():
-    assert utils.smart_fmt('1e-10') == '0.0'
+    assert utils.smart_fmt('1e-10') == '0'
 
 
 def test_smart_fmt_plain_string_unchanged():

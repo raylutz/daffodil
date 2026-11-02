@@ -1371,19 +1371,21 @@ def smart_fmt(val: str | int | float | None) -> str:
         if abs_val_f > 100:
             return f"{int(round(val_f)):,}"
         elif abs_val_f > 1:
-            return f"{val_f:.1f}"
+            fixed_str = f"{val_f:.1f}"
         elif abs_val_f > 0.1:     
-            return f"{val_f:.2f}"
+            fixed_str = f"{val_f:.2f}"
         elif abs_val_f > 0.01:     
-            return f"{val_f:.3f}"
+            fixed_str = f"{val_f:.3f}"
         elif abs_val_f > 0.001:     
-            return f"{val_f:.4f}"
+            fixed_str = f"{val_f:.4f}"
         elif abs_val_f > 0.0001:     
-            return f"{val_f:.5f}"
+            fixed_str = f"{val_f:.5f}"
         elif abs_val_f > 0.00001:     
-            return f"{val_f:.6f}"
+            fixed_str = f"{val_f:.6f}"
         else:
-            return f"{0.0:.1f}"
+            fixed_str = f"{0.0:.1f}"
+        # Trailing zeros carry no information here, so 0.50 shows as 0.5 and 2.0 as 2.
+        return fixed_str.rstrip('0').rstrip('.')
 
     return val_str
     
