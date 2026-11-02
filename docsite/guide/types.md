@@ -37,8 +37,12 @@ A CSV file gives text. `apply_dtypes()` converts the columns in place, and retur
 <BLANKLINE>
 %% daf rows=2; cols=4; keyfield=''; name=''
 <BLANKLINE>
->>> daf.lol
-[['a1', '3', '1.5', '[1, 2]'], ['b2', '', '2.0', '[]']]
+>>> print(daf.to_md(quote_text=True))
+|  id  | qty | price |   tags   |
+| ---: | --: | ----: | -------: |
+| 'a1' | '3' | '1.5' | '[1, 2]' |
+| 'b2' |  '' | '2.0' |     '[]' |
+<BLANKLINE>
 >>> daf.apply_dtypes(dtypes={'id': str, 'qty': int, 'price': float, 'tags': list})
 <BLANKLINE>
 | id | qty | price |  tags  |
@@ -48,8 +52,12 @@ A CSV file gives text. `apply_dtypes()` converts the columns in place, and retur
 <BLANKLINE>
 %% daf rows=2; cols=4; keyfield=''; name=''
 <BLANKLINE>
->>> daf.lol
-[['a1', 3, 1.5, [1, 2]], ['b2', '', 2.0, []]]
+>>> print(daf.to_md(quote_text=True))
+|  id  | qty | price |  tags  |
+| ---: | --: | ----: | -----: |
+| 'a1' |   3 |   1.5 | [1, 2] |
+| 'b2' |  '' |   2.0 |     [] |
+<BLANKLINE>
 ```
 
 - An empty cell is NULL, the empty string, and stays NULL, except in a `bool` column. See
@@ -77,8 +85,11 @@ A CSV file gives text. `apply_dtypes()` converts the columns in place, and retur
 <BLANKLINE>
 %% daf rows=1; cols=3; keyfield=''; name=''
 <BLANKLINE>
->>> e_daf.lol
-[['a1', 3, 'x']]
+>>> print(e_daf.to_md(quote_text=True))
+|  id  | qty | note |
+| ---: | --: | ---: |
+| 'a1' |   3 |  'x' |
+<BLANKLINE>
 ```
 
 Load the file as text, then call `apply_dtypes()` for the columns you need. `from_csv()` and
@@ -123,8 +134,17 @@ Other text stays as it is. Note that `'False'` gives 0, where Python's `bool('Fa
 <BLANKLINE>
 %% daf rows=7; cols=1; keyfield=''; name=''
 <BLANKLINE>
->>> flags.col('ok')
-[0, 0, 1, 0, 1, 0, 'maybe']
+>>> print(flags.to_md(quote_text=True))
+|   ok    |
+| ------: |
+|       0 |
+|       0 |
+|       1 |
+|       0 |
+|       1 |
+|       0 |
+| 'maybe' |
+<BLANKLINE>
 ```
 
 The words for 0 are `0`, `false`, `no`, `n`, `f` and `off`. The words for 1 are `1`, `true`,
@@ -144,8 +164,12 @@ and 1:
 <BLANKLINE>
 %% daf rows=2; cols=2; keyfield=''; name=''
 <BLANKLINE>
->>> typed.lol
-[['1', '3'], ['0', '4']]
+>>> print(typed.to_md(quote_text=True))
+| ok  |  n  |
+| --: | --: |
+| '1' | '3' |
+| '0' | '4' |
+<BLANKLINE>
 ```
 
 Daffodil does not change a True or False stored in a cell until it is converted. `to_csv_file()`
@@ -191,10 +215,18 @@ None inside a dict or list cell stays None. `normalize_val()` in `daffodil.lib.d
 
 ```pycon
 >>> nones_dtypes = {'id': str, 'n': int, 's': str, 'ok': bool, 'cv': dict}
->>> nones.apply_dtypes(dtypes=nones_dtypes).iloc(0)
-{'id': 'a1', 'n': '', 's': None, 'ok': 0, 'cv': {'x': None}}
->>> nones.apply_dtypes(dtypes=nones_dtypes, from_str=False).iloc(0)
-{'id': 'a1', 'n': '', 's': '', 'ok': 0, 'cv': {'x': None}}
+>>> print(nones.apply_dtypes(dtypes=nones_dtypes).to_md(include_dtypes=True, quote_text=True))
+| id: str | n: int | s: str | ok: bool |  cv: dict   |
+| ------: | -----: | -----: | -------: | ----------: |
+|    'a1' |     '' |   None |        0 | {'x': None} |
+|    'b2' |      3 |    'x' |        1 |    {'x': 1} |
+<BLANKLINE>
+>>> print(nones.apply_dtypes(dtypes=nones_dtypes, from_str=False).to_md(include_dtypes=True, quote_text=True))
+| id: str | n: int | s: str | ok: bool |  cv: dict   |
+| ------: | -----: | -----: | -------: | ----------: |
+|    'a1' |     '' |     '' |        0 | {'x': None} |
+|    'b2' |      3 |    'x' |        1 |    {'x': 1} |
+<BLANKLINE>
 ```
 
 - The sum methods skip it.
@@ -295,15 +327,23 @@ p2,"{'colors': ('red', 'blue'), 7: 'seven', 'phone': None}"
 <BLANKLINE>
 ```
 
-Read back, each cell is text until `apply_dtypes()` converts it. The values are shown as lists
-here, since a printed table shows text and a dict alike:
+Read back, each cell is text until `apply_dtypes()` converts it. The tables quote the text, and
+show the dtypes in the header, so the text of a dict can be told from a dict:
 
 ```pycon
 >>> back_daf = Daf.from_csv_buff(prefs_daf.to_csv_buff())
->>> back_daf.lol
-[['p1', "{'news': 1, 'sms': 0}"], ['p2', "{'colors': ('red', 'blue'), 7: 'seven', 'phone': None}"]]
->>> back_daf.apply_dtypes(dtypes={'id': str, 'prefs': dict}).lol
-[['p1', {'news': 1, 'sms': 0}], ['p2', {'colors': ('red', 'blue'), 7: 'seven', 'phone': None}]]
+>>> print(back_daf.to_md(quote_text=True))
+|  id  |                          prefs                           |
+| ---: | -------------------------------------------------------: |
+| 'p1' |                                  "{'news': 1, 'sms': 0}" |
+| 'p2' | "{'colors': ('red', 'blue'), 7: 'seven', 'phone': None}" |
+<BLANKLINE>
+>>> print(back_daf.apply_dtypes(dtypes={'id': str, 'prefs': dict}).to_md(include_dtypes=True, quote_text=True))
+| id: str |                      prefs: dict                       |
+| ------: | -----------------------------------------------------: |
+|    'p1' |                                  {'news': 1, 'sms': 0} |
+|    'p2' | {'colors': ('red', 'blue'), 7: 'seven', 'phone': None} |
+<BLANKLINE>
 ```
 
 - The text is read as data. It is never run as code.

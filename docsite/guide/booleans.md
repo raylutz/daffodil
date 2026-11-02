@@ -88,8 +88,21 @@ So there is no gain in storing True and False, as long as the code treats the co
 <BLANKLINE>
 %% daf rows=11; cols=1; keyfield=''; name=''
 <BLANKLINE>
->>> flags.col('ok')
-[1, 0, 1, 0, 0, 1, 0, 'tRuE', '2', 0, 1]
+>>> print(flags.to_md(quote_text=True))
+|   ok   |
+| -----: |
+|      1 |
+|      0 |
+|      1 |
+|      0 |
+|      0 |
+|      1 |
+|      0 |
+| 'tRuE' |
+|    '2' |
+|      0 |
+|      1 |
+<BLANKLINE>
 ```
 
 Text that stays as it is can be found with `check_schema()`. See below.
@@ -116,8 +129,12 @@ To turn a word into the text `'0'` or `'1'`, convert to `bool` first, then to `s
 <BLANKLINE>
 %% daf rows=2; cols=1; keyfield=''; name=''
 <BLANKLINE>
->>> words.col('ok')
-['1', '0']
+>>> print(words.to_md(quote_text=True))
+| ok  |
+| --: |
+| '1' |
+| '0' |
+<BLANKLINE>
 ```
 
 Converted to `str`, as with `from_str=False`, a bool becomes `'0'` or `'1'`. So it matches the text
@@ -134,8 +151,12 @@ of a file that holds 0 and 1:
 <BLANKLINE>
 %% daf rows=2; cols=2; keyfield=''; name=''
 <BLANKLINE>
->>> typed.lol
-[['1', '3'], ['0', '4']]
+>>> print(typed.to_md(quote_text=True))
+| ok  |  n  |
+| --: | --: |
+| '1' | '3' |
+| '0' | '4' |
+<BLANKLINE>
 ```
 
 `normalize_val()` turns the bools in a value into 0 and 1, at any depth. It also turns None into
@@ -169,8 +190,11 @@ as it is:
 (None, None)
 >>> cells = Daf(cols=['id', 'cv'], lol=[['a1', cell]])
 >>> back = Daf.from_csv_buff(cells.to_csv_buff()).apply_dtypes(dtypes={'id': str, 'cv': dict})
->>> back.lol
-[['a1', {'member': 1, 'flags': [0, 1], 'phone': ''}]]
+>>> print(back.to_md(quote_text=True))
+|  id  |                     cv                      |
+| ---: | ------------------------------------------: |
+| 'a1' | {'member': 1, 'flags': [0, 1], 'phone': ''} |
+<BLANKLINE>
 ```
 
 Daffodil does not normalize again later, as on each write or each `apply_dtypes()`. That would cost

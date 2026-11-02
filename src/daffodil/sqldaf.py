@@ -3620,15 +3620,25 @@ class SqlDaf(Daf):
             <BLANKLINE>
 
             Convert only the age. A value that does not convert, such as 'unknown', stays as it is.
-            A table prints text and numbers alike, so the examples below show the values as a list:
+            The tables quote the text, and show the dtypes in the header, so text can be told from a number:
 
-            >>> people_sdaf.apply_dtypes(dtypes={'age': int}, cols='age').col('age')
-            [34, 'unknown', 27]
+            >>> print(people_sdaf.apply_dtypes(dtypes={'age': int}, cols='age').to_md(include_dtypes=True, quote_text=True))
+            |  id  | age: int (str) | height_m | member |
+            | ---: | -------------: | -------: | -----: |
+            | 'p1' |             34 |   '1.68' |    '1' |
+            | 'p2' |      'unknown' |       '' |    '0' |
+            | 'p3' |             27 |   '1.75' |     '' |
+            <BLANKLINE>
 
             Convert several columns. Python NULL in a bool column becomes 0:
 
-            >>> people_sdaf.apply_dtypes(dtypes={'height_m': float, 'member': bool}, cols=['height_m', 'member']).to_lod()
-            [{'id': 'p1', 'age': 34, 'height_m': 1.68, 'member': 1}, {'id': 'p2', 'age': 'unknown', 'height_m': '', 'member': 0}, {'id': 'p3', 'age': 27, 'height_m': 1.75, 'member': 0}]
+            >>> print(people_sdaf.apply_dtypes(dtypes={'height_m': float, 'member': bool}, cols=['height_m', 'member']).to_md(include_dtypes=True, quote_text=True))
+            |  id  | age: int (str) | height_m: float | member: bool |
+            | ---: | -------------: | --------------: | -----------: |
+            | 'p1' |             34 |            1.68 |            1 |
+            | 'p2' |      'unknown' |              '' |            0 |
+            | 'p3' |             27 |            1.75 |            0 |
+            <BLANKLINE>
 
             Without `cols`, every column is converted, so each needs a dtype. A column without one raises, unless
             `silent_error=True` leaves it as it is:
@@ -3636,14 +3646,23 @@ class SqlDaf(Daf):
             >>> people_sdaf.apply_dtypes(dtypes={'age': int})
             Traceback (most recent call last):
             ValueError: SqlDaf.apply_dtypes: no dtype for the columns ['id', 'height_m', 'member']. ...
-            >>> people_sdaf.apply_dtypes(dtypes={'age': int}, silent_error=True).col('age')
-            [34, 'unknown', 27]
+            >>> print(people_sdaf.apply_dtypes(dtypes={'age': int}, silent_error=True).to_md(include_dtypes=True, quote_text=True))
+            |  id  | age: int (str) | height_m: float | member: bool |
+            | ---: | -------------: | --------------: | -----------: |
+            | 'p1' |             34 |            1.68 |            1 |
+            | 'p2' |      'unknown' |              '' |            0 |
+            | 'p3' |             27 |            1.75 |            0 |
+            <BLANKLINE>
 
             With `from_str=False`, a str column that holds numbers becomes text:
 
             >>> codes_sdaf = SqlDaf('codes', cols=['id', 'zip'], lol=[['p1', 80202], ['p2', 73301]])
-            >>> codes_sdaf.apply_dtypes(dtypes={'id': str, 'zip': str}, from_str=False).col('zip')
-            ['80202', '73301']
+            >>> print(codes_sdaf.apply_dtypes(dtypes={'id': str, 'zip': str}, from_str=False).to_md(include_dtypes=True, quote_text=True))
+            | id: str | zip: str |
+            | ------: | -------: |
+            |    'p1' |  '80202' |
+            |    'p2' |  '73301' |
+            <BLANKLINE>
         """
         # The dtypes are recorded with the conversion, in one transaction, so a refused or failed
         # conversion leaves the record and this SqlDaf as they were.

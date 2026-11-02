@@ -266,8 +266,11 @@ def _apply_dtypes(self: 'Daf', *,
         <BLANKLINE>
         %% daf rows=1; cols=3; keyfield=''; name=''
         <BLANKLINE>
-        >>> daf.iloc(0)
-        {'age': 34, 'height_m': '1.68', 'visits': '7'}
+        >>> print(daf.to_md(quote_text=True))
+        | age | height_m | visits |
+        | --: | -------: | -----: |
+        |  34 |   '1.68' |    '7' |
+        <BLANKLINE>
         >>> daf.dtypes == {'age': int, 'height_m': float, 'visits': int}
         True
         >>> daf.apply_dtypes(cols=['visits'])
@@ -278,8 +281,11 @@ def _apply_dtypes(self: 'Daf', *,
         <BLANKLINE>
         %% daf rows=1; cols=3; keyfield=''; name=''
         <BLANKLINE>
-        >>> daf.iloc(0)
-        {'age': 34, 'height_m': '1.68', 'visits': 7}
+        >>> print(daf.to_md(quote_text=True))
+        | age | height_m | visits |
+        | --: | -------: | -----: |
+        |  34 |   '1.68' |      7 |
+        <BLANKLINE>
 
         A `bool` column, and text that does not convert:
 
@@ -306,8 +312,14 @@ def _apply_dtypes(self: 'Daf', *,
         <BLANKLINE>
         %% daf rows=4; cols=2; keyfield=''; name=''
         <BLANKLINE>
-        >>> b_daf.lol
-        [[0, 7], [0, 'unknown'], [1, 12], ['maybe', '']]
+        >>> print(b_daf.to_md(quote_text=True))
+        | member  |  visits   |
+        | ------: | --------: |
+        |       0 |         7 |
+        |       0 | 'unknown' |
+        |       1 |        12 |
+        | 'maybe' |        '' |
+        <BLANKLINE>
 
         Your own conversion, here one that records the values that fail:
 
@@ -356,29 +368,41 @@ def _apply_dtypes(self: 'Daf', *,
         **The other options.** A list column stays text with `unflatten=False`:
 
         >>> tags = Daf(cols=['id', 'tags'], lol=[['a1', '[1, 2]']])
-        >>> tags.apply_dtypes(dtypes={'id': str, 'tags': list}, unflatten=False).lol
-        [['a1', '[1, 2]']]
+        >>> print(tags.apply_dtypes(dtypes={'id': str, 'tags': list}, unflatten=False).to_md(include_dtypes=True, quote_text=True))
+        | id: str | tags: list (str) |
+        | ------: | ---------------: |
+        |    'a1' |         '[1, 2]' |
+        <BLANKLINE>
 
         A str column is skipped by default, since the cells are taken to be text. With `from_str=False`
         each cell is made text:
 
         >>> mixed = Daf(cols=['id', 'qty'], lol=[[1, '3']])
-        >>> mixed.apply_dtypes(dtypes={'id': str, 'qty': int}, from_str=False).lol
-        [['1', 3]]
+        >>> print(mixed.apply_dtypes(dtypes={'id': str, 'qty': int}, from_str=False).to_md(include_dtypes=True, quote_text=True))
+        | id: str | qty: int |
+        | ------: | -------: |
+        |     '1' |        3 |
+        <BLANKLINE>
 
         A column with no dtype raises ValueError, unless `silent_error=True`. Then it gets
         `default_type`, str by default, and is not converted:
 
         >>> part = Daf(cols=['id', 'qty'], lol=[['a1', '3']])
-        >>> part.apply_dtypes(dtypes={'qty': int}, silent_error=True).lol, part.dtypes
-        ([['a1', 3]], {'qty': <class 'int'>, 'id': <class 'str'>})
+        >>> print(part.apply_dtypes(dtypes={'qty': int}, silent_error=True).to_md(include_dtypes=True, quote_text=True))
+        | id: str | qty: int |
+        | ------: | -------: |
+        |    'a1' |        3 |
+        <BLANKLINE>
 
         With `silent_error=True` and `default_type`, a column with no dtype gets that type. Here the id
         column gets str, and with `from_str=False` it is made text:
 
         >>> numbered = Daf(cols=['id', 'qty'], lol=[[1, '3']])
-        >>> numbered.apply_dtypes(dtypes={'qty': int}, silent_error=True, default_type=str, from_str=False).lol
-        [['1', 3]]
+        >>> print(numbered.apply_dtypes(dtypes={'qty': int}, silent_error=True, default_type=str, from_str=False).to_md(include_dtypes=True, quote_text=True))
+        | id: str | qty: int |
+        | ------: | -------: |
+        |     '1' |        3 |
+        <BLANKLINE>
     """
 
     """ convert columns of daf array to the datatypes specified in self.dtypes or in passed parameter.
