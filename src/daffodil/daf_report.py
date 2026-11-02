@@ -561,6 +561,8 @@ def _to_md(
         disp_cols:      T_cs | None = None,    # use these column names instead of those defined in daf.
         header:         T_cs | None = None,    # use this header instead.
         col_fmt:        T_da | None = None,    # column name to a format spec, 'smart', 'smart%' or a function, for display only.
+        include_dtypes: bool    = False,     # add the dtype of each column to its header, as 'age: int', with a note if the cells differ.
+        quote_text:     bool    = False,     # show each text cell with quotes, so text can be told from a number or a dict.
         ) -> str:
             
     """
@@ -590,6 +592,14 @@ def _to_md(
       function gets the cell and returns what to show.
       A missing value stays blank. A value the spec cannot format, such as text in a column of
       numbers, is shown as it is. `smart_fmt` does not change the columns that `col_fmt` names.
+    - `include_dtypes=True` adds each column's dtype to its header, after a colon, as `age: int`.
+      The cells shown are checked. If they hold another type, it follows in parentheses, as
+      `age: int (str)` for a column that `apply_dtypes()` has not yet converted. A bool or a float
+      column may hold ints. A column with no dtype keeps its name alone. `from_md()` reads the
+      dtypes back.
+    - `quote_text=True` shows each text cell as Python writes it, in quotes. Then the text `'34'`
+      differs from the number 34, the empty string from None, and the text of a dict from a dict.
+      With the summary line, `from_md()` takes the quotes off again.
     - `include_summary=True` adds the summary line that `str()` shows, starting with `%%`. With it,
       `from_md()` can read the table back, as text.
     - `disp_cols` names the columns differently in the header. A dict renames the columns it
@@ -612,6 +622,8 @@ def _to_md(
         disp_cols: Names to show in the header: a dict of column name to name shown, for some columns, or a list for every column.
         header: A header row to show in place of the one made from the column names.
         col_fmt: How to show the cells of some columns: a dict of column name to a format spec, 'smart', 'smart%' or a function.
+        include_dtypes: If True, add each column's dtype to its header, as `age: int`.
+        quote_text: If True, show each text cell in quotes.
 
     Returns:
         The Markdown text, ending with a newline.
@@ -774,6 +786,48 @@ def _to_md(
         | Austin |  0.66 |     n/a |        |
         |   Reno |     0 |  $9,876 |   0.25 |
         <BLANKLINE>
+
+        Create a small Daf read from text, so every cell is text. The dtypes say what the columns should hold:
+
+        >>> people = Daf.from_csv_buff("id,age,prefs\\np1,34,{'news': 1}\\np2,,{}\\n")
+        >>> people.dtypes = {'id': str, 'age': int, 'prefs': dict}
+        >>> people
+        <BLANKLINE>
+        | id | age |    prefs    |
+        | -: | --: | ----------: |
+        | p1 |  34 | {'news': 1} |
+        | p2 |     |          {} |
+        <BLANKLINE>
+        %% daf rows=2; cols=3; keyfield=''; name=''
+        <BLANKLINE>
+
+        Show the dtypes in the header. Each column that still holds text says so:
+
+        >>> print(people.to_md(include_dtypes=True))
+        | id: str | age: int (str) | prefs: dict (str) |
+        | ------: | -------------: | ----------------: |
+        |      p1 |             34 |       {'news': 1} |
+        |      p2 |                |                {} |
+        <BLANKLINE>
+
+        Convert the columns, and the notes are gone:
+
+        >>> print(people.apply_dtypes().to_md(include_dtypes=True))
+        | id: str | age: int | prefs: dict |
+        | ------: | -------: | ----------: |
+        |      p1 |       34 | {'news': 1} |
+        |      p2 |          |          {} |
+        <BLANKLINE>
+
+        Quote the text cells. The id is text, the age is a number, and the prefs are dicts. The empty
+        string shows as `''`:
+
+        >>> print(people.to_md(quote_text=True))
+        |  id  | age |    prefs    |
+        | ---: | --: | ----------: |
+        | 'p1' |  34 | {'news': 1} |
+        | 'p2' |  '' |          {} |
+        <BLANKLINE>
     """
     daf_lol = self.daf_to_lol_summary(max_rows=max_rows, max_cols=max_cols, disp_cols=disp_cols)
 
@@ -799,15 +853,23 @@ def _to_md(
 
     final_header = header if header is not None else embedded_header
 
-    # ---- Column formats
-    # The cells of the named columns are formatted for display. The other columns get smart_fmt here,
+    # ---- Display options
+    # The column at each position shown, by its own name, so hidden columns and disp_cols do not matter.
+    shown_names_ls: T_ls = []
+    if (col_fmt or quote_text or include_dtypes) and data_lol and self.hd:
+        shown_names_ls = list(self.daf_to_lol_summary(max_rows=1, max_cols=max_cols)[0])
+
+    # The dtypes go into the header, checked against the cells as they are, before any formatting.
+    if include_dtypes and shown_names_ls and header is None and final_header is not None:
+        final_header = _dtype_header(list(final_header), shown_names_ls, data_lol, self.dtypes or {})
+
+    # The cells are formatted for display. The other columns get smart_fmt here,
     # so the writer below does not change a formatted cell again.
-    if col_fmt and data_lol:
+    if (col_fmt or quote_text) and data_lol:
         name: str
-        for name in col_fmt:
+        for name in (col_fmt or {}):
             self.hd[name]                       # a name that is not a column raises KeyError.
-        shown_names_ls: T_ls = list(self.daf_to_lol_summary(max_rows=1, max_cols=max_cols)[0])
-        data_lol = _format_md_rows(data_lol, shown_names_ls, col_fmt, smart_fmt)
+        data_lol = _format_md_rows(data_lol, shown_names_ls, col_fmt or {}, smart_fmt, quote_text)
         smart_fmt = False
 
     mdstr = md.md_lol_table(
@@ -830,6 +892,8 @@ def _to_md(
         schema = self.attrs.get('schema')
         if schema:
             parts.append(f"schema='{schema}'")
+        if quote_text:
+            parts.append("quote_text=1")
         if not self.is_rectangular():
             parts.append("ragged rows detected")
 
@@ -841,42 +905,57 @@ def _to_md(
     return mdstr
 
 
+def _is_elided_row(row_la: list) -> bool:
+    """ True for the row of '...' that stands for the rows that `max_rows` hides. """
+    return bool(row_la) and all(val == '...' for val in row_la)
+
+
 def _format_md_rows(
         data_lol:       T_lola,     # the rows to show. They may be the Daf's own rows, so they are not changed.
         names_ls:       T_ls,       # the column name at each position shown, or '...' for hidden columns.
         col_fmt:        T_da,       # column name to a format spec, 'smart', 'smart%' or a function.
         smart_fmt:      bool,       # if True, the other columns get smart formatting.
+        quote_text:     bool = False,   # if True, text cells of the other columns are quoted.
         ) -> T_lola:
     """
-    The rows to show, as new lists, with each cell formatted for `to_md(col_fmt=...)`.
+    The rows to show, as new lists, with each cell formatted for `to_md()`.
 
     A column that `col_fmt` names gets its format.
-    The other columns get smart formatting if `smart_fmt` is True, and are kept otherwise.
+    The other columns get quotes on text if `quote_text` is True.
+    Then they get smart formatting if `smart_fmt` is True, and are kept otherwise.
+    The `...` that stand for hidden rows and columns are kept as they are.
     """
     fmt_la: list = [col_fmt.get(name) for name in names_ls]
     num_fmts: int = len(fmt_la)
     out_lol: T_lola = []
     row_la: list
     for row_la in data_lol:
+        if _is_elided_row(row_la):
+            out_lol.append(list(row_la))
+            continue
         new_la: list = []
         icol: int
         val: Any
         for icol, val in enumerate(row_la):
             fmt: Any = fmt_la[icol] if icol < num_fmts else None
-            new_la.append(_format_md_cell(val, fmt, smart_fmt))
+            hidden_b: bool = icol < len(names_ls) and names_ls[icol] == '...'
+            new_la.append(val if hidden_b else _format_md_cell(val, fmt, smart_fmt, quote_text))
         out_lol.append(new_la)
     return out_lol
 
 
-def _format_md_cell(val: Any, fmt: Any, smart_fmt: bool) -> Any:
+def _format_md_cell(val: Any, fmt: Any, smart_fmt: bool, quote_text: bool = False) -> Any:
     """
     One cell formatted for display, by a format spec, 'smart', 'smart%' or a function.
 
-    NULL and None stay as they are, so a missing value shows as blank.
+    With no format, text is quoted if `quote_text` is True, as `repr()` writes it.
+    NULL and None stay as they are under a format, so a missing value shows as blank.
     A value that the spec cannot format, such as text in a column of numbers, is shown as it is.
     A function gets every other value, and its errors are not caught.
     """
     if fmt is None:
+        if quote_text and isinstance(val, str):
+            return repr(val)
         return daf_utils.smart_fmt(val) if smart_fmt else val
     if val is daf_utils.NULL or val is None:
         return val
@@ -892,6 +971,53 @@ def _format_md_cell(val: Any, fmt: Any, smart_fmt: bool) -> Any:
         return format(val, fmt)
     except (ValueError, TypeError):
         return val
+
+
+def _dtype_header(
+        header_ls:      T_ls,       # the header as it is shown, with the names from disp_cols.
+        names_ls:       T_ls,       # the column name at each position shown, or '...' for hidden columns.
+        data_lol:       T_lola,     # the rows shown, whose cells are checked.
+        dtypes:         T_da,       # the dtypes of the Daf, by column name.
+        ) -> T_ls:
+    """
+    The header with the dtype of each column after a colon, as `age: int`.
+
+    The cells shown are checked against the dtype.
+    If they hold another type, it follows in parentheses, as `age: int (str)`.
+    A column with no dtype keeps its name alone.
+    """
+    rows_lol: T_lola = [row_la for row_la in data_lol if not _is_elided_row(row_la)]
+    new_header_ls: T_ls = []
+    icol: int
+    shown: str
+    for icol, shown in enumerate(header_ls):
+        name: str = names_ls[icol] if icol < len(names_ls) else '...'
+        dtype: Any = dtypes.get(name) if name != '...' else None
+        if dtype is None:
+            new_header_ls.append(shown)
+            continue
+        vals_la: list = [row_la[icol] for row_la in rows_lol if icol < len(row_la)]
+        dtype_name: str = getattr(dtype, '__name__', str(dtype))
+        new_header_ls.append(f"{shown}: {dtype_name}{_cells_type_note(dtype, vals_la)}")
+    return new_header_ls
+
+
+def _cells_type_note(dtype: Any, vals_la: list) -> str:
+    """
+    A note of the types the cells hold, when they are not the dtype, as ` (str)`.
+
+    NULL and None are not counted. A bool or a float column may hold ints, as 0 and 1 or 2.
+    Several types are listed, as ` (int, str)`. Cells that all match give no note.
+    """
+    if not isinstance(dtype, type):
+        return ''
+    found_types: set = {type(val) for val in vals_la if val is not daf_utils.NULL and val is not None}
+    cell_type: type
+    mismatch_ls: T_ls = sorted({cell_type.__name__ for cell_type in found_types
+                                if not (issubclass(cell_type, dtype) or (dtype in (bool, float) and cell_type is int))})
+    if not mismatch_ls:
+        return ''
+    return f" ({', '.join(mismatch_ls)})"
 
 
 def _to_md_cols(

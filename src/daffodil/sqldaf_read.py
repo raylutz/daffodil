@@ -946,6 +946,8 @@ def _to_md(
         disp_cols:          T_cs | None = None,
         header:             Any = None,
         col_fmt:            T_da | None = None,
+        include_dtypes:     bool = False,
+        quote_text:         bool = False,
         ) -> str:
     """
     Make a Markdown table, as [`Daf.to_md()`][daffodil.daf_report._to_md] does.
@@ -964,6 +966,8 @@ def _to_md(
         disp_cols: Names to show in the header: a dict of column name to name shown, for some columns, or a list for every column.
         header: A header to use in place of the column names.
         col_fmt: How to show the cells of some columns, by column name. See `Daf.to_md()`.
+        include_dtypes: If True, add the dtype of each column to its header, as `age: int`.
+        quote_text: If True, show each text cell with quotes.
 
     Returns:
         The Markdown text.
@@ -1039,9 +1043,11 @@ def _to_md(
     """
     md_str: str = Daf.to_md(self, max_rows=max_rows, max_cols=max_cols, just=just, shorten_text=shorten_text,
                             max_text_len=max_text_len, smart_fmt=smart_fmt, include_summary=False,
-                            disp_cols=disp_cols, header=header, col_fmt=col_fmt)
+                            disp_cols=disp_cols, header=header, col_fmt=col_fmt,
+                            include_dtypes=include_dtypes, quote_text=quote_text)
     if include_summary:
-        md_str += f"\n%% {self.summary_tag} rows={len(self)}; cols={len(self.hd)}; keyfield='{self.keyfield}'; name='{self.name}'\n"
+        quote_part: str = '; quote_text=1' if quote_text else ''
+        md_str += f"\n%% {self.summary_tag} rows={len(self)}; cols={len(self.hd)}; keyfield='{self.keyfield}'; name='{self.name}'{quote_part}\n"
     return md_str
 
 

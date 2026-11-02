@@ -45,7 +45,7 @@ Each docstring runs alone, so it would need the tables from a doctest_namespace 
 for each docstring. Then a change in one example cannot reach another. The cost is that an example
 can no longer be pasted and run alone.
 
-## The dtype in the header: Ray likes it, not built yet
+## The dtype in the header: built, Q333
 
 Ray, 2026-11-02: show each column's declared dtype after a colon in the header, as a standard mode.
 Daffodil shows the dtypes nowhere else. `from_md()` could read them back, so a Markdown table would
@@ -64,3 +64,14 @@ The design brought to Ray, as Q333:
   of 0 and 1 holds ints. A float column built with 2 holds an int until it is converted.
 
 Ray also likes quoting text cells, and says the two can be used together.
+
+Built on 2026-11-02, Q333, with quoted text, which Ray approved in the same answer:
+
+- `include_dtypes` and `quote_text` on `to_md()`, for a Daf and a SqlDaf. `_dtype_header()` and
+  `_cells_type_note()` in daf_report.py. Several types in the cells are listed, as `(float, str)`.
+- The check reads only the rows shown. A row that `max_rows` hides is not checked.
+- `header=` given in full is kept. The dtypes go only into a header made from the names.
+- `from_md()` uses `split_dtype_header()` and `unquote_md_cell()` in daf_md.py. The header is split
+  when a cell matches `name: type` and no other cell holds ': '. A column with no dtype gets str.
+- A quoted cell is marked by `quote_text=1` in the summary line. Without that line, the quotes stay.
+- The ids part of the `show=` idea is still open.

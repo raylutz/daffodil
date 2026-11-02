@@ -8,3 +8,4 @@ The list was last cleared on 2026-10-26, when 0.9.0 was mailed.
 - A SqlDaf prints sdaf in its summary line, as `%% sdaf rows=3; ...`, Q325. A Daf still prints daf. A test that compares the printout of a SqlDaf with that of a Daf sees the difference.
 - `to_md(col_fmt=...)` formats some columns for display, by a spec such as '.1%', 'smart', 'smart%' or a function, Q331. It can replace formatted copies made with f-strings before a report table.
 - `smart_fmt` drops trailing zeros, Q332: 0.50 becomes 0.5, 0.0100 becomes 0.01, and 2.0 becomes 2. A report or test that compares smart_fmt text sees the difference.
+- `to_md(include_dtypes=True)` shows the dtypes in the header, and notes columns not yet converted. `to_md(quote_text=True)` quotes text cells. `from_md()` reads both back, Q333.

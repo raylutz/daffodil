@@ -10,6 +10,7 @@ all prior releases. Plans for future moved to ROADMAP.md.
 ## [Unreleased]
 
 ### Added
+- `to_md(include_dtypes=True)` shows each column's dtype in its header, as `age: int`. If the cells shown hold another type, it follows in parentheses, as `age: int (str)` before `apply_dtypes()`. `from_md()` reads the dtypes back, and converts nothing. `to_md(quote_text=True)` shows each text cell in quotes, so '34' differs from 34, and the text of a dict from a dict. With the summary line, `from_md()` takes the quotes off. A SqlDaf takes both. Ray approved both on 2026-11-02, Q333.
 - `to_md(col_fmt=...)` formats the cells of some columns for display, by a format spec such as '.1%', by 'smart' or 'smart%', or by a function. The Daf is not changed. A missing value stays blank, text a spec cannot format is shown as it is, and `smart_fmt` leaves those columns alone. A SqlDaf takes it too. Ray approved it on 2026-11-02, Q331.
 
 ### Changed

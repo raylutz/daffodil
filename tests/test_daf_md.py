@@ -773,3 +773,79 @@ def test_col_fmt_on_ragged_rows():
     """ A row longer than the header keeps its extra cells, with no format. """
     daf: Daf = Daf(cols=['a', 'b'], lol=[[0.5, 1], [0.25, 2, 'extra']])
     assert _cells(daf.to_md(col_fmt={'a': '.0%'})) == [['50%', '1', ''], ['25%', '2', 'extra']]
+
+
+# =====================================================================
+# to_md(include_dtypes=...) and to_md(quote_text=...), and from_md() reading them back
+# =====================================================================
+
+def _typed_daf() -> Daf:
+    """ Declared dtypes, with cells that are partly converted. """
+    return Daf(cols=['id', 'age', 'member', 'score', 'prefs', 'note'],
+               dtypes={'id': str, 'age': int, 'member': bool, 'score': float, 'prefs': dict},
+               lol=[['p1', '34', 1, 2, "{'news': 1}", 'x'], ['p2', 52, 0, 7.5, {'news': 0}, ''], ['p3', '', 1, '', None, None]])
+
+
+def _header(md_text: str) -> list:
+    return [cell.strip() for cell in md_text.splitlines()[0].strip('|').split('|')]
+
+
+def test_include_dtypes_notes_cells_that_differ():
+    """ A column whose cells are not its dtype gets their types in parentheses. NULL and None are not counted. """
+    assert _header(_typed_daf().to_md(include_dtypes=True)) == \
+        ['id: str', 'age: int (str)', 'member: bool', 'score: float', 'prefs: dict (str)', 'note']
+
+
+def test_include_dtypes_lists_several_types():
+    daf: Daf = Daf(cols=['v'], dtypes={'v': int}, lol=[['a'], [1.5], [2]])
+    assert _header(daf.to_md(include_dtypes=True)) == ['v: int (float, str)']
+
+
+def test_include_dtypes_with_disp_cols_hidden_columns_and_header():
+    """ The dtype follows the shown name. A hidden column has none. A header given in full is kept. """
+    daf: Daf = _typed_daf()
+    assert _header(daf.to_md(include_dtypes=True, max_cols=2, disp_cols={'id': 'ID'})) == ['ID: str', '...', 'note']
+    assert _header(daf.to_md(include_dtypes=True, header=['a', 'b', 'c', 'd', 'e', 'f'])) == ['a', 'b', 'c', 'd', 'e', 'f']
+
+
+def test_include_dtypes_checks_only_the_rows_shown():
+    """ A row that max_rows hides is not checked. """
+    daf: Daf = Daf(cols=['v'], dtypes={'v': int}, lol=[[1], ['x'], [3]])
+    assert _header(daf.to_md(include_dtypes=True, max_rows=2)) == ['v: int']
+    assert _header(daf.to_md(include_dtypes=True)) == ['v: int (str)']
+
+
+def test_quote_text_quotes_only_text():
+    """ Text is quoted. Numbers, dicts and None are not. The ... of hidden rows is kept. """
+    cells: list = _cells(_typed_daf().to_md(quote_text=True))
+    assert cells[0] == ["'p1'", "'34'", '1', '2', '"{\'news\': 1}"', "'x'"]
+    assert cells[2] == ["'p3'", "''", '1', "''", 'None', 'None']
+    assert _cells(_typed_daf().to_md(quote_text=True, max_rows=2))[1] == ['...'] * 6
+
+
+def test_quote_text_and_col_fmt_together():
+    """ A column that col_fmt names gets its format, with no quotes. """
+    daf: Daf = Daf(cols=['id', 'share'], lol=[['a', 0.25]])
+    assert _cells(daf.to_md(quote_text=True, col_fmt={'share': '.0%'})) == [["'a'", '25%']]
+
+
+def test_from_md_reads_dtypes_and_quotes_back():
+    """ The dtypes come back from the header, and the quotes come off with the summary line. Nothing is converted. """
+    daf: Daf = Daf(cols=['id', 'age', 'note'], dtypes={'id': str, 'age': int},
+                   lol=[['p1', '34', "it's | x"], ['p2', '', "{'a': 1}"]])
+    back: Daf = Daf.from_md(daf.to_md(include_dtypes=True, quote_text=True, include_summary=True))
+    assert back.columns() == ['id', 'age', 'note']
+    assert back.dtypes == {'id': str, 'age': int, 'note': str}
+    assert back.lol == [['p1', '34', "it's | x"], ['p2', '', "{'a': 1}"]]
+
+
+def test_from_md_keeps_quotes_without_the_summary_line():
+    back: Daf = Daf.from_md(Daf(cols=['id'], lol=[['p1']]).to_md(quote_text=True))
+    assert back.lol == [["'p1'"]]
+
+
+def test_from_md_splits_a_dtype_header_only_when_safe():
+    """ A name with ': ' that is not a dtype is kept, and then no cell of the header is split. """
+    assert Daf.from_md('| ratio: x | b |\n| -: | -: |\n| 1 | 2 |\n').columns() == ['ratio: x', 'b']
+    assert Daf.from_md('| a: int | b: c |\n| -: | -: |\n| 1 | 2 |\n').columns() == ['a: int', 'b: c']
+    assert Daf.from_md('| a: int | b |\n| -: | -: |\n| 1 | 2 |\n').dtypes == {'a': int, 'b': str}

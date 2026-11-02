@@ -499,6 +499,12 @@ def _from_md(cls: type[Daf], md_str: str) -> 'Daf': # -> "Daf":
     A `|` in a cell is written as `\|`, and is read back as `|`. A composite keyfield in the
     footer is read back as the tuple or list it was.
 
+    A header that `to_md(include_dtypes=True)` wrote, as `age: int`, gives the column name and its
+    dtype. A note in parentheses after the dtype is not read. The header is split only if every
+    other header cell has no `: ` in it. The cells are not converted. A column with no dtype gets
+    `str`. A summary line with `quote_text=1`, as `to_md(quote_text=True, include_summary=True)`
+    writes, has the quotes taken off each quoted cell.
+
     Args:
         md_str: The Markdown text.
 
@@ -529,6 +535,19 @@ def _from_md(cls: type[Daf], md_str: str) -> 'Daf': # -> "Daf":
 
         >>> Daf.from_md(Daf(lol=[['p1', 'Ana Lopez']]).to_md()).columns()
         ['A', 'B']
+
+        Read the dtypes from the header. The cells stay text until `apply_dtypes()` converts them:
+
+        >>> typed = Daf.from_md("| id: str | age: int |\n| -: | -: |\n| p1 | 34 |\n")
+        >>> typed.dtypes
+        {'id': <class 'str'>, 'age': <class 'int'>}
+        >>> typed.lol
+        [['p1', '34']]
+        >>> print(typed.apply_dtypes().to_md(include_dtypes=True))
+        | id: str | age: int |
+        | ------: | -------: |
+        |      p1 |       34 |
+        <BLANKLINE>
     """
 
     if not md_str:
@@ -633,6 +652,11 @@ def _from_md(cls: type[Daf], md_str: str) -> 'Daf': # -> "Daf":
 
     colnames_ls = normalize_colnames(colnames_ls)
 
+    # ---- Dtypes in the header, and quoted text ----
+    colnames_ls, dtypes_d = split_dtype_header(colnames_ls)
+    if footer_meta.get('quote_text') == '1':
+        lol = [[unquote_md_cell(cell) for cell in row] for row in lol]
+
     # ---- Metadata extraction ----
 
     # keyfield/name are typed str (default ''), not Optional -- footer_meta.get() returns None
@@ -650,6 +674,8 @@ def _from_md(cls: type[Daf], md_str: str) -> 'Daf': # -> "Daf":
         keyfield=keyfield,
         name=name,
     )
+    if dtypes_d and not schema:
+        new_daf.dtypes = {col: dtypes_d.get(col, str) for col in colnames_ls}
 
     # ---- Attach parsing metadata ----
 
@@ -690,6 +716,52 @@ def _from_md(cls: type[Daf], md_str: str) -> 'Daf': # -> "Daf":
             )
 
     return new_daf
+
+
+# ---- Dtypes in a header
+# to_md(include_dtypes=True) writes a header cell as 'age: int', with a note such as ' (str)' when the
+# cells hold another type. The note is not read back.
+_DTYPE_BY_NAME: Dict[str, type] = {'str': str, 'int': int, 'float': float, 'bool': bool,
+                                   'list': list, 'dict': dict, 'tuple': tuple, 'set': set}
+_DTYPE_HEADER_RE: 're.Pattern[str]' = re.compile(r'^(.+?): (str|int|float|bool|list|dict|tuple|set)(?: \([^()]*\))?$')
+
+
+def split_dtype_header(colnames_ls: T_ls) -> Tuple[T_ls, Dict[str, type]]:
+    """
+    The column names and dtypes of a header that `to_md(include_dtypes=True)` wrote.
+
+    A cell of the form `name: type`, with a type daffodil knows, gives a name and a dtype.
+    The header is split only if every other cell has no ': ' in it.
+    So a header whose names hold ': ' for other reasons is kept as it is.
+    """
+    matches_la: list = [_DTYPE_HEADER_RE.match(col) for col in colnames_ls]
+    if not any(matches_la):
+        return colnames_ls, {}
+    if any(match is None and ': ' in col for match, col in zip(matches_la, colnames_ls)):
+        return colnames_ls, {}
+    names_ls: T_ls = []
+    dtypes_d: Dict[str, type] = {}
+    match: Any
+    col: str
+    for match, col in zip(matches_la, colnames_ls):
+        if match is None:
+            names_ls.append(col)
+            continue
+        names_ls.append(match.group(1))
+        dtypes_d[match.group(1)] = _DTYPE_BY_NAME[match.group(2)]
+    return names_ls, dtypes_d
+
+
+def unquote_md_cell(cell: str) -> str:
+    """ A cell that `to_md(quote_text=True)` quoted, as its text. Other cells are kept as they are. """
+    if len(cell) >= 2 and cell[0] == cell[-1] and cell[0] in ('"', "'"):
+        try:
+            text: Any = ast.literal_eval(cell)
+        except (ValueError, SyntaxError):
+            return cell
+        if isinstance(text, str):
+            return text
+    return cell
 
 
 def normalize_colnames(
