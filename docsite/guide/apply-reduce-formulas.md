@@ -9,13 +9,13 @@ it in the outer list, so it costs more in a large table.
 
 Working with columns costs more, as each column is spread across all the rows. Most of the
 time you do not need to: rather than dropping the columns you do not want, name the ones you
-do. Give `cols=` to `reduce()`. In an `apply()` function, read only the fields you need. To
-show some columns, select them before `to_md()`. For heavy math over whole numeric columns,
-hand them to NumPy or pandas, with `to_numpy()` or `to_pandas_df()`.
+do. Give `cols=` to [`reduce()`][daffodil.daf_apply._reduce]. In an [`apply()`][daffodil.daf_apply._apply] function, read only the fields you need. To
+show some columns, select them before [`to_md()`][daffodil.daf_report._to_md]. For heavy math over whole numeric columns,
+hand them to NumPy or pandas, with [`to_numpy()`][daffodil.daf_convert._to_numpy] or [`to_pandas_df()`][daffodil.lib.daf_pandas._to_pandas_df].
 
 ## apply(): a new table, row by row
 
-`apply()` calls a function on each row, and makes a new table of what it returns. The row is a
+[`apply()`][daffodil.daf_apply._apply] calls a function on each row, and makes a new table of what it returns. The row is a
 dict, and the function returns a dict:
 
 ```pycon
@@ -36,11 +36,11 @@ dict, and the function returns a dict:
 (['g', 'a2'], [['x', 2], ['y', 6], ['x', 10]])
 ```
 
-`apply_in_place()` changes the rows of the table instead of making a new one.
+[`apply_in_place()`][daffodil.daf_apply._apply_in_place] changes the rows of the table instead of making a new one.
 
 ## reduce(): one record from many rows
 
-`reduce()` folds the rows into one record with a function. `Daf.sum_da` adds up each column:
+[`reduce()`][daffodil.daf_apply._reduce] folds the rows into one record with a function. `Daf.sum_da` adds up each column:
 
 ```pycon
 >>> daf.reduce(Daf.sum_da, cols=['a', 'b'])
@@ -51,7 +51,7 @@ dict, and the function returns a dict:
 
 NULL cells are skipped, so the missing `b` of the second row adds nothing.
 
-`sum()` and `reduce(Daf.sum_da)` differ when a column holds text. `sum()` converts text
+[`sum()`][daffodil.daf_apply._sum] and `reduce(Daf.sum_da)` differ when a column holds text. `sum()` converts text
 that is a number, such as `'2'`, and raises `ValueError` for other text. `Daf.sum_da` skips
 every value that is not a number, and never raises:
 
@@ -94,8 +94,8 @@ loop over the rows.
 
 ## Groups
 
-`groupby()` makes a Daf for each value of a column. `groupsum_daf()` adds up the other columns
-of each group. `groupby_cols_reduce()` groups by several columns and reduces each group with
+[`groupby()`][daffodil.daf_apply._groupby] makes a Daf for each value of a column. [`groupsum_daf()`][daffodil.daf_apply._groupsum_daf] adds up the other columns
+of each group. [`groupby_cols_reduce()`][daffodil.daf_apply._groupby_cols_reduce] groups by several columns and reduces each group with
 any function.
 
 ```pycon
@@ -111,14 +111,14 @@ any function.
 
 ## Data in many files
 
-A table can describe a set of files, one row for each chunk of the data. `manifest_apply()`
-applies a function to every row of every chunk, and `manifest_reduce()` reduces them all to
+A table can describe a set of files, one row for each chunk of the data. [`manifest_apply()`][daffodil.daf_apply._manifest_apply]
+applies a function to every row of every chunk, and [`manifest_reduce()`][daffodil.daf_apply._manifest_reduce] reduces them all to
 one record. Each chunk is read in turn, so the whole data never has to fit in memory, and the
 chunks can be shared out to run in parallel.
 
 ## Spreadsheet-like formulas
 
-`apply_formulas()` fills cells from a second Daf of the same shape that holds formulas, as a
+[`apply_formulas()`][daffodil.daf_apply._apply_formulas] fills cells from a second Daf of the same shape that holds formulas, as a
 spreadsheet does. A formula is Python, evaluated for its cell. An empty formula leaves its
 cell alone. In a formula:
 
@@ -180,4 +180,4 @@ This sums each row into the last column, and each column into the last row:
 ```
 
 The formulas themselves are a table, so they can be written in a spreadsheet, saved as CSV, and
-read with `Daf.from_csv()`.
+read with [`Daf.from_csv()`][daffodil.daf_convert._from_csv].

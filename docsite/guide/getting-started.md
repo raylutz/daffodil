@@ -62,7 +62,7 @@ key gets NULL there, the empty string:
 <BLANKLINE>
 ```
 
-From a CSV file, `Daf.from_csv('file.csv')` reads the header line as the column names. The
+From a CSV file, [`Daf.from_csv('file.csv')`][daffodil.daf_convert._from_csv] reads the header line as the column names. The
 values are read as text. See [Types and conversion](types.md) to convert them.
 
 ## Look at it
@@ -89,7 +89,7 @@ True
 (False, 0)
 ```
 
-`print(daf)` shows the same table as the prompt. For a report, `daf.to_md()` gives the table
+`print(daf)` shows the same table as the prompt. For a report, [`daf.to_md()`][daffodil.daf_report._to_md] gives the table
 as text, with every row. See [Markdown reports](markdown.md).
 
 ## Read values
@@ -128,8 +128,8 @@ columns. Leave out the second part, or give `:`, for all the columns.
 <BLANKLINE>
 ```
 
-A selection is itself a Daf. Turn it into plain values with `to_value()`, `to_list()` or
-`to_dict()`:
+A selection is itself a Daf. Turn it into plain values with [`to_value()`][daffodil.daf_convert._to_value], [`to_list()`][daffodil.daf_convert._to_list] or
+[`to_dict()`][daffodil.daf_convert._to_dict]:
 
 ```pycon
 >>> daf['b2', 'qty'].to_value()     # one cell
@@ -168,12 +168,12 @@ and a change made through the selection shows in the table:
 >>> first[0, 'qty'] = 3             # back to 3, for the examples below
 ```
 
-A selection of some columns builds new rows, so it shares nothing. Use `copy('editable')` for
+A selection of some columns builds new rows, so it shares nothing. Use [`copy('editable')`][daffodil.daf.Daf.copy] for
 rows of your own. See [Selecting and indexing](selecting.md) for every way to select.
 
 ## Add rows
 
-A dict is placed by column name, in any order. A list goes in column order. `append()` adds
+A dict is placed by column name, in any order. A list goes in column order. [`append()`][daffodil.daf_modify._append] adds
 to the table and returns it, so the prompt shows the table:
 
 ```pycon
@@ -225,7 +225,7 @@ Assign to a selection, with the same brackets: one cell, a column, or a row.
 ```
 
 A list for a column has one value for each row, in row order. A list for a row has one value
-for each column. To change a few cells of one row by name, `update_record_krow('a1', {'qty': 5})`
+for each column. To change a few cells of one row by name, [`update_record_krow('a1', {'qty': 5})`][daffodil.daf_modify._update_record_krow]
 is clearer.
 
 ## The usual pattern
@@ -234,8 +234,8 @@ Read a file, go through it row by row, and build a new table. This is where Daff
 strongest: appending a row is cheap, and nothing is converted.
 
 In the loop, each `row` is a new dict. Assigning a new value to it does not change the
-source table. To change values in place, use `update_record_krow()`, `apply_in_place()`, or
-`iter_klist()`, whose rows write through to the table.
+source table. To change values in place, use [`update_record_krow()`][daffodil.daf_modify._update_record_krow], [`apply_in_place()`][daffodil.daf_apply._apply_in_place], or
+[`iter_klist()`][daffodil.daf.Daf.iter_klist], whose rows write through to the table.
 
 ```pycon
 >>> source = Daf.from_lod([{'name': 'pen', 'price': '1.50'}, {'name': 'ink', 'price': '4.00'}])
@@ -264,7 +264,7 @@ source table. To change values in place, use `update_record_krow()`, `apply_in_p
 <BLANKLINE>
 ```
 
-The same, with `apply()`, which calls a function for each row and builds the new table:
+The same, with [`apply()`][daffodil.daf_apply._apply], which calls a function for each row and builds the new table:
 
 ```pycon
 >>> def to_cents(row):
@@ -290,5 +290,5 @@ The same, with `apply()`, which calls a function for each row and builds the new
 [['pen', 150], ['ink', 400]]
 ```
 
-- `to_csv_file(path)` writes a CSV file.
-- `to_pandas_df()` and `to_numpy()` hand the data to pandas or NumPy, for heavy numeric work.
+- [`to_csv_file(path)`][daffodil.daf_convert._to_csv_file] writes a CSV file.
+- [`to_pandas_df()`][daffodil.lib.daf_pandas._to_pandas_df] and [`to_numpy()`][daffodil.daf_convert._to_numpy] hand the data to pandas or NumPy, for heavy numeric work.

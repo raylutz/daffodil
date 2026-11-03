@@ -31,7 +31,7 @@ Markdown report or a page like this one.
   another type says so, as `age: int (str)`.
 - `quote_text`: each text cell in quotes, so the text `'34'` differs from the number 34.
 - `disp_cols`, `header`: other names in the header, for some columns or for all.
-- `include_summary`: add the line that describes the table, for `from_md()`.
+- `include_summary`: add the line that describes the table, for [`from_md()`][daffodil.lib.daf_md._from_md].
 
 ```pycon
 >>> print(Daf(cols=['n', 't'], lol=[[1.23456, 'a' * 100]]).to_md(smart_fmt=True, max_text_len=20))
@@ -65,7 +65,7 @@ Format some columns, and see the types. Here the age is still text, as read from
 
 Markdown is a report format first. A table can be read back, but only some tables come back
 whole. With `include_summary=True`, the table ends with a line that gives its keyfield and
-name. `Daf.from_md()` reads the table back, with them.
+name. [`Daf.from_md()`][daffodil.lib.daf_md._from_md] reads the table back, with them.
 
 For the most faithful copy, pass `shorten_text=False`, leave `smart_fmt`, `max_rows` and
 `max_cols` at their defaults, and include the summary. Even then:
@@ -77,8 +77,8 @@ For the most faithful copy, pass `shorten_text=False`, leave `smart_fmt`, `max_r
 
 A `|` in a cell, and a composite keyfield, come back as they were.
 
-For data that must come back exactly, use `to_json()` and `from_json()`, which keep numbers,
-text and the keyfield. A CSV file keeps the text exactly, and `apply_dtypes()` restores the types.
+For data that must come back exactly, use [`to_json()`][daffodil.daf_convert._to_json] and [`from_json()`][daffodil.daf_convert._from_json], which keep numbers,
+text and the keyfield. A CSV file keeps the text exactly, and [`apply_dtypes()`][daffodil.daf_dtypes._apply_dtypes] restores the types.
 
 ```pycon
 >>> text = daf.to_md(include_summary=True, shorten_text=False)
@@ -106,5 +106,5 @@ text and the keyfield. A CSV file keeps the text exactly, and `apply_dtypes()` r
 ['r2', 'xx', '2']
 ```
 
-`Daf.dodaf_to_md()` writes several named tables to one Markdown text, and
-`Daf.dodaf_from_md()` reads them back as a dict of Dafs.
+[`Daf.dodaf_to_md()`][daffodil.lib.daf_md.dodaf_to_md] writes several named tables to one Markdown text, and
+[`Daf.dodaf_from_md()`][daffodil.lib.daf_md._dodaf_from_md] reads them back as a dict of Dafs.

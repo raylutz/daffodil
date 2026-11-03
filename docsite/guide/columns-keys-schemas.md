@@ -23,10 +23,10 @@ position. The rows hold only their cells.
 
 Names must be unique and hashable. A name must not contain a double underscore, `__`, which is
 reserved for the encoding that stores any name in SQLite. Strings are the most convenient, because `[]` reads an
-integer as a position. A column named `5` is reached by name with `select_kcols()`, not with
+integer as a position. A column named `5` is reached by name with [`select_kcols()`][daffodil.daf_select._select_kcols], not with
 `daf[:, 5]`.
 
-A Daf with no names can be given spreadsheet names, or names of your own, with `set_cols()`:
+A Daf with no names can be given spreadsheet names, or names of your own, with [`set_cols()`][daffodil.daf_structure._set_cols]:
 
 ```pycon
 >>> raw = Daf(lol=[[1, 2], [3, 4]])
@@ -63,9 +63,9 @@ A Daf with no names can be given spreadsheet names, or names of your own, with `
 
 ## Column names from a CSV file
 
-`Daf.from_csv()` takes the column names from the first line. A blank name becomes `Unnamed`
+[`Daf.from_csv()`][daffodil.daf_convert._from_csv] takes the column names from the first line. A blank name becomes `Unnamed`
 followed by its position. A repeated name gets an underscore and its position.
-`from_csv_buff()` does the same for text or bytes in memory:
+[`from_csv_buff()`][daffodil.daf_convert._from_csv_buff] does the same for text or bytes in memory:
 
 ```pycon
 >>> Daf.from_csv_buff('id,,qty,qty\n1,2,3,4\n').columns()
@@ -144,12 +144,12 @@ key together, as a tuple:
 
 ### A key column with repeated values
 
-`append()` does not check the key, which keeps it fast. So data with repeated keys can be
+[`append()`][daffodil.daf_modify._append] does not check the key, which keeps it fast. So data with repeated keys can be
 read in. Then the key index holds each key once, and points to the last row with it:
 
-- A lookup of the key, as `select_record()` or `daf[key]`, finds the last row.
-- `keys()` gives each key once, in the order of its first row.
-- `join()` matches each row with the last row of that key in the other table.
+- A lookup of the key, as [`select_record()`][daffodil.daf_select._select_record] or `daf[key]`, finds the last row.
+- [`keys()`][daffodil.daf.Daf.keys] gives each key once, in the order of its first row.
+- [`join()`][daffodil.daf_join._join] matches each row with the last row of that key in the other table.
 
 ```pycon
 >>> dup = Daf(cols=['id', 'qty'], lol=[['a1', 3], ['b2', 10], ['a1', 5]], keyfield='id')
@@ -172,7 +172,7 @@ To find repeated keys before you rely on the key:
 1. Read the data with no keyfield.
 2. Count the distinct values against the rows, as below.
 3. Fix or remove the rows with repeated keys.
-4. Then set the keyfield with `set_keyfield()`.
+4. Then set the keyfield with [`set_keyfield()`][daffodil.daf.Daf.set_keyfield].
 
 ```pycon
 >>> daf = Daf(cols=['id', 'qty'], lol=[['a1', 3], ['b2', 10], ['a1', 5]])
@@ -193,7 +193,7 @@ To find repeated keys before you rely on the key:
 {'a1': 2, 'b2': 1}
 ```
 
-If no column can be the key, add one that numbers the rows with `insert_idx_col()`.
+If no column can be the key, add one that numbers the rows with [`insert_idx_col()`][daffodil.daf_modify._insert_idx_col].
 
 ## Schemas
 
@@ -223,7 +223,7 @@ as a class with type annotations, decorated with `@schemaclass`:
 A schema fills only what the Daf does not already have: the columns, the dtypes and the
 keyfield. It does not check or convert the cells.
 
-`default_record()` makes a new record with the defaults, for the Daf's own columns:
+[`default_record()`][daffodil.lib.daf_schema._default_record] makes a new record with the defaults, for the Daf's own columns:
 
 ```pycon
 >>> order_daf.default_record()

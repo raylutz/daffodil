@@ -6,9 +6,9 @@ SqlDaf against Daf, see [Tables larger than memory](sqldaf.md#performance).
 
 ## Building a table row by row
 
-pandas has no cheap way to add a row. pandas removed `DataFrame.append()` in version 2.0.
+pandas has no cheap way to add a row. pandas removed [`DataFrame.append()`][daffodil.daf_modify._append] in version 2.0.
 What is left copies or reallocates the frame on each row. Adding 5,000 rows one at a time
-took 2.4 s with `pd.concat()`. So the usual pattern is to collect the rows in a list of
+took 2.4 s with [`pd.concat()`][daffodil.daf_modify._concat]. So the usual pattern is to collect the rows in a list of
 dicts, then convert it all at once with `pd.DataFrame()`. Daffodil needs no conversion step.
 Collect the rows in a list and wrap it, or append each row to the Daf.
 
@@ -48,7 +48,7 @@ What the numbers show:
   The difference is the cost of each call to `append()`, about 1 µs.
 - **NumPy values make pandas slower.** Values often come out of NumPy or pandas as NumPy
   scalars rather than Python ints. For 1,000 dicts of 1,000 such values, `pd.DataFrame()`
-  took 1.75 s, against 0.27 s for the same values as Python ints. `Daf.from_lod()` took
+  took 1.75 s, against 0.27 s for the same values as Python ints. [`Daf.from_lod()`][daffodil.daf_convert._from_lod] took
   0.11 s either way. pandas 1.5.3, 2.1.4 and 2.3.3 all gave the same times.
 
 The conversion is paid again every time data goes into pandas and back out. Turning the

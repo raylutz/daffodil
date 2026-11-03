@@ -7,7 +7,7 @@ polars use the same pattern for their add-ons.
 ## Writing an add-on
 
 An add-on is a class. Its constructor takes the table as its only argument. The decorator
-`register_daf_namespace()` adds it to every Daf, under the name given.
+[`register_daf_namespace()`][daffodil.daf.register_daf_namespace] adds it to every Daf, under the name given.
 
 ```pycon
 >>> from daffodil.daf import Daf, register_daf_namespace
@@ -72,7 +72,7 @@ Traceback (most recent call last):
 NotImplementedError: The add-on 'stats' is registered for Daf, not for SqlDaf. Its package can register a version for SqlDaf too.
 ```
 
-An add-on can register a SqlDaf version with `register_sqldaf_namespace()`. It may use the same
+An add-on can register a SqlDaf version with [`register_sqldaf_namespace()`][daffodil.sqldaf.register_sqldaf_namespace]. It may use the same
 name. This version sums in SQLite:
 
 ```pycon

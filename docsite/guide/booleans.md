@@ -55,7 +55,7 @@ So there is no gain in storing True and False, as long as the code treats the co
 
 ## Converting
 
-`apply_dtypes()` with dtype `bool` reads the usual spellings from other systems and gives 0 or 1:
+[`apply_dtypes()`][daffodil.daf_dtypes._apply_dtypes] with dtype `bool` reads the usual spellings from other systems and gives 0 or 1:
 
 | Gives | Text read |
 | :---- | :-------- |
@@ -105,7 +105,7 @@ So there is no gain in storing True and False, as long as the code treats the co
 <BLANKLINE>
 ```
 
-Text that stays as it is can be found with `check_schema()`. See below.
+Text that stays as it is can be found with [`check_schema()`][daffodil.lib.daf_schema._check_schema]. See below.
 
 To turn a word into the text `'0'` or `'1'`, convert to `bool` first, then to `str`:
 
@@ -197,14 +197,14 @@ as it is:
 <BLANKLINE>
 ```
 
-Daffodil does not normalize again later, as on each write or each `apply_dtypes()`. That would cost
+Daffodil does not normalize again later, as on each write or each [`apply_dtypes()`][daffodil.daf_dtypes._apply_dtypes]. That would cost
 a pass over every dict and list cell, every time. Done once, up front, it costs nothing more.
 
 ## What daffodil does not do
 
 Daffodil does not check what you store. A dtype only describes a column, and converts nothing.
-A True put in a cell stays True until the column is converted, and `to_csv_file()` writes it as
-the word. `apply_dtypes()` with dtype `bool` makes it 1:
+A True put in a cell stays True until the column is converted, and [`to_csv_file()`][daffodil.daf_convert._to_csv_file] writes it as
+the word. [`apply_dtypes()`][daffodil.daf_dtypes._apply_dtypes] with dtype `bool` makes it 1:
 
 ```pycon
 >>> raw = Daf(cols=['id', 'ok'], lol=[['a1', True]])
@@ -236,5 +236,5 @@ An `int` annotation also allows 2 or -1, which are not flags. mypy cannot tell a
 count. Daffodil accepts this small risk, in return for data that every system reads the
 same way.
 
-To check a table, give the flag columns dtype `bool` and call `check_schema()`. It raises for a
+To check a table, give the flag columns dtype `bool` and call [`check_schema()`][daffodil.lib.daf_schema._check_schema]. It raises for a
 cell such as 2 or `'x'`. It lets True and False pass, since Python counts them as ints.

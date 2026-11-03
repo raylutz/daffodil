@@ -1,6 +1,6 @@
 # Joins
 
-`join()` combines two tables by their keys. Each table needs a keyfield of one column. A
+[`join()`][daffodil.daf_join._join] combines two tables by their keys. Each table needs a keyfield of one column. A
 composite keyfield is not supported. A row of one table matches the row of the other with the
 same key.
 

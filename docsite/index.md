@@ -26,7 +26,7 @@ Make a table, with `id` as the keyfield, the column whose values name the rows:
 >>> daf = Daf(cols=['id', 'item', 'qty'], keyfield='id')
 ```
 
-Add rows. A dict is placed by column name, and a list goes in column order. `append()` adds
+Add rows. A dict is placed by column name, and a list goes in column order. [`append()`][daffodil.daf_modify._append] adds
 the row to the table and returns the table, so the prompt shows it each time:
 
 ```pycon
@@ -139,14 +139,14 @@ is coerced to NaN or to a common dtype behind your back.
 ## When to use pandas instead
 
 If the work is mostly math over whole numeric columns, pandas, NumPy or Polars are faster.
-Daffodil converts to them when needed, with `to_pandas_df()` and `to_numpy()`. Build and
+Daffodil converts to them when needed, with [`to_pandas_df()`][daffodil.lib.daf_pandas._to_pandas_df] and [`to_numpy()`][daffodil.daf_convert._to_numpy]. Build and
 clean the data as rows in Daffodil, then hand the numeric columns over for the number crunching.
 
 ## Tables larger than memory
 
 SqlDaf stores a table in a SQLite database file, so its rows stay out of Python memory. It
 supports tables larger than the memory available, and many operations run directly in SQLite.
-A small selection comes into memory as a Daf with `to_daf()`.
+A small selection comes into memory as a Daf with [`to_daf()`][daffodil.daf_convert._to_daf].
 
 A Daf in memory is faster. Whole-table operations ran 2 to 6 times faster in our timings, and
 a lookup by key about 11 times faster. So use a Daf for a table that fits in memory.

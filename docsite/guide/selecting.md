@@ -135,12 +135,12 @@ between them in the table. The range from a to b is empty, as a comes after b in
 ```
 
 Outside a tuple, an integer in `[]` is always a position. To reach a key or a column name
-that is an integer, use `select_krows()` and `select_kcols()`.
+that is an integer, use [`select_krows()`][daffodil.daf_select._select_krows] and [`select_kcols()`][daffodil.daf_select._select_kcols].
 
 ## Getting values out
 
-A selection is a Daf. Turn it into values with `to_value()` for one cell, `to_list()` for one
-row or column, and `to_dict()` for one row. Or read the values directly, with the methods
+A selection is a Daf. Turn it into values with [`to_value()`][daffodil.daf_convert._to_value] for one cell, [`to_list()`][daffodil.daf_convert._to_list] for one
+row or column, and [`to_dict()`][daffodil.daf_convert._to_dict] for one row. Or read the values directly, with the methods
 below, which build no table and are faster.
 
 ```pycon
@@ -166,7 +166,7 @@ list instead of a Daf:
 
 ## Selecting by condition
 
-`select_where()` keeps the rows for which a function is true. The function gets each row as a
+[`select_where()`][daffodil.daf_select._select_where] keeps the rows for which a function is true. The function gets each row as a
 KeyedList, which reads like a dict:
 
 ```pycon
@@ -174,7 +174,7 @@ KeyedList, which reads like a dict:
 ['r3', 'r4']
 ```
 
-For a test of equality, `select_by_dict()` is much faster, as it compares the cells without
+For a test of equality, [`select_by_dict()`][daffodil.daf_select._select_by_dict] is much faster, as it compares the cells without
 calling a function for each row. A list of dicts means any of them:
 
 ```pycon
@@ -184,8 +184,8 @@ calling a function for each row. A list of dicts means any of them:
 ['r2', 'r4']
 ```
 
-`inverse=True` keeps the rows that do not match, in `select_by_dict()`, `select_irows()` and
-`select_krows()`:
+`inverse=True` keeps the rows that do not match, in `select_by_dict()`, [`select_irows()`][daffodil.daf_select._select_irows] and
+[`select_krows()`][daffodil.daf_select._select_krows]:
 
 ```pycon
 >>> daf.select_krows(['r1', 'r4'], inverse=True).col('id')
@@ -245,8 +245,8 @@ changes the original:
 | `groupby`, `multi_groupby` and `groupby_cols` with only some columns kept | new |
 
 To change a selection without changing the original, copy it first with
-`copy('editable')`, which gives each row its own list. Adding a column to a selection, as with
-`insert_col()`, copies the shared rows first, so the original keeps its shape.
+[`copy('editable')`][daffodil.daf.Daf.copy], which gives each row its own list. Adding a column to a selection, as with
+[`insert_col()`][daffodil.daf_modify._insert_col], copies the shared rows first, so the original keeps its shape.
 
 New row lists still hold the same cell values. A list or dict in a cell is one object, seen
 from the original, from any selection, and from `copy('editable')`. Changing it in place
@@ -284,14 +284,14 @@ shows everywhere. Only `copy('deep')` copies it:
 <BLANKLINE>
 ```
 
-The same holds for `to_lod()`, `to_dict()`, the rows of a loop, and a KeyedList: each is new,
+The same holds for [`to_lod()`][daffodil.daf_convert._to_lod], [`to_dict()`][daffodil.daf_convert._to_dict], the rows of a loop, and a KeyedList: each is new,
 but its values are the cells of the table.
 
 ## Changing a key
 
 The key index maps each key to its row. It is built at the first lookup, and a write with
 `[]` does not update it. So after you change a key cell, or replace a row, the old key still
-finds the row, and the new key finds nothing. Call `set_keyfield()` with the same keyfield to
+finds the row, and the new key finds nothing. Call [`set_keyfield()`][daffodil.daf.Daf.set_keyfield] with the same keyfield to
 have the index rebuilt:
 
 ```pycon

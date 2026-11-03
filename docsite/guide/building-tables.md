@@ -6,7 +6,7 @@ often collects the rows in a list of dicts first and converts them at the end.
 
 ## append()
 
-`append()` adds rows to the end of the table. It takes a dict, a list of values, a list of dicts,
+[`append()`][daffodil.daf_modify._append] adds rows to the end of the table. It takes a dict, a list of values, a list of dicts,
 a list of lists with `lol=`, a KeyedList, or another Daf. It changes the table and returns it,
 so at the prompt it shows the whole table. Here each call is followed by a read of the row it
 added, to keep the output short. In a program, `daf.append(row)` on its own line adds the row,
@@ -184,12 +184,12 @@ With `respect_kd=True`, the row that has the same key is replaced instead:
 
 ## Rows to fill in: default_record()
 
-`default_record()` gives a new record with the Daf's columns, in order, each set to the
+[`default_record()`][daffodil.lib.daf_schema._default_record] gives a new record with the Daf's columns, in order, each set to the
 schema's default, or to NULL if there is no schema. Fill it in, then append it.
 
 With `astype=KeyedList`, the record is a KeyedList that shares the Daf's column names,
 `row.hd is daf.hd`. Assigning to a key writes to that column's position, so the order in which
-you fill it does not matter. And `append()` knows that its keys are the columns, so it skips
+you fill it does not matter. And [`append()`][daffodil.daf_modify._append] knows that its keys are the columns, so it skips
 the check of its columns.
 
 ```pycon
@@ -256,7 +256,7 @@ ValueError: append(fast=True): row 2 has 1 values for 2 columns. With fast=True 
 Two things `fast=True` cannot catch:
 
 - A later dict or list in the wrong order, with the right number of values. Its values land
-  in the wrong columns. A KeyedList from `default_record()` cannot have this problem.
+  in the wrong columns. A KeyedList from [`default_record()`][daffodil.lib.daf_schema._default_record] cannot have this problem.
 - A list changed after it was appended. The table holds the list itself. Giving a variable a
   new list each time is fine. Filling one list in place and appending it again is not: every
   row is then that same list.
@@ -266,7 +266,7 @@ as a KeyedList from `default_record()`, and 1.7 µs as that KeyedList with `fast
 
 ## from_lod()
 
-`Daf.from_lod()` makes a Daf from a list of dicts. Without `cols`, the columns are all the
+[`Daf.from_lod()`][daffodil.daf_convert._from_lod] makes a Daf from a list of dicts. Without `cols`, the columns are all the
 keys of all the dicts, in the order they first appear, and a dict that lacks a key gets NULL
 there.
 
@@ -281,6 +281,6 @@ it is several times faster.
 
 ## Other ways to grow a table
 
-- `daf.append(other_daf)` adds the rows of a Daf with the same columns. So does `concat()`.
-- `insert_irow()` inserts a row at a position.
-- `extend()` adds several rows, as `append()` does with a list of dicts or `lol=`.
+- [`daf.append(other_daf)`][daffodil.daf_modify._append] adds the rows of a Daf with the same columns. So does [`concat()`][daffodil.daf_modify._concat].
+- [`insert_irow()`][daffodil.daf_modify._insert_irow] inserts a row at a position.
+- [`extend()`][daffodil.daf_modify._extend] adds several rows, as `append()` does with a list of dicts or `lol=`.

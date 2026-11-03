@@ -7,7 +7,7 @@ cheap, and math over a whole numeric column is better done in pandas or NumPy. S
 Some differences to know first:
 
 - `daf[x]` selects rows, where `df[x]` selects a column. A column is `daf[:, 'name']`, or as a
-  list, `daf.col('name')`.
+  list, [`daf.col('name')`][daffodil.daf_select._col].
 - An integer in `[]` is a position, as with `iloc`. Only the ends of a tuple range are keys. A key is a value of the keyfield
   column, which stays in the table, unlike the pandas index.
 - A selection of rows shares the rows with the original. Changing a cell in it changes the

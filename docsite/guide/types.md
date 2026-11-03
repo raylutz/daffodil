@@ -18,12 +18,12 @@ Three steps are separate:
 | `check_schema()` | finds the cells that do not fit their dtypes, and raises |
 
 Conversion is permissive. Text that is not a number stays text, with no error. So after
-`apply_dtypes()`, an `int` column can still hold some text. Call `check_schema()` when you
+[`apply_dtypes()`][daffodil.daf_dtypes._apply_dtypes], an `int` column can still hold some text. Call [`check_schema()`][daffodil.lib.daf_schema._check_schema] when you
 need to know that every cell fits.
 
 ## Converting text from a CSV file
 
-A CSV file gives text. `apply_dtypes()` converts the columns in place, and returns the Daf:
+A CSV file gives text. [`apply_dtypes()`][daffodil.daf_dtypes._apply_dtypes] converts the columns in place, and returns the Daf:
 
 ```pycon
 >>> from daffodil.daf import Daf
@@ -92,8 +92,8 @@ A CSV file gives text. `apply_dtypes()` converts the columns in place, and retur
 <BLANKLINE>
 ```
 
-Load the file as text, then call `apply_dtypes()` for the columns you need. `from_csv()` and
-`from_csv_buff()` still take `dtypes=`, and convert as they load, but that is deprecated.
+Load the file as text, then call `apply_dtypes()` for the columns you need. [`from_csv()`][daffodil.daf_convert._from_csv] and
+[`from_csv_buff()`][daffodil.daf_convert._from_csv_buff] still take `dtypes=`, and convert as they load, but that is deprecated.
 
 ## bool columns
 
@@ -172,9 +172,9 @@ and 1:
 <BLANKLINE>
 ```
 
-Daffodil does not change a True or False stored in a cell unless it is converted. `to_csv_file()`
+Daffodil does not change a True or False stored in a cell unless it is converted. [`to_csv_file()`][daffodil.daf_convert._to_csv_file]
 writes such a cell as `True` or `False`. When the file is read again, those cells are the text
-`True` and `False`, and `apply_dtypes()` with dtype `bool` reads them correctly, as 1 and 0.
+`True` and `False`, and [`apply_dtypes()`][daffodil.daf_dtypes._apply_dtypes] with dtype `bool` reads them correctly, as 1 and 0.
 But writing the words for every boolean wastes space. In a CSV file, which quotes a value only
 when it must, 1 and 0 take one character each, where `True` and `False` take four and five.
 That, together with PYON in this form also being JSON5, is why daffodil stores a boolean as 1 or 0.
@@ -185,12 +185,12 @@ See [Booleans](booleans.md) and [PYON](#pyon).
 A missing value is NULL, the empty string `''`. It prints as nothing, so a table with missing
 values stays easy to read.
 
-Daffodil fills a missing cell with NULL, as when a dict given to `append()` leaves out a
+Daffodil fills a missing cell with NULL, as when a dict given to [`append()`][daffodil.daf_modify._append] leaves out a
 column. But it does not turn other values into NULL. A None that you store
-stays None, and `from_pandas_df()` keeps NaN as NaN. Neither is NULL, so `is NULL` is False
+stays None, and [`from_pandas_df()`][daffodil.lib.daf_pandas._from_pandas_df] keeps NaN as NaN. Neither is NULL, so `is NULL` is False
 for both. Replace them yourself if you want NULL.
 
-A None prints as `None`, unlike NULL. `to_csv_file()` writes it as an empty field, so the file
+A None prints as `None`, unlike NULL. [`to_csv_file()`][daffodil.daf_convert._to_csv_file] writes it as an empty field, so the file
 holds NULL. In memory it stays None until its column is converted:
 
 ```pycon
@@ -214,7 +214,7 @@ a1,,,,{'x': None}
 b2,3,x,1,{'x': 1}
 ```
 
-`apply_dtypes()` makes None NULL in an `int` or `float` column, and 0 in a `bool` column. A `str`
+[`apply_dtypes()`][daffodil.daf_dtypes._apply_dtypes] makes None NULL in an `int` or `float` column, and 0 in a `bool` column. A `str`
 column is skipped by default, so None stays there. Pass `from_str=False` to make it NULL too. A
 None inside a dict or list cell stays None. `normalize_val()` in `daffodil.lib.daf_utils` makes it NULL.
 
@@ -236,10 +236,10 @@ None inside a dict or list cell stays None. `normalize_val()` in `daffodil.lib.d
 
 - The sum methods skip it.
 - The value counts include it, as a count for `''`, unless you pass `omit_nulls=True`.
-- `to_pandas_df()` keeps it as `''`, so a number column with NULL becomes an object column.
+- [`to_pandas_df()`][daffodil.lib.daf_pandas._to_pandas_df] keeps it as `''`, so a number column with NULL becomes an object column.
   Pass `default=None` to get NaN in its place. That writes None into the Daf itself. See
   [to_pandas_df()][daffodil.lib.daf_pandas._to_pandas_df] for a route that leaves the Daf alone.
-- `to_numpy()` makes one array of one dtype, so a column with NULL becomes text.
+- [`to_numpy()`][daffodil.daf_convert._to_numpy] makes one array of one dtype, so a column with NULL becomes text.
 
 ```pycon
 >>> gaps = Daf(cols=['g', 'n'], lol=[['x', 1], ['', 2], ['x', '']])
@@ -278,9 +278,9 @@ keeps one shared empty string.
 
 ## Writing a CSV file
 
-`to_csv_file(path)` writes a CSV file, and `to_csv_buff()` returns the text. A list, dict,
+[`to_csv_file(path)`][daffodil.daf_convert._to_csv_file] writes a CSV file, and [`to_csv_buff()`][daffodil.daf_convert._to_csv_buff] returns the text. A list, dict,
 set or tuple in a cell is written as [PYON](#pyon), the Python form of the value, and is read back by
-`apply_dtypes()`:
+[`apply_dtypes()`][daffodil.daf_dtypes._apply_dtypes]:
 
 ```pycon
 >>> f_daf = Daf(cols=['id', 'tags'], lol=[['a', [1, 2]], ['b', {'k': (1, 2)}]])
@@ -317,7 +317,7 @@ PYON looks like JSON. These are the differences:
 
 ### Writing and reading PYON
 
-`to_csv_file()` and `to_csv_buff()` write each list or dict cell as its PYON. `apply_dtypes()`
+[`to_csv_file()`][daffodil.daf_convert._to_csv_file] and [`to_csv_buff()`][daffodil.daf_convert._to_csv_buff] write each list or dict cell as its PYON. [`apply_dtypes()`][daffodil.daf_dtypes._apply_dtypes]
 with the dtype `list` or `dict` reads it back. Here one row has a tuple, an int key and None, which
 JSON cannot hold:
 

@@ -61,7 +61,7 @@ in use in the file yet, or the constructor raises ValueError.
 ```
 
 A table in the file opens again by its name alone. Its keyfield and dtypes come back with it,
-from a record that SqlDaf keeps in the same file. `from_daf()` makes a table from a Daf.
+from a record that SqlDaf keeps in the same file. [`from_daf()`][daffodil.sqldaf.SqlDaf.from_daf] makes a table from a Daf.
 
 ```pycon
 >>> SqlDaf('items').keyfield
@@ -85,23 +85,23 @@ Other changes to a selection, such as adding rows, are in the table under
 - Indexing by rows alone, as in `sdaf['a1']` or `sdaf[0:2]`, and the select methods give a
   selection.
 - Indexing with a column part, as in `sdaf[:, ['id', 'qty']]` or `sdaf['a1', 'qty']`, gives an
-  independent SqlDaf of new rows, as does `select_cols()`.
-- `copy()`, a sort and a join give an independent SqlDaf.
-- `to_daf()`, `sql()`, `groupsum_daf()` and `value_counts_daf()` give a Daf.
-  `sum()` and the `valuecounts_for_*` methods give a dict.
+  independent SqlDaf of new rows, as does [`select_cols()`][daffodil.sqldaf_select._select_cols].
+- [`copy()`][daffodil.sqldaf.SqlDaf.copy], a sort and a join give an independent SqlDaf.
+- [`to_daf()`][daffodil.sqldaf_read._to_daf], [`sql()`][daffodil.sqldaf.SqlDaf.sql], [`groupsum_daf()`][daffodil.sqldaf_apply._groupsum_daf] and [`value_counts_daf()`][daffodil.sqldaf_apply._value_counts_daf] give a Daf.
+  [`sum()`][daffodil.sqldaf_apply._sum] and the `valuecounts_for_*` methods give a dict.
 
 Whether a table lasts is a separate matter. A table made by the constructor, a loader or
-`save()` is permanent: it stays in the file. A table made by `copy()`, a sort or a join is a
+[`save()`][daffodil.sqldaf.SqlDaf.save] is permanent: it stays in the file. A table made by `copy()`, a sort or a join is a
 TEMP table: it is removed when the file is closed. See [Keeping tables](#keeping-tables).
 
 ## Loading a CSV file
 
-`from_csv()` reads a file one row at a time, so the file is never all in memory. The table is
+[`from_csv()`][daffodil.sqldaf.SqlDaf.from_csv] reads a file one row at a time, so the file is never all in memory. The table is
 named after the file. CSV values are loaded as text, as `Daf.from_csv()` reads them without
 dtypes.
 
 Convert the number columns before filtering, sorting or adding them up. Until then, '12' is
-text, not the number 12, and a condition such as `age < 30` finds nothing. `apply_dtypes()`
+text, not the number 12, and a condition such as `age < 30` finds nothing. [`apply_dtypes()`][daffodil.sqldaf.SqlDaf.apply_dtypes]
 converts a column in the table itself. As with a Daf, name the columns to convert with
 `cols=`, or give a dtype for every column.
 
@@ -154,7 +154,7 @@ still hold some text.
 
 ### Many files into one table
 
-`from_csv()` also takes a glob pattern, such as `chunks/people_*.csv`, or a list of files, and
+[`from_csv()`][daffodil.sqldaf.SqlDaf.from_csv] also takes a glob pattern, such as `chunks/people_*.csv`, or a list of files, and
 loads them all into one table. By default every file must have the first file's header, or
 ValueError names both files. With `strict_header=False`, each value goes into the column of
 its name in the file's header. So files whose columns come in another order, or that lack a
@@ -186,11 +186,11 @@ another kind, becomes a new column, with no error. The strict default stops both
 
 Indexing and the select methods give a selection. It refers to rows of its parent table.
 
-A selection fixes its rows the first time it is read whole: by `to_daf()`, `len()`, `bool()`,
-`to_list()` or the like. A change to the parent before then can change which rows it gets.
+A selection fixes its rows the first time it is read whole: by [`to_daf()`][daffodil.sqldaf_read._to_daf], [`len()`][daffodil.sqldaf.SqlDaf.len], `bool()`,
+[`to_list()`][daffodil.sqldaf_read._to_list] or the like. A change to the parent before then can change which rows it gets.
 After that, its rows are fixed. A change to the values in those rows still shows in it.
 
-Reading one row does not fix the rows. `select_record()` and `iloc()` query the selection as it
+Reading one row does not fix the rows. [`select_record()`][daffodil.sqldaf_read._select_record] and [`iloc()`][daffodil.sqldaf_read._iloc] query the selection as it
 stands, each time. A negative position in `iloc()` is the exception, since it counts with
 `len()` first.
 
@@ -228,12 +228,12 @@ that selects from its own last result, with no read in between, nests one query 
 SQLite stops at about 400 levels with OperationalError "Recursion limit". It raises at once.
 Read the selection every so often, as with `len()`, and the next one starts a fresh query.
 
-`select_where_sql()` is the fastest way to select, since SQLite does all the work.
-`select_where()` takes a Python function of a row, as on a Daf, and calls it for every row.
+[`select_where_sql()`][daffodil.sqldaf_select._select_where_sql] is the fastest way to select, since SQLite does all the work.
+[`select_where()`][daffodil.sqldaf_select._select_where] takes a Python function of a row, as on a Daf, and calls it for every row.
 
 ### One row
 
-To read one row, use `select_record()` by key, or `iloc()` by position. Each is one query,
+To read one row, use [`select_record()`][daffodil.sqldaf_read._select_record] by key, or [`iloc()`][daffodil.sqldaf_read._iloc] by position. Each is one query,
 returns a dict and makes no selection. On a selection, they see only the selection's rows.
 
 ```pycon
@@ -292,7 +292,7 @@ So copy a selection first when you want to change it without touching its parent
 
 Assigning with brackets needs a str key, as in `sdaf['a2', 'qty'] = 13`. An int in brackets
 raises NotImplementedError, since it would be a position in a Daf. To change some cells of the
-row with a key, of any type, use `update_record_krow()`.
+row with a key, of any type, use [`update_record_krow()`][daffodil.sqldaf_modify._update_record_krow].
 
 ```pycon
 >>> items_sdaf.update_record_krow('a3', {'grp': 'z'})
@@ -310,7 +310,7 @@ row with a key, of any type, use `update_record_krow()`.
 
 ### Many small writes
 
-Each write is one statement. For many small writes, put them in one `transaction()`. Then the
+Each write is one statement. For many small writes, put them in one [`transaction()`][daffodil.sqldaf.SqlDaf.transaction]. Then the
 file is locked once for the block, and the writes are committed together, or undone together
 if the block raises.
 
@@ -333,7 +333,7 @@ if the block raises.
 
 ### Removing rows
 
-To leave rows out without changing the table, use `delete_records(keys)`. By default it
+To leave rows out without changing the table, use [`delete_records(keys)`][daffodil.sqldaf_modify._delete_records]. By default it
 returns a selection of the other rows, and the table is unchanged.
 
 ```pycon
@@ -364,7 +364,7 @@ returns a selection of the other rows, and the table is unchanged.
 `delete_records(keys, inplace=True)` on a parent deletes the rows from the table. Avoid it
 while selections refer to that table. A selection made before the delete can then show a row
 added later, which it never selected. A table that has had rows deleted also cannot be read by
-position, so `iloc()` and `sdaf[n]` raise ValueError on it.
+position, so [`iloc()`][daffodil.sqldaf_read._iloc] and `sdaf[n]` raise ValueError on it.
 
 ## Dict cells and reductions
 
@@ -396,7 +396,7 @@ depends on the result your function builds.
 
 ## Groups
 
-`groupby()` gives a selection for each value of a column. It makes an index on that column,
+[`groupby()`][daffodil.sqldaf_apply._groupby] gives a selection for each value of a column. It makes an index on that column,
 so each group is found without a full scan of the table. The index stays with the table.
 
 ```pycon
@@ -408,12 +408,12 @@ so each group is found without a full scan of the table. The index stays with th
 ['c1', 'c2']
 ```
 
-`groupsum_daf()` and the count methods do the work in SQLite and give a Daf with one row per
+[`groupsum_daf()`][daffodil.sqldaf_apply._groupsum_daf] and the count methods do the work in SQLite and give a Daf with one row per
 group. That Daf is small only when the groups are few.
 
 ## Joins
 
-`join()` joins two tables on their keyfields, in SQL. The other table may be in another file. It
+[`join()`][daffodil.sqldaf_apply._join] joins two tables on their keyfields, in SQL. The other table may be in another file. It
 is brought in for the join, as [Tables in other files](#tables-in-other-files) shows. The columns
 and the rows come as `Daf.join()` gives them. A cell with no match is Python NULL.
 
@@ -445,7 +445,7 @@ and the rows come as `Daf.join()` gives them. A cell with no match is Python NUL
 ## Keeping tables
 
 A sort changes which table the SqlDaf refers to. It makes a sorted TEMP table, and the table in
-the file keeps its order. `save()` keeps the sorted copy under a name not in use. `close()`
+the file keeps its order. [`save()`][daffodil.sqldaf.SqlDaf.save] keeps the sorted copy under a name not in use. [`close()`][daffodil.sqldaf.SqlDaf.close]
 removes TEMP tables, so save what you want to keep first.
 
 ```pycon
@@ -508,7 +508,7 @@ removes TEMP tables, so save what you want to keep first.
 ```
 
 `save()` raises ValueError for a name in use. To replace a table with its sorted copy, delete
-the old table first, as in `SqlDaf('items').delete()`, then save the copy under that name.
+the old table first, as in [`SqlDaf('items').delete()`][daffodil.sqldaf.SqlDaf], then save the copy under that name.
 
 `SqlDaf.close()` closes the file for every SqlDaf on it. Permanent tables keep every committed
 change. A SqlDaf made before the close can no longer be used. Open the table again by name.
@@ -556,10 +556,10 @@ daffodil.sqldaf.ReadOnlyTableError: A table opened with read_only=True cannot ha
 ```
 
 Writing a cell, adding or removing rows or columns, renaming a column, converting with
-`apply_dtypes()` and dropping the table raise ReadOnlyTableError. Nothing is changed.
-Selections, sorts, joins, `groupby()`, an index and the keyfield work, since they leave the data
+[`apply_dtypes()`][daffodil.sqldaf.SqlDaf.apply_dtypes] and dropping the table raise ReadOnlyTableError. Nothing is changed.
+Selections, sorts, joins, [`groupby()`][daffodil.sqldaf_apply._groupby], an index and the keyfield work, since they leave the data
 as it is. An index does change the file, but not its rows. SQLite itself refuses the change, so
-no method can slip past it, `sql()` included.
+no method can slip past it, [`sql()`][daffodil.sqldaf.SqlDaf.sql] included.
 
 Read-only holds for the SqlDaf that asked for it, and for its selections. Another SqlDaf opened
 on the same table without `read_only` can change it. The read-only one then reads the change:
@@ -604,7 +604,7 @@ built, and a table is dropped by deleting its file.
 TEMP table on this table's connection, with its key index, and joined there. A TEMP table is in no
 database file, so neither file changes. The copy lives until the join is first read, and is then
 deleted. A join never read loses its copy when it is gone, or when the file is closed. A chain of
-joins works the same way. The result is kept in a file of its own with `save(db_path=)`:
+joins works the same way. The result is kept in a file of its own with [`save(db_path=)`][daffodil.sqldaf.SqlDaf.save]:
 
 ```pycon
 >>> # Create a table of staff here, and a table of pay in a file of its own.
@@ -630,14 +630,14 @@ joins works the same way. The result is kept in a file of its own with `save(db_
 []
 ```
 
-`concat()` and keys from a SqlDaf in another file, as in `select_records()`, bring it in the
+[`concat()`][daffodil.sqldaf_modify._concat] and keys from a SqlDaf in another file, as in [`select_records()`][daffodil.sqldaf_select._select_records], bring it in the
 same way. For keys, only the key column is copied. A permanent table is copied in SQL, which took
 0.7 s for 1,000,000 rows of 5 columns, with its key index. The join then took as long as in one
 file. A selection or a TEMP table of another connection is copied through Python, which is slower.
 Inside a transaction, where SQLite cannot attach a file, the copy also goes through Python.
 
-**`from_db()`** copies a table into the working file, `SqlDaf.db_path`, as a permanent table, as
-`from_csv()` loads a CSV file. Use it to build a file named for the table a stage makes, with each
+**[`from_db()`][daffodil.sqldaf.SqlDaf.from_db]** copies a table into the working file, `SqlDaf.db_path`, as a permanent table, as
+[`from_csv()`][daffodil.sqldaf.SqlDaf.from_csv] loads a CSV file. Use it to build a file named for the table a stage makes, with each
 input copied into it. Its rows keep their order, and its keyfield and dtypes come with it.
 
 The other file is only read. It is attached for the copy alone, which is one SQL statement, and
@@ -695,7 +695,7 @@ so both raise ValueError there, and nothing is attached.
 A SqlDaf stores each cell as SQLite holds it: an int as an integer, a float as a real, and a str
 as text. A bool is stored as 0 or 1, as daffodil writes bools. A missing value, NULL, is stored as
 SQL NULL, and reads and prints as NULL again. A dict or a list is stored as its text, the
-[PYON](types.md#pyon) that `to_csv_file()` writes for it.
+[PYON](types.md#pyon) that [`to_csv_file()`][daffodil.sqldaf_read._to_csv_file] writes for it.
 
 ```pycon
 >>> # Create a Daf with a cell of each kind: int, float, bool, text, dict and list. The second row is mostly missing.
@@ -757,7 +757,7 @@ With NULL stored as SQL NULL, SQL's own sums and counts skip it, as the Daf meth
 
 The text of a dict or list is daffodil's own form, with bools as 0 and 1 and missing values as
 ''. SQLite's JSON functions read it, so a condition or a query can look inside it. A Python
-function in `select_where()` or `apply()` gets it as text, and decodes it if it needs to:
+function in [`select_where()`][daffodil.sqldaf_select._select_where] or [`apply()`][daffodil.sqldaf_apply._apply] gets it as text, and decodes it if it needs to:
 
 ```pycon
 >>> # Select by a value inside the dict, and read a value inside the dict and the list.
@@ -774,8 +774,8 @@ function in `select_where()` or `apply()` gets it as text, and decodes it if it 
 <BLANKLINE>
 ```
 
-A table loaded from a CSV file starts as text, as a Daf read with `from_csv()` does. An empty
-field is stored as SQL NULL. `apply_dtypes()` then converts the columns once, in SQL. A dict or
+A table loaded from a CSV file starts as text, as a Daf read with [`from_csv()`][daffodil.sqldaf.SqlDaf.from_csv] does. An empty
+field is stored as SQL NULL. [`apply_dtypes()`][daffodil.sqldaf.SqlDaf.apply_dtypes] then converts the columns once, in SQL. A dict or
 list dtype is recorded and converts nothing, since the text is the value. After it, the table
 holds exactly what the direct write stored:
 
@@ -822,7 +822,7 @@ p2,,,0,,{},[]
 True
 ```
 
-In memory, a Daf decodes the dict and list text. `to_daf()` carries the dtypes, and the Daf's
+In memory, a Daf decodes the dict and list text. [`to_daf()`][daffodil.sqldaf_read._to_daf] carries the dtypes, and the Daf's
 `apply_dtypes()` turns the text back into a dict and a list, so the round trip gives back the
 Daf it started from:
 
@@ -834,7 +834,7 @@ Daf it started from:
 True
 ```
 
-Writing a dict or list cell from Python, as with `append()` or `update_record_krow()`, stores its
+Writing a dict or list cell from Python, as with [`append()`][daffodil.sqldaf_modify._append] or [`update_record_krow()`][daffodil.sqldaf_modify._update_record_krow], stores its
 text too. Only a dict or a list itself is turned into text. A tuple, or a subclass of dict such as
 OrderedDict, is refused by SQLite, with sqlite3.ProgrammingError or InterfaceError:
 
@@ -867,7 +867,7 @@ Traceback (most recent call last):
 NotImplementedError: transpose() is not supported on a SqlDaf yet. Use sql(), or to_daf() on a few rows.
 ```
 
-For anything not covered, `sql()` runs a statement of your own. It gives the whole result as a
+For anything not covered, [`sql()`][daffodil.sqldaf.SqlDaf.sql] runs a statement of your own. It gives the whole result as a
 Daf, so select only what you need.
 
 ```pycon
@@ -876,7 +876,7 @@ Daf, so select only what you need.
 ```
 
 A change to a table's columns made with `sql()` is not seen by a SqlDaf already open on it.
-Use `insert_col()`, `drop_cols()` and `rename_cols()` for that.
+Use [`insert_col()`][daffodil.sqldaf_modify._insert_col], [`drop_cols()`][daffodil.sqldaf_modify._drop_cols] and [`rename_cols()`][daffodil.sqldaf_modify._rename_cols] for that.
 
 ## Code that runs on a Daf or a SqlDaf
 
@@ -884,34 +884,34 @@ A SqlDaf is a Daf, so code written for a Daf calls the SqlDaf methods when given
 of writing it are fast on both, and some fill memory or fail on a SqlDaf. These patterns give the
 same rows on both. On a SqlDaf they run in SQL and read only the rows they return.
 
-- **Compare two tables by selecting rows.** `select_records(other, inverse=True)` gives the
+- **Compare two tables by selecting rows.** [`select_records(other, inverse=True)`][daffodil.sqldaf_select._select_records] gives the
   rows of this table whose keys the other lacks. On a SqlDaf it is a join, so no key comes into
   Python. Pass `silent_error=True`, or a key of the other table that this one lacks raises
   KeyError, on both. Avoid making key lists of both and comparing them.
-- **Use `keys()` only where a list of keys is the result you want.** It reads every key into
+- **Use [`keys()`][daffodil.sqldaf.SqlDaf.keys] only where a list of keys is the result you want.** It reads every key into
   memory. It takes `astype='view'` and `silent_error`, as a Daf's does, so Daf code runs
   unchanged, but on a SqlDaf the view is built from all the keys. Better ways read no key:
   give the table itself as the keys, as in `b.select_records(a)`; test one key with
-  `key in table`; read one row with `table.select_record(key)`.
+  `key in table`; read one row with [`table.select_record(key)`][daffodil.sqldaf_read._select_record].
 - **Sample from the first rows.** `daf[0:3].keys()` reads 3 rows. `daf.keys()[0:3]` reads every key first.
-- **Count with `len()` of a selection.** Avoid a list made only to take its length.
-- **Split a table with `select_by_dict()` and `inverse=True`.** No row is copied, and the rows
+- **Count with [`len()`][daffodil.sqldaf.SqlDaf.len] of a selection.** Avoid a list made only to take its length.
+- **Split a table with [`select_by_dict()`][daffodil.sqldaf_select._select_by_dict] and `inverse=True`.** No row is copied, and the rows
   stay in table order. A row with Python NULL in the column falls on the inverse side.
-  Avoid `groupby()` and then `append()` of the groups: an empty Daf that appends a SqlDaf fails.
-- **Select first, then `to_daf()`.** `to_daf()` reads every row into memory. On a Daf it gives
+  Avoid [`groupby()`][daffodil.sqldaf_apply._groupby] and then [`append()`][daffodil.sqldaf_modify._append] of the groups: an empty Daf that appends a SqlDaf fails.
+- **Select first, then [`to_daf()`][daffodil.sqldaf_read._to_daf].** `to_daf()` reads every row into memory. On a Daf it gives
   the Daf itself, so `select_records(keys).to_daf().apply_dtypes()` reads either kind.
 - **Summarize each group with grouped counts, not a loop over the groups.**
-  `valuecounts_for_colname1_groupedby_colname2('is_bmd', 'batchid')` counts the values of one
+  [`valuecounts_for_colname1_groupedby_colname2('is_bmd', 'batchid')`][daffodil.sqldaf_apply._valuecounts_for_colname1_groupedby_colname2] counts the values of one
   column in every group at once. A group's size is the sum of its counts, and its distinct
   values are the keys. A loop over `groupby()` reads each group: on a SqlDaf that is a query per
   group. On AuditEngine's pilot d05, 133,422 rows in 11,157 batches, the loop took 565 s on a
   SqlDaf and the grouped counts 1.64 s. On a Daf both took about 0.7 s. Both classes give the
   groups and their values in the order first seen.
-- **Write a table into a report with `to_md()`.** `rows[0:50].to_md()` gives those 50 rows and
+- **Write a table into a report with [`to_md()`][daffodil.sqldaf_read._to_md].** `rows[0:50].to_md()` gives those 50 rows and
   no summary line. An f-string gives `str()`, which keeps 10 rows and adds the summary line, with
   the name of the table. A selection of a SqlDaf names its TEMP table there.
 - **Respect a read-only table, and work on a copy.** Open a table that others depend on with
-  `read_only=True`, and make the changes on `copy()`, a TEMP table of its own. Reading,
+  `read_only=True`, and make the changes on [`copy()`][daffodil.sqldaf.SqlDaf.copy], a TEMP table of its own. Reading,
   selecting, grouping and joining need no copy. Only a change to the data does:
 
   ```python
@@ -924,8 +924,8 @@ same rows on both. On a SqlDaf they run in SQL and read only the rows they retur
   On a Daf the same lines run, and `copy()` gives rows of its own, as a change needs there too.
 - **Join tables in their own files directly.** A job that keeps each table in a file of its own
   opens each where it is. A join brings the other table in for itself, and the files are only
-  read. Keep the result with `save(db_path=)`. To build a file named for the table a stage makes,
-  copy each input into it with `from_db()`.
+  read. Keep the result with [`save(db_path=)`][daffodil.sqldaf.SqlDaf.save]. To build a file named for the table a stage makes,
+  copy each input into it with [`from_db()`][daffodil.sqldaf.SqlDaf.from_db].
 
 ```pycon
 >>> # Create a Daf of customers, with a flag for a closed account, and a Daf of their invoices.
@@ -974,19 +974,19 @@ True
 ## Differences from Daf
 
 - **Types.** A column holds what SQLite stores, such as int, float, text or SQL NULL. A bool
-  is stored as 0 or 1. CSV values are text until `apply_dtypes()` converts them. A dict or list
+  is stored as 0 or 1. CSV values are text until [`apply_dtypes()`][daffodil.sqldaf.SqlDaf.apply_dtypes] converts them. A dict or list
   cell stays as its text.
 - **Selections.** A Daf selection holds its rows at once. A SqlDaf selection fixes them when
-  first read whole, by `to_daf()`, `len()` or the like. Reading one row fixes nothing.
+  first read whole, by [`to_daf()`][daffodil.sqldaf_read._to_daf], [`len()`][daffodil.sqldaf.SqlDaf.len] or the like. Reading one row fixes nothing.
 - **Changes through a selection.** Setting a value changes the parent, as on a Daf. Adding
   rows, converting and sorting copy the selection first, and leave the parent as it was.
 - **Sorting.** A Daf sorts its own rows. A SqlDaf sorts into a new TEMP table, and the table
   in the file keeps its order.
-- **Rows in a loop.** `for row in sdaf` and `iter_dict()` give copies of the rows. Changing a
+- **Rows in a loop.** `for row in sdaf` and [`iter_dict()`][daffodil.sqldaf.SqlDaf.iter_dict] give copies of the rows. Changing a
   row in the loop does not change the table.
 - **Mixed types in a sort.** Numbers sort before text, where a Daf raises TypeError.
 - **Keys.** An int in brackets is always a position. Assigning with an int raises
-  NotImplementedError. Use `update_record_krow()` for a row by key. A Python NULL key, the empty string, is not supported. A join assumes
+  NotImplementedError. Use [`update_record_krow()`][daffodil.sqldaf_modify._update_record_krow] for a row by key. A Python NULL key, the empty string, is not supported. A join assumes
   the keys are unique, and does not check.
 - **Positions after a delete.** A table that has had rows deleted cannot be read by position.
 - **Printing.** `str()`, `print()` and an f-string show the same Markdown table as a Daf of the
@@ -1009,6 +1009,6 @@ and int columns.
 
 A query passes through sqlite3, which costs about 12 to 24 µs each time. So work in whole
 statements where you can. Many rows in one statement cost far less per row than one row per
-statement. Put many small writes in one `transaction()`.
+statement. Put many small writes in one [`transaction()`][daffodil.sqldaf.SqlDaf.transaction].
 
 The [SqlDaf API][daffodil.sqldaf.SqlDaf] lists every method, grouped by what it does.
