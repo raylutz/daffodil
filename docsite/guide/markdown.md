@@ -25,6 +25,12 @@ Markdown report or a page like this one.
 - `just`: the alignment of each column, one character each: `<` left, `^` center, `>` right.
 - `shorten_text`, `max_text_len`: shorten long text, keeping its two ends.
 - `smart_fmt`: fewer digits after the decimal point, in a column of numbers.
+- `col_fmt`: a format for some columns, by name: a format spec such as `'.1%'`, `'smart'`,
+  `'smart%'` or a function. Only the text changes, not the Daf.
+- `include_dtypes`: each column's dtype in its header, as `age: int`. A column whose cells hold
+  another type says so, as `age: int (str)`.
+- `quote_text`: each text cell in quotes, so the text `'34'` differs from the number 34.
+- `disp_cols`, `header`: other names in the header, for some columns or for all.
 - `include_summary`: add the line that describes the table, for `from_md()`.
 
 ```pycon
@@ -38,6 +44,23 @@ Markdown report or a page like this one.
 | 1  |  x |
 ```
 
+Format some columns, and see the types. Here the age is still text, as read from a CSV file:
+
+```pycon
+>>> sales = Daf(cols=['city', 'share', 'amount'], lol=[['Denver', 0.3412, 12345.5], ['Reno', 0.0001, 9876.25]])
+>>> print(sales.to_md(col_fmt={'share': 'smart%', 'amount': ',.2f'}))
+|  city  | share |  amount   |
+| -----: | ----: | --------: |
+| Denver | 34.1% | 12,345.50 |
+|   Reno | 0.01% |  9,876.25 |
+>>> people = Daf(cols=['id', 'age'], dtypes={'id': str, 'age': int}, lol=[['p1', '34'], ['p2', '52']])
+>>> print(people.to_md(include_dtypes=True, quote_text=True))
+| id: str | age: int (str) |
+| ------: | -------------: |
+|    'p1' |           '34' |
+|    'p2' |           '52' |
+```
+
 ## Reading Markdown back
 
 Markdown is a report format first. A table can be read back, but only some tables come back
@@ -47,8 +70,9 @@ name. `Daf.from_md()` reads the table back, with them.
 For the most faithful copy, pass `shorten_text=False`, leave `smart_fmt`, `max_rows` and
 `max_cols` at their defaults, and include the summary. Even then:
 
-- The cells come back as text, as from a CSV file, and the dtypes are not kept. See
-  [Types and conversion](types.md).
+- The cells come back as text, as from a CSV file. The dtypes come back only from a header
+  written with `include_dtypes=True`, and nothing is converted. See [Types and conversion](types.md).
+- Quoted text, from `quote_text=True`, comes back without its quotes only with the summary line.
 - A newline in a cell comes back as `<br>`.
 
 A `|` in a cell, and a composite keyfield, come back as they were.
