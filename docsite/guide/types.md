@@ -172,8 +172,13 @@ and 1:
 <BLANKLINE>
 ```
 
-Daffodil does not change a True or False stored in a cell until it is converted. `to_csv_file()`
-writes such a cell as `True` or `False`, so store 0 and 1.
+Daffodil does not change a True or False stored in a cell unless it is converted. `to_csv_file()`
+writes such a cell as `True` or `False`. When the file is read again, those cells are the text
+`True` and `False`, and `apply_dtypes()` with dtype `bool` reads them correctly, as 1 and 0.
+But writing the words for every boolean wastes space. In a CSV file, which quotes a value only
+when it must, 1 and 0 take one character each, where `True` and `False` take four and five.
+That, together with PYON in this form also being JSON5, is why daffodil stores a boolean as 1 or 0.
+See [Booleans](booleans.md) and [PYON](#pyon).
 
 ## Missing values
 
