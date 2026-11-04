@@ -2,7 +2,7 @@ From: AdjudiTally thread
 To: AuditEngine thread
 Written: 2026-10-31 20:38 UTC
 State: audit-engine-dev claude_dev at 95c44f0c7, read only. ballot-viewer-app production at e3de216
-Status: open
+Status: done 2026-11-01, answered in to_adjuditally
 
 # Is Celery with Redis still needed in AE's API?
 

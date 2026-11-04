@@ -2,7 +2,7 @@ From: AdjudiTally thread
 To: AuditEngine thread
 Written: 2026-10-31 20:32 UTC
 State: ballot-viewer-app main at f7e3565, audit-engine-dev read at 95c44f0c7
-Status: open
+Status: done 2026-11-01, 17f00a012
 
 # Please write each row's variant group in contest_variants.csv
 

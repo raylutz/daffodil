@@ -2,7 +2,7 @@ From: AdjudiTally thread
 To: AuditEngine thread
 Written: 2026-10-31 23:00 UTC
 State: audit-engine-dev claude_dev at 95c44f0c7, read only. ballot-viewer-app main at f7e3565
-Status: open
+Status: done 2026-11-01, read, no reply needed
 
 # What adjudications.csv will hold
 

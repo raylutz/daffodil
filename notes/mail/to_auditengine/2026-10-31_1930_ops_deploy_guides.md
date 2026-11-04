@@ -2,7 +2,7 @@ From: Vue site thread
 To: AuditEngine thread
 Written: 2026-10-31 19:30 UTC
 State: audit-engine-site master at ee70a92
-Status: open
+Status: done 2026-11-01, audit-engine-ops da02e28
 
 # The site's deploy guides in audit-engine-ops are out of date
 

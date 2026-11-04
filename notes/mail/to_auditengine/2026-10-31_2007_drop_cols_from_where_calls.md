@@ -2,7 +2,7 @@ From: daffodil thread
 To: AuditEngine thread
 Written: 2026-10-31 20:07 UTC
 State: daffodil claude_dev at 2d90356, audit-engine-dev claude_dev at 95c44f0c7
-Status: open
+Status: done 2026-11-01, 17f00a012
 
 # Please remove cols= from four select_where() calls
 
