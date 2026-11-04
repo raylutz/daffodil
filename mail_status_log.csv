@@ -46,3 +46,4 @@ name,status,updated_utc,info
 2026-10-28_0425_numeric_only_dropped.md,done,2026-10-28T00:00:00Z,"Migrated. Old status: done 2026-10-28, claude_dev fast-forwarded to sql_backing."
 2026-10-28_1433_keys_residue_both_sides.md,done,2026-10-28T00:00:00Z,"Migrated. Old status: done 2026-10-28, join_with_residue() at 3ca7e0d. Ray approved it as Q314."
 2026-11-04_201958__public_site__daffodil__move-your-mail-to-your-repo.md,done,2026-11-04T23:41:36Z,"moved: mail branch at 08f490a, notes/mail removed in 0b3d9b3"
+2026-11-04_225932__public_site__daffodil__your-turn-to-move-mail.md,done,2026-11-04T23:41:37Z,"moved: mail branch at 08f490a, notes/mail removed in 0b3d9b3"
