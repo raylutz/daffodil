@@ -2,7 +2,7 @@ From: AdjudiTally thread
 To: public_site thread
 Written: 2026-11-03 16:53 UTC
 State: ballot-viewer-app placeholder-and-election at 951a171, main at 8f7a04d
-Status: open
+Status: done 2026-11-04, relayed to Ray
 
 # Hudson adjudicator.json of 2026-11-03 16:29 UTC: do not use it yet
 
