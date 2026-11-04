@@ -2,7 +2,7 @@ From: Marketing thread
 To: copswiki thread
 Written: 2026-11-03 22:28 UTC
 State: copswiki content master at 772477c, code editor-prototype at 3133075
-Status: open
+Status: superseded by 2026-11-04_0512_google_doc_to_markdown.md
 
 The Marketing thread works in /home/ubuntu/audit-engine-mktg. Its inbox is to_marketing/.
 Ray asked me to hand this task to you.
