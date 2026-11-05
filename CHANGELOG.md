@@ -9,16 +9,25 @@ all prior releases. Plans for future moved to ROADMAP.md.
 
 ## [Unreleased]
 
+## [0.11.0] - (2026-11-05)
+
+This release makes types visible in a Markdown table, with `to_md(show=...)` for the dtypes in the
+header, quoted text and type names, and adds `to_md(col_fmt=...)` to format some columns for display.
+`from_md()` reads the dtypes back. `select_records()` is the new name of `select_records_daf()`.
+It has two breaking changes, both in printed text only: a SqlDaf's summary line says sdaf, and
+`smart_fmt` drops trailing zeros. The docs now show the whole table after each change, define PYON,
+and link the Guide to the API reference.
+
 ### Added
 - `to_md(show=...)` shows what a plain table hides, the types. `show='dtypes'` puts each column's dtype in its header, as `age: int`. If the cells shown hold another type, it follows in parentheses, as `age: int (str)` before `apply_dtypes()`. `from_md()` reads the dtypes back, and converts nothing. `show='quotes'` shows each text cell in quotes, so '34' differs from 34, and the text of a dict from a dict. With the summary line, `from_md()` takes the quotes off. `show='types'` shows each cell's type name in place of its value. A list combines them. A SqlDaf takes it too. Ray approved it on 2026-11-02 and 2026-11-05, Q333 and Q339.
 - `to_md(col_fmt=...)` formats the cells of some columns for display, by a format spec such as '.1%', by 'smart' or 'smart%', or by a function. The Daf is not changed. A missing value stays blank, text a spec cannot format is shown as it is, and `smart_fmt` leaves those columns alone. A SqlDaf takes it too. Ray approved it on 2026-11-02, Q331.
 
 ### Changed
 - The Guide pages link each method they name to its entry in the API reference, at its first mention in each section. The Markdown page lists every option of `to_md()`.
-- `smart_fmt` drops trailing zeros. A round value such as 0.5 showed as 0.50, 0.01 as 0.0100 and 2.0 as 2.0. It now shows as 0.5, 0.01 and 2. A value too small to show is 0, not 0.0. This changes the text of `to_md(smart_fmt=True)` and `to_md_cols(smart_fmt=True)`, not the data. Ray decided it on 2026-11-02, Q332.
+- **Breaking.** `smart_fmt` drops trailing zeros. A round value such as 0.5 showed as 0.50, 0.01 as 0.0100 and 2.0 as 2.0. It now shows as 0.5, 0.01 and 2. A value too small to show is 0, not 0.0. This changes the text of `to_md(smart_fmt=True)` and `to_md_cols(smart_fmt=True)`, not the data. Ray decided it on 2026-11-02, Q332.
 - The Types page of the Guide defines PYON, the text of a list or dict cell. It shows how PYON differs from JSON, how daffodil writes and reads it, and why daffodil's form of it is also JSON5, which SQLite's JSON functions read. Other mentions of PYON link to it. The Booleans page said such a cell is also JSON. It is JSON5. Ray asked for this on 2026-11-01.
 - `select_records()` is the new name of `select_records_daf()`, on a Daf and a SqlDaf. The old name still works, and is deprecated. The docs use the new name. Ray decided it on 2026-10-31, Q324.
-- A SqlDaf prints sdaf in its summary line, as `%% sdaf rows=3; ...`, so a printout shows where it came from. A Daf still prints daf. `from_md()` reads both. The word is the class attribute `summary_tag`. Ray decided it on 2026-10-31, Q325.
+- **Breaking.** A SqlDaf prints sdaf in its summary line, as `%% sdaf rows=3; ...`, so a printout shows where it came from. A Daf still prints daf. `from_md()` reads both. The word is the class attribute `summary_tag`. Ray decided it on 2026-10-31, Q325.
 - `cols` of SqlDaf `select_where()`, `split_where()` and `group_where()` is deprecated and no longer documented. It still works when given, and leaving it out was always safe. It named the columns passed to the function, and saved 20 to 60% of the time on wide tables. Its name clashed with the `cols` that elsewhere chooses the columns of a result. Ray decided it on 2026-10-31, Q323.
 - Every example in the docs has a header, a line that says what it does, as "Select two rows by key, in the order given, and look at them directly:". The examples use general data, such as people with names, cities and ages, and orders and carts, where many used ballots, precincts and votes, or abstract columns such as x and y. Numbers are distinctive, not only 0 and 1. A SqlDaf example shows the SqlDaf itself at the prompt, with no `to_daf()` only to display it. An example that changes a table shows the whole table after the change, not one row, column or list of keys pulled out. This covers the Daf and SqlDaf API pages and the Guide pages. An example about types, as of `apply_dtypes()`, the Types and Booleans pages, and the reading of CSV, Excel and Markdown, prints the table with `show=['dtypes', 'quotes']`, so the types show.
 
