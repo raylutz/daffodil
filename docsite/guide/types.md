@@ -37,7 +37,7 @@ A CSV file gives text. [`apply_dtypes()`][daffodil.daf_dtypes._apply_dtypes] con
 <BLANKLINE>
 %% daf rows=2; cols=4; keyfield=''; name=''
 <BLANKLINE>
->>> print(daf.to_md(quote_text=True))
+>>> print(daf.to_md(show='quotes'))
 |  id  | qty | price |   tags   |
 | ---: | --: | ----: | -------: |
 | 'a1' | '3' | '1.5' | '[1, 2]' |
@@ -52,7 +52,7 @@ A CSV file gives text. [`apply_dtypes()`][daffodil.daf_dtypes._apply_dtypes] con
 <BLANKLINE>
 %% daf rows=2; cols=4; keyfield=''; name=''
 <BLANKLINE>
->>> print(daf.to_md(quote_text=True))
+>>> print(daf.to_md(show='quotes'))
 |  id  | qty | price |  tags  |
 | ---: | --: | ----: | -----: |
 | 'a1' |   3 |   1.5 | [1, 2] |
@@ -85,7 +85,7 @@ A CSV file gives text. [`apply_dtypes()`][daffodil.daf_dtypes._apply_dtypes] con
 <BLANKLINE>
 %% daf rows=1; cols=3; keyfield=''; name=''
 <BLANKLINE>
->>> print(e_daf.to_md(quote_text=True))
+>>> print(e_daf.to_md(show='quotes'))
 |  id  | qty | note |
 | ---: | --: | ---: |
 | 'a1' |   3 |  'x' |
@@ -134,7 +134,7 @@ Other text stays as it is. Note that `'False'` gives 0, where Python's `bool('Fa
 <BLANKLINE>
 %% daf rows=7; cols=1; keyfield=''; name=''
 <BLANKLINE>
->>> print(flags.to_md(quote_text=True))
+>>> print(flags.to_md(show='quotes'))
 |   ok    |
 | ------: |
 |       0 |
@@ -164,7 +164,7 @@ and 1:
 <BLANKLINE>
 %% daf rows=2; cols=2; keyfield=''; name=''
 <BLANKLINE>
->>> print(typed.to_md(quote_text=True))
+>>> print(typed.to_md(show='quotes'))
 | ok  |  n  |
 | --: | --: |
 | '1' | '3' |
@@ -220,13 +220,13 @@ None inside a dict or list cell stays None. `normalize_val()` in `daffodil.lib.d
 
 ```pycon
 >>> nones_dtypes = {'id': str, 'n': int, 's': str, 'ok': bool, 'cv': dict}
->>> print(nones.apply_dtypes(dtypes=nones_dtypes).to_md(include_dtypes=True, quote_text=True))
+>>> print(nones.apply_dtypes(dtypes=nones_dtypes).to_md(show=['dtypes', 'quotes']))
 | id: str | n: int | s: str | ok: bool |  cv: dict   |
 | ------: | -----: | -----: | -------: | ----------: |
 |    'a1' |     '' |   None |        0 | {'x': None} |
 |    'b2' |      3 |    'x' |        1 |    {'x': 1} |
 <BLANKLINE>
->>> print(nones.apply_dtypes(dtypes=nones_dtypes, from_str=False).to_md(include_dtypes=True, quote_text=True))
+>>> print(nones.apply_dtypes(dtypes=nones_dtypes, from_str=False).to_md(show=['dtypes', 'quotes']))
 | id: str | n: int | s: str | ok: bool |  cv: dict   |
 | ------: | -----: | -----: | -------: | ----------: |
 |    'a1' |     '' |     '' |        0 | {'x': None} |
@@ -337,13 +337,13 @@ show the dtypes in the header, so the text of a dict can be told from a dict:
 
 ```pycon
 >>> back_daf = Daf.from_csv_buff(prefs_daf.to_csv_buff())
->>> print(back_daf.to_md(quote_text=True))
+>>> print(back_daf.to_md(show='quotes'))
 |  id  |                          prefs                           |
 | ---: | -------------------------------------------------------: |
 | 'p1' |                                  "{'news': 1, 'sms': 0}" |
 | 'p2' | "{'colors': ('red', 'blue'), 7: 'seven', 'phone': None}" |
 <BLANKLINE>
->>> print(back_daf.apply_dtypes(dtypes={'id': str, 'prefs': dict}).to_md(include_dtypes=True, quote_text=True))
+>>> print(back_daf.apply_dtypes(dtypes={'id': str, 'prefs': dict}).to_md(show=['dtypes', 'quotes']))
 | id: str |                      prefs: dict                       |
 | ------: | -----------------------------------------------------: |
 |    'p1' |                                  {'news': 1, 'sms': 0} |

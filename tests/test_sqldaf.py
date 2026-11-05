@@ -3724,11 +3724,11 @@ def test_to_md_col_fmt_matches_daf():
     assert sdaf.to_daf().lol == daf.lol
 
 
-def test_to_md_include_dtypes_and_quote_text_match_daf():
-    """ A SqlDaf shows dtypes and quotes as a Daf does, and marks quote_text in its summary line. """
+def test_to_md_show_matches_daf():
+    """ A SqlDaf shows dtypes and quotes as a Daf does, and marks quotes in its summary line. """
     daf: Daf = Daf(cols=['id', 'age'], keyfield='id', dtypes={'id': str, 'age': int}, lol=[['a', 34], ['b', '']])
     sdaf: SqlDaf = SqlDaf.from_daf(daf, name='ages')
-    assert sdaf.to_md(include_dtypes=True, quote_text=True) == daf.to_md(include_dtypes=True, quote_text=True)
-    text: str = sdaf.to_md(quote_text=True, include_summary=True)
-    assert text.rstrip().endswith('quote_text=1')
+    assert sdaf.to_md(show=['dtypes', 'quotes']) == daf.to_md(show=['dtypes', 'quotes'])
+    text: str = sdaf.to_md(show='quotes', include_summary=True)
+    assert text.rstrip().endswith("show='quotes'")
     assert Daf.from_md(text).lol == [['a', '34'], ['b', '']]

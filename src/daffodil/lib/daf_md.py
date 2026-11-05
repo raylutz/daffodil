@@ -499,10 +499,10 @@ def _from_md(cls: type[Daf], md_str: str) -> 'Daf': # -> "Daf":
     A `|` in a cell is written as `\|`, and is read back as `|`. A composite keyfield in the
     footer is read back as the tuple or list it was.
 
-    A header that `to_md(include_dtypes=True)` wrote, as `age: int`, gives the column name and its
+    A header that `to_md(show='dtypes')` wrote, as `age: int`, gives the column name and its
     dtype. A note in parentheses after the dtype is not read. The header is split only if every
     other header cell has no `: ` in it. The cells are not converted. A column with no dtype gets
-    `str`. A summary line with `quote_text=1`, as `to_md(quote_text=True, include_summary=True)`
+    `str`. A summary line with `show='quotes'`, as `to_md(show='quotes', include_summary=True)`
     writes, has the quotes taken off each quoted cell.
 
     Args:
@@ -543,7 +543,7 @@ def _from_md(cls: type[Daf], md_str: str) -> 'Daf': # -> "Daf":
         {'id': <class 'str'>, 'age': <class 'int'>}
         >>> typed.lol
         [['p1', '34']]
-        >>> print(typed.apply_dtypes().to_md(include_dtypes=True))
+        >>> print(typed.apply_dtypes().to_md(show='dtypes'))
         | id: str | age: int |
         | ------: | -------: |
         |      p1 |       34 |
@@ -654,7 +654,7 @@ def _from_md(cls: type[Daf], md_str: str) -> 'Daf': # -> "Daf":
 
     # ---- Dtypes in the header, and quoted text ----
     colnames_ls, dtypes_d = split_dtype_header(colnames_ls)
-    if footer_meta.get('quote_text') == '1':
+    if 'quotes' in footer_meta.get('show', '').split(','):
         lol = [[unquote_md_cell(cell) for cell in row] for row in lol]
 
     # ---- Metadata extraction ----
@@ -719,7 +719,7 @@ def _from_md(cls: type[Daf], md_str: str) -> 'Daf': # -> "Daf":
 
 
 # ---- Dtypes in a header
-# to_md(include_dtypes=True) writes a header cell as 'age: int', with a note such as ' (str)' when the
+# to_md(show='dtypes') writes a header cell as 'age: int', with a note such as ' (str)' when the
 # cells hold another type. The note is not read back.
 _DTYPE_BY_NAME: Dict[str, type] = {'str': str, 'int': int, 'float': float, 'bool': bool,
                                    'list': list, 'dict': dict, 'tuple': tuple, 'set': set}
@@ -728,7 +728,7 @@ _DTYPE_HEADER_RE: 're.Pattern[str]' = re.compile(r'^(.+?): (str|int|float|bool|l
 
 def split_dtype_header(colnames_ls: T_ls) -> Tuple[T_ls, Dict[str, type]]:
     """
-    The column names and dtypes of a header that `to_md(include_dtypes=True)` wrote.
+    The column names and dtypes of a header that `to_md(show='dtypes')` wrote.
 
     A cell of the form `name: type`, with a type daffodil knows, gives a name and a dtype.
     The header is split only if every other cell has no ': ' in it.
@@ -753,7 +753,7 @@ def split_dtype_header(colnames_ls: T_ls) -> Tuple[T_ls, Dict[str, type]]:
 
 
 def unquote_md_cell(cell: str) -> str:
-    """ A cell that `to_md(quote_text=True)` quoted, as its text. Other cells are kept as they are. """
+    """ A cell that `to_md(show='quotes')` quoted, as its text. Other cells are kept as they are. """
     if len(cell) >= 2 and cell[0] == cell[-1] and cell[0] in ('"', "'"):
         try:
             text: Any = ast.literal_eval(cell)

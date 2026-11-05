@@ -143,12 +143,12 @@ def _from_lod(
         for that:
 
         >>> typed = Daf.from_lod([{'id': 'a1', 'qty': '3'}], dtypes={'id': str, 'qty': int})
-        >>> print(typed.to_md(quote_text=True))
+        >>> print(typed.to_md(show='quotes'))
         |  id  | qty |
         | ---: | --: |
         | 'a1' | '3' |
         <BLANKLINE>
-        >>> print(typed.apply_dtypes().to_md(include_dtypes=True, quote_text=True))
+        >>> print(typed.apply_dtypes().to_md(show=['dtypes', 'quotes']))
         | id: str | qty: int |
         | ------: | -------: |
         |    'a1' |        3 |
@@ -959,12 +959,12 @@ def _from_excel_buff(
         A list or dict column is read from its text, for its dtype. With `unflatten=False` it stays text:
 
         >>> tags = excel_bytes([['id', 'tags'], ['a1', '[1, 2]']])
-        >>> print(Daf.from_excel_buff(tags, dtypes={'id': str, 'tags': list}).to_md(include_dtypes=True, quote_text=True))
+        >>> print(Daf.from_excel_buff(tags, dtypes={'id': str, 'tags': list}).to_md(show=['dtypes', 'quotes']))
         | id: str | tags: list |
         | ------: | ---------: |
         |    'a1' |     [1, 2] |
         <BLANKLINE>
-        >>> print(Daf.from_excel_buff(tags, dtypes={'id': str, 'tags': list}, unflatten=False).to_md(include_dtypes=True, quote_text=True))
+        >>> print(Daf.from_excel_buff(tags, dtypes={'id': str, 'tags': list}, unflatten=False).to_md(show=['dtypes', 'quotes']))
         | id: str | tags: list (str) |
         | ------: | ---------------: |
         |    'a1' |         '[1, 2]' |
@@ -1321,12 +1321,12 @@ def _from_csv_buff(
 
         A list column is read from its text, for its dtype. With `unflatten=False` it stays text:
 
-        >>> print(Daf.from_csv_buff('id,tags\na1,"[1, 2]"\n', dtypes={'id': str, 'tags': list}).to_md(include_dtypes=True, quote_text=True))
+        >>> print(Daf.from_csv_buff('id,tags\na1,"[1, 2]"\n', dtypes={'id': str, 'tags': list}).to_md(show=['dtypes', 'quotes']))
         | id: str | tags: list |
         | ------: | ---------: |
         |    'a1' |     [1, 2] |
         <BLANKLINE>
-        >>> print(Daf.from_csv_buff('id,tags\na1,"[1, 2]"\n', dtypes={'id': str, 'tags': list}, unflatten=False).to_md(include_dtypes=True, quote_text=True))
+        >>> print(Daf.from_csv_buff('id,tags\na1,"[1, 2]"\n', dtypes={'id': str, 'tags': list}, unflatten=False).to_md(show=['dtypes', 'quotes']))
         | id: str | tags: list (str) |
         | ------: | ---------------: |
         |    'a1' |         '[1, 2]' |

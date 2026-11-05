@@ -88,7 +88,7 @@ So there is no gain in storing True and False, as long as the code treats the co
 <BLANKLINE>
 %% daf rows=11; cols=1; keyfield=''; name=''
 <BLANKLINE>
->>> print(flags.to_md(quote_text=True))
+>>> print(flags.to_md(show='quotes'))
 |   ok   |
 | -----: |
 |      1 |
@@ -129,7 +129,7 @@ To turn a word into the text `'0'` or `'1'`, convert to `bool` first, then to `s
 <BLANKLINE>
 %% daf rows=2; cols=1; keyfield=''; name=''
 <BLANKLINE>
->>> print(words.to_md(quote_text=True))
+>>> print(words.to_md(show='quotes'))
 | ok  |
 | --: |
 | '1' |
@@ -151,7 +151,7 @@ of a file that holds 0 and 1:
 <BLANKLINE>
 %% daf rows=2; cols=2; keyfield=''; name=''
 <BLANKLINE>
->>> print(typed.to_md(quote_text=True))
+>>> print(typed.to_md(show='quotes'))
 | ok  |  n  |
 | --: | --: |
 | '1' | '3' |
@@ -190,7 +190,7 @@ as it is:
 (None, None)
 >>> cells = Daf(cols=['id', 'cv'], lol=[['a1', cell]])
 >>> back = Daf.from_csv_buff(cells.to_csv_buff()).apply_dtypes(dtypes={'id': str, 'cv': dict})
->>> print(back.to_md(quote_text=True))
+>>> print(back.to_md(show='quotes'))
 |  id  |                     cv                      |
 | ---: | ------------------------------------------: |
 | 'a1' | {'member': 1, 'flags': [0, 1], 'phone': ''} |

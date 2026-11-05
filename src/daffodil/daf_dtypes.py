@@ -266,7 +266,7 @@ def _apply_dtypes(self: 'Daf', *,
         <BLANKLINE>
         %% daf rows=1; cols=3; keyfield=''; name=''
         <BLANKLINE>
-        >>> print(daf.to_md(quote_text=True))
+        >>> print(daf.to_md(show='quotes'))
         | age | height_m | visits |
         | --: | -------: | -----: |
         |  34 |   '1.68' |    '7' |
@@ -281,7 +281,7 @@ def _apply_dtypes(self: 'Daf', *,
         <BLANKLINE>
         %% daf rows=1; cols=3; keyfield=''; name=''
         <BLANKLINE>
-        >>> print(daf.to_md(quote_text=True))
+        >>> print(daf.to_md(show='quotes'))
         | age | height_m | visits |
         | --: | -------: | -----: |
         |  34 |   '1.68' |      7 |
@@ -312,7 +312,7 @@ def _apply_dtypes(self: 'Daf', *,
         <BLANKLINE>
         %% daf rows=4; cols=2; keyfield=''; name=''
         <BLANKLINE>
-        >>> print(b_daf.to_md(quote_text=True))
+        >>> print(b_daf.to_md(show='quotes'))
         | member  |  visits   |
         | ------: | --------: |
         |       0 |         7 |
@@ -368,7 +368,7 @@ def _apply_dtypes(self: 'Daf', *,
         **The other options.** A list column stays text with `unflatten=False`:
 
         >>> tags = Daf(cols=['id', 'tags'], lol=[['a1', '[1, 2]']])
-        >>> print(tags.apply_dtypes(dtypes={'id': str, 'tags': list}, unflatten=False).to_md(include_dtypes=True, quote_text=True))
+        >>> print(tags.apply_dtypes(dtypes={'id': str, 'tags': list}, unflatten=False).to_md(show=['dtypes', 'quotes']))
         | id: str | tags: list (str) |
         | ------: | ---------------: |
         |    'a1' |         '[1, 2]' |
@@ -378,7 +378,7 @@ def _apply_dtypes(self: 'Daf', *,
         each cell is made text:
 
         >>> mixed = Daf(cols=['id', 'qty'], lol=[[1, '3']])
-        >>> print(mixed.apply_dtypes(dtypes={'id': str, 'qty': int}, from_str=False).to_md(include_dtypes=True, quote_text=True))
+        >>> print(mixed.apply_dtypes(dtypes={'id': str, 'qty': int}, from_str=False).to_md(show=['dtypes', 'quotes']))
         | id: str | qty: int |
         | ------: | -------: |
         |     '1' |        3 |
@@ -388,7 +388,7 @@ def _apply_dtypes(self: 'Daf', *,
         `default_type`, str by default, and is not converted:
 
         >>> part = Daf(cols=['id', 'qty'], lol=[['a1', '3']])
-        >>> print(part.apply_dtypes(dtypes={'qty': int}, silent_error=True).to_md(include_dtypes=True, quote_text=True))
+        >>> print(part.apply_dtypes(dtypes={'qty': int}, silent_error=True).to_md(show=['dtypes', 'quotes']))
         | id: str | qty: int |
         | ------: | -------: |
         |    'a1' |        3 |
@@ -398,7 +398,7 @@ def _apply_dtypes(self: 'Daf', *,
         column gets str, and with `from_str=False` it is made text:
 
         >>> numbered = Daf(cols=['id', 'qty'], lol=[[1, '3']])
-        >>> print(numbered.apply_dtypes(dtypes={'qty': int}, silent_error=True, default_type=str, from_str=False).to_md(include_dtypes=True, quote_text=True))
+        >>> print(numbered.apply_dtypes(dtypes={'qty': int}, silent_error=True, default_type=str, from_str=False).to_md(show=['dtypes', 'quotes']))
         | id: str | qty: int |
         | ------: | -------: |
         |     '1' |        3 |

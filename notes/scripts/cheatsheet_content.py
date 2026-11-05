@@ -125,7 +125,7 @@ SECTIONS = [
         ("daf.to_lod()", 'a list of dicts'),
         ("daf.to_md(max_rows=10)", 'Markdown text'),
         ("daf.to_md(col_fmt={'qty': ',d'})", "Markdown text, with a format for some columns. A spec, 'smart', 'smart%' or a function"),
-        ("daf.to_md(include_dtypes=True, quote_text=True)", "Markdown text, with each dtype in the header and text in quotes, to see the types"),
+        ("daf.to_md(show=['dtypes', 'quotes'])", "Markdown text, with each dtype in the header and text in quotes, to see the types"),
         ("daf[0:3].to_md()", 'these rows as Markdown, every row, no summary line. Use it in reports, not an f-string'),
         ("daf.to_csv_file('out.csv')", 'a CSV file'),
         ("daf.to_pandas_df()", 'a pandas DataFrame'),

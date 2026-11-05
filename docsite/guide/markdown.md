@@ -27,9 +27,10 @@ Markdown report or a page like this one.
 - `smart_fmt`: fewer digits after the decimal point, in a column of numbers.
 - `col_fmt`: a format for some columns, by name: a format spec such as `'.1%'`, `'smart'`,
   `'smart%'` or a function. Only the text changes, not the Daf.
-- `include_dtypes`: each column's dtype in its header, as `age: int`. A column whose cells hold
-  another type says so, as `age: int (str)`.
-- `quote_text`: each text cell in quotes, so the text `'34'` differs from the number 34.
+- `show`: what a plain table hides, the types. Give one word, or a list of them:
+  `'dtypes'` puts each column's dtype in its header, as `age: int`, and notes a column whose
+  cells hold another type, as `age: int (str)`. `'quotes'` puts each text cell in quotes, so the
+  text `'34'` differs from the number 34. `'types'` shows each cell's type name in place of its value.
 - `disp_cols`, `header`: other names in the header, for some columns or for all.
 - `include_summary`: add the line that describes the table, for [`from_md()`][daffodil.lib.daf_md._from_md].
 
@@ -54,11 +55,16 @@ Format some columns, and see the types. Here the age is still text, as read from
 | Denver | 34.1% | 12,345.50 |
 |   Reno | 0.01% |  9,876.25 |
 >>> people = Daf(cols=['id', 'age'], dtypes={'id': str, 'age': int}, lol=[['p1', '34'], ['p2', '52']])
->>> print(people.to_md(include_dtypes=True, quote_text=True))
+>>> print(people.to_md(show=['dtypes', 'quotes']))
 | id: str | age: int (str) |
 | ------: | -------------: |
 |    'p1' |           '34' |
 |    'p2' |           '52' |
+>>> print(people.to_md(show='types'))
+| id  | age |
+| --: | --: |
+| str | str |
+| str | str |
 ```
 
 ## Reading Markdown back
@@ -71,8 +77,9 @@ For the most faithful copy, pass `shorten_text=False`, leave `smart_fmt`, `max_r
 `max_cols` at their defaults, and include the summary. Even then:
 
 - The cells come back as text, as from a CSV file. The dtypes come back only from a header
-  written with `include_dtypes=True`, and nothing is converted. See [Types and conversion](types.md).
-- Quoted text, from `quote_text=True`, comes back without its quotes only with the summary line.
+  written with `show='dtypes'`, and nothing is converted. See [Types and conversion](types.md).
+- Quoted text, from `show='quotes'`, comes back without its quotes only with the summary line.
+- A table shown with `show='types'` holds type names, not values, so it cannot be read back.
 - A newline in a cell comes back as `<br>`.
 
 A `|` in a cell, and a composite keyfield, come back as they were.

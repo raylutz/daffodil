@@ -3622,7 +3622,7 @@ class SqlDaf(Daf):
             Convert only the age. A value that does not convert, such as 'unknown', stays as it is.
             The tables quote the text, and show the dtypes in the header, so text can be told from a number:
 
-            >>> print(people_sdaf.apply_dtypes(dtypes={'age': int}, cols='age').to_md(include_dtypes=True, quote_text=True))
+            >>> print(people_sdaf.apply_dtypes(dtypes={'age': int}, cols='age').to_md(show=['dtypes', 'quotes']))
             |  id  | age: int (str) | height_m | member |
             | ---: | -------------: | -------: | -----: |
             | 'p1' |             34 |   '1.68' |    '1' |
@@ -3632,7 +3632,7 @@ class SqlDaf(Daf):
 
             Convert several columns. Python NULL in a bool column becomes 0:
 
-            >>> print(people_sdaf.apply_dtypes(dtypes={'height_m': float, 'member': bool}, cols=['height_m', 'member']).to_md(include_dtypes=True, quote_text=True))
+            >>> print(people_sdaf.apply_dtypes(dtypes={'height_m': float, 'member': bool}, cols=['height_m', 'member']).to_md(show=['dtypes', 'quotes']))
             |  id  | age: int (str) | height_m: float | member: bool |
             | ---: | -------------: | --------------: | -----------: |
             | 'p1' |             34 |            1.68 |            1 |
@@ -3646,7 +3646,7 @@ class SqlDaf(Daf):
             >>> people_sdaf.apply_dtypes(dtypes={'age': int})
             Traceback (most recent call last):
             ValueError: SqlDaf.apply_dtypes: no dtype for the columns ['id', 'height_m', 'member']. ...
-            >>> print(people_sdaf.apply_dtypes(dtypes={'age': int}, silent_error=True).to_md(include_dtypes=True, quote_text=True))
+            >>> print(people_sdaf.apply_dtypes(dtypes={'age': int}, silent_error=True).to_md(show=['dtypes', 'quotes']))
             |  id  | age: int (str) | height_m: float | member: bool |
             | ---: | -------------: | --------------: | -----------: |
             | 'p1' |             34 |            1.68 |            1 |
@@ -3657,7 +3657,7 @@ class SqlDaf(Daf):
             With `from_str=False`, a str column that holds numbers becomes text:
 
             >>> codes_sdaf = SqlDaf('codes', cols=['id', 'zip'], lol=[['p1', 80202], ['p2', 73301]])
-            >>> print(codes_sdaf.apply_dtypes(dtypes={'id': str, 'zip': str}, from_str=False).to_md(include_dtypes=True, quote_text=True))
+            >>> print(codes_sdaf.apply_dtypes(dtypes={'id': str, 'zip': str}, from_str=False).to_md(show=['dtypes', 'quotes']))
             | id: str | zip: str |
             | ------: | -------: |
             |    'p1' |  '80202' |
