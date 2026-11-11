@@ -23,6 +23,7 @@ and link the Guide to the API reference.
 - `to_md(col_fmt=...)` formats the cells of some columns for display, by a format spec such as '.1%', by 'smart' or 'smart%', or by a function. The Daf is not changed. A missing value stays blank, text a spec cannot format is shown as it is, and `smart_fmt` leaves those columns alone. A SqlDaf takes it too. Ray approved it on 2026-11-02, Q331.
 
 ### Changed
+- PyPI releases are published by Trusted Publishing, with no API token, and carry attestations, which PyPI shows as provenance. Ray set up the trusted publisher on 2026-11-11, Q342.
 - The Guide pages link each method they name to its entry in the API reference, at its first mention in each section. The Markdown page lists every option of `to_md()`.
 - **Breaking.** `smart_fmt` drops trailing zeros. A round value such as 0.5 showed as 0.50, 0.01 as 0.0100 and 2.0 as 2.0. It now shows as 0.5, 0.01 and 2. A value too small to show is 0, not 0.0. This changes the text of `to_md(smart_fmt=True)` and `to_md_cols(smart_fmt=True)`, not the data. Ray decided it on 2026-11-02, Q332.
 - The Types page of the Guide defines PYON, the text of a list or dict cell. It shows how PYON differs from JSON, how daffodil writes and reads it, and why daffodil's form of it is also JSON5, which SQLite's JSON functions read. Other mentions of PYON link to it. The Booleans page said such a cell is also JSON. It is JSON5. Ray asked for this on 2026-11-01.

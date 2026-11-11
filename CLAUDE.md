@@ -157,7 +157,8 @@ Source code is in src/daffodil and tests are in tests.
 - Check the Full deploy run and look for the tag. A failed run makes no tag.
 - After the release, set pyproject.toml to the next dev version, such as 0.7.3.dev0 after 0.7.2, and push to `main`.
 - Then mail AuditEngine about the release. Include every item in `notes/next_release_mail.md`, then clear that list.
-- The secret `PYPI_API_TOKEN` lives in the GitHub environment `pypi`. Ray sets it. Never ask for its value.
+- PyPI accepts the upload by Trusted Publishing, from deploy.yml in the environment `pypi`, with no token. The
+  trusted publisher is set in the PyPI project settings, which only Ray can change. PyPI then shows provenance.
 - Push to `main` only when Ray asks. A handoff or mail commit goes to `main` and runs nothing. It never goes to `full_deploy` or `docs_deploy`.
 
 ## Names

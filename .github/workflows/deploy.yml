@@ -12,7 +12,8 @@
 # A run that waits more than 30 days is cancelled.
 #
 # One-time setup, done in the GitHub and PyPI web pages:
-#   - a secret named PYPI_API_TOKEN, a PyPI token for the project daffodil. Put it in the environment pypi.
+#   - on PyPI, a trusted publisher for daffodil: owner raylutz, repository daffodil, workflow deploy.yml,
+#     environment pypi. No token is needed.
 #   - an environment named pypi, with Ray as a required reviewer.
 #   - Settings, Pages, Source: GitHub Actions.
 
@@ -97,14 +98,16 @@ jobs:
     needs: [build, docs]
     runs-on: ubuntu-latest
     environment: pypi
+    # Trusted Publishing: PyPI accepts this workflow and environment, with no token.
+    # It also lets the action upload attestations, which PyPI shows as provenance.
+    permissions:
+      id-token: write
     steps:
       - uses: actions/download-artifact@v4
         with:
           name: dist
           path: dist/
       - uses: pypa/gh-action-pypi-publish@release/v1
-        with:
-          password: ${{ secrets.PYPI_API_TOKEN }}
 
   tag:
     name: Tag the release
