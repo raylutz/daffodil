@@ -9,7 +9,9 @@ all prior releases. Plans for future moved to ROADMAP.md.
 
 ## [Unreleased]
 
-## [0.11.0] - (2026-11-05)
+## [0.11.0] - (2026-11-11)
+
+Released on 2026-11-11 at 17:08 UTC, from 4eb3325. Ray approved the PyPI step himself. It is the first release published by Trusted Publishing, and each file carries an attestation, which PyPI shows as provenance.
 
 This release makes types visible in a Markdown table, with `to_md(show=...)` for the dtypes in the
 header, quoted text and type names, and adds `to_md(col_fmt=...)` to format some columns for display.
