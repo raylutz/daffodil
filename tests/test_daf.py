@@ -5138,3 +5138,13 @@ def test_group_where_multiple_keys_per_row():
 
 if __name__ == '__main__':
     unittest.main()
+
+
+@pytest.mark.xfail(strict=True, reason="BUG: daf_structure.py _rename_cols, about line 270, renames onto a name in use, "
+                                        "so two columns share one name and the header no longer matches the rows")
+def test_rename_cols_onto_a_name_in_use_raises_and_changes_nothing():
+    """ A new name that another column keeps would make two columns share one name, so it raises. """
+    daf = Daf(cols=['id', 'file_paths', 'file_path'], lol=[['p1', 'a.png', 'b.png']])
+    with pytest.raises(ValueError):
+        daf.rename_cols({'file_paths': 'file_path'})
+    assert daf.hd == {'id': 0, 'file_paths': 1, 'file_path': 2}
