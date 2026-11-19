@@ -3210,6 +3210,7 @@ class Daf:
     derive_join_translator_daf = classmethod(daf_join._derive_join_translator_daf)
     join                       = daf_join._join
     join_with_residue          = daf_join._join_with_residue
+    joint_apply                = staticmethod(daf_join._joint_apply)
     join_records               = staticmethod(daf_join._join_records)
     update_with_history        = daf_join._update_with_history
 

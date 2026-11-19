@@ -18,6 +18,7 @@ from daffodil.daf import Daf, NULL
 from daffodil.keyedlist import KeyedList
 from daffodil.lib.daf_types import T_ls, T_la, T_lola, T_di, T_da, T_cs, T_ta
 import daffodil.lib.daf_utils as daf_utils
+import daffodil.daf_join as daf_join
 from daffodil.lib.daf_sql import sqlite3
 
 if TYPE_CHECKING:       # for mypy. sqldaf.py sets the names below when the program runs.
@@ -1804,3 +1805,249 @@ def _join_with_residue(
     self_res_sdaf: SqlDaf = self.select_records(other_daf, inverse=True, silent_error=True)
     other_res_sdaf: SqlDaf = other_daf.select_records(self, inverse=True, silent_error=True)
     return joined_sdaf, self_res_sdaf, other_res_sdaf
+
+
+def _joint_apply(
+        required_klodaf:    Any,                        # the tables a key must be in, by name, each with a keyfield.
+        func:               Callable[..., Any],         # func(key, rows_klod) gives a dict of output name to rows.
+        optional_klodaf:    Any = None,                 # tables that add their row where they have the key.
+        ) -> Tuple[Any, Any]:                           # outputs, residues
+    """
+    Combine several tables row by row, by key, with a function, as [`Daf.joint_apply()`][daffodil.daf_join._joint_apply] does.
+
+    The first SqlDaf among the tables gives the connection. The rows of every table are read in
+    one SQL query on it, joined by key, a batch at a time, so no table is read into memory whole.
+    A table in another database file, or a Daf, is copied into a TEMP table first, and that copy
+    is dropped at the end. Neither file changes.
+
+    Each output is a SqlDaf TEMP table on that connection, written a batch at a time. It has the
+    columns its rows use, in the order first seen. Each residue is a selection of its own table, as
+    `select_records()` gives, found in SQL in a first step. The keys that every required table has are
+    written to a TEMP table, set-based, and each residue is the rows of its table whose key is not
+    there. No key list is made in Python. A Python NULL cell reaches the function as Python NULL. The text of a
+    dict or list cell reaches it as text, as in a SqlDaf's other methods.
+
+    The keys of a SqlDaf are unique, as its key index requires. A key that repeats in an optional
+    table would give the function that key once for each of its rows.
+
+    Args:
+        required_klodaf: The tables a key must be in, by name.
+        func: Called as `func(key, rows_klod)` for each combined key. Returns a dict of output name to rows.
+        optional_klodaf: Tables that add their row where they have the key, by name.
+
+    Returns:
+        The outputs, by name, in the order first written, and the residues, by the name of each required table.
+
+    Raises:
+        ValueError: No required table is given, or a table has no keyfield.
+        TypeError: The function returns something other than a dict or None, or a row that is not a dict.
+
+    Examples:
+        Create small SqlDaf tables about the same people, keyed by id. Each lacks someone:
+
+        >>> import tempfile
+        >>> SqlDaf.db_path = tempfile.mkdtemp() + '/job.db'
+        >>> people_sdaf = SqlDaf('people', cols=['id', 'name', 'city'], keyfield='id', lol=[
+        ...     ['p1', 'Ana Lopez', 'Denver'], ['p2', 'Ben Okafor', 'Austin'], ['p3', 'Chen Wu', 'Boston']])
+        >>> people_sdaf
+        <BLANKLINE>
+        | id |    name    |  city  |
+        | -: | ---------: | -----: |
+        | p1 |  Ana Lopez | Denver |
+        | p2 | Ben Okafor | Austin |
+        | p3 |    Chen Wu | Boston |
+        <BLANKLINE>
+        %% sdaf rows=3; cols=3; keyfield='id'; name='people'
+        <BLANKLINE>
+        >>> visits_sdaf = SqlDaf('visits', cols=['id', 'city', 'visits'], keyfield='id', lol=[
+        ...     ['p1', 'Denver', 4], ['p2', 'Dallas', 7], ['p9', 'Reno', 2]])
+        >>> visits_sdaf
+        <BLANKLINE>
+        | id |  city  | visits |
+        | -: | -----: | -----: |
+        | p1 | Denver |      4 |
+        | p2 | Dallas |      7 |
+        | p9 |   Reno |      2 |
+        <BLANKLINE>
+        %% sdaf rows=3; cols=3; keyfield='id'; name='visits'
+        <BLANKLINE>
+        >>> notes_sdaf = SqlDaf('notes', cols=['id', 'note'], keyfield='id', lol=[['p2', 'moved']])
+
+        Combine people and visits, both required, with notes optional. Flag a city that differs:
+
+        >>> def combine(key, rows_klod):
+        ...     person, visit, note = rows_klod['people'], rows_klod['visits'], rows_klod['notes']
+        ...     return {'joined': {'id': key, 'city_differs': int(person['city'] != visit['city']),
+        ...                        'note': note['note'] if note else ''}}
+        >>> outputs_klodaf, residues_klodaf = SqlDaf.joint_apply(
+        ...     KeyedList({'people': people_sdaf, 'visits': visits_sdaf}), combine,
+        ...     optional_klodaf=KeyedList({'notes': notes_sdaf}))
+        >>> outputs_klodaf['joined']
+        <BLANKLINE>
+        | id | city_differs | note  |
+        | -: | -----------: | ----: |
+        | p1 |            0 |       |
+        | p2 |            1 | moved |
+        <BLANKLINE>
+        %% sdaf rows=2; cols=3; keyfield=''; name='daf_tmp_joined_v4'
+        <BLANKLINE>
+
+        Each required table keeps, as its residue, the rows whose key the other lacks:
+
+        >>> residues_klodaf['people']
+        <BLANKLINE>
+        | id |  name   |  city  |
+        | -: | ------: | -----: |
+        | p3 | Chen Wu | Boston |
+        <BLANKLINE>
+        %% sdaf rows=1; cols=3; keyfield='id'; name='daf_tmp_people_v2'
+        <BLANKLINE>
+        >>> residues_klodaf['visits']
+        <BLANKLINE>
+        | id | city | visits |
+        | -: | ---: | -----: |
+        | p9 | Reno |      2 |
+        <BLANKLINE>
+        %% sdaf rows=1; cols=3; keyfield='id'; name='daf_tmp_visits_v3'
+        <BLANKLINE>
+    """
+    tables_klodaf: Any = daf_join._joint_tables(required_klodaf, optional_klodaf)
+    base_sdaf: SqlDaf = next(table for table in tables_klodaf.values() if isinstance(table, SqlDaf))
+    required_ls: T_ls = list(required_klodaf.keys())
+
+    # ---- Each table, readable on the base connection. Copies made here are dropped at the end.
+    readable_da: Dict[str, SqlDaf] = {}
+    copies_ls: T_ls = []
+    name: str
+    table: Any
+    for name, table in tables_klodaf.items():
+        readable_sdaf: SqlDaf
+        if isinstance(table, SqlDaf):
+            readable_sdaf = base_sdaf._readable(table)
+        else:
+            readable_sdaf = _temp_copy_of_daf(base_sdaf, table)
+        if readable_sdaf is not table:
+            copies_ls.append(readable_sdaf.name)
+        readable_sdaf._resolve()
+        readable_da[name] = readable_sdaf
+
+    # ---- One query: the required tables joined, the optional ones left joined, in the first table's order
+    names_ls: T_ls = list(tables_klodaf.keys())
+    select_ls: T_ls = [f'T0.{quote_name(readable_da[names_ls[0]].keyfield)}']
+    from_ls: T_ls = []
+    params: Tuple[Any, ...] = ()
+    spans_lot: List[Tuple[str, T_ls, int, bool]] = []         # each table's name, columns, first position, and if optional.
+    itable: int
+    for itable, name in enumerate(names_ls):
+        sdaf: SqlDaf = readable_da[name]
+        rows_sql, rows_params = sdaf._rows_sql()
+        alias: str = f'T{itable}'
+        cols_ls: T_ls = list(sdaf.hd)
+        is_optional: bool = name not in required_klodaf
+        spans_lot.append((name, cols_ls, len(select_ls), is_optional))
+        if is_optional:
+            select_ls.append(f'{alias}.{ORD_COL}')                # SQL NULL here means the table lacks the key.
+        select_ls.extend(f'{alias}.{quote_name(col)}' for col in cols_ls)
+        if itable == 0:
+            from_ls.append(f'({rows_sql}) AS {alias}')
+        else:
+            join_kind: str = 'LEFT JOIN' if is_optional else 'JOIN'
+            from_ls.append(f'{join_kind} ({rows_sql}) AS {alias} '
+                           f'ON {alias}.{quote_name(sdaf.keyfield)} = T0.{quote_name(readable_da[names_ls[0]].keyfield)}')
+        params = params + rows_params
+    query_sql: str = f'SELECT {", ".join(select_ls)} FROM {" ".join(from_ls)} ORDER BY T0.{ORD_COL}'
+
+    # ---- Step 1: the combined keys, set-based, into a TEMP table. Each residue is the rows of its
+    # table whose key is not there, a selection made in SQL, as find_variants makes its residues.
+    first_key: str = readable_da[names_ls[0]].keyfield
+    required_from_ls: T_ls = [part for part, (name, _cols, _start, is_optional) in zip(from_ls, spans_lot) if not is_optional]
+    required_params: Tuple[Any, ...] = ()
+    for name in names_ls:
+        if name in required_klodaf:
+            required_params = required_params + readable_da[name]._rows_sql()[1]
+    keys_name: str = base_sdaf._next_temp_name('joint_keys')
+    base_sdaf._execute(_create_table_sql(base_sdaf.conn, keys_name, [first_key], 'temp'))
+    base_sdaf._execute(f'INSERT INTO {quote_name(keys_name)} ({quote_name(first_key)}) '
+                       f'SELECT T0.{quote_name(first_key)} FROM {" ".join(required_from_ls)}', required_params)
+    keys_sdaf: SqlDaf = base_sdaf._new_on_conn(keys_name, first_key, None, is_temp=True)
+    residues_klodaf: Any = KeyedList({name: required_klodaf[name].select_records(keys_sdaf, inverse=True, silent_error=True)
+                                      for name in required_ls})
+
+    # ---- The function for each combined key, and the outputs written a batch at a time
+    writers_da: Dict[str, _JointOutput] = {}
+    names_hd: Dict[str, int] = {name: itable for itable, name in enumerate(names_ls)}    # shared by every rows_klod.
+    try:
+        cursor: sqlite3.Cursor = base_sdaf._execute(query_sql, params)
+        while True:
+            batch_lot: List[Tuple[Any, ...]] = cursor.fetchmany(10000)
+            if not batch_lot:
+                break
+            rows_by_output: Dict[str, List[Any]] = {}
+            vals_t: Tuple[Any, ...]
+            for vals_t in batch_lot:
+                key: Any = vals_t[0]
+                rows_la: list = []
+                for name, cols_ls, start, is_optional in spans_lot:
+                    if is_optional:
+                        if vals_t[start] is None:
+                            rows_la.append(None)
+                            continue
+                        start += 1
+                    rows_la.append(dict(zip(cols_ls, none_to_null(vals_t[start:start + len(cols_ls)]))))
+                daf_join._collect_outputs(func(key, KeyedList(names_hd, rows_la)), rows_by_output)
+            out_name: str
+            rows_ls: List[Any]
+            for out_name, rows_ls in rows_by_output.items():
+                if out_name not in writers_da:
+                    writers_da[out_name] = _JointOutput(base_sdaf, out_name)
+                writers_da[out_name].write(rows_ls)
+    finally:
+        copy_name: str
+        for copy_name in copies_ls:
+            base_sdaf.conn.execute(f'DROP TABLE IF EXISTS temp.{quote_name(copy_name)}')
+
+    outputs_klodaf: Any = KeyedList({out_name: writer.sdaf for out_name, writer in writers_da.items()})
+    return outputs_klodaf, residues_klodaf
+
+
+def _temp_copy_of_daf(base_sdaf: 'SqlDaf', daf: Daf) -> 'SqlDaf':
+    """ A Daf among the tables of `joint_apply()`, as a TEMP table on the base connection, with its keyfield. Internal use. """
+    name: str = base_sdaf._next_temp_name('joint_daf')
+    cols_ls: T_ls = list(daf.hd)
+    base_sdaf._execute(_create_table_sql(base_sdaf.conn, name, cols_ls, 'temp'))
+    copy_sdaf: SqlDaf = base_sdaf._new_on_conn(name, str(daf.keyfield), None, is_temp=True)
+    copy_sdaf._insert_rows(daf.lol)
+    return copy_sdaf
+
+
+class _JointOutput:
+    """
+    One output of `joint_apply()` on a SqlDaf: a TEMP table, written a batch of rows at a time. Internal use.
+
+    The columns are the names the rows use, in the order first seen, as `Daf.from_lod()` gives them.
+    A name first seen in a later batch is added to the table, and earlier rows have SQL NULL there.
+    """
+
+    def __init__(self, base_sdaf: 'SqlDaf', out_name: str) -> None:
+        self.base_sdaf: SqlDaf = base_sdaf
+        self.name: str = base_sdaf._next_temp_name(out_name)
+        self.sdaf: SqlDaf | None = None
+
+    def write(self, rows_ls: List[Any]) -> None:
+        cols_ls: T_ls = []
+        seen_set: set = set(self.sdaf.hd) if self.sdaf is not None else set()
+        row_da: Any
+        col: str
+        for row_da in rows_ls:
+            for col in row_da:
+                if col not in seen_set:
+                    seen_set.add(col)
+                    cols_ls.append(col)
+        if self.sdaf is None:
+            self.base_sdaf._execute(_create_table_sql(self.base_sdaf.conn, self.name, cols_ls, 'temp'))
+            self.sdaf = self.base_sdaf._new_on_conn(self.name, '', None, is_temp=True)
+        else:
+            for col in cols_ls:
+                self.sdaf.insert_col(col)
+        out_cols_ls: T_ls = list(self.sdaf.hd)
+        self.sdaf._insert_rows([[row_da.get(col, NULL) for col in out_cols_ls] for row_da in rows_ls])

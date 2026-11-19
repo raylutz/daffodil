@@ -85,3 +85,7 @@ Functions over rows, groups and counts, and joins.
 ::: daffodil.sqldaf_apply._join_with_residue
     options:
       heading: "join_with_residue"
+
+::: daffodil.sqldaf_apply._joint_apply
+    options:
+      heading: "joint_apply"

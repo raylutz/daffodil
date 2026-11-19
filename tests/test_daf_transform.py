@@ -702,3 +702,71 @@ def test_update_with_history_changes_neither_input_and_shares_no_rows():
 def test_update_with_history_raises_with_no_by_and_no_keyfield():
     with pytest.raises(ValueError, match='needs a by column'):
         prior_marks().update_with_history(rerun_marks())
+
+
+# ---- joint_apply(): several tables combined by key, with residues
+
+def _joint_tables_klodaf():
+    from daffodil.keyedlist import KeyedList
+    people = Daf(cols=['id', 'name', 'city'], keyfield='id', lol=[
+        ['p1', 'Ana', 'Denver'], ['p2', 'Ben', 'Austin'], ['p3', 'Chen', 'Boston'], ['p4', 'Dana', 'Reno']])
+    visits = Daf(cols=['id', 'city', 'visits'], keyfield='id', lol=[
+        ['p4', 'Reno', 1], ['p2', 'Dallas', 7], ['p1', 'Denver', 4], ['p9', 'Reno', 2]])
+    pay = Daf(cols=['id', 'salary'], keyfield='id', lol=[['p1', 52000], ['p2', 64000], ['p8', 41000]])
+    notes = Daf(cols=['id', 'note'], keyfield='id', lol=[['p2', 'moved'], ['p7', 'new']])
+    return KeyedList({'people': people, 'visits': visits, 'pay': pay}), KeyedList({'notes': notes})
+
+
+def _flag(key, rows_klod):
+    note = rows_klod['notes'] if 'notes' in rows_klod.keys() else None
+    return {'full': {'id': key, 'differs': int(rows_klod['people']['city'] != rows_klod['visits']['city']),
+                     'note': note['note'] if note else ''}}
+
+
+def test_joint_apply_combines_keys_every_required_table_has_in_the_first_tables_order():
+    required, optional = _joint_tables_klodaf()
+    outputs, residues = Daf.joint_apply(required, _flag, optional)
+    assert outputs['full'].lol == [['p1', 0, ''], ['p2', 1, 'moved']]
+    assert {name: residues[name].keys() for name in residues.keys()} == \
+        {'people': ['p3', 'p4'], 'visits': ['p4', 'p9'], 'pay': ['p8']}
+
+
+def test_joint_apply_optional_table_never_drops_a_key_and_has_no_residue():
+    required, optional = _joint_tables_klodaf()
+    seen = []
+    outputs, residues = Daf.joint_apply(required, lambda key, rows: seen.append((key, rows['notes'])), optional)
+    assert seen == [('p1', None), ('p2', {'id': 'p2', 'note': 'moved'})]
+    assert len(outputs) == 0 and list(residues.keys()) == ['people', 'visits', 'pay']
+
+
+def test_joint_apply_two_required_tables_match_join_with_residue():
+    from daffodil.keyedlist import KeyedList
+    required, _ = _joint_tables_klodaf()
+    people, visits = required['people'], required['visits']
+    outputs, residues = Daf.joint_apply(KeyedList({'people': people, 'visits': visits}),
+                                        lambda key, rows: {'j': {**rows['people'], 'visits': rows['visits']['visits']}})
+    _joined, left_res, right_res = people.join_with_residue(visits, shared_fields=['city'])
+    assert residues['people'].lol == left_res.lol and residues['visits'].lol == right_res.lol
+    assert outputs['j'].lol == [['p1', 'Ana', 'Denver', 4], ['p2', 'Ben', 'Austin', 7], ['p4', 'Dana', 'Reno', 1]]
+
+
+def test_joint_apply_outputs_take_the_union_of_the_names_their_rows_use():
+    from daffodil.keyedlist import KeyedList
+    required, _ = _joint_tables_klodaf()
+    outputs, _res = Daf.joint_apply(KeyedList({'people': required['people']}),
+                                    lambda key, rows: {'o': {'id': key, 'x': 1} if key == 'p1' else [{'id': key, 'y': 2}, None][:1]})
+    assert outputs['o'].columns() == ['id', 'x', 'y']
+    assert outputs['o'].lol[:2] == [['p1', 1, ''], ['p2', '', 2]]
+
+
+def test_joint_apply_errors():
+    from daffodil.keyedlist import KeyedList
+    required, _ = _joint_tables_klodaf()
+    with pytest.raises(ValueError, match='required'):
+        Daf.joint_apply(KeyedList({}), _flag)
+    with pytest.raises(ValueError, match='keyfield'):
+        Daf.joint_apply(KeyedList({'a': Daf(cols=['id'], lol=[['p1']])}), _flag)
+    with pytest.raises(TypeError, match='must return'):
+        Daf.joint_apply(required, lambda key, rows: ['bad'])
+    with pytest.raises(TypeError, match='not a dict'):
+        Daf.joint_apply(required, lambda key, rows: {'o': 'bad'})

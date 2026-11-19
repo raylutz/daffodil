@@ -3732,3 +3732,34 @@ def test_to_md_show_matches_daf():
     text: str = sdaf.to_md(show='quotes', include_summary=True)
     assert text.rstrip().endswith("show='quotes'")
     assert Daf.from_md(text).lol == [['a', '34'], ['b', '']]
+
+
+def test_joint_apply_sqldaf_matches_daf_with_tables_in_another_file_and_a_daf(tmp_path):
+    """ A SqlDaf run gives the Daf result. A table in another file and a plain Daf are read, and no copy is left. """
+    from daffodil.keyedlist import KeyedList
+    people = Daf(cols=['id', 'city'], keyfield='id', lol=[['p1', 'Denver'], ['p2', 'Austin'], ['p3', 'Boston']])
+    visits = Daf(cols=['id', 'city'], keyfield='id', lol=[['p2', 'Dallas'], ['p1', 'Denver'], ['p9', 'Reno']])
+    notes = Daf(cols=['id', 'note'], keyfield='id', lol=[['p2', 'moved']])
+    func = lambda key, rows: {'full': {'id': key, 'differs': int(rows['people']['city'] != rows['visits']['city']),
+                                       'note': rows['notes']['note'] if rows['notes'] else ''}}
+    daf_out, daf_res = Daf.joint_apply(KeyedList({'people': people, 'visits': visits}), func, KeyedList({'notes': notes}))
+    people_sdaf: SqlDaf = SqlDaf.from_daf(people, name='people')
+    other_path: str = str(tmp_path / 'other.db')
+    SqlDaf.from_daf(visits, name='visits').copy(name='visits_o').save(db_path=other_path)
+    visits_sdaf: SqlDaf = SqlDaf('visits_o', db_path=other_path)
+    sql_out, sql_res = SqlDaf.joint_apply(KeyedList({'people': people_sdaf, 'visits': visits_sdaf}), func, KeyedList({'notes': notes}))
+    assert sql_out['full'].to_daf().lol == daf_out['full'].lol == [['p1', 0, ''], ['p2', 1, 'moved']]
+    assert [sql_res[n].to_daf().lol for n in sql_res.keys()] == [daf_res[n].lol for n in daf_res.keys()]
+    temp_names = [row[0] for row in people_sdaf.conn.execute("SELECT name FROM sqlite_temp_master WHERE type = 'table'")]
+    assert not [name for name in temp_names if 'joint_daf' in name or 'visits_o' in name]
+
+
+def test_joint_apply_sqldaf_output_adds_a_column_first_seen_in_a_later_batch():
+    from daffodil.keyedlist import KeyedList
+    big_sdaf: SqlDaf = SqlDaf.from_daf(Daf(cols=['id'], keyfield='id', lol=[[f'k{i:05}'] for i in range(10005)]), name='big')
+    outputs, residues = SqlDaf.joint_apply(KeyedList({'big': big_sdaf}),
+                                           lambda key, rows: {'o': {'id': key, 'late': 1} if key == 'k10004' else {'id': key}})
+    out_daf: Daf = outputs['o'].to_daf()
+    assert out_daf.columns() == ['id', 'late'] and len(out_daf) == 10005
+    assert out_daf.lol[0] == ['k00000', ''] and out_daf.lol[-1] == ['k10004', 1]
+    assert len(residues['big']) == 0

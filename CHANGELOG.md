@@ -9,6 +9,9 @@ all prior releases. Plans for future moved to ROADMAP.md.
 
 ## [Unreleased]
 
+### Added
+- `joint_apply()`, on a Daf and a SqlDaf. It combines several tables by key with a function, as `Daf.joint_apply(required_klodaf, func, optional_klodaf)`. A key is combined only if every required table has it. An optional table adds its row where it has the key. The function gets the key and a KeyedList of each table's row, and returns rows for the outputs it names. Each required table gets a residue, its rows whose key another required table lacks. On a SqlDaf the residues are found set-based in SQL first, and the rows are read in one joined query, a batch at a time. About 14 us a key on 200,000 keys. AuditEngine asked for it, and Ray approved it on 2026-11-19, Q348.
+
 ## [0.11.0] - (2026-11-11)
 
 Released on 2026-11-11 at 17:08 UTC, from 4eb3325. Ray approved the PyPI step himself. It is the first release published by Trusted Publishing, and each file carries an attestation, which PyPI shows as provenance.

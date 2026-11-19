@@ -108,3 +108,32 @@ These are ideas being tossed around. Nothing here is decided or scheduled.
 - A wider weakness of SqlDaf: a method that makes tables cannot let the caller name them through a
   return value. Most make up names, as daf_tmp_items_v3. Outputs passed as parameters would let the
   caller name them. Only copy(), join(), save() and the loaders take a name today.
+
+## Built, 2026-11-19, Q348
+
+AuditEngine asked for it, with Ray's form of required and optional tables, AuditEngine's Q1048 a.
+Ray approved the build on 2026-11-19, Q348. Q349 and Q350 took the recommended forms, open to rename before release.
+
+    outputs_klodaf, residues_klodaf = Daf.joint_apply(required_klodaf, func, optional_klodaf=None)
+
+- Names end in `_klodaf`, as Ray asked: a KeyedList of Daf. The rows passed to the function are `rows_klod`.
+- A key is combined only if every required table has it, in the first required table's order.
+  An optional table adds its row, or None, and has no residue.
+- func(key, rows_klod) returns a dict of output name to a row, a list of rows, or None.
+  Every rows_klod shares one index of the names. Building a KeyedList per key from a dict cost 0.9 s
+  on 200,000 keys.
+- Outputs have the union of the names their rows use, in the order first seen, as from_lod() gives.
+  A SqlDaf output adds a column first seen in a later batch.
+- Residues: Daf uses select_records() of the combined keys, inverse. SqlDaf writes the combined keys
+  to a TEMP table in one INSERT ... SELECT over the joined required tables, then each residue is
+  select_records(keys_sdaf, inverse=True), in SQL, as find_variants makes its residues. Ray asked for that.
+- A SqlDaf reads every table in one query: the required tables JOINed, the optional ones LEFT JOINed,
+  by key, ORDER BY the first table's order, fetched 10,000 rows at a time.
+  A table in another file, or a Daf, is copied to a TEMP table first, and the copy is dropped at the end.
+- Any SqlDaf among the tables makes Daf.joint_apply() run as SqlDaf.joint_apply().
+
+Timing, 2026-11-19, three tables of 200,000 rows, two required, one optional, 199,000 combined keys:
+Daf 1.69 s, SqlDaf 2.86 s, so about 14 us a key on a SqlDaf. At 1,600,000 keys, about 23 s.
+The SqlDaf time is about 1.2 s reading and writing SQL, 0.7 s collecting outputs, and the function itself.
+
+Tests: test_daf_transform.py and test_sqldaf.py, the joint_apply tests.

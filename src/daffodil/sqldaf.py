@@ -1753,6 +1753,7 @@ class SqlDaf(Daf):
     group_where                                    = sqldaf_apply._group_where
     join                                           = sqldaf_apply._join  # type: ignore[assignment]
     join_with_residue                              = sqldaf_apply._join_with_residue  # type: ignore[assignment]
+    joint_apply                                    = staticmethod(sqldaf_apply._joint_apply)  # type: ignore[assignment]
 
     def _execute(self, stmt: str, params: Iterable[Any] = ()) -> sqlite3.Cursor:
         """ Run one statement, raising an error from a registered Python function as itself. Internal use. """
