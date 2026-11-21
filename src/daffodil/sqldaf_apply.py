@@ -1809,7 +1809,7 @@ def _join_with_residue(
 
 def _joint_apply(
         required_klodaf:    Any,                        # the tables a key must be in, by name, each with a keyfield.
-        func:               Callable[..., Any],         # func(key, rows_klod) gives a dict of output name to rows.
+        func:               Callable[..., Any],         # func(key, rows_daf) gives a dict of output name to rows.
         optional_klodaf:    Any = None,                 # tables that add their row where they have the key.
         ) -> Tuple[Any, Any]:                           # outputs, residues
     """
@@ -1832,14 +1832,14 @@ def _joint_apply(
 
     Args:
         required_klodaf: The tables a key must be in, by name.
-        func: Called as `func(key, rows_klod)` for each combined key. Returns a dict of output name to rows.
+        func: Called as `func(key, rows_daf)` for each combined key. Returns a dict of output name to rows.
         optional_klodaf: Tables that add their row where they have the key, by name.
 
     Returns:
         The outputs, by name, in the order first written, and the residues, by the name of each required table.
 
     Raises:
-        ValueError: No required table is given, or a table has no keyfield.
+        ValueError: No required table is given, a table has no keyfield, or a table has a column named `table`.
         TypeError: The function returns something other than a dict or None, or a row that is not a dict.
 
     Examples:
@@ -1875,10 +1875,10 @@ def _joint_apply(
 
         Combine people and visits, both required, with notes optional. Flag a city that differs:
 
-        >>> def combine(key, rows_klod):
-        ...     person, visit, note = rows_klod['people'], rows_klod['visits'], rows_klod['notes']
-        ...     return {'joined': {'id': key, 'city_differs': int(person['city'] != visit['city']),
-        ...                        'note': note['note'] if note else ''}}
+        >>> def combine(key, rows_daf):
+        ...     note = rows_daf.select_record('notes')['note'] if 'notes' in rows_daf else ''
+        ...     cities_set = {city for city in rows_daf.col('city') if city}      # notes has no city, so NULL there.
+        ...     return {'joined': {'id': key, 'city_differs': int(len(cities_set) > 1), 'note': note}}
         >>> outputs_klodaf, residues_klodaf = SqlDaf.joint_apply(
         ...     KeyedList({'people': people_sdaf, 'visits': visits_sdaf}), combine,
         ...     optional_klodaf=KeyedList({'notes': notes_sdaf}))
@@ -1975,7 +1975,7 @@ def _joint_apply(
 
     # ---- The function for each combined key, and the outputs written a batch at a time
     writers_da: Dict[str, _JointOutput] = {}
-    names_hd: Dict[str, int] = {name: itable for itable, name in enumerate(names_ls)}    # shared by every rows_klod.
+    rows_maker: Any = daf_join._RowsDafMaker({name: cols_ls for name, cols_ls, _start, _opt in spans_lot})
     try:
         cursor: sqlite3.Cursor = base_sdaf._execute(query_sql, params)
         while True:
@@ -1993,8 +1993,8 @@ def _joint_apply(
                             rows_la.append(None)
                             continue
                         start += 1
-                    rows_la.append(dict(zip(cols_ls, none_to_null(vals_t[start:start + len(cols_ls)]))))
-                daf_join._collect_outputs(func(key, KeyedList(names_hd, rows_la)), rows_by_output)
+                    rows_la.append(none_to_null(vals_t[start:start + len(cols_ls)]))
+                daf_join._collect_outputs(func(key, rows_maker.make(rows_la)), rows_by_output)
             out_name: str
             rows_ls: List[Any]
             for out_name, rows_ls in rows_by_output.items():

@@ -717,10 +717,10 @@ def _joint_tables_klodaf():
     return KeyedList({'people': people, 'visits': visits, 'pay': pay}), KeyedList({'notes': notes})
 
 
-def _flag(key, rows_klod):
-    note = rows_klod['notes'] if 'notes' in rows_klod.keys() else None
-    return {'full': {'id': key, 'differs': int(rows_klod['people']['city'] != rows_klod['visits']['city']),
-                     'note': note['note'] if note else ''}}
+def _flag(key, rows_daf):
+    cities_set = {city for city in rows_daf.col('city') if city}
+    note = rows_daf.select_record('notes')['note'] if 'notes' in rows_daf else ''
+    return {'full': {'id': key, 'differs': int(len(cities_set) > 1), 'note': note}}
 
 
 def test_joint_apply_combines_keys_every_required_table_has_in_the_first_tables_order():
@@ -734,8 +734,8 @@ def test_joint_apply_combines_keys_every_required_table_has_in_the_first_tables_
 def test_joint_apply_optional_table_never_drops_a_key_and_has_no_residue():
     required, optional = _joint_tables_klodaf()
     seen = []
-    outputs, residues = Daf.joint_apply(required, lambda key, rows: seen.append((key, rows['notes'])), optional)
-    assert seen == [('p1', None), ('p2', {'id': 'p2', 'note': 'moved'})]
+    outputs, residues = Daf.joint_apply(required, lambda key, rows: seen.append((key, rows.keys())), optional)
+    assert seen == [('p1', ['people', 'visits', 'pay']), ('p2', ['people', 'visits', 'pay', 'notes'])]
     assert len(outputs) == 0 and list(residues.keys()) == ['people', 'visits', 'pay']
 
 
@@ -744,7 +744,8 @@ def test_joint_apply_two_required_tables_match_join_with_residue():
     required, _ = _joint_tables_klodaf()
     people, visits = required['people'], required['visits']
     outputs, residues = Daf.joint_apply(KeyedList({'people': people, 'visits': visits}),
-                                        lambda key, rows: {'j': {**rows['people'], 'visits': rows['visits']['visits']}})
+                                        lambda key, rows: {'j': {col: rows.select_record('people')[col] for col in people.columns()}
+                                                           | {'visits': rows.select_record('visits')['visits']}})
     _joined, left_res, right_res = people.join_with_residue(visits, shared_fields=['city'])
     assert residues['people'].lol == left_res.lol and residues['visits'].lol == right_res.lol
     assert outputs['j'].lol == [['p1', 'Ana', 'Denver', 4], ['p2', 'Ben', 'Austin', 7], ['p4', 'Dana', 'Reno', 1]]
@@ -770,3 +771,22 @@ def test_joint_apply_errors():
         Daf.joint_apply(required, lambda key, rows: ['bad'])
     with pytest.raises(TypeError, match='not a dict'):
         Daf.joint_apply(required, lambda key, rows: {'o': 'bad'})
+
+
+def test_joint_apply_rows_daf_has_a_row_per_table_and_the_columns_of_all():
+    """ The function gets a Daf keyed by table name. A column a table lacks is NULL there. """
+    required, optional = _joint_tables_klodaf()
+    got = {}
+    Daf.joint_apply(required, lambda key, rows: got.update({key: rows}), optional)
+    p2 = got['p2']
+    assert p2.keyfield == 'table' and p2.columns() == ['table', 'id', 'name', 'city', 'visits', 'salary', 'note']
+    assert p2.lol == [['people', 'p2', 'Ben', 'Austin', '', '', ''], ['visits', 'p2', '', 'Dallas', 7, '', ''],
+                      ['pay', 'p2', '', '', '', 64000, ''], ['notes', 'p2', '', '', '', '', 'moved']]
+    assert 'notes' not in got['p1']
+
+
+def test_joint_apply_a_column_named_table_raises():
+    from daffodil.keyedlist import KeyedList
+    with pytest.raises(ValueError, match="column named 'table'"):
+        Daf.joint_apply(KeyedList({'a': Daf(cols=['id', 'table'], keyfield='id', lol=[['p1', 'x']])}), lambda key, rows: None)
+

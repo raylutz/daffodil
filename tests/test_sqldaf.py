@@ -3740,8 +3740,8 @@ def test_joint_apply_sqldaf_matches_daf_with_tables_in_another_file_and_a_daf(tm
     people = Daf(cols=['id', 'city'], keyfield='id', lol=[['p1', 'Denver'], ['p2', 'Austin'], ['p3', 'Boston']])
     visits = Daf(cols=['id', 'city'], keyfield='id', lol=[['p2', 'Dallas'], ['p1', 'Denver'], ['p9', 'Reno']])
     notes = Daf(cols=['id', 'note'], keyfield='id', lol=[['p2', 'moved']])
-    func = lambda key, rows: {'full': {'id': key, 'differs': int(rows['people']['city'] != rows['visits']['city']),
-                                       'note': rows['notes']['note'] if rows['notes'] else ''}}
+    func = lambda key, rows: {'full': {'id': key, 'differs': int(len({c for c in rows.col('city') if c}) > 1),
+                                       'note': rows.select_record('notes')['note'] if 'notes' in rows else ''}}
     daf_out, daf_res = Daf.joint_apply(KeyedList({'people': people, 'visits': visits}), func, KeyedList({'notes': notes}))
     people_sdaf: SqlDaf = SqlDaf.from_daf(people, name='people')
     other_path: str = str(tmp_path / 'other.db')

@@ -137,3 +137,20 @@ Daf 1.69 s, SqlDaf 2.86 s, so about 14 us a key on a SqlDaf. At 1,600,000 keys, 
 The SqlDaf time is about 1.2 s reading and writing SQL, 0.7 s collecting outputs, and the function itself.
 
 Tests: test_daf_transform.py and test_sqldaf.py, the joint_apply tests.
+
+## rows_daf, 2026-11-21, Q351
+
+Ray: the function gets a Daf, not a KeyedList of dicts. A Daf is a KeyedList of rows whose values are
+lists that share one index. One row for each table is a tiny Daf, so the cost does not matter, and a
+name shared by two tables is the same issue in either form.
+
+- rows_daf has a first column, `table`, its keyfield, then the columns of all the tables, in the order first seen.
+- A column a table lacks is NULL in its row. So a comparison of a column only some tables have leaves NULL out.
+- An optional table without the key has no row: `'notes' in rows_daf`.
+- A table with a column named `table` raises ValueError.
+- `_RowsDafMaker` in daf_join.py builds it, for Daf and SqlDaf alike.
+
+Timing, the same three tables of 200,000 rows: Daf 2.34 s, SqlDaf 3.50 s. About 18 us a key, so about
+28 s at 1,600,000 keys. A small Daf costs 2.1 us to build, against 0.37 us for the KeyedList.
+
+Q349 is still open: residues and the empty required list. Q350, the SQL route form, waits too.
