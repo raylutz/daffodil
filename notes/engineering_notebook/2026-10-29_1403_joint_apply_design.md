@@ -162,3 +162,17 @@ and set_lol() rebuilds the key index from the rows given, so a key with fewer ta
 Per key: a new Daf 2.06 us, set_lol() 0.17 us, the KeyedList of dicts 0.37 us.
 rows_daf is valid only during the call. To keep it, the function keeps rows_daf.copy('editable').
 Timing on the same three tables of 200,000 rows: Daf 1.94 s, SqlDaf 2.91 s. About 15 us a key on a SqlDaf.
+
+## rows_klokla, 2026-11-21, Q353 a
+
+Ray: a KeyedList of KeyedLists, so tables with very different columns, or one name used for different
+things, stay apart, and nothing is laid out again. Each table's KeyedList shares its parent Daf's name
+index and is made once for each call. For each key it is pointed at the table's next row with
+set_values(), a reference, with no copy. The outer KeyedList is made once too. This replaces rows_daf.
+
+- Per key, three tables: refill by set_values() 0.68 us, a refilled rows_daf 1.85 us, new KeyedLists 1.84 us.
+- On a Daf input, a row is the table's own row list, so a write by the function reaches the table.
+  On a SqlDaf input, it reaches only the copy read.
+- No column name is reserved. A shared column is compared by reading it from each row.
+- Timing, three tables of 200,000 rows: Daf 1.41 s, SqlDaf 2.59 s. About 13 us a key, about 21 s at 1,600,000.
+- `_RowsKlokla` in daf_join.py builds it, for Daf and SqlDaf alike.

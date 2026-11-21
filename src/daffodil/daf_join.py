@@ -990,7 +990,7 @@ def _join_records(
 
 def _joint_apply(
         required_klodaf:    'T_klodaf',                 # the tables a key must be in, by name, each with a keyfield.
-        func:               Callable[..., Any],         # func(key, rows_daf) gives a dict of output name to rows.
+        func:               Callable[..., Any],         # func(key, rows_klokla) gives a dict of output name to rows.
         optional_klodaf:    'T_klodaf | None' = None,   # tables that add their row where they have the key.
         ) -> 'Tuple[T_klodaf, T_klodaf]':               # outputs, residues
     """
@@ -1010,17 +1010,16 @@ def _joint_apply(
     Each table is matched by its own keyfield. The keys come in the order of the first required
     table. A key that repeats in a table finds its last row, as a lookup by key does.
 
-    The function is called once for each combined key, as `func(key, rows_daf)`. `rows_daf` is a
-    small Daf with one row for each table that has the key, keyed by the table's name in a first
-    column, `table`. Its other columns are those of all the tables, in the order first seen. A column
-    that several tables have is one column, so the tables can be compared on it, as
-    `rows_daf.col('city')`. A cell of a column that a table lacks is NULL, so leave NULL out when
-    comparing a column that only some tables have. An optional table that
-    lacks the key has no row, so `'notes' in rows_daf` tells whether it has one. No table may have a
-    column named `table`.
+    The function is called once for each combined key, as `func(key, rows_klokla)`. `rows_klokla` is
+    a [KeyedList][daffodil.keyedlist.KeyedList] of each table's name to that table's row, itself a
+    KeyedList by column name, or None for an optional table that lacks the key. Each table's row keeps
+    that table's own columns, so tables with different columns, or a name that means different things
+    in two tables, stay apart. A column several tables have is compared by reading it from each row.
 
-    `rows_daf` is one Daf, refilled for each key, since that is several times faster than a new one.
-    So it is valid only during the call. To keep it, keep `rows_daf.copy('editable')`.
+    The KeyedLists are made once for each call. Each row shares the name index of its table, and for
+    each key it is pointed at that table's next row, with no copy. So `rows_klokla` and its rows are
+    valid only during the call. To keep a row, keep `row.to_dict()`. On a Daf, a row is the table's
+    own row list, so assigning to it changes the table. On a SqlDaf, it changes only the copy read.
 
     The function returns a dict of output name to a row, a list of rows, or None, or it returns None
     for no output. A row is a dict. Each output has the columns its rows use, in the order first
@@ -1038,14 +1037,14 @@ def _joint_apply(
 
     Args:
         required_klodaf: The tables a key must be in, by name.
-        func: Called as `func(key, rows_daf)` for each combined key. Returns a dict of output name to rows.
+        func: Called as `func(key, rows_klokla)` for each combined key. Returns a dict of output name to rows.
         optional_klodaf: Tables that add their row where they have the key, by name.
 
     Returns:
         The outputs, by name, in the order first written, and the residues, by the name of each required table.
 
     Raises:
-        ValueError: No required table is given, a table has no keyfield, or a table has a column named `table`.
+        ValueError: No required table is given, or a table has no keyfield.
         TypeError: The function returns something other than a dict or None, or a row that is not a dict.
 
     Examples:
@@ -1087,10 +1086,10 @@ def _joint_apply(
 
         Combine people and visits, both required. Flag the people whose two cities disagree:
 
-        >>> def combine(key, rows_daf):
-        ...     person, visit = rows_daf.select_record('people'), rows_daf.select_record('visits')
+        >>> def combine(key, rows_klokla):
+        ...     person, visit = rows_klokla['people'], rows_klokla['visits']
         ...     return {'joined': {'id': key, 'name': person['name'], 'visits': visit['visits'],
-        ...                        'city_differs': int(len(set(rows_daf.col('city'))) > 1)}}
+        ...                        'city_differs': int(person['city'] != visit['city'])}}
         >>> outputs_klodaf, residues_klodaf = Daf.joint_apply(KeyedList({'people': people, 'visits': visits}), combine)
         >>> outputs_klodaf['joined']
         <BLANKLINE>
@@ -1102,21 +1101,14 @@ def _joint_apply(
         %% daf rows=2; cols=4; keyfield=''; name=''
         <BLANKLINE>
 
-        The function gets a small Daf for each key. Here is the one for p2, with notes as optional:
+        The function gets each table's row by name. Here is what it gets for p1 and p2, with notes as optional:
 
-        >>> def show(key, rows_daf):
-        ...     if key == 'p2':
-        ...         print(rows_daf)
+        >>> def show(key, rows_klokla):
+        ...     print(key, {name: None if row is None else row.to_dict() for name, row in rows_klokla.items()})
         >>> outputs_klodaf, residues_klodaf = Daf.joint_apply(
         ...     KeyedList({'people': people, 'visits': visits}), show, optional_klodaf=KeyedList({'notes': notes}))
-        | table  | id |    name    |  city  | visits | note  |
-        | -----: | -: | ---------: | -----: | -----: | ----: |
-        | people | p2 | Ben Okafor | Austin |        |       |
-        | visits | p2 |            | Dallas |      7 |       |
-        |  notes | p2 |            |        |        | moved |
-        <BLANKLINE>
-        %% daf rows=3; cols=6; keyfield='table'; name=''
-        <BLANKLINE>
+        p1 {'people': {'id': 'p1', 'name': 'Ana Lopez', 'city': 'Denver'}, 'visits': {'id': 'p1', 'city': 'Denver', 'visits': 4}, 'notes': None}
+        p2 {'people': {'id': 'p2', 'name': 'Ben Okafor', 'city': 'Austin'}, 'visits': {'id': 'p2', 'city': 'Dallas', 'visits': 7}, 'notes': {'id': 'p2', 'note': 'moved'}}
 
         Each required table keeps, as its residue, the rows whose key the other lacks:
 
@@ -1139,9 +1131,9 @@ def _joint_apply(
 
         Add notes as an optional table. Its row is None where it lacks the key, and it has no residue:
 
-        >>> def with_note(key, rows_daf):
-        ...     note = rows_daf.select_record('notes')['note'] if 'notes' in rows_daf else ''
-        ...     return {'joined': {'id': key, 'note': note}}
+        >>> def with_note(key, rows_klokla):
+        ...     note = rows_klokla['notes']
+        ...     return {'joined': {'id': key, 'note': note['note'] if note is not None else ''}}
         >>> outputs_klodaf, residues_klodaf = Daf.joint_apply(
         ...     KeyedList({'people': people, 'visits': visits}), with_note, optional_klodaf=KeyedList({'notes': notes}))
         >>> outputs_klodaf['joined']
@@ -1158,8 +1150,8 @@ def _joint_apply(
 
         Write to several outputs, a list of rows to one, or nothing at all for a key:
 
-        >>> def split(key, rows_daf):
-        ...     cities_ls = rows_daf.col('city')
+        >>> def split(key, rows_klokla):
+        ...     cities_ls = [row['city'] for row in rows_klokla.values()]
         ...     if len(set(cities_ls)) == 1:
         ...         return None
         ...     return {'moved': {'id': key}, 'cities': [{'id': key, 'city': city} for city in cities_ls]}
@@ -1198,7 +1190,7 @@ def _joint_apply(
     # ---- The combined keys, in the first required table's order, and the function for each
     rows_by_output: Dict[str, List[Any]] = {}
     combined_keys_ls: List[Any] = []
-    rows_maker: _RowsDafMaker = _RowsDafMaker(cols_dols)
+    rows_maker: _RowsKlokla = _RowsKlokla({name: daf.hd for name, daf in tables_klodaf.items()})
     key: Any
     for key in kd_dodi[first_name]:
         if not all(key in kd_dodi[other] for other in others_ls):
@@ -1234,51 +1226,31 @@ def _joint_tables(required_klodaf: Any, optional_klodaf: Any) -> Any:
     return KeyedList(tables_da)
 
 
-class _RowsDafMaker:
+class _RowsKlokla:
     """
-    Makes the small Daf that `joint_apply()` gives its function for each key. Internal use.
+    The KeyedList of rows that `joint_apply()` gives its function for each key. Internal use.
 
-    It has a first column, `table`, the keyfield, then the columns of all the tables, in the order
-    first seen. Each table's cells go to their columns. A column the table lacks is NULL.
+    One KeyedList is made for each table, sharing that table's name index, and one for the tables.
+    For each key, each table's KeyedList is pointed at its row, with no copy, or the table gets None.
     """
 
-    def __init__(self, cols_dols: Dict[str, List[Any]]) -> None:
-        self.names_ls: List[str] = list(cols_dols)
-        self.cols_ls: List[Any] = ['table']
-        name: str
-        col: Any
-        for name, cols_ls in cols_dols.items():
-            if 'table' in cols_ls:
-                raise ValueError(f"joint_apply(): the table {name!r} has a column named 'table', which holds the table names.")
-            for col in cols_ls:
-                if col not in self.cols_ls:
-                    self.cols_ls.append(col)
-        positions_di: Dict[Any, int] = {col: icol for icol, col in enumerate(self.cols_ls)}
-        self.positions_lol: List[List[int]] = [[positions_di[col] for col in cols_dols[name]] for name in self.names_ls]
-        self.rows_daf: 'Daf' = Daf(cols=self.cols_ls, keyfield='table')       # one Daf, refilled for each key.
+    def __init__(self, hd_dodi: Dict[str, Dict[Any, int]]) -> None:
+        self.rows_ls: List[Any] = [KeyedList(hd, [NULL] * len(hd)) for hd in hd_dodi.values()]
+        self.values_la: List[Any] = list(self.rows_ls)
+        self.rows_klokla: KeyedList = KeyedList({name: itable for itable, name in enumerate(hd_dodi)}, self.values_la)
 
-    def make(self, rows_la: List[Any]) -> 'Daf':
-        """
-        The small Daf for one key, from each table's row as a list of its cells, or None.
-
-        It is the same Daf for every key, refilled with set_lol(), which rebuilds the key index.
-        """
-        width: int = len(self.cols_ls)
-        lol: List[List[Any]] = []
+    def make(self, rows_la: List[Any]) -> KeyedList:
+        """ The KeyedList for one key, from each table's row as a list of its cells, or None. """
         itable: int
         vals: Any
         for itable, vals in enumerate(rows_la):
             if vals is None:
-                continue
-            row_la: List[Any] = [NULL] * width
-            row_la[0] = self.names_ls[itable]
-            pos: int
-            val: Any
-            for pos, val in zip(self.positions_lol[itable], vals):
-                row_la[pos] = val
-            lol.append(row_la)
-        self.rows_daf.set_lol(lol)
-        return self.rows_daf
+                self.values_la[itable] = None
+            else:
+                row_kl: KeyedList = self.rows_ls[itable]
+                row_kl.set_values(vals)
+                self.values_la[itable] = row_kl
+        return self.rows_klokla
 
 
 def _collect_outputs(result: Any, rows_by_output: Dict[str, List[Any]]) -> None:
