@@ -777,7 +777,7 @@ def test_joint_apply_rows_daf_has_a_row_per_table_and_the_columns_of_all():
     """ The function gets a Daf keyed by table name. A column a table lacks is NULL there. """
     required, optional = _joint_tables_klodaf()
     got = {}
-    Daf.joint_apply(required, lambda key, rows: got.update({key: rows}), optional)
+    Daf.joint_apply(required, lambda key, rows: got.update({key: rows.copy('editable')}), optional)
     p2 = got['p2']
     assert p2.keyfield == 'table' and p2.columns() == ['table', 'id', 'name', 'city', 'visits', 'salary', 'note']
     assert p2.lol == [['people', 'p2', 'Ben', 'Austin', '', '', ''], ['visits', 'p2', '', 'Dallas', 7, '', ''],
@@ -789,4 +789,14 @@ def test_joint_apply_a_column_named_table_raises():
     from daffodil.keyedlist import KeyedList
     with pytest.raises(ValueError, match="column named 'table'"):
         Daf.joint_apply(KeyedList({'a': Daf(cols=['id', 'table'], keyfield='id', lol=[['p1', 'x']])}), lambda key, rows: None)
+
+
+def test_joint_apply_rows_daf_is_one_daf_refilled_for_each_key():
+    """ The same Daf comes for every key, so one kept without a copy shows the last key's rows. """
+    required, optional = _joint_tables_klodaf()
+    kept = []
+    Daf.joint_apply(required, lambda key, rows: kept.append((rows, rows.keys())), optional)
+    assert kept[0][0] is kept[1][0]
+    assert [keys for _rows, keys in kept] == [['people', 'visits', 'pay'], ['people', 'visits', 'pay', 'notes']]
+    assert kept[0][0].col('id') == ['p2', 'p2', 'p2', 'p2']
 

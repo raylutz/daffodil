@@ -1019,6 +1019,9 @@ def _joint_apply(
     lacks the key has no row, so `'notes' in rows_daf` tells whether it has one. No table may have a
     column named `table`.
 
+    `rows_daf` is one Daf, refilled for each key, since that is several times faster than a new one.
+    So it is valid only during the call. To keep it, keep `rows_daf.copy('editable')`.
+
     The function returns a dict of output name to a row, a list of rows, or None, or it returns None
     for no output. A row is a dict. Each output has the columns its rows use, in the order first
     seen, as `from_lod()` gives them. A row without a column has NULL there. An output has no
@@ -1252,9 +1255,14 @@ class _RowsDafMaker:
                     self.cols_ls.append(col)
         positions_di: Dict[Any, int] = {col: icol for icol, col in enumerate(self.cols_ls)}
         self.positions_lol: List[List[int]] = [[positions_di[col] for col in cols_dols[name]] for name in self.names_ls]
+        self.rows_daf: 'Daf' = Daf(cols=self.cols_ls, keyfield='table')       # one Daf, refilled for each key.
 
     def make(self, rows_la: List[Any]) -> 'Daf':
-        """ The small Daf for one key, from each table's row as a list of its cells, or None. """
+        """
+        The small Daf for one key, from each table's row as a list of its cells, or None.
+
+        It is the same Daf for every key, refilled with set_lol(), which rebuilds the key index.
+        """
         width: int = len(self.cols_ls)
         lol: List[List[Any]] = []
         itable: int
@@ -1269,7 +1277,8 @@ class _RowsDafMaker:
             for pos, val in zip(self.positions_lol[itable], vals):
                 row_la[pos] = val
             lol.append(row_la)
-        return Daf(cols=self.cols_ls, lol=lol, keyfield='table')
+        self.rows_daf.set_lol(lol)
+        return self.rows_daf
 
 
 def _collect_outputs(result: Any, rows_by_output: Dict[str, List[Any]]) -> None:

@@ -154,3 +154,11 @@ Timing, the same three tables of 200,000 rows: Daf 2.34 s, SqlDaf 3.50 s. About 
 28 s at 1,600,000 keys. A small Daf costs 2.1 us to build, against 0.37 us for the KeyedList.
 
 Q349 is still open: residues and the empty required list. Q350, the SQL route form, waits too.
+
+## One rows_daf per call, 2026-11-21, Q352 a
+
+Ray agreed: one Daf per call, refilled with set_lol() for each key. The columns are fixed for the call,
+and set_lol() rebuilds the key index from the rows given, so a key with fewer tables finds the right rows.
+Per key: a new Daf 2.06 us, set_lol() 0.17 us, the KeyedList of dicts 0.37 us.
+rows_daf is valid only during the call. To keep it, the function keeps rows_daf.copy('editable').
+Timing on the same three tables of 200,000 rows: Daf 1.94 s, SqlDaf 2.91 s. About 15 us a key on a SqlDaf.
